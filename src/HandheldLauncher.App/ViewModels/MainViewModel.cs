@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
+using HandheldLauncher.App.Diagnostics;
 using HandheldLauncher.Core.Models;
 using HandheldLauncher.Core.Services;
 using HandheldLauncher.Core.Services.Artwork;
@@ -311,6 +312,8 @@ public sealed class MainViewModel : ViewModelBase
         var selectedAction = _contextMenuIndex;
         CloseContextMenu();
 
+        DebugLog.Write($"ConfirmContextMenuSelection: index={selectedAction} game={game.Title}");
+
         switch (selectedAction)
         {
             case 0: // Escolher capa
@@ -431,6 +434,8 @@ public sealed class MainViewModel : ViewModelBase
     /// </summary>
     private async void OpenCoverPicker(GameEntry game, bool isHero)
     {
+        DebugLog.Write($"OpenCoverPicker: ENTER game={game.Title} isHero={isHero}");
+
         CoverPickerTitle = isHero ? $"Escolher banner — {game.Title}" : $"Escolher capa — {game.Title}";
         _coverPickerIsHero = isHero;
         _coverPickerGame = game;
@@ -443,15 +448,23 @@ public sealed class MainViewModel : ViewModelBase
         IsCoverPickerLoading = true;
         IsCoverPickerOpen = true;
 
+        DebugLog.Write($"OpenCoverPicker: IsCoverPickerOpen set to {IsCoverPickerOpen}, fetching candidates...");
+
         try
         {
             var candidates = isHero
                 ? await _artwork.GetHeroCandidatesAsync(game)
                 : await _artwork.GetGridCandidatesAsync(game);
 
+            DebugLog.Write($"OpenCoverPicker: fetch returned {candidates.Count} candidates");
+
             // The picker may have already been closed (player hit B while
             // this was in flight) — don't resurrect it with stale results.
-            if (!IsCoverPickerOpen || _coverPickerGame != game) return;
+            if (!IsCoverPickerOpen || _coverPickerGame != game)
+            {
+                DebugLog.Write("OpenCoverPicker: picker was closed/retargeted while fetching, discarding results");
+                return;
+            }
 
             foreach (var candidate in candidates)
             {
@@ -467,17 +480,20 @@ public sealed class MainViewModel : ViewModelBase
             // swallows it (or, worse, it escapes as an unhandled exception
             // and can take the whole app down) — and from the player's
             // seat that looks exactly like "the button does nothing."
+            DebugLog.Write($"OpenCoverPicker: EXCEPTION {ex}");
             CoverPickerErrorMessage = $"Erro ao buscar no SteamGridDB: {ex.Message}";
         }
         finally
         {
             IsCoverPickerLoading = false;
             NotifyCoverPickerResultFlags();
+            DebugLog.Write($"OpenCoverPicker: EXIT candidates={CoverPickerCandidates.Count} error={CoverPickerErrorMessage} isOpen={IsCoverPickerOpen}");
         }
     }
 
     public void CloseCoverPicker()
     {
+        DebugLog.Write($"CloseCoverPicker called (was open={IsCoverPickerOpen})");
         IsCoverPickerOpen = false;
         _coverPickerGame = null;
         CoverPickerCandidates.Clear();

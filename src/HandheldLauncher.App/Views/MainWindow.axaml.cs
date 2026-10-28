@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Threading;
+using HandheldLauncher.App.Diagnostics;
 using HandheldLauncher.App.Input;
 using HandheldLauncher.App.ViewModels;
 using HandheldLauncher.Core.Models;
@@ -45,6 +46,12 @@ public partial class MainWindow : Window
 
         foreach (var action in _gamepad.Poll())
         {
+            // Temporary diagnostic (see Diagnostics/DebugLog.cs) — logs
+            // every action AND the exact overlay state at the moment it's
+            // dispatched, so a "nothing happens" report can be checked
+            // against what actually fired instead of guessed at blind.
+            DebugLog.Write($"action={action} pickerOpen={vm.IsCoverPickerOpen} ctxOpen={vm.IsContextMenuOpen} globalOpen={vm.IsGlobalMenuOpen}");
+
             // Cover/banner picker takes over input first — it can be opened
             // from inside the per-tile context menu (which closes itself
             // before opening the picker), so checking it ahead of
