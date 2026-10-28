@@ -1,0 +1,50 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:HandheldLauncher.App.ViewModels"
+        x:Class="HandheldLauncher.App.Views.SettingsWindow"
+        x:DataType="vm:SettingsViewModel"
+        Title="Configurações"
+        Width="560" Height="560"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BackgroundBrush}">
+
+  <!--
+    Mesmo padrão do AddGameWindow: diálogo mouse/teclado-only de
+    propósito, não pensado pro gamepad ainda (ver code-behind) — quem
+    está colando uma API key já está num PC com teclado.
+  -->
+
+  <Grid RowDefinitions="*,Auto" Margin="24">
+    <ScrollViewer Grid.Row="0">
+      <StackPanel Spacing="12">
+        <TextBlock Text="SteamGridDB API key (capas)" Classes="subtle" />
+        <TextBox Text="{Binding SteamGridDbApiKey}" Watermark="Cole aqui — steamgriddb.com/profile/preferences/api" />
+
+        <TextBlock Text="Steam Web API key (lista 'na conta, não instalado')" Classes="subtle" Margin="0,8,0,0" />
+        <TextBox Text="{Binding SteamWebApiKey}" Watermark="Cole aqui — steamcommunity.com/dev/apikey" />
+
+        <TextBlock Text="SteamID64" Classes="subtle" Margin="0,8,0,0" />
+        <TextBox Text="{Binding SteamId64}" Watermark="Ex: 76561198012345678 — ache o seu em steamid.io" />
+
+        <TextBlock Text="Pastas extras pra procurar jogos do Xbox app (uma por linha)" Classes="subtle" Margin="0,8,0,0" />
+        <TextBox Text="{Binding XboxScanFoldersText}"
+                 Watermark="C:\Xbox&#10;D:\Xbox"
+                 AcceptsReturn="True"
+                 Height="80"
+                 TextWrapping="Wrap" />
+
+        <TextBlock Text="{Binding SavedMessage}"
+                   IsVisible="{Binding HasSavedMessage}"
+                   TextWrapping="Wrap"
+                   Foreground="#7FD88A"
+                   Margin="0,8,0,0" />
+      </StackPanel>
+    </ScrollViewer>
+
+    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,20,0,0">
+      <Button Classes="pill" Content="Fechar" Click="OnCloseClick" />
+      <Button Classes="pill" Content="Salvar" Click="OnSaveClick" />
+    </StackPanel>
+  </Grid>
+</Window>

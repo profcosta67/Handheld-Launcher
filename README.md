@@ -50,8 +50,9 @@ Construído até agora:
     métodos que já existiam pro grid/hero, só muda o endpoint
     (`/logos/steam/{id}`/`/logos/game/{id}`).
   - `AppSettingsStore` — lê/cria `%AppData%\HandheldLauncher\settings.json`
-    (hoje só guarda a API key do SteamGridDB — não tem tela de
-    configurações ainda, é editar o arquivo na mão por enquanto).
+    (SteamGridDB key, Steam Web API key, SteamID64, pastas extras do Xbox
+    app). **Agora tem tela de configurações de verdade** — ver "Tela de
+    Configurações" mais abaixo.
 - **`HandheldLauncher.App`** — UI em Avalonia:
   - **Banner HERO no topo**: alimenta AS DUAS coisas ao mesmo tempo: o
     banner cru (sem blur) lá no topo, seguindo o jogo focado, E o fundo
@@ -269,13 +270,14 @@ Construído até agora:
     aqui dá acesso total sem precisar inventar um novo modelo de foco
     subindo/descendo pela tela. **Nunca testado num build real com esse
     formato.**
-  - **Ícone de engrenagem (⚙) no topo** — antes um placeholder
-    desabilitado; agora abre o **mesmo** menu geral do botão View/Back
-    (`OnGearMenuClick` só chama `vm.ToggleGlobalMenu()`, não é um menu
-    separado) — assim mouse/touch chega exatamente nas mesmas opções que
-    o controle, sem duplicar nada. Ainda não é uma "tela de
-    configurações" de verdade (isso continua pendente, ver "Ainda não
-    feito" abaixo).
+  - **Ícone de engrenagem (⚙)** — antes um placeholder desabilitado; abre
+    o **mesmo** menu geral do botão View/Back (`OnGearMenuClick` só chama
+    `vm.ToggleGlobalMenu()`, não é um menu separado) — assim mouse/touch
+    chega exatamente nas mesmas opções que o controle, sem duplicar nada.
+    Movido pro canto inferior direito numa leva posterior (junto de
+    Minimizar/Power) — ver "Status atual" mais abaixo. O item
+    "Configurações" desse menu agora abre uma tela de configurações de
+    verdade (ver "Tela de Configurações" mais abaixo).
   - **Modo kiosk**: `AppSettings.KioskMode` (novo campo em `settings.json`,
     desligado por padrão). Quando ligado, `App.axaml.cs` abre a janela já
     em `WindowState.FullScreen` + `SystemDecorations.None` em vez da
@@ -553,10 +555,11 @@ Ainda **não** feito:
    se vale a pena adicionar uma etapa de confirmação (um segundo
    clique/tela antes de executar) pra evitar perder progresso de jogo
    por um toque errado.
-5. Tela de configurações de verdade (o ícone de engrenagem agora abre o
-   menu geral — ver "Status atual" — mas isso não é configurações, é só
-   um menu de ações; editar `settings.json` na mão continua sendo o
-   único jeito de mudar algo configurável)
+5. ~~Tela de configurações de verdade~~ — **feito nesta leva**: item
+   "Configurações" do menu geral agora abre uma `SettingsWindow` própria
+   (mesmo padrão do "Adicionar jogo") com os campos de SteamGridDB key,
+   Steam Web API key, SteamID64 e pastas extras do Xbox app — ver "Tela
+   de Configurações" mais abaixo. **Nunca testado num build real.**
 6. ~~Botão de excluir atalho de jogo~~ — **feito nesta leva**: "Excluir
    atalho" no menu de contexto (não-Steam adicionado à mão), ver "Status
    atual" acima.
@@ -575,13 +578,10 @@ Ainda **não** feito:
    2 opções** (Cancelar/Sim) reaproveitando o mesmo overlay do menu de
    contexto — funcional, mas bem minimalista; se o usuário preferir algo
    mais chamativo (cor vermelha, ícone de aviso, etc.) é só pedir.
-10. **"Editor de onde procurar" jogos Xbox (`AppSettings.XboxScanFolders`,
-    feito nesta leva) continua sendo hand-edit do `settings.json`, SEM
-    tela de configuração** — nenhuma UI foi criada pra adicionar pastas
-    visualmente (consistente com a API key do SteamGridDB, que também é
-    hand-edit). Se o usuário queria um editor DE VERDADE dentro do app
-    (não só um campo pra editar no JSON), isso ainda está pendente —
-    avisar se for o caso.
+10. ~~"Editor de onde procurar" jogos Xbox sem tela de configuração~~ —
+    **feito numa leva posterior**: a tela de Configurações (item 5) tem
+    um campo de texto multi-linha pra isso agora (uma pasta por linha),
+    em vez de só o hand-edit do `settings.json`.
 11. **Progresso de download da Epic/Xbox app no painel de Downloads** —
     o "baixando agora" (feito nesta leva, ver "Status atual") é só Steam;
     Epic e Xbox app não têm nenhum arquivo local documentado/estável pra
@@ -599,18 +599,54 @@ Ainda **não** feito:
     e fecha o painel inteiro. Decisão deliberada pra não ter que desenhar
     um modelo de foco novo pra uma lista de tamanho variável com botão por
     item — avisar se isso for um problema de verdade no handheld.
-14. **Overlay de FPS sem o RTSS instalado** — o launcher só detecta/abre o
-    RTSS se ele já estiver instalado na máquina (ver "Status atual"); não
-    baixa nem instala o RTSS sozinho, só abre a página de download no
-    navegador se faltar. Instalar o RTSS de fato continua manual.
-15. **Tela de configuração pra `SteamWebApiKey`/`SteamId64`** — mesma
-    situação do item 10, hand-edit do `settings.json` (ver seção própria
-    "Configurar a Steam Web API" mais abaixo), sem pré-configuração via
-    arquivo como a API key do SteamGridDB tem.
+14. ~~Overlay de FPS sem o RTSS instalado~~ — **parcialmente resolvido
+    numa leva posterior**: o instalador agora tenta instalar o RTSS
+    sozinho via `winget` (pacote `Guru3D.RTSS`) se não achar ele nos
+    caminhos padrão — melhor esforço, nunca bloqueia a instalação (ver
+    "Instalar no Legion Go 2 / ROG Ally"). Ainda assim, **instalar ≠
+    aparecer o FPS na tela**: o RTSS não vem com o OSD pré-configurado,
+    é preciso ligar "Show On-Screen Display" + "Show own statistics" nas
+    opções do próprio RTSS (ver "Configurar o RTSS pra mostrar o FPS"
+    mais abaixo) — isso continua manual, sem automação.
+15. ~~Tela de configuração pra `SteamWebApiKey`/`SteamId64`~~ — **feito
+    numa leva posterior**, junto do item 5 (mesma `SettingsWindow`).
+
+## Tela de Configurações
+
+Novo nesta leva, a pedido do usuário depois de se perder tentando achar
+onde colar a Steam Web API key ("seria possível criar uma tela de
+configuração pelo próprio Launcher dessa chave? Acho que ficaria mais
+fácil"). Item "Configurações" do menu geral (View/Back no controle, ou a
+engrenagem no canto inferior direito) abre uma janela própria
+(`SettingsWindow`, mesmo padrão do diálogo "Adicionar jogo") com quatro
+campos:
+
+- **SteamGridDB API key** (capas)
+- **Steam Web API key** (lista "na sua conta, não instalado" do painel de
+  Downloads)
+- **SteamID64**
+- **Pastas extras pra procurar jogos do Xbox app** — uma pasta por linha
+
+Clicar em "Salvar" grava direto em
+`%AppData%\HandheldLauncher\settings.json` (o mesmo arquivo que já
+existia — essa tela só poupa o hand-edit) e mostra um aviso na própria
+tela. **Importante**: salvar NÃO reconfigura os serviços já abertos
+nessa execução do launcher (eles recebem os valores uma vez só, na
+abertura do app) — precisa **fechar o launcher de vez e abrir
+novamente** pra valer (Minimizar não é suficiente).
+
+Mouse/teclado-only de propósito, igual o "Adicionar jogo" — ainda não dá
+pra navegar os campos de texto pelo gamepad, só fechar a janela
+(Esc no teclado; o controle ainda não tem um fechamento dedicado aqui,
+mesma limitação do "Adicionar jogo"). **Nunca testado num build real.**
 
 ## Configurar a API key do SteamGridDB
 
-**Na mão, pra uma máquina só:**
+**Pela tela de Configurações (recomendado agora):** abre "Configurações"
+no menu geral, cola a chave no campo "SteamGridDB API key" e clica
+"Salvar" (reinicia o launcher depois).
+
+**Na mão, direto no arquivo (continua funcionando):**
 
 1. Cria uma conta grátis em https://www.steamgriddb.com e gera uma API key
    em https://www.steamgriddb.com/profile/preferences/api
@@ -664,26 +700,61 @@ nada disso.
 2. Descobre o seu SteamID64 (um número de 17 dígitos, diferente do seu
    nome de usuário) em https://steamid.io — cola o link do seu perfil
    Steam lá e ele mostra o SteamID64.
-3. Roda o launcher uma vez (cria o `settings.json` se ainda não existir) e
-   edita `%AppData%\HandheldLauncher\settings.json`, adicionando os dois
-   campos:
+3. **Pela tela de Configurações (recomendado agora)**: abre
+   "Configurações" no menu geral e cola os dois valores nos campos
+   "Steam Web API key" e "SteamID64", depois "Salvar" — ver "Tela de
+   Configurações" mais acima. Ou, na mão: roda o launcher uma vez (cria
+   o `settings.json` se ainda não existir) e edita
+   `%AppData%\HandheldLauncher\settings.json` direto, adicionando os
+   dois campos:
    ```json
    { "SteamWebApiKey": "sua-chave-aqui", "SteamId64": "seu-steamid64-aqui" }
    ```
-4. Reabre o launcher e abre o painel de Downloads (item "Downloads" no
-   menu geral) — a segunda seção deve trocar da mensagem "configure..."
-   pra lista de verdade (ou erro de rede, se a chave/ID estiver errado).
+4. Reabre o launcher (fecha de vez, não só minimiza) e abre o painel de
+   Downloads (item "Downloads" no menu geral) — a segunda seção deve
+   trocar da mensagem "configure..." pra lista de verdade (ou erro de
+   rede, se a chave/ID estiver errado).
 
-Sem tela de configuração pra isso ainda (mesmo padrão hand-edit da key do
-SteamGridDB e do `XboxScanFolders`) — nem pré-configuração automática via
-arquivo (como o `steamgriddb-api-key.txt` do instalador faz pra API key do
-SteamGridDB); se isso for repetir em várias máquinas, é editar o
-`settings.json` na mão em cada uma por enquanto.
+Sem pré-configuração automática via arquivo ainda (como o
+`steamgriddb-api-key.txt` do instalador faz pra API key do SteamGridDB);
+se isso for repetir em várias máquinas, é usar a tela de Configurações
+(ou editar o `settings.json`) em cada uma por enquanto.
 
 Sua biblioteca Steam precisa estar com o perfil público (ou pelo menos
 "detalhes do jogo" públicos) pra `GetOwnedGames` conseguir ler — se a
 lista voltar vazia mesmo com jogos na conta, isso é a primeira coisa a
 checar em https://steamcommunity.com/my/edit/settings.
+
+## Configurar o RTSS pra mostrar o FPS na tela
+
+O instalador tenta instalar o RTSS sozinho via `winget` (ver "Instalar
+no Legion Go 2 / ROG Ally"), mas **instalado não é o mesmo que
+configurado pra aparecer na tela** — o RTSS não vem com o On-Screen
+Display pré-ligado nem com nenhum jogo "pré-configurado" igual o
+MangoHud mostra fora da caixa. Depois de instalado, precisa abrir o
+próprio RTSS (ícone na bandeja/área de notificação) e, na janela
+principal dele:
+
+1. Ligar o botão **"Show On-Screen Display"** no canto superior esquerdo
+   da janela do RTSS (normalmente é esse o botão que "ativa" o overlay
+   de verdade).
+2. Garantir que o jogo apareça na lista de apps do RTSS (ele detecta
+   jogos abertos automaticamente na maioria dos casos) ou confiar no
+   perfil `<Global>` (aplica pra tudo).
+3. No perfil do jogo (ou no `<Global>`), ligar **"On-Screen Display
+   support"** E **"Show own statistics"** — esse segundo é o que faz o
+   RTSS mostrar o PRÓPRIO contador de FPS sozinho, sem precisar do MSI
+   Afterburner.
+4. O campo de limite de quadros (framerate limit) é outra coisa (limita
+   o FPS, não mostra ele na tela) — pode deixar em 0/sem limite.
+
+Não achei, pesquisando, nenhum atalho de teclado padrão documentado pra
+ligar/desligar o OSD em jogo — pode ser preciso configurar um na mão
+dentro do próprio RTSS (seção de hotkeys) se quiser isso. Esse passo
+continua manual — automatizar só a instalação (o que já foi feito) não
+dá pra automatizar essa configuração de dentro do RTSS sem entender
+melhor onde ele guarda esse estado (provavelmente registro do Windows,
+não investigado ainda).
 
 ## Instalar no Legion Go 2 / ROG Ally (beta v0.1)
 
@@ -1343,6 +1414,32 @@ lote de pedidos de organização de UI —
   funcionar.
 - **Tela de login da Steam dentro do launcher** — pedido como ideia pra
   futuro, não pra agora; fica anotado aqui, sem desenho ainda.
+
+**🔴 Tela de Configurações + RTSS sem FPS na tela — status**: usuário
+reportou que o RTSS instalou certinho (via winget, leva anterior) mas o
+jogo não mostrou o FPS — esperava algo pré-configurado igual o MangoHud —
+e, revendo a confusão da key da Steam, pediu uma tela de configuração de
+verdade pra colar as chaves em vez de editar `settings.json` na mão
+("seria possível criar uma tela de configuração pelo próprio Launcher
+dessa chave? Acho que ficaria mais fácil").
+- **Tela de Configurações criada** — item "Configurações" do menu geral
+  abre uma `SettingsWindow` própria (mesmo padrão do diálogo "Adicionar
+  jogo": `AddGameWindow.axaml` já deixava um comentário reservando esse
+  design pra "eventual tela de configurações", então foi esse o caminho
+  seguido em vez de um painel-overlay da janela principal) com campos
+  pra SteamGridDB key, Steam Web API key, SteamID64 e pastas extras do
+  Xbox app — ver "Tela de Configurações" mais abaixo pros detalhes e o
+  aviso de "precisa reiniciar o launcher pra aplicar". **Nunca testado
+  num build real.**
+- **RTSS instalado ≠ FPS aparecendo na tela** — isso é esperado, não é
+  bug: diferente do MangoHud, o RTSS não vem com o On-Screen Display
+  pré-ligado nem nenhum jogo pré-configurado. É preciso abrir o RTSS e
+  ligar "Show On-Screen Display" +, no perfil do jogo (ou no
+  `<Global>`), "On-Screen Display support" e "Show own statistics" (esse
+  último é o que mostra o FPS do próprio RTSS, sem precisar do MSI
+  Afterburner) — ver "Configurar o RTSS pra mostrar o FPS na tela" mais
+  abaixo pro passo a passo completo. Isso continua manual, dentro do
+  próprio RTSS — não automatizei essa parte (só a instalação).
 
 ## Seletor de capas tipo Decky Loader — é viável?
 

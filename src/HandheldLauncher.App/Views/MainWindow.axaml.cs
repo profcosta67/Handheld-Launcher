@@ -301,6 +301,7 @@ public partial class MainWindow : Window
         if (DataContext is not MainViewModel vm) return;
 
         vm.AddGameRequested += (_, _) => _ = OpenAddGameDialogAsync(vm);
+        vm.SettingsRequested += (_, _) => _ = OpenSettingsDialogAsync(vm);
         vm.QuitRequested += (_, _) =>
         {
             DisableWatchdogIfPresent();
@@ -930,5 +931,21 @@ public partial class MainWindow : Window
         if (result is null) return;
 
         vm.AddManualGame(result);
+    }
+
+    /// <summary>
+    /// Called by the global menu's "Configurações" entry
+    /// (vm.SettingsRequested, wired in OnDataContextChanged). Mesmo padrão
+    /// do OpenAddGameDialogAsync acima — diálogo modal separado em vez de
+    /// overlay da MainWindow (ver AddGameWindow.axaml, que já deixava essa
+    /// intenção registrada em comentário: "eventual tela de
+    /// configurações territory"). O próprio SettingsWindow lê/grava
+    /// settings.json via AppSettingsStore — a ViewModel fica burra, só
+    /// com os campos de texto.
+    /// </summary>
+    private async Task OpenSettingsDialogAsync(MainViewModel vm)
+    {
+        var dialog = new SettingsWindow();
+        await dialog.ShowDialog(this);
     }
 }

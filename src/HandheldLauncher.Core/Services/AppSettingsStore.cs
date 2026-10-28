@@ -13,8 +13,8 @@ public static class AppSettingsStore
 
     /// <summary>
     /// Loads settings.json, creating it with empty fields if it doesn't
-    /// exist yet — so there's a discoverable file to hand-edit until a real
-    /// settings screen exists.
+    /// exist yet — read/written through the "Configurações" dialog
+    /// (SettingsWindow), hand-editing the file still works too.
     /// </summary>
     public static AppSettings Load(string? pathOverride = null)
     {

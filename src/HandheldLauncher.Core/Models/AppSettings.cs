@@ -2,10 +2,10 @@ namespace HandheldLauncher.Core.Models;
 
 /// <summary>
 /// App-wide settings — not per-game, unlike GameMetadataOverride. Lives at
-/// %AppData%\HandheldLauncher\settings.json. There's no settings UI yet
-/// (just a disabled gear icon placeholder), so for now this file is meant
-/// to be hand-edited; AppSettingsStore creates it with empty fields on
-/// first run so there's an obvious place to paste values.
+/// %AppData%\HandheldLauncher\settings.json. Edited through the
+/// "Configurações" dialog (ver SettingsWindow/SettingsViewModel, aberto
+/// pelo menu global) — AppSettingsStore ainda cria o arquivo com campos
+/// vazios no primeiro run, caso alguém prefira editar na mão.
 /// </summary>
 public class AppSettings
 {

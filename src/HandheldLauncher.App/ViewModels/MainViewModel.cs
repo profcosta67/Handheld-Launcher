@@ -253,6 +253,16 @@ public sealed class MainViewModel : ViewModelBase
     /// <summary>Raised when "Adicionar jogo" is picked from the global menu — MainWindow owns the dialog, not the ViewModel.</summary>
     public event EventHandler? AddGameRequested;
 
+    /// <summary>
+    /// Raised when "Configurações" é escolhido no menu global — pedido do
+    /// usuário depois de se perder tentando achar onde colar a Steam Web
+    /// API key ("seria possível criar uma tela de configuração pelo
+    /// próprio Launcher?"). Mesmo padrão do AddGameRequested acima:
+    /// MainWindow é quem possui o diálogo (SettingsWindow) e o acesso a
+    /// AppSettingsStore, não a ViewModel.
+    /// </summary>
+    public event EventHandler? SettingsRequested;
+
     /// <summary>Raised when "Sair" is picked (now from the Power menu, not the global menu — see BuildPowerMenu) — MainWindow owns Close(), not the ViewModel.</summary>
     public event EventHandler? QuitRequested;
 
@@ -733,6 +743,7 @@ public sealed class MainViewModel : ViewModelBase
         Add("Adicionar jogo", () => AddGameRequested?.Invoke(this, EventArgs.Empty));
         Add("Atualizar Biblioteca", Refresh);
         Add("Downloads", ToggleDownloads);
+        Add("Configurações", () => SettingsRequested?.Invoke(this, EventArgs.Empty));
 
         // Status do overlay de FPS (RTSS) — entra no menu global em vez de
         // num botão fixo na barra de baixo porque na prática é algo que se
