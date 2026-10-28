@@ -139,15 +139,27 @@ public sealed class ArtworkService : IArtworkService
     /// IS the real image at full resolution — SteamGridDB doesn't offer a
     /// separate thumbnail endpoint, and resizing ourselves would need an
     /// imaging library we don't have. So "applying" a pick is just copying
-    /// that cached file into the game's canonical grid/hero path; no second
-    /// download needed.
+    /// that cached file into the game's grid/hero path; no second download
+    /// needed.
+    ///
+    /// Filename includes the candidate's own SteamGridDB image Id (not
+    /// just "{game.Id}_grid") specifically so this NEVER overwrites the
+    /// file that's currently on screen — overwriting it in place risked a
+    /// Windows file-lock conflict with whatever still had that exact file
+    /// open for display, which is the likely cause of a user-reported "the
+    /// first apply silently does nothing, the second one works" bug: a
+    /// failed overwrite was caught and swallowed as a quiet "false", with
+    /// nothing visibly different, until the lock cleared on a later try.
+    /// Old grid/hero files from previous picks are left behind as harmless
+    /// orphans in the same cache folder the README already tells the user
+    /// they can clear anytime.
     /// </summary>
     private Task<bool> ApplyCandidateAsync(GameEntry game, ArtworkCandidate candidate, bool isHero)
     {
         Directory.CreateDirectory(_cacheDir);
         var extension = Path.GetExtension(candidate.LocalThumbnailPath);
         var suffix = isHero ? "hero" : "grid";
-        var localPath = Path.Combine(_cacheDir, $"{game.Id}_{suffix}{extension}");
+        var localPath = Path.Combine(_cacheDir, $"{game.Id}_{suffix}_{candidate.Id}{extension}");
 
         try
         {

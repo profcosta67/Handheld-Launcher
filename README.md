@@ -141,6 +141,16 @@ erro de build, me manda a mensagem. Pontos mais arriscados dessa leva:
   imagens baixadas pra mostrar na grade antes de você escolher. Pode
   apagar essa pasta à vontade se crescer demais; ela se recria sozinha na
   próxima vez que abrir o seletor.
+- **Bug corrigido** (reportado pelo usuário): aplicar uma capa escolhida
+  às vezes não fazia efeito na primeira tentativa, só na segunda.
+  Provável causa: eu sobrescrevia o MESMO arquivo que já estava na tela
+  naquele instante (ex: `ARC_grid.jpg`), e se o Windows ainda tivesse
+  esse arquivo "em uso" pra exibição, a sobrescrita falhava em silêncio.
+  Agora cada capa/banner aplicado vira um arquivo com nome novo (inclui o
+  id da imagem do SteamGridDB), nunca sobrescrevendo o que já está
+  carregado. Arquivos antigos de escolhas anteriores ficam órfãos na
+  mesma pasta de cache (mesma solução: pode apagar à vontade). Ainda não
+  testado num build real.
 
 ## Seletor de capas tipo Decky Loader — é viável?
 

@@ -532,8 +532,20 @@ public sealed class MainViewModel : ViewModelBase
         var isHero = _coverPickerIsHero;
         CloseCoverPicker();
 
-        if (isHero) await _artwork.ApplyHeroCandidateAsync(game, chosen);
-        else await _artwork.ApplyGridCandidateAsync(game, chosen);
+        DebugLog.Write($"ConfirmCoverPickerSelection: applying candidate id={chosen.Id} isHero={isHero} game={game.Title}");
+
+        try
+        {
+            var applied = isHero
+                ? await _artwork.ApplyHeroCandidateAsync(game, chosen)
+                : await _artwork.ApplyGridCandidateAsync(game, chosen);
+
+            DebugLog.Write($"ConfirmCoverPickerSelection: apply returned {applied}");
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"ConfirmCoverPickerSelection: EXCEPTION {ex}");
+        }
 
         Refresh();
     }
