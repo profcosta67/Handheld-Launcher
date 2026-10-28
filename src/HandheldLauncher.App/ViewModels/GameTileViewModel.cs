@@ -31,6 +31,43 @@ public sealed class GameTileViewModel : ViewModelBase
     public string? HeroImagePath => Game.HeroImagePath;
 
     /// <summary>
+    /// "CURRENT LOGO" — SteamGridDB's transparent wordmark/title overlay,
+    /// a third asset type distinct from GridImagePath/HeroImagePath (see
+    /// ArtworkService.FetchLogoAsync). Only ever actually shown when
+    /// ShowCurrentLogo is true (see below) — this raw path is exposed
+    /// separately in case a future picker needs it directly.
+    /// </summary>
+    public string? LogoImagePath => Game.LogoImagePath;
+
+    /// <summary>True once SteamGridDB has actually given us a logo for this game (see "Atualizar Capas Automático").</summary>
+    public bool HasLogo => !string.IsNullOrEmpty(LogoImagePath);
+
+    /// <summary>
+    /// Drives the "CURRENT LOGO" overlay in MainWindow.axaml — deliberately
+    /// scoped to ONLY the wide "último jogo aberto" tile (per the user's
+    /// request: "em cima *Apenas* da capa do ultimo jogo aberto"), never
+    /// the smaller tiles, and only once there's actually a logo to show.
+    /// </summary>
+    public bool ShowCurrentLogo => IsLastPlayed && HasLogo;
+
+    /// <summary>
+    /// The smaller (non-last-played) tiles now always show their name in a
+    /// small font at the top (see MainWindow.axaml's "tileCaption"), not
+    /// just as a fallback when there's no art — this flags which tiles get
+    /// that treatment so the XAML doesn't need an inline negation binding.
+    /// </summary>
+    public bool IsSmallTile => !IsLastPlayed;
+
+    /// <summary>
+    /// The centered title-only placeholder (shown pre-SteamGridDB, before
+    /// any art at all has been fetched) now only matters for the wide
+    /// tile — small tiles always show the small-font name caption instead
+    /// regardless of art, so showing both there would just duplicate the
+    /// title text.
+    /// </summary>
+    public bool ShowEmptyPlaceholder => IsLastPlayed && string.IsNullOrEmpty(TileImagePath);
+
+    /// <summary>
     /// What the big top banner shows for whichever game the player is
     /// currently navigated over (the top banner follows SelectedTile, so
     /// this re-evaluates every time MainWindow rebinds it): the real hero
@@ -72,6 +109,9 @@ public sealed class GameTileViewModel : ViewModelBase
             if (SetField(ref _isLastPlayed, value))
             {
                 OnPropertyChanged(nameof(TileImagePath));
+                OnPropertyChanged(nameof(ShowCurrentLogo));
+                OnPropertyChanged(nameof(IsSmallTile));
+                OnPropertyChanged(nameof(ShowEmptyPlaceholder));
             }
         }
     }

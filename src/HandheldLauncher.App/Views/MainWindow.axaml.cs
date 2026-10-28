@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Threading;
 using HandheldLauncher.App.Diagnostics;
 using HandheldLauncher.App.Input;
+using HandheldLauncher.App.Platform;
 using HandheldLauncher.App.ViewModels;
 using HandheldLauncher.Core.Models;
 
@@ -84,14 +85,28 @@ public partial class MainWindow : Window
     /// one-time Topmost flag.
     ///
     /// This toggles Topmost off/on (which re-inserts the window at the
-    /// front of that band) plus Activate() every couple seconds, so even
-    /// if Legion Space "wins" a round, we win the next one shortly after.
-    /// It's a mitigation, not a guaranteed fix — if Modo Xbox's shell runs
-    /// its own composited layer above ordinary Win32 topmost windows
-    /// entirely, no amount of toggling from our side will beat it, and the
-    /// real fix would have to come from OmniConsole's side instead. Only
-    /// starts when Topmost is already on (kiosk installs) — never runs on
-    /// a plain `dotnet run` dev window.
+    /// front of that band) every couple seconds, so even if Legion Space
+    /// "wins" a round, we win the next one shortly after. It's a
+    /// mitigation, not a guaranteed fix — if Modo Xbox's shell runs its
+    /// own composited layer above ordinary Win32 topmost windows entirely,
+    /// no amount of toggling from our side will beat it, and the real fix
+    /// would have to come from OmniConsole's side instead. Only starts
+    /// when Topmost is already on (kiosk installs) — never runs on a
+    /// plain `dotnet run` dev window.
+    ///
+    /// Deliberately does NOT call Activate() anymore (it used to, every
+    /// 2 seconds). Reported bug: with Activate() in the loop, this ended
+    /// up stealing keyboard focus back from whatever the user had just
+    /// switched to on purpose — Alt+Tab to another app, or the Snipping
+    /// Tool's capture overlay — since Activate() forces OUR window to the
+    /// foreground/focused window, not just to the top of the Topmost
+    /// z-order band. Toggling Topmost off/on alone still re-asserts our
+    /// place in that band (which is what actually beats Legion Space
+    /// re-covering us) without also grabbing input focus away from
+    /// whatever the user is doing. If this turns out not to be enough to
+    /// beat Legion Space in Modo Xbox on its own, the next step would be
+    /// re-adding Activate() but ONLY right after boot (a short window),
+    /// not forever.
     /// </summary>
     private void StartTopmostEnforcer()
     {
@@ -102,14 +117,13 @@ public partial class MainWindow : Window
             // - Topmost off on purpose: something else (not us) turned it
             //   off, so stop fighting it.
             // - !IsVisible: the window is hidden via "Minimizar"
-            //   (MinimizeToTray/Hide()) — Activate() below would undo that
-            //   by forcing it back on screen every 2 seconds, which is
-            //   exactly the "fica abrindo toda hora" problem this whole
-            //   feature exists to fix. Only reassert while actually shown.
+            //   (MinimizeToTray/Hide()). Toggling Topmost on a hidden
+            //   window shouldn't bring it back on screen the way Activate()
+            //   did, but there's nothing to "reassert in the z-order"
+            //   while hidden anyway — skip it either way.
             if (!Topmost || !IsVisible) return;
             Topmost = false;
             Topmost = true;
-            Activate();
         };
         _topmostEnforcerTimer.Start();
         Closed += (_, _) => _topmostEnforcerTimer?.Stop();
@@ -145,10 +159,22 @@ public partial class MainWindow : Window
         _hotkeyRegistered = false;
     }
 
-    /// <summary>Raw Win32 message hook (see RegisterRestoreHotkey) — the only thing we care about here is our own WM_HOTKEY.</summary>
+    /// <summary>
+    /// Raw Win32 message hook (see RegisterRestoreHotkey) — handles our own
+    /// WM_HOTKEY, plus SingleInstance's broadcast restore message: a second
+    /// launch attempt that lost the Mutex check in Program.Main sends this
+    /// instead of opening its own window, so this is where THIS (the real)
+    /// instance reacts to "someone just tried to open me again" the same
+    /// way it already reacts to Ctrl+Alt+H or the tray icon.
+    /// </summary>
     private IntPtr OnNativeWndProcHook(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         if (msg == WmHotkey && wParam.ToInt32() == RestoreHotkeyId)
+        {
+            RestoreFromTray();
+            handled = true;
+        }
+        else if (msg == SingleInstance.RestoreMessageId)
         {
             RestoreFromTray();
             handled = true;
@@ -251,6 +277,7 @@ public partial class MainWindow : Window
             DisableWatchdogIfPresent();
             Close();
         };
+        vm.MinimizeRequested += (_, _) => MinimizeToTray();
         vm.TurnOffScreenRequested += (_, _) => TurnOffScreen();
         vm.RestartDeviceRequested += (_, _) => RestartDevice();
         vm.ShutdownDeviceRequested += (_, _) => ShutdownDevice();
@@ -419,12 +446,19 @@ public partial class MainWindow : Window
             {
                 case GamepadAction.MoveLeft:
                     vm.MovePrevious();
+                    ScrollGameRowSelectionIntoView(vm);
                     break;
                 case GamepadAction.MoveRight:
                     vm.MoveNext();
+                    ScrollGameRowSelectionIntoView(vm);
                     break;
                 case GamepadAction.Confirm:
                     vm.LaunchSelected();
+                    // LaunchSelected reorders the row (the game just
+                    // launched becomes the wide tile 0) and resets
+                    // SelectedIndex to 0 — if the row was scrolled right
+                    // before this, keep that new tile actually on screen.
+                    ScrollGameRowSelectionIntoView(vm);
                     break;
                 case GamepadAction.Back:
                     vm.CloseRunningGame();
@@ -561,14 +595,17 @@ public partial class MainWindow : Window
         {
             case Key.Left:
                 vm.MovePrevious();
+                ScrollGameRowSelectionIntoView(vm);
                 e.Handled = true;
                 break;
             case Key.Right:
                 vm.MoveNext();
+                ScrollGameRowSelectionIntoView(vm);
                 e.Handled = true;
                 break;
             case Key.Enter:
                 vm.LaunchSelected();
+                ScrollGameRowSelectionIntoView(vm);
                 e.Handled = true;
                 break;
             case Key.Escape:
@@ -620,6 +657,53 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Same bug/fix shape as ScrollCoverPickerSelectionIntoView above, for
+    /// the main horizontal game row: a plain ItemsControl/StackPanel has no
+    /// built-in "scroll the selected item into view" either, so moving
+    /// left/right past whatever's currently visible did nothing (the
+    /// reported "o scroll da tela de jogos está parado" bug). Horizontal
+    /// instead of vertical, and the per-item width isn't fixed like the
+    /// picker's grid cells — the "último jogo aberto" tile is wider
+    /// (Border.gameTile.lastPlayed in Theme.axaml) and it's always
+    /// whichever tile has IsLastPlayed=true, not necessarily index 0 (it
+    /// usually is, since ReorderLastPlayedFirst moves it there, but this
+    /// walks the actual flags rather than assuming that to stay correct
+    /// either way). Tile widths/spacing below must match
+    /// Theme.axaml's Border.gameTile (170) / .lastPlayed (460) and
+    /// MainWindow.axaml's StackPanel Spacing="14" exactly.
+    /// </summary>
+    private void ScrollGameRowSelectionIntoView(MainViewModel vm)
+    {
+        if (GameRowScrollViewer is null) return;
+        if (vm.Games.Count == 0 || vm.SelectedIndex < 0) return;
+
+        const double normalWidth = 170;
+        const double lastPlayedWidth = 460;
+        const double spacing = 14;
+
+        double itemLeft = 0;
+        for (var i = 0; i < vm.SelectedIndex; i++)
+        {
+            itemLeft += (vm.Games[i].IsLastPlayed ? lastPlayedWidth : normalWidth) + spacing;
+        }
+
+        var itemWidth = vm.Games[vm.SelectedIndex].IsLastPlayed ? lastPlayedWidth : normalWidth;
+        var itemRight = itemLeft + itemWidth;
+
+        var viewLeft = GameRowScrollViewer.Offset.X;
+        var viewRight = viewLeft + GameRowScrollViewer.Viewport.Width;
+
+        if (itemLeft < viewLeft)
+        {
+            GameRowScrollViewer.Offset = new Vector(itemLeft, GameRowScrollViewer.Offset.Y);
+        }
+        else if (itemRight > viewRight)
+        {
+            GameRowScrollViewer.Offset = new Vector(itemRight - GameRowScrollViewer.Viewport.Width, GameRowScrollViewer.Offset.Y);
+        }
+    }
+
     private void OnTilePointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (DataContext is not MainViewModel vm) return;
@@ -633,6 +717,7 @@ public partial class MainWindow : Window
     {
         if (DataContext is not MainViewModel vm) return;
         vm.LaunchSelected();
+        ScrollGameRowSelectionIntoView(vm);
     }
 
     /// <summary>

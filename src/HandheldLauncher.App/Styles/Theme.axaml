@@ -31,6 +31,21 @@
     </ResourceDictionary>
   </Styles.Resources>
 
+  <!-- Fonte do projeto inteiro = Comic Sans MS, a pedido do usuário.
+       FontFamily é uma propriedade ATTACHED e INHERITS=true em Avalonia
+       (definida em TextElement, reaproveitada por TextBlock/Button/etc via
+       AddOwner — confirmado lendo o código-fonte real do Avalonia, já que
+       não dá pra compilar aqui pra verificar), então um único Setter aqui
+       em "Window" cobre toda a árvore visual de qualquer janela (MainWindow
+       E AddGameWindow) sem precisar repetir em cada estilo de texto
+       individual. "Comic Sans MS" é uma fonte do próprio Windows (vem
+       instalada por padrão), não precisa ser empacotada — só funciona
+       assim em Windows mesmo, que é a única plataforma que este launcher
+       roda. -->
+  <Style Selector="Window">
+    <Setter Property="FontFamily" Value="Comic Sans MS" />
+  </Style>
+
   <!-- Row tile. Width/Height live here (not as local attributes in
        MainWindow.axaml) specifically so the .lastPlayed variant below can
        override them — a locally-set Width/Height on the element would win
@@ -128,6 +143,16 @@
   <Style Selector="TextBlock.subtle">
     <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
     <Setter Property="FontSize" Value="14" />
+  </Style>
+
+  <!-- Nome em cima das tiles pequenas da fileira (ver MainWindow.axaml) —
+       fonte pequena a pedido do usuário, sempre visível (diferente de
+       TextBlock.gameTitle, que só aparece como placeholder quando não tem
+       nenhuma arte ainda). -->
+  <Style Selector="TextBlock.tileCaption">
+    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
   </Style>
 
   <Style Selector="Button.pill">

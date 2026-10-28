@@ -60,8 +60,11 @@
                só chama vm.ToggleGlobalMenu(), nada de menu separado) —
                assim mouse/touch e controle sempre acessam exatamente as
                mesmas opções (Atualizar Biblioteca/Atualizar Capas
-               Automático/Adicionar jogo/Sair). -->
-          <Button Classes="pill" Content="⚙" Padding="10,6" Click="OnGearMenuClick" ToolTip.Tip="Menu (Atualizar Biblioteca / Atualizar Capas Automático / Adicionar jogo / Sair)" />
+               Automático/Adicionar jogo/Minimizar/Power). "Minimizar" e
+               "Power" também estão aqui (além dos próprios botões da
+               barra de baixo) justamente pra dar ao controle um jeito de
+               alcançá-los sem precisar navegar até os ícones na tela. -->
+          <Button Classes="pill" Content="⚙" Padding="10,6" Click="OnGearMenuClick" ToolTip.Tip="Menu (Atualizar Biblioteca / Atualizar Capas Automático / Adicionar jogo / Minimizar / Power)" />
         </StackPanel>
       </Grid>
     </Border>
@@ -114,7 +117,7 @@
       <!-- Horizontal row of every game (portrait tiles), including the
            focused one — same tile that's blown up in the banner above also
            shows here, highlighted, so left/right navigation reads clearly. -->
-      <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+      <ScrollViewer x:Name="GameRowScrollViewer" Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
         <ItemsControl ItemsSource="{Binding Games}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
@@ -136,6 +139,32 @@
                 <Grid>
                   <Image Source="{Binding TileImagePath, Converter={StaticResource FileToBitmapConverter}}"
                          Stretch="UniformToFill" />
+
+                  <!-- CURRENT LOGO: só aparece sobre a tile larga do
+                       "último jogo aberto", e só quando o SteamGridDB já
+                       trouxe um logo pra esse jogo (ver
+                       ArtworkService.FetchLogoAsync / "Atualizar Capas
+                       Automático"). -->
+                  <Border VerticalAlignment="Top" HorizontalAlignment="Left"
+                          Margin="12" Padding="8,6"
+                          Background="#B30C0D12" CornerRadius="8"
+                          IsVisible="{Binding ShowCurrentLogo}">
+                    <Image Source="{Binding LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                           Height="28" Stretch="Uniform" />
+                  </Border>
+
+                  <!-- Jogos menores: nome sempre visível em cima, fonte
+                       pequena (pedido do usuário) — diferente do
+                       placeholder abaixo, que só existe pra tile larga
+                       quando ela não tem NENHUMA arte ainda. -->
+                  <Border VerticalAlignment="Top" Background="#B30C0D12" Padding="8,5"
+                          IsVisible="{Binding IsSmallTile}">
+                    <TextBlock Text="{Binding Title}"
+                               Classes="tileCaption"
+                               TextWrapping="Wrap"
+                               TextAlignment="Center" />
+                  </Border>
+
                   <TextBlock Text="{Binding Title}"
                              Classes="gameTitle"
                              TextWrapping="Wrap"
@@ -143,7 +172,7 @@
                              VerticalAlignment="Center"
                              HorizontalAlignment="Center"
                              Margin="10"
-                             IsVisible="{Binding TileImagePath, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
+                             IsVisible="{Binding ShowEmptyPlaceholder}" />
                 </Grid>
               </Border>
             </DataTemplate>
@@ -160,7 +189,8 @@
          dica de controles ("← → navega · A/Enter joga · ..."); removido a
          pedido do usuário (poluía o canto inferior esquerdo da tela). A
          coluna "*" fica sem conteúdo de propósito, só empurrando os
-         botões pra direita como antes. -->
+         botões pra direita como antes. Power agora é só o ícone ⏻ (igual
+         a engrenagem já é só ⚙) em vez do texto "Power". -->
     <Border Grid.Row="2" Classes="bottomBar" Margin="24,0,24,20" Padding="20,12">
       <Grid ColumnDefinitions="*,Auto,Auto,Auto">
         <Button Grid.Column="1"
@@ -175,7 +205,12 @@
                 Click="OnMinimizeClick"
                 ToolTip.Tip="Minimiza pra bandeja do Windows sem fechar o processo — não dispara o watchdog de reabertura. Reabre clicando no ícone da bandeja, pelo menu dele, ou com Ctrl+Alt+H de qualquer lugar."
                 Margin="0,0,10,0" />
-        <Button Grid.Column="3" Classes="pill" Content="Power" Click="OnPowerMenuClick" ToolTip.Tip="Desligar tela / Reiniciar / Desligar o Legion Go" />
+        <Button Grid.Column="3"
+                Classes="pill"
+                Content="⏻"
+                Padding="14,6"
+                Click="OnPowerMenuClick"
+                ToolTip.Tip="Desligar tela / Reiniciar / Desligar o Legion Go / Sair" />
       </Grid>
     </Border>
 
@@ -226,12 +261,10 @@
       </Border>
     </Panel>
 
-    <!-- Power menu (botão "Power" da barra de baixo) — mesmo padrão
-         visual dos outros dois menus acima, 3 ações fixas (ver
-         MainViewModel.BuildPowerMenu). Sem gatilho de controle dedicado
-         por enquanto (só alcançável de mouse/touch pelo botão), mas já
-         navegável por teclado/controle como os outros caso isso mude
-         depois. -->
+    <!-- Power menu (botão "Power"/⏻ da barra de baixo, OU "Power" dentro
+         do menu geral — ver MainViewModel.BuildGlobalMenu) — mesmo padrão
+         visual dos outros dois menus acima, 4 ações fixas agora incluindo
+         "Sair" (ver MainViewModel.BuildPowerMenu). -->
     <Panel IsVisible="{Binding IsPowerMenuOpen}">
       <Border Classes="contextMenuOverlay" />
       <Border Classes="contextMenuCard" Width="340" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">

@@ -36,4 +36,18 @@ public interface ISteamGridDbClient
 
     /// <summary>Fallback for non-Steam entries: searches by title, same candidate list as the AppId version.</summary>
     Task<IReadOnlyList<SteamGridDbImage>> GetHeroCandidatesForTitleAsync(string title, CancellationToken ct = default);
+
+    /// <summary>
+    /// "Logo" art — a transparent-background wordmark/title treatment,
+    /// distinct from the grid (cover) and hero (wide banner). This is the
+    /// "CURRENT LOGO" overlay shown over the row's wide "último jogo
+    /// aberto" tile. No candidate picker for this one yet (just the
+    /// auto-fetch best match, same shape as GetBestHeroForSteamAppAsync) —
+    /// a manual picker can be added later the same way the grid/hero ones
+    /// were, if that turns out to be needed.
+    /// </summary>
+    Task<SteamGridDbImage?> GetBestLogoForSteamAppAsync(uint steamAppId, CancellationToken ct = default);
+
+    /// <summary>Fallback for non-Steam entries: searches by title, takes the top match's logo.</summary>
+    Task<SteamGridDbImage?> GetBestLogoForTitleAsync(string title, CancellationToken ct = default);
 }

@@ -15,10 +15,11 @@ namespace HandheldLauncher.Core.Services.Artwork;
 /// in the App project: everything written where we couldn't reach nuget.org
 /// to verify a package-based approach even builds.
 ///
-/// Covers grids (portrait covers) and heroes (wide banners) — both come back
-/// in the same response shape, so FetchGridCandidates is reused for both and
-/// just gets pointed at a different endpoint. Logos/icons aren't wired up
-/// yet; same pattern applies if that's ever needed.
+/// Covers grids (portrait covers), heroes (wide banners) and logos
+/// (transparent wordmark overlays) — all three come back in the same
+/// response shape, so FetchGridCandidates is reused for all of them and
+/// just gets pointed at a different endpoint. Icons aren't wired up yet;
+/// same pattern applies if that's ever needed.
 ///
 /// Every request adds "types=static" — SteamGridDB can also serve animated
 /// GIF/webm covers, but Avalonia's Image control doesn't animate those, so
@@ -78,6 +79,28 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
     public async Task<SteamGridDbImage?> GetBestHeroForTitleAsync(string title, CancellationToken ct = default)
     {
         var candidates = await GetHeroCandidatesForTitleAsync(title, ct);
+        return candidates.FirstOrDefault();
+    }
+
+    public async Task<SteamGridDbImage?> GetBestLogoForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
+    {
+        if (!HasApiKey) return null;
+        // No dimensions filter, same reasoning as heroes below — logos
+        // come in varied sizes/aspect ratios and SteamGridDB's logo
+        // coverage is thinner than grids, so narrowing by size would throw
+        // away matches we'd rather keep.
+        var candidates = await FetchGridCandidates($"{BaseUrl}/logos/steam/{steamAppId}?types=static", ct);
+        return candidates.FirstOrDefault();
+    }
+
+    public async Task<SteamGridDbImage?> GetBestLogoForTitleAsync(string title, CancellationToken ct = default)
+    {
+        if (!HasApiKey) return null;
+
+        var gameId = await SearchGameId(title, ct);
+        if (gameId is null) return null;
+
+        var candidates = await FetchGridCandidates($"{BaseUrl}/logos/game/{gameId}?types=static", ct);
         return candidates.FirstOrDefault();
     }
 

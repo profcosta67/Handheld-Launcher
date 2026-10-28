@@ -137,12 +137,16 @@ public sealed class MainViewModel : ViewModelBase
     /// The global actions menu (View/Back button, or the gear icon in the
     /// top bar for mouse/touch — same menu either way, see
     /// MainWindow.OnGearMenuClick): Atualizar Biblioteca, Atualizar Capas
-    /// Automático, Adicionar jogo, Sair, and "Fechar: &lt;jogo&gt;" when
-    /// one is running. These used to also be separate buttons on the
-    /// bottom bar; consolidated into this one menu so there's a single
-    /// place for them instead of two. Independent of IsContextMenuOpen;
-    /// MainWindow only lets one of the three menus be entered at a time
-    /// (see OnGamepadTick).
+    /// Automático, Adicionar jogo, Minimizar, Power, and "Fechar:
+    /// &lt;jogo&gt;" when one is running. "Minimizar"/"Power" are ALSO
+    /// separate bottom-bar buttons (mouse/touch shortcuts) — they're
+    /// repeated here specifically so the controller can reach them too:
+    /// View/Back already reaches this menu from anywhere, so there's no
+    /// need for a separate "navigate up/down to the on-screen icons"
+    /// input model. "Sair" moved out of here into the Power menu (see
+    /// BuildPowerMenu). Independent of IsContextMenuOpen; MainWindow only
+    /// lets one of the three menus be entered at a time (see
+    /// OnGamepadTick).
     /// </summary>
     public bool IsGlobalMenuOpen
     {
@@ -158,17 +162,20 @@ public sealed class MainViewModel : ViewModelBase
     /// <summary>Raised when "Adicionar jogo" is picked from the global menu — MainWindow owns the dialog, not the ViewModel.</summary>
     public event EventHandler? AddGameRequested;
 
-    /// <summary>Raised when "Sair" is picked from the global menu — MainWindow owns Close(), not the ViewModel.</summary>
+    /// <summary>Raised when "Sair" is picked (now from the Power menu, not the global menu — see BuildPowerMenu) — MainWindow owns Close(), not the ViewModel.</summary>
     public event EventHandler? QuitRequested;
+
+    /// <summary>Raised when "Minimizar" is picked from the global menu — MainWindow owns Hide(), not the ViewModel. Same action as the bottom-bar "Minimizar" button (OnMinimizeClick); this just gives the controller a path to it too.</summary>
+    public event EventHandler? MinimizeRequested;
 
     private bool _isPowerMenuOpen;
 
     /// <summary>
     /// The "Power" button's menu (Desligar tela / Reiniciar / Desligar o
-    /// Legion Go) — same visual/overlay pattern as the global menu, just a
-    /// separate independent flag so opening one never interferes with the
-    /// other. MainWindow is the one place that checks which overlay (if
-    /// any) owns gamepad/keyboard input right now.
+    /// Legion Go / Sair) — same visual/overlay pattern as the global menu,
+    /// just a separate independent flag so opening one never interferes
+    /// with the other. MainWindow is the one place that checks which
+    /// overlay (if any) owns gamepad/keyboard input right now.
     /// </summary>
     public bool IsPowerMenuOpen
     {
@@ -459,7 +466,19 @@ public sealed class MainViewModel : ViewModelBase
 
         Add("Adicionar jogo", () => AddGameRequested?.Invoke(this, EventArgs.Empty));
         Add("Atualizar Biblioteca", Refresh);
-        Add("Sair", () => QuitRequested?.Invoke(this, EventArgs.Empty));
+
+        // "Minimizar" e "Power" entram aqui também (além dos próprios
+        // botões da barra de baixo) especificamente pra resolver o
+        // controle não alcançar esses ícones apertando o direcional: como
+        // esse menu já é 100% navegável por gamepad (View/Back), colocar
+        // as duas ações aqui dá acesso total sem precisar inventar um novo
+        // modelo de foco pra cima/baixo na tela. "Power" aqui fecha este
+        // menu e abre o TogglePowerMenu (mesmo padrão de "overlay fecha o
+        // anterior antes de abrir o próximo" já usado em
+        // ConfirmGlobalMenuSelection). "Sair" NÃO fica mais aqui — mudou
+        // pro menu Power (ver BuildPowerMenu) a pedido do usuário.
+        Add("Minimizar", () => MinimizeRequested?.Invoke(this, EventArgs.Empty));
+        Add("Power", TogglePowerMenu);
     }
 
     /// <summary>Botão "Power" da barra de baixo: abre o menu, ou fecha se já estiver aberto (toggle).</summary>
@@ -532,6 +551,12 @@ public sealed class MainViewModel : ViewModelBase
         Add("Desligar tela", () => TurnOffScreenRequested?.Invoke(this, EventArgs.Empty));
         Add("Reiniciar o Legion Go", () => RestartDeviceRequested?.Invoke(this, EventArgs.Empty));
         Add("Desligar o Legion Go", () => ShutdownDeviceRequested?.Invoke(this, EventArgs.Empty));
+
+        // Movido pra aqui a pedido do usuário (antes vivia no menu
+        // geral/engrenagem) — faz mais sentido ao lado de
+        // reiniciar/desligar o aparelho do que junto de
+        // Atualizar Biblioteca/Adicionar jogo.
+        Add("Sair", () => QuitRequested?.Invoke(this, EventArgs.Empty));
     }
 
     /// <summary>
@@ -742,7 +767,8 @@ public sealed class MainViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Fetches covers AND hero banners for every game missing either, one
+    /// Fetches covers, hero banners AND (only for the "último jogo
+    /// aberto" tile — see below) logos for every game missing them, one
     /// game/image at a time (not parallel — gentler on the API and simpler
     /// to reason about without a real test run to tune concurrency
     /// against). Can take a while on a big library; the button disables
@@ -765,6 +791,16 @@ public sealed class MainViewModel : ViewModelBase
                 if (string.IsNullOrEmpty(tile.Game.HeroImagePath))
                 {
                     await _artwork.FetchHeroAsync(tile.Game);
+                }
+
+                // Logo (CURRENT LOGO) só é mostrado sobre a tile larga do
+                // "último jogo aberto" — buscar pra todo o resto da
+                // biblioteca seria gastar chamadas na API do SteamGridDB
+                // (e tempo) sem nunca aparecer na tela, já que nenhuma
+                // outra tile exibe esse logo.
+                if (tile.IsLastPlayed && string.IsNullOrEmpty(tile.Game.LogoImagePath))
+                {
+                    await _artwork.FetchLogoAsync(tile.Game);
                 }
             }
 

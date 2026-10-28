@@ -75,6 +75,28 @@ public sealed class ArtworkService : IArtworkService
         return true;
     }
 
+    /// <summary>Same shape as FetchHeroAsync, but for the transparent "logo" wordmark (game.LogoImagePath) — the "CURRENT LOGO" overlay on the row's wide tile.</summary>
+    public async Task<bool> FetchLogoAsync(GameEntry game, CancellationToken ct = default)
+    {
+        if (!HasApiKey) return false;
+
+        var image = game.Source == GameSource.Steam && game.SteamAppId is { } appId
+            ? await _client.GetBestLogoForSteamAppAsync(appId, ct)
+            : await _client.GetBestLogoForTitleAsync(game.Title, ct);
+
+        if (image is null) return false;
+
+        var localPath = await DownloadToCache(image.Url, _cacheDir, $"{game.Id}_logo", ct);
+        if (localPath is null) return false;
+
+        var data = GetOrCreateOverride(game.Id);
+        data.LogoImagePath = localPath;
+        _store.SaveOverride(game.Id, data);
+
+        game.LogoImagePath = localPath;
+        return true;
+    }
+
     public async Task<IReadOnlyList<ArtworkCandidate>> GetGridCandidatesAsync(GameEntry game, CancellationToken ct = default)
     {
         if (!HasApiKey) return Array.Empty<ArtworkCandidate>();

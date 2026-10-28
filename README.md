@@ -37,11 +37,16 @@ Construído até agora:
     processo direto pros manuais), rastreia quando fecham, e fecha à força
     via `CloseGame()` (processo próprio pros manuais; sweep best-effort por
     `InstallDirectory` pros Steam, já que não possuímos o processo real).
-  - `SteamGridDbClient` / `ArtworkService` — busca a melhor capa ("grid")
-    **e o banner largo ("hero")** no SteamGridDB (por AppId pros jogos
-    Steam, por nome pros manuais), baixa e cacheia em
-    `%AppData%\HandheldLauncher\artwork\`, persiste os dois caminhos como
-    override.
+  - `SteamGridDbClient` / `ArtworkService` — busca a melhor capa ("grid"),
+    **o banner largo ("hero") e agora também o "logo"** (overlay
+    transparente do título/wordmark — o "CURRENT LOGO" que aparece só
+    sobre a tile larga do último jogo aberto, ver bullet própria mais
+    abaixo) no SteamGridDB (por AppId pros jogos Steam, por nome pros
+    manuais), baixa e cacheia em `%AppData%\HandheldLauncher\artwork\`,
+    persiste os três caminhos como override. Sem seletor manual pro logo
+    ainda (só busca automática via "Atualizar Capas Automático") — se
+    precisar escolher entre várias opções como já dá pra fazer com
+    capa/banner, é um próximo passo parecido.
   - `AppSettingsStore` — lê/cria `%AppData%\HandheldLauncher\settings.json`
     (hoje só guarda a API key do SteamGridDB — não tem tela de
     configurações ainda, é editar o arquivo na mão por enquanto).
@@ -92,12 +97,16 @@ Construído até agora:
     visual do menu de contexto, com "Fechar: <jogo>" (só com jogo
     rodando), "Atualizar Capas Automático" (renomeado de "Buscar
     capas" — só com API key configurada), "Adicionar jogo", "Atualizar
-    Biblioteca" (renomeado de "Atualizar") e "Sair". **Nesta leva,
-    essas 4 últimas ações saíram de serem TAMBÉM botões separados na
-    barra de baixo** (a pedido do usuário, pra desafogar a barra) — agora
-    só existem aqui, e esse menu passou a ser a única forma de chegar
-    nelas, seja por controle/teclado ou mouse/touch (pelo ⚙). **Nunca
-    testado num build real com esse formato.**
+    Biblioteca" (renomeado de "Atualizar"), **"Minimizar" e "Power"
+    (novos nesta leva)**. "Sair" **saiu** daqui — mudou pro menu Power
+    (ver bullet própria abaixo). "Minimizar"/"Power" entram aqui
+    especificamente porque o usuário reportou não conseguir alcançar os
+    ícones de cima/baixo (engrenagem/minimizar/power) apertando o
+    direcional no controle — como esse menu já é 100% navegável por
+    gamepad (View/Back abre de qualquer lugar), repetir as duas ações
+    aqui dá acesso total sem precisar inventar um novo modelo de foco
+    subindo/descendo pela tela. **Nunca testado num build real com esse
+    formato.**
   - **Ícone de engrenagem (⚙) no topo** — antes um placeholder
     desabilitado; agora abre o **mesmo** menu geral do botão View/Back
     (`OnGearMenuClick` só chama `vm.ToggleGlobalMenu()`, não é um menu
@@ -163,15 +172,20 @@ Construído até agora:
     mesmo com a janela escondida/sem foco — diferente de um KeyDown
     normal). Ícone gerado em `Assets/app-icon.ico` (tema "HL" nas cores
     do app). **Nunca testado num build real.**
-  - **Botão "Power" (novo nesta leva)**: abre um mini-menu com 3 opções —
-    "Desligar tela" (`SC_MONITORPOWER` via `WM_SYSCOMMAND`, um toque
-    clássico do Win32 pra forçar a tela a apagar sem afetar
-    sleep/hibernar — qualquer tecla/botão do controle acorda de volta,
-    isso é comportamento normal do Windows), "Reiniciar o Legion Go" e
-    "Desligar o Legion Go" (`shutdown.exe /r` e `/s`, ambos imediatos).
-    **Atenção, risco conhecido**: nenhuma das 3 opções tem uma
-    confirmação antes de executar — um toque errado em "Reiniciar"/
-    "Desligar" já dispara na hora, podendo perder progresso de um jogo
+  - **Botão "Power" (⏻ — antes era o texto "Power", virou ícone nesta
+    leva, igual a engrenagem já é só ⚙)**: abre um mini-menu com agora
+    **4 opções** — "Desligar tela" (`SC_MONITORPOWER` via
+    `WM_SYSCOMMAND`, um toque clássico do Win32 pra forçar a tela a
+    apagar sem afetar sleep/hibernar — qualquer tecla/botão do controle
+    acorda de volta, isso é comportamento normal do Windows), "Reiniciar
+    o Legion Go" e "Desligar o Legion Go" (`shutdown.exe /r` e `/s`,
+    ambos imediatos), e **"Sair" (movido pra aqui nesta leva — antes
+    vivia no menu geral/engrenagem)**, que faz mais sentido ao lado de
+    reiniciar/desligar o aparelho. Esse menu também é alcançável de
+    dentro do menu geral agora (ver bullet acima), não só pelo botão/ícone
+    da barra de baixo. **Atenção, risco conhecido**: nenhuma das opções
+    de reiniciar/desligar tem uma confirmação antes de executar — um
+    toque errado já dispara na hora, podendo perder progresso de um jogo
     aberto. Fica como próximo passo decidir se entra uma etapa de
     confirmação (ex: "tem certeza?") antes dessas duas. **Nunca testado
     num build real.**
@@ -180,6 +194,63 @@ Construído até agora:
     removido a pedido do usuário — poluía a tela. A dica dos outros menus
     (↑↓ navega · A/Enter confirma · ...) continua, já que só aparece
     enquanto aquele menu específico está aberto.
+  - **Instância única (novo nesta leva)**: bug reportado pelo usuário —
+    "toda vez que ele abre sempre tá abrindo uma aba nova do launcher".
+    `Program.cs` agora checa um `Mutex` nomeado ANTES de sequer inicializar
+    o Avalonia; se outra instância já existe, essa segunda só avisa a
+    primeira (via `RegisterWindowMessage`/`PostMessage` broadcast, lido
+    pelo mesmo hook de WndProc que já existia pro Ctrl+Alt+H) pra vir pra
+    frente e **sai imediatamente, sem nunca abrir uma segunda janela**.
+    Cobre qualquer caminho de abertura duplicada (clique duplo no atalho,
+    corrida do watchdog com um lançamento manual, o Modo Xbox reabrindo o
+    "app principal" de novo), não só o watchdog. **Nunca testado num
+    build real.**
+  - **Scroll da fileira de jogos (novo nesta leva)**: bug reportado pelo
+    usuário, mesma classe do bug já corrigido no seletor de capas — mover
+    ← → além da área visível da fileira não acompanhava a seleção com
+    scroll automático. `ScrollGameRowSelectionIntoView` em
+    `MainWindow.axaml.cs` calcula a posição horizontal da tile atual
+    (considerando que a tile do "último jogo aberto" é mais larga, 460px
+    contra 170px das outras) e ajusta o `ScrollViewer.Offset` quando ela
+    sai da área visível. **Nunca testado num build real.**
+  - **"Enforcer" de Topmost não rouba mais o foco (ajuste nesta leva)**:
+    bug reportado pelo usuário — com o launcher em modo kiosk, abrir
+    outro app com Alt+Tab ou abrir a ferramenta de Captura/Recorte
+    (Snipping Tool) não funcionava: a janela deles não vinha pra frente.
+    Causa provável: o "enforcer" (ver bullet mais acima) chamava
+    `Activate()` a cada 2 segundos, que força o FOCO/janela em primeiro
+    plano pra nós, não só a posição no topo da faixa "sempre visível" do
+    Topmost — então a cada 2 segundos ele roubava de volta o foco de
+    qualquer coisa que o usuário tivesse trocado por conta própria. O
+    `Activate()` foi removido do enforcer; só o liga/desliga do `Topmost`
+    continua, o que deveria bastar pra reconquistar a posição no topo sem
+    sequestrar o foco de ninguém. **Risco**: se isso enfraquecer demais o
+    enforcer e a Legion Space voltar a ganhar a frente no Modo Xbox, o
+    próximo passo seria reaplicar o `Activate()` só numa janela curta
+    depois do boot, não pra sempre. **Nunca testado num build real.**
+  - **"CURRENT LOGO" + nome em fonte pequena nas tiles menores (novo
+    nesta leva)**: dois pedidos de layout do usuário.
+    - Sobre a tile larga do "último jogo aberto" (e só ela), quando o
+      SteamGridDB já trouxe um logo pra aquele jogo (ver bullet do
+      `ArtworkService` mais acima), aparece um pequeno overlay com esse
+      logo no canto superior esquerdo da tile — o "CURRENT LOGO".
+    - Todas as outras tiles (menores) agora mostram o nome do jogo em
+      cima, numa fonte pequena (`TextBlock.tileCaption`, 11px), sempre
+      visível — antes o nome só aparecia como placeholder quando a tile
+      não tinha nenhuma arte ainda.
+    **Nunca testado num build real** (inclusive a parte de buscar o logo
+    em si via "Atualizar Capas Automático" — é a primeira vez que esse
+    endpoint do SteamGridDB é chamado neste projeto).
+  - **Fonte do projeto = Comic Sans MS (novo nesta leva)**: pedido do
+    usuário. Um único `Style Selector="Window"` em `Theme.axaml` troca a
+    `FontFamily` — como essa propriedade é herdada pela árvore visual em
+    Avalonia (confirmado lendo o código-fonte real do framework), isso
+    cobre todo texto do app sem precisar repetir em cada estilo. "Comic
+    Sans MS" é uma fonte do próprio Windows (vem instalada por padrão),
+    então não precisa empacotar nada — só funciona assim em Windows
+    mesmo, mas esse launcher já só roda em Windows. **Nunca testado num
+    build real** — não dá pra confirmar visualmente sem abrir a janela de
+    verdade.
 - **`installer/`** — `Install-Launcher.ps1`/`Uninstall-Launcher.ps1` (e os
   `Instalar.bat`/`Desinstalar.bat` de duplo-clique por cima deles), ver
   seção "Instalar no Legion Go 2 / ROG Ally" mais abaixo. Os `.ps1`
@@ -447,6 +518,33 @@ manual de código, pela mesma limitação de sempre (sandbox sem
   nas cores do tema) e referenciado tanto no `<ApplicationIcon>` do
   `.csproj` quanto no `Icon` da `MainWindow` e do `TrayIcon` — primeira
   vez que o projeto usa um ícone próprio em vez do genérico do .NET.
+
+**🔴 Instância única + ajustes de bug na UI/Topmost + CURRENT LOGO/fonte —
+status**: tudo nesta leva também, sem teste num build real ainda. Pontos
+que merecem atenção no primeiro teste:
+- `SingleInstance.cs` (novo arquivo, `Platform/`) cria um `Mutex` nomeado
+  em `Program.Main`, ANTES de `BuildAvaloniaApp()` rodar. Se uma segunda
+  instância perde a corrida pelo Mutex, ela chama
+  `RegisterWindowMessage`/`PostMessage` (broadcast) com uma mensagem
+  própria e sai imediatamente — nunca chega a montar uma `MainWindow`.
+  A instância real escuta essa mensagem no MESMO hook de WndProc que já
+  existia pro Ctrl+Alt+H (`OnNativeWndProcHook` em `MainWindow.axaml.cs`)
+  e reage chamando `RestoreFromTray()`. Teste importante: abrir o
+  launcher, abrir de novo (atalho/exe direto) e confirmar que NENHUMA
+  segunda janela aparece e a primeira vem pra frente.
+- O "enforcer" de Topmost perdeu o `Activate()` (ver bullet própria mais
+  acima) — teste importante: confirmar que 1) Alt+Tab e a ferramenta de
+  Captura/Recorte voltam a funcionar normalmente com o launcher em modo
+  kiosk rodando, E 2) o Topmost ainda ganha a frente da Legion Space no
+  Modo Xbox como antes (ou se enfraqueceu, o que seria esperado — ver
+  risco anotado na bullet própria).
+- `SteamGridDbClient.GetBestLogoFor...` é a primeira chamada deste
+  projeto ao endpoint `/logos/` do SteamGridDB — mesma forma dos
+  endpoints `/heroes/` já testados, mas nunca exercitada de verdade.
+- "Minimizar" e "Power" agora também vivem dentro do menu geral (além dos
+  botões da barra de baixo) — teste importante: confirmar que escolher
+  "Power" ali dentro fecha o menu geral e abre o menu Power certinho
+  (mesmo padrão que "Adicionar jogo" já usava pra abrir outro diálogo).
 
 **Bug corrigido** (reportado pelo usuário): nos dois menus (Start e
 View/Back), só o D-pad movia ↑↓ — o analógico esquerdo só lia o eixo X

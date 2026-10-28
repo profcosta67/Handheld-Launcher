@@ -30,6 +30,14 @@ public interface IArtworkService
     Task<bool> FetchHeroAsync(GameEntry game, CancellationToken ct = default);
 
     /// <summary>
+    /// Same idea as FetchHeroAsync but for the transparent "logo" wordmark
+    /// (game.LogoImagePath) — the "CURRENT LOGO" shown over the row's wide
+    /// "último jogo aberto" tile. Independent of grid/hero — a game can be
+    /// missing any combination of the three.
+    /// </summary>
+    Task<bool> FetchLogoAsync(GameEntry game, CancellationToken ct = default);
+
+    /// <summary>
     /// Every static-image grid candidate SteamGridDB has for this game,
     /// already downloaded to a local cache file so the UI can show them in
     /// a picker without any async-network-image plumbing. Re-opening the
