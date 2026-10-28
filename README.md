@@ -112,6 +112,13 @@ Ainda **não** feito:
 
 Este projeto foi escrito num sandbox Linux que bloqueia acesso a
 `api.nuget.org` — não dá pra rodar `dotnet restore`/`build` aqui pra validar.
+
+**Bug corrigido nesta leva** (reportado pelo usuário): nos dois menus
+(Start e View/Back), só o D-pad movia ↑↓ — o analógico esquerdo só lia o
+eixo X (esquerda/direita) desde o início do projeto, nunca o eixo Y
+(cima/baixo), então empurrar o analógico pra cima/baixo nunca gerava
+`MoveUp`/`MoveDown`. `GamepadPoller.Poll()` agora lê os dois eixos do
+analógico. Ainda não testado num build real.
 Os commits até o menu geral (View/Back) já foram testados e corrigidos a
 partir dos erros reais que você mandou (banner hero, layout Steam Deck,
 último-jogo-aberto, blur de fundo, menu de contexto com Start, diálogo

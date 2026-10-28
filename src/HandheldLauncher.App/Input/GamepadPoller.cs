@@ -34,12 +34,14 @@ public enum GamepadAction
 /// </summary>
 public sealed class GamepadPoller
 {
-    // Standard-ish deadzone for the left stick's X axis (range is -32768..32767).
+    // Standard-ish deadzone for the left stick's X/Y axes (range is -32768..32767).
     private const short StickDeadzone = 12000;
 
     private XInput.Buttons _previousButtons;
     private bool _previousStickLeft;
     private bool _previousStickRight;
+    private bool _previousStickUp;
+    private bool _previousStickDown;
 
     public bool IsConnected { get; private set; }
 
@@ -53,6 +55,8 @@ public sealed class GamepadPoller
             _previousButtons = default;
             _previousStickLeft = false;
             _previousStickRight = false;
+            _previousStickUp = false;
+            _previousStickDown = false;
             return actions;
         }
 
@@ -69,15 +73,25 @@ public sealed class GamepadPoller
         if (WasJustPressed(buttons, XInput.Buttons.Back)) actions.Add(GamepadAction.GlobalMenu);
 
         // Left stick as a D-pad alternative — same edge-detection idea, just
-        // on a deadzone crossing instead of a button bit.
+        // on a deadzone crossing instead of a button bit. Bug fix: this used
+        // to only read sThumbLX (left/right) — pushing the stick up/down
+        // never produced MoveUp/MoveDown at all, so the two menus (which
+        // need vertical navigation) only responded to the D-pad, not the
+        // stick. XInput's Y axis is positive = up, negative = down.
         var stickLeft = state.Gamepad.sThumbLX < -StickDeadzone;
         var stickRight = state.Gamepad.sThumbLX > StickDeadzone;
+        var stickUp = state.Gamepad.sThumbLY > StickDeadzone;
+        var stickDown = state.Gamepad.sThumbLY < -StickDeadzone;
 
         if (stickLeft && !_previousStickLeft) actions.Add(GamepadAction.MoveLeft);
         if (stickRight && !_previousStickRight) actions.Add(GamepadAction.MoveRight);
+        if (stickUp && !_previousStickUp) actions.Add(GamepadAction.MoveUp);
+        if (stickDown && !_previousStickDown) actions.Add(GamepadAction.MoveDown);
 
         _previousStickLeft = stickLeft;
         _previousStickRight = stickRight;
+        _previousStickUp = stickUp;
+        _previousStickDown = stickDown;
         _previousButtons = buttons;
 
         return actions;
