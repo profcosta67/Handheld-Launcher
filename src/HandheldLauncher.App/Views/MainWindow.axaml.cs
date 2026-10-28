@@ -23,6 +23,20 @@ public partial class MainWindow : Window
         _gamepadTimer.Start();
 
         Closed += (_, _) => _gamepadTimer.Stop();
+
+        // DataContext is assigned by the composition root (App.axaml.cs)
+        // AFTER this constructor runs, so the ViewModel isn't available yet
+        // here — wire its view-level requests (opening a dialog, closing
+        // the window) once it actually shows up.
+        DataContextChanged += OnDataContextChanged;
+    }
+
+    private void OnDataContextChanged(object? sender, EventArgs e)
+    {
+        if (DataContext is not MainViewModel vm) return;
+
+        vm.AddGameRequested += (_, _) => _ = OpenAddGameDialogAsync(vm);
+        vm.QuitRequested += (_, _) => Close();
     }
 
     private void OnGamepadTick(object? sender, EventArgs e)
@@ -56,6 +70,32 @@ public partial class MainWindow : Window
                 continue;
             }
 
+            // Same idea for the global menu (View/Back button) — this is
+            // what reaches "Buscar capas"/"Adicionar jogo"/"Atualizar"/"Sair"
+            // without a mouse. Only reachable from the plain-navigation
+            // branch below, so the two menus can never both be open from
+            // gamepad input alone.
+            if (vm.IsGlobalMenuOpen)
+            {
+                switch (action)
+                {
+                    case GamepadAction.MoveUp:
+                        vm.MoveGlobalMenuSelection(-1);
+                        break;
+                    case GamepadAction.MoveDown:
+                        vm.MoveGlobalMenuSelection(1);
+                        break;
+                    case GamepadAction.Confirm:
+                        vm.ConfirmGlobalMenuSelection();
+                        break;
+                    case GamepadAction.Back:
+                    case GamepadAction.GlobalMenu:
+                        vm.CloseGlobalMenu();
+                        break;
+                }
+                continue;
+            }
+
             switch (action)
             {
                 case GamepadAction.MoveLeft:
@@ -73,14 +113,17 @@ public partial class MainWindow : Window
                 case GamepadAction.Menu:
                     vm.ToggleContextMenu();
                     break;
+                case GamepadAction.GlobalMenu:
+                    vm.ToggleGlobalMenu();
+                    break;
             }
         }
     }
 
     // Keyboard nav stays as a fallback for dev-time testing on desktop —
     // the gamepad poller above is what actually matters on the handheld.
-    // Space stands in for the controller's Start button (no literal
-    // equivalent on a keyboard).
+    // Space stands in for Start (per-tile menu), Tab stands in for
+    // View/Back (global menu) — neither has a literal keyboard equivalent.
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
         if (DataContext is not MainViewModel vm) return;
@@ -110,6 +153,31 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (vm.IsGlobalMenuOpen)
+        {
+            switch (e.Key)
+            {
+                case Key.Up:
+                    vm.MoveGlobalMenuSelection(-1);
+                    e.Handled = true;
+                    break;
+                case Key.Down:
+                    vm.MoveGlobalMenuSelection(1);
+                    e.Handled = true;
+                    break;
+                case Key.Enter:
+                    vm.ConfirmGlobalMenuSelection();
+                    e.Handled = true;
+                    break;
+                case Key.Escape:
+                case Key.Tab:
+                    vm.CloseGlobalMenu();
+                    e.Handled = true;
+                    break;
+            }
+            return;
+        }
+
         switch (e.Key)
         {
             case Key.Left:
@@ -130,6 +198,10 @@ public partial class MainWindow : Window
                 break;
             case Key.Space:
                 vm.ToggleContextMenu();
+                e.Handled = true;
+                break;
+            case Key.Tab:
+                vm.ToggleGlobalMenu();
                 e.Handled = true;
                 break;
         }
@@ -168,7 +240,12 @@ public partial class MainWindow : Window
     private async void OnAddGameClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (DataContext is not MainViewModel vm) return;
+        await OpenAddGameDialogAsync(vm);
+    }
 
+    /// <summary>Shared by the bottom-bar button and the global menu's "Adicionar jogo" entry.</summary>
+    private async Task OpenAddGameDialogAsync(MainViewModel vm)
+    {
         var dialog = new AddGameWindow();
         var result = await dialog.ShowDialog<GameEntry?>(this);
         if (result is null) return;

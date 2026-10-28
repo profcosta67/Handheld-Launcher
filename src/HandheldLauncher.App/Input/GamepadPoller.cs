@@ -11,6 +11,14 @@ public enum GamepadAction
 
     /// <summary>Start button — opens/closes the per-tile context menu.</summary>
     Menu,
+
+    /// <summary>
+    /// View/Back button (XInput still calls it "Back", same physical key
+    /// since the Xbox 360 era) — opens/closes the global actions menu
+    /// (Buscar capas, Adicionar jogo, Atualizar, Sair, Fechar jogo). This is
+    /// what makes the bottom bar's buttons reachable without a mouse.
+    /// </summary>
+    GlobalMenu,
 }
 
 /// <summary>
@@ -58,6 +66,7 @@ public sealed class GamepadPoller
         if (WasJustPressed(buttons, XInput.Buttons.A)) actions.Add(GamepadAction.Confirm);
         if (WasJustPressed(buttons, XInput.Buttons.B)) actions.Add(GamepadAction.Back);
         if (WasJustPressed(buttons, XInput.Buttons.Start)) actions.Add(GamepadAction.Menu);
+        if (WasJustPressed(buttons, XInput.Buttons.Back)) actions.Add(GamepadAction.GlobalMenu);
 
         // Left stick as a D-pad alternative — same edge-detection idea, just
         // on a deadzone crossing instead of a button bit.

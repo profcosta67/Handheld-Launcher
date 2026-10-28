@@ -129,6 +129,32 @@ public sealed class MainViewModel : ViewModelBase
         new ContextMenuItemViewModel("Abrir jogo"),
     };
 
+    private bool _isGlobalMenuOpen;
+
+    /// <summary>
+    /// The global actions menu (View/Back button) — this is what makes the
+    /// bottom bar's buttons (Buscar capas, Adicionar jogo, Atualizar, Sair,
+    /// Fechar jogo) reachable without a mouse. Independent of
+    /// IsContextMenuOpen; MainWindow only lets one of the two be entered
+    /// at a time (see OnGamepadTick).
+    /// </summary>
+    public bool IsGlobalMenuOpen
+    {
+        get => _isGlobalMenuOpen;
+        private set => SetField(ref _isGlobalMenuOpen, value);
+    }
+
+    public ObservableCollection<ContextMenuItemViewModel> GlobalMenuItems { get; } = new();
+
+    private readonly List<Action> _globalMenuActions = new();
+    private int _globalMenuIndex;
+
+    /// <summary>Raised when "Adicionar jogo" is picked from the global menu — MainWindow owns the dialog, not the ViewModel.</summary>
+    public event EventHandler? AddGameRequested;
+
+    /// <summary>Raised when "Sair" is picked from the global menu — MainWindow owns Close(), not the ViewModel.</summary>
+    public event EventHandler? QuitRequested;
+
     public ICommand MoveNextCommand { get; }
     public ICommand MovePreviousCommand { get; }
     public ICommand LaunchSelectedCommand { get; }
@@ -234,6 +260,88 @@ public sealed class MainViewModel : ViewModelBase
         {
             ContextMenuItems[i].IsSelected = i == _contextMenuIndex;
         }
+    }
+
+    /// <summary>View/Back button: opens the global menu, or closes it if already open (toggle).</summary>
+    public void ToggleGlobalMenu()
+    {
+        if (IsGlobalMenuOpen)
+        {
+            CloseGlobalMenu();
+            return;
+        }
+
+        BuildGlobalMenu();
+        if (GlobalMenuItems.Count == 0) return;
+
+        _globalMenuIndex = 0;
+        UpdateGlobalMenuSelection();
+        IsGlobalMenuOpen = true;
+    }
+
+    public void CloseGlobalMenu()
+    {
+        IsGlobalMenuOpen = false;
+    }
+
+    public void MoveGlobalMenuSelection(int delta)
+    {
+        if (!IsGlobalMenuOpen || GlobalMenuItems.Count == 0) return;
+        _globalMenuIndex = ((_globalMenuIndex + delta) % GlobalMenuItems.Count + GlobalMenuItems.Count) % GlobalMenuItems.Count;
+        UpdateGlobalMenuSelection();
+    }
+
+    public void ConfirmGlobalMenuSelection()
+    {
+        if (!IsGlobalMenuOpen) return;
+
+        var index = _globalMenuIndex;
+        CloseGlobalMenu();
+
+        if (index >= 0 && index < _globalMenuActions.Count)
+        {
+            _globalMenuActions[index]();
+        }
+    }
+
+    private void UpdateGlobalMenuSelection()
+    {
+        for (var i = 0; i < GlobalMenuItems.Count; i++)
+        {
+            GlobalMenuItems[i].IsSelected = i == _globalMenuIndex;
+        }
+    }
+
+    /// <summary>
+    /// Rebuilt fresh every time the menu opens (not kept live while it's
+    /// closed) — the set of available actions depends on state (is a game
+    /// running? do we have an API key?) that's cheap enough to just
+    /// re-check at open time rather than track reactively.
+    /// </summary>
+    private void BuildGlobalMenu()
+    {
+        GlobalMenuItems.Clear();
+        _globalMenuActions.Clear();
+
+        void Add(string label, Action action)
+        {
+            GlobalMenuItems.Add(new ContextMenuItemViewModel(label));
+            _globalMenuActions.Add(action);
+        }
+
+        if (RunningGame is not null)
+        {
+            Add($"Fechar: {RunningGame.Title}", CloseRunningGame);
+        }
+
+        if (CanFetchArtwork)
+        {
+            Add("Buscar capas", FetchMissingArtwork);
+        }
+
+        Add("Adicionar jogo", () => AddGameRequested?.Invoke(this, EventArgs.Empty));
+        Add("Atualizar", Refresh);
+        Add("Sair", () => QuitRequested?.Invoke(this, EventArgs.Empty));
     }
 
     /// <summary>

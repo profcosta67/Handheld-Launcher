@@ -151,7 +151,7 @@
     <Border Grid.Row="2" Classes="bottomBar" Margin="24,0,24,20" Padding="20,12">
       <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto">
         <TextBlock Grid.Column="0"
-                   Text="← → navega · A/Enter joga · B/Esc fecha o jogo · Start abre menu do jogo"
+                   Text="← → navega · A/Enter joga · B/Esc fecha o jogo · Start = menu do jogo · View/Back = menu geral"
                    Classes="subtle"
                    VerticalAlignment="Center" />
         <Button Grid.Column="1"
@@ -193,6 +193,29 @@
             </ItemsControl.ItemTemplate>
           </ItemsControl>
           <TextBlock Text="↑↓ navega · A/Enter confirma · B/Esc/Start fecha" Classes="subtle" />
+        </StackPanel>
+      </Border>
+    </Panel>
+
+    <!-- Global menu (View/Back button) — same visual pattern as the
+         per-tile menu above, but for the bottom bar's actions, so they're
+         reachable without a mouse. No "target" title since it's not about
+         a specific game. -->
+    <Panel IsVisible="{Binding IsGlobalMenuOpen}">
+      <Border Classes="contextMenuOverlay" />
+      <Border Classes="contextMenuCard" Width="340" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <StackPanel Spacing="16">
+          <TextBlock Text="Menu" Classes="heroTitle" />
+          <ItemsControl ItemsSource="{Binding GlobalMenuItems}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:ContextMenuItemViewModel">
+                <Border Classes="menuItem" Classes.selected="{Binding IsSelected}" Padding="14,10">
+                  <TextBlock Text="{Binding Label}" Classes="gameTitle" />
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Text="↑↓ navega · A/Enter confirma · B/Esc/View fecha" Classes="subtle" />
         </StackPanel>
       </Border>
     </Panel>
