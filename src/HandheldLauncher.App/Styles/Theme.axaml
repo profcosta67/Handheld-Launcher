@@ -68,11 +68,18 @@
          API documentada do Avalonia pra isso — não dá pra compilar aqui
          pra confirmar. -->
     <Setter Property="RenderTransform" Value="scale(1.0)" />
-    <Style.Transitions>
+    <!-- CORRIGIDO: era <Style.Transitions> (erro de build real reportado
+         pelo usuário — AVLN2000, "Transitions" não é uma propriedade do
+         próprio Style). Transitions é propriedade do CONTROLE
+         (Animatable/Visual), então dentro de um Style ela se define com
+         um Setter normal, igual Background/Width acima — não com a
+         sintaxe de property-element <Style.Transitions>, que só funciona
+         pra propriedades que pertencem à classe Style em si. -->
+    <Setter Property="Transitions">
       <Transitions>
         <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15" Easing="CubicEaseOut" />
       </Transitions>
-    </Style.Transitions>
+    </Setter>
   </Style>
 
   <Style Selector="Border.gameTile.focused">
