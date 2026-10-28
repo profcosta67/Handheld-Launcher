@@ -284,6 +284,33 @@ public partial class MainWindow : Window
         vm.ShutdownDeviceRequested += (_, _) => ShutdownDevice();
 
         StartBatteryMonitor(vm);
+        StartDownloadsRefreshTimer(vm);
+    }
+
+    /// <summary>
+    /// Enquanto o painel de Downloads estiver aberto, reconsulta "baixando
+    /// agora" periodicamente — diferente de IsCoverPickerOpen/etc, essa
+    /// tela mostra progresso que muda sozinho (a Steam continua baixando
+    /// com o painel aberto na tela), então um refresh só no momento de
+    /// abrir ficaria parado/desatualizado. 2s é frequente o bastante pra
+    /// parecer "ao vivo" sem reler o .acf de cada jogo toda hora; não
+    /// reconsulta "na conta, não instalado" aqui (RefreshOwnedGames é só
+    /// na abertura) — isso é uma chamada de rede de verdade (Steam Web
+    /// API), não um arquivo local, então refazer a cada 2s seria
+    /// desperdício sem benefício real (a lista de jogos não instalados não
+    /// muda a cada segundo).
+    /// </summary>
+    private DispatcherTimer? _downloadsRefreshTimer;
+
+    private void StartDownloadsRefreshTimer(MainViewModel vm)
+    {
+        _downloadsRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        _downloadsRefreshTimer.Tick += (_, _) =>
+        {
+            if (vm.IsDownloadsOpen) vm.RefreshActiveDownloads();
+        };
+        _downloadsRefreshTimer.Start();
+        Closed += (_, _) => _downloadsRefreshTimer?.Stop();
     }
 
     /// <summary>
@@ -370,7 +397,7 @@ public partial class MainWindow : Window
             // every action AND the exact overlay state at the moment it's
             // dispatched, so a "nothing happens" report can be checked
             // against what actually fired instead of guessed at blind.
-            DebugLog.Write($"action={action} pickerOpen={vm.IsCoverPickerOpen} ctxOpen={vm.IsContextMenuOpen} globalOpen={vm.IsGlobalMenuOpen} powerOpen={vm.IsPowerMenuOpen}");
+            DebugLog.Write($"action={action} pickerOpen={vm.IsCoverPickerOpen} ctxOpen={vm.IsContextMenuOpen} globalOpen={vm.IsGlobalMenuOpen} powerOpen={vm.IsPowerMenuOpen} downloadsOpen={vm.IsDownloadsOpen}");
 
             // Cover/banner picker takes over input first — it can be opened
             // from inside the per-tile context menu (which closes itself
@@ -484,6 +511,29 @@ public partial class MainWindow : Window
                     case GamepadAction.Menu:
                     case GamepadAction.GlobalMenu:
                         vm.ClosePowerMenu();
+                        break;
+                }
+                continue;
+            }
+
+            // Painel de Downloads — DECISÃO DE ESCOPO (v1): a lista em si
+            // (downloads em andamento, jogos "na conta não instalado" e o
+            // botão "Instalar" de cada um) é mouse/touch-only, diferente do
+            // resto do app. Motivo: não é uma tela de jogo com grade fixa
+            // como o CoverPicker, é uma lista de tamanho variável com
+            // controles por item (botão "Instalar"), e isso pediria um
+            // modelo de foco novo só pra essa tela. Por enquanto o gamepad
+            // só fecha o painel (Back/Menu/GlobalMenu) — igual os outros
+            // overlays — pra nunca deixar quem só tem controle PRESO aqui
+            // sem conseguir sair. Revisitar se o recurso pegar.
+            if (vm.IsDownloadsOpen)
+            {
+                switch (action)
+                {
+                    case GamepadAction.Back:
+                    case GamepadAction.Menu:
+                    case GamepadAction.GlobalMenu:
+                        vm.CloseDownloads();
                         break;
                 }
                 continue;
@@ -638,6 +688,21 @@ public partial class MainWindow : Window
                     break;
                 case Key.Escape:
                     vm.ClosePowerMenu();
+                    e.Handled = true;
+                    break;
+            }
+            return;
+        }
+
+        // Mesma decisão de escopo do OnGamepadTick: painel de Downloads é
+        // mouse/touch-only para a lista em si, teclado/gamepad só fecha.
+        if (vm.IsDownloadsOpen)
+        {
+            switch (e.Key)
+            {
+                case Key.Escape:
+                case Key.Tab:
+                    vm.CloseDownloads();
                     e.Handled = true;
                     break;
             }
@@ -806,6 +871,27 @@ public partial class MainWindow : Window
     private void OnCloseGameClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         (DataContext as MainViewModel)?.CloseRunningGame();
+    }
+
+    /// <summary>Botão ✕ do painel de Downloads (mouse/touch — ver MainViewModel.IsDownloadsOpen).</summary>
+    private void OnCloseDownloadsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        (DataContext as MainViewModel)?.CloseDownloads();
+    }
+
+    /// <summary>
+    /// Botão "Instalar" de um item de OwnedNotInstalledGames — o item
+    /// dentro do ItemsControl não tem Command parametrizável (projeto não
+    /// usa RelayCommand&lt;T&gt;, só o parameterless), então pega o
+    /// OwnedSteamGame direto do DataContext do Button (que, dentro do
+    /// DataTemplate, é o próprio item da lista) em vez disso.
+    /// </summary>
+    private void OnInstallOwnedGameClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: OwnedSteamGame game } && DataContext is MainViewModel vm)
+        {
+            vm.InstallOwnedGame(game);
+        }
     }
 
     /// <summary>Called by the global menu's "Adicionar jogo" entry (vm.AddGameRequested, wired in OnDataContextChanged).</summary>

@@ -54,6 +54,78 @@ public sealed class SteamLibraryScanner : ISteamLibraryScanner
         return results;
     }
 
+    /// <summary>
+    /// Ver ISteamLibraryScanner.ScanActiveDownloads. Reaproveita o mesmo
+    /// GetLibraryFolders/varredura de appmanifest_*.acf de
+    /// ScanInstalledGames acima, só muda o que extrai de cada manifesto.
+    /// </summary>
+    public IReadOnlyList<DownloadProgressInfo> ScanActiveDownloads()
+    {
+        var results = new List<DownloadProgressInfo>();
+        if (_steamRoot is null) return results;
+
+        foreach (var libraryPath in GetLibraryFolders(_steamRoot))
+        {
+            var steamappsDir = Path.Combine(libraryPath, "steamapps");
+            if (!Directory.Exists(steamappsDir)) continue;
+
+            foreach (var manifestPath in Directory.EnumerateFiles(steamappsDir, "appmanifest_*.acf"))
+            {
+                var progress = TryParseDownloadProgress(manifestPath);
+                if (progress is not null) results.Add(progress);
+            }
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// `BytesDownloaded`/`BytesToDownload` são campos que a própria Steam
+    /// escreve no manifesto ENQUANTO está baixando/atualizando esse app —
+    /// `BytesToDownload` existe e é maior que `BytesDownloaded` só durante
+    /// esse período; depois de completo os dois ficam iguais (ou o campo
+    /// desaparece). Deliberadamente NÃO interpretamos o bitmask
+    /// `StateFlags` (também presente no manifesto) pra decidir isso — os
+    /// bits exatos variam entre versões do cliente Steam e não são
+    /// documentados oficialmente, enquanto comparar os dois Bytes é um
+    /// sinal simples e estável.
+    /// </summary>
+    private static DownloadProgressInfo? TryParseDownloadProgress(string manifestPath)
+    {
+        VdfNode root;
+        try
+        {
+            root = VdfParser.ParseFile(manifestPath);
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+
+        var appState = root["AppState"];
+        if (appState is null) return null;
+
+        var name = appState.GetString("name");
+        if (string.IsNullOrWhiteSpace(name)) return null;
+
+        var bytesDownloadedText = appState.GetString("BytesDownloaded");
+        var bytesToDownloadText = appState.GetString("BytesToDownload");
+
+        if (!long.TryParse(bytesDownloadedText, out var bytesDownloaded)) return null;
+        if (!long.TryParse(bytesToDownloadText, out var bytesToDownload)) return null;
+
+        if (bytesToDownload <= 0 || bytesDownloaded >= bytesToDownload) return null;
+
+        return new DownloadProgressInfo
+        {
+            Title = name,
+            Source = GameSource.Steam,
+            PercentComplete = (double)bytesDownloaded / bytesToDownload * 100.0,
+            BytesDownloaded = bytesDownloaded,
+            BytesToDownload = bytesToDownload,
+        };
+    }
+
     private static GameEntry? TryParseManifest(string manifestPath, string libraryPath)
     {
         VdfNode root;

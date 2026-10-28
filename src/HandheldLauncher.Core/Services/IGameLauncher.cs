@@ -29,6 +29,13 @@ public interface IGameLauncher
     /// launcher nunca toca nada no disco diretamente aqui.
     /// </summary>
     void OpenSteamUninstaller(uint steamAppId);
+
+    /// <summary>
+    /// "Instalar" (painel de Downloads, jogo da conta ainda não instalado)
+    /// via "steam://install/{appid}" — a Steam mesma baixa; o launcher
+    /// nunca baixa nada diretamente. Ver ISteamOwnedGamesClient.
+    /// </summary>
+    void OpenSteamInstaller(uint steamAppId);
 }
 
 public sealed class GameExitedEventArgs : EventArgs

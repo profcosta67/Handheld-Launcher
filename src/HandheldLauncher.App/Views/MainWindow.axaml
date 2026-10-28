@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:HandheldLauncher.App.ViewModels"
+        xmlns:models="using:HandheldLauncher.Core.Models"
         xmlns:conv="using:HandheldLauncher.App.Converters"
         xmlns:dataConv="using:Avalonia.Data.Converters"
         xmlns:media="using:Avalonia.Media"
@@ -399,6 +400,68 @@
           </ItemsControl>
           <TextBlock Text="↑↓ navega · A/Enter confirma · B/Esc cancela" Classes="subtle" />
         </StackPanel>
+      </Border>
+    </Panel>
+
+    <!-- Painel de Downloads (item "Downloads" do menu global) — pedido do
+         usuário como "gerenciador de download". Duas seções: "baixando
+         agora" (Steam, lido do .acf — ver ScanActiveDownloads) e "na sua
+         conta, não instalado" (Steam Web API). Ver MainViewModel.
+         IsDownloadsOpen pras decisões de escopo da v1 (só Steam; lista
+         "Instalar" é mouse/touch-only, por isso o botão ✕ aqui em vez de
+         depender só do controle pra fechar). -->
+    <Panel IsVisible="{Binding IsDownloadsOpen}">
+      <Border Classes="contextMenuOverlay" />
+      <Border Classes="contextMenuCard" Width="560" MaxHeight="620" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Grid RowDefinitions="Auto,Auto,*,Auto">
+          <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+            <TextBlock Grid.Column="0" Text="Downloads" Classes="heroTitle" />
+            <Button Grid.Column="1" Classes="pill" Content="✕" Padding="10,4" Click="OnCloseDownloadsClick" ToolTip.Tip="Fechar" />
+          </Grid>
+
+          <StackPanel Grid.Row="1" Spacing="10" Margin="0,16,0,0">
+            <TextBlock Text="Baixando agora (Steam)" Classes="gameTitle" />
+            <TextBlock Text="Nada baixando no momento." Classes="subtle" IsVisible="{Binding NoActiveDownloads}" />
+            <ItemsControl ItemsSource="{Binding ActiveDownloads}" IsVisible="{Binding HasActiveDownloads}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="models:DownloadProgressInfo">
+                  <StackPanel Spacing="4" Margin="0,0,0,10">
+                    <TextBlock Text="{Binding Title}" Classes="gameTitle" />
+                    <ProgressBar Minimum="0" Maximum="100" Value="{Binding PercentComplete}" />
+                    <TextBlock Text="{Binding PercentComplete, StringFormat='{0:0}%'}" Classes="subtle" />
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+
+          <ScrollViewer Grid.Row="2" MaxHeight="300" Margin="0,16,0,0">
+            <StackPanel Spacing="10">
+              <TextBlock Text="Na sua conta, não instalado (Steam)" Classes="gameTitle" />
+
+              <TextBlock Text="Configure SteamWebApiKey e SteamId64 em settings.json pra ver esta lista (ver README)."
+                         Classes="subtle" TextWrapping="Wrap"
+                         IsVisible="{Binding NoSteamWebApiCredentials}" />
+
+              <TextBlock Text="Buscando jogos da conta..." Classes="subtle" IsVisible="{Binding IsLoadingOwnedGames}" />
+
+              <TextBlock Text="{Binding OwnedGamesErrorMessage}" Classes="subtle" TextWrapping="Wrap" IsVisible="{Binding HasOwnedGamesError}" />
+
+              <ItemsControl ItemsSource="{Binding OwnedNotInstalledGames}" IsVisible="{Binding HasSteamWebApiCredentials}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="models:OwnedSteamGame">
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+                      <TextBlock Grid.Column="0" Text="{Binding Title}" Classes="gameTitle" VerticalAlignment="Center" TextWrapping="Wrap" />
+                      <Button Grid.Column="1" Classes="pill" Content="Instalar" Click="OnInstallOwnedGameClick" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </ScrollViewer>
+
+          <TextBlock Grid.Row="3" Text="Mouse/toque pra instalar · B/Esc/View fecha" Classes="subtle" Margin="0,16,0,0" />
+        </Grid>
       </Border>
     </Panel>
 

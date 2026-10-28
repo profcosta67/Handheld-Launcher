@@ -44,4 +44,24 @@ public class AppSettings
     /// "Adicionar jogo" cria entradas Xbox).
     /// </summary>
     public List<string> XboxScanFolders { get; set; } = new();
+
+    /// <summary>
+    /// Steam Web API key, de https://steamcommunity.com/dev/apikey —
+    /// precisa dos DOIS campos (este + SteamId64 abaixo) pra aparecer a
+    /// lista "na sua conta, não instalado" no painel de Downloads
+    /// (pedido do usuário: "se der pra ver os jogos que tem na conta
+    /// seria legal também"). Diferente do SteamGridDbApiKey acima — são
+    /// serviços/keys completamente separados. Sem os dois campos
+    /// preenchidos, essa lista simplesmente fica vazia com uma mensagem
+    /// explicando o que falta — não é um erro.
+    /// </summary>
+    public string? SteamWebApiKey { get; set; }
+
+    /// <summary>
+    /// Seu SteamID64 (um número de 17 dígitos, ex: "76561198012345678") —
+    /// acha o seu em https://steamid.io/ colando a URL do seu perfil
+    /// Steam. Precisa estar com o perfil/"Detalhes do jogo" público pra
+    /// GetOwnedGames devolver alguma coisa (ver README).
+    /// </summary>
+    public string? SteamId64 { get; set; }
 }

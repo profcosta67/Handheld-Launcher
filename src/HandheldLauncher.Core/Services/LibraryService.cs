@@ -6,19 +6,26 @@ public sealed class LibraryService : ILibraryService
 {
     private readonly ISteamLibraryScanner _steamScanner;
     private readonly IXboxFolderScanner? _xboxFolderScanner;
+    private readonly ISteamOwnedGamesClient? _steamOwnedGamesClient;
     private readonly IGameLibraryStore _store;
     private List<GameEntry> _games = new();
 
     /// <summary>
-    /// xboxFolderScanner é opcional (null = nenhuma pasta configurada em
-    /// AppSettings.XboxScanFolders, comportamento idêntico a antes desta
-    /// leva) — ver XboxFolderScanner pra o que ele faz.
+    /// xboxFolderScanner e steamOwnedGamesClient são opcionais (null =
+    /// não configurado em settings.json, comportamento idêntico a antes
+    /// de cada um existir) — ver XboxFolderScanner/ISteamOwnedGamesClient
+    /// pra o que cada um faz.
     /// </summary>
-    public LibraryService(ISteamLibraryScanner steamScanner, IGameLibraryStore store, IXboxFolderScanner? xboxFolderScanner = null)
+    public LibraryService(
+        ISteamLibraryScanner steamScanner,
+        IGameLibraryStore store,
+        IXboxFolderScanner? xboxFolderScanner = null,
+        ISteamOwnedGamesClient? steamOwnedGamesClient = null)
     {
         _steamScanner = steamScanner;
         _store = store;
         _xboxFolderScanner = xboxFolderScanner;
+        _steamOwnedGamesClient = steamOwnedGamesClient;
         Refresh();
     }
 
@@ -122,6 +129,32 @@ public sealed class LibraryService : ILibraryService
         // instance directly so the "último jogo aberto" change is visible
         // immediately.
         if (existing is not null) existing.LastPlayedUtc = overrideData.LastPlayedUtc;
+    }
+
+    public IReadOnlyList<DownloadProgressInfo> GetActiveDownloads() => _steamScanner.ScanActiveDownloads();
+
+    public bool HasSteamWebApiCredentials => _steamOwnedGamesClient?.HasCredentials ?? false;
+
+    public async Task<IReadOnlyList<OwnedSteamGame>> GetOwnedButNotInstalledSteamGamesAsync()
+    {
+        if (_steamOwnedGamesClient is null || !_steamOwnedGamesClient.HasCredentials)
+        {
+            return Array.Empty<OwnedSteamGame>();
+        }
+
+        var owned = await _steamOwnedGamesClient.GetOwnedGamesAsync();
+
+        // _games (não Games da MainViewModel, que é filtrada pela aba
+        // ativa) — comparar contra a biblioteca FILTRADA esconderia jogo
+        // já instalado sempre que uma aba diferente de "Todos" estivesse
+        // selecionada no momento, mostrando ele como "não instalado"
+        // erradamente.
+        var installedAppIds = _games
+            .Where(g => g.Source == GameSource.Steam && g.SteamAppId is not null)
+            .Select(g => g.SteamAppId!.Value)
+            .ToHashSet();
+
+        return owned.Where(g => !installedAppIds.Contains(g.AppId)).ToList();
     }
 
     private static void ApplyOverride(GameEntry game, IReadOnlyDictionary<string, GameMetadataOverride> overrides)

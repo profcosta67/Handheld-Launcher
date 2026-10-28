@@ -33,16 +33,35 @@ public partial class App : Application
             var xboxFolderScanner = appSettings.XboxScanFolders.Count > 0
                 ? new XboxFolderScanner(appSettings.XboxScanFolders)
                 : null;
+            // Null quando SteamWebApiKey/SteamId64 não estão os dois
+            // preenchidos (padrão) — painel de Downloads mostra a mensagem
+            // explicando o que falta em vez da lista "na conta, não
+            // instalado" (ver ILibraryService.HasSteamWebApiCredentials).
+            var steamOwnedGamesCandidate = new SteamOwnedGamesClient(appSettings.SteamWebApiKey, appSettings.SteamId64);
+            var steamOwnedGamesClient = steamOwnedGamesCandidate.HasCredentials ? steamOwnedGamesCandidate : null;
             var libraryStore = new GameLibraryStore();
-            var libraryService = new LibraryService(steamScanner, libraryStore, xboxFolderScanner);
+            var libraryService = new LibraryService(steamScanner, libraryStore, xboxFolderScanner, steamOwnedGamesClient);
             var gameLauncher = new GameLauncher();
 
             var gridDbClient = new SteamGridDbClient(appSettings.SteamGridDbApiKey);
             var artworkService = new ArtworkService(gridDbClient, libraryStore);
 
+            // RTSS (overlay de FPS) — "deixa rodando" é melhor esforço puro:
+            // nunca lança nem bloqueia a abertura do launcher se não
+            // estiver instalado ou der qualquer erro (ver PerformanceOverlayService).
+            var performanceOverlay = new PerformanceOverlayService();
+            try
+            {
+                performanceOverlay.EnsureRunning();
+            }
+            catch
+            {
+                // Melhor esforço.
+            }
+
             var mainWindow = new MainWindow
             {
-                DataContext = new MainViewModel(libraryService, gameLauncher, artworkService),
+                DataContext = new MainViewModel(libraryService, gameLauncher, artworkService, performanceOverlay),
             };
 
             // Modo kiosk: fullscreen/borderless instead of the normal dev

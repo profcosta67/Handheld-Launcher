@@ -31,4 +31,30 @@ public interface ILibraryService
     /// selection, running-game reference) is riding on the existing instances.
     /// </summary>
     void MarkLaunched(string gameId);
+
+    /// <summary>
+    /// Painel de Downloads, seção "baixando agora" — jogos Steam no meio
+    /// de um download/atualização neste exato momento (ver
+    /// ISteamLibraryScanner.ScanActiveDownloads). Lista vazia (comum) se
+    /// nada estiver baixando.
+    /// </summary>
+    IReadOnlyList<DownloadProgressInfo> GetActiveDownloads();
+
+    /// <summary>
+    /// True só quando AppSettings.SteamWebApiKey e SteamId64 estão os
+    /// dois preenchidos — controla se a UI mostra a seção "na sua conta,
+    /// não instalado" do painel de Downloads ou a mensagem explicando o
+    /// que falta configurar.
+    /// </summary>
+    bool HasSteamWebApiCredentials { get; }
+
+    /// <summary>
+    /// Painel de Downloads, seção "na sua conta, não instalado" — busca
+    /// TODA a biblioteca Steam da conta (via ISteamOwnedGamesClient) e
+    /// filtra fora quem já está instalado (comparando contra Games,
+    /// Source==Steam). Lista vazia sem lançar se HasSteamWebApiCredentials
+    /// for false; lança se a chamada de rede falhar (quem chama decide
+    /// como mostrar o erro).
+    /// </summary>
+    Task<IReadOnlyList<OwnedSteamGame>> GetOwnedButNotInstalledSteamGamesAsync();
 }

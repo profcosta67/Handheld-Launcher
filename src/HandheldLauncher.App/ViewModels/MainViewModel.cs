@@ -12,12 +12,14 @@ public sealed class MainViewModel : ViewModelBase
     private readonly ILibraryService _library;
     private readonly IGameLauncher _launcher;
     private readonly IArtworkService _artwork;
+    private readonly IPerformanceOverlayService _performanceOverlay;
 
-    public MainViewModel(ILibraryService library, IGameLauncher launcher, IArtworkService artwork)
+    public MainViewModel(ILibraryService library, IGameLauncher launcher, IArtworkService artwork, IPerformanceOverlayService performanceOverlay)
     {
         _library = library;
         _launcher = launcher;
         _artwork = artwork;
+        _performanceOverlay = performanceOverlay;
         _launcher.GameExited += OnGameExited;
 
         Games = new ObservableCollection<GameTileViewModel>();
@@ -683,6 +685,27 @@ public sealed class MainViewModel : ViewModelBase
 
         Add("Adicionar jogo", () => AddGameRequested?.Invoke(this, EventArgs.Empty));
         Add("Atualizar Biblioteca", Refresh);
+        Add("Downloads", ToggleDownloads);
+
+        // Status do overlay de FPS (RTSS) — entra no menu global em vez de
+        // num botão fixo na barra de baixo porque na prática é algo que se
+        // olha raramente (só pra confirmar "tá rodando?" ou ir buscar se
+        // não estiver instalado), não uma ação do dia a dia. Reavaliado a
+        // cada abertura do menu (mesma ideia do "cheap enough to just
+        // re-check at open time" dos outros itens acima).
+        if (_performanceOverlay.IsInstalled)
+        {
+            Add(
+                _performanceOverlay.IsRunning ? "Overlay FPS (RTSS): rodando" : "Overlay FPS (RTSS): iniciar",
+                () =>
+                {
+                    if (!_performanceOverlay.IsRunning) _performanceOverlay.EnsureRunning();
+                });
+        }
+        else
+        {
+            Add("Overlay FPS (RTSS): baixar", _performanceOverlay.OpenDownloadPage);
+        }
 
         // "Minimizar" e "Power" entram aqui também (além dos próprios
         // botões da barra de baixo) especificamente pra resolver o
@@ -774,6 +797,162 @@ public sealed class MainViewModel : ViewModelBase
         // reiniciar/desligar o aparelho do que junto de
         // Atualizar Biblioteca/Adicionar jogo.
         Add("Sair", () => QuitRequested?.Invoke(this, EventArgs.Empty));
+    }
+
+    private bool _isDownloadsOpen;
+
+    /// <summary>
+    /// Painel de Downloads (item "Downloads" do menu global) — pedido do
+    /// usuário como "gerenciador de download". Mostra duas seções:
+    /// 1) ActiveDownloads: downloads/atualizações da Steam em andamento
+    /// AGORA (lido do manifesto .acf de cada jogo, ver
+    /// ISteamLibraryScanner.ScanActiveDownloads) — é a parte que o usuário
+    /// pediu primeiro ("mais pra olhar os jogos que estão sendo baixado
+    /// nos outros launcher"). 2) OwnedNotInstalledGames: jogos da conta
+    /// Steam que ainda não estão instalados aqui, via Steam Web API — a
+    /// parte que ele pediu como "se der, seria legal também".
+    ///
+    /// DECISÕES DE ESCOPO (v1), nenhuma confirmada de volta com o usuário
+    /// ainda — sinalizar isso na resposta:
+    /// - Só Steam. Epic/Xbox app não têm nenhum arquivo local confiável pra
+    ///   ler progresso de download (o truque do .acf é específico da
+    ///   Steam) — então "baixando agora" de Epic/Xbox não existe nesta
+    ///   versão. "Jogos da conta" também é só Steam: o usuário só marcou
+    ///   essa opção pra Steam na pergunta de esclarecimento, e Epic não
+    ///   tem API pública pra isso sem OAuth completo.
+    /// - "Instalar" é mouse/touch-only (ver OnGamepadTick/OnWindowKeyDown
+    ///   em MainWindow.axaml.cs) — quebra do padrão "tudo navegável por
+    ///   controle" do resto do app, decisão deliberada pra não ter que
+    ///   inventar um modelo de foco novo só pra essa lista.
+    /// </summary>
+    public bool IsDownloadsOpen
+    {
+        get => _isDownloadsOpen;
+        private set => SetField(ref _isDownloadsOpen, value);
+    }
+
+    public ObservableCollection<DownloadProgressInfo> ActiveDownloads { get; } = new();
+
+    public bool HasActiveDownloads => ActiveDownloads.Count > 0;
+    public bool NoActiveDownloads => !HasActiveDownloads;
+
+    public ObservableCollection<OwnedSteamGame> OwnedNotInstalledGames { get; } = new();
+
+    /// <summary>True só quando settings.json tem SteamWebApiKey E SteamId64 preenchidos — ver AppSettings.</summary>
+    public bool HasSteamWebApiCredentials => _library.HasSteamWebApiCredentials;
+    public bool NoSteamWebApiCredentials => !HasSteamWebApiCredentials;
+
+    private bool _isLoadingOwnedGames;
+    public bool IsLoadingOwnedGames
+    {
+        get => _isLoadingOwnedGames;
+        private set => SetField(ref _isLoadingOwnedGames, value);
+    }
+
+    private string? _ownedGamesErrorMessage;
+    public string? OwnedGamesErrorMessage
+    {
+        get => _ownedGamesErrorMessage;
+        private set
+        {
+            if (SetField(ref _ownedGamesErrorMessage, value))
+            {
+                OnPropertyChanged(nameof(HasOwnedGamesError));
+            }
+        }
+    }
+
+    public bool HasOwnedGamesError => !string.IsNullOrEmpty(OwnedGamesErrorMessage);
+
+    /// <summary>Item "Downloads" do menu global: abre o painel, ou fecha se já estiver aberto (toggle).</summary>
+    public void ToggleDownloads()
+    {
+        if (IsDownloadsOpen)
+        {
+            CloseDownloads();
+            return;
+        }
+
+        RefreshActiveDownloads();
+        IsDownloadsOpen = true;
+
+        if (HasSteamWebApiCredentials)
+        {
+            RefreshOwnedGames();
+        }
+    }
+
+    public void CloseDownloads()
+    {
+        IsDownloadsOpen = false;
+    }
+
+    /// <summary>
+    /// Reconsulta "baixando agora" — chamado ao abrir o painel e, enquanto
+    /// ele ficar aberto, por um timer periódico (ver MainWindow.axaml.cs)
+    /// já que o progresso real continua mudando com o painel aberto na
+    /// tela.
+    /// </summary>
+    public void RefreshActiveDownloads()
+    {
+        ActiveDownloads.Clear();
+        foreach (var download in _library.GetActiveDownloads())
+        {
+            ActiveDownloads.Add(download);
+        }
+        OnPropertyChanged(nameof(HasActiveDownloads));
+        OnPropertyChanged(nameof(NoActiveDownloads));
+    }
+
+    /// <summary>
+    /// Busca "na sua conta, não instalado" — só dispara se
+    /// HasSteamWebApiCredentials (senão a tela já mostra a mensagem
+    /// explicando o que falta configurar, ver MainWindow.axaml). Mais
+    /// lenta que RefreshActiveDownloads (chamada de rede de verdade pra
+    /// api.steampowered.com), por isso IsLoadingOwnedGames separado em vez
+    /// de reusar IsLoading* de outra tela.
+    /// </summary>
+    public async void RefreshOwnedGames()
+    {
+        if (!HasSteamWebApiCredentials) return;
+
+        IsLoadingOwnedGames = true;
+        OwnedGamesErrorMessage = null;
+
+        try
+        {
+            var owned = await _library.GetOwnedButNotInstalledSteamGamesAsync();
+
+            // Painel pode ter sido fechado enquanto isso estava em voo —
+            // mesma ideia do OpenCoverPicker, não ressuscita com resultado velho.
+            if (!IsDownloadsOpen) return;
+
+            OwnedNotInstalledGames.Clear();
+            foreach (var game in owned)
+            {
+                OwnedNotInstalledGames.Add(game);
+            }
+        }
+        catch (Exception ex)
+        {
+            OwnedGamesErrorMessage = $"Erro ao buscar jogos da conta: {ex.Message}";
+        }
+        finally
+        {
+            IsLoadingOwnedGames = false;
+        }
+    }
+
+    /// <summary>
+    /// Botão "Instalar" (mouse/touch, ver IsDownloadsOpen) de um item de
+    /// OwnedNotInstalledGames — delega pra steam://install/{appid}; a
+    /// própria Steam abre e cuida do download de verdade, este launcher
+    /// nunca baixa nada diretamente (mesmo padrão já usado pelo
+    /// "Excluir jogo" do menu de contexto, ver OpenSteamUninstaller).
+    /// </summary>
+    public void InstallOwnedGame(OwnedSteamGame game)
+    {
+        _launcher.OpenSteamInstaller(game.AppId);
     }
 
     /// <summary>

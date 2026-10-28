@@ -158,10 +158,20 @@ Construído até agora:
     (recursivo) — heurística simples ("o jogo de verdade quase sempre é
     bem maior que qualquer launcher/suporte junto"), não um scanner real
     de UWP/Xbox (precisaria de APIs que este projeto não referencia).
-    Exemplo de uso — adicionar `"C:\\XboxGames"` como pasta de busca:
+    Exemplo de uso — pelo que o usuário relatou ("tem jogo tanto no
+    c:/Xbox quanto no d:/Xbox... que seria no HD e no sdcard"), adicionar
+    as duas como pastas de busca:
     ```json
-    { "XboxScanFolders": ["C:\\XboxGames"] }
+    { "XboxScanFolders": ["C:\\Xbox", "D:\\Xbox"] }
     ```
+    **Atenção**: o usuário mesmo não tinha certeza se `C:\Xbox`/`D:\Xbox`
+    são exatamente a raiz certa ("não sei se é essa a raiz mesmo") — vale
+    confirmar no Explorador de Arquivos antes (a pasta certa é aquela cuja
+    SUBPASTA IMEDIATA de cada jogo contém o `.exe` dele; se `C:\Xbox` abrir
+    direto numa pasta de UM jogo só, em vez de uma pasta com VÁRIAS
+    subpastas de jogos dentro, o campo deveria apontar pra pasta MÃE dela,
+    não pra ela mesma). Lista aceita quantas pastas quiser, uma por HD/
+    cartão SD.
     **Importante**: isso é um CAMPO pra editar no JSON, não um editor
     visual dentro do app — se o pedido era por uma tela de configuração
     de verdade, isso ainda está pendente (ver "Ainda não feito"). Jogos
@@ -170,6 +180,52 @@ Construído até agora:
     próximo scan de qualquer forma, então remover um específico por
     enquanto é editar `XboxScanFolders` na mão. **Nunca testado num
     build real.**
+  - **Painel de Downloads — "gerenciador de download" (novo nesta
+    leva)**: item "Downloads" no menu geral (View/Back ou engrenagem)
+    abre um painel com duas seções. 1) **Baixando agora**: downloads/
+    atualizações da Steam em andamento NESTE MOMENTO, lidos direto do
+    manifesto `appmanifest_*.acf` de cada jogo (compara `BytesDownloaded`
+    vs. `BytesToDownload` — sinal estável, ao contrário do bitmask
+    `StateFlags` que não é documentado) — atualiza sozinho a cada 2s
+    enquanto o painel estiver aberto. 2) **Na sua conta, não instalado**:
+    busca TODA a biblioteca Steam da conta via Steam Web API e mostra só
+    quem ainda não está instalado aqui, com um botão "Instalar" que abre
+    `steam://install/{appid}` (a própria Steam baixa — este launcher nunca
+    baixa nada diretamente, mesmo padrão do "Excluir jogo"). Precisa de
+    `SteamWebApiKey` + `SteamId64` configurados no `settings.json` (ver
+    seção própria abaixo); sem isso, a segunda seção mostra uma mensagem
+    explicando o que falta, mas a primeira (baixando agora) funciona
+    independente disso.
+    **Decisões de escopo tomadas sem perguntar de volta**:
+    - **Só Steam.** Epic/Xbox app não têm nenhum arquivo local confiável
+      de progresso de download (o truque do `.acf` é específico da Steam)
+      — "baixando agora" de Epic/Xbox **não existe** nesta versão, mesmo o
+      usuário tendo pedido os três. "Na conta, não instalado" também é só
+      Steam — na pergunta de esclarecimento o usuário só marcou a opção
+      Steam, e Epic não tem API pública pra isso sem OAuth completo.
+    - **Botão "Instalar" é mouse/touch-only** — diferente do resto do app
+      (que é 100% navegável por controle). O controle só FECHA o painel
+      (Back/View/Menu); navegar a lista e clicar "Instalar" precisa de
+      mouse/toque. Por isso o painel também tem um botão ✕ na tela, pra
+      não depender só do controle.
+    **Nunca testado num build real** — nem a leitura do `.acf` em downloads
+    de verdade, nem a chamada pra Steam Web API, nem o painel em si.
+  - **Overlay de FPS/performance via RTSS (novo nesta leva)** — pedido
+    como "aquele mangohud... sem usar aquele nativo do legion". Em vez de
+    construir um overlay do zero (exigiria hookar `Present()` de DirectX/
+    Vulkan/OpenGL via injeção de DLL — risco de ban por anti-cheat e
+    impossível de testar neste sandbox), o launcher integra com o RTSS
+    (RivaTuner Statistics Server, grátis, já maduro e aceito pela maioria
+    dos anti-cheats — mesma base do MSI Afterburner): detecta se está
+    instalado (caminho fixo padrão), e se estiver instalado mas não
+    rodando, abre ele sozinho ao iniciar o launcher (minimizado na
+    bandeja, sem interromper nada). O item "Overlay FPS (RTSS)" no menu
+    geral mostra o status (rodando / iniciar / baixar) e, se não estiver
+    instalado, abre a página de download no navegador. A CONFIGURAÇÃO do
+    overlay em si (o que mostrar na tela, posição, etc.) continua sendo
+    feita dentro do próprio RTSS — isso não é replicado aqui. **Nunca
+    testado num build real** — nem a detecção, nem o auto-start, nem se o
+    RTSS de fato aparece sobre um jogo rodando pelo launcher.
   - **Seletor de capa/capa larga/banner/logo** ("Escolher capa"/"Escolher
     capa larga"/"Escolher banner"/"Escolher logo" acima): abre uma grade
     com até 24 opções estáticas vindas do SteamGridDB (ordenadas por
@@ -464,6 +520,31 @@ Ainda **não** feito:
     hand-edit). Se o usuário queria um editor DE VERDADE dentro do app
     (não só um campo pra editar no JSON), isso ainda está pendente —
     avisar se for o caso.
+11. **Progresso de download da Epic/Xbox app no painel de Downloads** —
+    o "baixando agora" (feito nesta leva, ver "Status atual") é só Steam;
+    Epic e Xbox app não têm nenhum arquivo local documentado/estável pra
+    ler progresso de download (diferente do `.acf` da Steam), então isso
+    ficou de fora. Revisitar só se o recurso pegar e surgir algum jeito
+    confiável de ler isso de algum dos dois.
+12. **"Na sua conta, não instalado" pra Epic** — o usuário só marcou Steam
+    na pergunta de esclarecimento, então Epic ficou de fora de propósito;
+    também não existe API pública simples pra isso sem implementar OAuth
+    completo da Epic, então mesmo se pedido depois isso não é um ajuste
+    rápido.
+13. **Painel de Downloads navegável por controle** — a lista em si
+    (baixando agora, na conta não instalado, botão "Instalar") é
+    mouse/touch-only nesta leva (ver "Status atual"); o controle só abre
+    e fecha o painel inteiro. Decisão deliberada pra não ter que desenhar
+    um modelo de foco novo pra uma lista de tamanho variável com botão por
+    item — avisar se isso for um problema de verdade no handheld.
+14. **Overlay de FPS sem o RTSS instalado** — o launcher só detecta/abre o
+    RTSS se ele já estiver instalado na máquina (ver "Status atual"); não
+    baixa nem instala o RTSS sozinho, só abre a página de download no
+    navegador se faltar. Instalar o RTSS de fato continua manual.
+15. **Tela de configuração pra `SteamWebApiKey`/`SteamId64`** — mesma
+    situação do item 10, hand-edit do `settings.json` (ver seção própria
+    "Configurar a Steam Web API" mais abaixo), sem pré-configuração via
+    arquivo como a API key do SteamGridDB tem.
 
 ## Configurar a API key do SteamGridDB
 
@@ -508,6 +589,39 @@ requisições por key — quanto mais instalações usando a mesma chave ao
 mesmo tempo, mais perto desse limite. Pra uso pessoal em algumas máquinas
 suas (PC + Legion Go 2 + futuramente o ROG Ally) não deve ser problema;
 pra distribuir pra terceiros, o ideal é cada um gerar a própria key grátis.
+
+## Configurar a Steam Web API (painel de Downloads → "na sua conta, não instalado")
+
+Só necessário pra ver a seção "na sua conta, não instalado" do painel de
+Downloads (ver "Status atual" acima) — o "baixando agora" funciona sem
+nada disso.
+
+1. Gera uma Steam Web API key (grátis) em
+   https://steamcommunity.com/dev/apikey — precisa estar logado e ter um
+   número de telefone vinculado à conta Steam.
+2. Descobre o seu SteamID64 (um número de 17 dígitos, diferente do seu
+   nome de usuário) em https://steamid.io — cola o link do seu perfil
+   Steam lá e ele mostra o SteamID64.
+3. Roda o launcher uma vez (cria o `settings.json` se ainda não existir) e
+   edita `%AppData%\HandheldLauncher\settings.json`, adicionando os dois
+   campos:
+   ```json
+   { "SteamWebApiKey": "sua-chave-aqui", "SteamId64": "seu-steamid64-aqui" }
+   ```
+4. Reabre o launcher e abre o painel de Downloads (item "Downloads" no
+   menu geral) — a segunda seção deve trocar da mensagem "configure..."
+   pra lista de verdade (ou erro de rede, se a chave/ID estiver errado).
+
+Sem tela de configuração pra isso ainda (mesmo padrão hand-edit da key do
+SteamGridDB e do `XboxScanFolders`) — nem pré-configuração automática via
+arquivo (como o `steamgriddb-api-key.txt` do instalador faz pra API key do
+SteamGridDB); se isso for repetir em várias máquinas, é editar o
+`settings.json` na mão em cada uma por enquanto.
+
+Sua biblioteca Steam precisa estar com o perfil público (ou pelo menos
+"detalhes do jogo" públicos) pra `GetOwnedGames` conseguir ler — se a
+lista voltar vazia mesmo com jogos na conta, isso é a primeira coisa a
+checar em https://steamcommunity.com/my/edit/settings.
 
 ## Instalar no Legion Go 2 / ROG Ally (beta v0.1)
 
@@ -1081,6 +1195,42 @@ verdade —
   CAMPO no `settings.json` pra editar na mão, não uma tela de
   configuração dentro do app — se o pedido era por um editor visual de
   verdade, avisar que isso ainda falta. **Nunca testado num build real.**
+
+**🔴 Regressão real no espaço vazio embaixo da fileira + gerenciador de
+downloads + overlay de FPS (RTSS) — status**: depois de entregar o ajuste
+fino acima, o usuário testou no Legion Go 2 de verdade e reportou uma
+regressão (não só "ainda não testado") e pediu duas funções novas maiores.
+- **Regressão: `VerticalAlignment="Center"` piorou o corte de baixo** — o
+  fix anterior pro "espaço vazio embaixo" ("agora baixou demais e tá
+  cortando a parte de baixo kkkk" — real, no Legion Go 2, não só
+  cosmético). Revertido: `ItemsControl` da fileira voltou a não ter
+  `VerticalAlignment` explícito (alinhamento padrão no topo), com
+  comentário no código deixando claro que ajuste fino de verdade precisa
+  de dados reais de resolução do aparelho, não mais "chute no escuro" —
+  **ainda sem solução definitiva pro espaço vazio em si**, só a regressão
+  foi desfeita. Durante a reversão, um `Edit` deixou a tag
+  `<ItemsControl ...` sem o `>` de fechamento por um instante — pego pela
+  verificação de XML bem-formado de sempre (`xml.etree.ElementTree.parse`),
+  corrigido antes de qualquer entrega. **Nunca testado num build real
+  depois da reversão.**
+- **Gerenciador de downloads** (pedido: "mais pra olhar os jogos que estão
+  sendo baixado nos outros launcher... mas se der pra ver os jogos que tem
+  na conta seria legal também") e **overlay de FPS tipo MangoHud via RTSS**
+  (pedido: "sem usar aquele nativo do legion") — ver "Status atual" acima
+  pros dois recursos e "Ainda não feito" itens 11-15 pras decisões de
+  escopo tomadas sem perguntar de volta (Epic/Xbox fora do progresso de
+  download e fora de "na conta não instalado"; lista do painel de
+  Downloads é mouse/touch-only; RTSS só detecta/abre, não instala).
+  **Nenhuma das duas partes testada num build real ainda** — nem a
+  leitura do `.acf` em downloads de verdade, nem a Steam Web API, nem a
+  detecção/auto-start do RTSS.
+- Xbox ainda não detectou nada automaticamente de verdade, nem depois do
+  `XboxScanFolders` da leva anterior — o campo exige configurar as pastas
+  na mão (ver "Status atual" e a seção "Configurar a Steam Web API" não se
+  aplica aqui, é só o `XboxScanFolders` mesmo); o usuário informou
+  `C:\Xbox` e `D:\Xbox` como pastas prováveis, mas sem certeza da raiz
+  exata — avisado que isso precisa ser configurado manualmente e
+  verificado.
 
 ## Seletor de capas tipo Decky Loader — é viável?
 

@@ -95,6 +95,21 @@ public sealed class GameLauncher : IGameLauncher
         });
     }
 
+    /// <summary>
+    /// "Instalar" no painel de Downloads, pra um jogo que está na conta
+    /// Steam mas ainda não foi instalado (ver ISteamOwnedGamesClient) —
+    /// mesmo padrão de OpenSteamUninstaller acima, só muda o verbo da
+    /// URI. A Steam mesma baixa/instala; o launcher nunca baixa nada.
+    /// </summary>
+    public void OpenSteamInstaller(uint steamAppId)
+    {
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = $"steam://install/{steamAppId}",
+            UseShellExecute = true,
+        });
+    }
+
     private void LaunchDirect(GameEntry game)
     {
         var workingDirectory = game.WorkingDirectory;
