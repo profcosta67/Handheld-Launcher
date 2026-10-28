@@ -19,4 +19,15 @@ public interface ILibraryService
 
     void SetCollection(string gameId, string? collection);
     void RecordPlaySession(string gameId, TimeSpan duration);
+
+    /// <summary>
+    /// Marks a game as the one just opened — distinct from RecordPlaySession
+    /// (which only fires once the game exits): this is the "último jogo
+    /// aberto" the UI puts in the wide landscape tile, and it has to update
+    /// the instant the player launches something, not after they quit it.
+    /// Mutates the matching in-memory GameEntry directly instead of doing a
+    /// full Refresh(), so callers don't lose whatever UI-only state (current
+    /// selection, running-game reference) is riding on the existing instances.
+    /// </summary>
+    void MarkLaunched(string gameId);
 }

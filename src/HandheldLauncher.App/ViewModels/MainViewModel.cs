@@ -21,6 +21,7 @@ public sealed class MainViewModel : ViewModelBase
 
         Games = new ObservableCollection<GameTileViewModel>(
             _library.Games.Select(g => new GameTileViewModel(g)));
+        ReorderLastPlayedFirst();
 
         MoveNextCommand = new RelayCommand(MoveNext, () => Games.Count > 1);
         MovePreviousCommand = new RelayCommand(MovePrevious, () => Games.Count > 1);
@@ -108,8 +109,22 @@ public sealed class MainViewModel : ViewModelBase
     public void LaunchSelected()
     {
         if (SelectedTile is null) return;
-        _launcher.Launch(SelectedTile.Game);
-        RunningGame = SelectedTile.Game;
+        var game = SelectedTile.Game;
+
+        _launcher.Launch(game);
+        RunningGame = game;
+
+        // "Último jogo aberto" updates the instant we launch — not only
+        // once the game exits (that's RecordPlaySession, in OnGameExited).
+        // MarkLaunched mutates `game` in place (same instance), so the
+        // tiles below pick it up as soon as we reorder/re-flag them.
+        _library.MarkLaunched(game.Id);
+        ReorderLastPlayedFirst();
+
+        // Keep the cursor + top banner on the game that was just launched —
+        // it's now first in the row and rendered wide, so this keeps focus
+        // visually consistent with what the player just did.
+        SelectedIndex = 0;
     }
 
     public void CloseRunningGame()
@@ -130,6 +145,7 @@ public sealed class MainViewModel : ViewModelBase
         {
             Games.Add(new GameTileViewModel(game));
         }
+        ReorderLastPlayedFirst();
 
         var restoredIndex = previouslySelectedId is null
             ? 0
@@ -178,6 +194,41 @@ public sealed class MainViewModel : ViewModelBase
         for (var i = 0; i < Games.Count; i++)
         {
             Games[i].IsFocused = i == _selectedIndex;
+        }
+    }
+
+    /// <summary>
+    /// Puts whichever game has the newest LastPlayedUtc first in the row
+    /// and flags it IsLastPlayed (wide landscape tile); every other tile
+    /// gets IsLastPlayed = false. Pure navigation (MoveNext/MovePrevious)
+    /// never calls this — only a launch or a library reload does, so
+    /// scrolling through the row never resizes anything.
+    /// </summary>
+    private void ReorderLastPlayedFirst()
+    {
+        if (Games.Count == 0) return;
+
+        GameTileViewModel? lastPlayedTile = null;
+        DateTimeOffset? latest = null;
+
+        foreach (var tile in Games)
+        {
+            tile.IsLastPlayed = false;
+            if (tile.Game.LastPlayedUtc is { } played && (latest is null || played > latest))
+            {
+                latest = played;
+                lastPlayedTile = tile;
+            }
+        }
+
+        if (lastPlayedTile is null) return;
+
+        lastPlayedTile.IsLastPlayed = true;
+
+        var index = Games.IndexOf(lastPlayedTile);
+        if (index > 0)
+        {
+            Games.Move(index, 0);
         }
     }
 

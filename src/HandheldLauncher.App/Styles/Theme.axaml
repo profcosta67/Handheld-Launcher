@@ -31,17 +31,29 @@
     </ResourceDictionary>
   </Styles.Resources>
 
-  <!-- Base tile: used for both the hero card and the smaller row tiles,
-       distinguished by size/placement in MainWindow.axaml. -->
+  <!-- Row tile. Width/Height live here (not as local attributes in
+       MainWindow.axaml) specifically so the .lastPlayed variant below can
+       override them — a locally-set Width/Height on the element would win
+       over any style setter and the landscape tile would never resize. -->
   <Style Selector="Border.gameTile">
     <Setter Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
     <Setter Property="CornerRadius" Value="{StaticResource TileCornerRadius}" />
     <Setter Property="ClipToBounds" Value="True" />
+    <Setter Property="Width" Value="170" />
+    <Setter Property="Height" Value="230" />
   </Style>
 
   <Style Selector="Border.gameTile.focused">
     <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
     <Setter Property="BorderThickness" Value="3" />
+  </Style>
+
+  <!-- "Último jogo aberto" — wide landscape tile using hero art instead of
+       the portrait cover. Height matches the normal tile so the row still
+       lines up; only Width grows. -->
+  <Style Selector="Border.gameTile.lastPlayed">
+    <Setter Property="Width" Value="390" />
+    <Setter Property="Height" Value="230" />
   </Style>
 
   <Style Selector="Border.heroCard, Border.heroBanner">

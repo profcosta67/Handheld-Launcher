@@ -73,6 +73,21 @@ public sealed class LibraryService : ILibraryService
         Refresh();
     }
 
+    public void MarkLaunched(string gameId)
+    {
+        var existing = _games.FirstOrDefault(g => g.Id == gameId);
+        var overrideData = ToOverride(existing) ?? new GameMetadataOverride();
+        overrideData.LastPlayedUtc = DateTimeOffset.UtcNow;
+        _store.SaveOverride(gameId, overrideData);
+
+        // No Refresh() here on purpose — a full re-scan would replace every
+        // GameEntry instance, orphaning whatever the UI currently holds
+        // (SelectedTile, RunningGame...) for no benefit. Mutate the live
+        // instance directly so the "último jogo aberto" change is visible
+        // immediately.
+        if (existing is not null) existing.LastPlayedUtc = overrideData.LastPlayedUtc;
+    }
+
     private static void ApplyOverride(GameEntry game, IReadOnlyDictionary<string, GameMetadataOverride> overrides)
     {
         if (!overrides.TryGetValue(game.Id, out var o)) return;

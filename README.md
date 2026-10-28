@@ -37,11 +37,19 @@ Construído até agora:
     (hoje só guarda a API key do SteamGridDB — não tem tela de
     configurações ainda, é editar o arquivo na mão por enquanto).
 - **`HandheldLauncher.App`** — UI em Avalonia:
-  - Janela com banner hero largo/deitado em cima (jogo focado, usando o
-    banner do SteamGridDB) + fileira horizontal de capas menores em pé
-    embaixo (todos os jogos, incluindo o focado, destacado), barra de topo
-    e barra inferior — layout estilo Steam Deck, inspirado na segunda
-    referência que você mandou.
+  - Janela com banner hero largo/deitado em cima (segue o jogo que você
+    está navegando no momento, usando o banner do SteamGridDB) + fileira
+    horizontal de capas embaixo — layout estilo Steam Deck.
+  - Na fileira, o **último jogo aberto** (não o que está só focado/com o
+    cursor em cima — o que foi realmente *lançado* por último) aparece
+    largo/deitado usando a arte hero, e só troca de lugar/tamanho quando
+    você abre outro jogo de verdade; navegar com ← → só muda o banner de
+    cima, não mexe na fileira. Ao abrir um jogo ele vira o primeiro da
+    fileira (empurra o resto).
+  - Fundo da janela inteira preenchido com a arte do jogo em foco, desfocada
+    (blur) e esticada — evita vazio escuro embaixo/ao redor do conteúdo.
+    **Isso usa `Avalonia.Media.BlurEffect`, ainda não testado num build
+    real — ver aviso de build mais abaixo.**
   - Navegação por **controle via XInput** (dpad/analógico esquerdo, A
     confirma, B fecha o jogo) — testado e funcionando com um controle Xbox.
     Teclado (← → Enter Esc) continua funcionando como fallback de dev.
@@ -73,9 +81,13 @@ Ainda **não** feito:
 
 Este projeto foi escrito num sandbox Linux que bloqueia acesso a
 `api.nuget.org` — não dá pra rodar `dotnet restore`/`build` aqui pra validar.
-Os três primeiros commits já foram testados e corrigidos a partir dos erros
-reais que você mandou; o commit do SteamGridDB (mais recente) ainda não
-passou por esse ciclo — se der erro de build, me manda a mensagem.
+Os quatro primeiros commits já foram testados e corrigidos a partir dos
+erros reais que você mandou; os dois commits mais recentes (banner hero +
+layout Steam Deck, e último-jogo-aberto + blur de fundo) ainda não passaram
+por esse ciclo — se der erro de build, me manda a mensagem. O ponto mais
+arriscado dessa leva é o `<media:BlurEffect>` no `MainWindow.axaml` (classe
+`Avalonia.Media.BlurEffect`) — se o namespace ou o nome da classe estiverem
+errados, é exatamente o tipo de AVLN2000 que já corrigimos antes.
 
 ## Como buildar (Windows, com internet normal)
 

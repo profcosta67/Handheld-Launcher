@@ -3,6 +3,7 @@
         xmlns:vm="using:HandheldLauncher.App.ViewModels"
         xmlns:conv="using:HandheldLauncher.App.Converters"
         xmlns:dataConv="using:Avalonia.Data.Converters"
+        xmlns:media="using:Avalonia.Media"
         x:Class="HandheldLauncher.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="Handheld Launcher"
@@ -22,6 +23,25 @@
   <Window.Resources>
     <conv:FileToBitmapConverter x:Key="FileToBitmapConverter" />
   </Window.Resources>
+
+  <Panel>
+
+    <!-- Full-window backdrop: the focused game's art, blurred and
+         stretched to fill the whole window, so there's no flat dark void
+         wherever the actual content doesn't reach (below the tile row,
+         around the hero banner). A dimming layer on top keeps text and
+         controls legible over whatever art lands there. Sits behind
+         everything else since it's the first child of the Panel. -->
+    <Panel>
+      <Image Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
+             Stretch="UniformToFill"
+             IsVisible="{Binding SelectedTile.BannerImagePath, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
+        <Image.Effect>
+          <media:BlurEffect Radius="60" />
+        </Image.Effect>
+      </Image>
+      <Border Background="#CC0C0D12" />
+    </Panel>
 
   <Grid RowDefinitions="Auto,*,Auto" Margin="0">
 
@@ -99,13 +119,17 @@
 
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:GameTileViewModel">
+              <!-- Width/Height come entirely from the gameTile/gameTile.lastPlayed
+                   styles in Theme.axaml (no local Width/Height here) so the
+                   "último jogo aberto" tile can actually grow — see the
+                   comment on Border.gameTile there for why. -->
               <Border Classes="gameTile"
                       Classes.focused="{Binding IsFocused}"
-                      Width="170" Height="230"
+                      Classes.lastPlayed="{Binding IsLastPlayed}"
                       PointerPressed="OnTilePointerPressed"
                       DoubleTapped="OnTileDoubleTapped">
                 <Grid>
-                  <Image Source="{Binding GridImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                  <Image Source="{Binding TileImagePath, Converter={StaticResource FileToBitmapConverter}}"
                          Stretch="UniformToFill" />
                   <TextBlock Text="{Binding Title}"
                              Classes="gameTitle"
@@ -114,7 +138,7 @@
                              VerticalAlignment="Center"
                              HorizontalAlignment="Center"
                              Margin="10"
-                             IsVisible="{Binding GridImagePath, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
+                             IsVisible="{Binding TileImagePath, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
                 </Grid>
               </Border>
             </DataTemplate>
@@ -149,4 +173,5 @@
     </Border>
 
   </Grid>
+  </Panel>
 </Window>
