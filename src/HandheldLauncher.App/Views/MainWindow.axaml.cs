@@ -45,6 +45,35 @@ public partial class MainWindow : Window
 
         foreach (var action in _gamepad.Poll())
         {
+            // Cover/banner picker takes over input first — it can be opened
+            // from inside the per-tile context menu (which closes itself
+            // before opening the picker), so checking it ahead of
+            // IsContextMenuOpen below is just belt-and-suspenders; only one
+            // of the three overlay bools is ever true at once in practice.
+            if (vm.IsCoverPickerOpen)
+            {
+                switch (action)
+                {
+                    case GamepadAction.MoveLeft:
+                    case GamepadAction.MoveUp:
+                        vm.MoveCoverPickerSelection(-1);
+                        break;
+                    case GamepadAction.MoveRight:
+                    case GamepadAction.MoveDown:
+                        vm.MoveCoverPickerSelection(1);
+                        break;
+                    case GamepadAction.Confirm:
+                        vm.ConfirmCoverPickerSelection();
+                        break;
+                    case GamepadAction.Back:
+                    case GamepadAction.Menu:
+                    case GamepadAction.GlobalMenu:
+                        vm.CloseCoverPicker();
+                        break;
+                }
+                continue;
+            }
+
             // While the Start-button context menu is open, every action
             // means something different (navigate/confirm/close THAT menu)
             // instead of the normal tile navigation — swallow it here so
@@ -127,6 +156,32 @@ public partial class MainWindow : Window
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
         if (DataContext is not MainViewModel vm) return;
+
+        if (vm.IsCoverPickerOpen)
+        {
+            switch (e.Key)
+            {
+                case Key.Left:
+                case Key.Up:
+                    vm.MoveCoverPickerSelection(-1);
+                    e.Handled = true;
+                    break;
+                case Key.Right:
+                case Key.Down:
+                    vm.MoveCoverPickerSelection(1);
+                    e.Handled = true;
+                    break;
+                case Key.Enter:
+                    vm.ConfirmCoverPickerSelection();
+                    e.Handled = true;
+                    break;
+                case Key.Escape:
+                    vm.CloseCoverPicker();
+                    e.Handled = true;
+                    break;
+            }
+            return;
+        }
 
         if (vm.IsContextMenuOpen)
         {

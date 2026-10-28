@@ -125,7 +125,8 @@ public sealed class MainViewModel : ViewModelBase
     /// </summary>
     public ObservableCollection<ContextMenuItemViewModel> ContextMenuItems { get; } = new()
     {
-        new ContextMenuItemViewModel("Buscar capa no SteamGridDB"),
+        new ContextMenuItemViewModel("Escolher capa"),
+        new ContextMenuItemViewModel("Escolher banner"),
         new ContextMenuItemViewModel("Abrir jogo"),
     };
 
@@ -154,6 +155,53 @@ public sealed class MainViewModel : ViewModelBase
 
     /// <summary>Raised when "Sair" is picked from the global menu — MainWindow owns Close(), not the ViewModel.</summary>
     public event EventHandler? QuitRequested;
+
+    private bool _isCoverPickerOpen;
+
+    /// <summary>
+    /// Cover/banner picker opened from the per-tile menu's "Escolher
+    /// capa"/"Escolher banner". Same "only one overlay routes input at a
+    /// time" rule as the other two menus — see MainWindow.OnGamepadTick.
+    /// </summary>
+    public bool IsCoverPickerOpen
+    {
+        get => _isCoverPickerOpen;
+        private set => SetField(ref _isCoverPickerOpen, value);
+    }
+
+    private string _coverPickerTitle = string.Empty;
+    public string CoverPickerTitle
+    {
+        get => _coverPickerTitle;
+        private set => SetField(ref _coverPickerTitle, value);
+    }
+
+    private bool _isCoverPickerLoading;
+
+    /// <summary>True while GetGridCandidatesAsync/GetHeroCandidatesAsync is still fetching+downloading candidates from SteamGridDB.</summary>
+    public bool IsCoverPickerLoading
+    {
+        get => _isCoverPickerLoading;
+        private set
+        {
+            if (SetField(ref _isCoverPickerLoading, value))
+            {
+                OnPropertyChanged(nameof(CoverPickerIsEmpty));
+            }
+        }
+    }
+
+    public ObservableCollection<ArtworkCandidateViewModel> CoverPickerCandidates { get; } = new();
+
+    /// <summary>True once loading has finished and at least one candidate came back — drives the grid's visibility.</summary>
+    public bool CoverPickerHasResults => CoverPickerCandidates.Count > 0;
+
+    /// <summary>True once loading has finished with zero candidates — drives the "nenhuma opção" message.</summary>
+    public bool CoverPickerIsEmpty => !IsCoverPickerLoading && CoverPickerCandidates.Count == 0;
+
+    private int _coverPickerIndex;
+    private bool _coverPickerIsHero;
+    private GameEntry? _coverPickerGame;
 
     public ICommand MoveNextCommand { get; }
     public ICommand MovePreviousCommand { get; }
@@ -239,11 +287,15 @@ public sealed class MainViewModel : ViewModelBase
 
         switch (selectedAction)
         {
-            case 0: // Buscar capa no SteamGridDB
-                _ = RefetchArtworkAsync(game);
+            case 0: // Escolher capa
+                OpenCoverPicker(game, isHero: false);
                 break;
 
-            case 1: // Abrir jogo
+            case 1: // Escolher banner
+                OpenCoverPicker(game, isHero: true);
+                break;
+
+            case 2: // Abrir jogo
                 var tile = Games.FirstOrDefault(t => t.Game.Id == game.Id);
                 if (tile is not null)
                 {
@@ -345,29 +397,96 @@ public sealed class MainViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Forces a fresh grid+hero lookup for one game, overwriting whatever
-    /// it already has. Note for whoever's reading this because a user
-    /// asked "can I pick a different cover?": today this still grabs
-    /// SteamGridDB's single top-scored match for both grid and hero, same
-    /// as FetchMissingArtwork — it's a re-roll, not a browse-and-pick
-    /// across candidates. A real picker needs ISteamGridDbClient to return
-    /// a list of candidates instead of just the best one, plus UI to
-    /// browse them; that's future work, not implemented here.
+    /// Opens the cover/banner picker for one game: shows a loading state
+    /// immediately, then fills in with whatever candidates come back.
+    /// Static images only for now (the API call itself filters out
+    /// animated GIF/webm, see SteamGridDbClient) — see README's "Seletor
+    /// de capas" section for the animated-cover follow-up.
     /// </summary>
-    private async Task RefetchArtworkAsync(GameEntry game)
+    private async void OpenCoverPicker(GameEntry game, bool isHero)
     {
-        if (!_artwork.HasApiKey) return;
+        CoverPickerTitle = isHero ? $"Escolher banner — {game.Title}" : $"Escolher capa — {game.Title}";
+        _coverPickerIsHero = isHero;
+        _coverPickerGame = game;
+        _coverPickerIndex = 0;
 
-        IsFetchingArtwork = true;
+        CoverPickerCandidates.Clear();
+        OnPropertyChanged(nameof(CoverPickerHasResults));
+        OnPropertyChanged(nameof(CoverPickerIsEmpty));
+
+        IsCoverPickerLoading = true;
+        IsCoverPickerOpen = true;
+
         try
         {
-            await _artwork.FetchGridAsync(game);
-            await _artwork.FetchHeroAsync(game);
-            Refresh();
+            var candidates = isHero
+                ? await _artwork.GetHeroCandidatesAsync(game)
+                : await _artwork.GetGridCandidatesAsync(game);
+
+            // The picker may have already been closed (player hit B while
+            // this was in flight) — don't resurrect it with stale results.
+            if (!IsCoverPickerOpen || _coverPickerGame != game) return;
+
+            foreach (var candidate in candidates)
+            {
+                CoverPickerCandidates.Add(new ArtworkCandidateViewModel(candidate));
+            }
+
+            UpdateCoverPickerSelection();
         }
         finally
         {
-            IsFetchingArtwork = false;
+            IsCoverPickerLoading = false;
+            OnPropertyChanged(nameof(CoverPickerHasResults));
+            OnPropertyChanged(nameof(CoverPickerIsEmpty));
+        }
+    }
+
+    public void CloseCoverPicker()
+    {
+        IsCoverPickerOpen = false;
+        _coverPickerGame = null;
+        CoverPickerCandidates.Clear();
+        OnPropertyChanged(nameof(CoverPickerHasResults));
+        OnPropertyChanged(nameof(CoverPickerIsEmpty));
+    }
+
+    /// <summary>
+    /// v1 keeps this a flat list (no row-aware up/down) — MainWindow maps
+    /// both left/up to -1 and right/down to +1, which is all a Take(24)
+    /// grid really needs without wrap-aware row math.
+    /// </summary>
+    public void MoveCoverPickerSelection(int delta)
+    {
+        if (!IsCoverPickerOpen || CoverPickerCandidates.Count == 0) return;
+        _coverPickerIndex = ((_coverPickerIndex + delta) % CoverPickerCandidates.Count + CoverPickerCandidates.Count) % CoverPickerCandidates.Count;
+        UpdateCoverPickerSelection();
+    }
+
+    public async void ConfirmCoverPickerSelection()
+    {
+        if (!IsCoverPickerOpen || _coverPickerGame is null || CoverPickerCandidates.Count == 0)
+        {
+            CloseCoverPicker();
+            return;
+        }
+
+        var chosen = CoverPickerCandidates[_coverPickerIndex].Candidate;
+        var game = _coverPickerGame;
+        var isHero = _coverPickerIsHero;
+        CloseCoverPicker();
+
+        if (isHero) await _artwork.ApplyHeroCandidateAsync(game, chosen);
+        else await _artwork.ApplyGridCandidateAsync(game, chosen);
+
+        Refresh();
+    }
+
+    private void UpdateCoverPickerSelection()
+    {
+        for (var i = 0; i < CoverPickerCandidates.Count; i++)
+        {
+            CoverPickerCandidates[i].IsSelected = i == _coverPickerIndex;
         }
     }
 

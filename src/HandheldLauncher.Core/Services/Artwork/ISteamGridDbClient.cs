@@ -19,4 +19,21 @@ public interface ISteamGridDbClient
 
     /// <summary>Fallback for non-Steam entries: searches by title, takes the top match's hero banner.</summary>
     Task<SteamGridDbImage?> GetBestHeroForTitleAsync(string title, CancellationToken ct = default);
+
+    /// <summary>
+    /// Every safe-for-work grid candidate SteamGridDB has for this Steam
+    /// AppId, static images only (types=static — no animated GIF/webm, see
+    /// README), highest score first, capped to a sane count for a picker UI.
+    /// GetBestGridForSteamAppAsync is just this list's first entry.
+    /// </summary>
+    Task<IReadOnlyList<SteamGridDbImage>> GetGridCandidatesForSteamAppAsync(uint steamAppId, CancellationToken ct = default);
+
+    /// <summary>Fallback for non-Steam entries: searches by title, same candidate list as the AppId version.</summary>
+    Task<IReadOnlyList<SteamGridDbImage>> GetGridCandidatesForTitleAsync(string title, CancellationToken ct = default);
+
+    /// <summary>Same idea as GetGridCandidatesForSteamAppAsync but for hero banners.</summary>
+    Task<IReadOnlyList<SteamGridDbImage>> GetHeroCandidatesForSteamAppAsync(uint steamAppId, CancellationToken ct = default);
+
+    /// <summary>Fallback for non-Steam entries: searches by title, same candidate list as the AppId version.</summary>
+    Task<IReadOnlyList<SteamGridDbImage>> GetHeroCandidatesForTitleAsync(string title, CancellationToken ct = default);
 }

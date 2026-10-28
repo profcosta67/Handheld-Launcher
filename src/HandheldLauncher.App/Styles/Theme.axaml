@@ -76,6 +76,22 @@
     <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
   </Style>
 
+  <!-- Cover/banner picker grid cells. Unlike Border.gameTile above, Width/
+       Height are NOT set here — the XAML sets them locally per-cell, which
+       is fine for this style (no size-varying class like .lastPlayed needs
+       to override it). -->
+  <Style Selector="Border.coverCandidate">
+    <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="ClipToBounds" Value="True" />
+    <Setter Property="BorderThickness" Value="3" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+  </Style>
+
+  <Style Selector="Border.coverCandidate.selected">
+    <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+  </Style>
+
   <!-- Plain dark TextBox so the "Adicionar jogo" form doesn't show up as a
        jarring white box over the rest of the dark UI. -->
   <Style Selector="TextBox">

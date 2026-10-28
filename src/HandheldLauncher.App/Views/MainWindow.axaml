@@ -219,5 +219,52 @@
         </StackPanel>
       </Border>
     </Panel>
+
+    <!-- Cover/banner picker — opened from the per-tile menu's "Escolher
+         capa"/"Escolher banner". Grid of SteamGridDB candidates (static
+         images only, see README's "Seletor de capas" section for the
+         animated-GIF follow-up); ← → ↑ ↓ all move the highlight by one
+         (flat list, no row-aware jump yet), A/Enter applies the highlighted
+         one, B/Esc/Start/View cancels without changing anything. -->
+    <Panel IsVisible="{Binding IsCoverPickerOpen}">
+      <Border Classes="contextMenuOverlay" />
+      <Border Classes="contextMenuCard" Width="880" MaxHeight="620" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Grid RowDefinitions="Auto,*,Auto">
+          <TextBlock Grid.Row="0" Text="{Binding CoverPickerTitle}" Classes="heroTitle" TextWrapping="Wrap" Margin="0,0,0,16" />
+
+          <TextBlock Grid.Row="1"
+                     Text="Buscando opções no SteamGridDB..."
+                     Classes="subtle"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                     IsVisible="{Binding IsCoverPickerLoading}" />
+
+          <TextBlock Grid.Row="1"
+                     Text="Nenhuma opção estática encontrada para esse jogo."
+                     Classes="subtle"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                     IsVisible="{Binding CoverPickerIsEmpty}" />
+
+          <ScrollViewer Grid.Row="1" MaxHeight="460" IsVisible="{Binding CoverPickerHasResults}">
+            <ItemsControl ItemsSource="{Binding CoverPickerCandidates}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ArtworkCandidateViewModel">
+                  <Border Classes="coverCandidate" Classes.selected="{Binding IsSelected}" Width="150" Height="170" Margin="6">
+                    <Image Source="{Binding LocalThumbnailPath, Converter={StaticResource FileToBitmapConverter}}"
+                           Stretch="Uniform" />
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+
+          <TextBlock Grid.Row="2" Text="← → ↑ ↓ navega · A/Enter escolhe · B/Esc cancela" Classes="subtle" Margin="0,16,0,0" />
+        </Grid>
+      </Border>
+    </Panel>
   </Panel>
 </Window>

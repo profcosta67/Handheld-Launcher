@@ -16,13 +16,25 @@ namespace HandheldLauncher.Core.Services.Artwork;
 /// to verify a package-based approach even builds.
 ///
 /// Covers grids (portrait covers) and heroes (wide banners) — both come back
-/// in the same response shape, so FetchBestGrid is reused for both and just
-/// gets pointed at a different endpoint. Logos/icons aren't wired up yet;
-/// same pattern applies if that's ever needed.
+/// in the same response shape, so FetchGridCandidates is reused for both and
+/// just gets pointed at a different endpoint. Logos/icons aren't wired up
+/// yet; same pattern applies if that's ever needed.
+///
+/// Every request adds "types=static" — SteamGridDB can also serve animated
+/// GIF/webm covers, but Avalonia's Image control doesn't animate those, so
+/// asking the API to filter them out up front means we never even download
+/// something we can't display. Animated support is tracked as a separate,
+/// not-yet-started phase in README's "Seletor de capas" section.
 /// </summary>
 public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
 {
     private const string BaseUrl = "https://www.steamgriddb.com/api/v2";
+
+    // A picker UI needs *some* cap — popular games can have hundreds of
+    // candidate grids/heroes, and downloading all of them just to show a
+    // scrollable grid would be slow and wasteful on a handheld's connection.
+    // 24 is generous for "pick the one you like" without pagination.
+    private const int MaxCandidates = 24;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -47,38 +59,62 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
 
     public async Task<SteamGridDbImage?> GetBestGridForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
     {
-        if (!HasApiKey) return null;
-        return await FetchBestGrid($"{BaseUrl}/grids/steam/{steamAppId}?dimensions=600x900", ct);
+        var candidates = await GetGridCandidatesForSteamAppAsync(steamAppId, ct);
+        return candidates.FirstOrDefault();
     }
 
     public async Task<SteamGridDbImage?> GetBestGridForTitleAsync(string title, CancellationToken ct = default)
     {
-        if (!HasApiKey) return null;
-
-        var gameId = await SearchGameId(title, ct);
-        if (gameId is null) return null;
-
-        return await FetchBestGrid($"{BaseUrl}/grids/game/{gameId}?dimensions=600x900", ct);
+        var candidates = await GetGridCandidatesForTitleAsync(title, ct);
+        return candidates.FirstOrDefault();
     }
 
     public async Task<SteamGridDbImage?> GetBestHeroForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
     {
-        if (!HasApiKey) return null;
-        // No dimensions filter here on purpose — heroes come in a few wide
-        // aspect ratios (1920x620, 3840x1240, 1600x650...) and SteamGridDB's
-        // hero library is thinner than its grid library, so narrowing by
-        // dimensions would throw away matches we'd rather keep.
-        return await FetchBestGrid($"{BaseUrl}/heroes/steam/{steamAppId}", ct);
+        var candidates = await GetHeroCandidatesForSteamAppAsync(steamAppId, ct);
+        return candidates.FirstOrDefault();
     }
 
     public async Task<SteamGridDbImage?> GetBestHeroForTitleAsync(string title, CancellationToken ct = default)
     {
-        if (!HasApiKey) return null;
+        var candidates = await GetHeroCandidatesForTitleAsync(title, ct);
+        return candidates.FirstOrDefault();
+    }
+
+    public async Task<IReadOnlyList<SteamGridDbImage>> GetGridCandidatesForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
+    {
+        if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
+        return await FetchGridCandidates($"{BaseUrl}/grids/steam/{steamAppId}?dimensions=600x900&types=static", ct);
+    }
+
+    public async Task<IReadOnlyList<SteamGridDbImage>> GetGridCandidatesForTitleAsync(string title, CancellationToken ct = default)
+    {
+        if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
 
         var gameId = await SearchGameId(title, ct);
-        if (gameId is null) return null;
+        if (gameId is null) return Array.Empty<SteamGridDbImage>();
 
-        return await FetchBestGrid($"{BaseUrl}/heroes/game/{gameId}", ct);
+        return await FetchGridCandidates($"{BaseUrl}/grids/game/{gameId}?dimensions=600x900&types=static", ct);
+    }
+
+    public async Task<IReadOnlyList<SteamGridDbImage>> GetHeroCandidatesForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
+    {
+        if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
+        // No dimensions filter here on purpose — heroes come in a few wide
+        // aspect ratios (1920x620, 3840x1240, 1600x650...) and SteamGridDB's
+        // hero library is thinner than its grid library, so narrowing by
+        // dimensions would throw away matches we'd rather keep.
+        return await FetchGridCandidates($"{BaseUrl}/heroes/steam/{steamAppId}?types=static", ct);
+    }
+
+    public async Task<IReadOnlyList<SteamGridDbImage>> GetHeroCandidatesForTitleAsync(string title, CancellationToken ct = default)
+    {
+        if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
+
+        var gameId = await SearchGameId(title, ct);
+        if (gameId is null) return Array.Empty<SteamGridDbImage>();
+
+        return await FetchGridCandidates($"{BaseUrl}/heroes/game/{gameId}?types=static", ct);
     }
 
     private async Task<int?> SearchGameId(string title, CancellationToken ct)
@@ -92,24 +128,24 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
         return payload?.Data?.FirstOrDefault()?.Id;
     }
 
-    private async Task<SteamGridDbImage?> FetchBestGrid(string url, CancellationToken ct)
+    private async Task<IReadOnlyList<SteamGridDbImage>> FetchGridCandidates(string url, CancellationToken ct)
     {
         using var response = await _http.GetAsync(url, ct);
-        if (!response.IsSuccessStatusCode) return null;
+        if (!response.IsSuccessStatusCode) return Array.Empty<SteamGridDbImage>();
 
         var payload = await response.Content.ReadFromJsonSafe<GridResponse>(ct);
+        if (payload?.Data is null) return Array.Empty<SteamGridDbImage>();
 
-        // Prefer safe-for-work, highest-scored result. SteamGridDB sorts by
-        // score already, but we don't trust that ordering blindly — a
-        // bare .FirstOrDefault() on an unexpected order would pick a bad cover.
-        var best = payload?.Data?
+        // Prefer safe-for-work, highest-scored results first. SteamGridDB
+        // sorts by score already, but we don't trust that ordering blindly —
+        // a bare pass-through on an unexpected order would surface a bad
+        // cover as the top (and, pre-picker, only) pick.
+        return payload.Data
             .Where(g => !g.Nsfw && !g.Humor)
             .OrderByDescending(g => g.Score)
-            .FirstOrDefault();
-
-        return best is null
-            ? null
-            : new SteamGridDbImage { Id = best.Id, Url = best.Url, Width = best.Width, Height = best.Height };
+            .Take(MaxCandidates)
+            .Select(g => new SteamGridDbImage { Id = g.Id, Url = g.Url, Width = g.Width, Height = g.Height })
+            .ToList();
     }
 
     public void Dispose() => _http.Dispose();
