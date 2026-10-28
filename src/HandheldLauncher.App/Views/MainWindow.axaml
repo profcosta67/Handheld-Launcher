@@ -122,7 +122,7 @@
 
     <!-- Bottom bar -->
     <Border Grid.Row="2" Classes="bottomBar" Margin="24,0,24,20" Padding="20,12">
-      <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+      <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
         <TextBlock Grid.Column="0"
                    Text="← → navega · A/Enter joga · B/Esc fecha o jogo"
                    Classes="subtle"
@@ -133,8 +133,15 @@
                 Click="OnCloseGameClick"
                 IsVisible="{Binding RunningGame, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}"
                 Margin="0,0,10,0" />
-        <Button Grid.Column="2" Classes="pill" Content="Atualizar" Click="OnRefreshClick" Margin="0,0,10,0" />
-        <Button Grid.Column="3" Classes="pill" Content="Sair" Click="OnQuitClick" />
+        <Button Grid.Column="2"
+                Classes="pill"
+                Content="Buscar capas"
+                Command="{Binding FetchArtworkCommand}"
+                IsEnabled="{Binding CanFetchArtwork}"
+                ToolTip.Tip="Busca capas no SteamGridDB para os jogos sem capa. Precisa de uma API key em %AppData%\HandheldLauncher\settings.json"
+                Margin="0,0,10,0" />
+        <Button Grid.Column="3" Classes="pill" Content="Atualizar" Click="OnRefreshClick" Margin="0,0,10,0" />
+        <Button Grid.Column="4" Classes="pill" Content="Sair" Click="OnQuitClick" />
       </Grid>
     </Border>
 

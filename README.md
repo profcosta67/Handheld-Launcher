@@ -9,11 +9,12 @@ SteamGridDB, navegação por controle.
 > quando quiser (é um find-and-replace no `.sln`, nos `.csproj` e no
 > namespace `HandheldLauncher.*`).
 
-## Status atual (início do projeto)
+## Status atual
 
 Construído até agora:
 
-- **`HandheldLauncher.Core`** — biblioteca sem UI, sem dependências externas:
+- **`HandheldLauncher.Core`** — biblioteca sem UI, sem dependências externas
+  além da base class library do .NET:
   - `VdfParser` — parser próprio do formato VDF (KeyValues) que o Steam usa
     em `libraryfolders.vdf` e `appmanifest_*.acf`.
   - `SteamLibraryScanner` — encontra o Steam instalado e lê todos os jogos
@@ -24,32 +25,54 @@ Construído até agora:
   - `LibraryService` — junta scanner(s) + store num único catálogo que a UI
     consome.
   - `GameLauncher` — inicia jogos (via `steam://rungameid/` pros jogos Steam,
-    processo direto pros manuais) e rastreia quando fecham.
+    processo direto pros manuais), rastreia quando fecham, e fecha à força
+    via `CloseGame()` (processo próprio pros manuais; sweep best-effort por
+    `InstallDirectory` pros Steam, já que não possuímos o processo real).
+  - `SteamGridDbClient` / `ArtworkService` — busca a melhor capa no
+    SteamGridDB (por AppId pros jogos Steam, por nome pros manuais), baixa
+    e cacheia em `%AppData%\HandheldLauncher\artwork\`, persiste o caminho
+    como override.
+  - `AppSettingsStore` — lê/cria `%AppData%\HandheldLauncher\settings.json`
+    (hoje só guarda a API key do SteamGridDB — não tem tela de
+    configurações ainda, é editar o arquivo na mão por enquanto).
 - **`HandheldLauncher.App`** — UI em Avalonia:
   - Janela com hero (jogo focado, grande) + fileira horizontal dos outros
     jogos, barra de topo e barra inferior — layout inspirado na referência
     que você mandou.
-  - Navegação por teclado (seta esquerda/direita + Enter) como placeholder
-    até o input de controle (XInput) entrar.
-  - Botão "Atualizar" (reescaneia a biblioteca) e "Sair".
+  - Navegação por **controle via XInput** (dpad/analógico esquerdo, A
+    confirma, B fecha o jogo) — testado e funcionando com um controle Xbox.
+    Teclado (← → Enter Esc) continua funcionando como fallback de dev.
+  - Botão "Fechar: <jogo>" (só aparece com jogo rodando), "Buscar capas"
+    (dispara o fetch do SteamGridDB pros jogos sem capa), "Atualizar"
+    (reescaneia) e "Sair".
+  - Ícone de engrenagem no topo — **só placeholder visual por enquanto**,
+    desabilitado. Ainda não decidimos o escopo da tela de configurações.
 
-Ainda **não** feito (próximas etapas, nessa ordem que faz mais sentido):
+Ainda **não** feito:
 
-1. Navegação por controle (gamepad)
-2. Integração SteamGridDB (as capas hoje caem no fallback de texto)
-3. Modo kiosk: boot direto em tela cheia + suprimir Legion Space / Xbox FSE
-4. Instalador
+1. Modo kiosk: boot direto em tela cheia + suprimir Legion Space / Xbox FSE
+2. Instalador
+3. Tela de configurações de verdade (hoje é só editar `settings.json` na mão)
 
-## ⚠️ Importante: build ainda não verificado aqui
+## Configurar a API key do SteamGridDB
 
-Este projeto foi escrito inteiro num sandbox Linux que **bloqueia acesso a
-`api.nuget.org`** por política de rede — então não consegui rodar
-`dotnet restore`/`dotnet build` aqui pra validar que compila. O `Core` não
-tem nenhuma dependência externa (só a .NET base class library), mas o `App`
-depende dos pacotes do Avalonia, que só vêm do NuGet.
+1. Cria uma conta grátis em https://www.steamgriddb.com e gera uma API key
+   em https://www.steamgriddb.com/profile/preferences/api
+2. Roda o launcher uma vez (ele cria `%AppData%\HandheldLauncher\settings.json`
+   automaticamente, com o campo vazio)
+3. Abre esse arquivo e cola a chave:
+   ```json
+   { "SteamGridDbApiKey": "sua-chave-aqui" }
+   ```
+4. Reabre o launcher e clica em "Buscar capas"
 
-**Então o primeiro build real precisa acontecer na sua máquina.** Se der erro
-de compilação, me manda a mensagem de erro que eu corrijo.
+## ⚠️ Build ainda não totalmente verificado aqui
+
+Este projeto foi escrito num sandbox Linux que bloqueia acesso a
+`api.nuget.org` — não dá pra rodar `dotnet restore`/`build` aqui pra validar.
+Os três primeiros commits já foram testados e corrigidos a partir dos erros
+reais que você mandou; o commit do SteamGridDB (mais recente) ainda não
+passou por esse ciclo — se der erro de build, me manda a mensagem.
 
 ## Como buildar (Windows, com internet normal)
 
@@ -62,19 +85,13 @@ dotnet restore
 dotnet run --project src/HandheldLauncher.App
 ```
 
-Isso deve abrir a janela do launcher. Se você tiver Steam instalado num
-caminho padrão (`C:\Program Files (x86)\Steam` ou `D:\SteamLibrary` /
-`D:\Steam` etc.), a biblioteca já deve aparecer escaneada automaticamente —
-sem capas ainda (isso é a etapa do SteamGridDB), só com o nome do jogo como
-placeholder na própria capa.
-
 ## Estrutura
 
 ```
 HandheldLauncher.sln
 src/
-  HandheldLauncher.Core/     # modelos, scanner Steam, storage, launcher de processo
-  HandheldLauncher.App/      # UI Avalonia (ViewModels, Views, Styles)
+  HandheldLauncher.Core/     # modelos, scanner Steam, storage, launcher de processo, SteamGridDB
+  HandheldLauncher.App/      # UI Avalonia (ViewModels, Views, Styles, Input/XInput)
 installer/                   # (vazio por enquanto — instalador vem depois)
 docs/                        # (vazio por enquanto)
 ```

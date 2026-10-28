@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Windows.Input;
 using HandheldLauncher.Core.Models;
 using HandheldLauncher.Core.Services;
+using HandheldLauncher.Core.Services.Artwork;
 
 namespace HandheldLauncher.App.ViewModels;
 
@@ -9,11 +10,13 @@ public sealed class MainViewModel : ViewModelBase
 {
     private readonly ILibraryService _library;
     private readonly IGameLauncher _launcher;
+    private readonly IArtworkService _artwork;
 
-    public MainViewModel(ILibraryService library, IGameLauncher launcher)
+    public MainViewModel(ILibraryService library, IGameLauncher launcher, IArtworkService artwork)
     {
         _library = library;
         _launcher = launcher;
+        _artwork = artwork;
         _launcher.GameExited += OnGameExited;
 
         Games = new ObservableCollection<GameTileViewModel>(
@@ -24,6 +27,7 @@ public sealed class MainViewModel : ViewModelBase
         LaunchSelectedCommand = new RelayCommand(LaunchSelected, () => SelectedTile is not null);
         CloseRunningGameCommand = new RelayCommand(CloseRunningGame, () => RunningGame is not null);
         RefreshCommand = new RelayCommand(Refresh);
+        FetchArtworkCommand = new RelayCommand(FetchMissingArtwork, () => CanFetchArtwork);
 
         SelectedIndex = Games.Count > 0 ? 0 : -1;
     }
@@ -73,11 +77,29 @@ public sealed class MainViewModel : ViewModelBase
         private set => SetField(ref _runningGame, value);
     }
 
+    private bool _isFetchingArtwork;
+    public bool IsFetchingArtwork
+    {
+        get => _isFetchingArtwork;
+        private set
+        {
+            if (SetField(ref _isFetchingArtwork, value))
+            {
+                OnPropertyChanged(nameof(CanFetchArtwork));
+            }
+        }
+    }
+
+    /// <summary>False with no explanation in the UI yet if there's no API key — the
+    /// button's ToolTip in MainWindow.axaml is where that's spelled out.</summary>
+    public bool CanFetchArtwork => _artwork.HasApiKey && !IsFetchingArtwork;
+
     public ICommand MoveNextCommand { get; }
     public ICommand MovePreviousCommand { get; }
     public ICommand LaunchSelectedCommand { get; }
     public ICommand CloseRunningGameCommand { get; }
     public ICommand RefreshCommand { get; }
+    public ICommand FetchArtworkCommand { get; }
 
     public void MoveNext() => SelectedIndex++;
 
@@ -114,6 +136,34 @@ public sealed class MainViewModel : ViewModelBase
             : Math.Max(0, Games.ToList().FindIndex(t => t.Game.Id == previouslySelectedId));
 
         SelectedIndex = Games.Count > 0 ? restoredIndex : -1;
+    }
+
+    /// <summary>
+    /// Fetches covers for every game that doesn't have one yet, one at a
+    /// time (not parallel — gentler on the API and simpler to reason about
+    /// without a real test run to tune concurrency against). Can take a
+    /// while on a big library; the button disables itself meanwhile via
+    /// CanFetchArtwork.
+    /// </summary>
+    private async void FetchMissingArtwork()
+    {
+        if (!CanFetchArtwork) return;
+        IsFetchingArtwork = true;
+
+        try
+        {
+            foreach (var tile in Games.ToList())
+            {
+                if (!string.IsNullOrEmpty(tile.Game.GridImagePath)) continue;
+                await _artwork.FetchGridAsync(tile.Game);
+            }
+
+            Refresh();
+        }
+        finally
+        {
+            IsFetchingArtwork = false;
+        }
     }
 
     private void UpdateFocus()
