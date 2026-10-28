@@ -13,6 +13,7 @@ public partial class MainWindow : Window
 {
     private readonly GamepadPoller _gamepad = new();
     private readonly DispatcherTimer _gamepadTimer;
+    private DispatcherTimer? _topmostEnforcerTimer;
 
     public MainWindow()
     {
@@ -31,6 +32,54 @@ public partial class MainWindow : Window
         // here — wire its view-level requests (opening a dialog, closing
         // the window) once it actually shows up.
         DataContextChanged += OnDataContextChanged;
+
+        // App.axaml.cs sets Topmost=true BEFORE Show() happens (it's a
+        // property set right after `new MainWindow { ... }`, before
+        // desktop.MainWindow assignment triggers the actual window show),
+        // so by the time Opened fires here, Topmost already reflects
+        // whether this is a kiosk install. See StartTopmostEnforcer below
+        // for why a one-time Topmost=true isn't enough on the real
+        // hardware.
+        Opened += (_, _) =>
+        {
+            if (Topmost) StartTopmostEnforcer();
+        };
+    }
+
+    /// <summary>
+    /// Reported on the Legion Go 2, specifically in Windows "Modo Xbox" /
+    /// full-screen-experience boot (not in a normal desktop boot, where
+    /// the one-time Topmost=true from App.axaml.cs is enough on its own):
+    /// Legion Space still ends up in front of us even though our window is
+    /// Topmost. Likely explanation: Windows only guarantees "most recently
+    /// asserted" ordering among several Topmost windows, not a fixed
+    /// winner — and Legion Space, being the FSE "home app" being replaced,
+    /// apparently keeps re-asserting its own foreground/topmost status
+    /// after boot settles, which pushes us back regardless of our own
+    /// one-time Topmost flag.
+    ///
+    /// This toggles Topmost off/on (which re-inserts the window at the
+    /// front of that band) plus Activate() every couple seconds, so even
+    /// if Legion Space "wins" a round, we win the next one shortly after.
+    /// It's a mitigation, not a guaranteed fix — if Modo Xbox's shell runs
+    /// its own composited layer above ordinary Win32 topmost windows
+    /// entirely, no amount of toggling from our side will beat it, and the
+    /// real fix would have to come from OmniConsole's side instead. Only
+    /// starts when Topmost is already on (kiosk installs) — never runs on
+    /// a plain `dotnet run` dev window.
+    /// </summary>
+    private void StartTopmostEnforcer()
+    {
+        _topmostEnforcerTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        _topmostEnforcerTimer.Tick += (_, _) =>
+        {
+            if (!Topmost) return; // safety: if something turned this off on purpose, stop fighting it
+            Topmost = false;
+            Topmost = true;
+            Activate();
+        };
+        _topmostEnforcerTimer.Start();
+        Closed += (_, _) => _topmostEnforcerTimer?.Stop();
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
@@ -376,8 +425,16 @@ public partial class MainWindow : Window
         (DataContext as MainViewModel)?.Refresh();
     }
 
+    /// <summary>
+    /// Bottom-bar "Sair" (mouse-only — see the comment on its XAML
+    /// counterpart for why it exists alongside the global menu's own
+    /// "Sair"). Must do the same watchdog-disable as
+    /// vm.QuitRequested below; this one bypassed it until now — same
+    /// bug class, both are a deliberate quit and both need to stick.
+    /// </summary>
     private void OnQuitClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
+        DisableWatchdogIfPresent();
         Close();
     }
 

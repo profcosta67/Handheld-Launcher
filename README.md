@@ -111,18 +111,39 @@ Construído até agora:
     Space/Xbox/Steam abrem no boot e a nossa janela ficava escondida
     atrás deles; `Topmost` mantém ela sempre por cima, sem bloquear
     Alt+Tab (dá pra trocar de janela na mão, só não deixa OUTRA janela
-    cobrir a nossa sem querer).
+    cobrir a nossa sem querer). **Confirmado funcionando no modo desktop
+    normal do Legion Go 2** (boot direto no Windows, sem o Modo Xbox); no
+    boot pelo Modo Xbox (ver seção "Instalar no Legion Go 2 / ROG Ally")
+    a Legion Space ainda voltava pra frente mesmo com `Topmost = true` —
+    ver bullet do "enforcer" abaixo pra tentativa de corrigir isso.
+  - **"Enforcer" de Topmost (tentativa, ainda sem confirmação)**: achado
+    no Legion Go 2 — no boot pelo Modo Xbox, um `Topmost = true` aplicado
+    uma vez só na abertura não bastava: a Legion Space continuava
+    aparecendo na frente depois. Hipótese: o Windows só garante que o
+    Topmost "mais recente" fica na frente entre vários Topmost ao mesmo
+    tempo, e a Legion Space parece se reafirmar depois de nós. Agora
+    `MainWindow` reaplica `Topmost` (desliga/liga + `Activate()`) a cada 2
+    segundos enquanto o modo kiosk estiver ligado (`StartTopmostEnforcer`,
+    iniciado a partir do evento `Opened`), pra "ganhar de volta" a frente
+    mesmo se a Legion Space ganhar uma rodada. É só uma mitigação, não
+    garantia — se o shell do Modo Xbox roda numa camada composta acima do
+    Topmost normal do Win32, isso pode não ser suficiente, e a correção de
+    verdade teria que vir do lado do OmniConsole. **Ainda não confirmado
+    se resolve no handheld real.**
   - **Reabrir sozinho se for fechado**: achado no Legion Go 2 — fechar o
     app (Alt+F4 ou crash) deixava ele fechado de vez, sem reabrir. Agora
     o instalador registra uma **Tarefa Agendada do Windows**
     (`HandheldLauncherWatchdog`) que checa a cada 1 minuto e reabre o app
     se não estiver rodando — sobrevive a Alt+F4 e a crash. Pra isso não
-    virar uma prisão, o botão/opção **"Sair" do menu geral do launcher
-    desativa esse watchdog antes de fechar** (`MainWindow.axaml.cs`), então
-    um "Sair" deliberado continua fechando de vez; só o Alt+F4/crash é que
-    volta sozinho. Quem não quiser esse comportamento usa a flag
-    `-NoWatchdog` do instalador (ver seção própria mais abaixo) pra voltar
-    ao atalho simples antigo, que não reabre.
+    virar uma prisão, **qualquer um dos dois botões "Sair" (o do menu
+    geral E o da barra de baixo) desativa esse watchdog antes de
+    fechar** (`MainWindow.axaml.cs` — o da barra de baixo tinha ficado de
+    fora na primeira versão disso, corrigido nesta leva), então um "Sair"
+    deliberado por qualquer um dos dois sempre continua fechando de vez;
+    só o Alt+F4/crash é que volta sozinho. Quem não quiser esse
+    comportamento usa a flag `-NoWatchdog` do instalador (ver seção
+    própria mais abaixo) pra voltar ao atalho simples antigo, que não
+    reabre.
 - **`installer/`** — `Install-Launcher.ps1`/`Uninstall-Launcher.ps1` (e os
   `Instalar.bat`/`Desinstalar.bat` de duplo-clique por cima deles), ver
   seção "Instalar no Legion Go 2 / ROG Ally" mais abaixo. Os `.ps1`
@@ -336,14 +357,18 @@ Legion Go 2 / ROG Ally" mais acima pros detalhes e achados de cada um). Um
 bug já apareceu e foi corrigido: o script procurava
 `HandheldLauncher.App.exe` depois do publish, mas o `.csproj` nomeia o
 executável só de `HandheldLauncher.exe` (`<AssemblyName>` diferente do
-nome da pasta do projeto). **Ainda não testados num build real**: a
-`Topmost = true` da janela, o watchdog (`HandheldLauncherWatchdog` +
-"Sair" desativando ele) e o preenchimento automático da API key via
-`installer\steamgriddb-api-key.txt` — os três são desta leva, implementados
-a partir dos relatos do Legion Go 2 mas ainda sem um ciclo de teste depois
-de escritos. Testa num momento em que você consegue acompanhar o
-resultado, e lê o `install-log.txt` no final pra confirmar que cada passo
-fez o que devia.
+nome da pasta do projeto). **Já testados no Legion Go 2 de verdade, com
+resultado misto**: a API key automática via
+`installer\steamgriddb-api-key.txt` **confirmada funcionando**; o
+`Topmost = true` + watchdog **confirmados funcionando no boot em modo
+desktop normal** (janela fica na frente, reabre sozinha se fechar); no
+boot pelo Modo Xbox, porém, a Legion Space continuou ganhando a frente da
+nossa janela mesmo com `Topmost = true` — o "enforcer" que reaplica
+`Topmost` a cada 2 segundos (ver bullet própria mais acima) foi escrito
+pra tentar corrigir isso, mas **ainda não passou por esse teste depois de
+escrito**. O bug do botão "Sair" da barra de baixo não desativar o
+watchdog (só o do menu geral fazia isso) também foi corrigido nesta leva,
+sem teste depois ainda.
 
 **Bug corrigido** (reportado pelo usuário): nos dois menus (Start e
 View/Back), só o D-pad movia ↑↓ — o analógico esquerdo só lia o eixo X
