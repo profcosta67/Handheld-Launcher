@@ -178,18 +178,22 @@
             <VectorTransition Property="Offset" Duration="0:0:0.28" Easing="CubicEaseOut" />
           </Transitions>
         </ScrollViewer.Transitions>
-        <!-- VerticalAlignment="Center" (era implícito Stretch/Top) — a Grid
-             externa (RowDefinitions="Auto,Auto,*") dá pra este ScrollViewer
-             TODO o espaço vertical que sobra, e um ItemsControl sem
-             alinhamento vertical próprio fica ancorado no topo desse
-             espaço, deixando um vão vazio embaixo da fileira de capas
-             (pedido do usuário: "abaixo dos ícones ainda está com bastante
-             espaço"). Centralizar faz o espaço sobrando se dividir em cima
-             e embaixo da fileira em vez de se acumular todo embaixo.
-             ScrollGameRowSelectionIntoView só manipula Offset.X/
-             Viewport.Width (eixo horizontal), então não é afetado por
-             isso. -->
-        <ItemsControl ItemsSource="{Binding Games}" VerticalAlignment="Center">
+        <!-- REVERTIDO nesta leva: tinha colocado VerticalAlignment="Center"
+             aqui pra tentar dividir o espaço vertical sobrando em cima e
+             embaixo da fileira (em vez de acumular tudo embaixo, que era a
+             queixa da leva anterior). No Legion Go 2 de verdade isso
+             piorou: o usuário reportou "agora baixou demais e tá cortando
+             a parte de baixo" — nessa resolução real a fileira
+             (Height=290 por tile) aparentemente é mais alta que o espaço
+             "*" sobrando, então centralizar empurrou a fileira pra baixo o
+             suficiente pra cortar a base contra a barra de baixo, em vez
+             de só deixar sobrar embaixo (que era cosmético, não cortava
+             nada). Voltou pro padrão (sem VerticalAlignment, topo) —
+             prefere sobrar espaço embaixo do que cortar a fileira.
+             Ajuste fino de verdade aqui precisa da resolução/altura real
+             da janela no Legion Go 2 pra calcular sem continuar
+             tentando "no escuro". -->
+        <ItemsControl ItemsSource="{Binding Games}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
               <!-- Spacing 14 → 18 nesta leva — junto com a WIDE CAPSULE
