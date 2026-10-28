@@ -137,9 +137,26 @@ Ainda **não** feito:
 
 **Confirmado funcionando num PC Windows normal** (publish, cópia, atalhos,
 modo kiosk, ajuste do Xbox Game Bar, busca do Legion Space/Armoury Crate —
-tudo rodou de ponta a ponta). Ainda não testado no Legion/ROG Ally de
-verdade, nem o instalador duplo-clique (`Instalar.bat`) — só os scripts
-`.ps1` por trás dele.
+tudo rodou de ponta a ponta). Testado no Legion Go 2 de verdade também
+(instalou certinho, ícone apareceu) — mas apareceu uma peça que a gente
+não sabia que existia, ver aviso abaixo.
+
+> **⚠️ Achado testando no Legion Go 2 de verdade**: depois de reiniciar, o
+> Windows entrou no **"Modo Xbox" / "Full screen experience"** — um
+> recurso do próprio Windows 11 (não do Legion Space) que assume a tela
+> no boot e abre um "app principal" configurado (no caso, o Legion Space).
+> É por isso que a busca "melhor esforço" do instalador não acha nada pra
+> desativar: não é atalho na pasta de Inicialização nem chave Run, é um
+> recurso de outro nível do Windows inteiro. **Correção**: Configurações >
+> Jogos > Modo Xbox (ou "Full screen experience", o nome varia por versão
+> do Windows 11) > desliga "Entrar no modo Xbox ao iniciar" (e, se tiver,
+> deixa "Escolher app principal" como "Nenhum"). Reinicia de verdade
+> (Iniciar > Energia > Reiniciar, não só desligar/ligar, por causa do Fast
+> Startup). Se o app Xbox ainda abrir separado, desliga ele também em
+> Configurações > Aplicativos > Inicializar. Depois disso o boot deve
+> cair no desktop normal, e aí sim nosso atalho de inicialização
+> automática tem chance de rodar. **Ainda não confirmado se, desligando o
+> Modo Xbox, o nosso launcher passa a abrir sozinho** — é o próximo teste.
 
 O que o instalador faz, resumido (detalhes completos nos comentários do
 próprio `Install-Launcher.ps1`): publica o app (`dotnet publish`,
@@ -151,7 +168,9 @@ funcionando, fechar o app sempre volta pro desktop normal), liga o modo
 kiosk (fullscreen) no `settings.json`, e tenta impedir o Xbox Game Bar e o
 Legion Space/Armoury Crate SE de abrirem sozinhos no boot (os dois
 primeiros via chaves de registro bem documentadas; os do fabricante via uma
-busca "melhor esforço" — ver comentários do script pras limitações disso).
+busca "melhor esforço" — ver comentários do script pras limitações disso,
+e o aviso abaixo sobre o Modo Xbox, que é o motivo real de essa busca não
+achar nada no Legion Go 2).
 
 **Jeito fácil (duplo-clique, sem digitar comando nenhum):**
 
