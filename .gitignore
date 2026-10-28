@@ -1,0 +1,14 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+
+## Avalonia / IDE
+.vs/
+.idea/
+*.DotSettings.user
+
+## OS
+.DS_Store
+Thumbs.db

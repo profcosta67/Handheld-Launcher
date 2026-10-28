@@ -1,0 +1,87 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <Styles.Resources>
+    <ResourceDictionary>
+
+      <!-- Palette — a neutral violet accent, deliberately not ROG red or
+           Legion blue, since this launcher runs on both. Swap freely. -->
+      <Color x:Key="BackgroundColor">#0C0D12</Color>
+      <Color x:Key="SurfaceColor">#181A22</Color>
+      <Color x:Key="SurfaceRaisedColor">#222531</Color>
+      <Color x:Key="AccentColor">#7C5CFC</Color>
+      <Color x:Key="AccentSoftColor">#5A41C4</Color>
+      <Color x:Key="TextPrimaryColor">#F5F5F7</Color>
+      <Color x:Key="TextSecondaryColor">#9A9CAB</Color>
+
+      <SolidColorBrush x:Key="BackgroundBrush" Color="{StaticResource BackgroundColor}" />
+      <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource SurfaceColor}" />
+      <SolidColorBrush x:Key="SurfaceRaisedBrush" Color="{StaticResource SurfaceRaisedColor}" />
+      <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
+      <SolidColorBrush x:Key="AccentSoftBrush" Color="{StaticResource AccentSoftColor}" />
+      <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}" />
+      <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryColor}" />
+
+      <!-- Rounded-corner tokens — the look the reference screenshot is built on. -->
+      <CornerRadius x:Key="HeroCornerRadius">24</CornerRadius>
+      <CornerRadius x:Key="TileCornerRadius">16</CornerRadius>
+      <CornerRadius x:Key="PillCornerRadius">999</CornerRadius>
+      <CornerRadius x:Key="BarCornerRadius">18</CornerRadius>
+
+    </ResourceDictionary>
+  </Styles.Resources>
+
+  <!-- Base tile: used for both the hero card and the smaller row tiles,
+       distinguished by size/placement in MainWindow.axaml. -->
+  <Style Selector="Border.gameTile">
+    <Setter Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
+    <Setter Property="CornerRadius" Value="{StaticResource TileCornerRadius}" />
+    <Setter Property="ClipToBounds" Value="True" />
+  </Style>
+
+  <Style Selector="Border.gameTile.focused">
+    <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+    <Setter Property="BorderThickness" Value="3" />
+  </Style>
+
+  <Style Selector="Border.heroCard">
+    <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+    <Setter Property="CornerRadius" Value="{StaticResource HeroCornerRadius}" />
+    <Setter Property="ClipToBounds" Value="True" />
+  </Style>
+
+  <Style Selector="Border.topBar, Border.bottomBar">
+    <Setter Property="Background" Value="#CC12141C" />
+    <Setter Property="CornerRadius" Value="{StaticResource BarCornerRadius}" />
+  </Style>
+
+  <Style Selector="TextBlock.gameTitle">
+    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style Selector="TextBlock.heroTitle">
+    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+    <Setter Property="FontSize" Value="30" />
+    <Setter Property="FontWeight" Value="Bold" />
+  </Style>
+
+  <Style Selector="TextBlock.subtle">
+    <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+    <Setter Property="FontSize" Value="14" />
+  </Style>
+
+  <Style Selector="Button.pill">
+    <Setter Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
+    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+    <Setter Property="CornerRadius" Value="{StaticResource PillCornerRadius}" />
+    <Setter Property="Padding" Value="16,8" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+
+  <Style Selector="Button.pill:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
+  </Style>
+
+</Styles>

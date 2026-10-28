@@ -1,0 +1,126 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:HandheldLauncher.App.ViewModels"
+        xmlns:conv="using:HandheldLauncher.App.Converters"
+        xmlns:dataConv="using:Avalonia.Data.Converters"
+        x:Class="HandheldLauncher.App.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="Handheld Launcher"
+        Width="1280" Height="800"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BackgroundBrush}"
+        Focusable="True"
+        KeyDown="OnWindowKeyDown">
+
+  <!--
+    Dev-time window chrome on purpose: normal resizable window so this is
+    easy to iterate on. Fullscreen/borderless "kiosk" boot is task #7
+    (modo kiosk) — switching SystemDecorations/WindowState happens there,
+    once suppressing Legion Space / Xbox auto-start is figured out too.
+  -->
+
+  <Window.Resources>
+    <conv:FileToBitmapConverter x:Key="FileToBitmapConverter" />
+  </Window.Resources>
+
+  <Grid RowDefinitions="Auto,*,Auto" Margin="0">
+
+    <!-- Top bar -->
+    <Border Grid.Row="0" Classes="topBar" Margin="24,20,24,0" Padding="20,12">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+          <Ellipse Width="10" Height="10" Fill="{StaticResource AccentBrush}" VerticalAlignment="Center" />
+          <TextBlock Text="Handheld Launcher" Classes="gameTitle" VerticalAlignment="Center" />
+        </StackPanel>
+        <!-- System tray area (wifi/battery/clock) is a later pass — placeholder for now. -->
+        <TextBlock Grid.Column="1" Text="●●●  ⚡100%" Classes="subtle" VerticalAlignment="Center" />
+      </Grid>
+    </Border>
+
+    <!-- Main content: hero + horizontal row -->
+    <Grid Grid.Row="1" ColumnDefinitions="420,*" Margin="24,20,24,20">
+
+      <!-- Hero: the focused game, big -->
+      <Border Grid.Column="0" Classes="heroCard" Margin="0,0,12,0">
+        <Grid RowDefinitions="*,Auto" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
+          <Image Grid.Row="0"
+                 Source="{Binding SelectedTile.GridImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                 Stretch="UniformToFill" />
+
+          <!-- Placeholder shown while there's no cover art yet (pre-SteamGridDB) -->
+          <TextBlock Grid.Row="0"
+                     Text="{Binding SelectedTile.Title}"
+                     Classes="heroTitle"
+                     TextWrapping="Wrap"
+                     TextAlignment="Center"
+                     VerticalAlignment="Center"
+                     HorizontalAlignment="Center"
+                     Margin="20"
+                     IsVisible="{Binding SelectedTile.GridImagePath, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
+
+          <StackPanel Grid.Row="1" Background="#B30C0D12" Spacing="4" Margin="0" Padding="20,16">
+            <TextBlock Text="{Binding SelectedTile.Title}" Classes="heroTitle" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding SelectedTile.Game.PlaytimeMinutes, StringFormat='{}{0} min jogados'}"
+                       Classes="subtle" />
+          </StackPanel>
+        </Grid>
+
+        <TextBlock Text="Nenhum jogo encontrado ainda.&#10;Adicione um jogo manualmente para começar."
+                   Classes="subtle"
+                   TextWrapping="Wrap"
+                   TextAlignment="Center"
+                   VerticalAlignment="Center"
+                   HorizontalAlignment="Center"
+                   Margin="24"
+                   IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
+      </Border>
+
+      <!-- Horizontal row of every other game -->
+      <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+        <ItemsControl ItemsSource="{Binding Games}" Margin="12,0,0,0">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal" Spacing="14" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:GameTileViewModel">
+              <Border Classes="gameTile"
+                      Classes.focused="{Binding IsFocused}"
+                      Width="170" Height="230"
+                      PointerPressed="OnTilePointerPressed"
+                      DoubleTapped="OnTileDoubleTapped">
+                <Grid>
+                  <Image Source="{Binding GridImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                         Stretch="UniformToFill" />
+                  <TextBlock Text="{Binding Title}"
+                             Classes="gameTitle"
+                             TextWrapping="Wrap"
+                             TextAlignment="Center"
+                             VerticalAlignment="Center"
+                             HorizontalAlignment="Center"
+                             Margin="10"
+                             IsVisible="{Binding GridImagePath, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </Grid>
+
+    <!-- Bottom bar -->
+    <Border Grid.Row="2" Classes="bottomBar" Margin="24,0,24,20" Padding="20,12">
+      <Grid ColumnDefinitions="*,Auto,Auto">
+        <TextBlock Grid.Column="0"
+                   Text="Use ← → para navegar, Enter para jogar"
+                   Classes="subtle"
+                   VerticalAlignment="Center" />
+        <Button Grid.Column="1" Classes="pill" Content="Atualizar" Click="OnRefreshClick" Margin="0,0,10,0" />
+        <Button Grid.Column="2" Classes="pill" Content="Sair" Click="OnQuitClick" />
+      </Grid>
+    </Border>
+
+  </Grid>
+</Window>
