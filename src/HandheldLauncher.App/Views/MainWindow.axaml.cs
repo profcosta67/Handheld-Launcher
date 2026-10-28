@@ -733,8 +733,8 @@ public partial class MainWindow : Window
     /// usually is, since ReorderLastPlayedFirst moves it there, but this
     /// walks the actual flags rather than assuming that to stay correct
     /// either way). Tile widths/spacing below must match
-    /// Theme.axaml's Border.gameTile (220) / .lastPlayed (620) and
-    /// MainWindow.axaml's StackPanel Spacing="14" exactly.
+    /// Theme.axaml's Border.gameTile (220) / .lastPlayed (580) and
+    /// MainWindow.axaml's StackPanel Spacing="18" exactly.
     /// </summary>
     private void ScrollGameRowSelectionIntoView(MainViewModel vm)
     {
@@ -742,8 +742,8 @@ public partial class MainWindow : Window
         if (vm.Games.Count == 0 || vm.SelectedIndex < 0) return;
 
         const double normalWidth = 220;
-        const double lastPlayedWidth = 620;
-        const double spacing = 14;
+        const double lastPlayedWidth = 580; // 620 → 580 nesta leva — ver Theme.axaml
+        const double spacing = 18; // 14 → 18 nesta leva — junto com a largura menor acima, resolve a WIDE CAPSULE sobrepondo a tile vizinha
 
         double itemLeft = 0;
         for (var i = 0; i < vm.SelectedIndex; i++)

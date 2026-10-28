@@ -28,4 +28,20 @@ public class AppSettings
     /// window stays resizable for iterating.
     /// </summary>
     public bool KioskMode { get; set; }
+
+    /// <summary>
+    /// Pastas extras pra procurar jogos do Xbox app / Game Pass (ex:
+    /// "C:\XboxGames" ou "D:\WindowsApps") — pedido do usuário depois que
+    /// a detecção automática não achou nada. Não existe nenhum scanner
+    /// de UWP/Xbox de verdade ainda (precisaria de pacotes que este
+    /// projeto não referencia), então isto é um atalho manual: cada
+    /// pasta listada aqui é escaneada por XboxFolderScanner, que trata
+    /// toda SUBPASTA IMEDIATA dentro dela como um jogo (pega o maior
+    /// .exe lá dentro como executável — ver XboxFolderScanner pra
+    /// detalhes/limitações). Hand-edit só, igual SteamGridDbApiKey
+    /// acima — sem UI de configuração ainda. Lista vazia = nenhuma pasta
+    /// extra, comportamento de antes (só a checkbox manual em
+    /// "Adicionar jogo" cria entradas Xbox).
+    /// </summary>
+    public List<string> XboxScanFolders { get; set; } = new();
 }

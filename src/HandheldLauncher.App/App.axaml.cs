@@ -27,8 +27,14 @@ public partial class App : Application
             var appSettings = AppSettingsStore.Load();
 
             var steamScanner = new SteamLibraryScanner();
+            // Null quando AppSettings.XboxScanFolders está vazio (padrão) —
+            // "editor de onde procurar" jogos Xbox pedido pelo usuário,
+            // hand-edit só em settings.json por enquanto (ver XboxFolderScanner).
+            var xboxFolderScanner = appSettings.XboxScanFolders.Count > 0
+                ? new XboxFolderScanner(appSettings.XboxScanFolders)
+                : null;
             var libraryStore = new GameLibraryStore();
-            var libraryService = new LibraryService(steamScanner, libraryStore);
+            var libraryService = new LibraryService(steamScanner, libraryStore, xboxFolderScanner);
             var gameLauncher = new GameLauncher();
 
             var gridDbClient = new SteamGridDbClient(appSettings.SteamGridDbApiKey);

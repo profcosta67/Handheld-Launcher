@@ -10,7 +10,8 @@ echo  Handheld Launcher - Desinstalador
 echo ============================================================
 echo.
 
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0Uninstall-Launcher.ps1" %*
+rem Script real mora em Arquivos\ (pasta reorganizada nesta leva).
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0Arquivos\Uninstall-Launcher.ps1" %*
 
 echo.
 echo ============================================================

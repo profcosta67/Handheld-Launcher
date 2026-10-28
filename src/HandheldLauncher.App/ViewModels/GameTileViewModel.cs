@@ -102,10 +102,11 @@ public sealed class GameTileViewModel : ViewModelBase
     /// width of its own otherwise — it would size itself to whichever is
     /// widest (often the caption text for a long title), breaking the
     /// row's fixed-width layout and the scroll math that assumes it.
-    /// 170/460 → 190/510 → 220/620 nesta leva — pedido do usuário pra
-    /// deixar as capas mais destacadas.
+    /// 170/460 → 190/510 → 220/620 → 220/580 nesta leva — a WIDE CAPSULE
+    /// encolheu um pouco (620 → 580) porque o usuário reportou que ela
+    /// estava "pegando o ícone do lado" (sobrepondo a próxima tile).
     /// </summary>
-    public double TileWidth => IsLastPlayed ? 620 : 220;
+    public double TileWidth => IsLastPlayed ? 580 : 220;
 
     /// <summary>
     /// What the hero banner (the crisp, non-blurred box back at the top of

@@ -15,16 +15,19 @@ echo  Handheld Launcher - Instalador
 echo ============================================================
 echo.
 
+rem Script real mora em Arquivos\ (pasta reorganizada nesta leva - raiz do
+rem instalador agora so tem os dois .bat, tudo o resto - scripts, a API
+rem key, a pasta "publish" quando existir - fica dentro de Arquivos\).
 where dotnet >nul 2>nul
 if %errorlevel% neq 0 (
     echo .NET SDK nao encontrado nesta maquina.
-    echo Vou tentar instalar usando uma pasta "publish" ja existente ao
-    echo lado deste arquivo. Se ela nao existir, vai dar erro explicando
-    echo o que falta.
+    echo Vou tentar instalar usando uma pasta "publish" ja existente dentro
+    echo de Arquivos\. Se ela nao existir, vai dar erro explicando o que
+    echo falta.
     echo.
-    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0Install-Launcher.ps1" -SkipPublish %*
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0Arquivos\Install-Launcher.ps1" -SkipPublish %*
 ) else (
-    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0Install-Launcher.ps1" %*
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0Arquivos\Install-Launcher.ps1" %*
 )
 
 echo.

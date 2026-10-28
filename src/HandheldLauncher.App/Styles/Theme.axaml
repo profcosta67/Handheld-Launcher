@@ -94,17 +94,19 @@
     <Setter Property="RenderTransform" Value="scale(1.08)" />
   </Style>
 
-  <!-- WIDE CAPSULE ("último jogo aberto") — a partir desta leva usa uma
-       arte INDEPENDENTE (GameEntry.WideGridImagePath, capa landscape
+  <!-- WIDE CAPSULE ("último jogo aberto") — a partir da leva anterior usa
+       uma arte INDEPENDENTE (GameEntry.WideGridImagePath, capa landscape
        própria), não mais a mesma capa portrait da CAPSULE normal
        esticada — ver GameTileViewModel.TileImagePath. Height bate com a
-       tile normal pra fileira continuar alinhada; só Width cresce, e
-       agora numa proporção mais próxima do formato landscape real que a
-       nova arte vem (460x215/920x430 ≈ 2.14:1, contra 2.0:1 de antes).
-       510 até a leva anterior, 620 nesta (aumentado junto com a CAPSULE
-       normal, a pedido do usuário). -->
+       tile normal pra fileira continuar alinhada; só Width cresce.
+       510 → 620 (leva anterior) → 580 nesta leva — usuário reportou que
+       620 "está pegando o ícone do lado" (encostando/sobrepondo a
+       próxima tile da fileira); reduzido um pouco, e o espaçamento entre
+       tiles também aumentou (ver MainWindow.axaml StackPanel Spacing e
+       MainWindow.axaml.cs ScrollGameRowSelectionIntoView, 14 → 18), as
+       duas coisas juntas resolvem a sobreposição. -->
   <Style Selector="Border.gameTile.lastPlayed">
-    <Setter Property="Width" Value="620" />
+    <Setter Property="Width" Value="580" />
     <Setter Property="Height" Value="290" />
   </Style>
 

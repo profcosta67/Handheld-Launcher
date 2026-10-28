@@ -173,20 +173,19 @@ public sealed class MainViewModel : ViewModelBase
     private int _contextMenuIndex;
 
     /// <summary>
-    /// v1's fixed action list, in order (index matches
-    /// ConfirmContextMenuSelection's switch). Small and fixed on purpose —
-    /// grows into something data-driven if/when there are more than a
-    /// couple of actions.
+    /// Reconstruído a cada abertura (ver BuildContextMenu) em vez de uma
+    /// lista fixa — mesmo padrão de GlobalMenuItems/PowerMenuItems (List
+    /// &lt;Action&gt; + ObservableCollection em paralelo, zerados e
+    /// reconstruídos do zero toda vez que o menu abre). Virou necessário
+    /// nesta leva: "Excluir atalho" só faz sentido pra jogos não-Steam e
+    /// "Excluir jogo" só pra Steam, então o conjunto de itens agora
+    /// depende de QUAL jogo está em foco — uma lista fixa com índices
+    /// não dava mais pra sustentar isso (já tinha precisado reindexar à
+    /// mão 3 vezes nesta sessão só pra inserir itens novos).
     /// </summary>
-    public ObservableCollection<ContextMenuItemViewModel> ContextMenuItems { get; } = new()
-    {
-        new ContextMenuItemViewModel("Escolher capa"),
-        new ContextMenuItemViewModel("Escolher capa larga"), // WideGridImagePath — a capa só da WIDE CAPSULE, independente da capa normal e do banner
-        new ContextMenuItemViewModel("Escolher banner"),
-        new ContextMenuItemViewModel("Escolher logo"),
-        new ContextMenuItemViewModel("Favoritar"), // texto trocado em ToggleContextMenu dependendo do jogo em foco
-        new ContextMenuItemViewModel("Abrir jogo"),
-    };
+    public ObservableCollection<ContextMenuItemViewModel> ContextMenuItems { get; } = new();
+
+    private readonly List<Action> _contextMenuActions = new();
 
     /// <summary>Qual dos quatro tipos de arte o seletor (IsCoverPickerOpen) está escolhendo no momento — ver OpenCoverPicker/ConfirmCoverPickerSelection.</summary>
     private enum ArtworkPickerKind { Grid, WideGrid, Hero, Logo }
@@ -433,13 +432,128 @@ public sealed class MainViewModel : ViewModelBase
         ContextMenuTarget = SelectedTile;
         _contextMenuIndex = 0;
 
-        // Índice 4 = "Favoritar"/"Desfavoritar" (ver ContextMenuItems e o
-        // switch em ConfirmContextMenuSelection) — texto muda na hora de
-        // abrir porque o mesmo item serve pra ligar e desligar.
-        ContextMenuItems[4].Label = SelectedTile.Game.IsFavorite ? "Desfavoritar" : "Favoritar";
+        BuildContextMenu(SelectedTile);
 
         UpdateContextMenuSelection();
         IsContextMenuOpen = true;
+    }
+
+    /// <summary>
+    /// Reconstrói ContextMenuItems/_contextMenuActions do zero pra tile em
+    /// foco — mesma ideia de BuildGlobalMenu/BuildPowerMenu abaixo.
+    /// "Favoritar"/"Desfavoritar" sai automaticamente certo (sem precisar
+    /// mais do hack de reescrever Label depois) porque isso reconstrói na
+    /// hora de abrir, já olhando pro estado atual do jogo.
+    /// </summary>
+    private void BuildContextMenu(GameTileViewModel target)
+    {
+        ContextMenuItems.Clear();
+        _contextMenuActions.Clear();
+
+        void Add(string label, Action action)
+        {
+            ContextMenuItems.Add(new ContextMenuItemViewModel(label));
+            _contextMenuActions.Add(action);
+        }
+
+        var game = target.Game;
+
+        Add("Escolher capa", () => OpenCoverPicker(game, ArtworkPickerKind.Grid));
+        Add("Escolher capa larga", () => OpenCoverPicker(game, ArtworkPickerKind.WideGrid)); // WideGridImagePath — a capa só da WIDE CAPSULE, independente da capa normal e do banner
+        Add("Escolher banner", () => OpenCoverPicker(game, ArtworkPickerKind.Hero));
+        Add("Escolher logo", () => OpenCoverPicker(game, ArtworkPickerKind.Logo));
+        Add(game.IsFavorite ? "Desfavoritar" : "Favoritar", () => ToggleFavorite(game));
+        Add("Abrir jogo", () => OpenGameFromMenu(game));
+
+        // Excluir atalho/jogo — pedido do usuário nesta leva ("apertando
+        // start em cima do ícone"). Dois caminhos BEM diferentes:
+        //   - Steam: "Excluir jogo" abre o desinstalador da própria Steam
+        //     (steam://uninstall/{appid}, ver GameLauncher) — a Steam
+        //     cuida de apagar os arquivos de verdade, o launcher nunca
+        //     toca nada no disco.
+        //   - Não-Steam ADICIONADO À MÃO (Source != Steam, veio de
+        //     "Adicionar jogo"/AddManualGame, não de um scanner
+        //     automático): "Excluir atalho" chama
+        //     ILibraryService.RemoveManualGame — só remove da nossa
+        //     lista, nunca apaga os arquivos do jogo em si.
+        //   - Não-Steam ESCANEADO AUTOMATICAMENTE (ex: pasta configurada
+        //     em AppSettings.XboxScanFolders, ver XboxFolderScanner — Id
+        //     sempre começa com "xboxfolder_") NÃO ganha item de exclusão
+        //     ainda: RemoveManualGame não teria o que remover (não é um
+        //     "jogo manual" guardado por nós, reaparece no próximo scan
+        //     de qualquer forma) — pra tirar um desses da lista, por
+        //     enquanto é preciso editar XboxScanFolders no settings.json.
+        if (game.Source == GameSource.Steam)
+        {
+            if (game.SteamAppId is { } appId)
+            {
+                Add("Excluir jogo", () => RequestDeleteSteamGame(game, appId));
+            }
+        }
+        else if (!game.Id.StartsWith("xboxfolder_", StringComparison.Ordinal))
+        {
+            Add("Excluir atalho", () => RequestDeleteShortcut(game));
+        }
+    }
+
+    private void ToggleFavorite(GameEntry game)
+    {
+        _library.SetFavorite(game.Id, !game.IsFavorite);
+        // RebuildGamesFromLibrary (não Refresh — não precisa re-escanear)
+        // pra aba "Favoritos" refletir o toggle na hora, caso esteja ativa.
+        RebuildGamesFromLibrary();
+    }
+
+    private void OpenGameFromMenu(GameEntry game)
+    {
+        var tile = Games.FirstOrDefault(t => t.Game.Id == game.Id);
+        if (tile is null) return;
+        SelectedIndex = Games.IndexOf(tile);
+        LaunchSelected();
+    }
+
+    /// <summary>
+    /// Troca o conteúdo do menu já aberto por uma confirmação de duas
+    /// opções ("Cancelar" primeiro — cursor nunca começa em cima da ação
+    /// destrutiva) em vez de executar a exclusão na hora. Reaproveita o
+    /// mesmo overlay/estado (IsContextMenuOpen/ContextMenuItems) em vez de
+    /// inventar um quarto menu — ConfirmContextMenuSelection já fechou o
+    /// menu (CloseContextMenu) antes de rodar a ação que chamou isto, por
+    /// isso reabre IsContextMenuOpen e reaponta ContextMenuTarget aqui.
+    /// </summary>
+    private void OpenConfirmMenu(GameEntry game, string confirmLabel, Action onConfirm)
+    {
+        ContextMenuTarget = Games.FirstOrDefault(t => t.Game.Id == game.Id);
+
+        ContextMenuItems.Clear();
+        _contextMenuActions.Clear();
+
+        void Add(string label, Action action)
+        {
+            ContextMenuItems.Add(new ContextMenuItemViewModel(label));
+            _contextMenuActions.Add(action);
+        }
+
+        Add("Cancelar", () => { });
+        Add(confirmLabel, onConfirm);
+
+        _contextMenuIndex = 0; // "Cancelar" pré-selecionado
+        UpdateContextMenuSelection();
+        IsContextMenuOpen = true;
+    }
+
+    private void RequestDeleteShortcut(GameEntry game)
+    {
+        OpenConfirmMenu(game, "Sim, excluir atalho", () =>
+        {
+            _library.RemoveManualGame(game.Id);
+            Refresh();
+        });
+    }
+
+    private void RequestDeleteSteamGame(GameEntry game, uint appId)
+    {
+        OpenConfirmMenu(game, "Sim, abrir desinstalador da Steam", () => _launcher.OpenSteamUninstaller(appId));
     }
 
     public void CloseContextMenu()
@@ -456,6 +570,12 @@ public sealed class MainViewModel : ViewModelBase
         UpdateContextMenuSelection();
     }
 
+    /// <summary>
+    /// Despacho dinâmico (_contextMenuActions, montado por BuildContextMenu
+    /// ou OpenConfirmMenu) em vez do switch fixo por índice de antes — ver
+    /// o comentário de ContextMenuItems. Mesmo padrão já usado por
+    /// ConfirmGlobalMenuSelection/ConfirmPowerMenuSelection.
+    /// </summary>
     public void ConfirmContextMenuSelection()
     {
         if (!IsContextMenuOpen || ContextMenuTarget is null)
@@ -464,46 +584,15 @@ public sealed class MainViewModel : ViewModelBase
             return;
         }
 
-        var game = ContextMenuTarget.Game;
-        var selectedAction = _contextMenuIndex;
+        var index = _contextMenuIndex;
+        var gameTitle = ContextMenuTarget.Game.Title;
         CloseContextMenu();
 
-        DebugLog.Write($"ConfirmContextMenuSelection: index={selectedAction} game={game.Title}");
+        DebugLog.Write($"ConfirmContextMenuSelection: index={index} game={gameTitle}");
 
-        switch (selectedAction)
+        if (index >= 0 && index < _contextMenuActions.Count)
         {
-            case 0: // Escolher capa
-                OpenCoverPicker(game, ArtworkPickerKind.Grid);
-                break;
-
-            case 1: // Escolher capa larga
-                OpenCoverPicker(game, ArtworkPickerKind.WideGrid);
-                break;
-
-            case 2: // Escolher banner
-                OpenCoverPicker(game, ArtworkPickerKind.Hero);
-                break;
-
-            case 3: // Escolher logo
-                OpenCoverPicker(game, ArtworkPickerKind.Logo);
-                break;
-
-            case 4: // Favoritar / Desfavoritar
-                _library.SetFavorite(game.Id, !game.IsFavorite);
-                // RebuildGamesFromLibrary (não Refresh — não precisa
-                // re-escanear) pra aba "Favoritos" refletir o toggle na
-                // hora, caso esteja ativa.
-                RebuildGamesFromLibrary();
-                break;
-
-            case 5: // Abrir jogo
-                var tile = Games.FirstOrDefault(t => t.Game.Id == game.Id);
-                if (tile is not null)
-                {
-                    SelectedIndex = Games.IndexOf(tile);
-                    LaunchSelected();
-                }
-                break;
+            _contextMenuActions[index]();
         }
     }
 

@@ -91,18 +91,38 @@ Construído até agora:
     confirma, B fecha o jogo) — testado e funcionando com um controle Xbox.
     Teclado (← → Enter Esc) continua funcionando como fallback de dev.
   - **Menu de contexto (Start no controle / Espaço no teclado)** sobre o
-    jogo focado, agora com 6 itens: "Escolher capa", **"Escolher capa
-    larga" (novo nesta leva — ver WIDE CAPSULE acima)**, "Escolher
-    banner", "Escolher logo", "Favoritar"/"Desfavoritar" e "Abrir jogo".
-    ↑↓ navega entre as opções, A/Enter confirma, B/Esc/Start fecha sem
-    fazer nada. O texto do item "Favoritar" troca pra "Desfavoritar"
-    dependendo se o jogo em foco já está marcado — toggla
-    `GameEntry.IsFavorite` (persistido como override, sobrevive a
-    re-scan) e acende uma estrelinha (★) no canto da tile na fileira.
-    "Abrir jogo"/"Escolher capa"/"Escolher banner"/"Escolher
-    logo"/"Favoritar" já eram testados e continuam iguais; "Escolher capa
-    larga" é a novidade desta leva — **ainda não testada num build
-    real.**
+    jogo focado — nesta leva o menu deixou de ser uma lista FIXA de itens
+    e passou a ser reconstruído do zero a cada abertura
+    (`MainViewModel.BuildContextMenu`, mesmo padrão já usado pelo menu
+    geral/Power), porque os itens de exclusão abaixo dependem de qual
+    jogo está em foco. Itens de base, sempre presentes: "Escolher capa",
+    "Escolher capa larga" (ver WIDE CAPSULE acima), "Escolher banner",
+    "Escolher logo", "Favoritar"/"Desfavoritar" e "Abrir jogo". ↑↓ navega
+    entre as opções, A/Enter confirma, B/Esc/Start fecha sem fazer nada.
+    O texto do item "Favoritar" troca pra "Desfavoritar" dependendo se o
+    jogo em foco já está marcado — toggla `GameEntry.IsFavorite`
+    (persistido como override, sobrevive a re-scan) e acende uma
+    estrelinha (★) no canto da tile na fileira.
+    **Novo nesta leva — exclusão, pedido explícito do usuário ("apertando
+    start em cima do ícone")**: um item extra aparece dependendo da
+    origem do jogo —
+      - **Steam**: "Excluir jogo" abre o desinstalador da própria Steam
+        (`steam://uninstall/{appid}`, `GameLauncher.OpenSteamUninstaller`)
+        — a Steam mesma mostra a confirmação dela e cuida de apagar os
+        arquivos; o launcher nunca toca nada no disco.
+      - **Não-Steam adicionado à mão** (via "Adicionar jogo"): "Excluir
+        atalho" chama `ILibraryService.RemoveManualGame` — só tira da
+        nossa lista, não apaga nenhum arquivo do jogo em si.
+      - **Não-Steam escaneado automaticamente** (pastas do
+        `XboxScanFolders`, ver bullet própria mais abaixo) **não** ganha
+        item de exclusão ainda — reaparece no próximo scan de qualquer
+        forma; pra tirar um desses da lista, por enquanto é preciso
+        editar `XboxScanFolders` no `settings.json`.
+      Escolher qualquer um dos dois itens de exclusão **não executa na
+      hora** — troca o menu por uma confirmação de 2 opções
+      ("Cancelar"/"Sim, excluir...", cursor sempre começando em
+      "Cancelar") antes de executar de verdade. **Ainda não testado num
+      build real — nem os itens de exclusão, nem a confirmação.**
   - **Abas de filtro**, logo abaixo do banner HERO e acima da fileira:
     "Favoritos", "Todos", "Steam", "Xbox", "Não Steam" (ordem pedida pelo
     usuário nesta leva: "fav, todos/steam/xbox/nao steam" — mudou de
@@ -116,14 +136,40 @@ Construído até agora:
     as abas nessa mesma ordem visual (`GamepadAction.PreviousFilter`/
     `NextFilter`, teclado Q/E como fallback de dev) — antes só dava pra
     clicar/tocar, e o usuário reportou não conseguir alcançar pelo
-    controle. "Xbox" filtra por `GameSource.XboxApp` — como ainda não
-    existe um scanner de
-    verdade do Xbox app, a única forma de um jogo cair nessa aba é marcar
-    o novo checkbox "É um jogo do Xbox app / Game Pass" no diálogo
-    "Adicionar jogo". **Importante**: "Atualizar Capas Automático"
+    controle. "Xbox" filtra por `GameSource.XboxApp`, que agora tem DUAS
+    formas de preencher: marcar o checkbox "É um jogo do Xbox app / Game
+    Pass" no diálogo "Adicionar jogo" (manual, continua igual), **ou,
+    novo nesta leva, configurar pastas em `AppSettings.XboxScanFolders`**
+    (ver bullet própria mais abaixo) — a detecção automática de
+    verdade continua não existindo (precisaria de APIs de UWP que este
+    projeto não referencia), isso é um atalho de pasta, não um scanner
+    real do Xbox app. **Importante**: "Atualizar Capas Automático"
     continua sempre olhando a biblioteca INTEIRA, nunca só a aba ativa —
     corrigido de propósito pra não virar um bug silencioso. **Nunca
     testado num build real.**
+  - **"Editor de onde procurar" jogos Xbox/Game Pass — `XboxScanFolders`
+    (novo nesta leva)**: pedido do usuário depois que a detecção
+    automática não achou nada. Novo campo `AppSettings.XboxScanFolders`
+    (lista de pastas, hand-edit do `settings.json`, SEM tela de
+    configuração — mesmo padrão da API key do SteamGridDB) alimenta um
+    `XboxFolderScanner` novo: pra cada pasta configurada, toda SUBPASTA
+    IMEDIATA dentro dela vira um jogo (`GameSource.XboxApp`), e o
+    executável escolhido é o MAIOR `.exe` encontrado lá dentro
+    (recursivo) — heurística simples ("o jogo de verdade quase sempre é
+    bem maior que qualquer launcher/suporte junto"), não um scanner real
+    de UWP/Xbox (precisaria de APIs que este projeto não referencia).
+    Exemplo de uso — adicionar `"C:\\XboxGames"` como pasta de busca:
+    ```json
+    { "XboxScanFolders": ["C:\\XboxGames"] }
+    ```
+    **Importante**: isso é um CAMPO pra editar no JSON, não um editor
+    visual dentro do app — se o pedido era por uma tela de configuração
+    de verdade, isso ainda está pendente (ver "Ainda não feito"). Jogos
+    encontrados assim não ganham item "Excluir atalho" no menu de
+    contexto (ver bullet do menu de contexto acima) — reaparecem no
+    próximo scan de qualquer forma, então remover um específico por
+    enquanto é editar `XboxScanFolders` na mão. **Nunca testado num
+    build real.**
   - **Seletor de capa/capa larga/banner/logo** ("Escolher capa"/"Escolher
     capa larga"/"Escolher banner"/"Escolher logo" acima): abre uma grade
     com até 24 opções estáticas vindas do SteamGridDB (ordenadas por
@@ -393,24 +439,31 @@ Ainda **não** feito:
    menu geral — ver "Status atual" — mas isso não é configurações, é só
    um menu de ações; editar `settings.json` na mão continua sendo o
    único jeito de mudar algo configurável)
-6. **Botão de excluir atalho de jogo** (pedido do usuário, pra próxima
-   leva) — principalmente pros jogos NÃO Steam (manuais/Xbox, já que os
-   Steam vêm do scan automático e voltariam sozinhos). O Core já tem
-   `ILibraryService.RemoveManualGame(id)` pronto desde sempre — só falta
-   expor isso na UI (provável lugar: mais um item no menu de contexto,
-   tipo o "Favoritar" desta leva).
-7. **Talvez excluir o jogo de verdade** (não só o atalho/entrada na
-   biblioteca) — o usuário deixou isso como "talvez", então é só uma
-   ideia em aberto, sem desenho nenhum ainda. Bem mais arriscado que o
-   item 6 (apagar instalação/arquivos de verdade vs. só parar de listar
-   no launcher) — merece conversa própria sobre o que exatamente
-   significa "excluir" antes de qualquer código.
-8. **Organizar a pasta `installer/`** (pedido do usuário, pra próxima
-   leva) — deixar só `Instalar.bat`/`Desinstalar.bat` visíveis na raiz
-   da pasta (os dois cliques-duplos que o usuário realmente usa) e
-   esconder o resto (`Install-Launcher.ps1`, `Uninstall-Launcher.ps1`,
-   `steamgriddb-api-key.txt` etc.) dentro de subpastas, pra não confundir
-   quem só quer instalar ou desinstalar.
+6. ~~Botão de excluir atalho de jogo~~ — **feito nesta leva**: "Excluir
+   atalho" no menu de contexto (não-Steam adicionado à mão), ver "Status
+   atual" acima.
+7. **Excluir o jogo de verdade, de fato apagando arquivos** — ainda NÃO
+   feito pra jogos não-Steam. O que foi feito nesta leva pro lado Steam
+   ("Excluir jogo" abre `steam://uninstall/{appid}` e deixa a PRÓPRIA
+   Steam apagar os arquivos) é diferente disso — o launcher nunca
+   encosta em arquivo nenhum nesse caso. Pra um jogo manual/Xbox,
+   "Excluir atalho" (item 6) só tira da nossa lista, não toca na
+   instalação de verdade — apagar os arquivos de fato continua sendo uma
+   ideia em aberto, sem desenho ainda, e merece conversa própria antes
+   de qualquer código (é bem mais arriscado/irreversível).
+8. ~~Organizar a pasta `installer/`~~ — **feito nesta leva**, ver
+   "Instalar no Legion Go 2 / ROG Ally" mais abaixo pra estrutura nova.
+9. **Confirmação de "Excluir atalho"/"Excluir jogo" é só um menu de
+   2 opções** (Cancelar/Sim) reaproveitando o mesmo overlay do menu de
+   contexto — funcional, mas bem minimalista; se o usuário preferir algo
+   mais chamativo (cor vermelha, ícone de aviso, etc.) é só pedir.
+10. **"Editor de onde procurar" jogos Xbox (`AppSettings.XboxScanFolders`,
+    feito nesta leva) continua sendo hand-edit do `settings.json`, SEM
+    tela de configuração** — nenhuma UI foi criada pra adicionar pastas
+    visualmente (consistente com a API key do SteamGridDB, que também é
+    hand-edit). Se o usuário queria um editor DE VERDADE dentro do app
+    (não só um campo pra editar no JSON), isso ainda está pendente —
+    avisar se for o caso.
 
 ## Configurar a API key do SteamGridDB
 
@@ -429,19 +482,25 @@ Ainda **não** feito:
 **Deixar pré-configurada em todo install novo (PC, Legion Go 2, ROG Ally, ...):**
 
 Pra não ter que repetir os passos acima em toda máquina/instalação nova,
-cria um arquivo de texto `installer\steamgriddb-api-key.txt` com só a sua
-chave dentro (sem aspas, sem mais nada):
+cria um arquivo de texto `installer\Arquivos\steamgriddb-api-key.txt`
+(caminho atualizado nesta leva — pasta `installer\` foi reorganizada, ver
+"Instalar no Legion Go 2 / ROG Ally" mais abaixo) com só a sua chave dentro
+(sem aspas, sem mais nada):
 ```powershell
-"sua-chave-aqui" | Set-Content installer\steamgriddb-api-key.txt
+"sua-chave-aqui" | Set-Content installer\Arquivos\steamgriddb-api-key.txt
 ```
 Esse arquivo é só seu, fica de fora do git (`.gitignore`) — a chave nunca
 é commitada no repositório. A partir daí, toda vez que `Install-Launcher.ps1`
 rodar numa máquina onde esse arquivo está copiado junto (dentro da pasta
-`installer\`) **e** ainda não existe uma key salva naquela máquina, ele usa
+`installer\Arquivos\`) **e** ainda não existe uma key salva naquela máquina, ele usa
 automaticamente essa chave pra preencher o `settings.json` — sem precisar
 editar nada na mão depois de instalar. Se a máquina já tinha uma key salva
 de antes (de uma instalação anterior, por exemplo), ela é preservada e o
 arquivo padrão é ignorado nesse caso.
+
+(Pra configurar pastas extras de busca de jogos Xbox/Game Pass, que também
+é hand-edit do `settings.json` — mas de um campo diferente,
+`XboxScanFolders` — ver bullet própria em "Status atual" mais acima.)
 
 Sobre compartilhar a mesma key entre pessoas/máquinas: tecnicamente
 funciona (não existe trava por máquina), mas a SteamGridDB tem limite de
@@ -512,13 +571,31 @@ Inicialização, que abre uma vez só e não reabre — nenhum dos dois
 substitui o shell do Windows, Alt+Tab continua funcionando normal), liga o
 modo kiosk (fullscreen + sempre por cima) no `settings.json`, preenche a
 API key do SteamGridDB automaticamente se você tiver um
-`installer\steamgriddb-api-key.txt` (ver seção própria acima), e tenta
+`installer\Arquivos\steamgriddb-api-key.txt` (ver seção própria acima), e tenta
 impedir o Xbox Game Bar e o Legion Space/Armoury Crate SE de abrirem
 sozinhos no boot (os dois primeiros via chaves de registro bem
 documentadas; os do fabricante via uma busca "melhor esforço" — ver
 comentários do script pras limitações disso, e o aviso abaixo sobre o
 Modo Xbox, que é o motivo real de essa busca não achar nada no Legion
 Go 2).
+
+**Estrutura da pasta `installer\` (reorganizada nesta leva)** — pedido do
+usuário: a raiz só tem os dois `.bat` que você realmente clica; TUDO o
+resto (os `.ps1`, a API key, a pasta `publish\` quando existir) agora mora
+dentro de uma única subpasta `Arquivos\`:
+```
+installer/
+├── Instalar.bat              # clique duplo pra instalar
+├── Desinstalar.bat           # clique duplo pra desinstalar
+└── Arquivos/
+    ├── Install-Launcher.ps1
+    ├── Uninstall-Launcher.ps1
+    ├── steamgriddb-api-key.txt   # opcional, ver "Configurar a API key" acima
+    └── publish/                 # gerado pelo publish, não existe até você rodar o instalador
+```
+Os `.bat` continuam funcionando exatamente igual (só chamam o `.ps1` certo
+dentro de `Arquivos\` agora) — pra quem só usa o duplo-clique, nada muda
+na prática, a pasta só ficou mais limpa de olhar.
 
 **Jeito fácil (duplo-clique, sem digitar comando nenhum):**
 
@@ -527,9 +604,9 @@ Dentro de `installer\`, tem dois arquivos `.bat`:
 - **`Instalar.bat`** — clica duas vezes. Ele detecta sozinho se o .NET SDK
   está instalado na máquina: se estiver (seu PC normal), publica o app do
   zero; se não estiver (o esperado no próprio Legion/ROG Ally), usa uma
-  pasta `publish\` que precisa já estar copiada ali do lado (veja o passo
-  2 abaixo). A janela fica aberta no final (`pause`) pra você ler o
-  resultado com calma, sem fechar sozinha.
+  pasta `Arquivos\publish\` que precisa já estar copiada ali dentro (veja
+  o passo 2 abaixo). A janela fica aberta no final (`pause`) pra você ler
+  o resultado com calma, sem fechar sozinha.
 - **`Desinstalar.bat`** — desfaz tudo (remove o app, atalhos, e restaura
   os ajustes de registro/inicialização pro estado de antes).
 
@@ -537,14 +614,14 @@ Dentro de `installer\`, tem dois arquivos `.bat`:
 o SDK do .NET instalado):
 
 1. No seu PC normal (onde já funcionou), roda `Instalar.bat` uma vez — isso
-   gera a pasta `installer\publish\` com o app já publicado e pronto pra
-   rodar em qualquer Windows x64, sem precisar do SDK.
-2. Copia a pasta `installer\publish\` **inteira**, junto com os dois
-   arquivos `.bat` e os dois `.ps1`, pro Legion/ROG Ally (pen drive, rede,
-   como preferir) — mantendo a mesma pasta `installer\` com tudo dentro.
+   gera a pasta `installer\Arquivos\publish\` com o app já publicado e
+   pronto pra rodar em qualquer Windows x64, sem precisar do SDK.
+2. Copia a pasta `installer\` **inteira** (os dois `.bat` e a subpasta
+   `Arquivos\` com tudo dentro, publish incluso) pro Legion/ROG Ally (pen
+   drive, rede, como preferir).
 3. No Legion/ROG Ally, clica duas vezes em `Instalar.bat`. Como não tem o
-   SDK ali, ele detecta isso e usa a pasta `publish\` que você copiou, em
-   vez de tentar publicar de novo.
+   SDK ali, ele detecta isso e usa a pasta `Arquivos\publish\` que você
+   copiou, em vez de tentar publicar de novo.
 4. No final, lê a mensagem na tela (a janela fica aberta esperando você
    apertar uma tecla) — ela mostra se achou ou não alguma entrada do
    Legion Space/Armoury Crate pra desativar. Se não achou nada e aqueles
@@ -556,8 +633,9 @@ o SDK do .NET instalado):
 
 **Jeito manual (PowerShell direto, pra quem quiser passar alguma opção
 extra como `-NoDesktopShortcut`, `-NoWatchdog` ou `-KeepFiles`)**: abre o PowerShell
-**dentro da pasta** `installer\` (`cd` até lá — rodar de outra pasta, como
-`C:\WINDOWS\System32`, só vai dar "arquivo não encontrado") e roda:
+**dentro da pasta** `installer\Arquivos\` (`cd` até lá — rodar de outra
+pasta, como `C:\WINDOWS\System32`, só vai dar "arquivo não encontrado") e
+roda:
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\Install-Launcher.ps1
 ```
@@ -589,7 +667,7 @@ bug já apareceu e foi corrigido: o script procurava
 executável só de `HandheldLauncher.exe` (`<AssemblyName>` diferente do
 nome da pasta do projeto). **Já testados no Legion Go 2 de verdade, com
 resultado misto**: a API key automática via
-`installer\steamgriddb-api-key.txt` **confirmada funcionando**; o
+`installer\Arquivos\steamgriddb-api-key.txt` **confirmada funcionando**; o
 `Topmost = true` + watchdog **confirmados funcionando no boot em modo
 desktop normal** (janela fica na frente, reabre sozinha se fechar); no
 boot pelo Modo Xbox, porém, a Legion Space continuou ganhando a frente da
@@ -949,6 +1027,61 @@ primeiro erro de build REAL que apareceu neste projeto (todos os outros
 — bom sinal de que o fluxo de build/instalação em si está funcionando,
 só esse Setter que estava errado.
 
+**🔴 Ajuste fino pós-foto real (tile larga sobrepondo, espaçamento,
+excluir atalho/jogo, pasta `installer/`, editor de pastas Xbox) —
+status**: seis pedidos a partir de uma foto nova do Legion Go 2 de
+verdade —
+- **WIDE CAPSULE "pegando o ícone do lado"**: `Border.gameTile.lastPlayed`
+  Width 620 → 580, `StackPanel Spacing` da fileira 14 → 18 (`MainWindow.axaml`
+  + `GameTileViewModel.TileWidth` + `MainWindow.axaml.cs`'s
+  `ScrollGameRowSelectionIntoView`, os três têm que bater exatos). **Nunca
+  testado num build real.**
+- **Espaçamento hero→abas / abas→fileira**: os dois já eram
+  `Margin="...,16"` (iguais), mas o usuário reportou desalinhamento —
+  igualados pra `20` nos dois pra garantir visualmente, já que não dá pra
+  renderizar aqui pra comparar o antes/depois de verdade. **Se ainda
+  não for exatamente isso que estava incomodando, precisa de mais detalhe
+  (foto com seta apontando o que exatamente está torto, por exemplo).**
+- **Espaço vazio embaixo da fileira de capas**: a `Grid` externa
+  (`RowDefinitions="Auto,Auto,*"`) dava TODO o espaço sobrando pro
+  `ScrollViewer` da fileira, e o `ItemsControl` de dentro, sem alinhamento
+  vertical próprio, ficava ancorado no topo desse espaço — sobrava tudo
+  embaixo. `VerticalAlignment="Center"` no `ItemsControl` resolve (o
+  espaço sobrando se divide em cima/embaixo em vez de se acumular todo
+  embaixo). **Nunca testado num build real.**
+- **"Excluir atalho"/"Excluir jogo" no menu de contexto** (pedido
+  explícito: "apertando start em cima do ícone"): o menu de contexto, que
+  até aqui era uma lista FIXA de 6 itens com despacho por índice (já tinha
+  precisado reindexar à mão 3 vezes nesta sessão), virou reconstruído do
+  zero a cada abertura (`MainViewModel.BuildContextMenu`, mesmo padrão do
+  menu geral/Power) — ver bullet própria em "Status atual" mais acima pra
+  detalhes de Steam vs. não-Steam vs. escaneado automaticamente, e da
+  confirmação de 2 opções antes de executar. **Decisão tomada sem
+  perguntar**: pra jogos Steam, "Excluir jogo" abre
+  `steam://uninstall/{appid}` e deixa a Steam cuidar de tudo — o launcher
+  nunca apaga arquivo nenhum diretamente, em nenhum caso (nem Steam, nem
+  manual/atalho). Apagar arquivos de instalação de verdade continua fora
+  do escopo (ver "Ainda não feito", item 7). **Nunca testado num build
+  real.**
+- **Pasta `installer/` reorganizada**: raiz agora só tem
+  `Instalar.bat`/`Desinstalar.bat`; tudo o resto (`Install-Launcher.ps1`,
+  `Uninstall-Launcher.ps1`, `steamgriddb-api-key.txt`, `publish/` quando
+  existir) foi movido pra uma subpasta nova `Arquivos/` — ver seção
+  "Instalar no Legion Go 2 / ROG Ally" pra estrutura completa. Os `.bat`
+  foram atualizados pra chamar `Arquivos\...ps1`, e
+  `Install-Launcher.ps1` teve seu cálculo de `$repoRoot` ajustado pra
+  subir mais um nível (`Arquivos` → `installer` → raiz do repo) — **essa
+  é a parte mais arriscada desta leva inteira, porque não dá pra testar
+  um `.ps1`/`.bat` aqui, só ler com calma**; revisado linha por linha mas
+  é a primeira coisa a conferir se a próxima instalação falhar.
+- **"Editor de onde procurar" jogos Xbox** (`AppSettings.XboxScanFolders`
+  + `XboxFolderScanner` novo, ver bullet própria em "Status atual" mais
+  acima): heurística de pasta (maior `.exe` de cada subpasta imediata),
+  não um scanner real de UWP/Xbox. **Decisão tomada sem perguntar**: é um
+  CAMPO no `settings.json` pra editar na mão, não uma tela de
+  configuração dentro do app — se o pedido era por um editor visual de
+  verdade, avisar que isso ainda falta. **Nunca testado num build real.**
+
 ## Seletor de capas tipo Decky Loader — é viável?
 
 Sim, e a **fase 1 (capas estáticas) já está implementada** — ver "Status
@@ -1002,6 +1135,8 @@ HandheldLauncher.sln
 src/
   HandheldLauncher.Core/     # modelos, scanner Steam, storage, launcher de processo, SteamGridDB
   HandheldLauncher.App/      # UI Avalonia (ViewModels, Views, Styles, Input/XInput)
-installer/                   # Install-Launcher.ps1 / Uninstall-Launcher.ps1 (ver "Instalar no Legion Go 2 / ROG Ally")
+installer/
+  Instalar.bat / Desinstalar.bat   # os dois cliques-duplos
+  Arquivos/                        # Install-Launcher.ps1 / Uninstall-Launcher.ps1 / API key / publish (ver "Instalar no Legion Go 2 / ROG Ally")
 docs/                        # (vazio por enquanto)
 ```

@@ -86,7 +86,7 @@
       <!-- Hero: o jogo focado, banner largo deitado. 320 → 380 nesta
            leva, a pedido do usuário ("aumenta o eixo vertical do hero
            deixe um pouco maior"). -->
-      <Border Grid.Row="0" Classes="heroBanner" Height="380" Margin="0,0,0,16">
+      <Border Grid.Row="0" Classes="heroBanner" Height="380" Margin="0,0,0,20">
         <!-- Border só aceita um filho, então os dois estados (jogo
              selecionado / biblioteca vazia) vivem dentro do mesmo Grid
              externo, alternados por IsVisible. -->
@@ -149,7 +149,10 @@
            nesta mesma ordem visual — ver MainViewModel.FilterOrder),
            depois do usuário reportar que não conseguia acessar pelo
            controle. -->
-      <Grid Grid.Row="1" ColumnDefinitions="*,*,*,*,*" Margin="0,0,0,16">
+      <!-- Margem inferior igual à do hero acima (20, era 16 nos dois) —
+           pedido do usuário pra alinhar/igualar o espaçamento
+           hero→abas e abas→fileira de jogos. -->
+      <Grid Grid.Row="1" ColumnDefinitions="*,*,*,*,*" Margin="0,0,0,20">
         <Button Grid.Column="0" Classes="pill filterTab" Classes.active="{Binding IsFilterFavoritesActive}" Content="Favoritos" Command="{Binding SetFilterFavoritesCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,5,0" />
         <Button Grid.Column="1" Classes="pill filterTab" Classes.active="{Binding IsFilterAllActive}" Content="Todos" Command="{Binding SetFilterAllCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" />
         <Button Grid.Column="2" Classes="pill filterTab" Classes.active="{Binding IsFilterSteamActive}" Content="Steam" Command="{Binding SetFilterSteamCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" />
@@ -175,10 +178,25 @@
             <VectorTransition Property="Offset" Duration="0:0:0.28" Easing="CubicEaseOut" />
           </Transitions>
         </ScrollViewer.Transitions>
-        <ItemsControl ItemsSource="{Binding Games}">
+        <!-- VerticalAlignment="Center" (era implícito Stretch/Top) — a Grid
+             externa (RowDefinitions="Auto,Auto,*") dá pra este ScrollViewer
+             TODO o espaço vertical que sobra, e um ItemsControl sem
+             alinhamento vertical próprio fica ancorado no topo desse
+             espaço, deixando um vão vazio embaixo da fileira de capas
+             (pedido do usuário: "abaixo dos ícones ainda está com bastante
+             espaço"). Centralizar faz o espaço sobrando se dividir em cima
+             e embaixo da fileira em vez de se acumular todo embaixo.
+             ScrollGameRowSelectionIntoView só manipula Offset.X/
+             Viewport.Width (eixo horizontal), então não é afetado por
+             isso. -->
+        <ItemsControl ItemsSource="{Binding Games}" VerticalAlignment="Center">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
-              <StackPanel Orientation="Horizontal" Spacing="14" />
+              <!-- Spacing 14 → 18 nesta leva — junto com a WIDE CAPSULE
+                   um pouco mais estreita (Theme.axaml, 620 → 580), resolve
+                   a tile larga "pegando o ícone do lado" reportada pelo
+                   usuário. -->
+              <StackPanel Orientation="Horizontal" Spacing="18" />
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
 

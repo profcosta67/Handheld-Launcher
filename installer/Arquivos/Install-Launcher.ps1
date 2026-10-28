@@ -87,7 +87,11 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $scriptDir = $PSScriptRoot
-$repoRoot = Split-Path -Parent $scriptDir
+# $scriptDir agora e installer\Arquivos (pasta reorganizada nesta leva -
+# antes era installer\ diretamente), entao repoRoot precisa subir mais um
+# nivel: Arquivos -> installer -> raiz do repo.
+$installerDir = Split-Path -Parent $scriptDir
+$repoRoot = Split-Path -Parent $installerDir
 $publishDir = Join-Path $scriptDir 'publish'
 $installDir = Join-Path $env:LOCALAPPDATA 'Programs\HandheldLauncher'
 $exeName = 'HandheldLauncher.exe'

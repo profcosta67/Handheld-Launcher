@@ -19,6 +19,16 @@ public interface IGameLauncher
     /// Safe to call even if the game isn't actually running.
     /// </summary>
     void CloseGame(GameEntry game);
+
+    /// <summary>
+    /// Opens Steam's own uninstall confirmation for a Steam app ("Excluir
+    /// jogo" no menu de contexto, só pra entradas Source==Steam) via
+    /// "steam://uninstall/{appid}" — mesma ideia de LaunchViaSteamUri, só
+    /// que pedindo pra Steam desinstalar em vez de rodar o jogo. A Steam
+    /// mesma mostra a confirmação e cuida de apagar os arquivos; o
+    /// launcher nunca toca nada no disco diretamente aqui.
+    /// </summary>
+    void OpenSteamUninstaller(uint steamAppId);
 }
 
 public sealed class GameExitedEventArgs : EventArgs

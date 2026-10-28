@@ -14,7 +14,9 @@ obj/
 Thumbs.db
 
 ## Installer build output (gerado por Install-Launcher.ps1, não versionado)
-installer/publish/
+## Caminho atualizado nesta leva: pasta installer/ foi reorganizada, scripts
+## e arquivos auxiliares agora moram em installer/Arquivos/.
+installer/Arquivos/publish/
 
 ## API key padrão usada pelo instalador (sua chave pessoal - nunca versionar)
-installer/steamgriddb-api-key.txt
+installer/Arquivos/steamgriddb-api-key.txt

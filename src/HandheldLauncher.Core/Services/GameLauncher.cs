@@ -80,6 +80,21 @@ public sealed class GameLauncher : IGameLauncher
         });
     }
 
+    /// <summary>
+    /// "Excluir jogo" (menu de contexto, só Steam) — abre o fluxo de
+    /// desinstalação da própria Steam em vez do launcher apagar qualquer
+    /// coisa diretamente. Mesmo padrão de UseShellExecute=true da URI de
+    /// lançamento acima; só muda o verbo da URI.
+    /// </summary>
+    public void OpenSteamUninstaller(uint steamAppId)
+    {
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = $"steam://uninstall/{steamAppId}",
+            UseShellExecute = true,
+        });
+    }
+
     private void LaunchDirect(GameEntry game)
     {
         var workingDirectory = game.WorkingDirectory;

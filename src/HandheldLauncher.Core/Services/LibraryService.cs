@@ -5,13 +5,20 @@ namespace HandheldLauncher.Core.Services;
 public sealed class LibraryService : ILibraryService
 {
     private readonly ISteamLibraryScanner _steamScanner;
+    private readonly IXboxFolderScanner? _xboxFolderScanner;
     private readonly IGameLibraryStore _store;
     private List<GameEntry> _games = new();
 
-    public LibraryService(ISteamLibraryScanner steamScanner, IGameLibraryStore store)
+    /// <summary>
+    /// xboxFolderScanner é opcional (null = nenhuma pasta configurada em
+    /// AppSettings.XboxScanFolders, comportamento idêntico a antes desta
+    /// leva) — ver XboxFolderScanner pra o que ele faz.
+    /// </summary>
+    public LibraryService(ISteamLibraryScanner steamScanner, IGameLibraryStore store, IXboxFolderScanner? xboxFolderScanner = null)
     {
         _steamScanner = steamScanner;
         _store = store;
+        _xboxFolderScanner = xboxFolderScanner;
         Refresh();
     }
 
@@ -34,8 +41,21 @@ public sealed class LibraryService : ILibraryService
             merged.Add(game);
         }
 
-        // Future scanners (Xbox app, Epic, emulator folders) plug in here
-        // the same way: scan -> ApplyOverride -> merged.Add.
+        // XboxFolderScanner — pastas extras configuradas em
+        // AppSettings.XboxScanFolders (nova nesta leva, ver essa classe).
+        // Null quando nenhuma pasta está configurada, então nada muda pra
+        // quem não configurou isso.
+        if (_xboxFolderScanner is not null)
+        {
+            foreach (var game in _xboxFolderScanner.ScanInstalledGames())
+            {
+                ApplyOverride(game, overrides);
+                merged.Add(game);
+            }
+        }
+
+        // Future scanners (Epic, emulator folders) plug in here the same
+        // way: scan -> ApplyOverride -> merged.Add.
 
         merged.Sort((a, b) => string.Compare(a.Title, b.Title, StringComparison.OrdinalIgnoreCase));
         _games = merged;
