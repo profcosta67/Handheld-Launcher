@@ -62,12 +62,16 @@ public partial class MainWindow : Window
                 switch (action)
                 {
                     case GamepadAction.MoveLeft:
-                    case GamepadAction.MoveUp:
                         vm.MoveCoverPickerSelection(-1);
                         break;
                     case GamepadAction.MoveRight:
-                    case GamepadAction.MoveDown:
                         vm.MoveCoverPickerSelection(1);
+                        break;
+                    case GamepadAction.MoveUp:
+                        vm.MoveCoverPickerSelectionVertical(-1);
+                        break;
+                    case GamepadAction.MoveDown:
+                        vm.MoveCoverPickerSelectionVertical(1);
                         break;
                     case GamepadAction.Confirm:
                         vm.ConfirmCoverPickerSelection();
@@ -169,13 +173,19 @@ public partial class MainWindow : Window
             switch (e.Key)
             {
                 case Key.Left:
-                case Key.Up:
                     vm.MoveCoverPickerSelection(-1);
                     e.Handled = true;
                     break;
                 case Key.Right:
-                case Key.Down:
                     vm.MoveCoverPickerSelection(1);
+                    e.Handled = true;
+                    break;
+                case Key.Up:
+                    vm.MoveCoverPickerSelectionVertical(-1);
+                    e.Handled = true;
+                    break;
+                case Key.Down:
+                    vm.MoveCoverPickerSelectionVertical(1);
                     e.Handled = true;
                     break;
                 case Key.Enter:

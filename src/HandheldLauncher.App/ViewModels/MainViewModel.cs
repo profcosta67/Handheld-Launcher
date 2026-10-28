@@ -508,14 +508,38 @@ public sealed class MainViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// v1 keeps this a flat list (no row-aware up/down) — MainWindow maps
-    /// both left/up to -1 and right/down to +1, which is all a Take(24)
-    /// grid really needs without wrap-aware row math.
+    /// Must match MainWindow.axaml's UniformGrid Columns="5" on the
+    /// picker's ItemsPanel exactly — that's a fixed column count (not a
+    /// WrapPanel, whose column count depends on pixel widths at render
+    /// time and the ViewModel has no reliable way to mirror), so ↑↓ below
+    /// can jump by this many and land in the right cell every time.
     /// </summary>
+    private const int CoverPickerColumns = 5;
+
+    /// <summary>Left/right: flat ±1, wrapping around the whole list (crossing a row edge lands in the adjacent row — expected).</summary>
     public void MoveCoverPickerSelection(int delta)
     {
         if (!IsCoverPickerOpen || CoverPickerCandidates.Count == 0) return;
         _coverPickerIndex = ((_coverPickerIndex + delta) % CoverPickerCandidates.Count + CoverPickerCandidates.Count) % CoverPickerCandidates.Count;
+        UpdateCoverPickerSelection();
+    }
+
+    /// <summary>
+    /// Up/down: jumps a full row (±CoverPickerColumns) instead of ±1, so it
+    /// actually moves to the cell above/below instead of behaving like
+    /// left/right (the bug reported: pressing down moved right, pressing
+    /// up moved left). No wraparound here — jumping off the top or bottom
+    /// edge just does nothing, since wrapping to the opposite edge of a
+    /// 2D grid reads as "it teleported", not "it wrapped".
+    /// </summary>
+    public void MoveCoverPickerSelectionVertical(int rowDelta)
+    {
+        if (!IsCoverPickerOpen || CoverPickerCandidates.Count == 0) return;
+
+        var newIndex = _coverPickerIndex + rowDelta * CoverPickerColumns;
+        if (newIndex < 0 || newIndex >= CoverPickerCandidates.Count) return;
+
+        _coverPickerIndex = newIndex;
         UpdateCoverPickerSelection();
     }
 
@@ -586,6 +610,22 @@ public sealed class MainViewModel : ViewModelBase
             : Math.Max(0, Games.ToList().FindIndex(t => t.Game.Id == previouslySelectedId));
 
         SelectedIndex = Games.Count > 0 ? restoredIndex : -1;
+
+        // SelectedIndex's setter only touches SelectedTile when the NUMBER
+        // actually changes — but Refresh() just replaced every
+        // GameTileViewModel instance in Games, so an index that happens to
+        // land on the same number as before (very common: the game you
+        // just edited art for is usually still index 0, the "último jogo
+        // aberto") would otherwise leave SelectedTile pointing at an
+        // orphaned pre-refresh object with stale art. Force it to the
+        // fresh instance unconditionally. This was the actual cause of a
+        // reported bug: applying a new hero banner updated the small
+        // "último jogo aberto" tile (always rebuilt fresh regardless) but
+        // not the big top banner, which stayed on the old image until the
+        // player navigated away and back — the only thing that ever
+        // changed SelectedIndex's numeric value and forced the old code
+        // to refresh it.
+        if (Games.Count > 0) SelectedTile = Games[SelectedIndex];
     }
 
     /// <summary>

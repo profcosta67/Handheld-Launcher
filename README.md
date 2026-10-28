@@ -59,16 +59,19 @@ Construído até agora:
   - **Seletor de capa/banner** ("Escolher capa"/"Escolher banner" acima):
     abre uma grade com até 24 opções estáticas vindas do SteamGridDB
     (ordenadas por pontuação, sem NSFW/humor, sem animadas — ver seção
-    própria mais abaixo) pra aquele jogo específico. ← → ↑ ↓ movem o
-    destaque uma posição por vez (lista "achatada", sem navegação por
-    linha de verdade ainda), A/Enter aplica a opção destacada na hora
-    (capa ou banner do jogo, conforme qual dos dois você abriu), B/Esc
-    cancela sem mudar nada. Enquanto carrega mostra "Buscando opções...";
-    se não achar nenhuma, mostra "Nenhuma opção estática encontrada".
-    Substitui o antigo botão único "Buscar capa no SteamGridDB" (que só
-    re-buscava a imagem de maior pontuação, sem escolha) — esse foi
-    removido, o seletor faz tudo que ele fazia e mais. **Ainda não
-    testado num build real** — ver ponto de risco mais abaixo.
+    própria mais abaixo) pra aquele jogo específico. ← → navegam dentro
+    da fileira, ↑ ↓ pulam uma fileira inteira (grade de verdade, 5
+    colunas), A/Enter aplica a opção destacada na hora (capa ou banner do
+    jogo, conforme qual dos dois você abriu), B/Esc cancela sem mudar
+    nada. Enquanto carrega mostra "Buscando opções..."; se não achar
+    nenhuma, mostra "Nenhuma opção estática encontrada". Substitui o
+    antigo botão único "Buscar capa no SteamGridDB" (que só re-buscava a
+    imagem de maior pontuação, sem escolha) — esse foi removido, o
+    seletor faz tudo que ele fazia e mais. **Confirmado funcionando**
+    pelo usuário (abre, carrega candidatas reais de capa E banner, aplica
+    a capa na hora) — só a navegação ↑↓-vira-fileira e o banner grande
+    de cima não atualizando na hora ainda não passaram por um teste real
+    (corrigidos nesta leva, ver "Build ainda não totalmente verificado").
   - **Botão "Adicionar jogo"** na barra de baixo abre um diálogo (nome,
     caminho do executável com seletor de arquivo, argumentos opcionais,
     pasta de trabalho opcional) e cadastra um jogo não-Steam na
@@ -113,12 +116,13 @@ Ainda **não** feito:
 Este projeto foi escrito num sandbox Linux que bloqueia acesso a
 `api.nuget.org` — não dá pra rodar `dotnet restore`/`build` aqui pra validar.
 
-**Bug corrigido nesta leva** (reportado pelo usuário): nos dois menus
-(Start e View/Back), só o D-pad movia ↑↓ — o analógico esquerdo só lia o
-eixo X (esquerda/direita) desde o início do projeto, nunca o eixo Y
-(cima/baixo), então empurrar o analógico pra cima/baixo nunca gerava
-`MoveUp`/`MoveDown`. `GamepadPoller.Poll()` agora lê os dois eixos do
-analógico. Ainda não testado num build real.
+**Bug corrigido** (reportado pelo usuário): nos dois menus (Start e
+View/Back), só o D-pad movia ↑↓ — o analógico esquerdo só lia o eixo X
+(esquerda/direita) desde o início do projeto, nunca o eixo Y (cima/
+baixo), então empurrar o analógico pra cima/baixo nunca gerava `MoveUp`/
+`MoveDown`. `GamepadPoller.Poll()` agora lê os dois eixos do analógico —
+**confirmado funcionando** pelo usuário (D-pad e analógico ambos navegam
+certinho nos dois menus).
 Os commits até o menu geral (View/Back) já foram testados e corrigidos a
 partir dos erros reais que você mandou (banner hero, layout Steam Deck,
 último-jogo-aberto, blur de fundo, menu de contexto com Start, diálogo
@@ -141,16 +145,35 @@ erro de build, me manda a mensagem. Pontos mais arriscados dessa leva:
   imagens baixadas pra mostrar na grade antes de você escolher. Pode
   apagar essa pasta à vontade se crescer demais; ela se recria sozinha na
   próxima vez que abrir o seletor.
-- **Bug corrigido** (reportado pelo usuário): aplicar uma capa escolhida
-  às vezes não fazia efeito na primeira tentativa, só na segunda.
-  Provável causa: eu sobrescrevia o MESMO arquivo que já estava na tela
-  naquele instante (ex: `ARC_grid.jpg`), e se o Windows ainda tivesse
-  esse arquivo "em uso" pra exibição, a sobrescrita falhava em silêncio.
-  Agora cada capa/banner aplicado vira um arquivo com nome novo (inclui o
-  id da imagem do SteamGridDB), nunca sobrescrevendo o que já está
-  carregado. Arquivos antigos de escolhas anteriores ficam órfãos na
-  mesma pasta de cache (mesma solução: pode apagar à vontade). Ainda não
-  testado num build real.
+- **Bugs corrigidos** (reportados pelo usuário, testando a leva anterior):
+  - Aplicar uma capa escolhida às vezes não fazia efeito na primeira
+    tentativa, só na segunda. Provável causa: eu sobrescrevia o MESMO
+    arquivo que já estava na tela naquele instante (ex: `ARC_grid.jpg`),
+    e se o Windows ainda tivesse esse arquivo "em uso" pra exibição, a
+    sobrescrita falhava em silêncio. Agora cada capa/banner aplicado vira
+    um arquivo com nome novo (inclui o id da imagem do SteamGridDB),
+    nunca sobrescrevendo o que já está carregado. Arquivos antigos de
+    escolhas anteriores ficam órfãos na mesma pasta de cache (mesma
+    solução: pode apagar à vontade).
+  - Dentro da grade do seletor, ↑↓ se comportava como ←→ (apertar baixo
+    ia pro item da direita, não pro de baixo de verdade). A grade usava
+    `WrapPanel`, cujo número de colunas por fileira depende do tamanho em
+    pixels na hora de renderizar — e o ViewModel não tinha como saber
+    esse número pra pular a fileira certa. Troquei pra `UniformGrid` com
+    `Columns="5"` fixo (constante espelhada em `MainViewModel.
+    CoverPickerColumns`), então ↑↓ agora pulam exatamente uma fileira
+    (5 posições) de verdade.
+  - Aplicar um banner novo atualizava a miniatura pequena do "último jogo
+    aberto" na hora, mas o banner GRANDE em cima só atualizava depois de
+    trocar de jogo e voltar. Causa: `Refresh()` reconstrói todos os
+    `GameTileViewModel` do zero, mas se o índice selecionado numericamente
+    não muda (comum — o jogo que você acabou de editar geralmente
+    continua no índice 0), o setter de `SelectedIndex` não reatribui
+    `SelectedTile`, que ficava apontando pro objeto antigo (já descartado,
+    com a arte velha). Agora `Refresh()` força essa reatribuição sempre.
+    Esse bug podia estar afetando qualquer `Refresh()` (inclusive "Buscar
+    capas" em massa), não só o seletor — a correção vale pra todos.
+  - Ainda não testado num build real.
 
 ## Seletor de capas tipo Decky Loader — é viável?
 

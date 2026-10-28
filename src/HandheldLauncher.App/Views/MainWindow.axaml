@@ -254,15 +254,24 @@
                      IsVisible="{Binding CoverPickerHasError}" />
 
           <ScrollViewer Grid.Row="1" MaxHeight="460" IsVisible="{Binding CoverPickerHasResults}">
+            <!-- UniformGrid with a FIXED column count (not WrapPanel) so
+                 ↑↓ can jump by exactly "CoverPickerColumns" in the
+                 ViewModel and land in the right cell every time — a
+                 WrapPanel's column count depends on pixel widths at
+                 render time, which the ViewModel can't reliably mirror,
+                 and that mismatch is exactly why ↑↓ used to behave like
+                 ←→ (MainViewModel had no row concept at all yet). -->
             <ItemsControl ItemsSource="{Binding CoverPickerCandidates}">
               <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
-                  <WrapPanel Orientation="Horizontal" />
+                  <UniformGrid Columns="5" />
                 </ItemsPanelTemplate>
               </ItemsControl.ItemsPanel>
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:ArtworkCandidateViewModel">
-                  <Border Classes="coverCandidate" Classes.selected="{Binding IsSelected}" Width="150" Height="170" Margin="6">
+                  <Border Classes="coverCandidate" Classes.selected="{Binding IsSelected}"
+                          Width="150" Height="170" Margin="6"
+                          HorizontalAlignment="Center" VerticalAlignment="Center">
                     <Image Source="{Binding LocalThumbnailPath, Converter={StaticResource FileToBitmapConverter}}"
                            Stretch="Uniform" />
                   </Border>
