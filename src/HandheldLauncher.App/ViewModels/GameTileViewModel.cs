@@ -43,59 +43,72 @@ public sealed class GameTileViewModel : ViewModelBase
     public bool HasLogo => !string.IsNullOrEmpty(LogoImagePath);
 
     /// <summary>
-    /// Drives the "CURRENT LOGO" shown ABOVE the tile (in the caption area,
-    /// see MainWindow.axaml) — deliberately scoped to ONLY the WIDE CAPSULE
-    /// ("último jogo aberto" tile), never the smaller CAPSULE tiles, and
-    /// only once there's actually a logo to show. Per the user's explicit
-    /// split: "logo em cima do wide capsule sem nome escrito, e os nomes
-    /// escrito sem logo em cima da capsule menores" — the WIDE CAPSULE
-    /// shows ONLY the logo above it (never the name too), and if there's no
-    /// logo yet, that caption area is just blank (no name fallback there).
+    /// Drives showing the LOGO instead of the game's name — in the hero
+    /// banner's bottom-left corner (MainWindow.axaml, follows SelectedTile)
+    /// AND above every tile's capsule, CAPSULE or WIDE CAPSULE alike (see
+    /// ShowNameCaption below for the exact opposite). Per the user's
+    /// explicit, final rule: "a LOGO não vai dentro das capas... ele vai
+    /// apenas dentro da hero (banner) lá em cima e ACIMA DAS CAPAS NO LUGAR
+    /// DO NOME" — logo replaces the name wherever a logo exists, on ANY
+    /// tile (earlier in this session this was scoped to only the WIDE
+    /// CAPSULE — that was wrong, this corrects it). Only true once
+    /// SteamGridDB has actually given us a logo for this specific game.
     /// </summary>
-    public bool ShowCurrentLogo => IsLastPlayed && HasLogo;
+    public bool ShowCurrentLogo => HasLogo;
 
     /// <summary>
-    /// Drives the plain name caption above a CAPSULE tile — the exact
-    /// complement of ShowCurrentLogo (see above): every tile except the
-    /// WIDE CAPSULE gets its name written above it, and the WIDE CAPSULE
-    /// never does (logo instead, or nothing while no logo has been fetched
-    /// yet — the two are never shown together on the same tile).
+    /// Drives showing the plain name instead — the exact complement of
+    /// ShowCurrentLogo (see above): whichever tile doesn't have a logo yet
+    /// falls back to its name, CAPSULE or WIDE CAPSULE alike. The two are
+    /// never shown together on the same tile/banner.
     /// </summary>
-    public bool ShowNameCaption => !IsLastPlayed;
+    public bool ShowNameCaption => !HasLogo;
+
+    /// <summary>
+    /// How tall the logo image renders above the tile's capsule (see
+    /// MainWindow.axaml's caption Grid) — a bit bigger on the WIDE CAPSULE
+    /// than on a normal CAPSULE, per the user's request ("deixa ela um
+    /// pouco maior o tamanho na wide capsule"). The caption Grid itself
+    /// stays a FIXED height for every tile regardless (see MainWindow.axaml
+    /// comment) so this size difference never shifts the capsule images
+    /// below out of alignment across the row.
+    /// </summary>
+    public double CaptionLogoHeight => IsLastPlayed ? 32 : 22;
 
     /// <summary>
     /// The centered title-only placeholder INSIDE the capsule border
     /// (shown pre-SteamGridDB, before any art at all has been fetched for
-    /// that specific tile) — every CAPSULE tile also shows its name as a
-    /// caption ABOVE it (see ShowNameCaption/MainWindow.axaml's
-    /// "tileCaption"), so this placeholder only covers the case where the
-    /// image area itself has nothing to show.
+    /// that specific tile) — every CAPSULE tile also shows a caption
+    /// (name or logo, see ShowNameCaption/ShowCurrentLogo) ABOVE it, so this
+    /// placeholder only covers the case where the image area itself has
+    /// nothing to show.
     /// </summary>
     public bool ShowEmptyPlaceholder => string.IsNullOrEmpty(TileImagePath);
 
     /// <summary>
-    /// Must match Theme.axaml's Border.gameTile (170) / .lastPlayed (460)
+    /// Must match Theme.axaml's Border.gameTile (190) / .lastPlayed (510)
     /// width exactly — same kind of duplication already accepted
     /// elsewhere in this project (see MainWindow.
     /// ScrollGameRowSelectionIntoView's hardcoded widths). Needed because
-    /// the per-tile StackPanel (name caption above, capsule below) has no
+    /// the per-tile StackPanel (caption above, capsule below) has no
     /// width of its own otherwise — it would size itself to whichever is
     /// widest (often the caption text for a long title), breaking the
     /// row's fixed-width layout and the scroll math that assumes it.
+    /// Bumped up from 170/460 this leva — pedido do usuário pra deixar as
+    /// capas um pouco maiores em geral.
     /// </summary>
-    public double TileWidth => IsLastPlayed ? 460 : 170;
+    public double TileWidth => IsLastPlayed ? 510 : 190;
 
     /// <summary>
-    /// What the full-window background (the blurred/stretched backdrop
-    /// behind the whole app, see MainWindow.axaml's Panel of Panel bound to
-    /// SelectedTile.BannerImagePath) shows for whichever game the player is
-    /// currently navigated over. This is now the ONLY place HERO art is
-    /// used — per the user's explicit split ("hero (banner) vai ser a tela
-    /// do plano de fundo da tela"), there is no separate top banner box
-    /// anymore, and the WIDE CAPSULE tile in the row uses the cover/grid
-    /// art (TileImagePath below), never this. Falls back to the portrait
-    /// cover when there's no hero yet (still better than a blank
-    /// background), then null (background Panel just hides itself).
+    /// What the hero banner (the crisp, non-blurred box back at the top of
+    /// MainWindow, restored this leva — see its comment there) AND the
+    /// full-window blurred background both show for whichever game the
+    /// player is currently navigated over (both follow SelectedTile, so
+    /// this re-evaluates every time MainWindow rebinds it): the real hero
+    /// art when we have it, otherwise the portrait cover stretched to fill
+    /// (still better than a blank panel), otherwise null. The WIDE CAPSULE
+    /// tile in the row never uses this — see TileImagePath below, always
+    /// cover/grid art regardless of size.
     /// </summary>
     public string? BannerImagePath => Game.HeroImagePath ?? Game.GridImagePath;
 
@@ -103,9 +116,9 @@ public sealed class GameTileViewModel : ViewModelBase
     /// What this tile shows IN THE ROW — always the cover/grid art
     /// ("CAPSULE"/"WIDE CAPSULE" per the user's SteamGridDB terminology),
     /// for every tile including the WIDE CAPSULE one. Deliberately never
-    /// hero art here anymore (that's BannerImagePath's job now, background
-    /// only) — the WIDE CAPSULE is just the same cover art rendered bigger,
-    /// not a different asset.
+    /// hero art here (that's BannerImagePath's job, hero banner + blurred
+    /// background only) — the WIDE CAPSULE is just the same cover art
+    /// rendered bigger, not a different asset.
     /// </summary>
     public string? TileImagePath => GridImagePath;
 
@@ -133,9 +146,8 @@ public sealed class GameTileViewModel : ViewModelBase
         {
             if (SetField(ref _isLastPlayed, value))
             {
-                OnPropertyChanged(nameof(ShowCurrentLogo));
-                OnPropertyChanged(nameof(ShowNameCaption));
                 OnPropertyChanged(nameof(TileWidth));
+                OnPropertyChanged(nameof(CaptionLogoHeight));
             }
         }
     }

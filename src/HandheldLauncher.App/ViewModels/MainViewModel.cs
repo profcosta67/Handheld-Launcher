@@ -65,6 +65,25 @@ public sealed class MainViewModel : ViewModelBase
         private set => SetField(ref _selectedTile, value);
     }
 
+    private string _batteryStatusText = string.Empty;
+
+    /// <summary>
+    /// Top bar's real battery readout ("⚡86%"/"🔌 86%"), pushed in from the
+    /// outside by MainWindow.axaml.cs on a timer (Platform.BatteryStatus,
+    /// a Win32 GetSystemPowerStatus call) — this ViewModel has no Windows
+    /// API access of its own on purpose (see other Views-push-into-VM
+    /// patterns like MinimizeRequested). Replaces the old hardcoded
+    /// "⚡100%" placeholder text that used to just sit in the XAML — bug
+    /// reported by the user: "a bateria não está acompanhando o real, ela
+    /// está cravada a 100%". Empty string (nothing shown) on a desktop PC
+    /// with no battery at all, or if Windows can't report it right now.
+    /// </summary>
+    public string BatteryStatusText
+    {
+        get => _batteryStatusText;
+        set => SetField(ref _batteryStatusText, value);
+    }
+
     /// <summary>
     /// The game the UI currently considers "running" — set when we launch,
     /// cleared on an explicit close or a detected exit. For Steam titles we
@@ -787,12 +806,12 @@ public sealed class MainViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Fetches covers, hero banners AND (only for the "último jogo
-    /// aberto" tile — see below) logos for every game missing them, one
-    /// game/image at a time (not parallel — gentler on the API and simpler
-    /// to reason about without a real test run to tune concurrency
-    /// against). Can take a while on a big library; the button disables
-    /// itself meanwhile via CanFetchArtwork.
+    /// Fetches covers, hero banners AND logos (all three, for EVERY game
+    /// missing them — not just the "último jogo aberto" tile anymore, see
+    /// the comment inside the loop) one game/image at a time (not parallel
+    /// — gentler on the API and simpler to reason about without a real
+    /// test run to tune concurrency against). Can take a while on a big
+    /// library; the button disables itself meanwhile via CanFetchArtwork.
     /// </summary>
     private async void FetchMissingArtwork()
     {
@@ -813,12 +832,13 @@ public sealed class MainViewModel : ViewModelBase
                     await _artwork.FetchHeroAsync(tile.Game);
                 }
 
-                // Logo (CURRENT LOGO) só é mostrado sobre a tile larga do
-                // "último jogo aberto" — buscar pra todo o resto da
-                // biblioteca seria gastar chamadas na API do SteamGridDB
-                // (e tempo) sem nunca aparecer na tela, já que nenhuma
-                // outra tile exibe esse logo.
-                if (tile.IsLastPlayed && string.IsNullOrEmpty(tile.Game.LogoImagePath))
+                // Logo (CURRENT LOGO): corrigido nesta leva — antes só
+                // buscava pra tile do "último jogo aberto", porque o logo só
+                // aparecia ali. Agora ele aparece ACIMA DE QUALQUER capa
+                // (CAPSULE ou WIDE CAPSULE, no lugar do nome — ver
+                // GameTileViewModel.ShowCurrentLogo), então busca pra toda a
+                // biblioteca igual capa/banner já faziam.
+                if (string.IsNullOrEmpty(tile.Game.LogoImagePath))
                 {
                     await _artwork.FetchLogoAsync(tile.Game);
                 }

@@ -53,26 +53,27 @@ Construído até agora:
     (hoje só guarda a API key do SteamGridDB — não tem tela de
     configurações ainda, é editar o arquivo na mão por enquanto).
 - **`HandheldLauncher.App`** — UI em Avalonia:
-  - **(Mudou nesta leva)** Não existe mais nenhum banner retangular
-    separado no topo. O HERO do SteamGridDB agora só serve pra UMA coisa:
-    o fundo desfocado (blur) e esticado da janela inteira, que já existia e
-    continua testado/funcionando — split explícito pedido pelo usuário
-    ("hero (banner) vai ser a tela do plano de fundo da tela"). O que
-    sobrou embaixo é só a fileira de capas (CAPSULE), ancorada na parte de
-    baixo da área de conteúdo. **Nunca testado num build real** (a remoção
-    em si).
+  - **Banner HERO no topo — voltou (mudou de novo nesta leva)**: a leva
+    anterior tinha removido essa caixa achando que o usuário queria o hero
+    só como fundo; o usuário corrigiu ("vamos voltar aquele quadrado em
+    cima sem blur") e confirmou que o hero alimenta AS DUAS coisas ao mesmo
+    tempo: o banner cru (sem blur) lá no topo, seguindo o jogo focado, E
+    (como já era) o fundo desfocado/esticado da janela inteira. Dentro
+    desse banner, no cantinho inferior esquerdo, aparece o CURRENT LOGO
+    daquele jogo quando já tem um baixado (cai pro nome quando ainda não
+    tem — ver `ShowCurrentLogo`/`ShowNameCaption` mais abaixo). **Nunca
+    testado num build real com esse logo no canto** (o banner em si, sem o
+    logo, já era testado antes da remoção da leva passada).
   - Na fileira, o **último jogo aberto** (não o que está só focado/com o
     cursor em cima — o que foi realmente *lançado* por último) aparece
-    largo/deitado (460x230) — a **WIDE CAPSULE**. **Mudou nesta leva**: ela
-    usa a MESMA arte de capa/grid das tiles normais (`GridImagePath`),
-    nunca mais a arte hero — a WIDE CAPSULE é só a capa normal renderizada
-    maior, não um asset diferente (de novo, por pedido explícito do
-    usuário: "WIDE CAPSULE... imagem da capa larga do ultimo jogo", "hero"
-    reservado só pro fundo). Só troca de lugar/tamanho quando você abre
-    outro jogo de verdade; navegar com ← → não mexe nisso. Ao abrir um jogo
-    ele vira o primeiro da fileira (empurra o resto). **Nunca testado num
-    build real** (a parte "usa a capa, não o hero" é nova; o resto — virar
-    o primeiro da fileira, tamanho largo — já era testado antes).
+    largo/deitado — a **WIDE CAPSULE**. Usa a MESMA arte de capa/grid das
+    tiles normais (`GridImagePath`), nunca a arte hero — é só a capa normal
+    renderizada maior, não um asset diferente (confirmado pelo usuário:
+    "essa imagem [WIDE CAPSULE] será apenas referente a capa horizontal
+    maior"; o HERO fica reservado pro banner do topo + fundo). Só troca de
+    lugar/tamanho quando você abre outro jogo de verdade; navegar com ← →
+    não mexe nisso. Ao abrir um jogo ele vira o primeiro da fileira (empurra
+    o resto). **Nunca testado num build real.**
   - Navegação por **controle via XInput** (dpad/analógico esquerdo, A
     confirma, B fecha o jogo) — testado e funcionando com um controle Xbox.
     Teclado (← → Enter Esc) continua funcionando como fallback de dev.
@@ -245,36 +246,55 @@ Construído até agora:
     enforcer e a Legion Space voltar a ganhar a frente no Modo Xbox, o
     próximo passo seria reaplicar o `Activate()` só numa janela curta
     depois do boot, não pra sempre. **Nunca testado num build real.**
-  - **"CURRENT LOGO" + nome do jogo — layout final (corrigido de novo
-    nesta leva)**: o usuário mandou uma montagem (print editado com
-    caixinhas "LOGO BAIXADO AQUI"/"nome escrito do jogo aqui") corrigindo o
-    que eu tinha entendido na leva anterior. Split final, confirmado por
-    ele: **CURRENT LOGO sozinho acima da WIDE CAPSULE (sem nome ali), e
-    nome sozinho acima de cada CAPSULE normal (sem logo ali)** — nunca os
-    dois juntos na mesma tile.
-    - Cada tile é um `StackPanel` (caption em cima, capa embaixo). A
-      caption é um `Grid` de altura fixa (28) com um `TextBlock` (nome,
-      `TextBlock.tileCaption`, trunca com "...") e uma `Image` (logo)
-      sobrepostos, cada um visível conforme `ShowNameCaption`/
-      `ShowCurrentLogo` (mutuamente exclusivos no `GameTileViewModel`:
-      `ShowNameCaption => !IsLastPlayed`, `ShowCurrentLogo => IsLastPlayed
-      && HasLogo`). Na WIDE CAPSULE sem logo ainda baixado, essa área fica
-      em branco de propósito (não cai pro nome) — é exatamente o que foi
-      pedido.
-    - A altura fixa do `Grid` da caption (antes a leva passada usava só um
-      `TextBlock` direto, sem envolver num container de altura fixa) é pra
-      evitar que a WIDE CAPSULE (que ora mostra uma imagem de logo, ora
-      nada) desalinhe verticalmente a capa de baixo em relação às tiles
-      vizinhas, já que a fileira é um `StackPanel` horizontal que alinha os
-      filhos pelo topo.
-    - `TileWidth` (170/460, mesmos valores do `Theme.axaml`) continua
-      dando a largura fixa de cada tile pro `StackPanel` não se
-      redimensionar pelo conteúdo mais largo — mesma razão de antes.
-    **Nunca testado num build real** — é a segunda tentativa desse layout
-    específico nesta sessão, dessa vez a partir da montagem do usuário.
-    **Nunca testado num build real** (inclusive a parte de buscar o logo
-    em si via "Atualizar Capas Automático"/"Escolher logo" — é a primeira
-    vez que o endpoint `/logos/` do SteamGridDB é chamado neste projeto).
+  - **"CURRENT LOGO" + nome do jogo — regra final (3ª tentativa nesta
+    sessão, corrigida de novo)**: a leva anterior tinha restringido o logo
+    só à WIDE CAPSULE. O usuário corrigiu de vez, com uma regra explícita e
+    literal: *"a LOGO não vai dentro das capas dos jogos (wide capsule e
+    capsule), ele vai apenas dentro da hero (banner) lá em cima e ACIMA DAS
+    CAPAS NO LUGAR DO NOME"*. Ou seja, o logo aparece em DOIS lugares, e
+    NUNCA dentro de uma capa:
+    1. Dentro do banner HERO no topo (canto inferior esquerdo), pro jogo
+       atualmente focado.
+    2. ACIMA de QUALQUER capa da fileira — CAPSULE ou WIDE CAPSULE,
+       qualquer uma que já tenha logo baixado — substituindo o nome
+       (nunca os dois juntos). Sem logo ainda pra aquele jogo, cai pro
+       nome normalmente. Na WIDE CAPSULE o logo renderiza um pouco maior
+       (`CaptionLogoHeight` = 32 contra 22 da CAPSULE normal), a pedido do
+       usuário ("deixa ela um pouco maior o tamanho na wide capsule").
+    - `GameTileViewModel`: `ShowCurrentLogo => HasLogo` (não depende mais
+      de `IsLastPlayed`), `ShowNameCaption => !HasLogo` — mutuamente
+      exclusivos, qualquer tile.
+    - A caption de cada tile é um `Grid` de altura FIXA (36, antes 28) —
+      com o logo podendo vir em dois tamanhos diferentes (22/32) a altura
+      fixa garante que a capa de baixo nunca desalinha entre as tiles da
+      fileira, não importa se mostra nome, logo pequeno ou logo grande.
+    - **"Atualizar Capas Automático" corrigido**: antes só buscava logo
+      pra tile do último jogo aberto (porque só ali aparecia); agora busca
+      pra TODA a biblioteca, igual capa/banner já faziam, já que o logo
+      pode aparecer em qualquer tile agora.
+    **Nunca testado num build real.**
+  - **Tamanho das capas aumentado (novo nesta leva)**: pedido do usuário
+    ("pode aumentar um pouco mais o tamanho das capas em geral"). CAPSULE
+    170x230 → 190x255, WIDE CAPSULE (largura) 460 → 510 (mesma proporção
+    de antes). Só a fileira principal — a grade do seletor de capa/
+    banner/logo (`Border.coverCandidate`) ficou do tamanho que já era, por
+    ser uma UI diferente (escolha rápida, não a tela principal). **Nunca
+    testado num build real.**
+  - **Bateria real na barra de cima (bug corrigido nesta leva)**: o
+    usuário reportou "a bateria não está acompanhando o real, ela está
+    cravada a 100%" — e o motivo era simples: aquele "⚡100%" sempre foi um
+    texto FIXO digitado na hora, nunca ligado a nada de verdade (o
+    comentário antigo já dizia isso: "placeholder for now"). Novo arquivo
+    `Platform/BatteryStatus.cs` chama `GetSystemPowerStatus` (API nativa do
+    Windows, `kernel32.dll`) e `MainWindow.StartBatteryMonitor` atualiza
+    `MainViewModel.BatteryStatusText` a cada 30s (e uma vez na abertura).
+    Mostra "⚡86%" na bateria, "🔌 86%" carregando, e nada (texto vazio) num
+    PC sem bateria nenhuma — melhor não mostrar nada do que trocar um
+    número fixo por outro. Wifi/relógio continuam só placeholder (●●●),
+    não foi pedido mexer neles. **Nunca testado num build real** — num PC
+    de mesa (sem bateria) o esperado é não aparecer nada ali; num
+    handheld de verdade (Legion Go 2/ROG Ally) é onde dá pra confirmar o
+    número batendo com o real.
   - **Fonte do projeto = Comic Sans MS (novo nesta leva)**: pedido do
     usuário. Um único `Style Selector="Window"` em `Theme.axaml` troca a
     `FontFamily` — como essa propriedade é herdada pela árvore visual em
@@ -617,34 +637,42 @@ que merecem atenção no primeiro teste:
   Xbox/OmniConsole ativo, porque o caminho de correção é bem diferente
   pra cada caso.
 
-**🔴 Remoção do banner do topo + split final logo/nome — status**: o
-usuário mandou uma montagem (print editado com caixinhas "LOGO BAIXADO
-AQUI"/"nome escrito do jogo aqui") corrigindo um equívoco meu na leva
-anterior, e confirmou duas perguntas diretas antes de eu mexer no código
-(pra não arriscar errar de novo sem poder compilar). Tudo nesta leva, sem
-teste num build real ainda. Pontos que merecem atenção no primeiro teste:
-- **Banner hero retangular no topo foi removido de vez** (confirmado pelo
-  usuário: "Remove a caixa do topo"). O HERO do SteamGridDB agora só
-  alimenta o fundo desfocado da janela inteira (`Panel` de fundo, já
-  existia e continua igual) — não tem mais nenhuma `Border.heroBanner` na
-  árvore visual. A mensagem "Nenhum jogo encontrado ainda..." (biblioteca
-  vazia) que vivia dentro do banner foi realocada pro espaço livre acima
-  da fileira (mesma condição `SelectedTile == null`) — teste importante:
-  confirmar que ela ainda aparece certinho numa biblioteca vazia, e que o
-  espaço acima da fileira não ficou nem grande nem pequeno demais sem o
-  banner de 320px que ocupava ali antes.
-- **WIDE CAPSULE agora usa a capa/grid, não mais o hero**
-  (`GameTileViewModel.TileImagePath` virou só `GridImagePath`, sem mais o
-  `IsLastPlayed ? BannerImagePath : GridImagePath` de antes) — teste
-  importante: confirmar que a tile larga do último jogo aberto mostra a
-  mesma arte de capa das tiles pequenas (só que maior), não mais o banner
-  widescreen que aparecia ali antes.
-- **Logo e nome nunca mais juntos na mesma tile** (ver bullet "CURRENT
-  LOGO" + nome — layout final" na seção "Status atual" mais acima pros
-  detalhes de `ShowNameCaption`/`ShowCurrentLogo` e do `Grid` de altura
-  fixa na caption) — teste importante: WIDE CAPSULE só com logo (ou vazio,
-  sem logo ainda) acima dela, nunca o nome; tiles pequenas só com nome
-  acima, nunca logo.
+**🔴 Banner do topo de volta + logo em 2 lugares + capas maiores + bateria
+real — status**: a leva passada tinha removido o banner do topo
+interpretando errado o pedido do usuário sobre o split HERO/WIDE CAPSULE.
+O usuário corrigiu de novo nesta leva, com uma regra final e bem mais
+explícita dessa vez (ver bullets "Banner HERO no topo" e "'CURRENT LOGO'
++ nome do jogo — regra final" na seção "Status atual" mais acima pros
+detalhes completos), e aproveitou pra reportar o bug da bateria e pedir
+pra aumentar o tamanho das capas. Tudo nesta leva, sem teste num build
+real ainda. Pontos que merecem atenção no primeiro teste:
+- **Banner hero no topo voltou** (`Border.heroBanner`, Height 320, sem
+  blur) — teste importante: confirmar que aparece de novo seguindo o jogo
+  focado, com a mensagem "Nenhum jogo encontrado..." aparecendo certinho
+  numa biblioteca vazia (voltou pra dentro do banner, onde estava antes
+  da remoção da leva passada).
+- **Logo agora aparece em DOIS lugares, nunca dentro de uma capa**: no
+  canto inferior esquerdo do banner HERO (dentro da mesma barra
+  translúcida que já mostrava título/minutos jogados — cai pro título
+  quando não tem logo ainda) E acima de QUALQUER capa da fileira (CAPSULE
+  ou WIDE CAPSULE, no lugar do nome) — teste importante: confirmar que o
+  logo aparece nos dois lugares quando existe, que cai pro nome/título
+  direitinho quando não existe, e que o logo da WIDE CAPSULE renderiza
+  visivelmente maior que o das CAPSULE normais.
+- **CAPSULE/WIDE CAPSULE maiores** (190x255/510x255, eram 170x230/460x230)
+  — teste importante: confirmar que a fileira continua alinhada e rolando
+  certinho com os novos tamanhos (`ScrollGameRowSelectionIntoView` foi
+  atualizado pros mesmos valores).
+- **Bateria real na barra de cima** — teste importante: comparar o número
+  mostrado com a bateria real do Legion Go 2/ROG Ally (e confirmar que
+  continua trocando sozinho a cada ~30s, sem travar em um valor).
+- **"Ícones muito em baixo"**: o usuário reportou isso olhando o build da
+  leva passada, que tinha removido o banner e deixado a fileira grudada
+  no fundo da janela com um espaço vazio enorme em cima dela. Não mexi em
+  nada de posicionamento além de trazer o banner de volta — a hipótese é
+  que isso já resolve sozinho (a fileira volta a ficar logo abaixo do
+  banner, como era antes da remoção), mas vale confirmar no teste; se
+  ainda estiver desproporcional, me avisa que ajusto de novo.
 
 **Bug corrigido** (reportado pelo usuário): nos dois menus (Start e
 View/Back), só o D-pad movia ↑↓ — o analógico esquerdo só lia o eixo X

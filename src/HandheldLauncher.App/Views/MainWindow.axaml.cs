@@ -37,6 +37,7 @@ public partial class MainWindow : Window
     private readonly GamepadPoller _gamepad = new();
     private readonly DispatcherTimer _gamepadTimer;
     private DispatcherTimer? _topmostEnforcerTimer;
+    private DispatcherTimer? _batteryTimer;
     private bool _hotkeyRegistered;
 
     public MainWindow()
@@ -281,6 +282,29 @@ public partial class MainWindow : Window
         vm.TurnOffScreenRequested += (_, _) => TurnOffScreen();
         vm.RestartDeviceRequested += (_, _) => RestartDevice();
         vm.ShutdownDeviceRequested += (_, _) => ShutdownDevice();
+
+        StartBatteryMonitor(vm);
+    }
+
+    /// <summary>
+    /// Pushes the real battery % (Platform.BatteryStatus, a Win32
+    /// GetSystemPowerStatus call) into the ViewModel's BatteryStatusText —
+    /// fixes the reported "a bateria não está acompanhando o real, ela está
+    /// cravada a 100%" bug (that text used to be a literal hardcoded string
+    /// in MainWindow.axaml, never wired to anything real). Refreshes every
+    /// 30s — battery % doesn't change fast enough to need anything quicker,
+    /// and this is a plain OS call on every tick, cheap either way. Reads
+    /// once immediately too, so the top bar doesn't sit blank until the
+    /// first tick 30s later.
+    /// </summary>
+    private void StartBatteryMonitor(MainViewModel vm)
+    {
+        vm.BatteryStatusText = BatteryStatus.GetDisplayText();
+
+        _batteryTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
+        _batteryTimer.Tick += (_, _) => vm.BatteryStatusText = BatteryStatus.GetDisplayText();
+        _batteryTimer.Start();
+        Closed += (_, _) => _batteryTimer?.Stop();
     }
 
     /// <summary>
@@ -693,7 +717,7 @@ public partial class MainWindow : Window
     /// usually is, since ReorderLastPlayedFirst moves it there, but this
     /// walks the actual flags rather than assuming that to stay correct
     /// either way). Tile widths/spacing below must match
-    /// Theme.axaml's Border.gameTile (170) / .lastPlayed (460) and
+    /// Theme.axaml's Border.gameTile (190) / .lastPlayed (510) and
     /// MainWindow.axaml's StackPanel Spacing="14" exactly.
     /// </summary>
     private void ScrollGameRowSelectionIntoView(MainViewModel vm)
@@ -701,8 +725,8 @@ public partial class MainWindow : Window
         if (GameRowScrollViewer is null) return;
         if (vm.Games.Count == 0 || vm.SelectedIndex < 0) return;
 
-        const double normalWidth = 170;
-        const double lastPlayedWidth = 460;
+        const double normalWidth = 190;
+        const double lastPlayedWidth = 510;
         const double spacing = 14;
 
         double itemLeft = 0;

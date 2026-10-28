@@ -54,8 +54,11 @@
     <Setter Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
     <Setter Property="CornerRadius" Value="{StaticResource TileCornerRadius}" />
     <Setter Property="ClipToBounds" Value="True" />
-    <Setter Property="Width" Value="170" />
-    <Setter Property="Height" Value="230" />
+    <!-- 170/230 até a leva anterior; aumentado um pouco a pedido do
+         usuário ("pode aumentar um pouco mais o tamanho das capas em
+         geral"), mesma proporção de antes. -->
+    <Setter Property="Width" Value="190" />
+    <Setter Property="Height" Value="255" />
   </Style>
 
   <Style Selector="Border.gameTile.focused">
@@ -63,12 +66,14 @@
     <Setter Property="BorderThickness" Value="3" />
   </Style>
 
-  <!-- "Último jogo aberto" — wide landscape tile using hero art instead of
-       the portrait cover. Height matches the normal tile so the row still
-       lines up; only Width grows. -->
+  <!-- WIDE CAPSULE ("último jogo aberto") — mesma arte de capa/grid da
+       CAPSULE normal, só renderizada bem mais larga (nunca a arte hero,
+       ver GameTileViewModel.TileImagePath). Height bate com a tile normal
+       pra fileira continuar alinhada; só Width cresce. 460 até a leva
+       anterior, aumentado junto com a CAPSULE normal. -->
   <Style Selector="Border.gameTile.lastPlayed">
-    <Setter Property="Width" Value="460" />
-    <Setter Property="Height" Value="230" />
+    <Setter Property="Width" Value="510" />
+    <Setter Property="Height" Value="255" />
   </Style>
 
   <!-- Context menu (Start button) — dim backdrop + a centered card listing

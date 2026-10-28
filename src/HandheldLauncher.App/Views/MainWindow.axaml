@@ -54,8 +54,13 @@
           <TextBlock Text="Handheld Launcher" Classes="gameTitle" VerticalAlignment="Center" />
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16">
-          <!-- System tray area (wifi/battery/clock) is a later pass — placeholder for now. -->
-          <TextBlock Text="●●●  ⚡100%" Classes="subtle" VerticalAlignment="Center" />
+          <!-- Wifi/clock ainda são placeholder (●●●) — só a bateria virou
+               real nesta leva (ver MainViewModel.BatteryStatusText/
+               MainWindow.StartBatteryMonitor), corrigindo o bug reportado
+               de ficar cravada em 100%. Texto vazio (nada aparece) em PC
+               sem bateria nenhuma. -->
+          <TextBlock Text="●●●" Classes="subtle" VerticalAlignment="Center" />
+          <TextBlock Text="{Binding BatteryStatusText}" Classes="subtle" VerticalAlignment="Center" />
           <!-- Abre o mesmo menu geral do botão View/Back (OnGearMenuClick
                só chama vm.ToggleGlobalMenu(), nada de menu separado) —
                assim mouse/touch e controle sempre acessam exatamente as
@@ -69,23 +74,67 @@
       </Grid>
     </Border>
 
-    <!-- Main content: SEM mais banner hero retangular aqui em cima — a
-         pedido do usuário, o HERO virou só o fundo desfocado da janela
-         inteira (ver Panel de fundo no topo do arquivo), sem caixa própria.
-         Sobra só a fileira de capas, ancorada embaixo, com o espaço vazio
-         acima dela reservado pra mensagem de biblioteca vazia (quando não
-         há nenhum SelectedTile ainda). -->
-    <Grid Grid.Row="1" RowDefinitions="*,Auto" Margin="24,20,24,20">
+    <!-- Main content: o banner hero retangular no topo (SEM blur, crua a
+         arte do jogo focado) VOLTOU nesta leva — tinha sido removido numa
+         leva anterior, mas o usuário pediu de volta ("vamos voltar aquele
+         quadrado em cima sem blur"). A arte hero continua TAMBÉM
+         alimentando o fundo desfocado da janela inteira (Panel lá em cima)
+         — as duas coisas usam a mesma arte, uma com blur, outra sem,
+         exatamente como antes da remoção. -->
+    <Grid Grid.Row="1" RowDefinitions="Auto,*" Margin="24,20,24,20">
 
-      <TextBlock Grid.Row="0"
-                 Text="Nenhum jogo encontrado ainda.&#10;Adicione um jogo manualmente para começar."
-                 Classes="subtle"
-                 TextWrapping="Wrap"
-                 TextAlignment="Center"
-                 VerticalAlignment="Center"
-                 HorizontalAlignment="Center"
-                 Margin="24"
-                 IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
+      <!-- Hero: o jogo focado, banner largo deitado -->
+      <Border Grid.Row="0" Classes="heroBanner" Height="320" Margin="0,0,0,16">
+        <!-- Border só aceita um filho, então os dois estados (jogo
+             selecionado / biblioteca vazia) vivem dentro do mesmo Grid
+             externo, alternados por IsVisible. -->
+        <Grid>
+          <Grid IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
+            <Image Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                   Stretch="UniformToFill" />
+
+            <!-- Placeholder enquanto não tem hero/capa nenhuma ainda (pre-SteamGridDB) -->
+            <TextBlock Text="{Binding SelectedTile.Title}"
+                       Classes="heroTitle"
+                       TextWrapping="Wrap"
+                       TextAlignment="Center"
+                       VerticalAlignment="Center"
+                       HorizontalAlignment="Center"
+                       Margin="20"
+                       IsVisible="{Binding SelectedTile.BannerImagePath, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
+
+            <!-- CURRENT LOGO: canto inferior ESQUERDO do hero, por cima da
+                 barra translúcida de baixo — pedido explícito do usuário
+                 ("no cantinho inferior esquerdo, igual a foto anterior").
+                 Quando ainda não tem logo pra esse jogo, cai pro nome (a
+                 mesma troca logo/nome de cada capa na fileira, ver
+                 ShowCurrentLogo/ShowNameCaption no GameTileViewModel). A
+                 contagem de minutos jogados continua sempre visível, do
+                 lado de baixo, nos dois casos. -->
+            <Border VerticalAlignment="Bottom" Background="#B30C0D12" Padding="24,16">
+              <StackPanel Spacing="4">
+                <Image Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                       Height="36" Stretch="Uniform"
+                       HorizontalAlignment="Left"
+                       IsVisible="{Binding SelectedTile.ShowCurrentLogo}" />
+                <TextBlock Text="{Binding SelectedTile.Title}" Classes="heroTitle" TextWrapping="Wrap"
+                           IsVisible="{Binding SelectedTile.ShowNameCaption}" />
+                <TextBlock Text="{Binding SelectedTile.Game.PlaytimeMinutes, StringFormat='{}{0} min jogados'}"
+                           Classes="subtle" />
+              </StackPanel>
+            </Border>
+          </Grid>
+
+          <TextBlock Text="Nenhum jogo encontrado ainda.&#10;Adicione um jogo manualmente para começar."
+                     Classes="subtle"
+                     TextWrapping="Wrap"
+                     TextAlignment="Center"
+                     VerticalAlignment="Center"
+                     HorizontalAlignment="Center"
+                     Margin="24"
+                     IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
+        </Grid>
+      </Border>
 
       <!-- Horizontal row of every game (CAPSULE tiles, WIDE CAPSULE pro
            último jogo aberto). -->
@@ -107,19 +156,23 @@
                    conta de scroll em MainWindow.ScrollGameRowSelectionIntoView. -->
               <StackPanel Width="{Binding TileWidth}" Spacing="6">
 
-                <!-- Caption ACIMA da capa (nunca por dentro dela — correção
-                     da leva anterior): nome pras CAPSULE normais, LOGO
-                     (sozinho, sem nome) pra WIDE CAPSULE — split explícito
-                     do usuário ("logo em cima do wide capsule sem nome
-                     escrito, e os nomes escrito sem logo em cima da
-                     capsule menores"), nunca os dois juntos na mesma tile.
-                     Altura FIXA (28) pra toda tile reservar o mesmo espaço
-                     aqui em cima — sem isso, a WIDE CAPSULE (que às vezes
-                     mostra uma imagem de logo, às vezes nada) desalinharia
-                     verticalmente a capa de baixo em relação às tiles
-                     vizinhas, já que o StackPanel horizontal da fileira
-                     alinha os filhos pelo topo. -->
-                <Grid Height="28">
+                <!-- Caption ACIMA da capa (nunca por dentro dela): LOGO no
+                     lugar do nome, em QUALQUER tile (CAPSULE ou WIDE
+                     CAPSULE) que já tenha logo baixado — regra final e
+                     explícita do usuário: "a LOGO não vai dentro das capas
+                     ... ele vai apenas dentro da hero (banner) lá em cima e
+                     ACIMA DAS CAPAS NO LUGAR DO NOME". Sem logo ainda, cai
+                     pro nome (ShowNameCaption). Nunca os dois juntos.
+                     Altura FIXA (36) pra toda tile reservar o mesmo espaço
+                     aqui em cima — sem isso, a tile com um logo MAIOR (a
+                     WIDE CAPSULE usa CaptionLogoHeight=32 contra 22 da
+                     CAPSULE normal, pedido do usuário: "deixa ela um pouco
+                     maior... na wide capsule") desalinharia verticalmente a
+                     capa de baixo em relação às tiles vizinhas, já que o
+                     StackPanel horizontal da fileira alinha os filhos pelo
+                     topo — com a altura fixa, qualquer tamanho de logo/nome
+                     fica centralizado dentro da MESMA caixa de 36px. -->
+                <Grid Height="36">
                   <TextBlock Text="{Binding Title}"
                              Classes="tileCaption"
                              TextWrapping="NoWrap"
@@ -129,6 +182,7 @@
                              IsVisible="{Binding ShowNameCaption}" />
 
                   <Image Source="{Binding LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                         Height="{Binding CaptionLogoHeight}"
                          Stretch="Uniform"
                          HorizontalAlignment="Center"
                          VerticalAlignment="Center"
