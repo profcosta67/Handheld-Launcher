@@ -71,50 +71,68 @@ Construído até agora:
     testado num build real com esse layout.**
   - Na fileira, o **último jogo aberto** (não o que está só focado/com o
     cursor em cima — o que foi realmente *lançado* por último) aparece
-    largo/deitado — a **WIDE CAPSULE**. Usa a MESMA arte de capa/grid das
-    tiles normais (`GridImagePath`), nunca a arte hero — é só a capa normal
-    renderizada maior, não um asset diferente (confirmado pelo usuário:
-    "essa imagem [WIDE CAPSULE] será apenas referente a capa horizontal
-    maior"; o HERO fica reservado pro banner do topo + fundo). Só troca de
-    lugar/tamanho quando você abre outro jogo de verdade; navegar com ← →
-    não mexe nisso. Ao abrir um jogo ele vira o primeiro da fileira (empurra
-    o resto). **Nunca testado num build real.**
+    largo/deitado — a **WIDE CAPSULE**. **Mudou nesta leva (urgente,
+    reportado pelo usuário)**: usava a MESMA arte de capa/grid portrait
+    das tiles normais (`GridImagePath`) só renderizada mais larga, o que
+    esticava/distorcia a imagem vertical dentro da caixa horizontal.
+    Agora usa um asset totalmente INDEPENDENTE — `GameEntry.
+    WideGridImagePath`, uma CAPA (não o hero/banner) só que já em formato
+    landscape de verdade, buscada no SteamGridDB com `dimensions=
+    460x215,920x430` em vez do `600x900` portrait normal. Nunca cai de
+    volta pra `GridImagePath` esticado quando ainda não tem — mostra o
+    placeholder vazio igual qualquer outra tile sem arte, de propósito
+    (pra nunca mais mostrar o visual distorcido que estava sendo
+    corrigido). Novo item "Escolher capa larga" no menu de contexto (ver
+    bullet própria abaixo) escolhe manualmente. Só troca de lugar/tamanho
+    quando você abre outro jogo de verdade; navegar com ← → não mexe
+    nisso. Ao abrir um jogo ele vira o primeiro da fileira (empurra o
+    resto). **Nunca testado num build real.**
   - Navegação por **controle via XInput** (dpad/analógico esquerdo, A
     confirma, B fecha o jogo) — testado e funcionando com um controle Xbox.
     Teclado (← → Enter Esc) continua funcionando como fallback de dev.
   - **Menu de contexto (Start no controle / Espaço no teclado)** sobre o
-    jogo focado: "Escolher capa", "Escolher banner", "Escolher logo",
-    **"Favoritar"/"Desfavoritar" (novo nesta leva)** e "Abrir jogo". ↑↓
-    navega entre as opções, A/Enter confirma, B/Esc/Start fecha sem fazer
-    nada. O texto do 4º item troca entre "Favoritar" e "Desfavoritar"
+    jogo focado, agora com 6 itens: "Escolher capa", **"Escolher capa
+    larga" (novo nesta leva — ver WIDE CAPSULE acima)**, "Escolher
+    banner", "Escolher logo", "Favoritar"/"Desfavoritar" e "Abrir jogo".
+    ↑↓ navega entre as opções, A/Enter confirma, B/Esc/Start fecha sem
+    fazer nada. O texto do item "Favoritar" troca pra "Desfavoritar"
     dependendo se o jogo em foco já está marcado — toggla
     `GameEntry.IsFavorite` (persistido como override, sobrevive a
     re-scan) e acende uma estrelinha (★) no canto da tile na fileira.
-    "Abrir jogo"/"Escolher capa"/"Escolher banner"/"Escolher logo" já eram
-    testados e continuam iguais; "Favoritar" é a novidade desta leva —
-    **ainda não testada num build real.**
-  - **Abas de filtro (novo nesta leva)**, logo abaixo do banner HERO e
-    acima da fileira: "Todos", "Favoritos", "Steam", "Não Steam", "Xbox"
-    — pedido explícito do usuário. Clicar numa aba não re-escaneia nada,
-    só filtra a lista já carregada na hora
-    (`MainViewModel.SetFilter`/`RebuildGamesFromLibrary`). "Xbox" filtra
-    por `GameSource.XboxApp` — como ainda não existe um scanner de
+    "Abrir jogo"/"Escolher capa"/"Escolher banner"/"Escolher
+    logo"/"Favoritar" já eram testados e continuam iguais; "Escolher capa
+    larga" é a novidade desta leva — **ainda não testada num build
+    real.**
+  - **Abas de filtro**, logo abaixo do banner HERO e acima da fileira:
+    "Favoritos", "Todos", "Steam", "Xbox", "Não Steam" (ordem pedida pelo
+    usuário nesta leva: "fav, todos/steam/xbox/nao steam" — mudou de
+    "Todos, Favoritos, Steam, Não Steam, Xbox"). Clicar numa aba não
+    re-escaneia nada, só filtra a lista já carregada na hora
+    (`MainViewModel.SetFilter`/`RebuildGamesFromLibrary`). Layout virou
+    um `Grid` de 5 colunas IGUAIS ocupando a largura inteira (era um
+    `StackPanel` colado à esquerda) — pedido do usuário: "centralize...
+    fica com todos espaçamentos iguais e ocupe do início ao fim da
+    tela". **Acesso por controle (novo nesta leva)**: LB/RB ciclam entre
+    as abas nessa mesma ordem visual (`GamepadAction.PreviousFilter`/
+    `NextFilter`, teclado Q/E como fallback de dev) — antes só dava pra
+    clicar/tocar, e o usuário reportou não conseguir alcançar pelo
+    controle. "Xbox" filtra por `GameSource.XboxApp` — como ainda não
+    existe um scanner de
     verdade do Xbox app, a única forma de um jogo cair nessa aba é marcar
     o novo checkbox "É um jogo do Xbox app / Game Pass" no diálogo
     "Adicionar jogo". **Importante**: "Atualizar Capas Automático"
     continua sempre olhando a biblioteca INTEIRA, nunca só a aba ativa —
-    corrigido de propósito pra não virar um bug silencioso. Só
-    touch/mouse por enquanto (a tela do Legion Go 2 é touch, então as
-    abas já são alcançáveis sem controle) — navegação por gamepad pras
-    abas pode entrar numa leva futura. **Nunca testado num build real.**
-  - **Seletor de capa/banner/logo** ("Escolher capa"/"Escolher
-    banner"/"Escolher logo" acima): abre uma grade com até 24 opções
-    estáticas vindas do SteamGridDB (ordenadas por pontuação, sem
-    NSFW/humor, sem animadas — ver seção própria mais abaixo) pra aquele
-    jogo específico. ← → navegam dentro da fileira, ↑ ↓ pulam uma fileira
-    inteira (grade de verdade, 5 colunas), A/Enter aplica a opção destacada
-    na hora (capa, banner ou logo do jogo, conforme qual dos três você
-    abriu), B/Esc cancela sem mudar nada. Enquanto carrega mostra "Buscando
+    corrigido de propósito pra não virar um bug silencioso. **Nunca
+    testado num build real.**
+  - **Seletor de capa/capa larga/banner/logo** ("Escolher capa"/"Escolher
+    capa larga"/"Escolher banner"/"Escolher logo" acima): abre uma grade
+    com até 24 opções estáticas vindas do SteamGridDB (ordenadas por
+    pontuação, sem NSFW/humor, sem animadas — ver seção própria mais
+    abaixo) pra aquele jogo específico. ← → navegam dentro da fileira, ↑ ↓
+    pulam uma fileira inteira (grade de verdade, 5 colunas), A/Enter
+    aplica a opção destacada na hora (capa, capa larga, banner ou logo do
+    jogo, conforme qual dos quatro você abriu), B/Esc cancela sem mudar
+    nada. Enquanto carrega mostra "Buscando
     opções..."; se não achar nenhuma, mostra "Nenhuma opção estática
     encontrada". Substitui o antigo botão único "Buscar capa no
     SteamGridDB" (que só re-buscava a imagem de maior pontuação, sem
@@ -864,6 +882,72 @@ teste num build real ainda. Pontos que merecem atenção no primeiro teste:
   progresso real do carregamento do jogo. Teste importante: confirmar que
   o overlay aparece, não "pisca" rápido demais pra ler, e some sozinho
   sem travar a tela depois.
+
+**🔴 Capa larga independente (urgente) + ordem/layout/controle das abas +
+ajustes visuais (hero/alinhamento/tamanho/transição) — status**: pedido em
+lista curta depois do usuário testar o build corrigido no Legion Go 2 de
+verdade. Tudo nesta leva, sem teste num build real ainda. Pontos que
+merecem atenção no primeiro teste:
+- **Capa larga independente (urgente) — corrige a WIDE CAPSULE esticada**:
+  esse era o item mais importante. Ver bullet "WIDE CAPSULE" em "Status
+  atual" mais acima pros detalhes técnicos. Teste importante: dar
+  "Atualizar Capas Automático" (ou abrir "Escolher capa larga" no menu de
+  contexto de um jogo) e confirmar que a WIDE CAPSULE mostra uma imagem
+  landscape de verdade, não mais a capa portrait distorcida — e que trocar
+  a capa normal ("Escolher capa") NÃO muda a capa larga, e vice-versa (são
+  dois arquivos/overrides totalmente separados agora).
+- **Bug corrigido de passagem, achado revisando o código pra essa capa
+  larga**: `ArtworkService.GetOrCreateOverride` recriava o override do
+  jogo campo a campo, e esquecia `IsFavorite` (da leva anterior) — ou
+  seja, qualquer busca/aplicação de capa/banner/logo depois de favoritar
+  um jogo apagava o favorito silenciosamente. Nunca chegou a ser
+  reportado, mas corrigido antes de virar queixa. Teste importante:
+  favoritar um jogo, dar "Atualizar Capas Automático" (ou escolher uma
+  capa manualmente), e confirmar que a estrelinha continua lá depois.
+- **Ordem das abas de filtro mudou**: "Favoritos, Todos, Steam, Xbox, Não
+  Steam" (era "Todos, Favoritos, Steam, Não Steam, Xbox") — pedido
+  explícito do usuário.
+- **Layout das abas mudou de StackPanel pra Grid de 5 colunas iguais,
+  ocupando a tela inteira** — pedido do usuário: "centralize... fica com
+  todos espaçamentos iguais e ocupe do início ao fim da tela". Teste
+  importante: confirmar visualmente que as 5 abas têm exatamente a mesma
+  largura e que a fileira vai de uma ponta à outra da área de conteúdo
+  (não só do tamanho do texto de cada botão).
+- **Abas de filtro agora alcançáveis pelo controle**: LB/RB ciclam entre
+  elas na mesma ordem visual (`GamepadAction.PreviousFilter`/
+  `NextFilter`, implementado em `GamepadPoller`, sem repetição ao segurar
+  — um toque, uma troca) — usuário reportou "não consigo acessar os
+  filtros... pelo controle". Teclado Q/E como fallback de dev. Teste
+  importante: segurar/apertar LB e RB fora de qualquer menu e confirmar
+  que a aba ativa muda ciclicamente (incluindo dar a volta: da última
+  pra primeira e vice-versa).
+- **Hero mais alto**: `Height="320"` → `"380"` — pedido direto ("aumenta
+  o eixo vertical do hero deixe um pouco maior").
+- **Nome/logo das tiles alinhados à esquerda**: eram centralizados,
+  agora começam na borda esquerda da capa (mesma largura da capa, então
+  alinhar a caption à esquerda já alinha com o início da arte) — pedido:
+  "alinhe os ícones de nome dos jogos a esquerda iniciando no começo da
+  arte do jogo".
+- **Capas maiores de novo + zoom de foco mais forte**: CAPSULE 190x255 →
+  220x290; WIDE CAPSULE 510x255 → 620x290 (proporção ajustada mais perto
+  do formato landscape real da nova capa larga independente, ~2.14:1 em
+  vez de 2.0:1); escala do "zoom" de foco 1.04 → 1.08; duração da
+  transição de foco 0.15s → 0.18s; duração do scroll suave da fileira
+  0.22s → 0.28s. Tudo isso em resposta a "aumente mais o tamanho de
+  todos as capas... nao notei a transição entre os ícones" — como o
+  build anterior tinha quebrado no `AVLN2000` (ver entrada abaixo), é
+  possível que o usuário só tenha visto a transição funcionando de fato
+  agora, então vale conferir se o efeito mais forte já é suficiente antes
+  de aumentar ainda mais.
+
+**🔴 Erro de build AVLN2000 no Theme.axaml — corrigido**: reportado pelo
+usuário direto do `dotnet publish` real no Windows — `Style.Transitions`
+não existe (Transitions é propriedade do CONTROLE, não do `Style` em si);
+trocado pra um `Setter Property="Transitions"` normal. Esse foi o
+primeiro erro de build REAL que apareceu neste projeto (todos os outros
+"nunca testado" até aqui eram só falta de teste, não erro de compilação)
+— bom sinal de que o fluxo de build/instalação em si está funcionando,
+só esse Setter que estava errado.
 
 ## Seletor de capas tipo Decky Loader — é viável?
 

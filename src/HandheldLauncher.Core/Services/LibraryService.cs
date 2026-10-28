@@ -113,6 +113,7 @@ public sealed class LibraryService : ILibraryService
         game.HeroImagePath = o.HeroImagePath;
         game.LogoImagePath = o.LogoImagePath;
         game.IconImagePath = o.IconImagePath;
+        game.WideGridImagePath = o.WideGridImagePath;
         game.PlaytimeMinutes = o.PlaytimeMinutes;
         game.LastPlayedUtc = o.LastPlayedUtc;
         game.IsFavorite = o.IsFavorite;
@@ -128,6 +129,7 @@ public sealed class LibraryService : ILibraryService
             HeroImagePath = game.HeroImagePath,
             LogoImagePath = game.LogoImagePath,
             IconImagePath = game.IconImagePath,
+            WideGridImagePath = game.WideGridImagePath,
             PlaytimeMinutes = game.PlaytimeMinutes,
             LastPlayedUtc = game.LastPlayedUtc,
             IsFavorite = game.IsFavorite,

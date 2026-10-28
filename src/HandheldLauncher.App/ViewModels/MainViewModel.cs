@@ -181,17 +181,34 @@ public sealed class MainViewModel : ViewModelBase
     public ObservableCollection<ContextMenuItemViewModel> ContextMenuItems { get; } = new()
     {
         new ContextMenuItemViewModel("Escolher capa"),
+        new ContextMenuItemViewModel("Escolher capa larga"), // WideGridImagePath — a capa só da WIDE CAPSULE, independente da capa normal e do banner
         new ContextMenuItemViewModel("Escolher banner"),
         new ContextMenuItemViewModel("Escolher logo"),
         new ContextMenuItemViewModel("Favoritar"), // texto trocado em ToggleContextMenu dependendo do jogo em foco
         new ContextMenuItemViewModel("Abrir jogo"),
     };
 
-    /// <summary>Qual dos três tipos de arte o seletor (IsCoverPickerOpen) está escolhendo no momento — ver OpenCoverPicker/ConfirmCoverPickerSelection.</summary>
-    private enum ArtworkPickerKind { Grid, Hero, Logo }
+    /// <summary>Qual dos quatro tipos de arte o seletor (IsCoverPickerOpen) está escolhendo no momento — ver OpenCoverPicker/ConfirmCoverPickerSelection.</summary>
+    private enum ArtworkPickerKind { Grid, WideGrid, Hero, Logo }
 
     /// <summary>Abas de filtro pedidas pelo usuário: "Todos, favoritos, steam, não steam, xbox (por enquanto)".</summary>
     private enum LibraryFilter { All, Favorites, Steam, NonSteam, Xbox }
+
+    /// <summary>
+    /// Ordem VISUAL das abas (pedido do usuário: "fav, todos/steam/xbox/
+    /// nao steam") — separada da ordem de declaração do enum acima de
+    /// propósito, porque LB/RB (CyclePreviousFilter/CycleNextFilter) têm
+    /// que andar na mesma ordem em que as abas aparecem na tela, não na
+    /// ordem em que o enum foi escrito.
+    /// </summary>
+    private static readonly LibraryFilter[] FilterOrder =
+    {
+        LibraryFilter.Favorites,
+        LibraryFilter.All,
+        LibraryFilter.Steam,
+        LibraryFilter.Xbox,
+        LibraryFilter.NonSteam,
+    };
 
     private LibraryFilter _activeFilter = LibraryFilter.All;
 
@@ -416,10 +433,10 @@ public sealed class MainViewModel : ViewModelBase
         ContextMenuTarget = SelectedTile;
         _contextMenuIndex = 0;
 
-        // Índice 3 = "Favoritar"/"Desfavoritar" (ver ContextMenuItems e o
+        // Índice 4 = "Favoritar"/"Desfavoritar" (ver ContextMenuItems e o
         // switch em ConfirmContextMenuSelection) — texto muda na hora de
         // abrir porque o mesmo item serve pra ligar e desligar.
-        ContextMenuItems[3].Label = SelectedTile.Game.IsFavorite ? "Desfavoritar" : "Favoritar";
+        ContextMenuItems[4].Label = SelectedTile.Game.IsFavorite ? "Desfavoritar" : "Favoritar";
 
         UpdateContextMenuSelection();
         IsContextMenuOpen = true;
@@ -459,15 +476,19 @@ public sealed class MainViewModel : ViewModelBase
                 OpenCoverPicker(game, ArtworkPickerKind.Grid);
                 break;
 
-            case 1: // Escolher banner
+            case 1: // Escolher capa larga
+                OpenCoverPicker(game, ArtworkPickerKind.WideGrid);
+                break;
+
+            case 2: // Escolher banner
                 OpenCoverPicker(game, ArtworkPickerKind.Hero);
                 break;
 
-            case 2: // Escolher logo
+            case 3: // Escolher logo
                 OpenCoverPicker(game, ArtworkPickerKind.Logo);
                 break;
 
-            case 3: // Favoritar / Desfavoritar
+            case 4: // Favoritar / Desfavoritar
                 _library.SetFavorite(game.Id, !game.IsFavorite);
                 // RebuildGamesFromLibrary (não Refresh — não precisa
                 // re-escanear) pra aba "Favoritos" refletir o toggle na
@@ -475,7 +496,7 @@ public sealed class MainViewModel : ViewModelBase
                 RebuildGamesFromLibrary();
                 break;
 
-            case 4: // Abrir jogo
+            case 5: // Abrir jogo
                 var tile = Games.FirstOrDefault(t => t.Game.Id == game.Id);
                 if (tile is not null)
                 {
@@ -679,6 +700,7 @@ public sealed class MainViewModel : ViewModelBase
 
         CoverPickerTitle = kind switch
         {
+            ArtworkPickerKind.WideGrid => $"Escolher capa larga — {game.Title}",
             ArtworkPickerKind.Hero => $"Escolher banner — {game.Title}",
             ArtworkPickerKind.Logo => $"Escolher logo — {game.Title}",
             _ => $"Escolher capa — {game.Title}",
@@ -700,6 +722,7 @@ public sealed class MainViewModel : ViewModelBase
         {
             var candidates = kind switch
             {
+                ArtworkPickerKind.WideGrid => await _artwork.GetWideGridCandidatesAsync(game),
                 ArtworkPickerKind.Hero => await _artwork.GetHeroCandidatesAsync(game),
                 ArtworkPickerKind.Logo => await _artwork.GetLogoCandidatesAsync(game),
                 _ => await _artwork.GetGridCandidatesAsync(game),
@@ -815,6 +838,7 @@ public sealed class MainViewModel : ViewModelBase
         {
             var applied = kind switch
             {
+                ArtworkPickerKind.WideGrid => await _artwork.ApplyWideGridCandidateAsync(game, chosen),
                 ArtworkPickerKind.Hero => await _artwork.ApplyHeroCandidateAsync(game, chosen),
                 ArtworkPickerKind.Logo => await _artwork.ApplyLogoCandidateAsync(game, chosen),
                 _ => await _artwork.ApplyGridCandidateAsync(game, chosen),
@@ -852,6 +876,26 @@ public sealed class MainViewModel : ViewModelBase
     {
         _library.Refresh();
         RebuildGamesFromLibrary();
+    }
+
+    /// <summary>
+    /// LB/RB no controle (ver GamepadPoller.GamepadAction.PreviousFilter/
+    /// NextFilter e MainWindow.OnGamepadTick) — pedido do usuário: "não
+    /// consigo acessar os filtros... pelo controle". Anda pela MESMA
+    /// ordem visual das abas na tela (FilterOrder), não pela ordem do
+    /// enum. Aplica direto, sem cursor/confirmação separada — ciclar já
+    /// É a ação, igual clicar numa aba.
+    /// </summary>
+    public void CycleNextFilter() => CycleFilter(1);
+
+    public void CyclePreviousFilter() => CycleFilter(-1);
+
+    private void CycleFilter(int delta)
+    {
+        var currentIndex = Array.IndexOf(FilterOrder, _activeFilter);
+        if (currentIndex < 0) currentIndex = 0;
+        var nextIndex = ((currentIndex + delta) % FilterOrder.Length + FilterOrder.Length) % FilterOrder.Length;
+        SetFilter(FilterOrder[nextIndex]);
     }
 
     /// <summary>
@@ -971,6 +1015,17 @@ public sealed class MainViewModel : ViewModelBase
                 if (string.IsNullOrEmpty(game.LogoImagePath))
                 {
                     await _artwork.FetchLogoAsync(game);
+                }
+
+                // Capa landscape (WIDE CAPSULE) — independente da capa
+                // normal acima, novo campo desta leva (ver
+                // GameEntry.WideGridImagePath). Busca pra biblioteca
+                // inteira igual as outras três, não só pro "último jogo
+                // aberto" — quem virar o último jogo aberto no futuro já
+                // tem a arte pronta sem precisar buscar na hora.
+                if (string.IsNullOrEmpty(game.WideGridImagePath))
+                {
+                    await _artwork.FetchWideGridAsync(game);
                 }
             }
 

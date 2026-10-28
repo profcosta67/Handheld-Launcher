@@ -19,6 +19,18 @@ public enum GamepadAction
     /// what makes the bottom bar's buttons reachable without a mouse.
     /// </summary>
     GlobalMenu,
+
+    /// <summary>
+    /// LB — cicla a aba de filtro ativa pra trás (ver
+    /// MainViewModel.CyclePreviousFilter). Pedido do usuário: "não
+    /// consigo acessar os filtros... pelo controle" (as abas só tinham
+    /// botão de mouse/touch até agora). Sem repetição ao segurar — igual
+    /// A/B/Start/Back, um toque = uma troca de aba.
+    /// </summary>
+    PreviousFilter,
+
+    /// <summary>RB — mesma ideia de PreviousFilter, só que pra frente.</summary>
+    NextFilter,
 }
 
 /// <summary>
@@ -80,6 +92,8 @@ public sealed class GamepadPoller
         if (WasJustPressed(buttons, XInput.Buttons.B)) actions.Add(GamepadAction.Back);
         if (WasJustPressed(buttons, XInput.Buttons.Start)) actions.Add(GamepadAction.Menu);
         if (WasJustPressed(buttons, XInput.Buttons.Back)) actions.Add(GamepadAction.GlobalMenu);
+        if (WasJustPressed(buttons, XInput.Buttons.LeftShoulder)) actions.Add(GamepadAction.PreviousFilter);
+        if (WasJustPressed(buttons, XInput.Buttons.RightShoulder)) actions.Add(GamepadAction.NextFilter);
 
         // D-pad OR left stick — either one holding a direction counts the
         // same way, so you never get a double-fire from both at once.

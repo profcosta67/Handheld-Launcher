@@ -94,7 +94,7 @@ public sealed class GameTileViewModel : ViewModelBase
     public bool ShowEmptyPlaceholder => string.IsNullOrEmpty(TileImagePath);
 
     /// <summary>
-    /// Must match Theme.axaml's Border.gameTile (190) / .lastPlayed (510)
+    /// Must match Theme.axaml's Border.gameTile (220) / .lastPlayed (620)
     /// width exactly — same kind of duplication already accepted
     /// elsewhere in this project (see MainWindow.
     /// ScrollGameRowSelectionIntoView's hardcoded widths). Needed because
@@ -102,10 +102,10 @@ public sealed class GameTileViewModel : ViewModelBase
     /// width of its own otherwise — it would size itself to whichever is
     /// widest (often the caption text for a long title), breaking the
     /// row's fixed-width layout and the scroll math that assumes it.
-    /// Bumped up from 170/460 this leva — pedido do usuário pra deixar as
-    /// capas um pouco maiores em geral.
+    /// 170/460 → 190/510 → 220/620 nesta leva — pedido do usuário pra
+    /// deixar as capas mais destacadas.
     /// </summary>
-    public double TileWidth => IsLastPlayed ? 510 : 190;
+    public double TileWidth => IsLastPlayed ? 620 : 220;
 
     /// <summary>
     /// What the hero banner (the crisp, non-blurred box back at the top of
@@ -121,14 +121,20 @@ public sealed class GameTileViewModel : ViewModelBase
     public string? BannerImagePath => Game.HeroImagePath ?? Game.GridImagePath;
 
     /// <summary>
-    /// What this tile shows IN THE ROW — always the cover/grid art
-    /// ("CAPSULE"/"WIDE CAPSULE" per the user's SteamGridDB terminology),
-    /// for every tile including the WIDE CAPSULE one. Deliberately never
-    /// hero art here (that's BannerImagePath's job, hero banner + blurred
-    /// background only) — the WIDE CAPSULE is just the same cover art
-    /// rendered bigger, not a different asset.
+    /// What this tile shows IN THE ROW. CAPSULE normal: sempre o
+    /// GridImagePath (capa portrait), igual sempre foi. WIDE CAPSULE
+    /// ("último jogo aberto"): agora usa Game.WideGridImagePath — um
+    /// asset INDEPENDENTE (capa landscape, buscada separado — ver
+    /// GameEntry.WideGridImagePath), NUNCA mais GridImagePath. Correção
+    /// desta leva: antes a WIDE CAPSULE reusava a mesma capa portrait da
+    /// CAPSULE normal só renderizada mais larga, e isso esticava/puxava a
+    /// imagem vertical dentro da caixa horizontal — bug reportado pelo
+    /// usuário como urgente. Sem WideGridImagePath baixado ainda, cai pro
+    /// placeholder vazio (ShowEmptyPlaceholder) — de propósito NÃO cai de
+    /// volta pro GridImagePath esticado, que é exatamente o visual que
+    /// estava sendo corrigido.
     /// </summary>
-    public string? TileImagePath => GridImagePath;
+    public string? TileImagePath => IsLastPlayed ? Game.WideGridImagePath : GridImagePath;
 
     private bool _isFocused;
     public bool IsFocused
@@ -156,6 +162,15 @@ public sealed class GameTileViewModel : ViewModelBase
             {
                 OnPropertyChanged(nameof(TileWidth));
                 OnPropertyChanged(nameof(CaptionLogoHeight));
+
+                // TileImagePath agora depende de IsLastPlayed (WideGridImagePath
+                // vs GridImagePath, ver TileImagePath acima) — sem isso, ao
+                // lançar um jogo diferente (LaunchSelected chama
+                // ReorderLastPlayedFirst SEM reconstruir as tiles do zero),
+                // a imagem continuaria mostrando a capa errada até o
+                // próximo Refresh() completo.
+                OnPropertyChanged(nameof(TileImagePath));
+                OnPropertyChanged(nameof(ShowEmptyPlaceholder));
             }
         }
     }

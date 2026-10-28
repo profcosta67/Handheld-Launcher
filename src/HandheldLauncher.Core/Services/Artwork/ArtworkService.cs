@@ -97,6 +97,33 @@ public sealed class ArtworkService : IArtworkService
         return true;
     }
 
+    /// <summary>
+    /// Same shape as FetchGridAsync, mas pra uma capa LANDSCAPE
+    /// (game.WideGridImagePath) — a WIDE CAPSULE ("último jogo aberto")
+    /// usa isso em vez de GridImagePath, pedido do usuário depois de
+    /// reportar a capa portrait sendo esticada dentro da caixa larga.
+    /// </summary>
+    public async Task<bool> FetchWideGridAsync(GameEntry game, CancellationToken ct = default)
+    {
+        if (!HasApiKey) return false;
+
+        var image = game.Source == GameSource.Steam && game.SteamAppId is { } appId
+            ? await _client.GetBestWideGridForSteamAppAsync(appId, ct)
+            : await _client.GetBestWideGridForTitleAsync(game.Title, ct);
+
+        if (image is null) return false;
+
+        var localPath = await DownloadToCache(image.Url, _cacheDir, $"{game.Id}_widegrid", ct);
+        if (localPath is null) return false;
+
+        var data = GetOrCreateOverride(game.Id);
+        data.WideGridImagePath = localPath;
+        _store.SaveOverride(game.Id, data);
+
+        game.WideGridImagePath = localPath;
+        return true;
+    }
+
     public async Task<IReadOnlyList<ArtworkCandidate>> GetGridCandidatesAsync(GameEntry game, CancellationToken ct = default)
     {
         if (!HasApiKey) return Array.Empty<ArtworkCandidate>();
@@ -130,6 +157,17 @@ public sealed class ArtworkService : IArtworkService
         return await DownloadCandidatesAsync(images, $"{game.Id}_logo_candidate", ct);
     }
 
+    public async Task<IReadOnlyList<ArtworkCandidate>> GetWideGridCandidatesAsync(GameEntry game, CancellationToken ct = default)
+    {
+        if (!HasApiKey) return Array.Empty<ArtworkCandidate>();
+
+        var images = game.Source == GameSource.Steam && game.SteamAppId is { } appId
+            ? await _client.GetWideGridCandidatesForSteamAppAsync(appId, ct)
+            : await _client.GetWideGridCandidatesForTitleAsync(game.Title, ct);
+
+        return await DownloadCandidatesAsync(images, $"{game.Id}_widegrid_candidate", ct);
+    }
+
     public Task<bool> ApplyGridCandidateAsync(GameEntry game, ArtworkCandidate candidate, CancellationToken ct = default)
         => ApplyCandidateAsync(game, candidate, ArtworkSlot.Grid);
 
@@ -139,8 +177,11 @@ public sealed class ArtworkService : IArtworkService
     public Task<bool> ApplyLogoCandidateAsync(GameEntry game, ArtworkCandidate candidate, CancellationToken ct = default)
         => ApplyCandidateAsync(game, candidate, ArtworkSlot.Logo);
 
-    /// <summary>Which GameEntry/GameMetadataOverride field ApplyCandidateAsync below writes to — grid/hero/logo, matching the 3 picker types.</summary>
-    private enum ArtworkSlot { Grid, Hero, Logo }
+    public Task<bool> ApplyWideGridCandidateAsync(GameEntry game, ArtworkCandidate candidate, CancellationToken ct = default)
+        => ApplyCandidateAsync(game, candidate, ArtworkSlot.WideGrid);
+
+    /// <summary>Which GameEntry/GameMetadataOverride field ApplyCandidateAsync below writes to — grid/hero/logo/widegrid, matching the 4 picker types.</summary>
+    private enum ArtworkSlot { Grid, Hero, Logo, WideGrid }
 
     /// <summary>
     /// Downloads every candidate image to disk (once — a file that's
@@ -197,7 +238,7 @@ public sealed class ArtworkService : IArtworkService
     {
         Directory.CreateDirectory(_cacheDir);
         var extension = Path.GetExtension(candidate.LocalThumbnailPath);
-        var suffix = slot switch { ArtworkSlot.Hero => "hero", ArtworkSlot.Logo => "logo", _ => "grid" };
+        var suffix = slot switch { ArtworkSlot.Hero => "hero", ArtworkSlot.Logo => "logo", ArtworkSlot.WideGrid => "widegrid", _ => "grid" };
         var localPath = Path.Combine(_cacheDir, $"{game.Id}_{suffix}_{candidate.Id}{extension}");
 
         try
@@ -219,6 +260,10 @@ public sealed class ArtworkService : IArtworkService
             case ArtworkSlot.Logo:
                 data.LogoImagePath = localPath;
                 game.LogoImagePath = localPath;
+                break;
+            case ArtworkSlot.WideGrid:
+                data.WideGridImagePath = localPath;
+                game.WideGridImagePath = localPath;
                 break;
             default:
                 data.GridImagePath = localPath;
@@ -259,6 +304,15 @@ public sealed class ArtworkService : IArtworkService
         var overrides = _store.LoadOverrides();
         if (overrides.TryGetValue(gameId, out var existing))
         {
+            // CORRIGIDO: faltavam WideGridImagePath (novo campo desta
+            // leva) E IsFavorite (campo da leva anterior) aqui — como
+            // esse método recria um GameMetadataOverride do zero campo a
+            // campo, qualquer campo esquecido aqui era silenciosamente
+            // APAGADO (voltava a false/null) toda vez que qualquer busca
+            // de capa/banner/logo rodava depois de favoritar um jogo. Bug
+            // real, nunca reportado ainda (só achado revisando o código
+            // pra adicionar a capa larga) — corrigido antes de virar
+            // queixa.
             return new GameMetadataOverride
             {
                 Collection = existing.Collection,
@@ -266,8 +320,10 @@ public sealed class ArtworkService : IArtworkService
                 HeroImagePath = existing.HeroImagePath,
                 LogoImagePath = existing.LogoImagePath,
                 IconImagePath = existing.IconImagePath,
+                WideGridImagePath = existing.WideGridImagePath,
                 PlaytimeMinutes = existing.PlaytimeMinutes,
                 LastPlayedUtc = existing.LastPlayedUtc,
+                IsFavorite = existing.IsFavorite,
             };
         }
 

@@ -31,6 +31,27 @@ public interface ISteamGridDbClient
     /// <summary>Fallback for non-Steam entries: searches by title, same candidate list as the AppId version.</summary>
     Task<IReadOnlyList<SteamGridDbImage>> GetGridCandidatesForTitleAsync(string title, CancellationToken ct = default);
 
+    /// <summary>
+    /// "Wide grid" — a CAPA (não um banner/hero), só que em formato
+    /// landscape (dimensions=460x215/920x430, o "capsule horizontal" que o
+    /// próprio Steam usa) em vez do portrait 600x900 normal. Independente
+    /// de GetBestGridFor... (grid normal) E de GetBestHeroFor... (hero) —
+    /// pedido explícito do usuário depois de reportar que a WIDE CAPSULE
+    /// estava esticando a capa vertical normal dentro de uma caixa larga:
+    /// "tem que vir de capas mas com formato estilo banner, mas não pode
+    /// ser a mesma do banner, elas têm que ser independentes".
+    /// </summary>
+    Task<SteamGridDbImage?> GetBestWideGridForSteamAppAsync(uint steamAppId, CancellationToken ct = default);
+
+    /// <summary>Fallback for non-Steam entries: searches by title, takes the top match's wide grid.</summary>
+    Task<SteamGridDbImage?> GetBestWideGridForTitleAsync(string title, CancellationToken ct = default);
+
+    /// <summary>Same idea as GetGridCandidatesForSteamAppAsync but for wide grids — powers the "Escolher capa larga" picker.</summary>
+    Task<IReadOnlyList<SteamGridDbImage>> GetWideGridCandidatesForSteamAppAsync(uint steamAppId, CancellationToken ct = default);
+
+    /// <summary>Fallback for non-Steam entries: searches by title, same candidate list as the AppId version.</summary>
+    Task<IReadOnlyList<SteamGridDbImage>> GetWideGridCandidatesForTitleAsync(string title, CancellationToken ct = default);
+
     /// <summary>Same idea as GetGridCandidatesForSteamAppAsync but for hero banners.</summary>
     Task<IReadOnlyList<SteamGridDbImage>> GetHeroCandidatesForSteamAppAsync(uint steamAppId, CancellationToken ct = default);
 

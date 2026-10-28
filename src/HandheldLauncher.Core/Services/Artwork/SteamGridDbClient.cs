@@ -130,6 +130,38 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
         return await FetchGridCandidates($"{BaseUrl}/grids/game/{gameId}?dimensions=600x900&types=static", ct);
     }
 
+    public async Task<SteamGridDbImage?> GetBestWideGridForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
+    {
+        var candidates = await GetWideGridCandidatesForSteamAppAsync(steamAppId, ct);
+        return candidates.FirstOrDefault();
+    }
+
+    public async Task<SteamGridDbImage?> GetBestWideGridForTitleAsync(string title, CancellationToken ct = default)
+    {
+        var candidates = await GetWideGridCandidatesForTitleAsync(title, ct);
+        return candidates.FirstOrDefault();
+    }
+
+    public async Task<IReadOnlyList<SteamGridDbImage>> GetWideGridCandidatesForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
+    {
+        if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
+        // Mesmo endpoint /grids/ da capa normal, só troca o dimensions pro
+        // formato landscape (460x215/920x430 — o "capsule horizontal" que
+        // o próprio Steam usa) em vez do portrait 600x900. Independente da
+        // capa normal E do hero — ver comentário na interface.
+        return await FetchGridCandidates($"{BaseUrl}/grids/steam/{steamAppId}?dimensions=460x215,920x430&types=static", ct);
+    }
+
+    public async Task<IReadOnlyList<SteamGridDbImage>> GetWideGridCandidatesForTitleAsync(string title, CancellationToken ct = default)
+    {
+        if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
+
+        var gameId = await SearchGameId(title, ct);
+        if (gameId is null) return Array.Empty<SteamGridDbImage>();
+
+        return await FetchGridCandidates($"{BaseUrl}/grids/game/{gameId}?dimensions=460x215,920x430&types=static", ct);
+    }
+
     public async Task<IReadOnlyList<SteamGridDbImage>> GetHeroCandidatesForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
     {
         if (!HasApiKey) return Array.Empty<SteamGridDbImage>();

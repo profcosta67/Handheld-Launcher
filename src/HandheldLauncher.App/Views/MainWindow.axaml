@@ -83,8 +83,10 @@
          exatamente como antes da remoção. -->
     <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*" Margin="24,20,24,20">
 
-      <!-- Hero: o jogo focado, banner largo deitado -->
-      <Border Grid.Row="0" Classes="heroBanner" Height="320" Margin="0,0,0,16">
+      <!-- Hero: o jogo focado, banner largo deitado. 320 → 380 nesta
+           leva, a pedido do usuário ("aumenta o eixo vertical do hero
+           deixe um pouco maior"). -->
+      <Border Grid.Row="0" Classes="heroBanner" Height="380" Margin="0,0,0,16">
         <!-- Border só aceita um filho, então os dois estados (jogo
              selecionado / biblioteca vazia) vivem dentro do mesmo Grid
              externo, alternados por IsVisible. -->
@@ -132,20 +134,28 @@
       </Border>
 
       <!-- Abas de filtro — "um pouco acima dos ícones dos jogos e abaixo
-           do hero", pedido do usuário: Todos, Favoritos, Steam, Não
-           Steam, Xbox (por enquanto). Trocar de aba só filtra a lista já
-           carregada (MainViewModel.SetFilter/RebuildGamesFromLibrary),
-           não re-escaneia a biblioteca. Mouse/touch só por enquanto — a
-           tela do Legion Go 2 é touch, então os botões já são alcançáveis
-           sem gamepad; navegação por controle pode entrar numa leva
-           futura (ex.: LB/RB pra ciclar abas). -->
-      <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="10" Margin="0,0,0,16">
-        <Button Classes="pill filterTab" Classes.active="{Binding IsFilterAllActive}" Content="Todos" Command="{Binding SetFilterAllCommand}" />
-        <Button Classes="pill filterTab" Classes.active="{Binding IsFilterFavoritesActive}" Content="Favoritos" Command="{Binding SetFilterFavoritesCommand}" />
-        <Button Classes="pill filterTab" Classes.active="{Binding IsFilterSteamActive}" Content="Steam" Command="{Binding SetFilterSteamCommand}" />
-        <Button Classes="pill filterTab" Classes.active="{Binding IsFilterNonSteamActive}" Content="Não Steam" Command="{Binding SetFilterNonSteamCommand}" />
-        <Button Classes="pill filterTab" Classes.active="{Binding IsFilterXboxActive}" Content="Xbox" Command="{Binding SetFilterXboxCommand}" />
-      </StackPanel>
+           do hero", pedido do usuário: Favoritos, Todos, Steam, Xbox, Não
+           Steam (ordem pedida nesta leva: "fav, todos/steam/xbox/nao
+           steam"). Trocar de aba só filtra a lista já carregada
+           (MainViewModel.SetFilter/RebuildGamesFromLibrary), não
+           re-escaneia a biblioteca. Grid de 5 colunas IGUAIS (não
+           StackPanel) a pedido do usuário ("centralize... fica com todos
+           espaçamentos iguais e ocupe do início ao fim da tela") — cada
+           botão ocupa Stretch dentro da sua coluna, então a fileira
+           inteira sempre vai de uma ponta à outra com espaçamento
+           simétrico, não só o tamanho do conteúdo. Alcançável por
+           mouse/touch (clique direto numa aba) E agora por LB/RB no
+           controle (GamepadAction.PreviousFilter/NextFilter, ciclando
+           nesta mesma ordem visual — ver MainViewModel.FilterOrder),
+           depois do usuário reportar que não conseguia acessar pelo
+           controle. -->
+      <Grid Grid.Row="1" ColumnDefinitions="*,*,*,*,*" Margin="0,0,0,16">
+        <Button Grid.Column="0" Classes="pill filterTab" Classes.active="{Binding IsFilterFavoritesActive}" Content="Favoritos" Command="{Binding SetFilterFavoritesCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,5,0" />
+        <Button Grid.Column="1" Classes="pill filterTab" Classes.active="{Binding IsFilterAllActive}" Content="Todos" Command="{Binding SetFilterAllCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" />
+        <Button Grid.Column="2" Classes="pill filterTab" Classes.active="{Binding IsFilterSteamActive}" Content="Steam" Command="{Binding SetFilterSteamCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" />
+        <Button Grid.Column="3" Classes="pill filterTab" Classes.active="{Binding IsFilterXboxActive}" Content="Xbox" Command="{Binding SetFilterXboxCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" />
+        <Button Grid.Column="4" Classes="pill filterTab" Classes.active="{Binding IsFilterNonSteamActive}" Content="Não Steam" Command="{Binding SetFilterNonSteamCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,0,0" />
+      </Grid>
 
       <!-- Horizontal row of every game (CAPSULE tiles, WIDE CAPSULE pro
            último jogo aberto). -->
@@ -157,10 +167,12 @@
              troca de valor da propriedade, não só troca via Setter/estilo) —
              então o scroll que antes pulava direto agora desliza. Não dá pra
              compilar aqui pra confirmar, mas é a API documentada do Avalonia
-             pra isso (VectorTransition, já que Offset é um Vector). -->
+             pra isso (VectorTransition, já que Offset é um Vector). Duração
+             0.22s → 0.28s nesta leva — usuário reportou "não notei a
+             transição entre os ícones". -->
         <ScrollViewer.Transitions>
           <Transitions>
-            <VectorTransition Property="Offset" Duration="0:0:0.22" Easing="CubicEaseOut" />
+            <VectorTransition Property="Offset" Duration="0:0:0.28" Easing="CubicEaseOut" />
           </Transitions>
         </ScrollViewer.Transitions>
         <ItemsControl ItemsSource="{Binding Games}">
@@ -195,20 +207,27 @@
                      capa de baixo em relação às tiles vizinhas, já que o
                      StackPanel horizontal da fileira alinha os filhos pelo
                      topo — com a altura fixa, qualquer tamanho de logo/nome
-                     fica centralizado dentro da MESMA caixa de 36px. -->
+                     fica centralizado dentro da MESMA caixa de 36px.
+                     Alinhamento LEFT nesta leva (era Center) — pedido do
+                     usuário: "alinhe os ícones de nome dos jogos a
+                     esquerda iniciando no começo da arte do jogo". Como
+                     essa Grid tem a MESMA largura da capa abaixo
+                     (StackPanel Width=TileWidth), alinhar à esquerda aqui
+                     já começa exatamente na borda esquerda da capa. -->
                 <Grid Height="36">
                   <TextBlock Text="{Binding Title}"
                              Classes="tileCaption"
                              TextWrapping="NoWrap"
                              TextTrimming="CharacterEllipsis"
-                             TextAlignment="Center"
+                             TextAlignment="Left"
+                             HorizontalAlignment="Left"
                              VerticalAlignment="Center"
                              IsVisible="{Binding ShowNameCaption}" />
 
                   <Image Source="{Binding LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
                          Height="{Binding CaptionLogoHeight}"
                          Stretch="Uniform"
-                         HorizontalAlignment="Center"
+                         HorizontalAlignment="Left"
                          VerticalAlignment="Center"
                          IsVisible="{Binding ShowCurrentLogo}" />
                 </Grid>

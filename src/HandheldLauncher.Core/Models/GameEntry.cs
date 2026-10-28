@@ -39,6 +39,21 @@ public class GameEntry
     public string? LogoImagePath { get; set; }   // transparent logo overlay
     public string? IconImagePath { get; set; }   // small icon (taskbar/list fallback)
 
+    /// <summary>
+    /// Capa LANDSCAPE independente pra WIDE CAPSULE ("último jogo
+    /// aberto") — pedido explícito do usuário depois de reportar que a
+    /// WIDE CAPSULE estava "puxando" (esticando) a capa vertical normal
+    /// (GridImagePath, portrait 600x900) dentro de uma caixa larga. Vem do
+    /// mesmo endpoint "/grids/" do SteamGridDB que GridImagePath (ainda é
+    /// uma CAPA, não um banner), só filtrado por dimensões landscape
+    /// (460x215/920x430 — "Steam Big Picture"/capsule horizontal) — regra
+    /// do usuário: "tem que vir de capas mas com formato estilo banner,
+    /// mas não pode ser a mesma do banner, elas têm que ser
+    /// independentes". Nunca compartilha arquivo com GridImagePath nem
+    /// com HeroImagePath.
+    /// </summary>
+    public string? WideGridImagePath { get; set; }
+
     /// <summary>Local playtime tracked by the launcher itself, in minutes.</summary>
     public long PlaytimeMinutes { get; set; }
 

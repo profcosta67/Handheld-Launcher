@@ -54,16 +54,16 @@
     <Setter Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
     <Setter Property="CornerRadius" Value="{StaticResource TileCornerRadius}" />
     <Setter Property="ClipToBounds" Value="True" />
-    <!-- 170/230 até a leva anterior; aumentado um pouco a pedido do
-         usuário ("pode aumentar um pouco mais o tamanho das capas em
-         geral"), mesma proporção de antes. -->
-    <Setter Property="Width" Value="190" />
-    <Setter Property="Height" Value="255" />
+    <!-- 170/230 → 190/255 na leva anterior → 220/290 nesta leva, a pedido
+         do usuário ("aumente mais o tamanho de todos as capas... deixe
+         mais destacados"), mesma proporção de antes. -->
+    <Setter Property="Width" Value="220" />
+    <Setter Property="Height" Value="290" />
     <!-- "Efeito quando passar pro lado entre os jogos" (pedido do
          usuário): um leve "zoom" na tile que ganha foco, animado em vez de
          trocar na hora — RenderTransform não é medido no layout, então um
-         escala pequena (1.04) não empurra as tiles vizinhas, só cresce por
-         cima. Transitions reage a QUALQUER troca de valor da propriedade
+         escala pequena não empurra as tiles vizinhas, só cresce por cima.
+         Transitions reage a QUALQUER troca de valor da propriedade
          (inclusive a troca de Setter pela classe .focused abaixo), que é a
          API documentada do Avalonia pra isso — não dá pra compilar aqui
          pra confirmar. -->
@@ -74,10 +74,13 @@
          (Animatable/Visual), então dentro de um Style ela se define com
          um Setter normal, igual Background/Width acima — não com a
          sintaxe de property-element <Style.Transitions>, que só funciona
-         pra propriedades que pertencem à classe Style em si. -->
+         pra propriedades que pertencem à classe Style em si. Duração
+         aumentada de 0.15s pra 0.18s nesta leva (usuário reportou "não
+         notei a transição") — junto com a escala maior da classe .focused
+         abaixo, fica mais perceptível sem ficar lento/estranho. -->
     <Setter Property="Transitions">
       <Transitions>
-        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15" Easing="CubicEaseOut" />
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18" Easing="CubicEaseOut" />
       </Transitions>
     </Setter>
   </Style>
@@ -85,17 +88,24 @@
   <Style Selector="Border.gameTile.focused">
     <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
     <Setter Property="BorderThickness" Value="3" />
-    <Setter Property="RenderTransform" Value="scale(1.04)" />
+    <!-- 1.04 → 1.08 nesta leva — usuário reportou "não notei a transição
+         entre os ícones", escala maior deixa o "zoom" de foco bem mais
+         visível. -->
+    <Setter Property="RenderTransform" Value="scale(1.08)" />
   </Style>
 
-  <!-- WIDE CAPSULE ("último jogo aberto") — mesma arte de capa/grid da
-       CAPSULE normal, só renderizada bem mais larga (nunca a arte hero,
-       ver GameTileViewModel.TileImagePath). Height bate com a tile normal
-       pra fileira continuar alinhada; só Width cresce. 460 até a leva
-       anterior, aumentado junto com a CAPSULE normal. -->
+  <!-- WIDE CAPSULE ("último jogo aberto") — a partir desta leva usa uma
+       arte INDEPENDENTE (GameEntry.WideGridImagePath, capa landscape
+       própria), não mais a mesma capa portrait da CAPSULE normal
+       esticada — ver GameTileViewModel.TileImagePath. Height bate com a
+       tile normal pra fileira continuar alinhada; só Width cresce, e
+       agora numa proporção mais próxima do formato landscape real que a
+       nova arte vem (460x215/920x430 ≈ 2.14:1, contra 2.0:1 de antes).
+       510 até a leva anterior, 620 nesta (aumentado junto com a CAPSULE
+       normal, a pedido do usuário). -->
   <Style Selector="Border.gameTile.lastPlayed">
-    <Setter Property="Width" Value="510" />
-    <Setter Property="Height" Value="255" />
+    <Setter Property="Width" Value="620" />
+    <Setter Property="Height" Value="290" />
   </Style>
 
   <!-- Context menu (Start button) — dim backdrop + a centered card listing

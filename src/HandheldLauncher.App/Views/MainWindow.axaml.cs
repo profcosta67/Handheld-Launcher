@@ -516,6 +516,12 @@ public partial class MainWindow : Window
                 case GamepadAction.GlobalMenu:
                     vm.ToggleGlobalMenu();
                     break;
+                case GamepadAction.PreviousFilter:
+                    vm.CyclePreviousFilter();
+                    break;
+                case GamepadAction.NextFilter:
+                    vm.CycleNextFilter();
+                    break;
             }
         }
     }
@@ -667,6 +673,16 @@ public partial class MainWindow : Window
                 vm.ToggleGlobalMenu();
                 e.Handled = true;
                 break;
+            // Q/E = fallback de teclado pra LB/RB (ciclar abas de filtro) —
+            // dev-time, já que teclado não tem botões de ombro de verdade.
+            case Key.Q:
+                vm.CyclePreviousFilter();
+                e.Handled = true;
+                break;
+            case Key.E:
+                vm.CycleNextFilter();
+                e.Handled = true;
+                break;
         }
     }
 
@@ -717,7 +733,7 @@ public partial class MainWindow : Window
     /// usually is, since ReorderLastPlayedFirst moves it there, but this
     /// walks the actual flags rather than assuming that to stay correct
     /// either way). Tile widths/spacing below must match
-    /// Theme.axaml's Border.gameTile (190) / .lastPlayed (510) and
+    /// Theme.axaml's Border.gameTile (220) / .lastPlayed (620) and
     /// MainWindow.axaml's StackPanel Spacing="14" exactly.
     /// </summary>
     private void ScrollGameRowSelectionIntoView(MainViewModel vm)
@@ -725,8 +741,8 @@ public partial class MainWindow : Window
         if (GameRowScrollViewer is null) return;
         if (vm.Games.Count == 0 || vm.SelectedIndex < 0) return;
 
-        const double normalWidth = 190;
-        const double lastPlayedWidth = 510;
+        const double normalWidth = 220;
+        const double lastPlayedWidth = 620;
         const double spacing = 14;
 
         double itemLeft = 0;

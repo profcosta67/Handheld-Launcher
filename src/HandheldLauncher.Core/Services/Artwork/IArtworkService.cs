@@ -38,6 +38,16 @@ public interface IArtworkService
     Task<bool> FetchLogoAsync(GameEntry game, CancellationToken ct = default);
 
     /// <summary>
+    /// Same idea as FetchGridAsync but for a LANDSCAPE capa
+    /// (game.WideGridImagePath) — a capa, não um banner/hero, só em
+    /// formato horizontal. Independente de FetchGridAsync (capa normal,
+    /// portrait) e de FetchHeroAsync (hero): pedido do usuário depois de
+    /// reportar que a WIDE CAPSULE ("último jogo aberto") estava
+    /// esticando a capa portrait normal dentro de uma caixa larga.
+    /// </summary>
+    Task<bool> FetchWideGridAsync(GameEntry game, CancellationToken ct = default);
+
+    /// <summary>
     /// Every static-image grid candidate SteamGridDB has for this game,
     /// already downloaded to a local cache file so the UI can show them in
     /// a picker without any async-network-image plumbing. Re-opening the
@@ -52,6 +62,9 @@ public interface IArtworkService
     /// <summary>Same idea as GetGridCandidatesAsync but for logos — powers the "Escolher logo" picker.</summary>
     Task<IReadOnlyList<ArtworkCandidate>> GetLogoCandidatesAsync(GameEntry game, CancellationToken ct = default);
 
+    /// <summary>Same idea as GetGridCandidatesAsync but for a capa landscape (WideGridImagePath) — powers o "Escolher capa larga" picker.</summary>
+    Task<IReadOnlyList<ArtworkCandidate>> GetWideGridCandidatesAsync(GameEntry game, CancellationToken ct = default);
+
     /// <summary>
     /// Makes one specific candidate (from GetGridCandidatesAsync) this
     /// game's actual cover — copies the already-downloaded candidate file
@@ -65,4 +78,7 @@ public interface IArtworkService
 
     /// <summary>Same idea as ApplyGridCandidateAsync but for logos.</summary>
     Task<bool> ApplyLogoCandidateAsync(GameEntry game, ArtworkCandidate candidate, CancellationToken ct = default);
+
+    /// <summary>Same idea as ApplyGridCandidateAsync but for a capa landscape (WideGridImagePath).</summary>
+    Task<bool> ApplyWideGridCandidateAsync(GameEntry game, ArtworkCandidate candidate, CancellationToken ct = default);
 }

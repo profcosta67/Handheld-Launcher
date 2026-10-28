@@ -13,6 +13,7 @@ public class GameMetadataOverride
     public string? HeroImagePath { get; set; }
     public string? LogoImagePath { get; set; }
     public string? IconImagePath { get; set; }
+    public string? WideGridImagePath { get; set; }
     public long PlaytimeMinutes { get; set; }
     public DateTimeOffset? LastPlayedUtc { get; set; }
     public bool IsFavorite { get; set; }
