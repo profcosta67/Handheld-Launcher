@@ -119,11 +119,28 @@ public sealed class ArtworkService : IArtworkService
         return await DownloadCandidatesAsync(images, $"{game.Id}_hero_candidate", ct);
     }
 
+    public async Task<IReadOnlyList<ArtworkCandidate>> GetLogoCandidatesAsync(GameEntry game, CancellationToken ct = default)
+    {
+        if (!HasApiKey) return Array.Empty<ArtworkCandidate>();
+
+        var images = game.Source == GameSource.Steam && game.SteamAppId is { } appId
+            ? await _client.GetLogoCandidatesForSteamAppAsync(appId, ct)
+            : await _client.GetLogoCandidatesForTitleAsync(game.Title, ct);
+
+        return await DownloadCandidatesAsync(images, $"{game.Id}_logo_candidate", ct);
+    }
+
     public Task<bool> ApplyGridCandidateAsync(GameEntry game, ArtworkCandidate candidate, CancellationToken ct = default)
-        => ApplyCandidateAsync(game, candidate, isHero: false);
+        => ApplyCandidateAsync(game, candidate, ArtworkSlot.Grid);
 
     public Task<bool> ApplyHeroCandidateAsync(GameEntry game, ArtworkCandidate candidate, CancellationToken ct = default)
-        => ApplyCandidateAsync(game, candidate, isHero: true);
+        => ApplyCandidateAsync(game, candidate, ArtworkSlot.Hero);
+
+    public Task<bool> ApplyLogoCandidateAsync(GameEntry game, ArtworkCandidate candidate, CancellationToken ct = default)
+        => ApplyCandidateAsync(game, candidate, ArtworkSlot.Logo);
+
+    /// <summary>Which GameEntry/GameMetadataOverride field ApplyCandidateAsync below writes to — grid/hero/logo, matching the 3 picker types.</summary>
+    private enum ArtworkSlot { Grid, Hero, Logo }
 
     /// <summary>
     /// Downloads every candidate image to disk (once — a file that's
@@ -161,8 +178,8 @@ public sealed class ArtworkService : IArtworkService
     /// IS the real image at full resolution — SteamGridDB doesn't offer a
     /// separate thumbnail endpoint, and resizing ourselves would need an
     /// imaging library we don't have. So "applying" a pick is just copying
-    /// that cached file into the game's grid/hero path; no second download
-    /// needed.
+    /// that cached file into the game's grid/hero/logo path; no second
+    /// download needed.
     ///
     /// Filename includes the candidate's own SteamGridDB image Id (not
     /// just "{game.Id}_grid") specifically so this NEVER overwrites the
@@ -172,15 +189,15 @@ public sealed class ArtworkService : IArtworkService
     /// first apply silently does nothing, the second one works" bug: a
     /// failed overwrite was caught and swallowed as a quiet "false", with
     /// nothing visibly different, until the lock cleared on a later try.
-    /// Old grid/hero files from previous picks are left behind as harmless
-    /// orphans in the same cache folder the README already tells the user
-    /// they can clear anytime.
+    /// Old grid/hero/logo files from previous picks are left behind as
+    /// harmless orphans in the same cache folder the README already tells
+    /// the user they can clear anytime.
     /// </summary>
-    private Task<bool> ApplyCandidateAsync(GameEntry game, ArtworkCandidate candidate, bool isHero)
+    private Task<bool> ApplyCandidateAsync(GameEntry game, ArtworkCandidate candidate, ArtworkSlot slot)
     {
         Directory.CreateDirectory(_cacheDir);
         var extension = Path.GetExtension(candidate.LocalThumbnailPath);
-        var suffix = isHero ? "hero" : "grid";
+        var suffix = slot switch { ArtworkSlot.Hero => "hero", ArtworkSlot.Logo => "logo", _ => "grid" };
         var localPath = Path.Combine(_cacheDir, $"{game.Id}_{suffix}_{candidate.Id}{extension}");
 
         try
@@ -193,10 +210,23 @@ public sealed class ArtworkService : IArtworkService
         }
 
         var data = GetOrCreateOverride(game.Id);
-        if (isHero) data.HeroImagePath = localPath; else data.GridImagePath = localPath;
+        switch (slot)
+        {
+            case ArtworkSlot.Hero:
+                data.HeroImagePath = localPath;
+                game.HeroImagePath = localPath;
+                break;
+            case ArtworkSlot.Logo:
+                data.LogoImagePath = localPath;
+                game.LogoImagePath = localPath;
+                break;
+            default:
+                data.GridImagePath = localPath;
+                game.GridImagePath = localPath;
+                break;
+        }
         _store.SaveOverride(game.Id, data);
 
-        if (isHero) game.HeroImagePath = localPath; else game.GridImagePath = localPath;
         return Task.FromResult(true);
     }
 

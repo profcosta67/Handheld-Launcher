@@ -293,6 +293,17 @@ public partial class MainWindow : Window
     /// point of the watchdog. On a plain `dotnet run` dev session (no
     /// task registered), schtasks just fails and this quietly does
     /// nothing — never blocks quitting over it either way.
+    ///
+    /// Logs the exit code (and stdout/stderr on failure) via DebugLog —
+    /// added after a user report that the launcher still reopens itself
+    /// even after a deliberate "Sair". This call used to be completely
+    /// silent either way, so there was no way to tell whether 1) schtasks
+    /// actually failed here, or 2) it succeeded and something ELSE is
+    /// reopening the app (most likely suspect: Modo Xbox/OmniConsole's own
+    /// "home app" persistence, which is a different mechanism entirely
+    /// from our Scheduled Task and wouldn't be affected by this call at
+    /// all — see README's "Ainda não feito" for the open question on
+    /// that). Next real test run's DebugLog output should say which.
     /// </summary>
     private static void DisableWatchdogIfPresent()
     {
@@ -303,12 +314,24 @@ public partial class MainWindow : Window
             {
                 CreateNoWindow = true,
                 UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
             };
             using var process = System.Diagnostics.Process.Start(psi);
-            process?.WaitForExit(2000);
+            if (process is null)
+            {
+                DebugLog.Write("DisableWatchdogIfPresent: Process.Start retornou null");
+                return;
+            }
+
+            var stdout = process.StandardOutput.ReadToEnd();
+            var stderr = process.StandardError.ReadToEnd();
+            process.WaitForExit(2000);
+            DebugLog.Write($"DisableWatchdogIfPresent: schtasks exit={process.ExitCode} stdout=\"{stdout.Trim()}\" stderr=\"{stderr.Trim()}\"");
         }
-        catch
+        catch (Exception ex)
         {
+            DebugLog.Write($"DisableWatchdogIfPresent: EXCEPTION {ex}");
             // Best-effort only - never let this stop the app from quitting.
         }
     }

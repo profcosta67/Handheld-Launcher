@@ -50,4 +50,10 @@ public interface ISteamGridDbClient
 
     /// <summary>Fallback for non-Steam entries: searches by title, takes the top match's logo.</summary>
     Task<SteamGridDbImage?> GetBestLogoForTitleAsync(string title, CancellationToken ct = default);
+
+    /// <summary>Same idea as GetGridCandidatesForSteamAppAsync but for logos — powers the "Escolher logo" picker.</summary>
+    Task<IReadOnlyList<SteamGridDbImage>> GetLogoCandidatesForSteamAppAsync(uint steamAppId, CancellationToken ct = default);
+
+    /// <summary>Fallback for non-Steam entries: searches by title, same candidate list as the AppId version.</summary>
+    Task<IReadOnlyList<SteamGridDbImage>> GetLogoCandidatesForTitleAsync(string title, CancellationToken ct = default);
 }

@@ -49,6 +49,9 @@ public interface IArtworkService
     /// <summary>Same idea as GetGridCandidatesAsync but for hero banners.</summary>
     Task<IReadOnlyList<ArtworkCandidate>> GetHeroCandidatesAsync(GameEntry game, CancellationToken ct = default);
 
+    /// <summary>Same idea as GetGridCandidatesAsync but for logos — powers the "Escolher logo" picker.</summary>
+    Task<IReadOnlyList<ArtworkCandidate>> GetLogoCandidatesAsync(GameEntry game, CancellationToken ct = default);
+
     /// <summary>
     /// Makes one specific candidate (from GetGridCandidatesAsync) this
     /// game's actual cover — copies the already-downloaded candidate file
@@ -59,4 +62,7 @@ public interface IArtworkService
 
     /// <summary>Same idea as ApplyGridCandidateAsync but for hero banners.</summary>
     Task<bool> ApplyHeroCandidateAsync(GameEntry game, ArtworkCandidate candidate, CancellationToken ct = default);
+
+    /// <summary>Same idea as ApplyGridCandidateAsync but for logos.</summary>
+    Task<bool> ApplyLogoCandidateAsync(GameEntry game, ArtworkCandidate candidate, CancellationToken ct = default);
 }

@@ -128,8 +128,12 @@ public sealed class MainViewModel : ViewModelBase
     {
         new ContextMenuItemViewModel("Escolher capa"),
         new ContextMenuItemViewModel("Escolher banner"),
+        new ContextMenuItemViewModel("Escolher logo"),
         new ContextMenuItemViewModel("Abrir jogo"),
     };
+
+    /// <summary>Qual dos três tipos de arte o seletor (IsCoverPickerOpen) está escolhendo no momento — ver OpenCoverPicker/ConfirmCoverPickerSelection.</summary>
+    private enum ArtworkPickerKind { Grid, Hero, Logo }
 
     private bool _isGlobalMenuOpen;
 
@@ -200,9 +204,10 @@ public sealed class MainViewModel : ViewModelBase
     private bool _isCoverPickerOpen;
 
     /// <summary>
-    /// Cover/banner picker opened from the per-tile menu's "Escolher
-    /// capa"/"Escolher banner". Same "only one overlay routes input at a
-    /// time" rule as the other two menus — see MainWindow.OnGamepadTick.
+    /// Capa/banner/logo picker opened from the per-tile menu's "Escolher
+    /// capa"/"Escolher banner"/"Escolher logo". Same "only one overlay
+    /// routes input at a time" rule as the other two menus — see
+    /// MainWindow.OnGamepadTick.
     /// </summary>
     public bool IsCoverPickerOpen
     {
@@ -219,7 +224,7 @@ public sealed class MainViewModel : ViewModelBase
 
     private bool _isCoverPickerLoading;
 
-    /// <summary>True while GetGridCandidatesAsync/GetHeroCandidatesAsync is still fetching+downloading candidates from SteamGridDB.</summary>
+    /// <summary>True while GetGridCandidatesAsync/GetHeroCandidatesAsync/GetLogoCandidatesAsync is still fetching+downloading candidates from SteamGridDB.</summary>
     public bool IsCoverPickerLoading
     {
         get => _isCoverPickerLoading;
@@ -271,7 +276,7 @@ public sealed class MainViewModel : ViewModelBase
     /// <summary>Read by MainWindow's scroll-into-view logic after every move.</summary>
     public int CoverPickerIndex => _coverPickerIndex;
 
-    private bool _coverPickerIsHero;
+    private ArtworkPickerKind _coverPickerKind;
     private GameEntry? _coverPickerGame;
 
     public ICommand MoveNextCommand { get; }
@@ -361,14 +366,18 @@ public sealed class MainViewModel : ViewModelBase
         switch (selectedAction)
         {
             case 0: // Escolher capa
-                OpenCoverPicker(game, isHero: false);
+                OpenCoverPicker(game, ArtworkPickerKind.Grid);
                 break;
 
             case 1: // Escolher banner
-                OpenCoverPicker(game, isHero: true);
+                OpenCoverPicker(game, ArtworkPickerKind.Hero);
                 break;
 
-            case 2: // Abrir jogo
+            case 2: // Escolher logo
+                OpenCoverPicker(game, ArtworkPickerKind.Logo);
+                break;
+
+            case 3: // Abrir jogo
                 var tile = Games.FirstOrDefault(t => t.Game.Id == game.Id);
                 if (tile is not null)
                 {
@@ -560,18 +569,23 @@ public sealed class MainViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Opens the cover/banner picker for one game: shows a loading state
-    /// immediately, then fills in with whatever candidates come back.
-    /// Static images only for now (the API call itself filters out
+    /// Opens the capa/banner/logo picker for one game: shows a loading
+    /// state immediately, then fills in with whatever candidates come
+    /// back. Static images only for now (the API call itself filters out
     /// animated GIF/webm, see SteamGridDbClient) — see README's "Seletor
     /// de capas" section for the animated-cover follow-up.
     /// </summary>
-    private async void OpenCoverPicker(GameEntry game, bool isHero)
+    private async void OpenCoverPicker(GameEntry game, ArtworkPickerKind kind)
     {
-        DebugLog.Write($"OpenCoverPicker: ENTER game={game.Title} isHero={isHero}");
+        DebugLog.Write($"OpenCoverPicker: ENTER game={game.Title} kind={kind}");
 
-        CoverPickerTitle = isHero ? $"Escolher banner — {game.Title}" : $"Escolher capa — {game.Title}";
-        _coverPickerIsHero = isHero;
+        CoverPickerTitle = kind switch
+        {
+            ArtworkPickerKind.Hero => $"Escolher banner — {game.Title}",
+            ArtworkPickerKind.Logo => $"Escolher logo — {game.Title}",
+            _ => $"Escolher capa — {game.Title}",
+        };
+        _coverPickerKind = kind;
         _coverPickerGame = game;
         _coverPickerIndex = 0;
         CoverPickerErrorMessage = null;
@@ -586,9 +600,12 @@ public sealed class MainViewModel : ViewModelBase
 
         try
         {
-            var candidates = isHero
-                ? await _artwork.GetHeroCandidatesAsync(game)
-                : await _artwork.GetGridCandidatesAsync(game);
+            var candidates = kind switch
+            {
+                ArtworkPickerKind.Hero => await _artwork.GetHeroCandidatesAsync(game),
+                ArtworkPickerKind.Logo => await _artwork.GetLogoCandidatesAsync(game),
+                _ => await _artwork.GetGridCandidatesAsync(game),
+            };
 
             DebugLog.Write($"OpenCoverPicker: fetch returned {candidates.Count} candidates");
 
@@ -691,16 +708,19 @@ public sealed class MainViewModel : ViewModelBase
 
         var chosen = CoverPickerCandidates[_coverPickerIndex].Candidate;
         var game = _coverPickerGame;
-        var isHero = _coverPickerIsHero;
+        var kind = _coverPickerKind;
         CloseCoverPicker();
 
-        DebugLog.Write($"ConfirmCoverPickerSelection: applying candidate id={chosen.Id} isHero={isHero} game={game.Title}");
+        DebugLog.Write($"ConfirmCoverPickerSelection: applying candidate id={chosen.Id} kind={kind} game={game.Title}");
 
         try
         {
-            var applied = isHero
-                ? await _artwork.ApplyHeroCandidateAsync(game, chosen)
-                : await _artwork.ApplyGridCandidateAsync(game, chosen);
+            var applied = kind switch
+            {
+                ArtworkPickerKind.Hero => await _artwork.ApplyHeroCandidateAsync(game, chosen),
+                ArtworkPickerKind.Logo => await _artwork.ApplyLogoCandidateAsync(game, chosen),
+                _ => await _artwork.ApplyGridCandidateAsync(game, chosen),
+            };
 
             DebugLog.Write($"ConfirmCoverPickerSelection: apply returned {applied}");
         }

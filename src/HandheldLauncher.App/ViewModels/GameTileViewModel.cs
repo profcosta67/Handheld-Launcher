@@ -51,21 +51,28 @@ public sealed class GameTileViewModel : ViewModelBase
     public bool ShowCurrentLogo => IsLastPlayed && HasLogo;
 
     /// <summary>
-    /// The smaller (non-last-played) tiles now always show their name in a
-    /// small font at the top (see MainWindow.axaml's "tileCaption"), not
-    /// just as a fallback when there's no art — this flags which tiles get
-    /// that treatment so the XAML doesn't need an inline negation binding.
+    /// The centered title-only placeholder INSIDE the capsule border
+    /// (shown pre-SteamGridDB, before any art at all has been fetched for
+    /// that specific tile) — every tile now also always shows its name as
+    /// a caption ABOVE the capsule (see MainWindow.axaml's "tileCaption"
+    /// StackPanel, and the user's correction: "o nome dos jogos deve
+    /// aparecer em cima das capas, não dentro dela"), so this placeholder
+    /// only covers the case where the image area itself has nothing to
+    /// show.
     /// </summary>
-    public bool IsSmallTile => !IsLastPlayed;
+    public bool ShowEmptyPlaceholder => string.IsNullOrEmpty(TileImagePath);
 
     /// <summary>
-    /// The centered title-only placeholder (shown pre-SteamGridDB, before
-    /// any art at all has been fetched) now only matters for the wide
-    /// tile — small tiles always show the small-font name caption instead
-    /// regardless of art, so showing both there would just duplicate the
-    /// title text.
+    /// Must match Theme.axaml's Border.gameTile (170) / .lastPlayed (460)
+    /// width exactly — same kind of duplication already accepted
+    /// elsewhere in this project (see MainWindow.
+    /// ScrollGameRowSelectionIntoView's hardcoded widths). Needed because
+    /// the per-tile StackPanel (name caption above, capsule below) has no
+    /// width of its own otherwise — it would size itself to whichever is
+    /// widest (often the caption text for a long title), breaking the
+    /// row's fixed-width layout and the scroll math that assumes it.
     /// </summary>
-    public bool ShowEmptyPlaceholder => IsLastPlayed && string.IsNullOrEmpty(TileImagePath);
+    public double TileWidth => IsLastPlayed ? 460 : 170;
 
     /// <summary>
     /// What the big top banner shows for whichever game the player is
@@ -110,8 +117,8 @@ public sealed class GameTileViewModel : ViewModelBase
             {
                 OnPropertyChanged(nameof(TileImagePath));
                 OnPropertyChanged(nameof(ShowCurrentLogo));
-                OnPropertyChanged(nameof(IsSmallTile));
                 OnPropertyChanged(nameof(ShowEmptyPlaceholder));
+                OnPropertyChanged(nameof(TileWidth));
             }
         }
     }

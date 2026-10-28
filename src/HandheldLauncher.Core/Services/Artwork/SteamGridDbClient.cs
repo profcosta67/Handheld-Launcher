@@ -84,24 +84,34 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
 
     public async Task<SteamGridDbImage?> GetBestLogoForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
     {
-        if (!HasApiKey) return null;
-        // No dimensions filter, same reasoning as heroes below — logos
-        // come in varied sizes/aspect ratios and SteamGridDB's logo
-        // coverage is thinner than grids, so narrowing by size would throw
-        // away matches we'd rather keep.
-        var candidates = await FetchGridCandidates($"{BaseUrl}/logos/steam/{steamAppId}?types=static", ct);
+        var candidates = await GetLogoCandidatesForSteamAppAsync(steamAppId, ct);
         return candidates.FirstOrDefault();
     }
 
     public async Task<SteamGridDbImage?> GetBestLogoForTitleAsync(string title, CancellationToken ct = default)
     {
-        if (!HasApiKey) return null;
+        var candidates = await GetLogoCandidatesForTitleAsync(title, ct);
+        return candidates.FirstOrDefault();
+    }
+
+    public async Task<IReadOnlyList<SteamGridDbImage>> GetLogoCandidatesForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
+    {
+        if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
+        // No dimensions filter, same reasoning as heroes above — logos
+        // come in varied sizes/aspect ratios and SteamGridDB's logo
+        // coverage is thinner than grids, so narrowing by size would throw
+        // away matches we'd rather keep.
+        return await FetchGridCandidates($"{BaseUrl}/logos/steam/{steamAppId}?types=static", ct);
+    }
+
+    public async Task<IReadOnlyList<SteamGridDbImage>> GetLogoCandidatesForTitleAsync(string title, CancellationToken ct = default)
+    {
+        if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
 
         var gameId = await SearchGameId(title, ct);
-        if (gameId is null) return null;
+        if (gameId is null) return Array.Empty<SteamGridDbImage>();
 
-        var candidates = await FetchGridCandidates($"{BaseUrl}/logos/game/{gameId}?types=static", ct);
-        return candidates.FirstOrDefault();
+        return await FetchGridCandidates($"{BaseUrl}/logos/game/{gameId}?types=static", ct);
     }
 
     public async Task<IReadOnlyList<SteamGridDbImage>> GetGridCandidatesForSteamAppAsync(uint steamAppId, CancellationToken ct = default)

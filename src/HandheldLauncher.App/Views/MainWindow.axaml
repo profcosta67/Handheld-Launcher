@@ -127,54 +127,63 @@
 
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:GameTileViewModel">
-              <!-- Width/Height come entirely from the gameTile/gameTile.lastPlayed
-                   styles in Theme.axaml (no local Width/Height here) so the
-                   "último jogo aberto" tile can actually grow — see the
-                   comment on Border.gameTile there for why. -->
-              <Border Classes="gameTile"
-                      Classes.focused="{Binding IsFocused}"
-                      Classes.lastPlayed="{Binding IsLastPlayed}"
-                      PointerPressed="OnTilePointerPressed"
-                      DoubleTapped="OnTileDoubleTapped">
-                <Grid>
-                  <Image Source="{Binding TileImagePath, Converter={StaticResource FileToBitmapConverter}}"
-                         Stretch="UniformToFill" />
+              <!-- Width vem do TileWidth do ViewModel (precisa bater com o
+                   Width do Border.gameTile/.lastPlayed abaixo, vindo do
+                   Theme.axaml) — sem isso o StackPanel ia se dimensionar
+                   pelo conteúdo mais largo (o texto do nome, pra títulos
+                   compridos), quebrando o alinhamento fixo da fileira e a
+                   conta de scroll em MainWindow.ScrollGameRowSelectionIntoView. -->
+              <StackPanel Width="{Binding TileWidth}" Spacing="6">
 
-                  <!-- CURRENT LOGO: só aparece sobre a tile larga do
-                       "último jogo aberto", e só quando o SteamGridDB já
-                       trouxe um logo pra esse jogo (ver
-                       ArtworkService.FetchLogoAsync / "Atualizar Capas
-                       Automático"). -->
-                  <Border VerticalAlignment="Top" HorizontalAlignment="Left"
-                          Margin="12" Padding="8,6"
-                          Background="#B30C0D12" CornerRadius="8"
-                          IsVisible="{Binding ShowCurrentLogo}">
-                    <Image Source="{Binding LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
-                           Height="28" Stretch="Uniform" />
-                  </Border>
+                <!-- Nome do jogo ACIMA da capa, não por cima dela (correção
+                     pedida pelo usuário) — sempre visível, fonte pequena,
+                     numa linha só com reticências se não couber. -->
+                <TextBlock Text="{Binding Title}"
+                           Classes="tileCaption"
+                           TextWrapping="NoWrap"
+                           TextTrimming="CharacterEllipsis"
+                           TextAlignment="Center" />
 
-                  <!-- Jogos menores: nome sempre visível em cima, fonte
-                       pequena (pedido do usuário) — diferente do
-                       placeholder abaixo, que só existe pra tile larga
-                       quando ela não tem NENHUMA arte ainda. -->
-                  <Border VerticalAlignment="Top" Background="#B30C0D12" Padding="8,5"
-                          IsVisible="{Binding IsSmallTile}">
+                <!-- Width/Height do Border vêm das styles gameTile/
+                     gameTile.lastPlayed em Theme.axaml (não daqui), pra
+                     bater exatamente com TileWidth acima. -->
+                <Border Classes="gameTile"
+                        Classes.focused="{Binding IsFocused}"
+                        Classes.lastPlayed="{Binding IsLastPlayed}"
+                        PointerPressed="OnTilePointerPressed"
+                        DoubleTapped="OnTileDoubleTapped">
+                  <Grid>
+                    <Image Source="{Binding TileImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                           Stretch="UniformToFill" />
+
+                    <!-- CURRENT LOGO: só aparece sobre a capsule larga do
+                         "último jogo aberto" (WIDE CAPSULE), e só quando o
+                         SteamGridDB já trouxe um logo pra esse jogo (ver
+                         ArtworkService.FetchLogoAsync / "Atualizar Capas
+                         Automático" ou "Escolher logo" no menu do jogo). -->
+                    <Border VerticalAlignment="Top" HorizontalAlignment="Left"
+                            Margin="12" Padding="8,6"
+                            Background="#B30C0D12" CornerRadius="8"
+                            IsVisible="{Binding ShowCurrentLogo}">
+                      <Image Source="{Binding LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                             Height="28" Stretch="Uniform" />
+                    </Border>
+
+                    <!-- Placeholder: só aparece quando essa tile específica
+                         não tem NENHUMA arte ainda (nem capa, nem banner) —
+                         o nome já aparece em cima (StackPanel acima), isso
+                         aqui é só pra não deixar a área da imagem vazia. -->
                     <TextBlock Text="{Binding Title}"
-                               Classes="tileCaption"
+                               Classes="gameTitle"
                                TextWrapping="Wrap"
-                               TextAlignment="Center" />
-                  </Border>
-
-                  <TextBlock Text="{Binding Title}"
-                             Classes="gameTitle"
-                             TextWrapping="Wrap"
-                             TextAlignment="Center"
-                             VerticalAlignment="Center"
-                             HorizontalAlignment="Center"
-                             Margin="10"
-                             IsVisible="{Binding ShowEmptyPlaceholder}" />
-                </Grid>
-              </Border>
+                               TextAlignment="Center"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Center"
+                               Margin="10"
+                               IsVisible="{Binding ShowEmptyPlaceholder}" />
+                  </Grid>
+                </Border>
+              </StackPanel>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>

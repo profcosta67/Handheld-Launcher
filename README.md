@@ -38,15 +38,17 @@ Construído até agora:
     via `CloseGame()` (processo próprio pros manuais; sweep best-effort por
     `InstallDirectory` pros Steam, já que não possuímos o processo real).
   - `SteamGridDbClient` / `ArtworkService` — busca a melhor capa ("grid"),
-    **o banner largo ("hero") e agora também o "logo"** (overlay
-    transparente do título/wordmark — o "CURRENT LOGO" que aparece só
-    sobre a tile larga do último jogo aberto, ver bullet própria mais
-    abaixo) no SteamGridDB (por AppId pros jogos Steam, por nome pros
-    manuais), baixa e cacheia em `%AppData%\HandheldLauncher\artwork\`,
-    persiste os três caminhos como override. Sem seletor manual pro logo
-    ainda (só busca automática via "Atualizar Capas Automático") — se
-    precisar escolher entre várias opções como já dá pra fazer com
-    capa/banner, é um próximo passo parecido.
+    **o banner largo ("hero") e também o "logo"** (overlay transparente do
+    título/wordmark — o "CURRENT LOGO" que aparece só sobre a tile larga do
+    último jogo aberto, ver bullet própria mais abaixo) no SteamGridDB (por
+    AppId pros jogos Steam, por nome pros manuais), baixa e cacheia em
+    `%AppData%\HandheldLauncher\artwork\`, persiste os três caminhos como
+    override. **Agora com seletor manual pros três** ("Escolher
+    capa"/"Escolher banner"/"Escolher logo" no menu de contexto — ver bullet
+    própria mais abaixo): `GetLogoCandidatesForSteamAppAsync`/
+    `GetLogoCandidatesForTitleAsync` (novo nesta leva) espelham exatamente os
+    métodos que já existiam pro grid/hero, só muda o endpoint
+    (`/logos/steam/{id}`/`/logos/game/{id}`).
   - `AppSettingsStore` — lê/cria `%AppData%\HandheldLauncher\settings.json`
     (hoje só guarda a API key do SteamGridDB — não tem tela de
     configurações ainda, é editar o arquivo na mão por enquanto).
@@ -66,28 +68,34 @@ Construído até agora:
     confirma, B fecha o jogo) — testado e funcionando com um controle Xbox.
     Teclado (← → Enter Esc) continua funcionando como fallback de dev.
   - **Menu de contexto (Start no controle / Espaço no teclado)** sobre o
-    jogo focado: "Escolher capa", "Escolher banner" e "Abrir jogo". ↑↓
-    navega entre as opções, A/Enter confirma, B/Esc/Start fecha sem fazer
-    nada. "Abrir jogo" já era testado e continua igual; os dois primeiros
-    são a novidade desta leva — **ainda não testados num build real.**
-  - **Seletor de capa/banner** ("Escolher capa"/"Escolher banner" acima):
-    abre uma grade com até 24 opções estáticas vindas do SteamGridDB
-    (ordenadas por pontuação, sem NSFW/humor, sem animadas — ver seção
-    própria mais abaixo) pra aquele jogo específico. ← → navegam dentro
-    da fileira, ↑ ↓ pulam uma fileira inteira (grade de verdade, 5
-    colunas), A/Enter aplica a opção destacada na hora (capa ou banner do
-    jogo, conforme qual dos dois você abriu), B/Esc cancela sem mudar
-    nada. Enquanto carrega mostra "Buscando opções..."; se não achar
-    nenhuma, mostra "Nenhuma opção estática encontrada". Substitui o
-    antigo botão único "Buscar capa no SteamGridDB" (que só re-buscava a
-    imagem de maior pontuação, sem escolha) — esse foi removido, o
-    seletor faz tudo que ele fazia e mais. **Confirmado funcionando**
-    pelo usuário (abre, carrega candidatas reais de capa E banner, aplica
-    a capa na hora, D-pad/analógico navegando certinho por fileira, banner
-    grande de cima atualizando na hora). **Pendente de teste**: a grade
-    ainda não acompanha a seleção com scroll automático quando ela desce
-    (ou sobe) além da área visível — corrigido nesta leva, ver "Build
-    ainda não totalmente verificado".
+    jogo focado: "Escolher capa", "Escolher banner", **"Escolher logo"
+    (novo nesta leva)** e "Abrir jogo". ↑↓ navega entre as opções, A/Enter
+    confirma, B/Esc/Start fecha sem fazer nada. "Abrir jogo"/"Escolher
+    capa"/"Escolher banner" já eram testados e continuam iguais; "Escolher
+    logo" é a novidade desta leva — **ainda não testada num build real.**
+  - **Seletor de capa/banner/logo** ("Escolher capa"/"Escolher
+    banner"/"Escolher logo" acima): abre uma grade com até 24 opções
+    estáticas vindas do SteamGridDB (ordenadas por pontuação, sem
+    NSFW/humor, sem animadas — ver seção própria mais abaixo) pra aquele
+    jogo específico. ← → navegam dentro da fileira, ↑ ↓ pulam uma fileira
+    inteira (grade de verdade, 5 colunas), A/Enter aplica a opção destacada
+    na hora (capa, banner ou logo do jogo, conforme qual dos três você
+    abriu), B/Esc cancela sem mudar nada. Enquanto carrega mostra "Buscando
+    opções..."; se não achar nenhuma, mostra "Nenhuma opção estática
+    encontrada". Substitui o antigo botão único "Buscar capa no
+    SteamGridDB" (que só re-buscava a imagem de maior pontuação, sem
+    escolha) — esse foi removido, o seletor faz tudo que ele fazia e mais.
+    **Confirmado funcionando** pelo usuário pra capa/banner (abre, carrega
+    candidatas reais, aplica na hora, D-pad/analógico navegando certinho
+    por fileira, banner grande de cima atualizando na hora). O terceiro
+    tipo, **logo, é novo nesta leva e reusa exatamente o mesmo código**
+    (`MainViewModel`'s antigo campo `_coverPickerIsHero` virou um enum de 3
+    valores `ArtworkPickerKind{Grid,Hero,Logo}`, `ArtworkService.
+    ApplyCandidateAsync` ganhou o mesmo tratamento) — **ainda não testado**
+    especificamente pro logo. **Pendente de teste**: a grade ainda não
+    acompanha a seleção com scroll automático quando ela desce (ou sobe)
+    além da área visível — corrigido nesta leva, ver "Build ainda não
+    totalmente verificado".
   - **Botão "Adicionar jogo"** na barra de baixo abre um diálogo (nome,
     caminho do executável com seletor de arquivo, argumentos opcionais,
     pasta de trabalho opcional) e cadastra um jogo não-Steam na
@@ -228,19 +236,30 @@ Construído até agora:
     enforcer e a Legion Space voltar a ganhar a frente no Modo Xbox, o
     próximo passo seria reaplicar o `Activate()` só numa janela curta
     depois do boot, não pra sempre. **Nunca testado num build real.**
-  - **"CURRENT LOGO" + nome em fonte pequena nas tiles menores (novo
-    nesta leva)**: dois pedidos de layout do usuário.
-    - Sobre a tile larga do "último jogo aberto" (e só ela), quando o
-      SteamGridDB já trouxe um logo pra aquele jogo (ver bullet do
-      `ArtworkService` mais acima), aparece um pequeno overlay com esse
-      logo no canto superior esquerdo da tile — o "CURRENT LOGO".
-    - Todas as outras tiles (menores) agora mostram o nome do jogo em
-      cima, numa fonte pequena (`TextBlock.tileCaption`, 11px), sempre
-      visível — antes o nome só aparecia como placeholder quando a tile
-      não tinha nenhuma arte ainda.
+  - **"CURRENT LOGO" + nome do jogo em fonte pequena (ajustado nesta
+    leva)**: dois pedidos de layout do usuário.
+    - Sobre a tile larga do "último jogo aberto" (e só ela — a WIDE
+      CAPSULE), quando o SteamGridDB já trouxe um logo pra aquele jogo (via
+      "Atualizar Capas Automático" ou agora também via "Escolher logo" no
+      menu — ver bullet própria), aparece um pequeno overlay com esse logo
+      no canto superior esquerdo da tile — o "CURRENT LOGO", por cima da
+      WIDE CAPSULE como pedido.
+    - **Correção nesta leva**: o nome do jogo (CAPSULE) tinha ficado como
+      overlay POR DENTRO da tile na leva anterior — o usuário pediu
+      explicitamente pra ficar ACIMA da capa, não dentro ("os nomes os
+      jogos devera aparecer em cima das capas, não dentro dela"). Agora
+      cada tile é um `StackPanel` (nome em cima, capa embaixo) em vez de só
+      a `Border` da capa sozinha; o nome usa `TextBlock.tileCaption` (11px)
+      sempre visível, pra toda tile (pequena ou grande). Pra não quebrar o
+      alinhamento fixo da fileira (cada tile tinha largura própria vindo só
+      do `Border.gameTile`/`.lastPlayed`), o `StackPanel` agora recebe
+      `Width="{Binding TileWidth}"` (novo campo no `GameTileViewModel`,
+      170/460 — mesmos valores do Theme.axaml) e o nome trunca com "..."
+      (`TextTrimming="CharacterEllipsis"`) em vez de quebrar linha ou
+      vazar pra fora.
     **Nunca testado num build real** (inclusive a parte de buscar o logo
-    em si via "Atualizar Capas Automático" — é a primeira vez que esse
-    endpoint do SteamGridDB é chamado neste projeto).
+    em si via "Atualizar Capas Automático"/"Escolher logo" — é a primeira
+    vez que o endpoint `/logos/` do SteamGridDB é chamado neste projeto).
   - **Fonte do projeto = Comic Sans MS (novo nesta leva)**: pedido do
     usuário. Um único `Style Selector="Window"` em `Theme.axaml` troca a
     `FontFamily` — como essa propriedade é herdada pela árvore visual em
@@ -545,6 +564,43 @@ que merecem atenção no primeiro teste:
   botões da barra de baixo) — teste importante: confirmar que escolher
   "Power" ali dentro fecha o menu geral e abre o menu Power certinho
   (mesmo padrão que "Adicionar jogo" já usava pra abrir outro diálogo).
+
+**🔴 "Escolher logo" + nome acima da capa + diagnóstico do bug do "Sair" —
+status**: tudo nesta leva também, sem teste num build real ainda. Pontos
+que merecem atenção no primeiro teste:
+- **"Escolher logo"** é um 4º item novo no menu de contexto, reusando a
+  mesma grade/picker de "Escolher capa"/"Escolher banner" (só muda o
+  endpoint do SteamGridDB e o campo que recebe o resultado) — teste
+  importante: abrir, confirmar que a grade carrega opções reais de logo
+  (não vazia/erro), escolher uma e ver o "CURRENT LOGO" trocar na hora
+  sobre a WIDE CAPSULE do último jogo aberto.
+- **Nome do jogo movido pra cima da capa** (correção do usuário sobre a
+  leva anterior, que tinha deixado por dentro) — teste importante:
+  confirmar visualmente que o nome aparece ACIMA de cada capa/banner (não
+  mais sobreposto), que títulos longos truncam com "..." em vez de vazar
+  da tile, e que a fileira continua alinhada certinho (todas as tiles
+  pequenas com a mesma largura, a do último jogo mais larga) — isso
+  depende do novo `GameTileViewModel.TileWidth` bater exatamente com as
+  larguras do `Theme.axaml` (170/460), senão o scroll
+  (`ScrollGameRowSelectionIntoView`) pode desalinhar.
+- **Bug do "Sair" ainda reabrindo o launcher — ainda NÃO corrigido, só
+  diagnosticado**: o usuário reportou que mesmo depois de usar "Sair" de
+  propósito, o launcher volta a abrir sozinho. `DisableWatchdogIfPresent()`
+  (chamado toda vez que "Sair" é usado, pra desativar a tarefa agendada do
+  watchdog antes de fechar) agora loga o exit code e stdout/stderr reais do
+  `schtasks.exe` via `DebugLog` — antes essa chamada era 100% silenciosa,
+  então não tinha como saber se 1) o `schtasks` estava de fato falhando
+  aqui, ou 2) ele funciona certinho e é OUTRA coisa reabrindo o app depois.
+  Suspeito mais provável pro caso 2: o Modo Xbox/OmniConsole (ver seção
+  "Instalar no Legion Go 2 / ROG Ally" mais acima) registra o launcher como
+  "app principal" dele por um mecanismo totalmente separado da nossa
+  Scheduled Task — se for isso, desativar nosso watchdog não resolve nada,
+  porque o culpado nem é o nosso código. **Preciso do log real** (arquivo
+  de debug do app, ou a saída no terminal se rodar via `dotnet run`) depois
+  de reproduzir o bug pra saber qual dos dois é — e também ajuda saber se
+  o "Sair" reabrindo aconteceu no modo desktop normal ou já com o Modo
+  Xbox/OmniConsole ativo, porque o caminho de correção é bem diferente
+  pra cada caso.
 
 **Bug corrigido** (reportado pelo usuário): nos dois menus (Start e
 View/Back), só o D-pad movia ↑↓ — o analógico esquerdo só lia o eixo X
