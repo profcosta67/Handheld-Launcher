@@ -375,6 +375,24 @@ Ainda **não** feito:
    menu geral — ver "Status atual" — mas isso não é configurações, é só
    um menu de ações; editar `settings.json` na mão continua sendo o
    único jeito de mudar algo configurável)
+6. **Botão de excluir atalho de jogo** (pedido do usuário, pra próxima
+   leva) — principalmente pros jogos NÃO Steam (manuais/Xbox, já que os
+   Steam vêm do scan automático e voltariam sozinhos). O Core já tem
+   `ILibraryService.RemoveManualGame(id)` pronto desde sempre — só falta
+   expor isso na UI (provável lugar: mais um item no menu de contexto,
+   tipo o "Favoritar" desta leva).
+7. **Talvez excluir o jogo de verdade** (não só o atalho/entrada na
+   biblioteca) — o usuário deixou isso como "talvez", então é só uma
+   ideia em aberto, sem desenho nenhum ainda. Bem mais arriscado que o
+   item 6 (apagar instalação/arquivos de verdade vs. só parar de listar
+   no launcher) — merece conversa própria sobre o que exatamente
+   significa "excluir" antes de qualquer código.
+8. **Organizar a pasta `installer/`** (pedido do usuário, pra próxima
+   leva) — deixar só `Instalar.bat`/`Desinstalar.bat` visíveis na raiz
+   da pasta (os dois cliques-duplos que o usuário realmente usa) e
+   esconder o resto (`Install-Launcher.ps1`, `Uninstall-Launcher.ps1`,
+   `steamgriddb-api-key.txt` etc.) dentro de subpastas, pra não confundir
+   quem só quer instalar ou desinstalar.
 
 ## Configurar a API key do SteamGridDB
 
