@@ -69,54 +69,26 @@
       </Grid>
     </Border>
 
-    <!-- Main content: landscape hero banner on top (focused game), row of
-         smaller portrait tiles for everything else below — Steam-Deck-style
-         layout per the second reference image, instead of the old
-         side-by-side hero+row split. -->
-    <Grid Grid.Row="1" RowDefinitions="Auto,*" Margin="24,20,24,20">
+    <!-- Main content: SEM mais banner hero retangular aqui em cima — a
+         pedido do usuário, o HERO virou só o fundo desfocado da janela
+         inteira (ver Panel de fundo no topo do arquivo), sem caixa própria.
+         Sobra só a fileira de capas, ancorada embaixo, com o espaço vazio
+         acima dela reservado pra mensagem de biblioteca vazia (quando não
+         há nenhum SelectedTile ainda). -->
+    <Grid Grid.Row="1" RowDefinitions="*,Auto" Margin="24,20,24,20">
 
-      <!-- Hero: the focused game, wide landscape banner -->
-      <Border Grid.Row="0" Classes="heroBanner" Height="320" Margin="0,0,0,16">
-        <!-- Border only allows a single Child, so both states (game selected /
-             empty library) live inside one outer Grid, toggled by IsVisible. -->
-        <Grid>
-          <Grid IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
-            <Image Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
-                   Stretch="UniformToFill" />
+      <TextBlock Grid.Row="0"
+                 Text="Nenhum jogo encontrado ainda.&#10;Adicione um jogo manualmente para começar."
+                 Classes="subtle"
+                 TextWrapping="Wrap"
+                 TextAlignment="Center"
+                 VerticalAlignment="Center"
+                 HorizontalAlignment="Center"
+                 Margin="24"
+                 IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
 
-            <!-- Placeholder shown while there's no hero/cover art yet (pre-SteamGridDB) -->
-            <TextBlock Text="{Binding SelectedTile.Title}"
-                       Classes="heroTitle"
-                       TextWrapping="Wrap"
-                       TextAlignment="Center"
-                       VerticalAlignment="Center"
-                       HorizontalAlignment="Center"
-                       Margin="20"
-                       IsVisible="{Binding SelectedTile.BannerImagePath, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
-
-            <Border VerticalAlignment="Bottom" Background="#B30C0D12" Padding="24,16">
-              <StackPanel Spacing="4">
-                <TextBlock Text="{Binding SelectedTile.Title}" Classes="heroTitle" TextWrapping="Wrap" />
-                <TextBlock Text="{Binding SelectedTile.Game.PlaytimeMinutes, StringFormat='{}{0} min jogados'}"
-                           Classes="subtle" />
-              </StackPanel>
-            </Border>
-          </Grid>
-
-          <TextBlock Text="Nenhum jogo encontrado ainda.&#10;Adicione um jogo manualmente para começar."
-                     Classes="subtle"
-                     TextWrapping="Wrap"
-                     TextAlignment="Center"
-                     VerticalAlignment="Center"
-                     HorizontalAlignment="Center"
-                     Margin="24"
-                     IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
-        </Grid>
-      </Border>
-
-      <!-- Horizontal row of every game (portrait tiles), including the
-           focused one — same tile that's blown up in the banner above also
-           shows here, highlighted, so left/right navigation reads clearly. -->
+      <!-- Horizontal row of every game (CAPSULE tiles, WIDE CAPSULE pro
+           último jogo aberto). -->
       <ScrollViewer x:Name="GameRowScrollViewer" Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
         <ItemsControl ItemsSource="{Binding Games}">
           <ItemsControl.ItemsPanel>
@@ -135,14 +107,33 @@
                    conta de scroll em MainWindow.ScrollGameRowSelectionIntoView. -->
               <StackPanel Width="{Binding TileWidth}" Spacing="6">
 
-                <!-- Nome do jogo ACIMA da capa, não por cima dela (correção
-                     pedida pelo usuário) — sempre visível, fonte pequena,
-                     numa linha só com reticências se não couber. -->
-                <TextBlock Text="{Binding Title}"
-                           Classes="tileCaption"
-                           TextWrapping="NoWrap"
-                           TextTrimming="CharacterEllipsis"
-                           TextAlignment="Center" />
+                <!-- Caption ACIMA da capa (nunca por dentro dela — correção
+                     da leva anterior): nome pras CAPSULE normais, LOGO
+                     (sozinho, sem nome) pra WIDE CAPSULE — split explícito
+                     do usuário ("logo em cima do wide capsule sem nome
+                     escrito, e os nomes escrito sem logo em cima da
+                     capsule menores"), nunca os dois juntos na mesma tile.
+                     Altura FIXA (28) pra toda tile reservar o mesmo espaço
+                     aqui em cima — sem isso, a WIDE CAPSULE (que às vezes
+                     mostra uma imagem de logo, às vezes nada) desalinharia
+                     verticalmente a capa de baixo em relação às tiles
+                     vizinhas, já que o StackPanel horizontal da fileira
+                     alinha os filhos pelo topo. -->
+                <Grid Height="28">
+                  <TextBlock Text="{Binding Title}"
+                             Classes="tileCaption"
+                             TextWrapping="NoWrap"
+                             TextTrimming="CharacterEllipsis"
+                             TextAlignment="Center"
+                             VerticalAlignment="Center"
+                             IsVisible="{Binding ShowNameCaption}" />
+
+                  <Image Source="{Binding LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                         Stretch="Uniform"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center"
+                         IsVisible="{Binding ShowCurrentLogo}" />
+                </Grid>
 
                 <!-- Width/Height do Border vêm das styles gameTile/
                      gameTile.lastPlayed em Theme.axaml (não daqui), pra
@@ -156,23 +147,10 @@
                     <Image Source="{Binding TileImagePath, Converter={StaticResource FileToBitmapConverter}}"
                            Stretch="UniformToFill" />
 
-                    <!-- CURRENT LOGO: só aparece sobre a capsule larga do
-                         "último jogo aberto" (WIDE CAPSULE), e só quando o
-                         SteamGridDB já trouxe um logo pra esse jogo (ver
-                         ArtworkService.FetchLogoAsync / "Atualizar Capas
-                         Automático" ou "Escolher logo" no menu do jogo). -->
-                    <Border VerticalAlignment="Top" HorizontalAlignment="Left"
-                            Margin="12" Padding="8,6"
-                            Background="#B30C0D12" CornerRadius="8"
-                            IsVisible="{Binding ShowCurrentLogo}">
-                      <Image Source="{Binding LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
-                             Height="28" Stretch="Uniform" />
-                    </Border>
-
                     <!-- Placeholder: só aparece quando essa tile específica
-                         não tem NENHUMA arte ainda (nem capa, nem banner) —
-                         o nome já aparece em cima (StackPanel acima), isso
-                         aqui é só pra não deixar a área da imagem vazia. -->
+                         não tem NENHUMA arte ainda (nem capa) — a caption já
+                         aparece em cima (Grid acima), isso aqui é só pra não
+                         deixar a área da imagem vazia. -->
                     <TextBlock Text="{Binding Title}"
                                Classes="gameTitle"
                                TextWrapping="Wrap"

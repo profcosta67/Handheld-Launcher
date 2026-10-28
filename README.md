@@ -53,17 +53,26 @@ Construído até agora:
     (hoje só guarda a API key do SteamGridDB — não tem tela de
     configurações ainda, é editar o arquivo na mão por enquanto).
 - **`HandheldLauncher.App`** — UI em Avalonia:
-  - Janela com banner hero largo/deitado em cima (segue o jogo que você
-    está navegando no momento, usando o banner do SteamGridDB) + fileira
-    horizontal de capas embaixo — layout estilo Steam Deck. Fundo da janela
-    inteira preenchido com a arte do jogo em foco, desfocada (blur) e
-    esticada — testado, funcionando.
+  - **(Mudou nesta leva)** Não existe mais nenhum banner retangular
+    separado no topo. O HERO do SteamGridDB agora só serve pra UMA coisa:
+    o fundo desfocado (blur) e esticado da janela inteira, que já existia e
+    continua testado/funcionando — split explícito pedido pelo usuário
+    ("hero (banner) vai ser a tela do plano de fundo da tela"). O que
+    sobrou embaixo é só a fileira de capas (CAPSULE), ancorada na parte de
+    baixo da área de conteúdo. **Nunca testado num build real** (a remoção
+    em si).
   - Na fileira, o **último jogo aberto** (não o que está só focado/com o
     cursor em cima — o que foi realmente *lançado* por último) aparece
-    largo/deitado (460x230) usando a arte hero, e só troca de lugar/tamanho
-    quando você abre outro jogo de verdade; navegar com ← → só muda o
-    banner de cima, não mexe na fileira. Ao abrir um jogo ele vira o
-    primeiro da fileira (empurra o resto). Testado, funcionando.
+    largo/deitado (460x230) — a **WIDE CAPSULE**. **Mudou nesta leva**: ela
+    usa a MESMA arte de capa/grid das tiles normais (`GridImagePath`),
+    nunca mais a arte hero — a WIDE CAPSULE é só a capa normal renderizada
+    maior, não um asset diferente (de novo, por pedido explícito do
+    usuário: "WIDE CAPSULE... imagem da capa larga do ultimo jogo", "hero"
+    reservado só pro fundo). Só troca de lugar/tamanho quando você abre
+    outro jogo de verdade; navegar com ← → não mexe nisso. Ao abrir um jogo
+    ele vira o primeiro da fileira (empurra o resto). **Nunca testado num
+    build real** (a parte "usa a capa, não o hero" é nova; o resto — virar
+    o primeiro da fileira, tamanho largo — já era testado antes).
   - Navegação por **controle via XInput** (dpad/analógico esquerdo, A
     confirma, B fecha o jogo) — testado e funcionando com um controle Xbox.
     Teclado (← → Enter Esc) continua funcionando como fallback de dev.
@@ -236,27 +245,33 @@ Construído até agora:
     enforcer e a Legion Space voltar a ganhar a frente no Modo Xbox, o
     próximo passo seria reaplicar o `Activate()` só numa janela curta
     depois do boot, não pra sempre. **Nunca testado num build real.**
-  - **"CURRENT LOGO" + nome do jogo em fonte pequena (ajustado nesta
-    leva)**: dois pedidos de layout do usuário.
-    - Sobre a tile larga do "último jogo aberto" (e só ela — a WIDE
-      CAPSULE), quando o SteamGridDB já trouxe um logo pra aquele jogo (via
-      "Atualizar Capas Automático" ou agora também via "Escolher logo" no
-      menu — ver bullet própria), aparece um pequeno overlay com esse logo
-      no canto superior esquerdo da tile — o "CURRENT LOGO", por cima da
-      WIDE CAPSULE como pedido.
-    - **Correção nesta leva**: o nome do jogo (CAPSULE) tinha ficado como
-      overlay POR DENTRO da tile na leva anterior — o usuário pediu
-      explicitamente pra ficar ACIMA da capa, não dentro ("os nomes os
-      jogos devera aparecer em cima das capas, não dentro dela"). Agora
-      cada tile é um `StackPanel` (nome em cima, capa embaixo) em vez de só
-      a `Border` da capa sozinha; o nome usa `TextBlock.tileCaption` (11px)
-      sempre visível, pra toda tile (pequena ou grande). Pra não quebrar o
-      alinhamento fixo da fileira (cada tile tinha largura própria vindo só
-      do `Border.gameTile`/`.lastPlayed`), o `StackPanel` agora recebe
-      `Width="{Binding TileWidth}"` (novo campo no `GameTileViewModel`,
-      170/460 — mesmos valores do Theme.axaml) e o nome trunca com "..."
-      (`TextTrimming="CharacterEllipsis"`) em vez de quebrar linha ou
-      vazar pra fora.
+  - **"CURRENT LOGO" + nome do jogo — layout final (corrigido de novo
+    nesta leva)**: o usuário mandou uma montagem (print editado com
+    caixinhas "LOGO BAIXADO AQUI"/"nome escrito do jogo aqui") corrigindo o
+    que eu tinha entendido na leva anterior. Split final, confirmado por
+    ele: **CURRENT LOGO sozinho acima da WIDE CAPSULE (sem nome ali), e
+    nome sozinho acima de cada CAPSULE normal (sem logo ali)** — nunca os
+    dois juntos na mesma tile.
+    - Cada tile é um `StackPanel` (caption em cima, capa embaixo). A
+      caption é um `Grid` de altura fixa (28) com um `TextBlock` (nome,
+      `TextBlock.tileCaption`, trunca com "...") e uma `Image` (logo)
+      sobrepostos, cada um visível conforme `ShowNameCaption`/
+      `ShowCurrentLogo` (mutuamente exclusivos no `GameTileViewModel`:
+      `ShowNameCaption => !IsLastPlayed`, `ShowCurrentLogo => IsLastPlayed
+      && HasLogo`). Na WIDE CAPSULE sem logo ainda baixado, essa área fica
+      em branco de propósito (não cai pro nome) — é exatamente o que foi
+      pedido.
+    - A altura fixa do `Grid` da caption (antes a leva passada usava só um
+      `TextBlock` direto, sem envolver num container de altura fixa) é pra
+      evitar que a WIDE CAPSULE (que ora mostra uma imagem de logo, ora
+      nada) desalinhe verticalmente a capa de baixo em relação às tiles
+      vizinhas, já que a fileira é um `StackPanel` horizontal que alinha os
+      filhos pelo topo.
+    - `TileWidth` (170/460, mesmos valores do `Theme.axaml`) continua
+      dando a largura fixa de cada tile pro `StackPanel` não se
+      redimensionar pelo conteúdo mais largo — mesma razão de antes.
+    **Nunca testado num build real** — é a segunda tentativa desse layout
+    específico nesta sessão, dessa vez a partir da montagem do usuário.
     **Nunca testado num build real** (inclusive a parte de buscar o logo
     em si via "Atualizar Capas Automático"/"Escolher logo" — é a primeira
     vez que o endpoint `/logos/` do SteamGridDB é chamado neste projeto).
@@ -601,6 +616,35 @@ que merecem atenção no primeiro teste:
   o "Sair" reabrindo aconteceu no modo desktop normal ou já com o Modo
   Xbox/OmniConsole ativo, porque o caminho de correção é bem diferente
   pra cada caso.
+
+**🔴 Remoção do banner do topo + split final logo/nome — status**: o
+usuário mandou uma montagem (print editado com caixinhas "LOGO BAIXADO
+AQUI"/"nome escrito do jogo aqui") corrigindo um equívoco meu na leva
+anterior, e confirmou duas perguntas diretas antes de eu mexer no código
+(pra não arriscar errar de novo sem poder compilar). Tudo nesta leva, sem
+teste num build real ainda. Pontos que merecem atenção no primeiro teste:
+- **Banner hero retangular no topo foi removido de vez** (confirmado pelo
+  usuário: "Remove a caixa do topo"). O HERO do SteamGridDB agora só
+  alimenta o fundo desfocado da janela inteira (`Panel` de fundo, já
+  existia e continua igual) — não tem mais nenhuma `Border.heroBanner` na
+  árvore visual. A mensagem "Nenhum jogo encontrado ainda..." (biblioteca
+  vazia) que vivia dentro do banner foi realocada pro espaço livre acima
+  da fileira (mesma condição `SelectedTile == null`) — teste importante:
+  confirmar que ela ainda aparece certinho numa biblioteca vazia, e que o
+  espaço acima da fileira não ficou nem grande nem pequeno demais sem o
+  banner de 320px que ocupava ali antes.
+- **WIDE CAPSULE agora usa a capa/grid, não mais o hero**
+  (`GameTileViewModel.TileImagePath` virou só `GridImagePath`, sem mais o
+  `IsLastPlayed ? BannerImagePath : GridImagePath` de antes) — teste
+  importante: confirmar que a tile larga do último jogo aberto mostra a
+  mesma arte de capa das tiles pequenas (só que maior), não mais o banner
+  widescreen que aparecia ali antes.
+- **Logo e nome nunca mais juntos na mesma tile** (ver bullet "CURRENT
+  LOGO" + nome — layout final" na seção "Status atual" mais acima pros
+  detalhes de `ShowNameCaption`/`ShowCurrentLogo` e do `Grid` de altura
+  fixa na caption) — teste importante: WIDE CAPSULE só com logo (ou vazio,
+  sem logo ainda) acima dela, nunca o nome; tiles pequenas só com nome
+  acima, nunca logo.
 
 **Bug corrigido** (reportado pelo usuário): nos dois menus (Start e
 View/Back), só o D-pad movia ↑↓ — o analógico esquerdo só lia o eixo X
