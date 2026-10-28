@@ -147,16 +147,34 @@ não sabia que existia, ver aviso abaixo.
 > no boot e abre um "app principal" configurado (no caso, o Legion Space).
 > É por isso que a busca "melhor esforço" do instalador não acha nada pra
 > desativar: não é atalho na pasta de Inicialização nem chave Run, é um
-> recurso de outro nível do Windows inteiro. **Correção**: Configurações >
-> Jogos > Modo Xbox (ou "Full screen experience", o nome varia por versão
-> do Windows 11) > desliga "Entrar no modo Xbox ao iniciar" (e, se tiver,
-> deixa "Escolher app principal" como "Nenhum"). Reinicia de verdade
-> (Iniciar > Energia > Reiniciar, não só desligar/ligar, por causa do Fast
-> Startup). Se o app Xbox ainda abrir separado, desliga ele também em
-> Configurações > Aplicativos > Inicializar. Depois disso o boot deve
-> cair no desktop normal, e aí sim nosso atalho de inicialização
-> automática tem chance de rodar. **Ainda não confirmado se, desligando o
-> Modo Xbox, o nosso launcher passa a abrir sozinho** — é o próximo teste.
+> recurso de outro nível do Windows inteiro.
+>
+> Duas formas de resolver, com trade-off diferente:
+>
+> 1. **Desligar o Modo Xbox de vez** (Configurações > Jogos > Modo Xbox >
+>    desliga "Entrar no modo Xbox ao iniciar", reinicia de verdade pelo
+>    menu Iniciar por causa do Fast Startup). O boot cai no desktop normal
+>    do Windows, e nosso atalho de inicialização automática abre o
+>    launcher em fullscreen por cima — mas aparece uns segundos de
+>    desktop/taskbar visíveis antes disso. Risco zero, mas não é
+>    "boot direto" de verdade.
+> 2. **(Escolhido) Manter o Modo Xbox ligado e registrar o NOSSO launcher
+>    como "app principal" dele** — aí sim sem nunca mostrar o desktop,
+>    igual o Legion Space faz hoje. A lista nativa de "Escolher app
+>    principal" só aceita apps credenciados pela Microsoft/fabricante, não
+>    qualquer `.exe` — pra contornar isso, usa-se uma ferramenta da
+>    comunidade: **Xbox Full Screen Experience Tool**
+>    (`github.com/8bit2qubit/XboxFullScreenExperienceTool`), que inclui um
+>    módulo **OmniConsole** pra registrar qualquer executável personalizado
+>    (o nosso incluso) nessa lista. **Não é uma ferramenta nossa, não foi
+>    testada por nós** — é de terceiros, não assinada pela Microsoft
+>    (Defender pode avisar), o próprio autor recomenda backup antes, e
+>    pode parar de funcionar depois de um update grande do Windows. Se der
+>    problema, ela tem um botão "Disable and Restore"; o caminho manual de
+>    reverter é "Escolher app principal" > Nenhum + desligar o ViVeTool
+>    flag + apagar a tarefa agendada `SetPanelDimensions`.
+>
+> **Status**: opção 2 escolhida, ainda não testada.
 
 O que o instalador faz, resumido (detalhes completos nos comentários do
 próprio `Install-Launcher.ps1`): publica o app (`dotnet publish`,
