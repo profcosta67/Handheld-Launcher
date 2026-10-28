@@ -106,13 +106,30 @@ Construído até agora:
     comum. Quem liga essa flag é o instalador (ver seção própria mais
     abaixo), não é pra editar essa parte do `settings.json` na mão.
     **Confirmado funcionando** — abre fullscreen de verdade, sem borda,
-    num PC Windows normal.
+    num PC Windows normal. Em modo kiosk a janela também vira
+    `Topmost = true` — achado testando no Legion Go 2 de verdade: Legion
+    Space/Xbox/Steam abrem no boot e a nossa janela ficava escondida
+    atrás deles; `Topmost` mantém ela sempre por cima, sem bloquear
+    Alt+Tab (dá pra trocar de janela na mão, só não deixa OUTRA janela
+    cobrir a nossa sem querer).
+  - **Reabrir sozinho se for fechado**: achado no Legion Go 2 — fechar o
+    app (Alt+F4 ou crash) deixava ele fechado de vez, sem reabrir. Agora
+    o instalador registra uma **Tarefa Agendada do Windows**
+    (`HandheldLauncherWatchdog`) que checa a cada 1 minuto e reabre o app
+    se não estiver rodando — sobrevive a Alt+F4 e a crash. Pra isso não
+    virar uma prisão, o botão/opção **"Sair" do menu geral do launcher
+    desativa esse watchdog antes de fechar** (`MainWindow.axaml.cs`), então
+    um "Sair" deliberado continua fechando de vez; só o Alt+F4/crash é que
+    volta sozinho. Quem não quiser esse comportamento usa a flag
+    `-NoWatchdog` do instalador (ver seção própria mais abaixo) pra voltar
+    ao atalho simples antigo, que não reabre.
 - **`installer/`** — `Install-Launcher.ps1`/`Uninstall-Launcher.ps1` (e os
   `Instalar.bat`/`Desinstalar.bat` de duplo-clique por cima deles), ver
   seção "Instalar no Legion Go 2 / ROG Ally" mais abaixo. Os `.ps1`
-  **confirmados funcionando** num PC Windows normal, de ponta a ponta; os
-  `.bat` de duplo-clique e a instalação no handheld de verdade **ainda
-  não testados**.
+  **confirmados funcionando** num PC Windows normal, de ponta a ponta, e o
+  core (publish/cópia/kiosk/Modo Xbox) **confirmado no Legion Go 2 de
+  verdade** também; o watchdog e a API key padrão são mudanças desta leva,
+  **ainda não testados** num build real.
 
 Ainda **não** feito:
 
@@ -125,11 +142,28 @@ Ainda **não** feito:
    configurar o OmniConsole, desligar Legion Space/Xbox/Steam duplicados
    em Configurações > Apps > Inicializar). O instalador já automatiza o
    SDK sozinho agora (pergunta e instala via `winget` se faltar — ver
-   "Instalar no Legion Go 2 / ROG Ally"), mas falta pensar num jeito de
-   reduzir o resto também — ideia pra próxima leva, ainda sem desenho
-   definido.
+   "Instalar no Legion Go 2 / ROG Ally"), e a API key do SteamGridDB já
+   pode vir pré-configurada (ver seção própria abaixo), mas falta pensar
+   num jeito de reduzir o resto também — ideia pra próxima leva, ainda sem
+   desenho definido.
+4. **Decoupling do controle do Legion Go da Legion Space** — achado
+   testando no Legion Go 2: desligar o autostart da Legion Space (pra
+   evitar ela abrir junto no boot) quebra a tradução dos joysticks do
+   Legion Go (XInput) dentro dos jogos — os controles só funcionam
+   enquanto algum processo da Legion Space está rodando. Pesquisei se a
+   Legion Space tem alguma opção de abrir "minimizada/na bandeja" em vez
+   de em tela cheia, e não achei nenhuma opção assim documentada — pode
+   ser que simplesmente não exista. Enquanto isso, a recomendação atual é
+   **deixar a Legion Space com autostart ligado mesmo** (ela vai abrir
+   junto no boot) e contar com o `Topmost` do nosso launcher (ver bullet
+   do modo kiosk acima) pra garantir que a nossa janela fique por cima de
+   qualquer forma. Sem solução definitiva ainda — se alguém achar uma
+   configuração de bandeja/minimizado escondida em alguma versão futura
+   da Legion Space, essa seção é pra atualizar.
 
 ## Configurar a API key do SteamGridDB
+
+**Na mão, pra uma máquina só:**
 
 1. Cria uma conta grátis em https://www.steamgriddb.com e gera uma API key
    em https://www.steamgriddb.com/profile/preferences/api
@@ -140,6 +174,30 @@ Ainda **não** feito:
    { "SteamGridDbApiKey": "sua-chave-aqui" }
    ```
 4. Reabre o launcher e clica em "Buscar capas"
+
+**Deixar pré-configurada em todo install novo (PC, Legion Go 2, ROG Ally, ...):**
+
+Pra não ter que repetir os passos acima em toda máquina/instalação nova,
+cria um arquivo de texto `installer\steamgriddb-api-key.txt` com só a sua
+chave dentro (sem aspas, sem mais nada):
+```powershell
+"sua-chave-aqui" | Set-Content installer\steamgriddb-api-key.txt
+```
+Esse arquivo é só seu, fica de fora do git (`.gitignore`) — a chave nunca
+é commitada no repositório. A partir daí, toda vez que `Install-Launcher.ps1`
+rodar numa máquina onde esse arquivo está copiado junto (dentro da pasta
+`installer\`) **e** ainda não existe uma key salva naquela máquina, ele usa
+automaticamente essa chave pra preencher o `settings.json` — sem precisar
+editar nada na mão depois de instalar. Se a máquina já tinha uma key salva
+de antes (de uma instalação anterior, por exemplo), ela é preservada e o
+arquivo padrão é ignorado nesse caso.
+
+Sobre compartilhar a mesma key entre pessoas/máquinas: tecnicamente
+funciona (não existe trava por máquina), mas a SteamGridDB tem limite de
+requisições por key — quanto mais instalações usando a mesma chave ao
+mesmo tempo, mais perto desse limite. Pra uso pessoal em algumas máquinas
+suas (PC + Legion Go 2 + futuramente o ROG Ally) não deve ser problema;
+pra distribuir pra terceiros, o ideal é cada um gerar a própria key grátis.
 
 ## Instalar no Legion Go 2 / ROG Ally (beta v0.1)
 
@@ -196,14 +254,20 @@ não instala sem confirmar), publica o app (`dotnet publish`,
 self-contained — a máquina onde ele vai RODAR não precisa ter o .NET
 instalado), copia pra `%LocalAppData%\Programs\HandheldLauncher\`, cria
 atalho na Área de Trabalho/Menu Iniciar, configura ele pra abrir sozinho a
-cada login (sem substituir o shell do Windows — Alt+Tab/Alt+F4 continuam
-funcionando, fechar o app sempre volta pro desktop normal), liga o modo
-kiosk (fullscreen) no `settings.json`, e tenta impedir o Xbox Game Bar e o
-Legion Space/Armoury Crate SE de abrirem sozinhos no boot (os dois
-primeiros via chaves de registro bem documentadas; os do fabricante via uma
-busca "melhor esforço" — ver comentários do script pras limitações disso,
-e o aviso abaixo sobre o Modo Xbox, que é o motivo real de essa busca não
-achar nada no Legion Go 2).
+cada login **e se reabrir sozinho se for fechado/crashar** — por padrão via
+uma Tarefa Agendada `HandheldLauncherWatchdog` que checa a cada 1 minuto
+(use `-NoWatchdog` pra voltar ao atalho simples antigo na pasta de
+Inicialização, que abre uma vez só e não reabre — nenhum dos dois
+substitui o shell do Windows, Alt+Tab continua funcionando normal), liga o
+modo kiosk (fullscreen + sempre por cima) no `settings.json`, preenche a
+API key do SteamGridDB automaticamente se você tiver um
+`installer\steamgriddb-api-key.txt` (ver seção própria acima), e tenta
+impedir o Xbox Game Bar e o Legion Space/Armoury Crate SE de abrirem
+sozinhos no boot (os dois primeiros via chaves de registro bem
+documentadas; os do fabricante via uma busca "melhor esforço" — ver
+comentários do script pras limitações disso, e o aviso abaixo sobre o
+Modo Xbox, que é o motivo real de essa busca não achar nada no Legion
+Go 2).
 
 **Jeito fácil (duplo-clique, sem digitar comando nenhum):**
 
@@ -240,7 +304,7 @@ o SDK do .NET instalado):
 5. Pra desfazer, clica duas vezes em `Desinstalar.bat`.
 
 **Jeito manual (PowerShell direto, pra quem quiser passar alguma opção
-extra como `-NoDesktopShortcut` ou `-KeepFiles`)**: abre o PowerShell
+extra como `-NoDesktopShortcut`, `-NoWatchdog` ou `-KeepFiles`)**: abre o PowerShell
 **dentro da pasta** `installer\` (`cd` até lá — rodar de outra pasta, como
 `C:\WINDOWS\System32`, só vai dar "arquivo não encontrado") e roda:
 ```powershell
@@ -265,18 +329,21 @@ registro do Windows e em pastas de inicialização automática, então é tudo
 pensado pra ser reversível (o próprio `Uninstall-Launcher.ps1` desfaz, e
 qualquer passo de registro/inicialização que falhar vira só um aviso no
 log, não derruba a instalação do app em si). **Confirmado funcionando**
-num PC Windows normal, de ponta a ponta — publish, cópia, atalhos, modo
-kiosk abrindo fullscreen de verdade, ajuste do Xbox Game Bar, busca do
-Legion Space/Armoury Crate (achou nada, como esperado — PC normal não tem
-esse software). Um bug já apareceu e foi corrigido: o script procurava
+num PC Windows normal, de ponta a ponta, e também **no Legion Go 2 de
+verdade** (publish/cópia/atalhos, modo kiosk fullscreen, registro como
+app principal do Modo Xbox via OmniConsole — ver seção "Instalar no
+Legion Go 2 / ROG Ally" mais acima pros detalhes e achados de cada um). Um
+bug já apareceu e foi corrigido: o script procurava
 `HandheldLauncher.App.exe` depois do publish, mas o `.csproj` nomeia o
 executável só de `HandheldLauncher.exe` (`<AssemblyName>` diferente do
-nome da pasta do projeto). **Ainda não testados**: os dois `.bat` de
-duplo-clique (`Instalar.bat`/`Desinstalar.bat`, criados só pra não precisar
-digitar comando no Legion/ROG Ally) e a instalação no handheld de verdade
-(até agora só rodou no PC). Testa num momento em que você consegue
-acompanhar o resultado, e lê o `install-log.txt` no final pra confirmar
-que cada passo fez o que devia.
+nome da pasta do projeto). **Ainda não testados num build real**: a
+`Topmost = true` da janela, o watchdog (`HandheldLauncherWatchdog` +
+"Sair" desativando ele) e o preenchimento automático da API key via
+`installer\steamgriddb-api-key.txt` — os três são desta leva, implementados
+a partir dos relatos do Legion Go 2 mas ainda sem um ciclo de teste depois
+de escritos. Testa num momento em que você consegue acompanhar o
+resultado, e lê o `install-log.txt` no final pra confirmar que cada passo
+fez o que devia.
 
 **Bug corrigido** (reportado pelo usuário): nos dois menus (Start e
 View/Back), só o D-pad movia ↑↓ — o analógico esquerdo só lia o eixo X

@@ -19,10 +19,16 @@
          só na máquina onde esse publish é feito.
       2. Copia o resultado pra %LocalAppData%\Programs\HandheldLauncher\.
       3. Cria atalho na Área de Trabalho e no Menu Iniciar.
-      4. Cria atalho na pasta de Inicialização do Windows (shell:startup)
-         pra abrir sozinho a cada login — SEM substituir o shell do
-         Windows. O desktop normal continua por baixo; Alt+Tab e Alt+F4
-         continuam funcionando, fechar o app sempre volta pro desktop.
+      4. Registra uma Tarefa Agendada ("HandheldLauncherWatchdog") que
+         abre o launcher no login E confere a cada 1 minuto se ele ainda
+         está rodando, reabrindo se tiver fechado (Alt+F4, crash, etc).
+         SEM substituir o shell do Windows — o desktop normal continua
+         por baixo, Alt+Tab continua funcionando. "Sair" no menu geral do
+         próprio launcher desliga essa tarefa antes de fechar, então essa
+         é a única forma de saída que realmente "pega" — Alt+F4 ou um
+         crash são recuperados de propósito. Use `-NoWatchdog` pro
+         comportamento antigo (abre uma vez no login, não reabre nunca,
+         sempre dá pra sair com Alt+F4).
       5. Liga KioskMode=true no settings.json (preserva a API key do
          SteamGridDB se você já tiver configurado uma).
       6. Ajusta duas chaves de registro bem documentadas (HKCU, não
@@ -54,6 +60,14 @@
     Não cria o atalho na Área de Trabalho (ainda cria o do Menu Iniciar e
     o de inicialização automática).
 
+.PARAMETER NoWatchdog
+    Usa o comportamento antigo e mais simples: um atalho comum na pasta
+    de Inicialização do Windows, que abre o launcher uma vez no login e
+    NÃO reabre se ele for fechado (Alt+F4, crash, etc) — fechar sempre
+    volta pro desktop até você abrir de novo na mão. Sem isto (padrão),
+    é registrada uma Tarefa Agendada que também reabre o launcher
+    automaticamente se ele cair.
+
 .EXAMPLE
     .\Install-Launcher.ps1
     Publica e instala tudo numa máquina com o .NET 8 SDK instalado.
@@ -66,7 +80,8 @@
 [CmdletBinding()]
 param(
     [switch]$SkipPublish,
-    [switch]$NoDesktopShortcut
+    [switch]$NoDesktopShortcut,
+    [switch]$NoWatchdog
 )
 
 $ErrorActionPreference = 'Stop'
@@ -189,8 +204,32 @@ New-AppShortcut -ShortcutPath $startMenuShortcut
 
 $startupDir = [Environment]::GetFolderPath('Startup')
 $startupShortcut = Join-Path $startupDir 'Handheld Launcher.lnk'
-New-AppShortcut -ShortcutPath $startupShortcut
-Write-Log "Inicializacao automatica configurada via pasta de Inicializacao do Windows (shell:startup) - NAO substitui o shell, o desktop normal continua por baixo. Pra desativar na mao sem o uninstaller: apaga esse atalho, ou desativa em Configuracoes > Aplicativos > Inicializar."
+$watchdogTaskName = 'HandheldLauncherWatchdog'
+
+if ($NoWatchdog) {
+    New-AppShortcut -ShortcutPath $startupShortcut
+    Write-Log "Inicializacao automatica configurada via pasta de Inicializacao do Windows (shell:startup) - abre uma vez no login, NAO reabre se for fechado (-NoWatchdog). NAO substitui o shell, o desktop normal continua por baixo."
+}
+else {
+    # Watchdog via Tarefa Agendada em vez de um atalho comum: alem de
+    # abrir no login, confere a cada 1 minuto se o launcher ainda esta
+    # rodando e reabre se nao estiver - cobre Alt+F4, crash, ou qualquer
+    # outro jeito dele fechar sozinho. "Sair" no menu geral do proprio
+    # launcher desativa esta tarefa antes de fechar (ver DisableWatchdogIfPresent
+    # em MainWindow.axaml.cs), entao uma saida deliberada continua
+    # funcionando de verdade - so o fechamento inesperado e que volta.
+    $triggerLogon = New-ScheduledTaskTrigger -AtLogOn
+    $triggerRepeat = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 1) -RepetitionDuration (New-TimeSpan -Days 3650)
+    $watchdogAction = New-ScheduledTaskAction -Execute $exePath -WorkingDirectory $installDir
+    # -ExecutionTimeLimit ([TimeSpan]::Zero) == "sem limite de tempo": o
+    # padrao do Task Scheduler mata a tarefa depois de 72h, o que seria
+    # fatal pra um app que deveria ficar rodando indefinidamente.
+    $watchdogSettings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero)
+
+    Register-ScheduledTask -TaskName $watchdogTaskName -Trigger @($triggerLogon, $triggerRepeat) -Action $watchdogAction -Settings $watchdogSettings -Description 'Garante que o Handheld Launcher esteja sempre rodando; reabre em ate 1 minuto se fechar.' -Force | Out-Null
+
+    Write-Log "Inicializacao automatica + watchdog configurados via Tarefa Agendada '$watchdogTaskName': abre no login e confere a cada 1 minuto se ainda esta rodando, reabrindo se fechar (Alt+F4, crash, etc). 'Sair' no menu geral do launcher desativa essa tarefa antes de fechar, pra uma saida deliberada funcionar de verdade. Pra desativar na mao sem passar pelo app: Disable-ScheduledTask -TaskName '$watchdogTaskName' (reativa com Enable-ScheduledTask ou rodando este instalador de novo)."
+}
 
 # ---------------------------------------------------------------------------
 # 5. settings.json - liga o modo kiosk, preserva a API key se ja existir
@@ -208,6 +247,25 @@ if (Test-Path $settingsPath) {
         Write-Log "Aviso: settings.json existente nao pode ser lido (formato inesperado) - recriando do zero, com KioskMode ligado."
     }
 }
+
+# Se ainda nao tem key (maquina nova, sem settings.json previo), usa uma
+# key padrao de um arquivo local opcional em vez de obrigar digitar na
+# mao em toda instalacao nova - esse arquivo NUNCA e versionado no git
+# (ver .gitignore), fica so na sua maquina. Crie-o uma vez com:
+#   "sua-chave-aqui" | Set-Content installer\steamgriddb-api-key.txt
+# e a partir dai toda instalacao (qualquer maquina que tenha esse
+# arquivo copiado junto) ja sai configurada sozinha.
+if (-not $settings.SteamGridDbApiKey) {
+    $defaultKeyPath = Join-Path $scriptDir 'steamgriddb-api-key.txt'
+    if (Test-Path $defaultKeyPath) {
+        $defaultKey = (Get-Content $defaultKeyPath -Raw).Trim()
+        if ($defaultKey) {
+            $settings.SteamGridDbApiKey = $defaultKey
+            Write-Log "API key do SteamGridDB preenchida a partir de installer\steamgriddb-api-key.txt."
+        }
+    }
+}
+
 ($settings | ConvertTo-Json) | Set-Content -Path $settingsPath -Encoding UTF8
 Write-Log "Modo kiosk ativado em: $settingsPath"
 

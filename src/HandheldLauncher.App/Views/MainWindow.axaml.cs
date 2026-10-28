@@ -38,7 +38,41 @@ public partial class MainWindow : Window
         if (DataContext is not MainViewModel vm) return;
 
         vm.AddGameRequested += (_, _) => _ = OpenAddGameDialogAsync(vm);
-        vm.QuitRequested += (_, _) => Close();
+        vm.QuitRequested += (_, _) =>
+        {
+            DisableWatchdogIfPresent();
+            Close();
+        };
+    }
+
+    /// <summary>
+    /// Best-effort: if the installer's watchdog Scheduled Task is present
+    /// (kiosk installs that chose auto-restart — see
+    /// installer/Install-Launcher.ps1), disable it before closing so a
+    /// deliberate "Sair" from the global menu actually sticks instead of
+    /// the watchdog reopening the app within a minute. Alt+F4 or a crash
+    /// skip this on purpose — recovering from exactly those is the whole
+    /// point of the watchdog. On a plain `dotnet run` dev session (no
+    /// task registered), schtasks just fails and this quietly does
+    /// nothing — never blocks quitting over it either way.
+    /// </summary>
+    private static void DisableWatchdogIfPresent()
+    {
+        try
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo("schtasks.exe",
+                "/Change /TN \"HandheldLauncherWatchdog\" /Disable")
+            {
+                CreateNoWindow = true,
+                UseShellExecute = false,
+            };
+            using var process = System.Diagnostics.Process.Start(psi);
+            process?.WaitForExit(2000);
+        }
+        catch
+        {
+            // Best-effort only - never let this stop the app from quitting.
+        }
     }
 
     private void OnGamepadTick(object? sender, EventArgs e)

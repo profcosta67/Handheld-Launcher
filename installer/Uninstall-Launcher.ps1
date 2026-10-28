@@ -92,6 +92,12 @@ foreach ($shortcut in @($desktopShortcut, $startMenuShortcut, $startupShortcut))
     }
 }
 
+$watchdogTaskName = 'HandheldLauncherWatchdog'
+if (Get-ScheduledTask -TaskName $watchdogTaskName -ErrorAction SilentlyContinue) {
+    Unregister-ScheduledTask -TaskName $watchdogTaskName -Confirm:$false
+    Write-Host "Tarefa Agendada removida: $watchdogTaskName"
+}
+
 # ---------------------------------------------------------------------------
 # 3. Remover arquivos instalados (a menos que -KeepFiles)
 # ---------------------------------------------------------------------------

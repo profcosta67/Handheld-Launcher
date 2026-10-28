@@ -48,6 +48,14 @@ public partial class App : Application
             {
                 mainWindow.WindowState = Avalonia.Controls.WindowState.FullScreen;
                 mainWindow.SystemDecorations = Avalonia.Controls.SystemDecorations.None;
+
+                // Reported on the Legion Go 2: Legion Space/Xbox/Steam all
+                // open around the same time at boot and our window ends up
+                // buried behind them. Topmost keeps us on top of the Z-order
+                // regardless of what else opens afterward — it does NOT
+                // block Alt+Tab (the user can still switch away on purpose),
+                // it only stops OTHER windows from covering ours by default.
+                mainWindow.Topmost = true;
             }
 
             desktop.MainWindow = mainWindow;

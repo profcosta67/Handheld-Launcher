@@ -15,3 +15,6 @@ Thumbs.db
 
 ## Installer build output (gerado por Install-Launcher.ps1, não versionado)
 installer/publish/
+
+## API key padrão usada pelo instalador (sua chave pessoal - nunca versionar)
+installer/steamgriddb-api-key.txt
