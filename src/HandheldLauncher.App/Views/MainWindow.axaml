@@ -444,7 +444,7 @@
                   <StackPanel Spacing="4" Margin="0,0,0,10">
                     <TextBlock Text="{Binding Title}" Classes="gameTitle" />
                     <ProgressBar Minimum="0" Maximum="100" Value="{Binding PercentComplete}" />
-                    <TextBlock Text="{Binding PercentComplete, StringFormat='{0:0}%'}" Classes="subtle" />
+                    <TextBlock Text="{Binding PercentComplete, StringFormat='{}{0:0}%'}" Classes="subtle" />
                   </StackPanel>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
