@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Threading;
@@ -63,15 +64,19 @@ public partial class MainWindow : Window
                 {
                     case GamepadAction.MoveLeft:
                         vm.MoveCoverPickerSelection(-1);
+                        ScrollCoverPickerSelectionIntoView(vm);
                         break;
                     case GamepadAction.MoveRight:
                         vm.MoveCoverPickerSelection(1);
+                        ScrollCoverPickerSelectionIntoView(vm);
                         break;
                     case GamepadAction.MoveUp:
                         vm.MoveCoverPickerSelectionVertical(-1);
+                        ScrollCoverPickerSelectionIntoView(vm);
                         break;
                     case GamepadAction.MoveDown:
                         vm.MoveCoverPickerSelectionVertical(1);
+                        ScrollCoverPickerSelectionIntoView(vm);
                         break;
                     case GamepadAction.Confirm:
                         vm.ConfirmCoverPickerSelection();
@@ -174,18 +179,22 @@ public partial class MainWindow : Window
             {
                 case Key.Left:
                     vm.MoveCoverPickerSelection(-1);
+                    ScrollCoverPickerSelectionIntoView(vm);
                     e.Handled = true;
                     break;
                 case Key.Right:
                     vm.MoveCoverPickerSelection(1);
+                    ScrollCoverPickerSelectionIntoView(vm);
                     e.Handled = true;
                     break;
                 case Key.Up:
                     vm.MoveCoverPickerSelectionVertical(-1);
+                    ScrollCoverPickerSelectionIntoView(vm);
                     e.Handled = true;
                     break;
                 case Key.Down:
                     vm.MoveCoverPickerSelectionVertical(1);
+                    ScrollCoverPickerSelectionIntoView(vm);
                     e.Handled = true;
                     break;
                 case Key.Enter:
@@ -276,6 +285,40 @@ public partial class MainWindow : Window
                 vm.ToggleGlobalMenu();
                 e.Handled = true;
                 break;
+        }
+    }
+
+    /// <summary>
+    /// The cover/banner picker is a plain ItemsControl with hand-rolled
+    /// IsSelected flags (not a ListBox), so there's no built-in "scroll
+    /// selected item into view" tied to selection changes — has to be done
+    /// by hand here after every move. Deliberately uses the well-known
+    /// ScrollViewer.Offset/.Viewport properties rather than
+    /// ItemsControl.ContainerFromIndex/Control.BringIntoView(), since this
+    /// project can't be compiled here to verify a less-certain API choice.
+    /// </summary>
+    private void ScrollCoverPickerSelectionIntoView(MainViewModel vm)
+    {
+        if (CoverPickerScrollViewer is null) return;
+        if (!vm.IsCoverPickerOpen || vm.CoverPickerCandidates.Count == 0) return;
+
+        // Must match MainWindow.axaml's coverCandidate cell: Border
+        // Height="170" plus Margin="6" on each side (top+bottom = 12).
+        const double itemHeight = 170 + 12;
+        var row = vm.CoverPickerIndex / MainViewModel.CoverPickerColumns;
+        var itemTop = row * itemHeight;
+        var itemBottom = itemTop + itemHeight;
+
+        var viewTop = CoverPickerScrollViewer.Offset.Y;
+        var viewBottom = viewTop + CoverPickerScrollViewer.Viewport.Height;
+
+        if (itemTop < viewTop)
+        {
+            CoverPickerScrollViewer.Offset = new Vector(CoverPickerScrollViewer.Offset.X, itemTop);
+        }
+        else if (itemBottom > viewBottom)
+        {
+            CoverPickerScrollViewer.Offset = new Vector(CoverPickerScrollViewer.Offset.X, itemBottom - CoverPickerScrollViewer.Viewport.Height);
         }
     }
 

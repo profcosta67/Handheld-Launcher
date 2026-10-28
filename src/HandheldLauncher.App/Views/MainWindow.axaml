@@ -253,7 +253,7 @@
                      Margin="20"
                      IsVisible="{Binding CoverPickerHasError}" />
 
-          <ScrollViewer Grid.Row="1" MaxHeight="460" IsVisible="{Binding CoverPickerHasResults}">
+          <ScrollViewer x:Name="CoverPickerScrollViewer" Grid.Row="1" MaxHeight="460" IsVisible="{Binding CoverPickerHasResults}">
             <!-- UniformGrid with a FIXED column count (not WrapPanel) so
                  ↑↓ can jump by exactly "CoverPickerColumns" in the
                  ViewModel and land in the right cell every time — a

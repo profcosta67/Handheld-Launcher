@@ -227,6 +227,10 @@ public sealed class MainViewModel : ViewModelBase
     public bool CoverPickerHasError => !string.IsNullOrEmpty(CoverPickerErrorMessage);
 
     private int _coverPickerIndex;
+
+    /// <summary>Read by MainWindow's scroll-into-view logic after every move.</summary>
+    public int CoverPickerIndex => _coverPickerIndex;
+
     private bool _coverPickerIsHero;
     private GameEntry? _coverPickerGame;
 
@@ -512,9 +516,13 @@ public sealed class MainViewModel : ViewModelBase
     /// picker's ItemsPanel exactly — that's a fixed column count (not a
     /// WrapPanel, whose column count depends on pixel widths at render
     /// time and the ViewModel has no reliable way to mirror), so ↑↓ below
-    /// can jump by this many and land in the right cell every time.
+    /// can jump by this many and land in the right cell every time. Public
+    /// so MainWindow's manual scroll-into-view math (the ScrollViewer
+    /// doesn't auto-follow a plain ItemsControl's "selected" item — there's
+    /// no SelectedItem here, just an IsSelected flag per candidate) can use
+    /// the same row math instead of a second hardcoded "5".
     /// </summary>
-    private const int CoverPickerColumns = 5;
+    public const int CoverPickerColumns = 5;
 
     /// <summary>Left/right: flat ±1, wrapping around the whole list (crossing a row edge lands in the adjacent row — expected).</summary>
     public void MoveCoverPickerSelection(int delta)

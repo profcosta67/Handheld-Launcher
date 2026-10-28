@@ -69,9 +69,11 @@ Construído até agora:
     imagem de maior pontuação, sem escolha) — esse foi removido, o
     seletor faz tudo que ele fazia e mais. **Confirmado funcionando**
     pelo usuário (abre, carrega candidatas reais de capa E banner, aplica
-    a capa na hora) — só a navegação ↑↓-vira-fileira e o banner grande
-    de cima não atualizando na hora ainda não passaram por um teste real
-    (corrigidos nesta leva, ver "Build ainda não totalmente verificado").
+    a capa na hora, D-pad/analógico navegando certinho por fileira, banner
+    grande de cima atualizando na hora). **Pendente de teste**: a grade
+    ainda não acompanha a seleção com scroll automático quando ela desce
+    (ou sobe) além da área visível — corrigido nesta leva, ver "Build
+    ainda não totalmente verificado".
   - **Botão "Adicionar jogo"** na barra de baixo abre um diálogo (nome,
     caminho do executável com seletor de arquivo, argumentos opcionais,
     pasta de trabalho opcional) e cadastra um jogo não-Steam na
@@ -145,7 +147,9 @@ erro de build, me manda a mensagem. Pontos mais arriscados dessa leva:
   imagens baixadas pra mostrar na grade antes de você escolher. Pode
   apagar essa pasta à vontade se crescer demais; ela se recria sozinha na
   próxima vez que abrir o seletor.
-- **Bugs corrigidos** (reportados pelo usuário, testando a leva anterior):
+- **Bugs corrigidos** (reportados pelo usuário, testando a leva anterior)
+  — **confirmados funcionando** ("os dpads na seleção das capas e os
+  banners e capas aplicando na hora"):
   - Aplicar uma capa escolhida às vezes não fazia efeito na primeira
     tentativa, só na segunda. Provável causa: eu sobrescrevia o MESMO
     arquivo que já estava na tela naquele instante (ex: `ARC_grid.jpg`),
@@ -173,7 +177,26 @@ erro de build, me manda a mensagem. Pontos mais arriscados dessa leva:
     com a arte velha). Agora `Refresh()` força essa reatribuição sempre.
     Esse bug podia estar afetando qualquer `Refresh()` (inclusive "Buscar
     capas" em massa), não só o seletor — a correção vale pra todos.
-  - Ainda não testado num build real.
+- **Bug corrigido nesta leva** (reportado pelo usuário) — **ainda não
+  testado num build real**:
+  - Na grade do seletor, rolar pra baixo (ou pra cima) além das fileiras
+    visíveis não acompanhava a seleção — a tela ficava parada na mesma
+    posição e não mostrava as capas/banners que já tinham ficado "fora da
+    tela". Causa: a grade é um `ItemsControl` comum com uma flag
+    `IsSelected` feita à mão por item (não um `ListBox`/
+    `SelectingItemsControl`), então não existe o "rolar até o item
+    selecionado" automático que esses controles dariam de graça — tinha
+    que ser calculado na mão. Adicionei `ScrollCoverPickerSelectionIntoView`
+    em `MainWindow.axaml.cs`: depois de cada movimento (← → ↑ ↓), calcula
+    a posição Y da fileira da seleção atual (`CoverPickerIndex /
+    CoverPickerColumns`, cada fileira = 170px de altura da célula + 12px
+    de margem = 182px) e ajusta `ScrollViewer.Offset` só quando a seleção
+    saiu da área visível (`Viewport`) — pra cima, rola até o topo dela
+    ficar visível; pra baixo, rola até o fundo dela ficar visível.
+    Deliberadamente não usei `Control.BringIntoView()`/
+    `ItemsControl.ContainerFromIndex` (APIs que eu não consigo validar
+    aqui sem compilar) — preferi a conta na mão com `Offset`/`Viewport`,
+    que são bem mais básicas e certas de existir.
 
 ## Seletor de capas tipo Decky Loader — é viável?
 
