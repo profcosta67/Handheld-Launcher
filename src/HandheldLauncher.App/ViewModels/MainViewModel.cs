@@ -262,8 +262,8 @@ public sealed class MainViewModel : ViewModelBase
     private bool _isPowerMenuOpen;
 
     /// <summary>
-    /// The "Power" button's menu (Desligar tela / Reiniciar / Desligar o
-    /// Legion Go / Sair) — same visual/overlay pattern as the global menu,
+    /// The "Power" button's menu (Desligar tela / Reiniciar o aparelho /
+    /// Desligar o aparelho / Sair) — same visual/overlay pattern as the global menu,
     /// just a separate independent flag so opening one never interferes
     /// with the other. MainWindow is the one place that checks which
     /// overlay (if any) owns gamepad/keyboard input right now.
@@ -282,10 +282,10 @@ public sealed class MainViewModel : ViewModelBase
     /// <summary>Raised when "Desligar tela" is picked — MainWindow owns the actual Win32 call, not the ViewModel.</summary>
     public event EventHandler? TurnOffScreenRequested;
 
-    /// <summary>Raised when "Reiniciar o Legion Go" is picked — MainWindow owns the actual `shutdown /r` call, not the ViewModel.</summary>
+    /// <summary>Raised when "Reiniciar o aparelho" is picked — MainWindow owns the actual `shutdown /r` call, not the ViewModel.</summary>
     public event EventHandler? RestartDeviceRequested;
 
-    /// <summary>Raised when "Desligar o Legion Go" is picked — MainWindow owns the actual `shutdown /s` call, not the ViewModel.</summary>
+    /// <summary>Raised when "Desligar o aparelho" is picked — MainWindow owns the actual `shutdown /s` call, not the ViewModel.</summary>
     public event EventHandler? ShutdownDeviceRequested;
 
     private bool _isCoverPickerOpen;
@@ -460,15 +460,15 @@ public sealed class MainViewModel : ViewModelBase
 
         var game = target.Game;
 
-        Add("Escolher capa", () => OpenCoverPicker(game, ArtworkPickerKind.Grid));
-        Add("Escolher capa larga", () => OpenCoverPicker(game, ArtworkPickerKind.WideGrid)); // WideGridImagePath — a capa só da WIDE CAPSULE, independente da capa normal e do banner
-        Add("Escolher banner", () => OpenCoverPicker(game, ArtworkPickerKind.Hero));
-        Add("Escolher logo", () => OpenCoverPicker(game, ArtworkPickerKind.Logo));
-        Add(game.IsFavorite ? "Desfavoritar" : "Favoritar", () => ToggleFavorite(game));
+        // Ordem pedida pelo usuário nesta leva ("muito desorganizado,
+        // vamos por partes"): Abrir jogo, Favoritar/Desfavoritar, Excluir
+        // atalho/Excluir jogo, Personalizar — as 4 edições de arte que
+        // antes eram itens soltos no topo agora vivem dentro do submenu
+        // "Personalizar" (ver OpenPersonalizeMenu).
         Add("Abrir jogo", () => OpenGameFromMenu(game));
+        Add(game.IsFavorite ? "Desfavoritar" : "Favoritar", () => ToggleFavorite(game));
 
-        // Excluir atalho/jogo — pedido do usuário nesta leva ("apertando
-        // start em cima do ícone"). Dois caminhos BEM diferentes:
+        // Excluir atalho/jogo. Dois caminhos BEM diferentes:
         //   - Steam: "Excluir jogo" abre o desinstalador da própria Steam
         //     (steam://uninstall/{appid}, ver GameLauncher) — a Steam
         //     cuida de apagar os arquivos de verdade, o launcher nunca
@@ -496,6 +496,53 @@ public sealed class MainViewModel : ViewModelBase
         {
             Add("Excluir atalho", () => RequestDeleteShortcut(game));
         }
+
+        Add("Personalizar", () => OpenPersonalizeMenu(game));
+    }
+
+    /// <summary>
+    /// Submenu "Personalizar" (novo nesta leva, pedido do usuário pra
+    /// organizar o menu de contexto): troca o conteúdo do menu já aberto
+    /// pelas 4 edições de arte (antes eram itens soltos no topo do menu
+    /// principal) + "Voltar", que reconstrói o menu principal de novo —
+    /// mesmo padrão de troca de conteúdo do overlay já usado por
+    /// OpenConfirmMenu.
+    /// </summary>
+    private void OpenPersonalizeMenu(GameEntry game)
+    {
+        var tile = Games.FirstOrDefault(t => t.Game.Id == game.Id);
+        if (tile is null) return;
+
+        ContextMenuTarget = tile;
+
+        ContextMenuItems.Clear();
+        _contextMenuActions.Clear();
+
+        void Add(string label, Action action)
+        {
+            ContextMenuItems.Add(new ContextMenuItemViewModel(label));
+            _contextMenuActions.Add(action);
+        }
+
+        Add("Escolher capa", () => OpenCoverPicker(game, ArtworkPickerKind.Grid));
+        Add("Escolher capa larga", () => OpenCoverPicker(game, ArtworkPickerKind.WideGrid)); // WideGridImagePath — a capa só da WIDE CAPSULE, independente da capa normal e do banner
+        Add("Escolher banner", () => OpenCoverPicker(game, ArtworkPickerKind.Hero));
+        Add("Escolher logo", () => OpenCoverPicker(game, ArtworkPickerKind.Logo));
+        Add("Voltar", () => ReopenContextMenu(tile));
+
+        _contextMenuIndex = 0;
+        UpdateContextMenuSelection();
+        IsContextMenuOpen = true;
+    }
+
+    /// <summary>"Voltar" do submenu "Personalizar" — reabre o menu principal pro mesmo jogo.</summary>
+    private void ReopenContextMenu(GameTileViewModel tile)
+    {
+        ContextMenuTarget = tile;
+        _contextMenuIndex = 0;
+        BuildContextMenu(tile);
+        UpdateContextMenuSelection();
+        IsContextMenuOpen = true;
     }
 
     private void ToggleFavorite(GameEntry game)
@@ -788,9 +835,13 @@ public sealed class MainViewModel : ViewModelBase
             _powerMenuActions.Add(action);
         }
 
+        // Rótulos renomeados nesta leva (pedido do usuário) — "Reiniciar
+        // o Legion Go"/"Desligar o Legion Go" eram específicos do Legion
+        // Go, mas o projeto agora também roda no ROG Ally; "o aparelho"
+        // vale pra qualquer um dos dois.
         Add("Desligar tela", () => TurnOffScreenRequested?.Invoke(this, EventArgs.Empty));
-        Add("Reiniciar o Legion Go", () => RestartDeviceRequested?.Invoke(this, EventArgs.Empty));
-        Add("Desligar o Legion Go", () => ShutdownDeviceRequested?.Invoke(this, EventArgs.Empty));
+        Add("Reiniciar o aparelho", () => RestartDeviceRequested?.Invoke(this, EventArgs.Empty));
+        Add("Desligar o aparelho", () => ShutdownDeviceRequested?.Invoke(this, EventArgs.Empty));
 
         // Movido pra aqui a pedido do usuário (antes vivia no menu
         // geral/engrenagem) — faz mais sentido ao lado de

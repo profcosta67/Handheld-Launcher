@@ -51,6 +51,11 @@
     <Border Grid.Row="0" Classes="topBar" Margin="24,20,24,0" Padding="20,12">
       <Grid ColumnDefinitions="*,Auto">
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+          <!-- Ícone do app (novo nesta leva, pedido do usuário: "adicionar
+               nosso icone no canto superior esquerdo antes do nome") —
+               mesmo arquivo já usado no ícone da janela/bandeja
+               (Assets/app-icon.ico). -->
+          <Image Source="avares://HandheldLauncher/Assets/app-icon.ico" Width="22" Height="22" VerticalAlignment="Center" />
           <Ellipse Width="10" Height="10" Fill="{StaticResource AccentBrush}" VerticalAlignment="Center" />
           <TextBlock Text="Handheld Launcher" Classes="gameTitle" VerticalAlignment="Center" />
         </StackPanel>
@@ -62,15 +67,6 @@
                sem bateria nenhuma. -->
           <TextBlock Text="●●●" Classes="subtle" VerticalAlignment="Center" />
           <TextBlock Text="{Binding BatteryStatusText}" Classes="subtle" VerticalAlignment="Center" />
-          <!-- Abre o mesmo menu geral do botão View/Back (OnGearMenuClick
-               só chama vm.ToggleGlobalMenu(), nada de menu separado) —
-               assim mouse/touch e controle sempre acessam exatamente as
-               mesmas opções (Atualizar Biblioteca/Atualizar Capas
-               Automático/Adicionar jogo/Minimizar/Power). "Minimizar" e
-               "Power" também estão aqui (além dos próprios botões da
-               barra de baixo) justamente pra dar ao controle um jeito de
-               alcançá-los sem precisar navegar até os ícones na tela. -->
-          <Button Classes="pill" Content="⚙" Padding="10,6" Click="OnGearMenuClick" ToolTip.Tip="Menu (Atualizar Biblioteca / Atualizar Capas Automático / Adicionar jogo / Minimizar / Power)" />
         </StackPanel>
       </Grid>
     </Border>
@@ -302,34 +298,54 @@
 
     <!-- Bottom bar — deliberadamente minimalista a pedido do usuário:
          Buscar capas/Adicionar jogo/Atualizar/Sair saíram de aqui e foram
-         pro menu geral (View/Back ou o ícone de engrenagem no topo — ver
-         OnGearMenuClick), restando só o que faz sentido como ação rápida
-         de mouse/touch na barra. Grid.Column="0" era um TextBlock com a
-         dica de controles ("← → navega · A/Enter joga · ..."); removido a
-         pedido do usuário (poluía o canto inferior esquerdo da tela). A
-         coluna "*" fica sem conteúdo de propósito, só empurrando os
-         botões pra direita como antes. Power agora é só o ícone ⏻ (igual
-         a engrenagem já é só ⚙) em vez do texto "Power". -->
+         pro menu geral (View/Back, ou o ícone de engrenagem aqui mesmo na
+         barra de baixo — ver bullet abaixo), restando só o que faz
+         sentido como ação rápida de mouse/touch na barra. Grid.Column="0"
+         era um TextBlock com a dica de controles ("← → navega · A/Enter
+         joga · ..."); removido a pedido do usuário (poluía o canto
+         inferior esquerdo da tela). A coluna "*" fica sem conteúdo de
+         propósito, só empurrando os botões pra direita como antes.
+         Reorganizado nesta leva (pedido do usuário: "muito desorganizado,
+         vamos por partes") — a engrenagem SAIU do canto superior direito
+         (ver Top bar acima) e entrou aqui, e "Minimizar" trocou de texto
+         pra ícone: canto inferior direito agora é sempre Minimizar(ícone)
+         → Engrenagem → Power, nessa ordem. -->
     <Border Grid.Row="2" Classes="bottomBar" Margin="24,0,24,20" Padding="20,12">
-      <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+      <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
         <Button Grid.Column="1"
                 Classes="pill"
                 Content="{Binding RunningGame.Title, StringFormat='Fechar: {0}'}"
                 Click="OnCloseGameClick"
                 IsVisible="{Binding RunningGame, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}"
                 Margin="0,0,10,0" />
+        <!-- "─" como ícone de minimizar (mesma lógica visual de ⚙/⏻ —
+             glyph simples, sem depender de uma fonte de ícones extra). -->
         <Button Grid.Column="2"
                 Classes="pill"
-                Content="Minimizar"
+                Content="─"
+                Padding="14,6"
                 Click="OnMinimizeClick"
-                ToolTip.Tip="Minimiza pra bandeja do Windows sem fechar o processo — não dispara o watchdog de reabertura. Reabre clicando no ícone da bandeja, pelo menu dele, ou com Ctrl+Alt+H de qualquer lugar."
+                ToolTip.Tip="Minimizar — minimiza pra bandeja do Windows sem fechar o processo (não dispara o watchdog de reabertura). Reabre clicando no ícone da bandeja, pelo menu dele, ou com Ctrl+Alt+H de qualquer lugar."
                 Margin="0,0,10,0" />
+        <!-- Engrenagem — movida do topo pra aqui nesta leva. Abre o mesmo
+             menu geral do botão View/Back (OnGearMenuClick só chama
+             vm.ToggleGlobalMenu(), nada de menu separado) — assim
+             mouse/touch e controle sempre acessam exatamente as mesmas
+             opções (Atualizar Biblioteca/Atualizar Capas Automático/
+             Adicionar jogo/Downloads/Overlay FPS). -->
         <Button Grid.Column="3"
+                Classes="pill"
+                Content="⚙"
+                Padding="10,6"
+                Click="OnGearMenuClick"
+                ToolTip.Tip="Menu (Atualizar Biblioteca / Atualizar Capas Automático / Adicionar jogo / Downloads / Overlay FPS / Minimizar / Power)"
+                Margin="0,0,10,0" />
+        <Button Grid.Column="4"
                 Classes="pill"
                 Content="⏻"
                 Padding="14,6"
                 Click="OnPowerMenuClick"
-                ToolTip.Tip="Desligar tela / Reiniciar / Desligar o Legion Go / Sair" />
+                ToolTip.Tip="Desligar tela / Reiniciar o aparelho / Desligar o aparelho / Sair" />
       </Grid>
     </Border>
 

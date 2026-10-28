@@ -456,6 +456,68 @@ Construído até agora:
   core (publish/cópia/kiosk/Modo Xbox) **confirmado no Legion Go 2 de
   verdade** também; o watchdog e a API key padrão são mudanças desta leva,
   **ainda não testados** num build real.
+  **Novo nesta leva**: tenta instalar o RTSS automaticamente via `winget`
+  (id `Guru3D.RTSS`) no passo 8, SE ainda não estiver instalado — pedido
+  do usuário pra automatizar isso também. "Melhor esforço" igual o resto
+  (SDK do .NET, registro do Game Bar, etc.): se o pacote não existir
+  nessa fonte do winget ou faltar internet, só vira aviso no log, nunca
+  derruba a instalação. **O id `Guru3D.RTSS` foi confirmado só por busca
+  na web (ver nota mais abaixo), nunca rodando de verdade** — se o
+  `winget install` falhar com esse id, me avisa com a mensagem exata do
+  log pra eu corrigir.
+- **Janela parando de "roubar" o topo o tempo todo no modo desktop
+  (REGRESSÃO corrigida nesta leva)**: o "enforcer" que reafirma
+  `Topmost` a cada 2s (pra brigar com a Legion Space pelo topo logo
+  depois do boot, ver bullet mais acima) não tinha prazo — ficava
+  rodando pra sempre enquanto o launcher estivesse aberto. Isso nunca
+  incomoda em "Modo Xbox"/kiosk (nada mais compete pelo topo), mas no
+  desktop normal do Windows a janela do launcher ficava pulando pra
+  cima de qualquer outra janela a cada 2 segundos, pra sempre — o que o
+  usuário reportou como "fica abrindo toda vez o app". Agora esse
+  "enforcer" só roda por 2 minutos a partir da abertura da janela
+  (`MainWindow.TopmostEnforcerGracePeriod`), tempo mais que suficiente
+  pra vencer a disputa de boot, e depois disso para de se impor —
+  mesmo em "Modo Xbox", onde continua sem fazer diferença (nada mais
+  compete lá de qualquer forma). **Nunca testado num build real.**
+- **Menu de contexto reordenado + submenu "Personalizar" (pedido do
+  usuário: "muito desorganizado, vamos por partes")**: ordem agora é
+  Abrir jogo → Favoritar/Desfavoritar → Excluir atalho/Excluir jogo (só
+  um dos dois, dependendo da origem do jogo) → Personalizar. As 4
+  edições de arte (Escolher capa/capa larga/banner/logo), que antes
+  eram itens soltos no topo do menu, viraram um submenu só delas dentro
+  de "Personalizar" (mais um "Voltar" pra retornar ao menu principal) —
+  reaproveita o mesmo mecanismo de troca de conteúdo do overlay já usado
+  pela confirmação de exclusão. **Nunca testado num build real.**
+- **Botões Power renomeados**: "Reiniciar o Legion Go"/"Desligar o
+  Legion Go" (específicos do Legion) viraram "Reiniciar o
+  aparelho"/"Desligar o aparelho" — pedido do usuário, já que o projeto
+  também roda no ROG Ally agora. "Desligar tela" e "Sair" continuam com
+  o mesmo nome.
+- **Engrenagem mudou de lugar + Minimizar virou ícone**: o ícone ⚙ saiu
+  do canto SUPERIOR direito e foi pra barra de baixo — canto INFERIOR
+  direito agora é sempre Minimizar(ícone "─") → Engrenagem(⚙) →
+  Power(⏻), nessa ordem, igual pedido. O menu que a engrenagem abre
+  continua exatamente o mesmo (`ToggleGlobalMenu`), só mudou de onde o
+  botão fica na tela.
+- **Ícone do app no canto superior esquerdo**: `Assets/app-icon.ico`
+  (mesmo arquivo do ícone da janela/bandeja) agora aparece antes do
+  nome "Handheld Launcher" na barra de cima, como pedido.
+- **Jogo Xbox aparecendo duplicado (não-Steam E Xbox) — bug real
+  corrigido**: acontece quando um jogo foi adicionado à mão (via
+  "Adicionar jogo", antes do `XboxScanFolders` existir ou antes da
+  pasta certa estar configurada) e DEPOIS a mesma instalação também
+  passa a ser encontrada pelo `XboxFolderScanner` — ficavam duas tiles
+  (Ids diferentes: uma GUID manual, outra `xboxfolder_...`) pro mesmo
+  jogo. `LibraryService.Refresh()` agora compara o EXECUTÁVEL (caminho
+  completo, sem diferenciar maiúsculas) entre as entradas antes de
+  somar a do scanner — se já existe alguém apontando pro mesmo `.exe`,
+  pula o duplicado do scanner. Prioriza a entrada MANUAL de propósito
+  (preserva Id/favorito/capas já escolhidas), então o efeito colateral
+  é que o jogo duplicado continua classificado como "Não Steam", não
+  "Xbox" — pra corrigir a categoria é preciso apagar o atalho manual
+  ("Excluir atalho") e deixar o scanner recriá-lo (perde favorito/capas
+  já escolhidas nesse caso específico). **Nunca testado num build
+  real.**
 
 Ainda **não** feito:
 
@@ -1231,6 +1293,56 @@ regressão (não só "ainda não testado") e pediu duas funções novas maiores.
   `C:\Xbox` e `D:\Xbox` como pastas prováveis, mas sem certeza da raiz
   exata — avisado que isso precisa ser configurado manualmente e
   verificado.
+
+**🔴 Ajustes urgentes pós-teste real (regressão do Topmost, reorganização
+de menus, dedup de jogo Xbox, RTSS automático) — status**: usuário testou
+no PC/Legion Go 2/ROG Ally e reportou uma regressão real nova, mais um
+lote de pedidos de organização de UI —
+- **Regressão real: janela "abrindo"/pulando pra frente o tempo todo no
+  modo desktop** — o "enforcer" de `Topmost` (criado numa leva anterior
+  pra brigar com a Legion Space pelo topo no boot do Modo Xbox) não tinha
+  prazo, rodava pra sempre. Em "Modo Xbox" isso nunca incomoda (nada mais
+  compete pelo topo), mas no desktop normal a janela ficava pulando pra
+  cima de outras janelas a cada 2s indefinidamente — exatamente o que o
+  usuário reportou. Corrigido: agora só roda por 2 minutos a partir da
+  abertura da janela, tempo de sobra pra vencer a disputa de boot sem
+  incomodar depois disso. **Importante**: isso NÃO era o overlay do RTSS
+  (`EnsureRunning()` só roda UMA VEZ no início, nunca de novo) — o
+  usuário suspeitou do RTSS, mas o código confirma que o culpado era o
+  enforcer do Topmost mesmo. **Nunca testado num build real.**
+- **Reorganização de menus** (pedido: "muito desorganizado, vamos por
+  partes") — menu de contexto reordenado (Abrir jogo → Favoritar →
+  Excluir → Personalizar) com as 4 edições de arte agrupadas no novo
+  submenu "Personalizar"; botões Power renomeados pra não citar "Legion
+  Go" especificamente (o projeto também roda no ROG Ally); engrenagem
+  movida do canto superior pro inferior direito, junto de um Minimizar
+  agora em ícone, na ordem Minimizar → Engrenagem → Power; ícone do app
+  adicionado antes do nome na barra de cima. Ver "Status atual" pros
+  detalhes de cada um. **Nenhuma parte testada num build real.**
+- **Jogo Xbox duplicado (não-Steam + Xbox) — bug real corrigido**:
+  causado por um jogo manual antigo + a mesma instalação agora também
+  sendo achada pelo `XboxFolderScanner` — ver "Status atual" pro
+  mecanismo de dedup por caminho de executável e o efeito colateral
+  (continua classificado como "Não Steam" até apagar o atalho manual).
+  **Nunca testado num build real.**
+- **RTSS via winget no instalador** (pedido: "não tem como por no bat
+  pra executar a instalação também desse app?") — confirmado por busca
+  na web que existe um pacote winget `Guru3D.RTSS`, usado no passo 8 do
+  `Install-Launcher.ps1`, mesmo padrão "melhor esforço" já usado pro SDK
+  do .NET. **O id do pacote nunca foi testado rodando de verdade** (esse
+  sandbox não tem `winget`) — se a instalação falhar com esse id
+  especificamente, me manda a mensagem exata do log.
+- **Chave da Steam Web API**: o usuário informou o valor direto no chat —
+  por segurança não fica registrado aqui no repositório (só vive no
+  `settings.json` da própria máquina dele). O valor que ele colou não
+  parecia ter o formato de uma Steam Web API key de verdade (normalmente
+  32 caracteres hexadecimais, gerada em steamcommunity.com/dev/apikey) —
+  vale confirmar se foi copiada certa antes de colar no `settings.json`,
+  e lembrar que `SteamId64` também
+  precisa estar preenchido pra seção "na sua conta, não instalado"
+  funcionar.
+- **Tela de login da Steam dentro do launcher** — pedido como ideia pra
+  futuro, não pra agora; fica anotado aqui, sem desenho ainda.
 
 ## Seletor de capas tipo Decky Loader — é viável?
 

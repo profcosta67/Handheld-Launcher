@@ -44,7 +44,12 @@
          script não vai achar — aí o jeito seguro de desativar na mão é
          Configurações > Aplicativos > Inicializar (ou Gerenciador de
          Tarefas > aba Inicializar).
-      8. Grava um log (install-log.txt) e um backup (kiosk-backup.json)
+      8. (novo nesta leva) Instala o RTSS (RivaTuner Statistics Server,
+         overlay de FPS) via `winget`, SE ele ainda não estiver instalado
+         — pedido do usuário pra automatizar isso também. "Melhor
+         esforço" igual os passos 6/7: se o pacote não existir nessa
+         fonte do winget, ou não tiver internet, só vira aviso no log.
+      9. Grava um log (install-log.txt) e um backup (kiosk-backup.json)
          dentro da própria pasta de instalação — é o que
          Uninstall-Launcher.ps1 usa pra desfazer tudo depois.
 
@@ -366,7 +371,53 @@ catch {
 }
 
 # ---------------------------------------------------------------------------
-# 8. Salvar backup + log
+# 8. RTSS (overlay de FPS) - "melhor esforco" via winget, SO se ainda nao
+#    estiver instalado. Pedido do usuario nesta leva ("nao tem como por
+#    no bat pra executar a instalacao tambem desse app pra ficar
+#    automatizado?"). Mesmos dois caminhos fixos que
+#    PerformanceOverlayService usa pra detectar - nunca reinstala por
+#    cima de uma instalacao ja existente. Pacote "Guru3D.RTSS" (id do
+#    winget, confirmado via busca antes de escrever isto - NUNCA
+#    verificado rodando de verdade neste sandbox, que nao tem winget).
+#    NUNCA e critico: se o winget nao tiver esse pacote disponivel
+#    (fonte desatualizada, sem internet, etc.), so vira aviso no log - a
+#    instalacao do launcher em si segue normal, e o launcher continua
+#    detectando/abrindo o RTSS manualmente instalado depois (ver
+#    PerformanceOverlayService / item "Overlay FPS" no menu geral).
+# ---------------------------------------------------------------------------
+try {
+    $rtssPaths = @(
+        'C:\Program Files (x86)\RivaTuner Statistics Server\RTSS.exe',
+        'C:\Program Files\RivaTuner Statistics Server\RTSS.exe'
+    )
+    $rtssInstalled = $rtssPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+    if ($rtssInstalled) {
+        Write-Log "RTSS ja esta instalado em: $rtssInstalled (nao reinstala por cima)."
+    }
+    else {
+        $wingetCmd = Get-Command winget -ErrorAction SilentlyContinue
+        if ($wingetCmd) {
+            Write-Log "RTSS nao encontrado - instalando via winget (id Guru3D.RTSS)..."
+            & winget install --id Guru3D.RTSS --silent --accept-source-agreements --accept-package-agreements
+            if ($LASTEXITCODE -eq 0) {
+                Write-Log "RTSS instalado com sucesso via winget."
+            }
+            else {
+                Write-Log "Aviso: 'winget install --id Guru3D.RTSS' retornou codigo $LASTEXITCODE (pacote pode nao estar disponivel nessa maquina/fonte do winget, ou essa nao e a id certa - nunca testado de verdade). Nao e critico - baixe manualmente em https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/ se quiser o overlay de FPS, ou use o item 'Overlay FPS (RTSS): baixar' no menu do launcher depois."
+            }
+        }
+        else {
+            Write-Log "Aviso: 'winget' nao disponivel - RTSS nao foi instalado automaticamente. Baixe manualmente em https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/ se quiser o overlay de FPS, ou use o item 'Overlay FPS (RTSS): baixar' no menu do launcher depois."
+        }
+    }
+}
+catch {
+    Write-Log "Aviso: instalacao automatica do RTSS parou num erro ($($_.Exception.Message)). Nao e critico - a instalacao do launcher em si continua normal."
+}
+
+# ---------------------------------------------------------------------------
+# 9. Salvar backup + log
 # ---------------------------------------------------------------------------
 ($backup | ConvertTo-Json -Depth 5) | Set-Content -Path $backupPath -Encoding UTF8
 $logLines | Set-Content -Path $logPath -Encoding UTF8

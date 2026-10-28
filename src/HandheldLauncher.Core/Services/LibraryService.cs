@@ -49,13 +49,40 @@ public sealed class LibraryService : ILibraryService
         }
 
         // XboxFolderScanner — pastas extras configuradas em
-        // AppSettings.XboxScanFolders (nova nesta leva, ver essa classe).
-        // Null quando nenhuma pasta está configurada, então nada muda pra
-        // quem não configurou isso.
+        // AppSettings.XboxScanFolders (nova numa leva anterior, ver essa
+        // classe). Null quando nenhuma pasta está configurada, então nada
+        // muda pra quem não configurou isso.
         if (_xboxFolderScanner is not null)
         {
             foreach (var game in _xboxFolderScanner.ScanInstalledGames())
             {
+                // DEDUP contra jogo manual (bug reportado nesta leva: "ele
+                // aparece como não steam e como xbox no launcher") —
+                // acontece quando um jogo foi adicionado à mão (via
+                // "Adicionar jogo", ANTES de XboxScanFolders existir ou
+                // antes da pasta certa ser configurada) e agora a MESMA
+                // instalação também é encontrada pelo scanner automático:
+                // sem isso, os dois ficam como tiles separadas (Ids
+                // diferentes) — uma em "Não Steam", outra em "Xbox".
+                // Compara pelo EXECUTÁVEL (caminho completo, sem
+                // diferenciar maiúsculas) em vez do Id (que são formatos
+                // diferentes e nunca vão bater): se já existe QUALQUER
+                // entrada em `merged` apontando pro mesmo .exe, pula o
+                // duplicado do scanner. De propósito prioriza o que já
+                // está em `merged` (o manual, que entrou no loop acima)
+                // em vez do recém-escaneado, pra não perder o Id/overrides
+                // (favorito, capas já escolhidas) de um jogo que o usuário
+                // talvez já tenha customizado à mão. Efeito colateral:
+                // ele continua classificado como "Não Steam"/Manual, não
+                // "Xbox" — pra corrigir a categoria, é preciso apagar o
+                // atalho manual (Excluir atalho) e deixar o scanner
+                // recriá-lo do zero (perde favorito/capas já escolhidas
+                // nesse caso).
+                if (merged.Any(existing => ExecutablePathsMatch(existing.ExecutablePath, game.ExecutablePath)))
+                {
+                    continue;
+                }
+
                 ApplyOverride(game, overrides);
                 merged.Add(game);
             }
@@ -66,6 +93,29 @@ public sealed class LibraryService : ILibraryService
 
         merged.Sort((a, b) => string.Compare(a.Title, b.Title, StringComparison.OrdinalIgnoreCase));
         _games = merged;
+    }
+
+    /// <summary>
+    /// Compara dois caminhos de executável de forma tolerante (resolve
+    /// "..", separadores diferentes etc. via Path.GetFullPath; Windows não
+    /// diferencia maiúsculas em caminho de arquivo) — null/vazio nunca
+    /// "bate" com nada, pra não tratar dois jogos sem ExecutablePath como
+    /// duplicados um do outro.
+    /// </summary>
+    private static bool ExecutablePathsMatch(string? a, string? b)
+    {
+        if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b)) return false;
+
+        try
+        {
+            return string.Equals(Path.GetFullPath(a), Path.GetFullPath(b), StringComparison.OrdinalIgnoreCase);
+        }
+        catch (ArgumentException)
+        {
+            // Caminho malformado — trata como "não bate" em vez de deixar
+            // Refresh() inteiro explodir por causa de um caminho estranho.
+            return false;
+        }
     }
 
     public void AddManualGame(GameEntry game)

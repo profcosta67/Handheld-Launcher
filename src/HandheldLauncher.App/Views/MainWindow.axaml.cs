@@ -108,7 +108,22 @@ public partial class MainWindow : Window
     /// beat Legion Space in Modo Xbox on its own, the next step would be
     /// re-adding Activate() but ONLY right after boot (a short window),
     /// not forever.
+    ///
+    /// REGRESSÃO REPORTADA PELO USUÁRIO nesta leva ("modo desktop ele
+    /// fica abrindo toda vez o app"): mesmo sem Activate() (então sem
+    /// roubar o FOCO), o toggle off/on ainda empurra a janela pro topo do
+    /// Z-ORDER a cada 2s — em "Modo Xbox"/kiosk isso nunca incomoda (não
+    /// tem outra janela competindo pra começo), mas num desktop normal do
+    /// Windows (com o usuário navegando em outros apps) isso aparece como
+    /// a janela do launcher pulando pra cima de tudo repetidamente, pra
+    /// sempre, mesmo muito depois do boot. O cenário que isso resolve
+    /// (Legion Space brigando pelo topmost) só acontece nos primeiros
+    /// segundos depois do boot — então agora isso só roda por um período
+    /// curto (TopmostEnforcerGracePeriod) a partir da abertura da janela,
+    /// em vez de pra sempre enquanto o app estiver aberto.
     /// </summary>
+    private static readonly TimeSpan TopmostEnforcerGracePeriod = TimeSpan.FromSeconds(120);
+
     private void StartTopmostEnforcer()
     {
         _topmostEnforcerTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
@@ -128,6 +143,19 @@ public partial class MainWindow : Window
         };
         _topmostEnforcerTimer.Start();
         Closed += (_, _) => _topmostEnforcerTimer?.Stop();
+
+        // Timer separado, de disparo único, só pra desligar o de cima
+        // depois do período de graça — mantém o Tick acima simples (sem
+        // precisar contar ticks) e deixa a decisão "até quando lutar"
+        // isolada num lugar só.
+        var graceTimer = new DispatcherTimer { Interval = TopmostEnforcerGracePeriod };
+        graceTimer.Tick += (_, _) =>
+        {
+            _topmostEnforcerTimer?.Stop();
+            graceTimer.Stop();
+        };
+        graceTimer.Start();
+        Closed += (_, _) => graceTimer.Stop();
     }
 
     /// <summary>
