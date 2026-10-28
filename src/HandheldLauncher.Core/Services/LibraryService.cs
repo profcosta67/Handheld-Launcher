@@ -43,7 +43,10 @@ public sealed class LibraryService : ILibraryService
 
     public void AddManualGame(GameEntry game)
     {
-        game.Source = GameSource.Manual;
+        // Não força mais Source = Manual aqui: a tela "Adicionar jogo" agora
+        // deixa marcar "É um jogo do Xbox/Game Pass", e sobrescrever sempre
+        // pra Manual jogaria essa escolha fora. O default do próprio
+        // GameEntry (Manual) já cobre o caso comum.
         _store.AddManualGame(game);
         Refresh();
     }
@@ -61,6 +64,19 @@ public sealed class LibraryService : ILibraryService
         overrideData.Collection = collection;
         _store.SaveOverride(gameId, overrideData);
         Refresh();
+    }
+
+    public void SetFavorite(string gameId, bool isFavorite)
+    {
+        var existing = _games.FirstOrDefault(g => g.Id == gameId);
+        var overrideData = ToOverride(existing) ?? new GameMetadataOverride();
+        overrideData.IsFavorite = isFavorite;
+        _store.SaveOverride(gameId, overrideData);
+
+        // Mesma ideia do MarkLaunched: muta a instância em memória direto em
+        // vez de dar Refresh() completo, pra não perder SelectedTile/etc e
+        // pro toggle refletir na hora (a aba "Favoritos" depende disso).
+        if (existing is not null) existing.IsFavorite = isFavorite;
     }
 
     public void RecordPlaySession(string gameId, TimeSpan duration)
@@ -99,6 +115,7 @@ public sealed class LibraryService : ILibraryService
         game.IconImagePath = o.IconImagePath;
         game.PlaytimeMinutes = o.PlaytimeMinutes;
         game.LastPlayedUtc = o.LastPlayedUtc;
+        game.IsFavorite = o.IsFavorite;
     }
 
     private static GameMetadataOverride? ToOverride(GameEntry? game)
@@ -113,6 +130,7 @@ public sealed class LibraryService : ILibraryService
             IconImagePath = game.IconImagePath,
             PlaytimeMinutes = game.PlaytimeMinutes,
             LastPlayedUtc = game.LastPlayedUtc,
+            IsFavorite = game.IsFavorite,
         };
     }
 }

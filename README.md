@@ -53,17 +53,22 @@ Construído até agora:
     (hoje só guarda a API key do SteamGridDB — não tem tela de
     configurações ainda, é editar o arquivo na mão por enquanto).
 - **`HandheldLauncher.App`** — UI em Avalonia:
-  - **Banner HERO no topo — voltou (mudou de novo nesta leva)**: a leva
-    anterior tinha removido essa caixa achando que o usuário queria o hero
-    só como fundo; o usuário corrigiu ("vamos voltar aquele quadrado em
-    cima sem blur") e confirmou que o hero alimenta AS DUAS coisas ao mesmo
-    tempo: o banner cru (sem blur) lá no topo, seguindo o jogo focado, E
-    (como já era) o fundo desfocado/esticado da janela inteira. Dentro
-    desse banner, no cantinho inferior esquerdo, aparece o CURRENT LOGO
-    daquele jogo quando já tem um baixado (cai pro nome quando ainda não
-    tem — ver `ShowCurrentLogo`/`ShowNameCaption` mais abaixo). **Nunca
-    testado num build real com esse logo no canto** (o banner em si, sem o
-    logo, já era testado antes da remoção da leva passada).
+  - **Banner HERO no topo**: alimenta AS DUAS coisas ao mesmo tempo: o
+    banner cru (sem blur) lá no topo, seguindo o jogo focado, E o fundo
+    desfocado/esticado da janela inteira. **Mudou de novo nesta leva**: a
+    barra translúcida escura que ficava por baixo (com logo/título/minutos
+    jogados dentro) foi REMOVIDA a pedido do usuário ("retirar essa linha
+    escura do hero") — agora é só o CURRENT LOGO puro, **no canto SUPERIOR
+    esquerdo** (antes era inferior) e bem maior (64px de altura, contra os
+    22/32px das tiles da fileira — pedido explícito: "jogar a logo para o
+    canto esquerdo superior e aumentar ainda mais o tamanho"). Sem fundo
+    nenhum atrás dele, sem fallback de texto quando não tem logo ainda (só
+    não aparece nada ali — o nome do jogo já aparece normalmente na caption
+    de cada tile, logo abaixo). **Escolha de design minha, não pedida
+    explicitamente**: os minutos jogados que viviam dentro dessa barra
+    foram removidos do hero (não foram realocados pra outro lugar) — se
+    quiser esse dado visível de novo, me avisa onde prefere. **Nunca
+    testado num build real com esse layout.**
   - Na fileira, o **último jogo aberto** (não o que está só focado/com o
     cursor em cima — o que foi realmente *lançado* por último) aparece
     largo/deitado — a **WIDE CAPSULE**. Usa a MESMA arte de capa/grid das
@@ -78,11 +83,30 @@ Construído até agora:
     confirma, B fecha o jogo) — testado e funcionando com um controle Xbox.
     Teclado (← → Enter Esc) continua funcionando como fallback de dev.
   - **Menu de contexto (Start no controle / Espaço no teclado)** sobre o
-    jogo focado: "Escolher capa", "Escolher banner", **"Escolher logo"
-    (novo nesta leva)** e "Abrir jogo". ↑↓ navega entre as opções, A/Enter
-    confirma, B/Esc/Start fecha sem fazer nada. "Abrir jogo"/"Escolher
-    capa"/"Escolher banner" já eram testados e continuam iguais; "Escolher
-    logo" é a novidade desta leva — **ainda não testada num build real.**
+    jogo focado: "Escolher capa", "Escolher banner", "Escolher logo",
+    **"Favoritar"/"Desfavoritar" (novo nesta leva)** e "Abrir jogo". ↑↓
+    navega entre as opções, A/Enter confirma, B/Esc/Start fecha sem fazer
+    nada. O texto do 4º item troca entre "Favoritar" e "Desfavoritar"
+    dependendo se o jogo em foco já está marcado — toggla
+    `GameEntry.IsFavorite` (persistido como override, sobrevive a
+    re-scan) e acende uma estrelinha (★) no canto da tile na fileira.
+    "Abrir jogo"/"Escolher capa"/"Escolher banner"/"Escolher logo" já eram
+    testados e continuam iguais; "Favoritar" é a novidade desta leva —
+    **ainda não testada num build real.**
+  - **Abas de filtro (novo nesta leva)**, logo abaixo do banner HERO e
+    acima da fileira: "Todos", "Favoritos", "Steam", "Não Steam", "Xbox"
+    — pedido explícito do usuário. Clicar numa aba não re-escaneia nada,
+    só filtra a lista já carregada na hora
+    (`MainViewModel.SetFilter`/`RebuildGamesFromLibrary`). "Xbox" filtra
+    por `GameSource.XboxApp` — como ainda não existe um scanner de
+    verdade do Xbox app, a única forma de um jogo cair nessa aba é marcar
+    o novo checkbox "É um jogo do Xbox app / Game Pass" no diálogo
+    "Adicionar jogo". **Importante**: "Atualizar Capas Automático"
+    continua sempre olhando a biblioteca INTEIRA, nunca só a aba ativa —
+    corrigido de propósito pra não virar um bug silencioso. Só
+    touch/mouse por enquanto (a tela do Legion Go 2 é touch, então as
+    abas já são alcançáveis sem controle) — navegação por gamepad pras
+    abas pode entrar numa leva futura. **Nunca testado num build real.**
   - **Seletor de capa/banner/logo** ("Escolher capa"/"Escolher
     banner"/"Escolher logo" acima): abre uma grade com até 24 opções
     estáticas vindas do SteamGridDB (ordenadas por pontuação, sem
@@ -753,6 +777,75 @@ erro de build, me manda a mensagem. Pontos mais arriscados dessa leva:
     `ItemsControl.ContainerFromIndex` (APIs que eu não consigo validar
     aqui sem compilar) — preferi a conta na mão com `Offset`/`Viewport`,
     que são bem mais básicas e certas de existir.
+
+**🔴 D-pad/analógico segurado + suavização de movimento + favoritos/filtros +
+feedback de abertura — status**: pedido único do usuário em 4 partes
+("Sim vamos por partes, primeiro o que gostaria e fazer...") depois de ver
+fotos reais do launcher rodando bem no Legion Go 2. Tudo nesta leva, sem
+teste num build real ainda. Pontos que merecem atenção no primeiro teste:
+- **Bug corrigido: segurar o direcional/analógico não andava até o fim**
+  — o usuário reportou isso direto no Legion Go 2 de verdade: "quando
+  segurar o direcional pra os lados ele não vai até o final, ele fica
+  parado. Só passa dando toque." `GamepadPoller` nunca tinha repetição
+  nenhuma (só detectava a borda de subida do botão, igual A/B/Start) —
+  agora cada direção (D-pad OU analógico, tratados como a mesma coisa) tem
+  um contador de "quantos polls seguidos está segurado": dispara no
+  primeiro toque, espera ~350ms (`RepeatInitialDelayTicks`), depois repete
+  a cada ~120ms (`RepeatIntervalTicks`) enquanto continuar segurado. A/B/
+  Start/Back NÃO repetem (de propósito — repetir "Confirmar" com A
+  segurado reabriria o jogo em loop). Teste importante: segurar ← ou → por
+  1-2 segundos e confirmar que anda sozinho até parar de segurar, sem
+  travar depois do primeiro passo.
+- **Suavização ao trocar de jogo na fileira** — pedido do usuário ("um
+  sistema de suavização e uma espécie de efeito quando passar pro lado
+  entre os jogos"). Dois efeitos, os dois 100% declarativos via
+  `Transitions` do Avalonia (reage a QUALQUER troca de valor da
+  propriedade, não só troca por estilo/classe): 1) o scroll da fileira
+  (`GameRowScrollViewer.Offset`, já calculado à mão em
+  `ScrollGameRowSelectionIntoView`) agora desliza em vez de pular, via
+  `VectorTransition` de 220ms; 2) a tile que ganha foco faz um "zoom"
+  suave (escala 1.0 → 1.04 via `RenderTransform`/
+  `TransformOperationsTransition`, 150ms) — `RenderTransform` não conta
+  pro layout, então o zoom não empurra as tiles vizinhas. Teste
+  importante: navegar ← → e confirmar que os dois efeitos aparecem juntos
+  e não travam/engasgam, principalmente durante o auto-repeat do item
+  acima (é o cenário que gera mais trocas de valor em sequência).
+- **Favoritos** — `GameEntry.IsFavorite`/`GameMetadataOverride.IsFavorite`
+  novos, persistem como override (sobrevivem a um re-scan igual
+  capa/coleção/tempo jogado já sobreviviam). Toggla pelo menu de contexto
+  (item "Favoritar"/"Desfavoritar", ver "Status atual" mais acima) e
+  acende uma ★ discreta no canto de cada tile favoritada na fileira
+  inteira (não só na aba "Favoritos"). Teste importante: favoritar um
+  jogo, confirmar que a estrela aparece, fechar e abrir o launcher de
+  novo (ou dar "Atualizar Biblioteca") e confirmar que continua
+  favoritado.
+- **Abas de filtro (Todos/Favoritos/Steam/Não Steam/Xbox)** — ver bullet
+  própria em "Status atual" mais acima pros detalhes. Teste importante
+  além do básico (cada aba mostra só quem deveria): confirmar que
+  "Atualizar Capas Automático" continua completando capa/banner/logo da
+  biblioteca INTEIRA mesmo com uma aba diferente de "Todos" selecionada
+  (esse era um bug fácil de introduzir sem querer — corrigido de
+  propósito antes de qualquer teste, iterando `_library.Games` em vez da
+  lista já filtrada).
+- **Checkbox "É um jogo do Xbox app / Game Pass"** no diálogo "Adicionar
+  jogo" — marca `GameSource.XboxApp` em vez de `GameSource.Manual` (só
+  isso muda; o jogo continua abrindo pelo executável informado,
+  `GameLauncher` só trata Steam como caso especial). Teste importante:
+  adicionar um jogo manual com o checkbox marcado e confirmar que ele
+  aparece na aba "Xbox" (e NÃO aparece em "Steam"/"Não Steam" errado —
+  "Não Steam" é "qualquer coisa que não seja Steam", então um jogo Xbox
+  deve aparecer tanto em "Xbox" quanto em "Não Steam", o que é esperado).
+- **Feedback visual ao abrir um jogo** — pedido do usuário ("feedback
+  visual pra já kkk"). Um overlay "Iniciando <jogo>..." com uma barra de
+  progresso indeterminada (`ProgressBar IsIndeterminate`) aparece na hora
+  que você confirma, e desaparece sozinho depois de 2.5s fixos
+  (`MainViewModel.LaunchFeedbackMilliseconds`) — não tem como saber de
+  verdade quando o processo externo terminou de abrir (`GameLauncher` não
+  expõe isso e cada jogo demora um tempo diferente), então é só "tempo
+  suficiente pra confirmar que o toque funcionou", não uma barra de
+  progresso real do carregamento do jogo. Teste importante: confirmar que
+  o overlay aparece, não "pisca" rápido demais pra ler, e some sozinho
+  sem travar a tela depois.
 
 ## Seletor de capas tipo Decky Loader — é viável?
 

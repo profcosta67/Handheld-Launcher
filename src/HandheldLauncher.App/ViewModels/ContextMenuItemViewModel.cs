@@ -10,10 +10,18 @@ public sealed class ContextMenuItemViewModel : ViewModelBase
 {
     public ContextMenuItemViewModel(string label)
     {
-        Label = label;
+        _label = label;
     }
 
-    public string Label { get; }
+    // Era { get; } (fixo pra sempre) — agora com setter porque o item
+    // "Favoritar"/"Desfavoritar" precisa trocar de texto dependendo do jogo
+    // em foco quando o menu abre (ver MainViewModel.ToggleContextMenu).
+    private string _label;
+    public string Label
+    {
+        get => _label;
+        set => SetField(ref _label, value);
+    }
 
     private bool _isSelected;
     public bool IsSelected

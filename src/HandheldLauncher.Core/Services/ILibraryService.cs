@@ -18,6 +18,7 @@ public interface ILibraryService
     void RemoveManualGame(string id);
 
     void SetCollection(string gameId, string? collection);
+    void SetFavorite(string gameId, bool isFavorite);
     void RecordPlaySession(string gameId, TimeSpan duration);
 
     /// <summary>

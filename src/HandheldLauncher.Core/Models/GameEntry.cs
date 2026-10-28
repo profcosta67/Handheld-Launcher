@@ -49,4 +49,7 @@ public class GameEntry
 
     /// <summary>True while this game's process is currently running.</summary>
     public bool IsRunning { get; set; }
+
+    /// <summary>User-toggled favorite — drives the "Favoritos" filter tab.</summary>
+    public bool IsFavorite { get; set; }
 }

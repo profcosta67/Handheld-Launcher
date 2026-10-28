@@ -26,22 +26,35 @@ public enum GamepadAction
 /// detection so a held button fires once, not every poll. Call Poll() from
 /// a UI-thread timer; it's cheap enough to run at 20-30Hz.
 ///
-/// v1 deliberately does NOT auto-repeat on held direction — only distinct
-/// presses navigate. Feels a bit stiff for fast scrolling through a long
-/// library; worth revisiting once this is confirmed working on real
-/// hardware (easier to tune repeat timing with an actual controller in
-/// hand than to guess it blind).
+/// Directions (D-pad and stick) now auto-repeat while held — bug reported
+/// by the user on the real Legion Go 2: "quando segurar o direcional pra
+/// os lados ele não vai até o final, ele fica parado. Só passa dando
+/// toque" (holding a direction didn't keep moving, only a fresh tap did —
+/// exactly what the old "v1 deliberately does NOT auto-repeat" doc comment
+/// here used to warn about). A/B/Start/Back stay single-press-only on
+/// purpose (repeating "Confirm" while A is held would re-launch the game
+/// over and over).
 /// </summary>
 public sealed class GamepadPoller
 {
     // Standard-ish deadzone for the left stick's X/Y axes (range is -32768..32767).
     private const short StickDeadzone = 12000;
 
+    // Tuned assuming Poll() is called every 50ms (MainWindow's
+    // _gamepadTimer interval) — NOT real elapsed time, just a tick count,
+    // same "hand-rolled, no API I can't verify" approach as the rest of
+    // this project's input/scroll code. ~350ms before the first repeat
+    // (feels like a deliberate hold, not an accidental extra step), then
+    // one extra move every ~120ms (fast enough to cross a big library
+    // quickly, slow enough to still land on the tile you wanted).
+    private const int RepeatInitialDelayTicks = 7;
+    private const int RepeatIntervalTicks = 2;
+
     private XInput.Buttons _previousButtons;
-    private bool _previousStickLeft;
-    private bool _previousStickRight;
-    private bool _previousStickUp;
-    private bool _previousStickDown;
+    private int _leftHeldTicks;
+    private int _rightHeldTicks;
+    private int _upHeldTicks;
+    private int _downHeldTicks;
 
     public bool IsConnected { get; private set; }
 
@@ -53,48 +66,58 @@ public sealed class GamepadPoller
         {
             IsConnected = false;
             _previousButtons = default;
-            _previousStickLeft = false;
-            _previousStickRight = false;
-            _previousStickUp = false;
-            _previousStickDown = false;
+            _leftHeldTicks = 0;
+            _rightHeldTicks = 0;
+            _upHeldTicks = 0;
+            _downHeldTicks = 0;
             return actions;
         }
 
         IsConnected = true;
         var buttons = (XInput.Buttons)state.Gamepad.wButtons;
 
-        if (WasJustPressed(buttons, XInput.Buttons.DPadLeft)) actions.Add(GamepadAction.MoveLeft);
-        if (WasJustPressed(buttons, XInput.Buttons.DPadRight)) actions.Add(GamepadAction.MoveRight);
-        if (WasJustPressed(buttons, XInput.Buttons.DPadUp)) actions.Add(GamepadAction.MoveUp);
-        if (WasJustPressed(buttons, XInput.Buttons.DPadDown)) actions.Add(GamepadAction.MoveDown);
         if (WasJustPressed(buttons, XInput.Buttons.A)) actions.Add(GamepadAction.Confirm);
         if (WasJustPressed(buttons, XInput.Buttons.B)) actions.Add(GamepadAction.Back);
         if (WasJustPressed(buttons, XInput.Buttons.Start)) actions.Add(GamepadAction.Menu);
         if (WasJustPressed(buttons, XInput.Buttons.Back)) actions.Add(GamepadAction.GlobalMenu);
 
-        // Left stick as a D-pad alternative — same edge-detection idea, just
-        // on a deadzone crossing instead of a button bit. Bug fix: this used
-        // to only read sThumbLX (left/right) — pushing the stick up/down
-        // never produced MoveUp/MoveDown at all, so the two menus (which
-        // need vertical navigation) only responded to the D-pad, not the
-        // stick. XInput's Y axis is positive = up, negative = down.
-        var stickLeft = state.Gamepad.sThumbLX < -StickDeadzone;
-        var stickRight = state.Gamepad.sThumbLX > StickDeadzone;
-        var stickUp = state.Gamepad.sThumbLY > StickDeadzone;
-        var stickDown = state.Gamepad.sThumbLY < -StickDeadzone;
+        // D-pad OR left stick — either one holding a direction counts the
+        // same way, so you never get a double-fire from both at once.
+        // Bug fix kept from before: XInput's Y axis is positive = up,
+        // negative = down.
+        var isLeftHeld = buttons.HasFlag(XInput.Buttons.DPadLeft) || state.Gamepad.sThumbLX < -StickDeadzone;
+        var isRightHeld = buttons.HasFlag(XInput.Buttons.DPadRight) || state.Gamepad.sThumbLX > StickDeadzone;
+        var isUpHeld = buttons.HasFlag(XInput.Buttons.DPadUp) || state.Gamepad.sThumbLY > StickDeadzone;
+        var isDownHeld = buttons.HasFlag(XInput.Buttons.DPadDown) || state.Gamepad.sThumbLY < -StickDeadzone;
 
-        if (stickLeft && !_previousStickLeft) actions.Add(GamepadAction.MoveLeft);
-        if (stickRight && !_previousStickRight) actions.Add(GamepadAction.MoveRight);
-        if (stickUp && !_previousStickUp) actions.Add(GamepadAction.MoveUp);
-        if (stickDown && !_previousStickDown) actions.Add(GamepadAction.MoveDown);
+        if (UpdateHeldDirection(isLeftHeld, ref _leftHeldTicks)) actions.Add(GamepadAction.MoveLeft);
+        if (UpdateHeldDirection(isRightHeld, ref _rightHeldTicks)) actions.Add(GamepadAction.MoveRight);
+        if (UpdateHeldDirection(isUpHeld, ref _upHeldTicks)) actions.Add(GamepadAction.MoveUp);
+        if (UpdateHeldDirection(isDownHeld, ref _downHeldTicks)) actions.Add(GamepadAction.MoveDown);
 
-        _previousStickLeft = stickLeft;
-        _previousStickRight = stickRight;
-        _previousStickUp = stickUp;
-        _previousStickDown = stickDown;
         _previousButtons = buttons;
 
         return actions;
+    }
+
+    /// <summary>
+    /// One direction's hold/repeat state machine. Not held → resets the
+    /// counter and never fires. Held → counts ticks; fires on the very
+    /// first tick (tick 1, the initial tap-like press), stays quiet through
+    /// the initial delay, then fires every RepeatIntervalTicks after that.
+    /// </summary>
+    private static bool UpdateHeldDirection(bool isHeld, ref int heldTicks)
+    {
+        if (!isHeld)
+        {
+            heldTicks = 0;
+            return false;
+        }
+
+        heldTicks++;
+        if (heldTicks == 1) return true;
+        if (heldTicks <= RepeatInitialDelayTicks) return false;
+        return (heldTicks - RepeatInitialDelayTicks) % RepeatIntervalTicks == 0;
     }
 
     private bool WasJustPressed(XInput.Buttons current, XInput.Buttons button)

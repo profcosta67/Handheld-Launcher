@@ -20,9 +20,7 @@ public sealed class MainViewModel : ViewModelBase
         _artwork = artwork;
         _launcher.GameExited += OnGameExited;
 
-        Games = new ObservableCollection<GameTileViewModel>(
-            _library.Games.Select(g => new GameTileViewModel(g)));
-        ReorderLastPlayedFirst();
+        Games = new ObservableCollection<GameTileViewModel>();
 
         MoveNextCommand = new RelayCommand(MoveNext, () => Games.Count > 1);
         MovePreviousCommand = new RelayCommand(MovePrevious, () => Games.Count > 1);
@@ -31,7 +29,16 @@ public sealed class MainViewModel : ViewModelBase
         RefreshCommand = new RelayCommand(Refresh);
         FetchArtworkCommand = new RelayCommand(FetchMissingArtwork, () => CanFetchArtwork);
 
-        SelectedIndex = Games.Count > 0 ? 0 : -1;
+        // Abas de filtro — "Todos, favoritos, steam, não steam, xbox (por
+        // enquanto)", pedido do usuário. Cada uma só troca o filtro ativo e
+        // reconstrói Games (sem re-escanear a biblioteca) — ver SetFilter.
+        SetFilterAllCommand = new RelayCommand(() => SetFilter(LibraryFilter.All));
+        SetFilterFavoritesCommand = new RelayCommand(() => SetFilter(LibraryFilter.Favorites));
+        SetFilterSteamCommand = new RelayCommand(() => SetFilter(LibraryFilter.Steam));
+        SetFilterNonSteamCommand = new RelayCommand(() => SetFilter(LibraryFilter.NonSteam));
+        SetFilterXboxCommand = new RelayCommand(() => SetFilter(LibraryFilter.Xbox));
+
+        RebuildGamesFromLibrary();
     }
 
     public ObservableCollection<GameTileViewModel> Games { get; }
@@ -98,6 +105,34 @@ public sealed class MainViewModel : ViewModelBase
         private set => SetField(ref _runningGame, value);
     }
 
+    private bool _isLaunching;
+
+    /// <summary>
+    /// Feedback visual pedido pelo usuário ("feedback visual pra já kkk") —
+    /// cobre o intervalo entre apertar confirmar e o jogo de fato aparecer
+    /// na tela, que sem isso parecia "não fez nada" por alguns segundos.
+    /// Não tem como MainViewModel saber com certeza quando o processo
+    /// externo terminou de carregar (GameLauncher não expõe isso e cada
+    /// jogo demora um tempo diferente), então o overlay só fica visível
+    /// por um tempo fixo (ver LaunchFeedbackMilliseconds) e desaparece
+    /// solo — não é "o jogo carregou", é "demos tempo suficiente pro
+    /// player ver que o toque funcionou".
+    /// </summary>
+    public bool IsLaunching
+    {
+        get => _isLaunching;
+        private set => SetField(ref _isLaunching, value);
+    }
+
+    private string _launchingGameTitle = string.Empty;
+    public string LaunchingGameTitle
+    {
+        get => _launchingGameTitle;
+        private set => SetField(ref _launchingGameTitle, value);
+    }
+
+    private const int LaunchFeedbackMilliseconds = 2500;
+
     private bool _isFetchingArtwork;
     public bool IsFetchingArtwork
     {
@@ -148,11 +183,26 @@ public sealed class MainViewModel : ViewModelBase
         new ContextMenuItemViewModel("Escolher capa"),
         new ContextMenuItemViewModel("Escolher banner"),
         new ContextMenuItemViewModel("Escolher logo"),
+        new ContextMenuItemViewModel("Favoritar"), // texto trocado em ToggleContextMenu dependendo do jogo em foco
         new ContextMenuItemViewModel("Abrir jogo"),
     };
 
     /// <summary>Qual dos três tipos de arte o seletor (IsCoverPickerOpen) está escolhendo no momento — ver OpenCoverPicker/ConfirmCoverPickerSelection.</summary>
     private enum ArtworkPickerKind { Grid, Hero, Logo }
+
+    /// <summary>Abas de filtro pedidas pelo usuário: "Todos, favoritos, steam, não steam, xbox (por enquanto)".</summary>
+    private enum LibraryFilter { All, Favorites, Steam, NonSteam, Xbox }
+
+    private LibraryFilter _activeFilter = LibraryFilter.All;
+
+    // Um bool por aba em vez de expor o enum pro XAML — fica direto pra
+    // bindar Classes.active="{Binding IsFilterXActive}" em cada botão da
+    // fileira de abas (ver MainWindow.axaml).
+    public bool IsFilterAllActive => _activeFilter == LibraryFilter.All;
+    public bool IsFilterFavoritesActive => _activeFilter == LibraryFilter.Favorites;
+    public bool IsFilterSteamActive => _activeFilter == LibraryFilter.Steam;
+    public bool IsFilterNonSteamActive => _activeFilter == LibraryFilter.NonSteam;
+    public bool IsFilterXboxActive => _activeFilter == LibraryFilter.Xbox;
 
     private bool _isGlobalMenuOpen;
 
@@ -305,14 +355,26 @@ public sealed class MainViewModel : ViewModelBase
     public ICommand RefreshCommand { get; }
     public ICommand FetchArtworkCommand { get; }
 
+    public ICommand SetFilterAllCommand { get; }
+    public ICommand SetFilterFavoritesCommand { get; }
+    public ICommand SetFilterSteamCommand { get; }
+    public ICommand SetFilterNonSteamCommand { get; }
+    public ICommand SetFilterXboxCommand { get; }
+
     public void MoveNext() => SelectedIndex++;
 
     public void MovePrevious() => SelectedIndex--;
 
-    public void LaunchSelected()
+    public async void LaunchSelected()
     {
         if (SelectedTile is null) return;
         var game = SelectedTile.Game;
+
+        // Overlay "Iniciando <jogo>..." entra ANTES de chamar _launcher —
+        // é exatamente o intervalo "apertei e nada parece acontecer" que o
+        // usuário queria coberto.
+        LaunchingGameTitle = game.Title;
+        IsLaunching = true;
 
         _launcher.Launch(game);
         RunningGame = game;
@@ -328,6 +390,9 @@ public sealed class MainViewModel : ViewModelBase
         // it's now first in the row and rendered wide, so this keeps focus
         // visually consistent with what the player just did.
         SelectedIndex = 0;
+
+        await Task.Delay(LaunchFeedbackMilliseconds);
+        IsLaunching = false;
     }
 
     public void CloseRunningGame()
@@ -350,6 +415,12 @@ public sealed class MainViewModel : ViewModelBase
 
         ContextMenuTarget = SelectedTile;
         _contextMenuIndex = 0;
+
+        // Índice 3 = "Favoritar"/"Desfavoritar" (ver ContextMenuItems e o
+        // switch em ConfirmContextMenuSelection) — texto muda na hora de
+        // abrir porque o mesmo item serve pra ligar e desligar.
+        ContextMenuItems[3].Label = SelectedTile.Game.IsFavorite ? "Desfavoritar" : "Favoritar";
+
         UpdateContextMenuSelection();
         IsContextMenuOpen = true;
     }
@@ -396,7 +467,15 @@ public sealed class MainViewModel : ViewModelBase
                 OpenCoverPicker(game, ArtworkPickerKind.Logo);
                 break;
 
-            case 3: // Abrir jogo
+            case 3: // Favoritar / Desfavoritar
+                _library.SetFavorite(game.Id, !game.IsFavorite);
+                // RebuildGamesFromLibrary (não Refresh — não precisa
+                // re-escanear) pra aba "Favoritos" refletir o toggle na
+                // hora, caso esteja ativa.
+                RebuildGamesFromLibrary();
+                break;
+
+            case 4: // Abrir jogo
                 var tile = Games.FirstOrDefault(t => t.Game.Id == game.Id);
                 if (tile is not null)
                 {
@@ -772,13 +851,57 @@ public sealed class MainViewModel : ViewModelBase
     public void Refresh()
     {
         _library.Refresh();
+        RebuildGamesFromLibrary();
+    }
 
+    /// <summary>
+    /// Troca a aba de filtro ativa e reconstrói Games sem re-escanear a
+    /// biblioteca (_library.Refresh() não é chamado aqui) — trocar de aba
+    /// é instantâneo, não precisa re-ler Steam/arquivos do disco de novo.
+    /// </summary>
+    private void SetFilter(LibraryFilter filter)
+    {
+        if (_activeFilter == filter) return;
+        _activeFilter = filter;
+
+        OnPropertyChanged(nameof(IsFilterAllActive));
+        OnPropertyChanged(nameof(IsFilterFavoritesActive));
+        OnPropertyChanged(nameof(IsFilterSteamActive));
+        OnPropertyChanged(nameof(IsFilterNonSteamActive));
+        OnPropertyChanged(nameof(IsFilterXboxActive));
+
+        RebuildGamesFromLibrary();
+    }
+
+    private bool MatchesActiveFilter(GameEntry game) => _activeFilter switch
+    {
+        LibraryFilter.Favorites => game.IsFavorite,
+        LibraryFilter.Steam => game.Source == GameSource.Steam,
+        LibraryFilter.NonSteam => game.Source != GameSource.Steam,
+        LibraryFilter.Xbox => game.Source == GameSource.XboxApp,
+        _ => true,
+    };
+
+    /// <summary>
+    /// A ÚNICA coisa que reconstrói a coleção Games exibida — tanto
+    /// Refresh() (depois de re-escanear) quanto SetFilter() (só troca de
+    /// aba) chamam isso. Filtra _library.Games (a lista CRUA, sem filtro)
+    /// pelo filtro ativo, então tudo que já depende de índice em Games
+    /// (SelectedIndex, MoveNext/MovePrevious, o scroll manual da fileira,
+    /// ReorderLastPlayedFirst) continua funcionando sem mudança nenhuma —
+    /// eles nunca sabem que existe filtro, só veem uma lista menor.
+    /// </summary>
+    private void RebuildGamesFromLibrary()
+    {
         var previouslySelectedId = SelectedTile?.Game.Id;
 
         Games.Clear();
         foreach (var game in _library.Games)
         {
-            Games.Add(new GameTileViewModel(game));
+            if (MatchesActiveFilter(game))
+            {
+                Games.Add(new GameTileViewModel(game));
+            }
         }
         ReorderLastPlayedFirst();
 
@@ -789,19 +912,19 @@ public sealed class MainViewModel : ViewModelBase
         SelectedIndex = Games.Count > 0 ? restoredIndex : -1;
 
         // SelectedIndex's setter only touches SelectedTile when the NUMBER
-        // actually changes — but Refresh() just replaced every
-        // GameTileViewModel instance in Games, so an index that happens to
-        // land on the same number as before (very common: the game you
-        // just edited art for is usually still index 0, the "último jogo
-        // aberto") would otherwise leave SelectedTile pointing at an
-        // orphaned pre-refresh object with stale art. Force it to the
-        // fresh instance unconditionally. This was the actual cause of a
-        // reported bug: applying a new hero banner updated the small
-        // "último jogo aberto" tile (always rebuilt fresh regardless) but
-        // not the big top banner, which stayed on the old image until the
-        // player navigated away and back — the only thing that ever
-        // changed SelectedIndex's numeric value and forced the old code
-        // to refresh it.
+        // actually changes — but this just replaced every GameTileViewModel
+        // instance in Games, so an index that happens to land on the same
+        // number as before (very common: the game you just edited art for
+        // is usually still index 0, the "último jogo aberto") would
+        // otherwise leave SelectedTile pointing at an orphaned pre-refresh
+        // object with stale art. Force it to the fresh instance
+        // unconditionally. This was the actual cause of a reported bug:
+        // applying a new hero banner updated the small "último jogo
+        // aberto" tile (always rebuilt fresh regardless) but not the big
+        // top banner, which stayed on the old image until the player
+        // navigated away and back — the only thing that ever changed
+        // SelectedIndex's numeric value and forced the old code to refresh
+        // it.
         if (Games.Count > 0) SelectedTile = Games[SelectedIndex];
     }
 
@@ -820,16 +943,23 @@ public sealed class MainViewModel : ViewModelBase
 
         try
         {
-            foreach (var tile in Games.ToList())
+            // _library.Games (lista CRUA) e não Games (a coleção filtrada
+            // pela aba ativa) — agora que existem abas de filtro, iterar
+            // Games faria "Atualizar Capas Automático" só completar a arte
+            // de quem está visível na aba atual (ex: só os jogos Steam, se
+            // a aba "Steam" estiver selecionada no momento), pulando o
+            // resto da biblioteca silenciosamente. Esse botão sempre foi
+            // "a biblioteca inteira" e continua sendo.
+            foreach (var game in _library.Games.ToList())
             {
-                if (string.IsNullOrEmpty(tile.Game.GridImagePath))
+                if (string.IsNullOrEmpty(game.GridImagePath))
                 {
-                    await _artwork.FetchGridAsync(tile.Game);
+                    await _artwork.FetchGridAsync(game);
                 }
 
-                if (string.IsNullOrEmpty(tile.Game.HeroImagePath))
+                if (string.IsNullOrEmpty(game.HeroImagePath))
                 {
-                    await _artwork.FetchHeroAsync(tile.Game);
+                    await _artwork.FetchHeroAsync(game);
                 }
 
                 // Logo (CURRENT LOGO): corrigido nesta leva — antes só
@@ -838,9 +968,9 @@ public sealed class MainViewModel : ViewModelBase
                 // (CAPSULE ou WIDE CAPSULE, no lugar do nome — ver
                 // GameTileViewModel.ShowCurrentLogo), então busca pra toda a
                 // biblioteca igual capa/banner já faziam.
-                if (string.IsNullOrEmpty(tile.Game.LogoImagePath))
+                if (string.IsNullOrEmpty(game.LogoImagePath))
                 {
-                    await _artwork.FetchLogoAsync(tile.Game);
+                    await _artwork.FetchLogoAsync(game);
                 }
             }
 

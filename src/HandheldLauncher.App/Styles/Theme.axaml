@@ -59,11 +59,26 @@
          geral"), mesma proporção de antes. -->
     <Setter Property="Width" Value="190" />
     <Setter Property="Height" Value="255" />
+    <!-- "Efeito quando passar pro lado entre os jogos" (pedido do
+         usuário): um leve "zoom" na tile que ganha foco, animado em vez de
+         trocar na hora — RenderTransform não é medido no layout, então um
+         escala pequena (1.04) não empurra as tiles vizinhas, só cresce por
+         cima. Transitions reage a QUALQUER troca de valor da propriedade
+         (inclusive a troca de Setter pela classe .focused abaixo), que é a
+         API documentada do Avalonia pra isso — não dá pra compilar aqui
+         pra confirmar. -->
+    <Setter Property="RenderTransform" Value="scale(1.0)" />
+    <Style.Transitions>
+      <Transitions>
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15" Easing="CubicEaseOut" />
+      </Transitions>
+    </Style.Transitions>
   </Style>
 
   <Style Selector="Border.gameTile.focused">
     <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
     <Setter Property="BorderThickness" Value="3" />
+    <Setter Property="RenderTransform" Value="scale(1.04)" />
   </Style>
 
   <!-- WIDE CAPSULE ("último jogo aberto") — mesma arte de capa/grid da
@@ -170,6 +185,16 @@
 
   <Style Selector="Button.pill:pointerover /template/ ContentPresenter">
     <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
+  </Style>
+
+  <!-- Abas de filtro (Todos/Favoritos/Steam/Não Steam/Xbox) — mesmo
+       Button.pill por baixo, só troca de cor quando é a aba ativa. -->
+  <Style Selector="Button.filterTab.active">
+    <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+  </Style>
+
+  <Style Selector="Button.filterTab.active /template/ ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource AccentBrush}" />
   </Style>
 
 </Styles>

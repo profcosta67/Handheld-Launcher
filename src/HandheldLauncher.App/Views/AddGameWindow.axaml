@@ -4,7 +4,7 @@
         x:Class="HandheldLauncher.App.Views.AddGameWindow"
         x:DataType="vm:AddGameViewModel"
         Title="Adicionar jogo"
-        Width="520" Height="380"
+        Width="520" Height="420"
         CanResize="False"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource BackgroundBrush}">
@@ -31,6 +31,10 @@
 
       <TextBlock Text="Pasta de trabalho (opcional)" Classes="subtle" Margin="0,8,0,0" />
       <TextBox Text="{Binding WorkingDirectory}" Watermark="Em branco = pasta do executável" />
+
+      <CheckBox Content="É um jogo do Xbox app / Game Pass"
+                IsChecked="{Binding IsXboxSource}"
+                Margin="0,8,0,0" />
     </StackPanel>
 
     <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,20,0,0">

@@ -44,6 +44,18 @@ public sealed class AddGameViewModel : ViewModelBase
         set => SetField(ref _workingDirectory, value);
     }
 
+    /// <summary>
+    /// Marca a entrada manual como GameSource.XboxApp em vez de Manual —
+    /// não existe scanner do Xbox app ainda, então esse checkbox é a única
+    /// forma de um jogo cair na aba de filtro "Xbox" pedida pelo usuário.
+    /// </summary>
+    private bool _isXboxSource;
+    public bool IsXboxSource
+    {
+        get => _isXboxSource;
+        set => SetField(ref _isXboxSource, value);
+    }
+
     public bool CanSave => !string.IsNullOrWhiteSpace(Title) && !string.IsNullOrWhiteSpace(ExecutablePath);
 
     /// <summary>Builds the GameEntry to hand to ILibraryService.AddManualGame. Only call when CanSave is true.</summary>
@@ -51,7 +63,7 @@ public sealed class AddGameViewModel : ViewModelBase
     {
         Id = Guid.NewGuid().ToString("N"),
         Title = Title.Trim(),
-        Source = GameSource.Manual,
+        Source = IsXboxSource ? GameSource.XboxApp : GameSource.Manual,
         ExecutablePath = ExecutablePath.Trim(),
         LaunchArguments = string.IsNullOrWhiteSpace(LaunchArguments) ? null : LaunchArguments.Trim(),
         WorkingDirectory = string.IsNullOrWhiteSpace(WorkingDirectory) ? null : WorkingDirectory.Trim(),

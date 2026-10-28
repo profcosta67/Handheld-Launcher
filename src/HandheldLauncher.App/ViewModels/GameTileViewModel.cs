@@ -43,6 +43,14 @@ public sealed class GameTileViewModel : ViewModelBase
     public bool HasLogo => !string.IsNullOrEmpty(LogoImagePath);
 
     /// <summary>
+    /// Toggled pelo item "Favoritar"/"Desfavoritar" do menu de contexto
+    /// (ver MainViewModel.ConfirmContextMenuSelection) — drives a estrelinha
+    /// discreta no canto da tile, pra dar algum jeito de ver quem tá
+    /// favoritado sem precisar entrar na aba "Favoritos" pra checar.
+    /// </summary>
+    public bool IsFavorite => Game.IsFavorite;
+
+    /// <summary>
     /// Drives showing the LOGO instead of the game's name — in the hero
     /// banner's bottom-left corner (MainWindow.axaml, follows SelectedTile)
     /// AND above every tile's capsule, CAPSULE or WIDE CAPSULE alike (see
