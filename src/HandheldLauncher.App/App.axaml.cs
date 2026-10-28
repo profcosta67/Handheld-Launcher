@@ -32,10 +32,25 @@ public partial class App : Application
             var gridDbClient = new SteamGridDbClient(appSettings.SteamGridDbApiKey);
             var artworkService = new ArtworkService(gridDbClient, libraryStore);
 
-            desktop.MainWindow = new MainWindow
+            var mainWindow = new MainWindow
             {
                 DataContext = new MainViewModel(libraryService, gameLauncher, artworkService),
             };
+
+            // Modo kiosk: fullscreen/borderless instead of the normal dev
+            // window, driven entirely by settings.json (set by the
+            // installer) — never by a build-time switch, so the exact same
+            // binary behaves one way under `dotnet run` and another once
+            // installed. Deliberately just an Avalonia WindowState/
+            // SystemDecorations change, nothing shell-level: Alt+Tab,
+            // Alt+F4 and the taskbar underneath keep working untouched.
+            if (appSettings.KioskMode)
+            {
+                mainWindow.WindowState = Avalonia.Controls.WindowState.FullScreen;
+                mainWindow.SystemDecorations = Avalonia.Controls.SystemDecorations.None;
+            }
+
+            desktop.MainWindow = mainWindow;
         }
 
         base.OnFrameworkInitializationCompleted();

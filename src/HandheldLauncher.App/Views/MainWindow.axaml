@@ -14,10 +14,10 @@
         KeyDown="OnWindowKeyDown">
 
   <!--
-    Dev-time window chrome on purpose: normal resizable window so this is
-    easy to iterate on. Fullscreen/borderless "kiosk" boot is task #7
-    (modo kiosk) — switching SystemDecorations/WindowState happens there,
-    once suppressing Legion Space / Xbox auto-start is figured out too.
+    Normal resizable window by default (easy to iterate on during dev).
+    Modo kiosk (fullscreen/borderless) is applied from App.axaml.cs right
+    after construction, driven by AppSettings.KioskMode — see that file
+    and installer/Install-Launcher.ps1 for where that flag gets set.
   -->
 
   <Window.Resources>

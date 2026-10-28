@@ -1,5 +1,11 @@
 # Handheld Launcher
 
+**Status: Beta v0.1** — primeira versão com todo o essencial fechado (biblioteca,
+navegação por controle, seletor de capas/banners, modo kiosk, instalador). Ver
+"Status atual" e "⚠️ Build ainda não totalmente verificado aqui" abaixo pra saber
+exatamente o que já foi confirmado funcionando no Legion/ROG Ally de verdade e o
+que ainda está esperando o primeiro teste real.
+
 Launcher "bigscreen" próprio para Windows, feito pra rodar no **Legion Go 2** e no
 **ROG Ally** — sem depender de nenhum launcher já existente. Boot direto em tela
 cheia, biblioteca unificada (Steam + jogos adicionados manualmente), capas via
@@ -91,15 +97,28 @@ Construído até agora:
   - Ícone de engrenagem no topo — **só placeholder visual por enquanto**,
     desabilitado. Ainda não decidimos o escopo da tela de configurações
     (combinado: fica pra depois).
+  - **Modo kiosk**: `AppSettings.KioskMode` (novo campo em `settings.json`,
+    desligado por padrão). Quando ligado, `App.axaml.cs` abre a janela já
+    em `WindowState.FullScreen` + `SystemDecorations.None` em vez da
+    janela normal redimensionável de dev. De propósito **não** troca o
+    shell do Windows — Alt+Tab, Alt+F4 e a área de trabalho por baixo
+    continuam funcionando normal; fechar o app sempre volta pro desktop
+    comum. Quem liga essa flag é o instalador (ver seção própria mais
+    abaixo), não é pra editar essa parte do `settings.json` na mão.
+    **Ainda não testado num build real** (nem em janela normal nem em
+    fullscreen de verdade).
+- **`installer/`** — `Install-Launcher.ps1` e `Uninstall-Launcher.ps1`,
+  ver seção "Instalar no Legion Go 2 / ROG Ally" mais abaixo. **Nunca
+  executados de fato** (escritos no mesmo sandbox sem Windows que o
+  resto do projeto) — é o próximo passo de teste depois do seletor de
+  capas.
 
 Ainda **não** feito:
 
-1. Modo kiosk: boot direto em tela cheia + suprimir Legion Space / Xbox FSE
-2. Instalador
-3. Tela de configurações de verdade (hoje é só editar `settings.json` na mão)
-4. Capas **animadas** (GIF/WEBM) no seletor — fase 2 do seletor de capas,
-   ver seção própria mais abaixo (fase 1, estático, já está feita, só
-   falta testar num build real)
+1. Tela de configurações de verdade (hoje é só editar `settings.json` na mão)
+2. Capas **animadas** (GIF/WEBM) no seletor — fase 2 do seletor de capas,
+   ver seção própria mais abaixo (fase 1, estático, já está feita e
+   confirmada funcionando)
 
 ## Configurar a API key do SteamGridDB
 
@@ -113,10 +132,73 @@ Ainda **não** feito:
    ```
 4. Reabre o launcher e clica em "Buscar capas"
 
+## Instalar no Legion Go 2 / ROG Ally (beta v0.1)
+
+**Importante: os dois scripts abaixo nunca foram executados de verdade** —
+escritos no mesmo sandbox Linux sem Windows que o resto do projeto. São os
+próximos a testar depois do seletor de capas. Se algo der erro, copia a
+mensagem exata que apareceu no terminal (igual você já vem fazendo com o
+resto) — tanto `Install-Launcher.ps1` quanto `Uninstall-Launcher.ps1` gravam
+um log (`install-log.txt`, dentro da pasta de instalação) além de mostrar
+tudo na tela.
+
+O que o instalador faz, resumido (detalhes completos nos comentários do
+próprio `Install-Launcher.ps1`): publica o app (`dotnet publish`,
+self-contained — a máquina onde ele vai RODAR não precisa ter o .NET
+instalado), copia pra `%LocalAppData%\Programs\HandheldLauncher\`, cria
+atalho na Área de Trabalho/Menu Iniciar, configura ele pra abrir sozinho a
+cada login (sem substituir o shell do Windows — Alt+Tab/Alt+F4 continuam
+funcionando, fechar o app sempre volta pro desktop normal), liga o modo
+kiosk (fullscreen) no `settings.json`, e tenta impedir o Xbox Game Bar e o
+Legion Space/Armoury Crate SE de abrirem sozinhos no boot (os dois
+primeiros via chaves de registro bem documentadas; os do fabricante via uma
+busca "melhor esforço" — ver comentários do script pras limitações disso).
+
+**Passo a passo:**
+
+1. Antes de rodar qualquer script `.ps1` baixado, o PowerShell do Windows
+   normalmente bloqueia a execução por padrão. Abre o PowerShell **nessa
+   pasta** (`cd` até `handheld-launcher\installer`) e roda:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\Install-Launcher.ps1
+   ```
+   (isso só libera a execução pra esse comando específico, não muda
+   nenhuma configuração permanente do Windows)
+2. Se for instalar DIRETO no Legion/ROG Ally e aquela máquina não tiver o
+   SDK do .NET instalado: roda `Install-Launcher.ps1` (sem `-SkipPublish`)
+   no seu PC normal primeiro, depois copia a pasta `installer\publish\`
+   inteira junto com os dois scripts `.ps1` pro Legion/ROG Ally, e roda lá:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\Install-Launcher.ps1 -SkipPublish
+   ```
+3. Ao final, o script mostra (e grava em `install-log.txt`) tudo que foi
+   feito — inclusive se achou ou não alguma entrada do Legion Space/Armoury
+   Crate pra desativar. Se não achou nada e aqueles apps continuarem
+   abrindo sozinhos, desativa manualmente em **Configurações > Aplicativos
+   > Inicializar** (ou Gerenciador de Tarefas > aba Inicializar) — é o
+   jeito seguro que funciona independente de qual mecanismo o fabricante
+   usa.
+4. Pra desfazer tudo (remove o app instalado, os atalhos, e restaura os
+   ajustes de registro/inicialização pro estado de antes):
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\Uninstall-Launcher.ps1
+   ```
+
 ## ⚠️ Build ainda não totalmente verificado aqui
 
 Este projeto foi escrito num sandbox Linux que bloqueia acesso a
 `api.nuget.org` — não dá pra rodar `dotnet restore`/`build` aqui pra validar.
+
+**🔴 Risco mais alto desta leva — modo kiosk + instalador**: diferente dos
+bugs de UI de levas anteriores, `Install-Launcher.ps1` toca em registro do
+Windows e em pastas de inicialização automática. É tudo pensado pra ser
+reversível (o próprio `Uninstall-Launcher.ps1` desfaz, e qualquer passo de
+registro/inicialização que falhar vira só um aviso no log, não derruba a
+instalação do app em si) — mas nunca foi executado de verdade, então testa
+num momento em que você consegue acompanhar o resultado (não antes de sair
+de casa, por exemplo), e lê o `install-log.txt` no final pra confirmar que
+cada passo fez o que devia. Se algo parecer errado, roda o
+`Uninstall-Launcher.ps1` e me manda o log de ambos.
 
 **Bug corrigido** (reportado pelo usuário): nos dois menus (Start e
 View/Back), só o D-pad movia ↑↓ — o analógico esquerdo só lia o eixo X
@@ -251,6 +333,6 @@ HandheldLauncher.sln
 src/
   HandheldLauncher.Core/     # modelos, scanner Steam, storage, launcher de processo, SteamGridDB
   HandheldLauncher.App/      # UI Avalonia (ViewModels, Views, Styles, Input/XInput)
-installer/                   # (vazio por enquanto — instalador vem depois)
+installer/                   # Install-Launcher.ps1 / Uninstall-Launcher.ps1 (ver "Instalar no Legion Go 2 / ROG Ally")
 docs/                        # (vazio por enquanto)
 ```
