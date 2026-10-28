@@ -18,6 +18,46 @@ SteamGridDB, navegação por controle.
 > quando quiser (é um find-and-replace no `.sln`, nos `.csproj` e no
 > namespace `HandheldLauncher.*`).
 
+## Roteiro planejado (próximas levas — nada disso implementado ainda)
+
+Depois do primeiro teste real completo (ver "Meus parabéns" — biblioteca,
+menu, Downloads e RTSS todos confirmados funcionando), o usuário pediu pra
+planejar as próximas levas antes de sair codando tudo de uma vez. Ordem
+combinada (ele não tinha preferência forte, então ficou a ordem que faz
+mais sentido de risco crescente):
+
+1. **Reorganizar as abas da biblioteca** — troca o conjunto atual
+   (Favoritos/Todos/Steam/Xbox/Não Steam) por **Favoritos/Todos/Oficiais/Não
+   Steam/Não instalados**. "Oficiais" = Steam + Xbox juntos numa aba só
+   (decisão do usuário — substitui as duas abas separadas de hoje). "Não
+   instalados" puxa a MESMA lista "na sua conta, não instalado" que já
+   alimenta o painel de Downloads (Steam Web API) — só expõe ela também como
+   aba da biblioteca principal, com botão de instalar na própria tile.
+2. **Atalho de Downloads na barra de cima** — ícone/indicador perto da
+   bateria, estilo Steam, mostrando que tem algo baixando e abrindo o
+   painel de Downloads ao clicar.
+3. **Overlay de performance mais completo** (presets Resumido/Médio/Completo
+   em vez de só FPS) — decisão do usuário: **overlay próprio do launcher**,
+   não RTSS + Afterburner. Nota técnica importante pra quando for
+   implementar: o problema difícil que o RTSS resolve é o *hook* de
+   apresentação de frame (DX9-12/Vulkan/OpenGL) pra medir FPS de dentro do
+   processo do jogo — escrever esse hook do zero é um projeto gigante e
+   arriscado por si só (injeção de DLL, compatibilidade por API gráfica). O
+   caminho sensato é **continuar usando o RTSS só pra resolver esse problema
+   difícil** (ele já expõe FPS/frametime via shared-memory, tem wrapper
+   .NET conhecido — `RTSSSharedMemoryNET`) e construir o resto por cima:
+   uma janela transparente sempre-no-topo QUE A GENTE desenha (CPU/GPU/RAM/
+   temperatura via `LibreHardwareMonitorLib`, bateria via API do Windows),
+   com os 3 presets controlados na nossa tela de Configurações. Isso dá o
+   controle visual total que foi pedido, sem reinventar a parte mais
+   arriscada (a medição do FPS em si).
+4. **Temas + customização visual** (dark/claro/azul/vermelho, efeitos de
+   transição entre telas, tamanho de ícone configurável, zoom ao passar o
+   mouse/focar um ícone) — deixado por último de propósito porque mexe em
+   praticamente todo `Theme.axaml`/XAML existente; faz mais sentido depois
+   que a estrutura das abas (item 1) já estiver estável, pra não re-estilizar
+   duas vezes a mesma coisa.
+
 ## Status atual
 
 Construído até agora:
