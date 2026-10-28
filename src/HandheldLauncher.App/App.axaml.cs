@@ -1,6 +1,8 @@
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Platform;
 using HandheldLauncher.App.ViewModels;
 using HandheldLauncher.App.Views;
 using HandheldLauncher.Core.Services;
@@ -59,8 +61,46 @@ public partial class App : Application
             }
 
             desktop.MainWindow = mainWindow;
+
+            SetupTrayIcon(mainWindow);
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    /// <summary>
+    /// Tray icon for the "Minimizar" button (MainWindow.MinimizeToTray) —
+    /// always set up, not just in kiosk mode, since minimizing is a
+    /// normal bottom-bar action in every mode. Left-click/"Abrir"
+    /// restores the window (same as the Ctrl+Alt+H hotkey registered in
+    /// MainWindow); "Sair" closes it for good (watchdog disabled first,
+    /// same as the gear/global menu's own "Sair"). No need to keep a
+    /// reference to the TrayIcon alive in a field here — TrayIcon.SetIcons
+    /// attaches it to this Application instance itself via an attached
+    /// property, and the Application lives for the whole process.
+    /// </summary>
+    private static void SetupTrayIcon(MainWindow mainWindow)
+    {
+        var trayIcon = new TrayIcon
+        {
+            Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://HandheldLauncher/Assets/app-icon.ico"))),
+            ToolTipText = "Handheld Launcher",
+        };
+        trayIcon.Clicked += (_, _) => mainWindow.RestoreFromTray();
+
+        var openItem = new NativeMenuItem("Abrir");
+        openItem.Click += (_, _) => mainWindow.RestoreFromTray();
+
+        var quitItem = new NativeMenuItem("Sair");
+        quitItem.Click += (_, _) => mainWindow.QuitFromTray();
+
+        var menu = new NativeMenu();
+        menu.Items.Add(openItem);
+        menu.Items.Add(quitItem);
+        trayIcon.Menu = menu;
+
+        var icons = new TrayIcons();
+        icons.Add(trayIcon);
+        TrayIcon.SetIcons(Current!, icons);
     }
 }

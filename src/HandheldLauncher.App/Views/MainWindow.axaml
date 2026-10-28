@@ -7,6 +7,7 @@
         x:Class="HandheldLauncher.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="Handheld Launcher"
+        Icon="avares://HandheldLauncher/Assets/app-icon.ico"
         Width="1280" Height="800"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource BackgroundBrush}"
@@ -55,8 +56,12 @@
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16">
           <!-- System tray area (wifi/battery/clock) is a later pass — placeholder for now. -->
           <TextBlock Text="●●●  ⚡100%" Classes="subtle" VerticalAlignment="Center" />
-          <!-- Settings is a visual placeholder only — not wired up yet, see chat for the open question on scope. -->
-          <Button Classes="pill" Content="⚙" Padding="10,6" IsEnabled="False" ToolTip.Tip="Configurações (em breve)" />
+          <!-- Abre o mesmo menu geral do botão View/Back (OnGearMenuClick
+               só chama vm.ToggleGlobalMenu(), nada de menu separado) —
+               assim mouse/touch e controle sempre acessam exatamente as
+               mesmas opções (Atualizar Biblioteca/Atualizar Capas
+               Automático/Adicionar jogo/Sair). -->
+          <Button Classes="pill" Content="⚙" Padding="10,6" Click="OnGearMenuClick" ToolTip.Tip="Menu (Atualizar Biblioteca / Atualizar Capas Automático / Adicionar jogo / Sair)" />
         </StackPanel>
       </Grid>
     </Border>
@@ -147,13 +152,17 @@
       </ScrollViewer>
     </Grid>
 
-    <!-- Bottom bar -->
+    <!-- Bottom bar — deliberadamente minimalista a pedido do usuário:
+         Buscar capas/Adicionar jogo/Atualizar/Sair saíram de aqui e foram
+         pro menu geral (View/Back ou o ícone de engrenagem no topo — ver
+         OnGearMenuClick), restando só o que faz sentido como ação rápida
+         de mouse/touch na barra. Grid.Column="0" era um TextBlock com a
+         dica de controles ("← → navega · A/Enter joga · ..."); removido a
+         pedido do usuário (poluía o canto inferior esquerdo da tela). A
+         coluna "*" fica sem conteúdo de propósito, só empurrando os
+         botões pra direita como antes. -->
     <Border Grid.Row="2" Classes="bottomBar" Margin="24,0,24,20" Padding="20,12">
-      <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto">
-        <TextBlock Grid.Column="0"
-                   Text="← → navega · A/Enter joga · B/Esc fecha o jogo · Start = menu do jogo · View/Back = menu geral"
-                   Classes="subtle"
-                   VerticalAlignment="Center" />
+      <Grid ColumnDefinitions="*,Auto,Auto,Auto">
         <Button Grid.Column="1"
                 Classes="pill"
                 Content="{Binding RunningGame.Title, StringFormat='Fechar: {0}'}"
@@ -162,14 +171,11 @@
                 Margin="0,0,10,0" />
         <Button Grid.Column="2"
                 Classes="pill"
-                Content="Buscar capas"
-                Command="{Binding FetchArtworkCommand}"
-                IsEnabled="{Binding CanFetchArtwork}"
-                ToolTip.Tip="Busca capa e banner no SteamGridDB para os jogos sem um dos dois. Precisa de uma API key em %AppData%\HandheldLauncher\settings.json"
+                Content="Minimizar"
+                Click="OnMinimizeClick"
+                ToolTip.Tip="Minimiza pra bandeja do Windows sem fechar o processo — não dispara o watchdog de reabertura. Reabre clicando no ícone da bandeja, pelo menu dele, ou com Ctrl+Alt+H de qualquer lugar."
                 Margin="0,0,10,0" />
-        <Button Grid.Column="3" Classes="pill" Content="Adicionar jogo" Click="OnAddGameClick" Margin="0,0,10,0" />
-        <Button Grid.Column="4" Classes="pill" Content="Atualizar" Click="OnRefreshClick" Margin="0,0,10,0" />
-        <Button Grid.Column="5" Classes="pill" Content="Sair" Click="OnQuitClick" />
+        <Button Grid.Column="3" Classes="pill" Content="Power" Click="OnPowerMenuClick" ToolTip.Tip="Desligar tela / Reiniciar / Desligar o Legion Go" />
       </Grid>
     </Border>
 
@@ -216,6 +222,31 @@
             </ItemsControl.ItemTemplate>
           </ItemsControl>
           <TextBlock Text="↑↓ navega · A/Enter confirma · B/Esc/View fecha" Classes="subtle" />
+        </StackPanel>
+      </Border>
+    </Panel>
+
+    <!-- Power menu (botão "Power" da barra de baixo) — mesmo padrão
+         visual dos outros dois menus acima, 3 ações fixas (ver
+         MainViewModel.BuildPowerMenu). Sem gatilho de controle dedicado
+         por enquanto (só alcançável de mouse/touch pelo botão), mas já
+         navegável por teclado/controle como os outros caso isso mude
+         depois. -->
+    <Panel IsVisible="{Binding IsPowerMenuOpen}">
+      <Border Classes="contextMenuOverlay" />
+      <Border Classes="contextMenuCard" Width="340" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <StackPanel Spacing="16">
+          <TextBlock Text="Power" Classes="heroTitle" />
+          <ItemsControl ItemsSource="{Binding PowerMenuItems}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:ContextMenuItemViewModel">
+                <Border Classes="menuItem" Classes.selected="{Binding IsSelected}" Padding="14,10">
+                  <TextBlock Text="{Binding Label}" Classes="gameTitle" />
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Text="↑↓ navega · A/Enter confirma · B/Esc cancela" Classes="subtle" />
         </StackPanel>
       </Border>
     </Panel>

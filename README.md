@@ -1,10 +1,13 @@
 # Handheld Launcher
 
-**Status: Beta v0.1** — primeira versão com todo o essencial fechado (biblioteca,
-navegação por controle, seletor de capas/banners, modo kiosk, instalador). Ver
-"Status atual" e "⚠️ Build ainda não totalmente verificado aqui" abaixo pra saber
-exatamente o que já foi confirmado funcionando no Legion/ROG Ally de verdade e o
-que ainda está esperando o primeiro teste real.
+**Status: Beta v0.2 (em andamento)** — v0.1 fechou com o essencial confirmado
+no Legion Go 2 de verdade (biblioteca, navegação por controle, seletor de
+capas/banners, modo kiosk, instalador, Modo Xbox via OmniConsole). v0.2 ataca
+o que apareceu testando v0.1 no handheld: janela saindo de foco, não reabrir
+depois de fechada, barra de baixo poluída, API key manual em toda instalação.
+Ver "Status atual" e "⚠️ Build ainda não totalmente verificado aqui" abaixo
+pra saber exatamente o que já foi confirmado funcionando no Legion/ROG Ally de
+verdade e o que ainda está esperando o primeiro teste real.
 
 Launcher "bigscreen" próprio para Windows, feito pra rodar no **Legion Go 2** e no
 **ROG Ally** — sem depender de nenhum launcher já existente. Boot direto em tela
@@ -84,19 +87,24 @@ Construído até agora:
     caminho do executável com seletor de arquivo, argumentos opcionais,
     pasta de trabalho opcional) e cadastra um jogo não-Steam na
     biblioteca. Testado, abre certinho.
-  - **Menu geral (View/Back no controle / Tab no teclado)**: mesmo padrão
-    visual do menu de contexto, mas com as ações da barra de baixo —
-    "Fechar: <jogo>" (só com jogo rodando), "Buscar capas" (só com API
-    key configurada), "Adicionar jogo", "Atualizar" e "Sair". Existe
-    porque a barra de baixo em si não é alcançável pelo controle (só
-    mouse) — isso é o que resolve. **Ainda não testado num build real.**
-  - Botão "Fechar: <jogo>" (só aparece com jogo rodando), "Buscar capas"
-    (dispara o fetch do SteamGridDB pros jogos sem capa), "Atualizar"
-    (reescaneia) e "Sair" — na barra de baixo, hoje só clicáveis com
-    mouse; o menu geral acima é o caminho via controle/teclado.
-  - Ícone de engrenagem no topo — **só placeholder visual por enquanto**,
-    desabilitado. Ainda não decidimos o escopo da tela de configurações
-    (combinado: fica pra depois).
+  - **Menu geral (View/Back no controle / Tab no teclado / ⚙ no topo
+    pra mouse/touch — ver bullet da engrenagem abaixo)**: mesmo padrão
+    visual do menu de contexto, com "Fechar: <jogo>" (só com jogo
+    rodando), "Atualizar Capas Automático" (renomeado de "Buscar
+    capas" — só com API key configurada), "Adicionar jogo", "Atualizar
+    Biblioteca" (renomeado de "Atualizar") e "Sair". **Nesta leva,
+    essas 4 últimas ações saíram de serem TAMBÉM botões separados na
+    barra de baixo** (a pedido do usuário, pra desafogar a barra) — agora
+    só existem aqui, e esse menu passou a ser a única forma de chegar
+    nelas, seja por controle/teclado ou mouse/touch (pelo ⚙). **Nunca
+    testado num build real com esse formato.**
+  - **Ícone de engrenagem (⚙) no topo** — antes um placeholder
+    desabilitado; agora abre o **mesmo** menu geral do botão View/Back
+    (`OnGearMenuClick` só chama `vm.ToggleGlobalMenu()`, não é um menu
+    separado) — assim mouse/touch chega exatamente nas mesmas opções que
+    o controle, sem duplicar nada. Ainda não é uma "tela de
+    configurações" de verdade (isso continua pendente, ver "Ainda não
+    feito" abaixo).
   - **Modo kiosk**: `AppSettings.KioskMode` (novo campo em `settings.json`,
     desligado por padrão). Quando ligado, `App.axaml.cs` abre a janela já
     em `WindowState.FullScreen` + `SystemDecorations.None` em vez da
@@ -135,15 +143,43 @@ Construído até agora:
     o instalador registra uma **Tarefa Agendada do Windows**
     (`HandheldLauncherWatchdog`) que checa a cada 1 minuto e reabre o app
     se não estiver rodando — sobrevive a Alt+F4 e a crash. Pra isso não
-    virar uma prisão, **qualquer um dos dois botões "Sair" (o do menu
-    geral E o da barra de baixo) desativa esse watchdog antes de
-    fechar** (`MainWindow.axaml.cs` — o da barra de baixo tinha ficado de
-    fora na primeira versão disso, corrigido nesta leva), então um "Sair"
-    deliberado por qualquer um dos dois sempre continua fechando de vez;
-    só o Alt+F4/crash é que volta sozinho. Quem não quiser esse
-    comportamento usa a flag `-NoWatchdog` do instalador (ver seção
-    própria mais abaixo) pra voltar ao atalho simples antigo, que não
-    reabre.
+    virar uma prisão, **qualquer um dos lugares com "Sair" (menu geral,
+    menu do ícone da bandeja — ver bullet abaixo) desativa esse watchdog
+    antes de fechar** (`MainWindow.axaml.cs`/`App.axaml.cs`), então um
+    "Sair" deliberado continua fechando de vez; só o Alt+F4/crash é que
+    volta sozinho. Quem não quiser esse comportamento usa a flag
+    `-NoWatchdog` do instalador (ver seção própria mais abaixo) pra
+    voltar ao atalho simples antigo, que não reabre.
+  - **Minimizar pra bandeja (novo nesta leva)**: achado no Legion Go 2 —
+    o watchdog acima faz sentido pra Alt+F4/crash, mas reabria o app todo
+    mundo-abre-sozinho até quando você só queria usar o desktop normal
+    por um momento ("fica abrindo toda hora"). Agora o botão "Minimizar"
+    na barra de baixo chama `Hide()` em vez de `Close()` — o processo
+    continua rodando (então o watchdog nunca tem motivo pra reabrir nada,
+    já está "rodando" do ponto de vista dele) e a janela só fica
+    escondida. Pra voltar: um **ícone de verdade na bandeja do Windows**
+    (clica ou usa o menu dele — "Abrir"/"Sair") **e** o atalho de teclado
+    **Ctrl+Alt+H** de qualquer lugar (via `RegisterHotKey`, funciona
+    mesmo com a janela escondida/sem foco — diferente de um KeyDown
+    normal). Ícone gerado em `Assets/app-icon.ico` (tema "HL" nas cores
+    do app). **Nunca testado num build real.**
+  - **Botão "Power" (novo nesta leva)**: abre um mini-menu com 3 opções —
+    "Desligar tela" (`SC_MONITORPOWER` via `WM_SYSCOMMAND`, um toque
+    clássico do Win32 pra forçar a tela a apagar sem afetar
+    sleep/hibernar — qualquer tecla/botão do controle acorda de volta,
+    isso é comportamento normal do Windows), "Reiniciar o Legion Go" e
+    "Desligar o Legion Go" (`shutdown.exe /r` e `/s`, ambos imediatos).
+    **Atenção, risco conhecido**: nenhuma das 3 opções tem uma
+    confirmação antes de executar — um toque errado em "Reiniciar"/
+    "Desligar" já dispara na hora, podendo perder progresso de um jogo
+    aberto. Fica como próximo passo decidir se entra uma etapa de
+    confirmação (ex: "tem certeza?") antes dessas duas. **Nunca testado
+    num build real.**
+  - **Dica de controles removida**: o texto fixo no canto inferior
+    esquerdo da barra de baixo ("← → navega · A/Enter joga · ...") foi
+    removido a pedido do usuário — poluía a tela. A dica dos outros menus
+    (↑↓ navega · A/Enter confirma · ...) continua, já que só aparece
+    enquanto aquele menu específico está aberto.
 - **`installer/`** — `Install-Launcher.ps1`/`Uninstall-Launcher.ps1` (e os
   `Instalar.bat`/`Desinstalar.bat` de duplo-clique por cima deles), ver
   seção "Instalar no Legion Go 2 / ROG Ally" mais abaixo. Os `.ps1`
@@ -154,11 +190,10 @@ Construído até agora:
 
 Ainda **não** feito:
 
-1. Tela de configurações de verdade (hoje é só editar `settings.json` na mão)
-2. Capas **animadas** (GIF/WEBM) no seletor — fase 2 do seletor de capas,
+1. Capas **animadas** (GIF/WEBM) no seletor — fase 2 do seletor de capas,
    ver seção própria mais abaixo (fase 1, estático, já está feita e
    confirmada funcionando)
-3. **Simplificar/automatizar mais a instalação** — testando no Legion Go 2
+2. **Simplificar/automatizar mais a instalação** — testando no Legion Go 2
    de verdade apareceu bastante coisa manual (instalar o SDK do .NET,
    configurar o OmniConsole, desligar Legion Space/Xbox/Steam duplicados
    em Configurações > Apps > Inicializar). O instalador já automatiza o
@@ -167,7 +202,7 @@ Ainda **não** feito:
    pode vir pré-configurada (ver seção própria abaixo), mas falta pensar
    num jeito de reduzir o resto também — ideia pra próxima leva, ainda sem
    desenho definido.
-4. **Decoupling do controle do Legion Go da Legion Space** — achado
+3. **Decoupling do controle do Legion Go da Legion Space** — achado
    testando no Legion Go 2: desligar o autostart da Legion Space (pra
    evitar ela abrir junto no boot) quebra a tradução dos joysticks do
    Legion Go (XInput) dentro dos jogos — os controles só funcionam
@@ -181,6 +216,16 @@ Ainda **não** feito:
    qualquer forma. Sem solução definitiva ainda — se alguém achar uma
    configuração de bandeja/minimizado escondida em alguma versão futura
    da Legion Space, essa seção é pra atualizar.
+4. **Confirmação antes de Reiniciar/Desligar o Legion Go** — o botão
+   "Power" (ver "Status atual" acima) executa `shutdown /r` ou `/s` na
+   hora, sem perguntar "tem certeza?" antes. Fica como decisão pendente
+   se vale a pena adicionar uma etapa de confirmação (um segundo
+   clique/tela antes de executar) pra evitar perder progresso de jogo
+   por um toque errado.
+5. Tela de configurações de verdade (o ícone de engrenagem agora abre o
+   menu geral — ver "Status atual" — mas isso não é configurações, é só
+   um menu de ações; editar `settings.json` na mão continua sendo o
+   único jeito de mudar algo configurável)
 
 ## Configurar a API key do SteamGridDB
 
@@ -369,6 +414,39 @@ pra tentar corrigir isso, mas **ainda não passou por esse teste depois de
 escrito**. O bug do botão "Sair" da barra de baixo não desativar o
 watchdog (só o do menu geral fazia isso) também foi corrigido nesta leva,
 sem teste depois ainda.
+
+**🔴 Reorganização da UI (barra de baixo/menu geral/engrenagem) + Minimizar
+bandeja + Power — status**: tudo isso é novo nesta leva (coordenadas de
+beta v0.2 passadas pelo usuário depois de testar v0.1 no Legion Go 2) e
+**nenhuma parte passou por teste num build real ainda** — só revisão
+manual de código, pela mesma limitação de sempre (sandbox sem
+`dotnet build`). Pontos que merecem atenção no primeiro teste:
+- O ícone de engrenagem agora chama `vm.ToggleGlobalMenu()` — confirmar
+  que abre o mesmo menu que View/Back abre.
+- Barra de baixo só com "Fechar: <jogo>" (condicional)/"Minimizar"/"Power".
+- "Minimizar" esconde a janela (`Hide()`) sem fechar o processo — ícone
+  novo aparece na bandeja do Windows; clicar nele ou usar "Abrir" no menu
+  dele restaura a janela; "Sair" no menu da bandeja fecha de vez
+  (desativando o watchdog). **Ctrl+Alt+H de qualquer lugar também
+  restaura** — essa parte usa `RegisterHotKey`/`Win32Properties.
+  AddWndProcHookCallback`, a peça de interop Win32 mais arriscada desta
+  leva (assinatura confirmada contra o código-fonte real do Avalonia,
+  mas isso não substitui testar de verdade).
+- Importante: o "enforcer" de Topmost (bullet acima) agora checa
+  `!IsVisible` antes de reafirmar o Topmost — sem esse cuidado, ele ia
+  forçar a janela a reaparecer a cada 2 segundos mesmo depois de
+  minimizada, quebrando o "Minimizar" inteiro. Revisado, mas sem teste
+  real ainda pra confirmar que o `Hide()` realmente fica escondido com o
+  enforcer rodando.
+- Botão "Power" abre um menu com "Desligar tela"/"Reiniciar o Legion
+  Go"/"Desligar o Legion Go" — sem confirmação antes de executar (ver
+  "Ainda não feito" item 4). "Desligar tela" usa `PostMessage` com
+  `WM_SYSCOMMAND`/`SC_MONITORPOWER`; os outros dois chamam
+  `shutdown.exe /r` e `/s` diretamente.
+- Ícone do app/bandeja gerado em `Assets/app-icon.ico` (256→16px, "HL"
+  nas cores do tema) e referenciado tanto no `<ApplicationIcon>` do
+  `.csproj` quanto no `Icon` da `MainWindow` e do `TrayIcon` — primeira
+  vez que o projeto usa um ícone próprio em vez do genérico do .NET.
 
 **Bug corrigido** (reportado pelo usuário): nos dois menus (Start e
 View/Back), só o D-pad movia ↑↓ — o analógico esquerdo só lia o eixo X

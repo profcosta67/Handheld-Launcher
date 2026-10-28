@@ -134,11 +134,15 @@ public sealed class MainViewModel : ViewModelBase
     private bool _isGlobalMenuOpen;
 
     /// <summary>
-    /// The global actions menu (View/Back button) — this is what makes the
-    /// bottom bar's buttons (Buscar capas, Adicionar jogo, Atualizar, Sair,
-    /// Fechar jogo) reachable without a mouse. Independent of
-    /// IsContextMenuOpen; MainWindow only lets one of the two be entered
-    /// at a time (see OnGamepadTick).
+    /// The global actions menu (View/Back button, or the gear icon in the
+    /// top bar for mouse/touch — same menu either way, see
+    /// MainWindow.OnGearMenuClick): Atualizar Biblioteca, Atualizar Capas
+    /// Automático, Adicionar jogo, Sair, and "Fechar: &lt;jogo&gt;" when
+    /// one is running. These used to also be separate buttons on the
+    /// bottom bar; consolidated into this one menu so there's a single
+    /// place for them instead of two. Independent of IsContextMenuOpen;
+    /// MainWindow only lets one of the three menus be entered at a time
+    /// (see OnGamepadTick).
     /// </summary>
     public bool IsGlobalMenuOpen
     {
@@ -156,6 +160,35 @@ public sealed class MainViewModel : ViewModelBase
 
     /// <summary>Raised when "Sair" is picked from the global menu — MainWindow owns Close(), not the ViewModel.</summary>
     public event EventHandler? QuitRequested;
+
+    private bool _isPowerMenuOpen;
+
+    /// <summary>
+    /// The "Power" button's menu (Desligar tela / Reiniciar / Desligar o
+    /// Legion Go) — same visual/overlay pattern as the global menu, just a
+    /// separate independent flag so opening one never interferes with the
+    /// other. MainWindow is the one place that checks which overlay (if
+    /// any) owns gamepad/keyboard input right now.
+    /// </summary>
+    public bool IsPowerMenuOpen
+    {
+        get => _isPowerMenuOpen;
+        private set => SetField(ref _isPowerMenuOpen, value);
+    }
+
+    public ObservableCollection<ContextMenuItemViewModel> PowerMenuItems { get; } = new();
+
+    private readonly List<Action> _powerMenuActions = new();
+    private int _powerMenuIndex;
+
+    /// <summary>Raised when "Desligar tela" is picked — MainWindow owns the actual Win32 call, not the ViewModel.</summary>
+    public event EventHandler? TurnOffScreenRequested;
+
+    /// <summary>Raised when "Reiniciar o Legion Go" is picked — MainWindow owns the actual `shutdown /r` call, not the ViewModel.</summary>
+    public event EventHandler? RestartDeviceRequested;
+
+    /// <summary>Raised when "Desligar o Legion Go" is picked — MainWindow owns the actual `shutdown /s` call, not the ViewModel.</summary>
+    public event EventHandler? ShutdownDeviceRequested;
 
     private bool _isCoverPickerOpen;
 
@@ -421,12 +454,84 @@ public sealed class MainViewModel : ViewModelBase
 
         if (CanFetchArtwork)
         {
-            Add("Buscar capas", FetchMissingArtwork);
+            Add("Atualizar Capas Automático", FetchMissingArtwork);
         }
 
         Add("Adicionar jogo", () => AddGameRequested?.Invoke(this, EventArgs.Empty));
-        Add("Atualizar", Refresh);
+        Add("Atualizar Biblioteca", Refresh);
         Add("Sair", () => QuitRequested?.Invoke(this, EventArgs.Empty));
+    }
+
+    /// <summary>Botão "Power" da barra de baixo: abre o menu, ou fecha se já estiver aberto (toggle).</summary>
+    public void TogglePowerMenu()
+    {
+        if (IsPowerMenuOpen)
+        {
+            ClosePowerMenu();
+            return;
+        }
+
+        BuildPowerMenu();
+        if (PowerMenuItems.Count == 0) return;
+
+        _powerMenuIndex = 0;
+        UpdatePowerMenuSelection();
+        IsPowerMenuOpen = true;
+    }
+
+    public void ClosePowerMenu()
+    {
+        IsPowerMenuOpen = false;
+    }
+
+    public void MovePowerMenuSelection(int delta)
+    {
+        if (!IsPowerMenuOpen || PowerMenuItems.Count == 0) return;
+        _powerMenuIndex = ((_powerMenuIndex + delta) % PowerMenuItems.Count + PowerMenuItems.Count) % PowerMenuItems.Count;
+        UpdatePowerMenuSelection();
+    }
+
+    public void ConfirmPowerMenuSelection()
+    {
+        if (!IsPowerMenuOpen) return;
+
+        var index = _powerMenuIndex;
+        ClosePowerMenu();
+
+        if (index >= 0 && index < _powerMenuActions.Count)
+        {
+            _powerMenuActions[index]();
+        }
+    }
+
+    private void UpdatePowerMenuSelection()
+    {
+        for (var i = 0; i < PowerMenuItems.Count; i++)
+        {
+            PowerMenuItems[i].IsSelected = i == _powerMenuIndex;
+        }
+    }
+
+    /// <summary>
+    /// Fixed 3-item list — no state to check, unlike BuildGlobalMenu, so
+    /// this could be built once in the constructor instead, but rebuilding
+    /// on open keeps the same pattern as the other two menus for
+    /// consistency.
+    /// </summary>
+    private void BuildPowerMenu()
+    {
+        PowerMenuItems.Clear();
+        _powerMenuActions.Clear();
+
+        void Add(string label, Action action)
+        {
+            PowerMenuItems.Add(new ContextMenuItemViewModel(label));
+            _powerMenuActions.Add(action);
+        }
+
+        Add("Desligar tela", () => TurnOffScreenRequested?.Invoke(this, EventArgs.Empty));
+        Add("Reiniciar o Legion Go", () => RestartDeviceRequested?.Invoke(this, EventArgs.Empty));
+        Add("Desligar o Legion Go", () => ShutdownDeviceRequested?.Invoke(this, EventArgs.Empty));
     }
 
     /// <summary>

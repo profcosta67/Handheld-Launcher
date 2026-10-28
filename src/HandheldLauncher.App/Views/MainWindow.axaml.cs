@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -11,9 +12,31 @@ namespace HandheldLauncher.App.Views;
 
 public partial class MainWindow : Window
 {
+    // --- Win32 interop: global restore hotkey + forced screen-off. See
+    // RegisterRestoreHotkey/TurnOffScreen below for why each one exists. ---
+    [DllImport("user32.dll")]
+    private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+
+    [DllImport("user32.dll")]
+    private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+
+    [DllImport("user32.dll")]
+    private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    private const int RestoreHotkeyId = 0xB00; // arbitrary, only needs to be unique within our own process
+    private const uint ModControl = 0x0002;
+    private const uint ModAlt = 0x0001;
+    private const uint ModNoRepeat = 0x4000; // don't refire while the keys are held down
+    private const uint VkH = 0x48; // 'H' - as in "Handheld"/"Home"
+    private const uint WmHotkey = 0x0312;
+    private const uint WmSysCommand = 0x0112;
+    private const int ScMonitorPower = 0xF170;
+    private static readonly IntPtr HwndBroadcast = new(0xffff);
+
     private readonly GamepadPoller _gamepad = new();
     private readonly DispatcherTimer _gamepadTimer;
     private DispatcherTimer? _topmostEnforcerTimer;
+    private bool _hotkeyRegistered;
 
     public MainWindow()
     {
@@ -43,7 +66,9 @@ public partial class MainWindow : Window
         Opened += (_, _) =>
         {
             if (Topmost) StartTopmostEnforcer();
+            RegisterRestoreHotkey();
         };
+        Closed += (_, _) => UnregisterRestoreHotkeyIfNeeded();
     }
 
     /// <summary>
@@ -73,13 +98,147 @@ public partial class MainWindow : Window
         _topmostEnforcerTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         _topmostEnforcerTimer.Tick += (_, _) =>
         {
-            if (!Topmost) return; // safety: if something turned this off on purpose, stop fighting it
+            // Two reasons to bail without touching anything:
+            // - Topmost off on purpose: something else (not us) turned it
+            //   off, so stop fighting it.
+            // - !IsVisible: the window is hidden via "Minimizar"
+            //   (MinimizeToTray/Hide()) — Activate() below would undo that
+            //   by forcing it back on screen every 2 seconds, which is
+            //   exactly the "fica abrindo toda hora" problem this whole
+            //   feature exists to fix. Only reassert while actually shown.
+            if (!Topmost || !IsVisible) return;
             Topmost = false;
             Topmost = true;
             Activate();
         };
         _topmostEnforcerTimer.Start();
         Closed += (_, _) => _topmostEnforcerTimer?.Stop();
+    }
+
+    /// <summary>
+    /// Registers Ctrl+Alt+H as a global hotkey — unlike a normal KeyDown
+    /// handler, RegisterHotKey keeps working even while this window is
+    /// hidden (via "Minimizar") or not focused, which is the whole point:
+    /// it's how you get the launcher back after minimizing it. Needs the
+    /// real native HWND, which only exists once the window has actually
+    /// been shown once — hooked off Opened like StartTopmostEnforcer
+    /// above, same reason. MOD_NOREPEAT so holding the keys down doesn't
+    /// fire RestoreFromTray() over and over. Always on (not gated to
+    /// kiosk/Topmost like the enforcer) since "Minimizar" itself is a
+    /// normal bottom-bar button in every mode, not just kiosk.
+    /// </summary>
+    private void RegisterRestoreHotkey()
+    {
+        if (TryGetPlatformHandle() is not { } handle) return;
+
+        Win32Properties.AddWndProcHookCallback(this, OnNativeWndProcHook);
+        _hotkeyRegistered = RegisterHotKey(handle.Handle, RestoreHotkeyId, ModControl | ModAlt | ModNoRepeat, VkH);
+    }
+
+    private void UnregisterRestoreHotkeyIfNeeded()
+    {
+        if (_hotkeyRegistered && TryGetPlatformHandle() is { } handle)
+        {
+            UnregisterHotKey(handle.Handle, RestoreHotkeyId);
+        }
+        Win32Properties.RemoveWndProcHookCallback(this, OnNativeWndProcHook);
+        _hotkeyRegistered = false;
+    }
+
+    /// <summary>Raw Win32 message hook (see RegisterRestoreHotkey) — the only thing we care about here is our own WM_HOTKEY.</summary>
+    private IntPtr OnNativeWndProcHook(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg == WmHotkey && wParam.ToInt32() == RestoreHotkeyId)
+        {
+            RestoreFromTray();
+            handled = true;
+        }
+
+        return IntPtr.Zero;
+    }
+
+    /// <summary>
+    /// Hides the window instead of closing it — the process keeps
+    /// running, so the watchdog's "is it running?" check (see
+    /// installer/Install-Launcher.ps1) never has a reason to relaunch it.
+    /// This is the fix for "fica abrindo toda hora, principalmente no
+    /// modo desktop": Alt+F4/crash is for when you want the watchdog to
+    /// kick back in; this is for when you just want it out of the way for
+    /// a while without fighting the watchdog over it. Bound to the
+    /// bottom-bar "Minimizar" button (OnMinimizeClick).
+    /// </summary>
+    private void MinimizeToTray()
+    {
+        Hide();
+    }
+
+    /// <summary>Called by the tray icon's "Sair" menu item (App.axaml.cs) — same deliberate-quit behavior as the gear/global menu's own "Sair".</summary>
+    public void QuitFromTray()
+    {
+        DisableWatchdogIfPresent();
+        Close();
+    }
+
+    /// <summary>Called by the tray icon's click/"Abrir" menu item (App.axaml.cs) and by the Ctrl+Alt+H hotkey above.</summary>
+    public void RestoreFromTray()
+    {
+        Show();
+        if (Topmost)
+        {
+            // Hide()/Show() shouldn't normally lose WindowState, but this
+            // costs nothing and removes any doubt for the one case that
+            // actually matters (kiosk installs).
+            WindowState = WindowState.FullScreen;
+        }
+        Activate();
+    }
+
+    /// <summary>
+    /// SC_MONITORPOWER via a broadcast WM_SYSCOMMAND — the standard Win32
+    /// trick to force the display off without touching sleep/hibernate.
+    /// lParam=2 means "off" (1=low power, -1=on). A real key press, mouse
+    /// move, or controller button on the Legion Go wakes it back up
+    /// through Windows' own normal input handling — nothing else needed
+    /// on our side for that.
+    /// </summary>
+    private static void TurnOffScreen()
+    {
+        try
+        {
+            PostMessage(HwndBroadcast, WmSysCommand, (IntPtr)ScMonitorPower, (IntPtr)2);
+        }
+        catch
+        {
+            // Best-effort — never let this crash the app.
+        }
+    }
+
+    /// <summary>
+    /// `shutdown /r /t 0` — immediate restart. No in-app confirmation step
+    /// before this fires (see chat/README for that open question — a
+    /// stray tap on "Power" then this item currently restarts right
+    /// away, which could lose game progress).
+    /// </summary>
+    private static void RestartDevice() => RunShutdownExe("/r /t 0");
+
+    /// <summary>`shutdown /s /t 0` — immediate shutdown, same no-confirmation caveat as RestartDevice.</summary>
+    private static void ShutdownDevice() => RunShutdownExe("/s /t 0");
+
+    private static void RunShutdownExe(string arguments)
+    {
+        try
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo("shutdown.exe", arguments)
+            {
+                CreateNoWindow = true,
+                UseShellExecute = false,
+            };
+            System.Diagnostics.Process.Start(psi);
+        }
+        catch
+        {
+            // Best-effort — never let this crash the app.
+        }
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
@@ -92,6 +251,9 @@ public partial class MainWindow : Window
             DisableWatchdogIfPresent();
             Close();
         };
+        vm.TurnOffScreenRequested += (_, _) => TurnOffScreen();
+        vm.RestartDeviceRequested += (_, _) => RestartDevice();
+        vm.ShutdownDeviceRequested += (_, _) => ShutdownDevice();
     }
 
     /// <summary>
@@ -134,7 +296,7 @@ public partial class MainWindow : Window
             // every action AND the exact overlay state at the moment it's
             // dispatched, so a "nothing happens" report can be checked
             // against what actually fired instead of guessed at blind.
-            DebugLog.Write($"action={action} pickerOpen={vm.IsCoverPickerOpen} ctxOpen={vm.IsContextMenuOpen} globalOpen={vm.IsGlobalMenuOpen}");
+            DebugLog.Write($"action={action} pickerOpen={vm.IsCoverPickerOpen} ctxOpen={vm.IsContextMenuOpen} globalOpen={vm.IsGlobalMenuOpen} powerOpen={vm.IsPowerMenuOpen}");
 
             // Cover/banner picker takes over input first — it can be opened
             // from inside the per-tile context menu (which closes itself
@@ -198,11 +360,13 @@ public partial class MainWindow : Window
                 continue;
             }
 
-            // Same idea for the global menu (View/Back button) — this is
-            // what reaches "Buscar capas"/"Adicionar jogo"/"Atualizar"/"Sair"
-            // without a mouse. Only reachable from the plain-navigation
-            // branch below, so the two menus can never both be open from
-            // gamepad input alone.
+            // Same idea for the global menu (View/Back button, or the
+            // gear icon in the top bar for mouse/touch — see
+            // OnGearMenuClick) — this is what reaches "Atualizar
+            // Biblioteca"/"Atualizar Capas Automático"/"Adicionar
+            // jogo"/"Sair" without a mouse. Only reachable from the
+            // plain-navigation branch below, so the menus below can never
+            // both be open from gamepad input alone.
             if (vm.IsGlobalMenuOpen)
             {
                 switch (action)
@@ -219,6 +383,33 @@ public partial class MainWindow : Window
                     case GamepadAction.Back:
                     case GamepadAction.GlobalMenu:
                         vm.CloseGlobalMenu();
+                        break;
+                }
+                continue;
+            }
+
+            // The "Power" menu (bottom-bar button, mouse/touch-only for
+            // now — no gamepad button opens it yet) gets the same
+            // "swallow input while open" treatment as the other overlays,
+            // for when it's navigated by keyboard/gamepad once already
+            // open.
+            if (vm.IsPowerMenuOpen)
+            {
+                switch (action)
+                {
+                    case GamepadAction.MoveUp:
+                        vm.MovePowerMenuSelection(-1);
+                        break;
+                    case GamepadAction.MoveDown:
+                        vm.MovePowerMenuSelection(1);
+                        break;
+                    case GamepadAction.Confirm:
+                        vm.ConfirmPowerMenuSelection();
+                        break;
+                    case GamepadAction.Back:
+                    case GamepadAction.Menu:
+                    case GamepadAction.GlobalMenu:
+                        vm.ClosePowerMenu();
                         break;
                 }
                 continue;
@@ -342,6 +533,30 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (vm.IsPowerMenuOpen)
+        {
+            switch (e.Key)
+            {
+                case Key.Up:
+                    vm.MovePowerMenuSelection(-1);
+                    e.Handled = true;
+                    break;
+                case Key.Down:
+                    vm.MovePowerMenuSelection(1);
+                    e.Handled = true;
+                    break;
+                case Key.Enter:
+                    vm.ConfirmPowerMenuSelection();
+                    e.Handled = true;
+                    break;
+                case Key.Escape:
+                    vm.ClosePowerMenu();
+                    e.Handled = true;
+                    break;
+            }
+            return;
+        }
+
         switch (e.Key)
         {
             case Key.Left:
@@ -420,22 +635,24 @@ public partial class MainWindow : Window
         vm.LaunchSelected();
     }
 
-    private void OnRefreshClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    /// <summary>
+    /// Gear icon in the top bar — opens the exact same menu as View/Back
+    /// on the controller (vm.ToggleGlobalMenu()), not a second separate
+    /// menu, so mouse/touch and controller always see the same options.
+    /// </summary>
+    private void OnGearMenuClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        (DataContext as MainViewModel)?.Refresh();
+        (DataContext as MainViewModel)?.ToggleGlobalMenu();
     }
 
-    /// <summary>
-    /// Bottom-bar "Sair" (mouse-only — see the comment on its XAML
-    /// counterpart for why it exists alongside the global menu's own
-    /// "Sair"). Must do the same watchdog-disable as
-    /// vm.QuitRequested below; this one bypassed it until now — same
-    /// bug class, both are a deliberate quit and both need to stick.
-    /// </summary>
-    private void OnQuitClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    private void OnMinimizeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        DisableWatchdogIfPresent();
-        Close();
+        MinimizeToTray();
+    }
+
+    private void OnPowerMenuClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        (DataContext as MainViewModel)?.TogglePowerMenu();
     }
 
     private void OnCloseGameClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -443,13 +660,7 @@ public partial class MainWindow : Window
         (DataContext as MainViewModel)?.CloseRunningGame();
     }
 
-    private async void OnAddGameClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (DataContext is not MainViewModel vm) return;
-        await OpenAddGameDialogAsync(vm);
-    }
-
-    /// <summary>Shared by the bottom-bar button and the global menu's "Adicionar jogo" entry.</summary>
+    /// <summary>Called by the global menu's "Adicionar jogo" entry (vm.AddGameRequested, wired in OnDataContextChanged).</summary>
     private async Task OpenAddGameDialogAsync(MainViewModel vm)
     {
         var dialog = new AddGameWindow();
