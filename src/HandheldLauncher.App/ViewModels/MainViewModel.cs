@@ -197,7 +197,33 @@ public sealed class MainViewModel : ViewModelBase
     public bool CoverPickerHasResults => CoverPickerCandidates.Count > 0;
 
     /// <summary>True once loading has finished with zero candidates — drives the "nenhuma opção" message.</summary>
-    public bool CoverPickerIsEmpty => !IsCoverPickerLoading && CoverPickerCandidates.Count == 0;
+    public bool CoverPickerIsEmpty => !IsCoverPickerLoading && !CoverPickerHasError && CoverPickerCandidates.Count == 0;
+
+    private string? _coverPickerErrorMessage;
+
+    /// <summary>
+    /// Set when GetGridCandidatesAsync/GetHeroCandidatesAsync throws — a
+    /// network hiccup, SteamGridDB being down, whatever. Added after a user
+    /// report of the picker seeming to do nothing at all when opened: an
+    /// unhandled exception in an async void method can otherwise disappear
+    /// silently (or, worse, crash the whole app) instead of ever reaching
+    /// IsCoverPickerLoading = false. Showing SOMETHING in the overlay beats
+    /// a bug that looks like "the button doesn't do anything."
+    /// </summary>
+    public string? CoverPickerErrorMessage
+    {
+        get => _coverPickerErrorMessage;
+        private set
+        {
+            if (SetField(ref _coverPickerErrorMessage, value))
+            {
+                OnPropertyChanged(nameof(CoverPickerHasError));
+                OnPropertyChanged(nameof(CoverPickerIsEmpty));
+            }
+        }
+    }
+
+    public bool CoverPickerHasError => !string.IsNullOrEmpty(CoverPickerErrorMessage);
 
     private int _coverPickerIndex;
     private bool _coverPickerIsHero;
@@ -409,10 +435,10 @@ public sealed class MainViewModel : ViewModelBase
         _coverPickerIsHero = isHero;
         _coverPickerGame = game;
         _coverPickerIndex = 0;
+        CoverPickerErrorMessage = null;
 
         CoverPickerCandidates.Clear();
-        OnPropertyChanged(nameof(CoverPickerHasResults));
-        OnPropertyChanged(nameof(CoverPickerIsEmpty));
+        NotifyCoverPickerResultFlags();
 
         IsCoverPickerLoading = true;
         IsCoverPickerOpen = true;
@@ -434,11 +460,19 @@ public sealed class MainViewModel : ViewModelBase
 
             UpdateCoverPickerSelection();
         }
+        catch (Exception ex)
+        {
+            // Without this, a network hiccup / SteamGridDB being down /
+            // anything else thrown here would just vanish — async void
+            // swallows it (or, worse, it escapes as an unhandled exception
+            // and can take the whole app down) — and from the player's
+            // seat that looks exactly like "the button does nothing."
+            CoverPickerErrorMessage = $"Erro ao buscar no SteamGridDB: {ex.Message}";
+        }
         finally
         {
             IsCoverPickerLoading = false;
-            OnPropertyChanged(nameof(CoverPickerHasResults));
-            OnPropertyChanged(nameof(CoverPickerIsEmpty));
+            NotifyCoverPickerResultFlags();
         }
     }
 
@@ -447,6 +481,12 @@ public sealed class MainViewModel : ViewModelBase
         IsCoverPickerOpen = false;
         _coverPickerGame = null;
         CoverPickerCandidates.Clear();
+        CoverPickerErrorMessage = null;
+        NotifyCoverPickerResultFlags();
+    }
+
+    private void NotifyCoverPickerResultFlags()
+    {
         OnPropertyChanged(nameof(CoverPickerHasResults));
         OnPropertyChanged(nameof(CoverPickerIsEmpty));
     }
