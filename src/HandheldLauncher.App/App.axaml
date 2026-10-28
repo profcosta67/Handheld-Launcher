@@ -5,7 +5,10 @@
 
   <Application.Styles>
     <FluentTheme />
-    <StyleInclude Source="avares://HandheldLauncher.App/Styles/Theme.axaml" />
+    <!-- "HandheldLauncher" here is the *assembly* name (csproj sets
+         AssemblyName=HandheldLauncher so the exe is HandheldLauncher.exe,
+         not the project/namespace name HandheldLauncher.App). -->
+    <StyleInclude Source="avares://HandheldLauncher/Styles/Theme.axaml" />
   </Application.Styles>
 
 </Application>
