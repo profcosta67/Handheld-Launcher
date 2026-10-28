@@ -105,13 +105,14 @@ Construído até agora:
     continuam funcionando normal; fechar o app sempre volta pro desktop
     comum. Quem liga essa flag é o instalador (ver seção própria mais
     abaixo), não é pra editar essa parte do `settings.json` na mão.
-    **Ainda não testado num build real** (nem em janela normal nem em
-    fullscreen de verdade).
-- **`installer/`** — `Install-Launcher.ps1` e `Uninstall-Launcher.ps1`,
-  ver seção "Instalar no Legion Go 2 / ROG Ally" mais abaixo. **Nunca
-  executados de fato** (escritos no mesmo sandbox sem Windows que o
-  resto do projeto) — é o próximo passo de teste depois do seletor de
-  capas.
+    **Confirmado funcionando** — abre fullscreen de verdade, sem borda,
+    num PC Windows normal.
+- **`installer/`** — `Install-Launcher.ps1`/`Uninstall-Launcher.ps1` (e os
+  `Instalar.bat`/`Desinstalar.bat` de duplo-clique por cima deles), ver
+  seção "Instalar no Legion Go 2 / ROG Ally" mais abaixo. Os `.ps1`
+  **confirmados funcionando** num PC Windows normal, de ponta a ponta; os
+  `.bat` de duplo-clique e a instalação no handheld de verdade **ainda
+  não testados**.
 
 Ainda **não** feito:
 
@@ -134,13 +135,11 @@ Ainda **não** feito:
 
 ## Instalar no Legion Go 2 / ROG Ally (beta v0.1)
 
-**Importante: os dois scripts abaixo nunca foram executados de verdade** —
-escritos no mesmo sandbox Linux sem Windows que o resto do projeto. São os
-próximos a testar depois do seletor de capas. Se algo der erro, copia a
-mensagem exata que apareceu no terminal (igual você já vem fazendo com o
-resto) — tanto `Install-Launcher.ps1` quanto `Uninstall-Launcher.ps1` gravam
-um log (`install-log.txt`, dentro da pasta de instalação) além de mostrar
-tudo na tela.
+**Confirmado funcionando num PC Windows normal** (publish, cópia, atalhos,
+modo kiosk, ajuste do Xbox Game Bar, busca do Legion Space/Armoury Crate —
+tudo rodou de ponta a ponta). Ainda não testado no Legion/ROG Ally de
+verdade, nem o instalador duplo-clique (`Instalar.bat`) — só os scripts
+`.ps1` por trás dele.
 
 O que o instalador faz, resumido (detalhes completos nos comentários do
 próprio `Install-Launcher.ps1`): publica o app (`dotnet publish`,
@@ -154,51 +153,78 @@ Legion Space/Armoury Crate SE de abrirem sozinhos no boot (os dois
 primeiros via chaves de registro bem documentadas; os do fabricante via uma
 busca "melhor esforço" — ver comentários do script pras limitações disso).
 
-**Passo a passo:**
+**Jeito fácil (duplo-clique, sem digitar comando nenhum):**
 
-1. Antes de rodar qualquer script `.ps1` baixado, o PowerShell do Windows
-   normalmente bloqueia a execução por padrão. Abre o PowerShell **nessa
-   pasta** (`cd` até `handheld-launcher\installer`) e roda:
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File .\Install-Launcher.ps1
-   ```
-   (isso só libera a execução pra esse comando específico, não muda
-   nenhuma configuração permanente do Windows)
-2. Se for instalar DIRETO no Legion/ROG Ally e aquela máquina não tiver o
-   SDK do .NET instalado: roda `Install-Launcher.ps1` (sem `-SkipPublish`)
-   no seu PC normal primeiro, depois copia a pasta `installer\publish\`
-   inteira junto com os dois scripts `.ps1` pro Legion/ROG Ally, e roda lá:
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File .\Install-Launcher.ps1 -SkipPublish
-   ```
-3. Ao final, o script mostra (e grava em `install-log.txt`) tudo que foi
-   feito — inclusive se achou ou não alguma entrada do Legion Space/Armoury
-   Crate pra desativar. Se não achou nada e aqueles apps continuarem
-   abrindo sozinhos, desativa manualmente em **Configurações > Aplicativos
-   > Inicializar** (ou Gerenciador de Tarefas > aba Inicializar) — é o
-   jeito seguro que funciona independente de qual mecanismo o fabricante
-   usa.
-4. Pra desfazer tudo (remove o app instalado, os atalhos, e restaura os
-   ajustes de registro/inicialização pro estado de antes):
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File .\Uninstall-Launcher.ps1
-   ```
+Dentro de `installer\`, tem dois arquivos `.bat`:
+
+- **`Instalar.bat`** — clica duas vezes. Ele detecta sozinho se o .NET SDK
+  está instalado na máquina: se estiver (seu PC normal), publica o app do
+  zero; se não estiver (o esperado no próprio Legion/ROG Ally), usa uma
+  pasta `publish\` que precisa já estar copiada ali do lado (veja o passo
+  2 abaixo). A janela fica aberta no final (`pause`) pra você ler o
+  resultado com calma, sem fechar sozinha.
+- **`Desinstalar.bat`** — desfaz tudo (remove o app, atalhos, e restaura
+  os ajustes de registro/inicialização pro estado de antes).
+
+**Passo a passo pra levar pro Legion/ROG Ally** (que provavelmente não tem
+o SDK do .NET instalado):
+
+1. No seu PC normal (onde já funcionou), roda `Instalar.bat` uma vez — isso
+   gera a pasta `installer\publish\` com o app já publicado e pronto pra
+   rodar em qualquer Windows x64, sem precisar do SDK.
+2. Copia a pasta `installer\publish\` **inteira**, junto com os dois
+   arquivos `.bat` e os dois `.ps1`, pro Legion/ROG Ally (pen drive, rede,
+   como preferir) — mantendo a mesma pasta `installer\` com tudo dentro.
+3. No Legion/ROG Ally, clica duas vezes em `Instalar.bat`. Como não tem o
+   SDK ali, ele detecta isso e usa a pasta `publish\` que você copiou, em
+   vez de tentar publicar de novo.
+4. No final, lê a mensagem na tela (a janela fica aberta esperando você
+   apertar uma tecla) — ela mostra se achou ou não alguma entrada do
+   Legion Space/Armoury Crate pra desativar. Se não achou nada e aqueles
+   apps continuarem abrindo sozinhos, desativa manualmente em
+   **Configurações > Aplicativos > Inicializar** (ou Gerenciador de
+   Tarefas > aba Inicializar) — é o jeito seguro que funciona
+   independente de qual mecanismo o fabricante usa.
+5. Pra desfazer, clica duas vezes em `Desinstalar.bat`.
+
+**Jeito manual (PowerShell direto, pra quem quiser passar alguma opção
+extra como `-NoDesktopShortcut` ou `-KeepFiles`)**: abre o PowerShell
+**dentro da pasta** `installer\` (`cd` até lá — rodar de outra pasta, como
+`C:\WINDOWS\System32`, só vai dar "arquivo não encontrado") e roda:
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Install-Launcher.ps1
+```
+ou, usando uma pasta `publish\` já existente:
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Install-Launcher.ps1 -SkipPublish
+```
+e pra desinstalar:
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Uninstall-Launcher.ps1
+```
 
 ## ⚠️ Build ainda não totalmente verificado aqui
 
 Este projeto foi escrito num sandbox Linux que bloqueia acesso a
 `api.nuget.org` — não dá pra rodar `dotnet restore`/`build` aqui pra validar.
 
-**🔴 Risco mais alto desta leva — modo kiosk + instalador**: diferente dos
-bugs de UI de levas anteriores, `Install-Launcher.ps1` toca em registro do
-Windows e em pastas de inicialização automática. É tudo pensado pra ser
-reversível (o próprio `Uninstall-Launcher.ps1` desfaz, e qualquer passo de
-registro/inicialização que falhar vira só um aviso no log, não derruba a
-instalação do app em si) — mas nunca foi executado de verdade, então testa
-num momento em que você consegue acompanhar o resultado (não antes de sair
-de casa, por exemplo), e lê o `install-log.txt` no final pra confirmar que
-cada passo fez o que devia. Se algo parecer errado, roda o
-`Uninstall-Launcher.ps1` e me manda o log de ambos.
+**🔴 Modo kiosk + instalador — status**: `Install-Launcher.ps1` toca em
+registro do Windows e em pastas de inicialização automática, então é tudo
+pensado pra ser reversível (o próprio `Uninstall-Launcher.ps1` desfaz, e
+qualquer passo de registro/inicialização que falhar vira só um aviso no
+log, não derruba a instalação do app em si). **Confirmado funcionando**
+num PC Windows normal, de ponta a ponta — publish, cópia, atalhos, modo
+kiosk abrindo fullscreen de verdade, ajuste do Xbox Game Bar, busca do
+Legion Space/Armoury Crate (achou nada, como esperado — PC normal não tem
+esse software). Um bug já apareceu e foi corrigido: o script procurava
+`HandheldLauncher.App.exe` depois do publish, mas o `.csproj` nomeia o
+executável só de `HandheldLauncher.exe` (`<AssemblyName>` diferente do
+nome da pasta do projeto). **Ainda não testados**: os dois `.bat` de
+duplo-clique (`Instalar.bat`/`Desinstalar.bat`, criados só pra não precisar
+digitar comando no Legion/ROG Ally) e a instalação no handheld de verdade
+(até agora só rodou no PC). Testa num momento em que você consegue
+acompanhar o resultado, e lê o `install-log.txt` no final pra confirmar
+que cada passo fez o que devia.
 
 **Bug corrigido** (reportado pelo usuário): nos dois menus (Start e
 View/Back), só o D-pad movia ↑↓ — o analógico esquerdo só lia o eixo X
