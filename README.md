@@ -28,17 +28,20 @@ Construído até agora:
     processo direto pros manuais), rastreia quando fecham, e fecha à força
     via `CloseGame()` (processo próprio pros manuais; sweep best-effort por
     `InstallDirectory` pros Steam, já que não possuímos o processo real).
-  - `SteamGridDbClient` / `ArtworkService` — busca a melhor capa no
-    SteamGridDB (por AppId pros jogos Steam, por nome pros manuais), baixa
-    e cacheia em `%AppData%\HandheldLauncher\artwork\`, persiste o caminho
-    como override.
+  - `SteamGridDbClient` / `ArtworkService` — busca a melhor capa ("grid")
+    **e o banner largo ("hero")** no SteamGridDB (por AppId pros jogos
+    Steam, por nome pros manuais), baixa e cacheia em
+    `%AppData%\HandheldLauncher\artwork\`, persiste os dois caminhos como
+    override.
   - `AppSettingsStore` — lê/cria `%AppData%\HandheldLauncher\settings.json`
     (hoje só guarda a API key do SteamGridDB — não tem tela de
     configurações ainda, é editar o arquivo na mão por enquanto).
 - **`HandheldLauncher.App`** — UI em Avalonia:
-  - Janela com hero (jogo focado, grande) + fileira horizontal dos outros
-    jogos, barra de topo e barra inferior — layout inspirado na referência
-    que você mandou.
+  - Janela com banner hero largo/deitado em cima (jogo focado, usando o
+    banner do SteamGridDB) + fileira horizontal de capas menores em pé
+    embaixo (todos os jogos, incluindo o focado, destacado), barra de topo
+    e barra inferior — layout estilo Steam Deck, inspirado na segunda
+    referência que você mandou.
   - Navegação por **controle via XInput** (dpad/analógico esquerdo, A
     confirma, B fecha o jogo) — testado e funcionando com um controle Xbox.
     Teclado (← → Enter Esc) continua funcionando como fallback de dev.

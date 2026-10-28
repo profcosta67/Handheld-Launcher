@@ -41,31 +41,32 @@
       </Grid>
     </Border>
 
-    <!-- Main content: hero + horizontal row -->
-    <Grid Grid.Row="1" ColumnDefinitions="420,*" Margin="24,20,24,20">
+    <!-- Main content: landscape hero banner on top (focused game), row of
+         smaller portrait tiles for everything else below — Steam-Deck-style
+         layout per the second reference image, instead of the old
+         side-by-side hero+row split. -->
+    <Grid Grid.Row="1" RowDefinitions="Auto,*" Margin="24,20,24,20">
 
-      <!-- Hero: the focused game, big -->
-      <Border Grid.Column="0" Classes="heroCard" Margin="0,0,12,0">
+      <!-- Hero: the focused game, wide landscape banner -->
+      <Border Grid.Row="0" Classes="heroBanner" Height="320" Margin="0,0,0,16">
         <!-- Border only allows a single Child, so both states (game selected /
              empty library) live inside one outer Grid, toggled by IsVisible. -->
         <Grid>
-          <Grid RowDefinitions="*,Auto" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
-            <Image Grid.Row="0"
-                   Source="{Binding SelectedTile.GridImagePath, Converter={StaticResource FileToBitmapConverter}}"
+          <Grid IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
+            <Image Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
                    Stretch="UniformToFill" />
 
-            <!-- Placeholder shown while there's no cover art yet (pre-SteamGridDB) -->
-            <TextBlock Grid.Row="0"
-                       Text="{Binding SelectedTile.Title}"
+            <!-- Placeholder shown while there's no hero/cover art yet (pre-SteamGridDB) -->
+            <TextBlock Text="{Binding SelectedTile.Title}"
                        Classes="heroTitle"
                        TextWrapping="Wrap"
                        TextAlignment="Center"
                        VerticalAlignment="Center"
                        HorizontalAlignment="Center"
                        Margin="20"
-                       IsVisible="{Binding SelectedTile.GridImagePath, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
+                       IsVisible="{Binding SelectedTile.BannerImagePath, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
 
-            <Border Grid.Row="1" Background="#B30C0D12" Padding="20,16">
+            <Border VerticalAlignment="Bottom" Background="#B30C0D12" Padding="24,16">
               <StackPanel Spacing="4">
                 <TextBlock Text="{Binding SelectedTile.Title}" Classes="heroTitle" TextWrapping="Wrap" />
                 <TextBlock Text="{Binding SelectedTile.Game.PlaytimeMinutes, StringFormat='{}{0} min jogados'}"
@@ -85,9 +86,11 @@
         </Grid>
       </Border>
 
-      <!-- Horizontal row of every other game -->
-      <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-        <ItemsControl ItemsSource="{Binding Games}" Margin="12,0,0,0">
+      <!-- Horizontal row of every game (portrait tiles), including the
+           focused one — same tile that's blown up in the banner above also
+           shows here, highlighted, so left/right navigation reads clearly. -->
+      <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+        <ItemsControl ItemsSource="{Binding Games}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
               <StackPanel Orientation="Horizontal" Spacing="14" />
@@ -138,7 +141,7 @@
                 Content="Buscar capas"
                 Command="{Binding FetchArtworkCommand}"
                 IsEnabled="{Binding CanFetchArtwork}"
-                ToolTip.Tip="Busca capas no SteamGridDB para os jogos sem capa. Precisa de uma API key em %AppData%\HandheldLauncher\settings.json"
+                ToolTip.Tip="Busca capa e banner no SteamGridDB para os jogos sem um dos dois. Precisa de uma API key em %AppData%\HandheldLauncher\settings.json"
                 Margin="0,0,10,0" />
         <Button Grid.Column="3" Classes="pill" Content="Atualizar" Click="OnRefreshClick" Margin="0,0,10,0" />
         <Button Grid.Column="4" Classes="pill" Content="Sair" Click="OnQuitClick" />

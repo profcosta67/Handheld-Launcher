@@ -24,6 +24,21 @@ public sealed class GameTileViewModel : ViewModelBase
     /// </summary>
     public string? GridImagePath => Game.GridImagePath;
 
+    /// <summary>
+    /// Wide banner art (SteamGridDB "hero") used when this tile is the
+    /// focused/hero game. Independent fetch from GridImagePath — a game can
+    /// have one without the other.
+    /// </summary>
+    public string? HeroImagePath => Game.HeroImagePath;
+
+    /// <summary>
+    /// What the big landscape banner should show for this game: the real
+    /// hero art when we have it, otherwise the portrait cover stretched to
+    /// fill (still better than a blank panel), otherwise null for the
+    /// title-only placeholder.
+    /// </summary>
+    public string? BannerImagePath => Game.HeroImagePath ?? Game.GridImagePath;
+
     private bool _isFocused;
     public bool IsFocused
     {

@@ -44,7 +44,7 @@
     <Setter Property="BorderThickness" Value="3" />
   </Style>
 
-  <Style Selector="Border.heroCard">
+  <Style Selector="Border.heroCard, Border.heroBanner">
     <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
     <Setter Property="CornerRadius" Value="{StaticResource HeroCornerRadius}" />
     <Setter Property="ClipToBounds" Value="True" />

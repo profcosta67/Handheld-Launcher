@@ -68,6 +68,40 @@ public sealed class ArtworkService : IArtworkService
         return true;
     }
 
+    public async Task<bool> FetchHeroAsync(GameEntry game, CancellationToken ct = default)
+    {
+        if (!HasApiKey) return false;
+
+        var image = game.Source == GameSource.Steam && game.SteamAppId is { } appId
+            ? await _client.GetBestHeroForSteamAppAsync(appId, ct)
+            : await _client.GetBestHeroForTitleAsync(game.Title, ct);
+
+        if (image is null) return false;
+
+        Directory.CreateDirectory(_cacheDir);
+
+        var extension = Path.GetExtension(new Uri(image.Url).LocalPath);
+        if (string.IsNullOrEmpty(extension)) extension = ".png";
+        var localPath = Path.Combine(_cacheDir, $"{game.Id}_hero{extension}");
+
+        try
+        {
+            var bytes = await _downloadHttp.GetByteArrayAsync(image.Url, ct);
+            await File.WriteAllBytesAsync(localPath, bytes, ct);
+        }
+        catch (Exception) when (ct.IsCancellationRequested is false)
+        {
+            return false;
+        }
+
+        var data = GetOrCreateOverride(game.Id);
+        data.HeroImagePath = localPath;
+        _store.SaveOverride(game.Id, data);
+
+        game.HeroImagePath = localPath;
+        return true;
+    }
+
     private GameMetadataOverride GetOrCreateOverride(string gameId)
     {
         var overrides = _store.LoadOverrides();

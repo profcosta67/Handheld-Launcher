@@ -139,11 +139,11 @@ public sealed class MainViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Fetches covers for every game that doesn't have one yet, one at a
-    /// time (not parallel — gentler on the API and simpler to reason about
-    /// without a real test run to tune concurrency against). Can take a
-    /// while on a big library; the button disables itself meanwhile via
-    /// CanFetchArtwork.
+    /// Fetches covers AND hero banners for every game missing either, one
+    /// game/image at a time (not parallel — gentler on the API and simpler
+    /// to reason about without a real test run to tune concurrency
+    /// against). Can take a while on a big library; the button disables
+    /// itself meanwhile via CanFetchArtwork.
     /// </summary>
     private async void FetchMissingArtwork()
     {
@@ -154,8 +154,15 @@ public sealed class MainViewModel : ViewModelBase
         {
             foreach (var tile in Games.ToList())
             {
-                if (!string.IsNullOrEmpty(tile.Game.GridImagePath)) continue;
-                await _artwork.FetchGridAsync(tile.Game);
+                if (string.IsNullOrEmpty(tile.Game.GridImagePath))
+                {
+                    await _artwork.FetchGridAsync(tile.Game);
+                }
+
+                if (string.IsNullOrEmpty(tile.Game.HeroImagePath))
+                {
+                    await _artwork.FetchHeroAsync(tile.Game);
+                }
             }
 
             Refresh();

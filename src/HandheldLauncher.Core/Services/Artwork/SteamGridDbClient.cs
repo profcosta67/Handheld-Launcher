@@ -15,9 +15,10 @@ namespace HandheldLauncher.Core.Services.Artwork;
 /// in the App project: everything written where we couldn't reach nuget.org
 /// to verify a package-based approach even builds.
 ///
-/// Scope for v1: grid (cover) art only. Heroes/logos/icons are the same
-/// shape of call against different endpoints — straightforward to add once
-/// grids are confirmed working end-to-end on a real library.
+/// Covers grids (portrait covers) and heroes (wide banners) — both come back
+/// in the same response shape, so FetchBestGrid is reused for both and just
+/// gets pointed at a different endpoint. Logos/icons aren't wired up yet;
+/// same pattern applies if that's ever needed.
 /// </summary>
 public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
 {
@@ -58,6 +59,26 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
         if (gameId is null) return null;
 
         return await FetchBestGrid($"{BaseUrl}/grids/game/{gameId}?dimensions=600x900", ct);
+    }
+
+    public async Task<SteamGridDbImage?> GetBestHeroForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
+    {
+        if (!HasApiKey) return null;
+        // No dimensions filter here on purpose — heroes come in a few wide
+        // aspect ratios (1920x620, 3840x1240, 1600x650...) and SteamGridDB's
+        // hero library is thinner than its grid library, so narrowing by
+        // dimensions would throw away matches we'd rather keep.
+        return await FetchBestGrid($"{BaseUrl}/heroes/steam/{steamAppId}", ct);
+    }
+
+    public async Task<SteamGridDbImage?> GetBestHeroForTitleAsync(string title, CancellationToken ct = default)
+    {
+        if (!HasApiKey) return null;
+
+        var gameId = await SearchGameId(title, ct);
+        if (gameId is null) return null;
+
+        return await FetchBestGrid($"{BaseUrl}/heroes/game/{gameId}", ct);
     }
 
     private async Task<int?> SearchGameId(string title, CancellationToken ct)

@@ -16,4 +16,12 @@ public interface IArtworkService
     /// (no API key, no match found, download failed) — never throws.
     /// </summary>
     Task<bool> FetchGridAsync(GameEntry game, CancellationToken ct = default);
+
+    /// <summary>
+    /// Same idea as FetchGridAsync but for the wide "hero" banner
+    /// (game.HeroImagePath) used behind the focused game. Independent of
+    /// the grid fetch — a game can have one without the other, since
+    /// SteamGridDB's hero coverage is thinner than its grid coverage.
+    /// </summary>
+    Task<bool> FetchHeroAsync(GameEntry game, CancellationToken ct = default);
 }
