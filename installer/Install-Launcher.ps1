@@ -75,7 +75,7 @@ $scriptDir = $PSScriptRoot
 $repoRoot = Split-Path -Parent $scriptDir
 $publishDir = Join-Path $scriptDir 'publish'
 $installDir = Join-Path $env:LOCALAPPDATA 'Programs\HandheldLauncher'
-$exeName = 'HandheldLauncher.App.exe'
+$exeName = 'HandheldLauncher.exe'
 $logPath = Join-Path $installDir 'install-log.txt'
 $backupPath = Join-Path $installDir 'kiosk-backup.json'
 
