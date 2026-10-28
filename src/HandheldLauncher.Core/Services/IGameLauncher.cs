@@ -10,6 +10,15 @@ public interface IGameLauncher
     bool IsAnyGameRunning { get; }
 
     void Launch(GameEntry game);
+
+    /// <summary>
+    /// Forces a running game closed — the explicit "fechar jogo" action from
+    /// the UI/controller, for when a game doesn't exit cleanly on its own
+    /// (or, for Steam titles, since we don't yet detect their exit
+    /// automatically — see GameLauncher's class comment).
+    /// Safe to call even if the game isn't actually running.
+    /// </summary>
+    void CloseGame(GameEntry game);
 }
 
 public sealed class GameExitedEventArgs : EventArgs

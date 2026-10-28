@@ -32,8 +32,12 @@
           <Ellipse Width="10" Height="10" Fill="{StaticResource AccentBrush}" VerticalAlignment="Center" />
           <TextBlock Text="Handheld Launcher" Classes="gameTitle" VerticalAlignment="Center" />
         </StackPanel>
-        <!-- System tray area (wifi/battery/clock) is a later pass — placeholder for now. -->
-        <TextBlock Grid.Column="1" Text="●●●  ⚡100%" Classes="subtle" VerticalAlignment="Center" />
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16">
+          <!-- System tray area (wifi/battery/clock) is a later pass — placeholder for now. -->
+          <TextBlock Text="●●●  ⚡100%" Classes="subtle" VerticalAlignment="Center" />
+          <!-- Settings is a visual placeholder only — not wired up yet, see chat for the open question on scope. -->
+          <Button Classes="pill" Content="⚙" Padding="10,6" IsEnabled="False" ToolTip.Tip="Configurações (em breve)" />
+        </StackPanel>
       </Grid>
     </Border>
 
@@ -118,13 +122,19 @@
 
     <!-- Bottom bar -->
     <Border Grid.Row="2" Classes="bottomBar" Margin="24,0,24,20" Padding="20,12">
-      <Grid ColumnDefinitions="*,Auto,Auto">
+      <Grid ColumnDefinitions="*,Auto,Auto,Auto">
         <TextBlock Grid.Column="0"
-                   Text="Use ← → para navegar, Enter para jogar"
+                   Text="← → navega · A/Enter joga · B/Esc fecha o jogo"
                    Classes="subtle"
                    VerticalAlignment="Center" />
-        <Button Grid.Column="1" Classes="pill" Content="Atualizar" Click="OnRefreshClick" Margin="0,0,10,0" />
-        <Button Grid.Column="2" Classes="pill" Content="Sair" Click="OnQuitClick" />
+        <Button Grid.Column="1"
+                Classes="pill"
+                Content="{Binding RunningGame.Title, StringFormat='Fechar: {0}'}"
+                Click="OnCloseGameClick"
+                IsVisible="{Binding RunningGame, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}"
+                Margin="0,0,10,0" />
+        <Button Grid.Column="2" Classes="pill" Content="Atualizar" Click="OnRefreshClick" Margin="0,0,10,0" />
+        <Button Grid.Column="3" Classes="pill" Content="Sair" Click="OnQuitClick" />
       </Grid>
     </Border>
 

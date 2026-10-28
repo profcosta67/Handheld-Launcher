@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
+using HandheldLauncher.Core.Models;
 using HandheldLauncher.Core.Services;
 
 namespace HandheldLauncher.App.ViewModels;
@@ -21,6 +22,7 @@ public sealed class MainViewModel : ViewModelBase
         MoveNextCommand = new RelayCommand(MoveNext, () => Games.Count > 1);
         MovePreviousCommand = new RelayCommand(MovePrevious, () => Games.Count > 1);
         LaunchSelectedCommand = new RelayCommand(LaunchSelected, () => SelectedTile is not null);
+        CloseRunningGameCommand = new RelayCommand(CloseRunningGame, () => RunningGame is not null);
         RefreshCommand = new RelayCommand(Refresh);
 
         SelectedIndex = Games.Count > 0 ? 0 : -1;
@@ -57,9 +59,24 @@ public sealed class MainViewModel : ViewModelBase
         private set => SetField(ref _selectedTile, value);
     }
 
+    /// <summary>
+    /// The game the UI currently considers "running" — set when we launch,
+    /// cleared on an explicit close or a detected exit. For Steam titles we
+    /// have no automatic exit detection yet (see GameLauncher), so this can
+    /// stay set even after the player has already quit the game; the
+    /// "Fechar jogo" button/B-button is the explicit way back from that.
+    /// </summary>
+    private GameEntry? _runningGame;
+    public GameEntry? RunningGame
+    {
+        get => _runningGame;
+        private set => SetField(ref _runningGame, value);
+    }
+
     public ICommand MoveNextCommand { get; }
     public ICommand MovePreviousCommand { get; }
     public ICommand LaunchSelectedCommand { get; }
+    public ICommand CloseRunningGameCommand { get; }
     public ICommand RefreshCommand { get; }
 
     public void MoveNext() => SelectedIndex++;
@@ -70,6 +87,14 @@ public sealed class MainViewModel : ViewModelBase
     {
         if (SelectedTile is null) return;
         _launcher.Launch(SelectedTile.Game);
+        RunningGame = SelectedTile.Game;
+    }
+
+    public void CloseRunningGame()
+    {
+        if (RunningGame is null) return;
+        _launcher.CloseGame(RunningGame);
+        RunningGame = null;
     }
 
     public void Refresh()
@@ -102,6 +127,7 @@ public sealed class MainViewModel : ViewModelBase
     private void OnGameExited(object? sender, GameExitedEventArgs e)
     {
         _library.RecordPlaySession(e.Game.Id, e.Duration);
+        if (RunningGame?.Id == e.Game.Id) RunningGame = null;
         Refresh();
     }
 }
