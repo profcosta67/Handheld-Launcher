@@ -95,6 +95,40 @@ public sealed class MainViewModel : ViewModelBase
     /// button's ToolTip in MainWindow.axaml is where that's spelled out.</summary>
     public bool CanFetchArtwork => _artwork.HasApiKey && !IsFetchingArtwork;
 
+    private bool _isContextMenuOpen;
+
+    /// <summary>
+    /// Per-tile menu opened with the Start button. While this is true,
+    /// MainWindow routes gamepad/keyboard up/down/confirm/back into the
+    /// menu instead of the normal tile navigation — see OnGamepadTick.
+    /// </summary>
+    public bool IsContextMenuOpen
+    {
+        get => _isContextMenuOpen;
+        private set => SetField(ref _isContextMenuOpen, value);
+    }
+
+    private GameTileViewModel? _contextMenuTarget;
+    public GameTileViewModel? ContextMenuTarget
+    {
+        get => _contextMenuTarget;
+        private set => SetField(ref _contextMenuTarget, value);
+    }
+
+    private int _contextMenuIndex;
+
+    /// <summary>
+    /// v1's fixed action list, in order (index matches
+    /// ConfirmContextMenuSelection's switch). Small and fixed on purpose —
+    /// grows into something data-driven if/when there are more than a
+    /// couple of actions.
+    /// </summary>
+    public ObservableCollection<ContextMenuItemViewModel> ContextMenuItems { get; } = new()
+    {
+        new ContextMenuItemViewModel("Buscar capa no SteamGridDB"),
+        new ContextMenuItemViewModel("Abrir jogo"),
+    };
+
     public ICommand MoveNextCommand { get; }
     public ICommand MovePreviousCommand { get; }
     public ICommand LaunchSelectedCommand { get; }
@@ -132,6 +166,111 @@ public sealed class MainViewModel : ViewModelBase
         if (RunningGame is null) return;
         _launcher.CloseGame(RunningGame);
         RunningGame = null;
+    }
+
+    /// <summary>Start button: opens the menu for SelectedTile, or closes it if already open (toggle).</summary>
+    public void ToggleContextMenu()
+    {
+        if (IsContextMenuOpen)
+        {
+            CloseContextMenu();
+            return;
+        }
+
+        if (SelectedTile is null) return;
+
+        ContextMenuTarget = SelectedTile;
+        _contextMenuIndex = 0;
+        UpdateContextMenuSelection();
+        IsContextMenuOpen = true;
+    }
+
+    public void CloseContextMenu()
+    {
+        IsContextMenuOpen = false;
+        ContextMenuTarget = null;
+    }
+
+    /// <summary>+1/-1 while the menu is open — wraps around, there are only ever a couple of items.</summary>
+    public void MoveContextMenuSelection(int delta)
+    {
+        if (!IsContextMenuOpen || ContextMenuItems.Count == 0) return;
+        _contextMenuIndex = ((_contextMenuIndex + delta) % ContextMenuItems.Count + ContextMenuItems.Count) % ContextMenuItems.Count;
+        UpdateContextMenuSelection();
+    }
+
+    public void ConfirmContextMenuSelection()
+    {
+        if (!IsContextMenuOpen || ContextMenuTarget is null)
+        {
+            CloseContextMenu();
+            return;
+        }
+
+        var game = ContextMenuTarget.Game;
+        var selectedAction = _contextMenuIndex;
+        CloseContextMenu();
+
+        switch (selectedAction)
+        {
+            case 0: // Buscar capa no SteamGridDB
+                _ = RefetchArtworkAsync(game);
+                break;
+
+            case 1: // Abrir jogo
+                var tile = Games.FirstOrDefault(t => t.Game.Id == game.Id);
+                if (tile is not null)
+                {
+                    SelectedIndex = Games.IndexOf(tile);
+                    LaunchSelected();
+                }
+                break;
+        }
+    }
+
+    private void UpdateContextMenuSelection()
+    {
+        for (var i = 0; i < ContextMenuItems.Count; i++)
+        {
+            ContextMenuItems[i].IsSelected = i == _contextMenuIndex;
+        }
+    }
+
+    /// <summary>
+    /// Forces a fresh grid+hero lookup for one game, overwriting whatever
+    /// it already has. Note for whoever's reading this because a user
+    /// asked "can I pick a different cover?": today this still grabs
+    /// SteamGridDB's single top-scored match for both grid and hero, same
+    /// as FetchMissingArtwork — it's a re-roll, not a browse-and-pick
+    /// across candidates. A real picker needs ISteamGridDbClient to return
+    /// a list of candidates instead of just the best one, plus UI to
+    /// browse them; that's future work, not implemented here.
+    /// </summary>
+    private async Task RefetchArtworkAsync(GameEntry game)
+    {
+        if (!_artwork.HasApiKey) return;
+
+        IsFetchingArtwork = true;
+        try
+        {
+            await _artwork.FetchGridAsync(game);
+            await _artwork.FetchHeroAsync(game);
+            Refresh();
+        }
+        finally
+        {
+            IsFetchingArtwork = false;
+        }
+    }
+
+    /// <summary>Called from MainWindow's "Adicionar jogo" dialog once the user fills it in and confirms.</summary>
+    public void AddManualGame(GameEntry game)
+    {
+        _library.AddManualGame(game);
+        Refresh();
+
+        var tile = Games.FirstOrDefault(t => t.Game.Id == game.Id);
+        if (tile is not null) SelectedIndex = Games.IndexOf(tile);
     }
 
     public void Refresh()

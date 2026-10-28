@@ -3,6 +3,7 @@ using Avalonia.Input;
 using Avalonia.Threading;
 using HandheldLauncher.App.Input;
 using HandheldLauncher.App.ViewModels;
+using HandheldLauncher.Core.Models;
 
 namespace HandheldLauncher.App.Views;
 
@@ -30,6 +31,31 @@ public partial class MainWindow : Window
 
         foreach (var action in _gamepad.Poll())
         {
+            // While the Start-button context menu is open, every action
+            // means something different (navigate/confirm/close THAT menu)
+            // instead of the normal tile navigation — swallow it here so
+            // e.g. Confirm doesn't also launch a game behind the menu.
+            if (vm.IsContextMenuOpen)
+            {
+                switch (action)
+                {
+                    case GamepadAction.MoveUp:
+                        vm.MoveContextMenuSelection(-1);
+                        break;
+                    case GamepadAction.MoveDown:
+                        vm.MoveContextMenuSelection(1);
+                        break;
+                    case GamepadAction.Confirm:
+                        vm.ConfirmContextMenuSelection();
+                        break;
+                    case GamepadAction.Back:
+                    case GamepadAction.Menu:
+                        vm.CloseContextMenu();
+                        break;
+                }
+                continue;
+            }
+
             switch (action)
             {
                 case GamepadAction.MoveLeft:
@@ -44,15 +70,45 @@ public partial class MainWindow : Window
                 case GamepadAction.Back:
                     vm.CloseRunningGame();
                     break;
+                case GamepadAction.Menu:
+                    vm.ToggleContextMenu();
+                    break;
             }
         }
     }
 
     // Keyboard nav stays as a fallback for dev-time testing on desktop —
     // the gamepad poller above is what actually matters on the handheld.
+    // Space stands in for the controller's Start button (no literal
+    // equivalent on a keyboard).
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
         if (DataContext is not MainViewModel vm) return;
+
+        if (vm.IsContextMenuOpen)
+        {
+            switch (e.Key)
+            {
+                case Key.Up:
+                    vm.MoveContextMenuSelection(-1);
+                    e.Handled = true;
+                    break;
+                case Key.Down:
+                    vm.MoveContextMenuSelection(1);
+                    e.Handled = true;
+                    break;
+                case Key.Enter:
+                    vm.ConfirmContextMenuSelection();
+                    e.Handled = true;
+                    break;
+                case Key.Escape:
+                case Key.Space:
+                    vm.CloseContextMenu();
+                    e.Handled = true;
+                    break;
+            }
+            return;
+        }
 
         switch (e.Key)
         {
@@ -70,6 +126,10 @@ public partial class MainWindow : Window
                 break;
             case Key.Escape:
                 vm.CloseRunningGame();
+                e.Handled = true;
+                break;
+            case Key.Space:
+                vm.ToggleContextMenu();
                 e.Handled = true;
                 break;
         }
@@ -103,5 +163,16 @@ public partial class MainWindow : Window
     private void OnCloseGameClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         (DataContext as MainViewModel)?.CloseRunningGame();
+    }
+
+    private async void OnAddGameClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm) return;
+
+        var dialog = new AddGameWindow();
+        var result = await dialog.ShowDialog<GameEntry?>(this);
+        if (result is null) return;
+
+        vm.AddManualGame(result);
     }
 }

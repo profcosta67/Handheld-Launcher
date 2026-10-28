@@ -4,8 +4,13 @@ public enum GamepadAction
 {
     MoveLeft,
     MoveRight,
+    MoveUp,
+    MoveDown,
     Confirm,
     Back,
+
+    /// <summary>Start button — opens/closes the per-tile context menu.</summary>
+    Menu,
 }
 
 /// <summary>
@@ -48,8 +53,11 @@ public sealed class GamepadPoller
 
         if (WasJustPressed(buttons, XInput.Buttons.DPadLeft)) actions.Add(GamepadAction.MoveLeft);
         if (WasJustPressed(buttons, XInput.Buttons.DPadRight)) actions.Add(GamepadAction.MoveRight);
+        if (WasJustPressed(buttons, XInput.Buttons.DPadUp)) actions.Add(GamepadAction.MoveUp);
+        if (WasJustPressed(buttons, XInput.Buttons.DPadDown)) actions.Add(GamepadAction.MoveDown);
         if (WasJustPressed(buttons, XInput.Buttons.A)) actions.Add(GamepadAction.Confirm);
         if (WasJustPressed(buttons, XInput.Buttons.B)) actions.Add(GamepadAction.Back);
+        if (WasJustPressed(buttons, XInput.Buttons.Start)) actions.Add(GamepadAction.Menu);
 
         // Left stick as a D-pad alternative — same edge-detection idea, just
         // on a deadzone crossing instead of a button bit.

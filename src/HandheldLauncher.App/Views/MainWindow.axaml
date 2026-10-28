@@ -149,9 +149,9 @@
 
     <!-- Bottom bar -->
     <Border Grid.Row="2" Classes="bottomBar" Margin="24,0,24,20" Padding="20,12">
-      <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+      <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto">
         <TextBlock Grid.Column="0"
-                   Text="← → navega · A/Enter joga · B/Esc fecha o jogo"
+                   Text="← → navega · A/Enter joga · B/Esc fecha o jogo · Start abre menu do jogo"
                    Classes="subtle"
                    VerticalAlignment="Center" />
         <Button Grid.Column="1"
@@ -167,11 +167,34 @@
                 IsEnabled="{Binding CanFetchArtwork}"
                 ToolTip.Tip="Busca capa e banner no SteamGridDB para os jogos sem um dos dois. Precisa de uma API key em %AppData%\HandheldLauncher\settings.json"
                 Margin="0,0,10,0" />
-        <Button Grid.Column="3" Classes="pill" Content="Atualizar" Click="OnRefreshClick" Margin="0,0,10,0" />
-        <Button Grid.Column="4" Classes="pill" Content="Sair" Click="OnQuitClick" />
+        <Button Grid.Column="3" Classes="pill" Content="Adicionar jogo" Click="OnAddGameClick" Margin="0,0,10,0" />
+        <Button Grid.Column="4" Classes="pill" Content="Atualizar" Click="OnRefreshClick" Margin="0,0,10,0" />
+        <Button Grid.Column="5" Classes="pill" Content="Sair" Click="OnQuitClick" />
       </Grid>
     </Border>
 
   </Grid>
+
+    <!-- Start-button context menu: dim backdrop + centered card. Sits as
+         the LAST child of the outer Panel so it paints over absolutely
+         everything else, bottom bar included. -->
+    <Panel IsVisible="{Binding IsContextMenuOpen}">
+      <Border Classes="contextMenuOverlay" />
+      <Border Classes="contextMenuCard" Width="420" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <StackPanel Spacing="16">
+          <TextBlock Text="{Binding ContextMenuTarget.Title}" Classes="heroTitle" TextWrapping="Wrap" />
+          <ItemsControl ItemsSource="{Binding ContextMenuItems}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:ContextMenuItemViewModel">
+                <Border Classes="menuItem" Classes.selected="{Binding IsSelected}" Padding="14,10">
+                  <TextBlock Text="{Binding Label}" Classes="gameTitle" />
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Text="↑↓ navega · A/Enter confirma · B/Esc/Start fecha" Classes="subtle" />
+        </StackPanel>
+      </Border>
+    </Panel>
   </Panel>
 </Window>

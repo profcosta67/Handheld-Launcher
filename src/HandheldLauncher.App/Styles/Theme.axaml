@@ -52,8 +52,38 @@
        the portrait cover. Height matches the normal tile so the row still
        lines up; only Width grows. -->
   <Style Selector="Border.gameTile.lastPlayed">
-    <Setter Property="Width" Value="390" />
+    <Setter Property="Width" Value="460" />
     <Setter Property="Height" Value="230" />
+  </Style>
+
+  <!-- Context menu (Start button) — dim backdrop + a centered card listing
+       actions for whichever tile was focused when it opened. -->
+  <Style Selector="Border.contextMenuOverlay">
+    <Setter Property="Background" Value="#CC000000" />
+  </Style>
+
+  <Style Selector="Border.contextMenuCard">
+    <Setter Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
+    <Setter Property="CornerRadius" Value="{StaticResource BarCornerRadius}" />
+  </Style>
+
+  <Style Selector="Border.menuItem">
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <Style Selector="Border.menuItem.selected">
+    <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
+  </Style>
+
+  <!-- Plain dark TextBox so the "Adicionar jogo" form doesn't show up as a
+       jarring white box over the rest of the dark UI. -->
+  <Style Selector="TextBox">
+    <Setter Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
+    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="Padding" Value="10,8" />
+    <Setter Property="BorderThickness" Value="0" />
   </Style>
 
   <Style Selector="Border.heroCard, Border.heroBanner">

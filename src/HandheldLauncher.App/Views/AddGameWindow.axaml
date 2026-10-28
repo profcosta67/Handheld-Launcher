@@ -1,0 +1,41 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:HandheldLauncher.App.ViewModels"
+        x:Class="HandheldLauncher.App.Views.AddGameWindow"
+        x:DataType="vm:AddGameViewModel"
+        Title="Adicionar jogo"
+        Width="520" Height="380"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BackgroundBrush}">
+
+  <!--
+    Plain dialog, keyboard/mouse-driven on purpose (dev-time + eventual
+    tela de configurações territory) — unlike the main window, this one
+    isn't meant to be driven by the gamepad yet.
+  -->
+
+  <Grid RowDefinitions="*,Auto" Margin="24">
+    <StackPanel Grid.Row="0" Spacing="12">
+      <TextBlock Text="Nome do jogo" Classes="subtle" />
+      <TextBox Text="{Binding Title}" Watermark="Ex: Hollow Knight" />
+
+      <TextBlock Text="Executável" Classes="subtle" Margin="0,8,0,0" />
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBox Grid.Column="0" Text="{Binding ExecutablePath}" Watermark="C:\Jogos\jogo.exe" />
+        <Button Grid.Column="1" Classes="pill" Content="..." Click="OnBrowseClick" Margin="8,0,0,0" />
+      </Grid>
+
+      <TextBlock Text="Argumentos (opcional)" Classes="subtle" Margin="0,8,0,0" />
+      <TextBox Text="{Binding LaunchArguments}" Watermark="--fullscreen" />
+
+      <TextBlock Text="Pasta de trabalho (opcional)" Classes="subtle" Margin="0,8,0,0" />
+      <TextBox Text="{Binding WorkingDirectory}" Watermark="Em branco = pasta do executável" />
+    </StackPanel>
+
+    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,20,0,0">
+      <Button Classes="pill" Content="Cancelar" Click="OnCancelClick" />
+      <Button Classes="pill" Content="Adicionar" Click="OnAddClick" IsEnabled="{Binding CanSave}" />
+    </StackPanel>
+  </Grid>
+</Window>

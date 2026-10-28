@@ -39,31 +39,45 @@ Construído até agora:
 - **`HandheldLauncher.App`** — UI em Avalonia:
   - Janela com banner hero largo/deitado em cima (segue o jogo que você
     está navegando no momento, usando o banner do SteamGridDB) + fileira
-    horizontal de capas embaixo — layout estilo Steam Deck.
+    horizontal de capas embaixo — layout estilo Steam Deck. Fundo da janela
+    inteira preenchido com a arte do jogo em foco, desfocada (blur) e
+    esticada — testado, funcionando.
   - Na fileira, o **último jogo aberto** (não o que está só focado/com o
     cursor em cima — o que foi realmente *lançado* por último) aparece
-    largo/deitado usando a arte hero, e só troca de lugar/tamanho quando
-    você abre outro jogo de verdade; navegar com ← → só muda o banner de
-    cima, não mexe na fileira. Ao abrir um jogo ele vira o primeiro da
-    fileira (empurra o resto).
-  - Fundo da janela inteira preenchido com a arte do jogo em foco, desfocada
-    (blur) e esticada — evita vazio escuro embaixo/ao redor do conteúdo.
-    **Isso usa `Avalonia.Media.BlurEffect`, ainda não testado num build
-    real — ver aviso de build mais abaixo.**
+    largo/deitado (460x230) usando a arte hero, e só troca de lugar/tamanho
+    quando você abre outro jogo de verdade; navegar com ← → só muda o
+    banner de cima, não mexe na fileira. Ao abrir um jogo ele vira o
+    primeiro da fileira (empurra o resto). Testado, funcionando.
   - Navegação por **controle via XInput** (dpad/analógico esquerdo, A
     confirma, B fecha o jogo) — testado e funcionando com um controle Xbox.
     Teclado (← → Enter Esc) continua funcionando como fallback de dev.
+  - **Menu de contexto (Start no controle / Espaço no teclado)** sobre o
+    jogo focado: "Buscar capa no SteamGridDB" (rebusca grid+hero só pra
+    aquele jogo) e "Abrir jogo". ↑↓ navega entre as opções, A/Enter
+    confirma, B/Esc/Start fecha sem fazer nada. **Ainda não testado num
+    build real** — ver aviso de build mais abaixo. Importante: hoje a
+    busca sempre traz a imagem de maior pontuação do SteamGridDB — não é
+    um seletor pra escolher entre várias capas candidatas, é um "tenta de
+    novo". Escolher manualmente entre opções é uma feature maior, ainda
+    não implementada (ver nota no código, `MainViewModel.RefetchArtworkAsync`).
+  - **Botão "Adicionar jogo"** na barra de baixo abre um diálogo (nome,
+    caminho do executável com seletor de arquivo, argumentos opcionais,
+    pasta de trabalho opcional) e cadastra um jogo não-Steam na
+    biblioteca. **Ainda não testado num build real.**
   - Botão "Fechar: <jogo>" (só aparece com jogo rodando), "Buscar capas"
     (dispara o fetch do SteamGridDB pros jogos sem capa), "Atualizar"
     (reescaneia) e "Sair".
   - Ícone de engrenagem no topo — **só placeholder visual por enquanto**,
-    desabilitado. Ainda não decidimos o escopo da tela de configurações.
+    desabilitado. Ainda não decidimos o escopo da tela de configurações
+    (combinado: fica pra depois).
 
 Ainda **não** feito:
 
 1. Modo kiosk: boot direto em tela cheia + suprimir Legion Space / Xbox FSE
 2. Instalador
 3. Tela de configurações de verdade (hoje é só editar `settings.json` na mão)
+4. Seletor de capa/banner (escolher entre várias opções do SteamGridDB em
+   vez de só re-buscar a de maior pontuação)
 
 ## Configurar a API key do SteamGridDB
 
@@ -81,13 +95,19 @@ Ainda **não** feito:
 
 Este projeto foi escrito num sandbox Linux que bloqueia acesso a
 `api.nuget.org` — não dá pra rodar `dotnet restore`/`build` aqui pra validar.
-Os quatro primeiros commits já foram testados e corrigidos a partir dos
-erros reais que você mandou; os dois commits mais recentes (banner hero +
-layout Steam Deck, e último-jogo-aberto + blur de fundo) ainda não passaram
-por esse ciclo — se der erro de build, me manda a mensagem. O ponto mais
-arriscado dessa leva é o `<media:BlurEffect>` no `MainWindow.axaml` (classe
-`Avalonia.Media.BlurEffect`) — se o namespace ou o nome da classe estiverem
-errados, é exatamente o tipo de AVLN2000 que já corrigimos antes.
+Os seis primeiros commits já foram testados e corrigidos a partir dos erros
+reais que você mandou (banner hero, layout Steam Deck, último-jogo-aberto,
+blur de fundo — tudo confirmado funcionando). O commit mais recente (menu
+de contexto com Start + diálogo "Adicionar jogo") ainda não passou por esse
+ciclo — se der erro de build, me manda a mensagem. Os pontos mais
+arriscados dessa leva:
+- `AddGameWindow` usa `StorageProvider.OpenFilePickerAsync` (API de
+  seleção de arquivo do Avalonia 11) e `Window.Close(object?)` pra devolver
+  o resultado do diálogo — ambos deveriam existir na versão que já está
+  restaurando certinho, mas é a primeira vez que esse projeto abre uma
+  segunda janela.
+- `GamepadPoller` ganhou DPadUp/DPadDown/Start — se o controle não
+  responder a ↑↓ dentro do menu de contexto, é aí que vale olhar primeiro.
 
 ## Como buildar (Windows, com internet normal)
 
