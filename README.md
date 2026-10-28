@@ -120,6 +120,14 @@ Ainda **não** feito:
 2. Capas **animadas** (GIF/WEBM) no seletor — fase 2 do seletor de capas,
    ver seção própria mais abaixo (fase 1, estático, já está feita e
    confirmada funcionando)
+3. **Simplificar/automatizar mais a instalação** — testando no Legion Go 2
+   de verdade apareceu bastante coisa manual (instalar o SDK do .NET,
+   configurar o OmniConsole, desligar Legion Space/Xbox/Steam duplicados
+   em Configurações > Apps > Inicializar). O instalador já automatiza o
+   SDK sozinho agora (pergunta e instala via `winget` se faltar — ver
+   "Instalar no Legion Go 2 / ROG Ally"), mas falta pensar num jeito de
+   reduzir o resto também — ideia pra próxima leva, ainda sem desenho
+   definido.
 
 ## Configurar a API key do SteamGridDB
 
@@ -174,10 +182,17 @@ não sabia que existia, ver aviso abaixo.
 >    reverter é "Escolher app principal" > Nenhum + desligar o ViVeTool
 >    flag + apagar a tarefa agendada `SetPanelDimensions`.
 >
-> **Status**: opção 2 escolhida, ainda não testada.
+> **Status**: opção 2 escolhida e **confirmada funcionando** — o launcher
+> abre pelo Modo Xbox de verdade. Só que junto dele também abriram Legion
+> Space, Xbox app e Steam Big Picture (4 coisas de uma vez) — cada um tem
+> seu próprio autostart independente do Modo Xbox, e o jeito simples de
+> desligar os três é Configurações > Aplicativos > Inicializar (switch
+> on/off pra cada um, zero risco).
 
 O que o instalador faz, resumido (detalhes completos nos comentários do
-próprio `Install-Launcher.ps1`): publica o app (`dotnet publish`,
+próprio `Install-Launcher.ps1`): checa se o `.NET SDK` está instalado e
+**oferece instalar sozinho via `winget`** se não estiver (pergunta antes,
+não instala sem confirmar), publica o app (`dotnet publish`,
 self-contained — a máquina onde ele vai RODAR não precisa ter o .NET
 instalado), copia pra `%LocalAppData%\Programs\HandheldLauncher\`, cria
 atalho na Área de Trabalho/Menu Iniciar, configura ele pra abrir sozinho a

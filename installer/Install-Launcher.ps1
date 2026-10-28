@@ -95,8 +95,41 @@ Write-Log "== Handheld Launcher - instalacao iniciada =="
 if (-not $SkipPublish) {
     $dotnetCmd = Get-Command dotnet -ErrorAction SilentlyContinue
     if (-not $dotnetCmd) {
-        Write-Log "ERRO: 'dotnet' nao encontrado no PATH. Instale o .NET 8 SDK (https://dotnet.microsoft.com/download/dotnet/8.0) ou rode este script com -SkipPublish numa pasta que ja tenha 'publish\' copiada de outra maquina."
-        exit 1
+        Write-Log "'dotnet' nao encontrado no PATH."
+        $wingetCmd = Get-Command winget -ErrorAction SilentlyContinue
+
+        if ($wingetCmd) {
+            $answer = Read-Host "O .NET 8 SDK nao esta instalado. Quer que eu instale agora via winget? (S/N)"
+            if ($answer -match '^(s|sim|y|yes)$') {
+                Write-Log "Instalando .NET 8 SDK via winget (pode demorar um pouco)..."
+                & winget install --id Microsoft.DotNet.SDK.8 --accept-source-agreements --accept-package-agreements
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Log "ERRO: 'winget install' falhou (codigo $LASTEXITCODE). Instala manualmente em https://dotnet.microsoft.com/download/dotnet/8.0 e roda este script de novo."
+                    exit 1
+                }
+
+                # winget grava o novo PATH no registro, mas o processo atual
+                # do PowerShell nao recarrega isso sozinho - forca a
+                # releitura aqui pra conseguir achar o 'dotnet' recem
+                # instalado sem precisar fechar e abrir o terminal de novo.
+                $env:Path = [System.Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path', 'User')
+                $dotnetCmd = Get-Command dotnet -ErrorAction SilentlyContinue
+
+                if (-not $dotnetCmd) {
+                    Write-Log "ERRO: instalei o .NET SDK, mas nao consegui achar o 'dotnet' nesta mesma janela ainda. Fecha este terminal, abre um novo, e roda o instalador de novo (so precisa dessa vez a mais)."
+                    exit 1
+                }
+                Write-Log ".NET SDK instalado com sucesso, seguindo com a publicacao."
+            }
+            else {
+                Write-Log "ERRO: 'dotnet' nao encontrado no PATH. Instale o .NET 8 SDK (https://dotnet.microsoft.com/download/dotnet/8.0) ou rode este script com -SkipPublish numa pasta que ja tenha 'publish\' copiada de outra maquina."
+                exit 1
+            }
+        }
+        else {
+            Write-Log "ERRO: 'dotnet' nao encontrado no PATH, e 'winget' tambem nao esta disponivel pra instalar automatico. Instale o .NET 8 SDK manualmente (https://dotnet.microsoft.com/download/dotnet/8.0) ou rode este script com -SkipPublish numa pasta que ja tenha 'publish\' copiada de outra maquina."
+            exit 1
+        }
     }
 
     $projectPath = Join-Path $repoRoot 'src\HandheldLauncher.App'
