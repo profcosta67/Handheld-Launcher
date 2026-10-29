@@ -7,4 +7,10 @@
     <RootNamespace>HandheldLauncher.Core</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- Chaves de API no settings.json criptografadas com o DPAPI do Windows
+         (só o mesmo usuário do Windows consegue ler) — ver AppSettingsStore. -->
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+  </ItemGroup>
+
 </Project>

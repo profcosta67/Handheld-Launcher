@@ -689,6 +689,11 @@
             </StackPanel>
           </Border>
           <TextBlock Text="github.com/profcosta67/Handheld-Launcher" Classes="subtle" HorizontalAlignment="Center" />
+          <TextBlock Text="Projeto independente, sem vínculo com Valve, Epic, Microsoft, Lenovo ou ASUS. Marcas pertencem aos seus donos. Fornecido como está, sem garantias. Não coleta dados: tudo fica neste PC."
+                     Classes="subtle"
+                     FontSize="11"
+                     TextWrapping="Wrap"
+                     TextAlignment="Center" />
           <TextBlock Text="Feito com Avalonia · Capas: SteamGridDB · HUD: RTSS · Atualizações: Velopack"
                      Classes="subtle"
                      FontSize="11"

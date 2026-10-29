@@ -34,6 +34,9 @@ public sealed class SteamLibraryScanner : ISteamLibraryScanner
 
     public bool IsSteamInstalled => _steamRoot is not null;
 
+    /// <summary>Pasta da Steam neste PC (ou null) — usada também pelo SteamAccountDetector.</summary>
+    public static string? LocateSteamRoot() => FindSteamRoot();
+
     public IReadOnlyList<GameEntry> ScanInstalledGames()
     {
         var results = new List<GameEntry>();

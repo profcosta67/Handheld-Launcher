@@ -18,6 +18,43 @@ SteamGridDB, navegação por controle.
 > quando quiser (é um find-and-replace no `.sln`, nos `.csproj` e no
 > namespace `HandheldLauncher.*`).
 
+## Aviso legal, privacidade e segurança
+
+> Texto informativo, escrito sem assessoria jurídica — não substitui
+> orientação de um advogado.
+
+- **Projeto independente.** Sem vínculo, patrocínio ou aprovação de Valve
+  (Steam), Epic Games, Microsoft (Xbox/Windows), Lenovo (Legion), ASUS (ROG),
+  SteamGridDB ou Guru3D (RTSS). Nomes e marcas citados pertencem aos seus
+  donos e aparecem só pra identificar compatibilidade.
+- **Fornecido "como está", sem garantias** de funcionamento, e sem
+  responsabilidade por perda de dados, problemas na conta de terceiros ou no
+  aparelho. Use por sua conta e risco. O instalador mexe em itens do Windows
+  (tarefa agendada, chaves de registro do Xbox Game Bar, inicialização) — tudo
+  documentado aqui e reversível pelo desinstalador.
+- **Não coleta dados.** Sem telemetria, sem conta própria, sem servidor. Tudo
+  fica no aparelho (`%AppData%\HandheldLauncher\`). O launcher só se conecta
+  a: SteamGridDB (capas, com a SUA chave), API oficial da Steam (lista de jogos
+  da conta, com a SUA chave) e GitHub (verificar/baixar atualizações).
+- **Contas.** O launcher **nunca pede, lê ou guarda senha ou token de login**
+  de nenhuma plataforma. Da Steam ele lê só o SteamID64 (número público do
+  perfil) e o apelido, do arquivo que o próprio cliente Steam mantém no PC.
+  Cada usuário usa a própria chave da Steam Web API e do SteamGridDB, sujeito
+  aos termos de uso desses serviços.
+- **Chaves protegidas.** Desde a v0.9.0 as chaves de API ficam no
+  `settings.json` criptografadas com o DPAPI do Windows (só o mesmo usuário do
+  Windows consegue ler; copiar o arquivo pra outro PC não revela nada).
+  `debug.log` não contém chaves e é limitado a ~1 MB.
+- **Conteúdo de terceiros.** Capas/ícones vêm do SteamGridDB sob demanda, por
+  usuário, e ficam só em cache local — o projeto não redistribui arte.
+- **Atualizações.** Baixadas por HTTPS das Releases deste repositório. O
+  instalador não tem assinatura digital paga (por isso o aviso do SmartScreen).
+  **Segurança do mantenedor:** como todo aparelho instalado aceita o que for
+  publicado aqui, a conta GitHub `profcosta67` precisa de **verificação em duas
+  etapas (2FA)** ligada.
+- **Licença:** ainda não definida (ver discussão com o mantenedor). Sem um
+  arquivo LICENSE, por padrão ninguém tem permissão legal de reutilizar o código.
+
 ## Roteiro planejado (próximas levas)
 
 Depois do primeiro teste real completo (ver "Meus parabéns" — biblioteca,
@@ -702,6 +739,30 @@ Ainda **não** feito:
     mais abaixo) — isso continua manual, sem automação.
 15. ~~Tela de configuração pra `SteamWebApiKey`/`SteamId64`~~ — **feito
     numa leva posterior**, junto do item 5 (mesma `SettingsWindow`).
+
+## Integração Steam (etapa 1) e segurança — v0.9.0
+
+**Nunca testado num aparelho ainda.**
+
+- **Conta Steam automática**: `Core/Services/SteamAccountDetector` lê
+  `<Steam>\config\loginusers.vdf` (conta `MostRecent`) e preenche o SteamID64
+  sozinho na abertura se estiver vazio; Configurações mostra a conta detectada e
+  tem "Usar conta da Steam deste PC". Só SteamID64 + apelido — o `AccountName`
+  (usuário de login) é ignorado; senha/token nunca.
+- **Botões "Obter chave"** (Steam Web API e SteamGridDB) abrem as páginas
+  oficiais — a chave da Steam continua sendo do próprio usuário (exigência dos
+  termos da Valve; nunca embutir uma chave compartilhada no launcher).
+- **DPAPI**: `AppSettingsStore` grava `SteamGridDbApiKey`/`SteamWebApiKey` como
+  `dpapi:<base64>` (escopo do usuário + entropia fixa) e migra texto puro na
+  primeira leitura. Arquivo de outro PC/usuário → chave vira vazia (não dá pra
+  ler). Scripts PowerShell preservam o valor como está.
+- **debug.log**: data completa e rotação em 1 MB (`debug.old.log`).
+- **Sobre**: aviso de projeto independente / sem garantias / sem coleta de dados.
+- **Próxima etapa (Epic)**: só jogos **instalados**, lidos dos manifestos locais
+  da Epic (`ProgramData\Epic\EpicGamesLauncher\Data\Manifests\*.item`) e
+  abertos pelo link oficial `com.epicgames.launcher://` — sem login: a Epic não
+  oferece API pública pra launchers de terceiros, e os caminhos não oficiais
+  (usar o login do próprio launcher da Epic) ficam numa zona cinza dos termos.
 
 ## Transições — v0.8.0 (Lote B1)
 

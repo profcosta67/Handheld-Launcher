@@ -19,13 +19,19 @@
     <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="12">
         <TextBlock Text="SteamGridDB API key (capas)" Classes="subtle" />
-        <TextBox Text="{Binding SteamGridDbApiKey}" Watermark="Cole aqui — steamgriddb.com/profile/preferences/api" />
+        <TextBox Text="{Binding SteamGridDbApiKey}" Watermark="Cole aqui a chave do SteamGridDB" />
+        <Button Classes="pill" Content="Obter chave do SteamGridDB" Click="OnGetGridDbKeyClick" HorizontalAlignment="Left" />
 
         <TextBlock Text="Steam Web API key (lista 'na conta, não instalado')" Classes="subtle" Margin="0,8,0,0" />
-        <TextBox Text="{Binding SteamWebApiKey}" Watermark="Cole aqui — steamcommunity.com/dev/apikey" />
+        <TextBox Text="{Binding SteamWebApiKey}" Watermark="Cole aqui a chave da Steam Web API" />
+        <Button Classes="pill" Content="Obter chave da Steam (abre o site oficial)" Click="OnGetSteamKeyClick" HorizontalAlignment="Left" />
 
         <TextBlock Text="SteamID64" Classes="subtle" Margin="0,8,0,0" />
-        <TextBox Text="{Binding SteamId64}" Watermark="Ex: 76561198012345678 — ache o seu em steamid.io" />
+        <TextBox Text="{Binding SteamId64}" Watermark="Preenchido sozinho com a conta da Steam deste PC" />
+        <TextBlock Text="{Binding SteamAccountText}" Classes="subtle" FontSize="12" TextWrapping="Wrap" />
+        <Button Classes="pill" Content="Usar conta da Steam deste PC" Click="OnUseSteamAccountClick" HorizontalAlignment="Left" />
+        <TextBlock Text="O launcher nunca pede nem guarda a senha da Steam. As chaves ficam criptografadas neste PC (só o seu usuário do Windows consegue ler)."
+                   Classes="subtle" FontSize="11" TextWrapping="Wrap" />
 
         <TextBlock Text="Pastas extras pra procurar jogos do Xbox app (uma por linha)" Classes="subtle" Margin="0,8,0,0" />
         <TextBox Text="{Binding XboxScanFoldersText}"
@@ -41,7 +47,7 @@
         <RadioButton GroupName="Modo"
                      IsChecked="{Binding IsHandheldMode}"
                      Content="Handheld (modo jogo) — tela cheia, abre no login, reabre se fechar" />
-        <TextBlock Text="No modo Handheld, 'Sair' (menu Power) segura a reabertura até reiniciar o aparelho. Abrir pelo atalho sempre funciona."
+        <TextBlock Text="No modo Handheld, 'Sair' (menu Energia) segura a reabertura até reiniciar o aparelho. Abrir pelo atalho sempre funciona."
                    Classes="subtle"
                    FontSize="11"
                    TextWrapping="Wrap" />

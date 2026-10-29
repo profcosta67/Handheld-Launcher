@@ -27,6 +27,16 @@ public partial class App : Application
             // help — see docs/architecture.md if that changes later.
             var appSettings = AppSettingsStore.Load();
 
+            // Integração Steam, etapa 1 (v0.9.0): sem SteamID configurado,
+            // usa a conta logada no cliente Steam deste PC (sem senha, só o
+            // número público do perfil — ver SteamAccountDetector).
+            if (string.IsNullOrWhiteSpace(appSettings.SteamId64)
+                && SteamAccountDetector.FindMostRecent() is { } steamAccount)
+            {
+                appSettings.SteamId64 = steamAccount.SteamId64;
+                try { AppSettingsStore.Save(appSettings); } catch { /* melhor esforço */ }
+            }
+
             var steamScanner = new SteamLibraryScanner();
             // Null quando AppSettings.XboxScanFolders está vazio (padrão) —
             // "editor de onde procurar" jogos Xbox pedido pelo usuário,

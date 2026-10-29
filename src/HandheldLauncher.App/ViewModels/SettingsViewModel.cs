@@ -138,6 +138,29 @@ public sealed class SettingsViewModel : ViewModelBase
     /// <summary>0 Moderna (Segoe UI), 1 Divertida (Comic Sans).</summary>
     public int FontIndex { get => _fontIndex; set => SetField(ref _fontIndex, value); }
 
+    private string _steamAccountText = string.Empty;
+
+    /// <summary>"Conta Steam deste PC: Fulano (7656...)" ou aviso de não encontrada.</summary>
+    public string SteamAccountText
+    {
+        get => _steamAccountText;
+        set => SetField(ref _steamAccountText, value);
+    }
+
+    /// <summary>Botão "Usar conta da Steam deste PC" — preenche o SteamID64.</summary>
+    public void UseDetectedSteamAccount()
+    {
+        var account = SteamAccountDetector.FindMostRecent();
+        if (account is null)
+        {
+            SteamAccountText = "Nenhuma conta Steam encontrada neste PC (abra e entre na Steam uma vez).";
+            return;
+        }
+
+        SteamId64 = account.SteamId64;
+        SteamAccountText = $"Conta Steam deste PC: {account.PersonaName} ({account.SteamId64})";
+    }
+
     private int _fontSizeIndex = 1;
     public int FontSizeIndex { get => _fontSizeIndex; set => SetField(ref _fontSizeIndex, value); }
 
@@ -178,6 +201,10 @@ public sealed class SettingsViewModel : ViewModelBase
         SteamId64 = settings.SteamId64 ?? string.Empty;
         XboxScanFoldersText = string.Join(Environment.NewLine, settings.XboxScanFolders);
         IsHandheldMode = settings.KioskMode;
+        var detected = SteamAccountDetector.FindMostRecent();
+        SteamAccountText = detected is null
+            ? "Nenhuma conta Steam encontrada neste PC."
+            : $"Conta Steam deste PC: {detected.PersonaName} ({detected.SteamId64})";
         OverlayPresetIndex = Math.Clamp(settings.OverlayPreset, 0, 3);
         ThemeIndex = Math.Clamp(settings.Theme, 0, HandheldLauncher.App.Platform.ThemeManager.ThemeNames.Length - 1);
         FontIndex = Math.Clamp(settings.UiFont, 0, HandheldLauncher.App.Platform.ThemeManager.Fonts.Length - 1);

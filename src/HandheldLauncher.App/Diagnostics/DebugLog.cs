@@ -24,7 +24,17 @@ public static class DebugLog
         {
             var dir = Path.GetDirectoryName(LogPath);
             if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-            File.AppendAllText(LogPath, $"{DateTime.Now:HH:mm:ss.fff} {message}\n");
+
+            // v0.9.0: o log não cresce pra sempre — passou de 1 MB, vira
+            // debug.old.log (o anterior é descartado). Ele nunca contém
+            // chaves/senhas, mas não há motivo pra guardar meses de histórico.
+            var info = new FileInfo(LogPath);
+            if (info.Exists && info.Length > 1024 * 1024)
+            {
+                File.Move(LogPath, Path.Combine(dir ?? string.Empty, "debug.old.log"), overwrite: true);
+            }
+
+            File.AppendAllText(LogPath, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} {message}\n");
         }
         catch
         {
