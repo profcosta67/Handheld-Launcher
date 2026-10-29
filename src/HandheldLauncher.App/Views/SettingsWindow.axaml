@@ -106,7 +106,7 @@
           <ComboBoxItem Content="Completo — + VRAM, clock da CPU e consumo (W)" />
         </ComboBox>
         <TextBlock Text="{Binding OverlayStatusText, StringFormat='Agora: {0}'}" Classes="subtle" FontSize="11" />
-        <TextBlock Text="No jogo: aperte L3+R3 (os dois analógicos) pra trocar. Precisa do RTSS aberto; desmarque 'Show own statistics' no RTSS pra não aparecer o FPS duplicado. Tamanho da letra: 'On-Screen Display zoom' no RTSS. Faixa preta atrás do texto: desmarque 'On-Screen Display fill' no RTSS (sem fundo)."
+        <TextBlock Text="No jogo: aperte L3+R3 (os dois analógicos) pra trocar. Precisa do RTSS aberto (o launcher já liga o OSD dele e desliga o 'Show own statistics' sozinho, pra não duplicar o FPS). Tamanho da letra: 'On-Screen Display zoom' no RTSS. Faixa preta atrás do texto: desmarque 'On-Screen Display fill' no RTSS (sem fundo)."
                    Classes="subtle"
                    FontSize="11"
                    TextWrapping="Wrap" />

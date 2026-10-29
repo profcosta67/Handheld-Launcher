@@ -498,7 +498,7 @@
           <ItemsControl ItemsSource="{Binding ContextMenuItems}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:ContextMenuItemViewModel">
-                <Border Classes="menuItem" Classes.selected="{Binding IsSelected}" Padding="14,10"
+                <Border Classes="menuItem" Classes.selected="{Binding IsSelected}" Classes.danger="{Binding IsDanger}" Padding="14,10"
                         Cursor="Hand"
                         PointerEntered="OnContextMenuItemEntered"
                         PointerPressed="OnContextMenuItemPressed">
@@ -525,7 +525,7 @@
           <ItemsControl ItemsSource="{Binding GlobalMenuItems}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:ContextMenuItemViewModel">
-                <Border Classes="menuItem" Classes.selected="{Binding IsSelected}" Padding="14,10"
+                <Border Classes="menuItem" Classes.selected="{Binding IsSelected}" Classes.danger="{Binding IsDanger}" Padding="14,10"
                         Cursor="Hand"
                         PointerEntered="OnGlobalMenuItemEntered"
                         PointerPressed="OnGlobalMenuItemPressed">

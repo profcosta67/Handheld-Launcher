@@ -681,12 +681,8 @@ Ainda **não** feito:
    qualquer forma. Sem solução definitiva ainda — se alguém achar uma
    configuração de bandeja/minimizado escondida em alguma versão futura
    da Legion Space, essa seção é pra atualizar.
-4. **Confirmação antes de Reiniciar/Desligar o Legion Go** — o botão
-   "Power" (ver "Status atual" acima) executa `shutdown /r` ou `/s` na
-   hora, sem perguntar "tem certeza?" antes. Fica como decisão pendente
-   se vale a pena adicionar uma etapa de confirmação (um segundo
-   clique/tela antes de executar) pra evitar perder progresso de jogo
-   por um toque errado.
+4. ~~Confirmação antes de Reiniciar/Desligar o Legion Go~~ — **feito na
+   v0.9.4**, ver "Pendências rápidas — v0.9.4" mais abaixo.
 5. ~~Tela de configurações de verdade~~ — **feito nesta leva**: item
    "Configurações" do menu geral agora abre uma `SettingsWindow` própria
    (mesmo padrão do "Adicionar jogo") com os campos de SteamGridDB key,
@@ -706,10 +702,10 @@ Ainda **não** feito:
    de qualquer código (é bem mais arriscado/irreversível).
 8. ~~Organizar a pasta `installer/`~~ — **feito nesta leva**, ver
    "Instalar no Legion Go 2 / ROG Ally" mais abaixo pra estrutura nova.
-9. **Confirmação de "Excluir atalho"/"Excluir jogo" é só um menu de
-   2 opções** (Cancelar/Sim) reaproveitando o mesmo overlay do menu de
-   contexto — funcional, mas bem minimalista; se o usuário preferir algo
-   mais chamativo (cor vermelha, ícone de aviso, etc.) é só pedir.
+9. ~~Confirmação de "Excluir atalho"/"Excluir jogo" é só um menu de
+   2 opções~~ — **item vermelho adicionado na v0.9.4** (ver "Pendências
+   rápidas — v0.9.4"); continua sem ícone de aviso, se quiser isso também
+   é só pedir.
 10. ~~"Editor de onde procurar" jogos Xbox sem tela de configuração~~ —
     **feito numa leva posterior**: a tela de Configurações (item 5) tem
     um campo de texto multi-linha pra isso agora (uma pasta por linha),
@@ -731,17 +727,39 @@ Ainda **não** feito:
     e fecha o painel inteiro. Decisão deliberada pra não ter que desenhar
     um modelo de foco novo pra uma lista de tamanho variável com botão por
     item — avisar se isso for um problema de verdade no handheld.
-14. ~~Overlay de FPS sem o RTSS instalado~~ — **parcialmente resolvido
-    numa leva posterior**: o instalador agora tenta instalar o RTSS
-    sozinho via `winget` (pacote `Guru3D.RTSS`) se não achar ele nos
-    caminhos padrão — melhor esforço, nunca bloqueia a instalação (ver
-    "Instalar no Legion Go 2 / ROG Ally"). Ainda assim, **instalar ≠
-    aparecer o FPS na tela**: o RTSS não vem com o OSD pré-configurado,
-    é preciso ligar "Show On-Screen Display" + "Show own statistics" nas
-    opções do próprio RTSS (ver "Configurar o RTSS pra mostrar o FPS"
-    mais abaixo) — isso continua manual, sem automação.
+14. ~~Overlay de FPS sem o RTSS instalado~~ — **resolvido em duas levas**:
+    o instalador tenta instalar o RTSS sozinho via `winget` (pacote
+    `Guru3D.RTSS`) se não achar ele nos caminhos padrão (ver "Instalar no
+    Legion Go 2 / ROG Ally"), e desde a v0.9.4 o launcher também liga
+    "Show On-Screen Display"/desliga "Show own statistics" sozinho (ver
+    "Pendências rápidas — v0.9.4") — melhor esforço nos dois casos, nunca
+    bloqueia nada. Só "On-Screen Display zoom"/"fill" (tamanho da letra/
+    fundo) continuam manuais, por escolha (ver "Configurar o RTSS pra
+    mostrar o FPS" mais abaixo).
 15. ~~Tela de configuração pra `SteamWebApiKey`/`SteamId64`~~ — **feito
     numa leva posterior**, junto do item 5 (mesma `SettingsWindow`).
+
+## Pendências rápidas — v0.9.4
+
+**Nunca testado num aparelho ainda.**
+
+- **Confirmação antes de Reiniciar/Desligar**: o menu Energia agora abre uma
+  página de confirmação ("Cancelar"/"Sim, reiniciar o aparelho") em vez de
+  executar na hora — risco de perder progresso de jogo com um toque errado
+  (item 4 da lista "Ainda não feito" abaixo).
+- **Confirmações destrutivas mais chamativas**: "Excluir atalho"/"Excluir
+  jogo" e as novas confirmações de Energia aparecem com texto vermelho
+  (`ContextMenuItemViewModel.IsDanger`, estilo `Border.menuItem.danger` no
+  Theme.axaml) em vez de um item igual aos outros (item 9).
+- **RTSS configurado sozinho**: `Platform/RtssProfileConfig.cs` carrega
+  `RTSSHooks64.dll` (de dentro da própria pasta de instalação do RTSS — API
+  oficial de perfis, a mesma que o MSI Afterburner usa, nunca escreve nada
+  em Program Files) e liga `EnableOSD`/desliga `EnableStat` no perfil
+  global, sozinho, na abertura do launcher. Antes isso era uma dica pro
+  usuário configurar na mão dentro do próprio RTSS — a dica na tela de
+  Configurações foi atualizada. Melhor esforço: se o RTSS não estiver
+  instalado ou a chamada falhar por qualquer motivo, nada quebra — só
+  continua dependendo da configuração manual, igual antes.
 
 ## Mais lojas — v0.9.3
 

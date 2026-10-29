@@ -153,6 +153,20 @@
     <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
   </Style>
 
+  <!-- Item destrutivo/irreversível ("Sim, excluir...", "Sim, reiniciar
+       o aparelho...") — pedido do usuário pra deixar a confirmação "mais
+       chamativa" (vermelho) em vez de um item igual aos outros. Texto
+       vermelho sempre; quando também está selecionado, fundo vermelho
+       translúcido no lugar do AccentSoftBrush normal. -->
+  <Style Selector="Border.menuItem.danger TextBlock.gameTitle">
+    <Setter Property="Foreground" Value="#FF5C5C" />
+  </Style>
+  <Style Selector="Border.menuItem.danger.selected">
+    <Setter Property="Background" Value="#332E2E" />
+    <Setter Property="BorderBrush" Value="#FF5C5C" />
+    <Setter Property="BorderThickness" Value="1.5" />
+  </Style>
+
   <!-- v0.7.0: cabeçalho dos menus — título centralizado dentro de uma
        moldura com a cor de destaque (pedido: "destacar o nome do jogo
        talvez com uma borda e centralizado"). -->

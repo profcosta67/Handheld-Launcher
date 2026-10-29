@@ -888,14 +888,17 @@ public sealed class MainViewModel : ViewModelBase
         ContextMenuItems.Clear();
         _contextMenuActions.Clear();
 
-        void Add(string label, Action action)
+        void Add(string label, Action action, bool isDanger = false)
         {
-            ContextMenuItems.Add(new ContextMenuItemViewModel(label));
+            ContextMenuItems.Add(new ContextMenuItemViewModel(label, isDanger));
             _contextMenuActions.Add(action);
         }
 
         Add("Cancelar", () => { });
-        Add(confirmLabel, onConfirm);
+        // isDanger=true: texto/fundo vermelho (ver Theme.axaml) — pedido do
+        // usuário pra deixar a confirmação de ações irreversíveis mais
+        // chamativa, não só mais um item igual aos outros.
+        Add(confirmLabel, onConfirm, isDanger: true);
 
         _contextMenuIndex = 0; // "Cancelar" pré-selecionado
         UpdateContextMenuSelection();
@@ -1015,9 +1018,24 @@ public sealed class MainViewModel : ViewModelBase
     // a página Power deste mesmo menu (o botão ⏻ abre direto nela).
     // ------------------------------------------------------------------
 
-    private enum GlobalMenuPage { Root, Library, Hud, Settings, Power }
+    private enum GlobalMenuPage { Root, Library, Hud, Settings, Power, ConfirmPower }
 
     private GlobalMenuPage _globalMenuPage = GlobalMenuPage.Root;
+
+    // Página ConfirmPower (v0.9.4, pedido do usuário: Reiniciar/Desligar
+    // executava na hora sem perguntar "tem certeza?", arriscando perder
+    // progresso de jogo por toque errado) — guarda qual ação pendurar
+    // quando o usuário confirmar. Label já em minúsculo pra compor "Sim,
+    // {label}", igual ao padrão usado em OpenConfirmMenu.
+    private string _pendingPowerConfirmLabel = string.Empty;
+    private Action? _pendingPowerAction;
+
+    private void RequestPowerConfirm(string lowercaseLabel, Action action)
+    {
+        _pendingPowerConfirmLabel = lowercaseLabel;
+        _pendingPowerAction = action;
+        NavigateGlobalMenu(GlobalMenuPage.ConfirmPower);
+    }
 
     // Paralelo a _globalMenuActions: true = o item só troca de página
     // (menu continua aberto); false = ação de verdade (fecha e executa).
@@ -1129,9 +1147,9 @@ public sealed class MainViewModel : ViewModelBase
         _globalMenuActions.Clear();
         _globalMenuNavigates.Clear();
 
-        void Add(string label, Action action)
+        void Add(string label, Action action, bool isDanger = false)
         {
-            GlobalMenuItems.Add(new ContextMenuItemViewModel(label));
+            GlobalMenuItems.Add(new ContextMenuItemViewModel(label, isDanger));
             _globalMenuActions.Add(action);
             _globalMenuNavigates.Add(false);
         }
@@ -1193,9 +1211,21 @@ public sealed class MainViewModel : ViewModelBase
                 Add("Ir para a área de trabalho", () => DesktopRequested?.Invoke(this, EventArgs.Empty));
                 Add("Minimizar", () => MinimizeRequested?.Invoke(this, EventArgs.Empty));
                 Add("Desligar tela", () => TurnOffScreenRequested?.Invoke(this, EventArgs.Empty));
-                Add("Reiniciar o aparelho", () => RestartDeviceRequested?.Invoke(this, EventArgs.Empty));
-                Add("Desligar o aparelho", () => ShutdownDeviceRequested?.Invoke(this, EventArgs.Empty));
+                // v0.9.4: pedem confirmação agora (ver RequestPowerConfirm) —
+                // antes executava na hora, risco de perder progresso de
+                // jogo com um toque errado.
+                Add("Reiniciar o aparelho", () => RequestPowerConfirm("reiniciar o aparelho", () => RestartDeviceRequested?.Invoke(this, EventArgs.Empty)));
+                Add("Desligar o aparelho", () => RequestPowerConfirm("desligar o aparelho", () => ShutdownDeviceRequested?.Invoke(this, EventArgs.Empty)));
                 Add("Sair", () => QuitRequested?.Invoke(this, EventArgs.Empty));
+                break;
+
+            case GlobalMenuPage.ConfirmPower:
+                GlobalMenuTitle = "Confirmar?";
+                // "Cancelar" com Folder (não fecha o menu, só volta pra
+                // Energia) e primeiro da lista — cursor nunca começa em
+                // cima da ação que pode derrubar progresso de jogo.
+                Folder("Cancelar", GlobalMenuPage.Power);
+                Add($"Sim, {_pendingPowerConfirmLabel}", () => _pendingPowerAction?.Invoke(), isDanger: true);
                 break;
 
             default:

@@ -8,10 +8,17 @@ namespace HandheldLauncher.App.ViewModels;
 /// </summary>
 public sealed class ContextMenuItemViewModel : ViewModelBase
 {
-    public ContextMenuItemViewModel(string label)
+    public ContextMenuItemViewModel(string label, bool isDanger = false)
     {
         _label = label;
+        IsDanger = isDanger;
     }
+
+    // Item destrutivo/irreversível ("Sim, excluir...", "Sim, reiniciar...")
+    // — pedido do usuário pra deixar a confirmação "mais chamativa" (ver
+    // Theme.axaml, estilo Border.menuItem.danger). Fixo na criação, nunca
+    // muda depois (ao contrário de Label), então sem setter.
+    public bool IsDanger { get; }
 
     // Era { get; } (fixo pra sempre) — agora com setter porque o item
     // "Favoritar"/"Desfavoritar" precisa trocar de texto dependendo do jogo
