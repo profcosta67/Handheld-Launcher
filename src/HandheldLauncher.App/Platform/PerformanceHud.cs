@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Runtime.InteropServices;
-using System.Text;
 using HandheldLauncher.App.Diagnostics;
 
 namespace HandheldLauncher.App.Platform;
@@ -194,17 +193,17 @@ internal static class HudFormatter
     private const string GroupSeparator = "     ";
 
     // Mini-gráfico de frametime (v0.9.5, pedido antigo do planejamento) —
-    // RTSS OSD só desenha TEXTO (sem API de gráfico de verdade), então o
-    // "gráfico" é um sparkline de caracteres, uma "barrinha" por amostra.
-    // v0.9.5 usava caracteres de bloco Unicode (▁▂▃▄▅▆▇█) — exatamente o
-    // risco já avisado no release notes daquela versão: testado num
-    // aparelho de verdade, a fonte que o RTSS usa não tem esses glyphs e
-    // aparecia como uma fileira de "??????". Trocado por uma rampa de
-    // densidade 100% ASCII (mesma ideia usada em arte ASCII de terminal) —
-    // qualquer fonte que já desenha o resto do HUD (letras/números/sinais)
-    // também desenha isso.
-    private static readonly char[] SparkChars = ['.', '-', '=', '+', '*', '#', '%', '@'];
-    private const double SparklineMaxMs = 33.0; // ~30 FPS pra cima já vira a barra mais alta da escala
+    // RTSS OSD só desenha TEXTO (sem API de gráfico de verdade), então
+    // nunca ia dar pra desenhar um gráfico de linha de verdade. v0.9.5
+    // tentou um sparkline com caracteres de bloco Unicode (▁▂▃▄▅▆▇█) — a
+    // fonte do RTSS não tem esses glyphs, virava "??????" na tela (v0.9.7
+    // trocou por uma rampa ASCII tipo arte de terminal, mas o usuário
+    // achou ilegível do mesmo jeito — "%%@@@---%% não entendi nada",
+    // dúvida justa, símbolo nenhum diz se teve engasgo ou não sem
+    // explicação). v0.9.8: em vez de qualquer "desenho", só os números —
+    // mínimo/média/pico (ms) da janela recente. Não é um gráfico, mas diz
+    // exatamente o que importa (pico bem mais alto que a média = teve
+    // engasgo) sem precisar decifrar nada.
     private const string FrameColor = "F2C14E";
 
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
@@ -240,9 +239,9 @@ internal static class HudFormatter
                     Value(m.RamUsedGb.ToString("0.0", Inv)) + Unit("/" + m.RamTotalGb.ToString("0", Inv) + "GB")));
                 AddBattery(groups, m, withWatts: true);
                 groups.Add(Fps(frames, withFrameTime: true));
-                if (Sparkline(frameTimeHistoryMs) is { Length: > 0 } spark)
+                if (FrameTimeRange(frameTimeHistoryMs) is { Length: > 0 } frameRange)
                 {
-                    groups.Add(Group("FRAME", FrameColor, Value(spark)));
+                    groups.Add(Group("FRAME", FrameColor, frameRange));
                 }
                 break;
         }
@@ -285,24 +284,30 @@ internal static class HudFormatter
     }
 
     /// <summary>
-    /// Uma barra por amostra do histórico (mais recente por último),
-    /// escalada de 0 a <see cref="SparklineMaxMs"/> — acima disso já é a
-    /// barra mais alta. string.Empty se não tem histórico ainda (jogo
-    /// recém-aberto ou nenhum jogo em foco).
+    /// "8/17/42ms" — mínimo/média/pico (ms) do histórico recente de
+    /// frametime (v0.9.8, trocado do sparkline — ver comentário em
+    /// FrameColor acima). O pico é o número que realmente importa: bem
+    /// mais alto que a média = teve engasgo na janela recente, mesmo que
+    /// o frame ATUAL (no grupo FPS, ao lado) já tenha voltado ao normal.
+    /// string.Empty se não tem histórico ainda (jogo recém-aberto ou
+    /// nenhum jogo em foco).
     /// </summary>
-    private static string Sparkline(IReadOnlyCollection<double>? frameTimeHistoryMs)
+    private static string FrameTimeRange(IReadOnlyCollection<double>? frameTimeHistoryMs)
     {
         if (frameTimeHistoryMs is null || frameTimeHistoryMs.Count == 0) return string.Empty;
 
-        var sb = new StringBuilder(frameTimeHistoryMs.Count);
+        var min = double.MaxValue;
+        var max = double.MinValue;
+        var sum = 0.0;
         foreach (var ms in frameTimeHistoryMs)
         {
-            var t = Math.Clamp(ms / SparklineMaxMs, 0.0, 1.0);
-            var level = (int)Math.Round(t * (SparkChars.Length - 1));
-            sb.Append(SparkChars[level]);
+            if (ms < min) min = ms;
+            if (ms > max) max = ms;
+            sum += ms;
         }
+        var avg = sum / frameTimeHistoryMs.Count;
 
-        return sb.ToString();
+        return Value($"{min:0}/{avg:0}/{max:0}") + Unit("ms");
     }
 
     private static string Group(string label, string labelColor, string valueText)

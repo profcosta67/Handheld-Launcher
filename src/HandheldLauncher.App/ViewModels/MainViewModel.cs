@@ -379,6 +379,22 @@ public sealed class MainViewModel : ViewModelBase
         set => SetField(ref _batteryStatusText, value);
     }
 
+    private string _clockText = string.Empty;
+
+    /// <summary>
+    /// Relógio ("14:32") na barra de cima, perto da bateria — v0.9.8,
+    /// pedido do usuário ("faltou um relógio no nosso home perto da
+    /// bateria, estávamos esquecendo de por a hora ali"). Igual à bateria,
+    /// empurrado de fora (MainWindow.axaml.cs, mesmo timer) — esta
+    /// ViewModel não lê hora/data diretamente por conta própria, mesmo
+    /// padrão do BatteryStatusText acima.
+    /// </summary>
+    public string ClockText
+    {
+        get => _clockText;
+        set => SetField(ref _clockText, value);
+    }
+
     /// <summary>
     /// The game the UI currently considers "running" — set when we launch,
     /// cleared on an explicit close or a detected exit. For Steam titles we

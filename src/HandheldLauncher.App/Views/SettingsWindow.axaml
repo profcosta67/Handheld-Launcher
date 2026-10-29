@@ -110,7 +110,7 @@
           <ComboBoxItem Content="Desligado" />
           <ComboBoxItem Content="Resumido — FPS, bateria e hora" />
           <ComboBoxItem Content="Médio — GPU, CPU, RAM, bateria e FPS" />
-          <ComboBoxItem Content="Completo — + VRAM, clock da CPU, consumo (W) e mini-gráfico de frametime" />
+          <ComboBoxItem Content="Completo — + VRAM, clock da CPU, consumo (W) e mín/méd/pico de frametime" />
         </ComboBox>
         <TextBlock Text="{Binding OverlayStatusText, StringFormat='Agora: {0}'}" Classes="subtle" FontSize="11" />
         <TextBlock Text="No jogo: aperte L3+R3 (os dois analógicos) pra trocar. Precisa do RTSS aberto (o launcher já liga o OSD dele e desliga o 'Show own statistics' sozinho, pra não duplicar o FPS). Tamanho da letra: 'On-Screen Display zoom' no RTSS. Faixa preta atrás do texto: desmarque 'On-Screen Display fill' no RTSS (sem fundo)."

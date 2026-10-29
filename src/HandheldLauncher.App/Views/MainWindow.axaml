@@ -127,12 +127,23 @@
                          HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Border>
           </StackPanel>
-          <!-- Wifi/clock ainda são placeholder (●●●) — só a bateria virou
-               real nesta leva (ver MainViewModel.BatteryStatusText/
-               MainWindow.StartBatteryMonitor), corrigindo o bug reportado
-               de ficar cravada em 100%. Texto vazio (nada aparece) em PC
-               sem bateria nenhuma. -->
-          <TextBlock Text="●●●" Classes="subtle" VerticalAlignment="Center" />
+          <!-- Relógio (v0.9.8, pedido do usuário: "faltou um relógio no
+               nosso home perto da bateria") — tirou o lugar do antigo
+               placeholder de wifi "●●●" (nunca foi real, só um texto fixo;
+               wifi de verdade fica pra outra leva). Empurrado de fora pelo
+               mesmo timer da bateria (ver MainViewModel.ClockText/
+               MainWindow.StartBatteryMonitor). -->
+          <TextBlock Text="{Binding ClockText}" Classes="subtle" VerticalAlignment="Center" />
+          <!-- Bateria real desde outra leva (ver MainViewModel.
+               BatteryStatusText/MainWindow.StartBatteryMonitor), corrigindo
+               o bug reportado de ficar cravada em 100%. O ícone de
+               tomada/pilha vem de Platform.BatteryStatus — corrigido nesta
+               leva (v0.9.8) pra mostrar 🔌 sempre que estiver na tomada,
+               mesmo com a bateria já cheia (antes só mostrava 🔌 durante o
+               "carregando" de verdade, caindo pra ⚡ como se estivesse na
+               bateria — bug reportado: "faltou...um icone de ligado na
+               tomada ou não"). Texto vazio (nada aparece) em PC sem
+               bateria nenhuma. -->
           <TextBlock Text="{Binding BatteryStatusText}" Classes="subtle" VerticalAlignment="Center" />
         </StackPanel>
       </Grid>

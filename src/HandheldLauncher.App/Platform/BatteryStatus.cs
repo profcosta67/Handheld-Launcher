@@ -34,18 +34,27 @@ public static class BatteryStatus
 
     // Bits/values per the documented SYSTEM_POWER_STATUS struct.
     private const byte BatteryFlagNoSystemBattery = 128;
-    private const byte BatteryFlagCharging = 8;
     private const byte BatteryLifePercentUnknown = 255;
     private const byte AcLineStatusOnline = 1;
 
     /// <summary>
-    /// Formatted text for the top bar ("⚡86%" on battery, "🔌 86%" while
-    /// plugged in and actually charging), or "" when there's no battery at
-    /// all — a desktop PC, which is also where this gets tested most of the
-    /// time (BatteryFlag has the "no system battery" bit set) — or Windows
-    /// can't report it right now (BatteryLifePercent == 255/unknown).
-    /// Showing nothing in those cases is deliberate: better an empty spot
-    /// than swapping one frozen fake number (the old "100%") for another.
+    /// Formatted text for the top bar ("⚡86%" on battery, "🔌 86%" plugged
+    /// into the wall), or "" when there's no battery at all — a desktop PC,
+    /// which is also where this gets tested most of the time (BatteryFlag
+    /// has the "no system battery" bit set) — or Windows can't report it
+    /// right now (BatteryLifePercent == 255/unknown). Showing nothing in
+    /// those cases is deliberate: better an empty spot than swapping one
+    /// frozen fake number (the old "100%") for another.
+    ///
+    /// v0.9.8, bug reportado pelo usuário ("faltou...um icone de ligado na
+    /// tomada ou não"): a versão anterior só mostrava 🔌 quando
+    /// BatteryFlagCharging (bit "carregando de verdade") estava ligado —
+    /// então um aparelho NA TOMADA com a bateria já CHEIA (carga completa,
+    /// bit "charging" desligado porque não tem mais nada pra carregar)
+    /// caía pro ⚡, como se estivesse rodando na bateria. O que o ícone
+    /// precisa responder é só "está na tomada?" (ACLineStatus), não "está
+    /// efetivamente empurrando corrente pra bateria agora?" — por isso o
+    /// ícone agora depende só do ACLineStatus.
     /// </summary>
     public static string GetDisplayText()
     {
@@ -55,9 +64,8 @@ public static class BatteryStatus
             if ((status.BatteryFlag & BatteryFlagNoSystemBattery) != 0) return string.Empty;
             if (status.BatteryLifePercent == BatteryLifePercentUnknown) return string.Empty;
 
-            var charging = status.ACLineStatus == AcLineStatusOnline
-                && (status.BatteryFlag & BatteryFlagCharging) != 0;
-            var icon = charging ? "🔌" : "⚡";
+            var pluggedIn = status.ACLineStatus == AcLineStatusOnline;
+            var icon = pluggedIn ? "🔌" : "⚡";
             return $"{icon} {status.BatteryLifePercent}%";
         }
         catch

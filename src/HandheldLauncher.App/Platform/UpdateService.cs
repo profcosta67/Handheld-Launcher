@@ -121,10 +121,24 @@ public sealed class UpdateService
     /// <summary>
     /// Fecha o launcher, troca os arquivos pela versão nova e abre de
     /// novo. Quem chama é responsável por NÃO chamar com jogo rodando.
+    ///
+    /// v0.9.8: usava <c>ApplyUpdatesAndRestart</c>, que mostra a UI nativa
+    /// do próprio Velopack (sem NENHUMA opção documentada de cor/tema)
+    /// durante a troca de arquivos — exatamente a "telinha estilo
+    /// Windows" que o usuário reportou aparecer DEPOIS da nossa
+    /// UpdateWindow (que é temática). Não tem como pintar essa parte, mas
+    /// dá pra não mostrar ela: <c>WaitExitThenApplyUpdates</c> tem um
+    /// parâmetro <c>silent</c> justamente pra isso (doc oficial: "whether
+    /// Velopack should show a progress window / dialogs during the
+    /// updates or not"). Diferença importante: esse método NÃO fecha o
+    /// launcher por conta própria como o antigo fazia — a doc da Velopack
+    /// é explícita ("you should then clean up any state and exit your
+    /// app"), por isso o <c>Environment.Exit</c> aqui.
     /// </summary>
     public void ApplyAndRestart()
     {
         if (_manager is null || _pending is null) return;
-        _manager.ApplyUpdatesAndRestart(_pending);
+        _manager.WaitExitThenApplyUpdates(_pending, silent: true, restart: true);
+        Environment.Exit(0);
     }
 }

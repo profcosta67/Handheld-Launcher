@@ -620,9 +620,20 @@ public partial class MainWindow : Window
     private void StartBatteryMonitor(MainViewModel vm)
     {
         vm.BatteryStatusText = BatteryStatus.GetDisplayText();
+        vm.ClockText = DateTime.Now.ToString("HH:mm");
 
-        _batteryTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
-        _batteryTimer.Tick += (_, _) => vm.BatteryStatusText = BatteryStatus.GetDisplayText();
+        // v0.9.8: relógio junto da bateria na barra de cima (pedido do
+        // usuário: "faltou um relógio no nosso home perto da bateria").
+        // Intervalo trocado de 30s pra 15s — a bateria continua lenta de
+        // sobra nesse intervalo, mas o relógio só em "HH:mm" (sem
+        // segundos) já precisa de no máximo 1 minuto de atraso pra nunca
+        // ficar visivelmente parado quando o usuário olhar pra tela.
+        _batteryTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
+        _batteryTimer.Tick += (_, _) =>
+        {
+            vm.BatteryStatusText = BatteryStatus.GetDisplayText();
+            vm.ClockText = DateTime.Now.ToString("HH:mm");
+        };
         _batteryTimer.Start();
         Closed += (_, _) => _batteryTimer?.Stop();
     }

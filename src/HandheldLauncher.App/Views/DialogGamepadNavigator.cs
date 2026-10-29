@@ -26,7 +26,14 @@ namespace HandheldLauncher.App.Views;
 /// girava a opção igual ←/→, nunca mostrava a lista).</item>
 /// <item>Com a lista de uma caixa de seleção ABERTA: ↑/↓/←/→ trocam o item
 /// destacado dentro dela (sem sair da caixa); A confirma e fecha a lista; B
-/// só fecha a lista (não fecha o diálogo inteiro).</item>
+/// só fecha a lista (não fecha o diálogo inteiro). v0.9.8, correção de um
+/// bug do v0.9.7: isso aqui tinha virado dead code porque, assim que o
+/// dropdown abre, o Avalonia muda o FOCO pro item dentro do popup — então
+/// "o que está focado agora é um ComboBox com IsDropDownOpen=true" nunca
+/// era verdade de verdade, e B caía direto no caso padrão (fechava o
+/// diálogo inteiro). Corrigido procurando "existe algum ComboBox aberto
+/// NESTA JANELA" na árvore, em vez de depender de qual controle específico
+/// está focado.</item>
 /// <item>A (fora de uma lista aberta): aperta botão, marca caixinha/opção,
 /// ou entra na caixa de texto abrindo o teclado virtual.</item>
 /// <item>B (fora de uma lista aberta): fecha o diálogo.</item>
@@ -36,30 +43,34 @@ internal static class DialogGamepadNavigator
 {
     public static void Handle(Window dialog, GamepadAction action)
     {
-        var focused = dialog.FocusManager?.GetFocusedElement() as Control;
-
-        // Lista de uma caixa de seleção aberta (ver Activate abaixo): o
-        // Avalonia só navega essa lista sozinho quando a tecla chega como
-        // evento de teclado de verdade — aqui são ações sintéticas do
-        // controle (GamepadPoller), então ↑/↓ precisam mexer no
-        // SelectedIndex na mão, e A/B precisam fechar a lista em vez de
-        // ativar outro controle/fechar o diálogo.
-        if (focused is ComboBox { IsDropDownOpen: true } openCombo)
+        // Ver FindOpenComboBox: não dá pra confiar em "o que está focado
+        // agora é esse ComboBox" — o próprio Avalonia move o foco pro
+        // item dentro do popup assim que ele abre.
+        if (FindOpenComboBox(dialog) is { } openCombo)
         {
             switch (action)
             {
                 case GamepadAction.MoveUp:
+                case GamepadAction.MoveLeft:
                     CycleCombo(openCombo, -1);
                     return;
                 case GamepadAction.MoveDown:
+                case GamepadAction.MoveRight:
                     CycleCombo(openCombo, 1);
                     return;
                 case GamepadAction.Confirm:
                 case GamepadAction.Back:
                     openCombo.IsDropDownOpen = false;
                     return;
+                default:
+                    // Qualquer outra ação, com a lista aberta, não faz
+                    // nada — nunca deixa cair no switch de baixo (que
+                    // fecharia o diálogo inteiro no Back, por exemplo).
+                    return;
             }
         }
+
+        var focused = dialog.FocusManager?.GetFocusedElement() as Control;
 
         switch (action)
         {
@@ -107,6 +118,22 @@ internal static class DialogGamepadNavigator
     {
         if (combo.ItemCount == 0) return;
         combo.SelectedIndex = Math.Clamp(combo.SelectedIndex + delta, 0, combo.ItemCount - 1);
+    }
+
+    /// <summary>
+    /// Procura um ComboBox com o dropdown aberto em QUALQUER lugar da
+    /// janela — não só no que está focado agora (ver comentário em Handle
+    /// pra entender por quê). Nunca tem mais de um aberto ao mesmo tempo
+    /// na prática (abrir um fecha o anterior), então o primeiro que achar
+    /// já resolve.
+    /// </summary>
+    private static ComboBox? FindOpenComboBox(Window dialog)
+    {
+        foreach (var descendant in dialog.GetLogicalDescendants())
+        {
+            if (descendant is ComboBox { IsDropDownOpen: true } combo) return combo;
+        }
+        return null;
     }
 
     private static void MoveFocus(Window dialog, Control? focused, NavigationDirection direction)

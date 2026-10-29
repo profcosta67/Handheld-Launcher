@@ -740,6 +740,55 @@ Ainda **não** feito:
 15. ~~Tela de configuração pra `SteamWebApiKey`/`SteamId64`~~ — **feito
     numa leva posterior**, junto do item 5 (mesma `SettingsWindow`).
 
+## Navegação por controle corrigida, atualização silenciosa, números no HUD e relógio — v0.9.8
+
+**Nunca testado num aparelho ainda.** Leva inteira a partir de 4 bugs
+reportados depois do teste real da v0.9.7.
+
+- **B/A dentro de uma lista aberta das Configurações — bug de verdade
+  corrigido** (`Views/DialogGamepadNavigator`): a correção da v0.9.7 pra
+  esse mesmo ponto ("A abre a lista, B fecha só a lista") tinha virado
+  *dead code* na prática — reportado pelo usuário como *"quando entra na
+  lista aperta B uma vez pra fechar ele fecha o menu todo"* e *"aperta A
+  mas ele não seleciona a cor, fonte etc."*. Causa: assim que
+  `ComboBox.IsDropDownOpen` fica `true`, o próprio Avalonia move o FOCO
+  de teclado pro item dentro do popup — então checar "o que está focado
+  agora é esse ComboBox com IsDropDownOpen=true" nunca batia de verdade,
+  e B/A caíam direto no switch de fora (B fechava as Configurações
+  inteiras; A não selecionava nada). Corrigido procurando "existe algum
+  ComboBox com a lista aberta NESTA JANELA" na árvore lógica inteira, em
+  vez de depender de qual controle específico está focado — agora, com
+  uma lista aberta, ↑/↓/←/→ trocam o item destacado, A confirma e fecha
+  só a lista, e B também só fecha a lista (nunca mais o diálogo inteiro).
+- **"Telinha estilo Windows" na instalação da atualização — eliminada**:
+  o usuário esclareceu que a tela "estilo Windows" aparecia DEPOIS da
+  nossa `UpdateWindow` (temática), já baixada, durante a PARTE DE
+  INSTALAÇÃO (troca de arquivos) — isso é a UI nativa do próprio Velopack
+  (`UpdateManager.ApplyUpdatesAndRestart`), sem nenhuma opção documentada
+  de cor/tema. Trocado por `WaitExitThenApplyUpdates(..., silent: true)`,
+  que tem um parâmetro justamente pra suprimir essa UI nativa — agora a
+  troca de arquivos acontece sem mostrar nada por cima da nossa própria
+  tela. Diferença importante por trás: esse método não fecha o launcher
+  por conta própria como o antigo fazia, então `UpdateService.
+  ApplyAndRestart` agora chama `Environment.Exit(0)` depois, como a
+  própria documentação da Velopack pede.
+- **Gráfico de frametime no HUD — trocado por números**: depois de duas
+  tentativas de "desenho" (barra Unicode na v0.9.5, rampa ASCII na
+  v0.9.7) sem sucesso — a última ainda foi reportada como ilegível
+  ("%%@@@---%% não entendi nada") — o HUD (preset Completo) agora mostra
+  só os números: mínimo/média/pico (ms) da janela recente de frametime,
+  tipo `8/17/42ms`. Não é um gráfico, mas diz exatamente o que importa
+  (pico bem mais alto que a média = teve engasgo) sem precisar decifrar
+  caractere nenhum.
+- **Relógio e ícone de tomada na barra de cima**: faltava um relógio
+  perto da bateria (pedido do usuário) — adicionado no lugar do antigo
+  placeholder fixo de wifi "●●●" (nunca foi real). E o ícone de bateria
+  tinha um bug sutil: só virava 🔌 enquanto a bateria estava realmente
+  "carregando" — um aparelho na tomada com a bateria já CHEIA caía de
+  volta pro ⚡, como se estivesse rodando na bateria. Agora o ícone
+  responde só "está na tomada?", então fica 🔌 o tempo todo enquanto
+  plugado, cheio ou não.
+
 ## Sparkline ASCII, navegação por controle nas Configurações e confirmação de Salvar — v0.9.7
 
 **Nunca testado num aparelho ainda** (exceto o sparkline, cujo bug foi
@@ -751,9 +800,12 @@ reportado num aparelho real — ver primeiro item).
   aparecia uma fileira de "??????" em vez da barrinha. Trocado por uma
   rampa de densidade 100% ASCII (`.-=+*#%@`, do mais "vazio" pro mais
   "cheio") — `HudFormatter.SparkChars`, mesma lógica de antes, só os
-  caracteres mudaram.
+  caracteres mudaram. **Trocado de novo na v0.9.8** por números
+  (mín/méd/pico em ms) — o usuário achou essa rampa ASCII igualmente
+  ilegível.
 - **Navegação por controle nas Configurações — dois bugs corrigidos**
-  (`Views/DialogGamepadNavigator`):
+  (`Views/DialogGamepadNavigator`; **um terceiro bug nessa mesma área foi
+  encontrado e corrigido na v0.9.8**, ver seção abaixo):
   - *"quando clico o A pra selecionar um tema, ele vai mudando, ideal
     seria abrir a lista"*: A numa caixa de seleção (Tema, Fonte,
     Tamanho...) focada agora ABRE o dropdown de verdade — dá pra ver
@@ -885,8 +937,10 @@ Lote de quatro pedidos soltos numa mensagem só:
   isso é a aproximação possível. Risco conhecido: se a fonte do RTSS não
   tiver esses glyphs, pode aparecer em branco — nesse caso é só avisar pra
   trocar por uma versão em caracteres ASCII simples. **Esse risco se
-  confirmou** (apareceu "??????" em vez da barra) e foi **corrigido na
-  v0.9.7** com caracteres ASCII.
+  confirmou** (apareceu "??????" em vez da barra) e a v0.9.7 trocou por
+  caracteres ASCII — mas o usuário achou essa versão igualmente ilegível
+  ("%%@@@---%% não entendi nada"), então a v0.9.8 **abandonou a ideia de
+  "desenho" por completo**, trocando por números (mín/méd/pico em ms).
 
 ### Temperatura no HUD — pesquisado, ainda sem caminho bom
 
@@ -1367,7 +1421,11 @@ pelo aviso na barra de cima (pacote delta). O workflow de build do GitHub
    antes; o item do menu View/Back continua aplicando na hora (sem a
    telinha), pra quem só quer confirmar rápido pelo controle. Com um jogo
    rodando ele **não** reinicia nem baixa (nem pela telinha, nem pelo
-   menu). Menu → **Verificar atualizações** força a checagem na hora.
+   menu). Menu → **Verificar atualizações** força a checagem na hora. A
+   troca de arquivos em si (depois de confirmar) roda em modo silencioso
+   desde a v0.9.8 — a Velopack mostrava uma telinha própria, sem tema
+   nenhum ("estilo Windows"), bem rápido por cima da nossa; agora isso
+   fica escondido e só a nossa UI aparece em qualquer ponto do processo.
 6. `settings.json` (chaves, SteamID, pastas Xbox) e a biblioteca ficam em
    `%AppData%\HandheldLauncher\` — a atualização nunca mexe nisso.
 
