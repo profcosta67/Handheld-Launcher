@@ -16,11 +16,20 @@ namespace HandheldLauncher.App.Views;
 /// em vez de mexer na biblioteca por trás:
 /// <list type="bullet">
 /// <item>↑/↓: próximo/anterior item focável (com destaque de foco), rolando
-/// a tela até ele.</item>
-/// <item>←/→: troca a opção de uma caixa de seleção (Tema, Tamanho...).</item>
-/// <item>A: aperta botão, marca caixinha/opção, avança a caixa de seleção,
+/// a tela até ele. ←/→ fazem a MESMA coisa (v0.9.7 — bug reportado: "quando
+/// chego lá na aba de salvar, se passo pro lado não vai, só obedece indo
+/// pra baixo"; antes ←/→ não tinham NENHUM efeito fora de um ComboBox).</item>
+/// <item>Numa caixa de seleção (Tema, Tamanho...) fechada: ←/→ ainda giram
+/// a opção sem abrir nada (atalho rápido que já existia). A agora ABRE a
+/// lista de verdade (v0.9.7 — bug reportado: "quando clico o A pra
+/// selecionar um tema, ele vai mudando, ideal seria abrir a lista"; antes A
+/// girava a opção igual ←/→, nunca mostrava a lista).</item>
+/// <item>Com a lista de uma caixa de seleção ABERTA: ↑/↓/←/→ trocam o item
+/// destacado dentro dela (sem sair da caixa); A confirma e fecha a lista; B
+/// só fecha a lista (não fecha o diálogo inteiro).</item>
+/// <item>A (fora de uma lista aberta): aperta botão, marca caixinha/opção,
 /// ou entra na caixa de texto abrindo o teclado virtual.</item>
-/// <item>B: fecha o diálogo.</item>
+/// <item>B (fora de uma lista aberta): fecha o diálogo.</item>
 /// </list>
 /// </summary>
 internal static class DialogGamepadNavigator
@@ -28,6 +37,29 @@ internal static class DialogGamepadNavigator
     public static void Handle(Window dialog, GamepadAction action)
     {
         var focused = dialog.FocusManager?.GetFocusedElement() as Control;
+
+        // Lista de uma caixa de seleção aberta (ver Activate abaixo): o
+        // Avalonia só navega essa lista sozinho quando a tecla chega como
+        // evento de teclado de verdade — aqui são ações sintéticas do
+        // controle (GamepadPoller), então ↑/↓ precisam mexer no
+        // SelectedIndex na mão, e A/B precisam fechar a lista em vez de
+        // ativar outro controle/fechar o diálogo.
+        if (focused is ComboBox { IsDropDownOpen: true } openCombo)
+        {
+            switch (action)
+            {
+                case GamepadAction.MoveUp:
+                    CycleCombo(openCombo, -1);
+                    return;
+                case GamepadAction.MoveDown:
+                    CycleCombo(openCombo, 1);
+                    return;
+                case GamepadAction.Confirm:
+                case GamepadAction.Back:
+                    openCombo.IsDropDownOpen = false;
+                    return;
+            }
+        }
 
         switch (action)
         {
@@ -39,12 +71,25 @@ internal static class DialogGamepadNavigator
                 MoveFocus(dialog, focused, NavigationDirection.Previous);
                 break;
 
-            case GamepadAction.MoveLeft:
             case GamepadAction.MoveRight:
-                if (focused is ComboBox combo && combo.ItemCount > 0)
+                if (focused is ComboBox comboRight && comboRight.ItemCount > 0)
                 {
-                    var delta = action == GamepadAction.MoveRight ? 1 : -1;
-                    combo.SelectedIndex = Math.Clamp(combo.SelectedIndex + delta, 0, combo.ItemCount - 1);
+                    CycleCombo(comboRight, 1);
+                }
+                else
+                {
+                    MoveFocus(dialog, focused, NavigationDirection.Next);
+                }
+                break;
+
+            case GamepadAction.MoveLeft:
+                if (focused is ComboBox comboLeft && comboLeft.ItemCount > 0)
+                {
+                    CycleCombo(comboLeft, -1);
+                }
+                else
+                {
+                    MoveFocus(dialog, focused, NavigationDirection.Previous);
                 }
                 break;
 
@@ -56,6 +101,12 @@ internal static class DialogGamepadNavigator
                 dialog.Close();
                 break;
         }
+    }
+
+    private static void CycleCombo(ComboBox combo, int delta)
+    {
+        if (combo.ItemCount == 0) return;
+        combo.SelectedIndex = Math.Clamp(combo.SelectedIndex + delta, 0, combo.ItemCount - 1);
     }
 
     private static void MoveFocus(Window dialog, Control? focused, NavigationDirection direction)
@@ -97,7 +148,10 @@ internal static class DialogGamepadNavigator
                 button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 break;
             case ComboBox combo when combo.ItemCount > 0:
-                combo.SelectedIndex = (combo.SelectedIndex + 1) % combo.ItemCount;
+                // v0.9.7, pedido do usuário ("ideal seria abrir a lista"):
+                // A abre o dropdown de verdade em vez de girar pra frente
+                // (girar sem abrir continua disponível em ←/→, ver Handle).
+                combo.IsDropDownOpen = true;
                 break;
             case TextBox:
                 TouchKeyboard.Show();

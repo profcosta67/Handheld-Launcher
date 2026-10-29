@@ -243,11 +243,22 @@ public sealed class SettingsViewModel : ViewModelBase
             if (SetField(ref _savedMessage, value))
             {
                 OnPropertyChanged(nameof(HasSavedMessage));
+                OnPropertyChanged(nameof(FormEnabled));
             }
         }
     }
 
     public bool HasSavedMessage => !string.IsNullOrEmpty(SavedMessage);
+
+    /// <summary>
+    /// Desabilita o formulário por trás enquanto a telinha "Configurações
+    /// salvas" está aberta (v0.9.7) — sem isso, ↑/↓ pelo controle ainda
+    /// conseguiam mover o foco pra um campo escondido atrás do overlay
+    /// (DialogGamepadNavigator não sabe nada sobre "tem overlay aberto",
+    /// só sobre foco/visibilidade — desabilitar os controles de verdade é
+    /// o jeito do próprio Avalonia tirá-los da navegação).
+    /// </summary>
+    public bool FormEnabled => !HasSavedMessage;
 
     /// <summary>Carrega os campos a partir de settings.json (via AppSettingsStore.Load), chamado quando a Window abre.</summary>
     public void LoadFrom(AppSettings settings)
@@ -311,4 +322,7 @@ public sealed class SettingsViewModel : ViewModelBase
         SavedMessage = "Salvo! Aparência e HUD já valem ao fechar esta tela; chaves e modo de uso pedem reiniciar o launcher (fechar de vez e abrir de novo)."
             + (taskOk ? string.Empty : " Aviso: não consegui ajustar a abertura automática do Windows (veja debug.log).");
     }
+
+    /// <summary>Fecha a telinha de confirmação "Configurações salvas" (botão OK, v0.9.7) — ver SettingsWindow.axaml.cs.OnSavedOkClick.</summary>
+    public void DismissSavedMessage() => SavedMessage = null;
 }

@@ -195,12 +195,15 @@ internal static class HudFormatter
 
     // Mini-gráfico de frametime (v0.9.5, pedido antigo do planejamento) —
     // RTSS OSD só desenha TEXTO (sem API de gráfico de verdade), então o
-    // "gráfico" é um sparkline feito com caracteres de bloco Unicode
-    // (▁▂▃▄▅▆▇█), uma "barrinha" por amostra. NUNCA testado contra um RTSS
-    // de verdade: se a fonte que o RTSS está usando não tiver esses
-    // glyphs, pode aparecer em branco/quadradinhos em vez da barra — avisar
-    // se isso acontecer, dá pra trocar por caracteres ASCII simples.
-    private static readonly char[] SparkChars = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+    // "gráfico" é um sparkline de caracteres, uma "barrinha" por amostra.
+    // v0.9.5 usava caracteres de bloco Unicode (▁▂▃▄▅▆▇█) — exatamente o
+    // risco já avisado no release notes daquela versão: testado num
+    // aparelho de verdade, a fonte que o RTSS usa não tem esses glyphs e
+    // aparecia como uma fileira de "??????". Trocado por uma rampa de
+    // densidade 100% ASCII (mesma ideia usada em arte ASCII de terminal) —
+    // qualquer fonte que já desenha o resto do HUD (letras/números/sinais)
+    // também desenha isso.
+    private static readonly char[] SparkChars = ['.', '-', '=', '+', '*', '#', '%', '@'];
     private const double SparklineMaxMs = 33.0; // ~30 FPS pra cima já vira a barra mais alta da escala
     private const string FrameColor = "F2C14E";
 

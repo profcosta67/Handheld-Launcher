@@ -740,6 +740,46 @@ Ainda **não** feito:
 15. ~~Tela de configuração pra `SteamWebApiKey`/`SteamId64`~~ — **feito
     numa leva posterior**, junto do item 5 (mesma `SettingsWindow`).
 
+## Sparkline ASCII, navegação por controle nas Configurações e confirmação de Salvar — v0.9.7
+
+**Nunca testado num aparelho ainda** (exceto o sparkline, cujo bug foi
+reportado num aparelho real — ver primeiro item).
+
+- **Sparkline de frametime — bug confirmado e corrigido**: o risco já
+  avisado no release notes da v0.9.5 se confirmou no aparelho — a fonte
+  que o RTSS usa não tem os caracteres de bloco Unicode (▁▂▃▄▅▆▇█) e
+  aparecia uma fileira de "??????" em vez da barrinha. Trocado por uma
+  rampa de densidade 100% ASCII (`.-=+*#%@`, do mais "vazio" pro mais
+  "cheio") — `HudFormatter.SparkChars`, mesma lógica de antes, só os
+  caracteres mudaram.
+- **Navegação por controle nas Configurações — dois bugs corrigidos**
+  (`Views/DialogGamepadNavigator`):
+  - *"quando clico o A pra selecionar um tema, ele vai mudando, ideal
+    seria abrir a lista"*: A numa caixa de seleção (Tema, Fonte,
+    Tamanho...) focada agora ABRE o dropdown de verdade — dá pra ver
+    todas as opções e escolher, em vez de ficar ciclando uma por vez.
+    Com a lista aberta, ↑/↓/←/→ trocam o item destacado e A confirma/
+    fecha (B só fecha a lista, não fecha as Configurações). Girar a
+    opção sem abrir nada (atalho rápido de antes) continua disponível
+    em ←/→ com a caixa FECHADA.
+  - *"quando chego lá na aba de salvar, se passo pro lado não vai, ele
+    só obedece indo pra baixo"*: ←/→ fora de uma caixa de seleção não
+    tinham NENHUM efeito — só ↑/↓ moviam o foco entre os controles.
+    Agora ←/→ fazem a mesma coisa que ↑/↓ (próximo/anterior controle
+    focável), então nenhum botão/campo fica "isolado" só alcançável
+    por um lado.
+- **Confirmação ao Salvar**: pedido do usuário ("clicar em salvar e ele
+  já aparecer uma tela de confirmação e clicar em ok"). Antes, salvar só
+  mostrava um texto verde discreto dentro da lista rolável das
+  Configurações — fácil de nunca ver, principalmente navegando pelo
+  controle (o foco ficava longe dele). Agora aparece uma telinha de
+  verdade por cima (fundo escurecido + cartão central, mesmo visual do
+  "Sobre"), com o aviso e um botão **OK** — focado automaticamente, então
+  quem está no controle já aperta A na hora pra confirmar. O formulário
+  por trás fica desabilitado enquanto a telinha está aberta (sem isso,
+  ↑/↓ ainda conseguiam focar um campo escondido atrás do fundo
+  escurecido).
+
 ## Badge de plataforma, logo consistente, performance e telinha de update — v0.9.6
 
 **Nunca testado num aparelho ainda.**
@@ -844,7 +884,9 @@ Lote de quatro pedidos soltos numa mensagem só:
   desenha texto — não existe uma API de gráfico de verdade pra usar, então
   isso é a aproximação possível. Risco conhecido: se a fonte do RTSS não
   tiver esses glyphs, pode aparecer em branco — nesse caso é só avisar pra
-  trocar por uma versão em caracteres ASCII simples.
+  trocar por uma versão em caracteres ASCII simples. **Esse risco se
+  confirmou** (apareceu "??????" em vez da barra) e foi **corrigido na
+  v0.9.7** com caracteres ASCII.
 
 ### Temperatura no HUD — pesquisado, ainda sem caminho bom
 

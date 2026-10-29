@@ -10,12 +10,14 @@
         Background="{StaticResource BackgroundBrush}">
 
   <!--
-    Mesmo padrão do AddGameWindow: diálogo mouse/teclado-only de
-    propósito, não pensado pro gamepad ainda (ver code-behind) — quem
-    está colando uma API key já está num PC com teclado.
+    Pensado pra mouse/teclado (quem está colando uma API key já está num
+    PC com teclado), mas navegável pelo controle desde uma leva posterior
+    — ver DialogGamepadNavigator (comentário aqui ficou desatualizado até
+    a v0.9.7, corrigido).
   -->
 
-  <Grid RowDefinitions="*,Auto" Margin="24">
+  <Panel>
+  <Grid RowDefinitions="*,Auto" Margin="24" IsEnabled="{Binding FormEnabled}">
     <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="12">
         <!-- v0.9.5: as chaves/IDs não aparecem mais direto aqui (pedido do
@@ -126,11 +128,6 @@
                    IsVisible="{Binding HasUpdateResult}"
                    TextWrapping="Wrap" />
 
-        <TextBlock Text="{Binding SavedMessage}"
-                   IsVisible="{Binding HasSavedMessage}"
-                   TextWrapping="Wrap"
-                   Foreground="#7FD88A"
-                   Margin="0,8,0,0" />
       </StackPanel>
     </ScrollViewer>
 
@@ -140,4 +137,23 @@
       <Button Classes="pill" Content="Salvar" Click="OnSaveClick" />
     </StackPanel>
   </Grid>
+
+  <!-- v0.9.7, pedido do usuário ("clicar em salvar e já aparecer uma tela
+       de confirmação e clicar em ok") — antes só tinha o texto verde
+       {Binding SavedMessage} discreto dentro da lista rolável (fácil de
+       não notar, principalmente navegando pelo controle, longe de onde
+       o foco estava). Mesmo padrão visual do "Sobre" em MainWindow.axaml:
+       fundo escurecido + cartão central — mas SEM fechar ao tocar no
+       fundo (de propósito: o pedido foi um "clicar em OK" explícito). -->
+  <Panel Classes="fadeIn" IsVisible="{Binding HasSavedMessage}">
+    <Border Classes="contextMenuOverlay" />
+    <Border Classes="contextMenuCard" Width="440" Padding="28" HorizontalAlignment="Center" VerticalAlignment="Center">
+      <StackPanel Spacing="16" HorizontalAlignment="Center">
+        <TextBlock Text="✓ Configurações salvas" Classes="menuHeaderTitle" FontSize="20" HorizontalAlignment="Center" />
+        <TextBlock Text="{Binding SavedMessage}" Classes="subtle" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="380" />
+        <Button x:Name="SavedOkButton" Classes="pill primary" Content="OK" Click="OnSavedOkClick" HorizontalAlignment="Center" />
+      </StackPanel>
+    </Border>
+  </Panel>
+  </Panel>
 </Window>

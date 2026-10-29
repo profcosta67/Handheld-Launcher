@@ -91,6 +91,18 @@ public partial class SettingsWindow : Window
     private void OnSaveClick(object? sender, RoutedEventArgs e)
     {
         ViewModel.SaveTo(_settings);
+
+        // v0.9.7, pedido do usuário ("clicar em salvar e já aparecer uma
+        // tela de confirmação e clicar em ok") — foca o OK da telinha que
+        // acabou de aparecer (ver SettingsWindow.axaml, Panel ligado a
+        // HasSavedMessage) pra quem está no controle já poder confirmar
+        // com A na hora, sem precisar navegar até lá.
+        SavedOkButton.Focus();
+    }
+
+    private void OnSavedOkClick(object? sender, RoutedEventArgs e)
+    {
+        ViewModel.DismissSavedMessage();
     }
 
     /// <summary>Preenchido por quem abre (MainWindow.OpenSettingsDialogAsync).</summary>
