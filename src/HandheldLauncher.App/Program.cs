@@ -22,6 +22,11 @@ internal static class Program
         // qualquer coisa nossa (mutex, janela) rodar.
         Velopack.VelopackApp.Build().Run();
 
+        // Launcher da instalação ANTIGA rodando? Fecha ele antes de tudo —
+        // senão o mutex dele faz este (novo) só trazer a janela velha pra
+        // frente. Ver LegacyInstallCleanup.
+        LegacyInstallCleanup.KillLegacyProcesses();
+
         // Abertura automática (watchdog/login) depois de um "Sair", ou com
         // "abrir sozinho" desligado nas Configurações → sai sem abrir nada.
         // Ver WatchdogGate.

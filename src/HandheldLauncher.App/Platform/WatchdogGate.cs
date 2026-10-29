@@ -73,43 +73,6 @@ internal static class WatchdogGate
         }
     }
 
-    /// <summary>
-    /// Instalação antiga (Install-Launcher.ps1) ainda no PC: a Tarefa
-    /// Agendada pode estar abrindo o exe ANTIGO a cada minuto, que não
-    /// tem nenhuma dessas proteções. Se este processo é o instalado pelo
-    /// Setup.exe e o exe antigo ainda existe, aponta a tarefa pro exe
-    /// atual (com --watchdog). Melhor esforço; roda em segundo plano.
-    /// </summary>
-    public static void RepointLegacyTaskIfNeeded(bool isVelopackInstall)
-    {
-        if (!isVelopackInstall) return;
-
-        _ = Task.Run(() =>
-        {
-            try
-            {
-                var legacyExe = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "Programs", "HandheldLauncher", "HandheldLauncher.exe");
-                var currentExe = Environment.ProcessPath;
-                if (!File.Exists(legacyExe) || string.IsNullOrEmpty(currentExe)) return;
-
-                var psi = new ProcessStartInfo("schtasks.exe",
-                    $"/Change /TN \"HandheldLauncherWatchdog\" /TR \"\\\"{currentExe}\\\" --watchdog\"")
-                {
-                    CreateNoWindow = true,
-                    UseShellExecute = false,
-                };
-                using var process = Process.Start(psi);
-                process?.WaitForExit(5000);
-            }
-            catch
-            {
-                // Melhor esforço.
-            }
-        });
-    }
-
     private static void ClearQuitFlag()
     {
         try

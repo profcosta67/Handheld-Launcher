@@ -64,9 +64,9 @@ public partial class App : Application
             // instalação via Setup.exe vira no-op (ver UpdateService).
             var updateService = new UpdateService();
 
-            // Tarefa Agendada antiga ainda abrindo o exe da instalação
-            // antiga? Aponta pro exe atual (ver WatchdogGate).
-            WatchdogGate.RepointLegacyTaskIfNeeded(updateService.IsInstalled);
+            // Instalação antiga (Install-Launcher.ps1) ainda no aparelho?
+            // Redireciona a tarefa, migra o backup e apaga a pasta velha.
+            LegacyInstallCleanup.RunInBackground();
 
             var mainWindow = new MainWindow
             {
