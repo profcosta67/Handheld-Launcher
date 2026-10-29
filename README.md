@@ -131,6 +131,18 @@ mais sentido de risco crescente):
 
 6. **Mais ideias do usuário (pós v0.9.10/v0.9.11), só anotadas por enquanto
    — pedido explícito de não codar/testar ainda**:
+
+   **Ordem combinada com o usuário (pós v0.9.14)**: (a) ajustes nas abas
+   de Configurações (reordenar Aparência/Diretórios/Modo de uso/Contas,
+   ComboBox de Aparência, tirar "Verificar atualizações" de Contas) →
+   (b) desinstalar jogo do Xbox/Game Pass de verdade + integração com o
+   Eden → **subir update, testar** → (c) temas de LAYOUT de verdade
+   (SteamOS/Switch/Xbox Series) + só então trocar o "Switch" atual (cor)
+   pelo tema real → **subir update, testar** → (d) revisão ampla de
+   qualidade de código (a mais abrangente, pedida no início desta sessão,
+   que até agora só teve uma auditoria focada nas áreas tocadas
+   recentemente).
+
    - **Desinstalar jogo do Xbox app/Game Pass de verdade.** Hoje (ver
      "Excluir atalho/Excluir jogo" no menu de contexto, mais abaixo) um
      jogo escaneado automaticamente de `XboxScanFolders` não ganha NENHUM
