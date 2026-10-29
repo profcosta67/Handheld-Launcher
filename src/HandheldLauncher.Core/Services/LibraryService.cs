@@ -207,6 +207,27 @@ public sealed class LibraryService : ILibraryService
         return owned.Where(g => !installedAppIds.Contains(g.AppId)).ToList();
     }
 
+    public GameEntry BuildEntryForOwnedGame(OwnedSteamGame owned)
+    {
+        var game = new GameEntry
+        {
+            Id = $"steam_{owned.AppId}",
+            Title = owned.Title,
+            Source = GameSource.Steam,
+            SteamAppId = owned.AppId,
+            IsOwnedNotInstalled = true,
+        };
+
+        ApplyOverride(game, _store.LoadOverrides());
+
+        // Nunca "último jogo aberto" (WIDE CAPSULE) pra um jogo que nem
+        // está instalado — mesmo que o override tenha uma data de uma
+        // instalação anterior (jogo já desinstalado e reinstalado antes).
+        game.LastPlayedUtc = null;
+
+        return game;
+    }
+
     private static void ApplyOverride(GameEntry game, IReadOnlyDictionary<string, GameMetadataOverride> overrides)
     {
         if (!overrides.TryGetValue(game.Id, out var o)) return;

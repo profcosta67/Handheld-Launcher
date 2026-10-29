@@ -51,6 +51,15 @@ public sealed class GameTileViewModel : ViewModelBase
     public bool IsFavorite => Game.IsFavorite;
 
     /// <summary>
+    /// True pra uma tile da aba "Não instalados" (jogo da conta Steam
+    /// ainda não instalado nesta máquina — ver GameEntry.
+    /// IsOwnedNotInstalled). Drives o badge "Instalar" no canto da tile
+    /// (MainWindow.axaml) — confirmar/clicar nessas tiles instala em vez
+    /// de abrir (ver MainViewModel.LaunchSelected/BuildContextMenu).
+    /// </summary>
+    public bool IsOwnedNotInstalled => Game.IsOwnedNotInstalled;
+
+    /// <summary>
     /// Drives showing the LOGO instead of the game's name — in the hero
     /// banner's bottom-left corner (MainWindow.axaml, follows SelectedTile)
     /// AND above every tile's capsule, CAPSULE or WIDE CAPSULE alike (see

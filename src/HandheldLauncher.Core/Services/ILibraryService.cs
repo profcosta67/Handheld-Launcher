@@ -57,4 +57,18 @@ public interface ILibraryService
     /// como mostrar o erro).
     /// </summary>
     Task<IReadOnlyList<OwnedSteamGame>> GetOwnedButNotInstalledSteamGamesAsync();
+
+    /// <summary>
+    /// Monta uma GameEntry SINTÉTICA (nunca persistida como "jogo manual",
+    /// nunca entra em Games/_games) pra representar um OwnedSteamGame na
+    /// aba "Não instalados" da biblioteca principal — mesmo Id
+    /// ("steam_{appid}") que SteamLibraryScanner usaria se/quando o jogo
+    /// for instalado de verdade, e já aplica qualquer override salvo
+    /// (capa buscada enquanto ainda não instalado, por exemplo) pra essa
+    /// tile não começar do zero visualmente. GameEntry.IsOwnedNotInstalled
+    /// sempre true no resultado; LastPlayedUtc sempre null (nunca vira a
+    /// tile "último jogo aberto", mesmo se o override tiver uma data de
+    /// uma instalação anterior já desinstalada).
+    /// </summary>
+    GameEntry BuildEntryForOwnedGame(OwnedSteamGame owned);
 }

@@ -18,7 +18,7 @@ SteamGridDB, navegação por controle.
 > quando quiser (é um find-and-replace no `.sln`, nos `.csproj` e no
 > namespace `HandheldLauncher.*`).
 
-## Roteiro planejado (próximas levas — nada disso implementado ainda)
+## Roteiro planejado (próximas levas)
 
 Depois do primeiro teste real completo (ver "Meus parabéns" — biblioteca,
 menu, Downloads e RTSS todos confirmados funcionando), o usuário pediu pra
@@ -26,16 +26,11 @@ planejar as próximas levas antes de sair codando tudo de uma vez. Ordem
 combinada (ele não tinha preferência forte, então ficou a ordem que faz
 mais sentido de risco crescente):
 
-1. **Reorganizar as abas da biblioteca** — troca o conjunto atual
-   (Favoritos/Todos/Steam/Xbox/Não Steam) por **Favoritos/Todos/Oficiais/Não
-   Steam/Não instalados**. "Oficiais" = Steam + Xbox juntos numa aba só
-   (decisão do usuário — substitui as duas abas separadas de hoje). "Não
-   instalados" puxa a MESMA lista "na sua conta, não instalado" que já
-   alimenta o painel de Downloads (Steam Web API) — só expõe ela também como
-   aba da biblioteca principal, com botão de instalar na própria tile.
-2. **Atalho de Downloads na barra de cima** — ícone/indicador perto da
-   bateria, estilo Steam, mostrando que tem algo baixando e abrindo o
-   painel de Downloads ao clicar.
+1. ~~Reorganizar as abas da biblioteca~~ — **feito nesta leva**, ver
+   "Status atual" mais abaixo pros detalhes (Favoritos/Todos/Oficiais/Não
+   Steam/Não instalados). **Nunca testado num build real.**
+2. ~~Atalho de Downloads na barra de cima~~ — **feito nesta leva**, ver
+   "Status atual" mais abaixo. **Nunca testado num build real.**
 3. **Overlay de performance mais completo** (presets Resumido/Médio/Completo
    em vez de só FPS) — decisão do usuário: **overlay próprio do launcher**,
    não RTSS + Afterburner. Nota técnica importante pra quando for
@@ -165,29 +160,51 @@ Construído até agora:
       "Cancelar") antes de executar de verdade. **Ainda não testado num
       build real — nem os itens de exclusão, nem a confirmação.**
   - **Abas de filtro**, logo abaixo do banner HERO e acima da fileira:
-    "Favoritos", "Todos", "Steam", "Xbox", "Não Steam" (ordem pedida pelo
-    usuário nesta leva: "fav, todos/steam/xbox/nao steam" — mudou de
-    "Todos, Favoritos, Steam, Não Steam, Xbox"). Clicar numa aba não
-    re-escaneia nada, só filtra a lista já carregada na hora
-    (`MainViewModel.SetFilter`/`RebuildGamesFromLibrary`). Layout virou
-    um `Grid` de 5 colunas IGUAIS ocupando a largura inteira (era um
-    `StackPanel` colado à esquerda) — pedido do usuário: "centralize...
-    fica com todos espaçamentos iguais e ocupe do início ao fim da
-    tela". **Acesso por controle (novo nesta leva)**: LB/RB ciclam entre
-    as abas nessa mesma ordem visual (`GamepadAction.PreviousFilter`/
-    `NextFilter`, teclado Q/E como fallback de dev) — antes só dava pra
-    clicar/tocar, e o usuário reportou não conseguir alcançar pelo
-    controle. "Xbox" filtra por `GameSource.XboxApp`, que agora tem DUAS
-    formas de preencher: marcar o checkbox "É um jogo do Xbox app / Game
-    Pass" no diálogo "Adicionar jogo" (manual, continua igual), **ou,
-    novo nesta leva, configurar pastas em `AppSettings.XboxScanFolders`**
-    (ver bullet própria mais abaixo) — a detecção automática de
-    verdade continua não existindo (precisaria de APIs de UWP que este
-    projeto não referencia), isso é um atalho de pasta, não um scanner
-    real do Xbox app. **Importante**: "Atualizar Capas Automático"
-    continua sempre olhando a biblioteca INTEIRA, nunca só a aba ativa —
-    corrigido de propósito pra não virar um bug silencioso. **Nunca
-    testado num build real.**
+    **"Favoritos", "Todos", "Oficiais", "Não Steam", "Não instalados"**
+    (reorganizado numa leva posterior a pedido do usuário: "dividir as
+    subabas, fav, ALL, oficiais, não Steam, não instalados" — era
+    "Favoritos/Todos/Steam/Xbox/Não Steam"). "Oficiais" junta Steam E
+    Xbox na mesma aba (`GameSource.Steam || GameSource.XboxApp` — decisão
+    explícita do usuário, substitui as duas abas separadas de antes);
+    "Não Steam" virou o complemento exato disso (nem Steam nem Xbox) em
+    vez de "qualquer coisa que não seja Steam" como era antes (quando
+    isso incluía Xbox também). Clicar numa aba não re-escaneia nada, só
+    filtra a lista já carregada na hora (`MainViewModel.SetFilter`/
+    `RebuildGamesFromLibrary`). Layout é um `Grid` de 5 colunas IGUAIS
+    ocupando a largura inteira — pedido do usuário: "centralize... fica
+    com todos espaçamentos iguais e ocupe do início ao fim da tela".
+    **Acesso por controle**: LB/RB ciclam entre as abas nessa mesma ordem
+    visual (`GamepadAction.PreviousFilter`/`NextFilter`, teclado Q/E como
+    fallback de dev). "Xbox" (dentro de "Oficiais") filtra por
+    `GameSource.XboxApp`, que tem DUAS formas de preencher: marcar o
+    checkbox "É um jogo do Xbox app / Game Pass" no diálogo "Adicionar
+    jogo" (manual), ou configurar pastas em `AppSettings.XboxScanFolders`
+    (ver bullet própria mais abaixo) — a detecção automática de verdade
+    continua não existindo (precisaria de APIs de UWP que este projeto
+    não referencia), isso é um atalho de pasta, não um scanner real do
+    Xbox app. **Importante**: "Atualizar Capas Automático" continua
+    sempre olhando a biblioteca INTEIRA, nunca só a aba ativa — corrigido
+    de propósito pra não virar um bug silencioso. **Nunca testado num
+    build real.**
+  - **Aba "Não instalados" (nova numa leva posterior)** — pedido do
+    usuário: "queria uma aba de não instalados". Mostra, como tiles
+    normais na mesma fileira, os jogos que a conta Steam do usuário TEM
+    mas que ainda não estão instalados nesta máquina — a MESMA lista que
+    já alimentava o painel de Downloads (`OwnedNotInstalledGames`, via
+    Steam Web API), só que agora também exposta aqui. Cada tile ganha um
+    badge "⇩ Instalar" no canto (oposto da estrelinha de favorito) e
+    confirmar/clicar NELA instala (`steam://install/{appid}`) em vez de
+    tentar abrir — nunca baixa nada diretamente, quem baixa é a própria
+    Steam. Capa buscada sob demanda (SteamGridDB, só a capa — essas tiles
+    nunca viram a WIDE CAPSULE "último jogo aberto") usando o MESMO Id
+    (`steam_{appid}`) que o jogo vai ter quando for instalado de
+    verdade, então a capa já aparece pronta depois, sem buscar de novo
+    (`ILibraryService.BuildEntryForOwnedGame`). Sem credencial da Steam
+    Web API configurada, sem jogo faltando instalar, carregando ou com
+    erro de rede, a aba mostra uma mensagem explicando em vez de ficar
+    em branco. Reconsulta a Steam Web API toda vez que a aba é
+    selecionada (mesma cadência do painel de Downloads). **Nunca testado
+    num build real.**
   - **"Editor de onde procurar" jogos Xbox/Game Pass — `XboxScanFolders`
     (novo nesta leva)**: pedido do usuário depois que a detecção
     automática não achou nada. Novo campo `AppSettings.XboxScanFolders`
@@ -251,6 +268,15 @@ Construído até agora:
       não depender só do controle.
     **Nunca testado num build real** — nem a leitura do `.acf` em downloads
     de verdade, nem a chamada pra Steam Web API, nem o painel em si.
+  - **Atalho de Downloads na barra de cima (novo numa leva posterior)** —
+    pedido do usuário: "colocar um atalho lá em cima igual a Steam".
+    Ícone (⇩) perto da bateria, mesmo painel/toggle do item "Downloads" do
+    menu geral — só um caminho mais rápido pra mouse/touch. Ganha um
+    pontinho no canto quando `HasActiveDownloads` é true (algo baixando
+    de verdade agora), pra dar uma pista visual sem precisar abrir o
+    painel. Mouse/touch-only, mesmo padrão do botão "Instalar" do próprio
+    painel — o controle continua chegando em Downloads pelo menu geral
+    (View/Back). **Nunca testado num build real.**
   - **Overlay de FPS/performance via RTSS (novo nesta leva)** — pedido
     como "aquele mangohud... sem usar aquele nativo do legion". Em vez de
     construir um overlay do zero (exigiria hookar `Present()` de DirectX/
@@ -1480,6 +1506,28 @@ dessa chave? Acho que ficaria mais fácil").
   Afterburner) — ver "Configurar o RTSS pra mostrar o FPS na tela" mais
   abaixo pro passo a passo completo. Isso continua manual, dentro do
   próprio RTSS — não automatizei essa parte (só a instalação).
+
+**🔴 Leva 1 do roteiro planejado: abas reorganizadas + atalho de Downloads
+— status**: depois do primeiro teste real confirmando a biblioteca,
+Downloads e RTSS funcionando de ponta a ponta, o usuário pediu mais
+ajustes (overlay mais completo, abas divididas, atalho de download na
+barra, temas) e sugeriu planejar antes de codar tudo — ver "Roteiro
+planejado" lá no topo do arquivo pra ordem combinada. Esta leva ataca os
+dois primeiros itens (menor risco):
+- **Abas reorganizadas** — Favoritos/Todos/Oficiais/Não Steam/Não
+  instalados, "Oficiais" juntando Steam+Xbox — ver "Status atual" pro
+  bullet completo.
+- **Aba "Não instalados" nova** — jogos da conta Steam ainda não
+  instalados aparecem como tiles de verdade na biblioteca (não só na
+  lista do painel de Downloads), com badge "Instalar" e capa buscada sob
+  demanda — ver "Status atual" pro bullet completo.
+- **Atalho de Downloads na barra de cima** — ícone (⇩) perto da bateria,
+  com pontinho quando há download ativo — ver "Status atual".
+- **Nada disso foi testado num build real ainda.** A aba "Não instalados"
+  em especial mexe num caminho novo (GameEntry sintética, nunca
+  persistida, reaproveitando o esquema de Id `steam_{appid}`) — vale
+  prestar atenção especial se a capa aparecer certo e se "Instalar"
+  realmente abre a Steam.
 
 ## Seletor de capas tipo Decky Loader — é viável?
 

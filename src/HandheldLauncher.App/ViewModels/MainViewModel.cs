@@ -31,14 +31,18 @@ public sealed class MainViewModel : ViewModelBase
         RefreshCommand = new RelayCommand(Refresh);
         FetchArtworkCommand = new RelayCommand(FetchMissingArtwork, () => CanFetchArtwork);
 
-        // Abas de filtro — "Todos, favoritos, steam, não steam, xbox (por
-        // enquanto)", pedido do usuário. Cada uma só troca o filtro ativo e
+        // Abas de filtro — reorganizadas numa leva posterior a pedido do
+        // usuário: "Favoritos, Todos, Oficiais, Não Steam, Não instalados"
+        // (era Favoritos/Todos/Steam/Xbox/Não Steam). "Oficiais" junta
+        // Steam+Xbox na mesma aba (decisão dele); "Não instalados" é novo,
+        // puxa OwnedNotInstalledGames em vez de _library.Games — ver
+        // RebuildGamesFromLibrary. Cada uma só troca o filtro ativo e
         // reconstrói Games (sem re-escanear a biblioteca) — ver SetFilter.
         SetFilterAllCommand = new RelayCommand(() => SetFilter(LibraryFilter.All));
         SetFilterFavoritesCommand = new RelayCommand(() => SetFilter(LibraryFilter.Favorites));
-        SetFilterSteamCommand = new RelayCommand(() => SetFilter(LibraryFilter.Steam));
+        SetFilterOfficialCommand = new RelayCommand(() => SetFilter(LibraryFilter.Official));
         SetFilterNonSteamCommand = new RelayCommand(() => SetFilter(LibraryFilter.NonSteam));
-        SetFilterXboxCommand = new RelayCommand(() => SetFilter(LibraryFilter.Xbox));
+        SetFilterNotInstalledCommand = new RelayCommand(() => SetFilter(LibraryFilter.NotInstalled));
 
         RebuildGamesFromLibrary();
     }
@@ -192,23 +196,29 @@ public sealed class MainViewModel : ViewModelBase
     /// <summary>Qual dos quatro tipos de arte o seletor (IsCoverPickerOpen) está escolhendo no momento — ver OpenCoverPicker/ConfirmCoverPickerSelection.</summary>
     private enum ArtworkPickerKind { Grid, WideGrid, Hero, Logo }
 
-    /// <summary>Abas de filtro pedidas pelo usuário: "Todos, favoritos, steam, não steam, xbox (por enquanto)".</summary>
-    private enum LibraryFilter { All, Favorites, Steam, NonSteam, Xbox }
+    /// <summary>
+    /// Abas de filtro. Reorganizado numa leva posterior a pedido do
+    /// usuário ("dividir as subabas, fav, ALL, oficiais, não Steam, não
+    /// instalados"): Steam e Xbox viraram uma aba só (Official), e
+    /// NotInstalled é nova — não filtra _library.Games como as outras,
+    /// puxa de OwnedNotInstalledGames (ver RebuildGamesFromLibrary).
+    /// </summary>
+    private enum LibraryFilter { All, Favorites, Official, NonSteam, NotInstalled }
 
     /// <summary>
-    /// Ordem VISUAL das abas (pedido do usuário: "fav, todos/steam/xbox/
-    /// nao steam") — separada da ordem de declaração do enum acima de
-    /// propósito, porque LB/RB (CyclePreviousFilter/CycleNextFilter) têm
-    /// que andar na mesma ordem em que as abas aparecem na tela, não na
-    /// ordem em que o enum foi escrito.
+    /// Ordem VISUAL das abas (pedido do usuário: "fav, ALL, oficiais, não
+    /// Steam, não instalados") — separada da ordem de declaração do enum
+    /// acima de propósito, porque LB/RB (CyclePreviousFilter/
+    /// CycleNextFilter) têm que andar na mesma ordem em que as abas
+    /// aparecem na tela, não na ordem em que o enum foi escrito.
     /// </summary>
     private static readonly LibraryFilter[] FilterOrder =
     {
         LibraryFilter.Favorites,
         LibraryFilter.All,
-        LibraryFilter.Steam,
-        LibraryFilter.Xbox,
+        LibraryFilter.Official,
         LibraryFilter.NonSteam,
+        LibraryFilter.NotInstalled,
     };
 
     private LibraryFilter _activeFilter = LibraryFilter.All;
@@ -218,9 +228,9 @@ public sealed class MainViewModel : ViewModelBase
     // fileira de abas (ver MainWindow.axaml).
     public bool IsFilterAllActive => _activeFilter == LibraryFilter.All;
     public bool IsFilterFavoritesActive => _activeFilter == LibraryFilter.Favorites;
-    public bool IsFilterSteamActive => _activeFilter == LibraryFilter.Steam;
+    public bool IsFilterOfficialActive => _activeFilter == LibraryFilter.Official;
     public bool IsFilterNonSteamActive => _activeFilter == LibraryFilter.NonSteam;
-    public bool IsFilterXboxActive => _activeFilter == LibraryFilter.Xbox;
+    public bool IsFilterNotInstalledActive => _activeFilter == LibraryFilter.NotInstalled;
 
     private bool _isGlobalMenuOpen;
 
@@ -385,9 +395,9 @@ public sealed class MainViewModel : ViewModelBase
 
     public ICommand SetFilterAllCommand { get; }
     public ICommand SetFilterFavoritesCommand { get; }
-    public ICommand SetFilterSteamCommand { get; }
+    public ICommand SetFilterOfficialCommand { get; }
     public ICommand SetFilterNonSteamCommand { get; }
-    public ICommand SetFilterXboxCommand { get; }
+    public ICommand SetFilterNotInstalledCommand { get; }
 
     public void MoveNext() => SelectedIndex++;
 
@@ -397,6 +407,19 @@ public sealed class MainViewModel : ViewModelBase
     {
         if (SelectedTile is null) return;
         var game = SelectedTile.Game;
+
+        // Tile da aba "Não instalados" — confirmar/dar duplo clique
+        // instala em vez de tentar abrir (não tem ExecutablePath nenhum
+        // pra lançar, o jogo nem está instalado ainda). Mesmo destino do
+        // item "Instalar" do menu de contexto dessas tiles (ver
+        // BuildContextMenu) e do botão "Instalar" do painel de Downloads
+        // (InstallOwnedGame) — sempre steam://install/{appid}, nunca
+        // baixa nada diretamente.
+        if (game.IsOwnedNotInstalled)
+        {
+            if (game.SteamAppId is { } ownedAppId) _launcher.OpenSteamInstaller(ownedAppId);
+            return;
+        }
 
         // Overlay "Iniciando <jogo>..." entra ANTES de chamar _launcher —
         // é exatamente o intervalo "apertei e nada parece acontecer" que o
@@ -469,6 +492,17 @@ public sealed class MainViewModel : ViewModelBase
         }
 
         var game = target.Game;
+
+        // Tile da aba "Não instalados" — menu de UM item só, nada de
+        // Favoritar/Excluir/Personalizar fazem sentido pra um jogo que
+        // nem está instalado ainda (ver GameEntry.IsOwnedNotInstalled).
+        // "Abrir jogo" aqui mesmo instala (OpenGameFromMenu → LaunchSelected,
+        // que já desvia pra OpenSteamInstaller nesse caso).
+        if (game.IsOwnedNotInstalled)
+        {
+            Add("Instalar", () => OpenGameFromMenu(game));
+            return;
+        }
 
         // Ordem pedida pelo usuário nesta leva ("muito desorganizado,
         // vamos por partes"): Abrir jogo, Favoritar/Desfavoritar, Excluir
@@ -926,6 +960,61 @@ public sealed class MainViewModel : ViewModelBase
 
     public bool HasOwnedGamesError => !string.IsNullOrEmpty(OwnedGamesErrorMessage);
 
+    private string? _notInstalledTabMessage;
+
+    /// <summary>
+    /// Mensagem mostrada NO LUGAR da fileira de jogos quando a aba "Não
+    /// instalados" está ativa e ainda não há tile nenhuma pra mostrar —
+    /// sem credencial configurada, carregando, erro de rede, ou lista
+    /// genuinamente vazia (conta sem nenhum jogo faltando instalar).
+    /// Reavaliada em RebuildGamesFromLibrary e nos dois pontos de
+    /// RefreshOwnedGames que mudam IsLoadingOwnedGames — sempre null
+    /// quando outra aba está ativa.
+    /// </summary>
+    public string? NotInstalledTabMessage
+    {
+        get => _notInstalledTabMessage;
+        private set
+        {
+            if (SetField(ref _notInstalledTabMessage, value))
+            {
+                OnPropertyChanged(nameof(HasNotInstalledTabMessage));
+            }
+        }
+    }
+
+    public bool HasNotInstalledTabMessage => !string.IsNullOrEmpty(NotInstalledTabMessage);
+
+    private void UpdateNotInstalledTabMessage()
+    {
+        if (_activeFilter != LibraryFilter.NotInstalled)
+        {
+            NotInstalledTabMessage = null;
+            return;
+        }
+
+        if (!HasSteamWebApiCredentials)
+        {
+            NotInstalledTabMessage = "Configure a Steam Web API key e o SteamID64 na tela de Configurações pra ver aqui os jogos da sua conta que ainda não estão instalados.";
+        }
+        else if (IsLoadingOwnedGames)
+        {
+            NotInstalledTabMessage = "Carregando jogos da sua conta...";
+        }
+        else if (HasOwnedGamesError)
+        {
+            NotInstalledTabMessage = OwnedGamesErrorMessage;
+        }
+        else if (Games.Count == 0)
+        {
+            NotInstalledTabMessage = "Nenhum jogo da sua conta Steam está faltando instalar aqui.";
+        }
+        else
+        {
+            NotInstalledTabMessage = null;
+        }
+    }
+
     /// <summary>Item "Downloads" do menu global: abre o painel, ou fecha se já estiver aberto (toggle).</summary>
     public void ToggleDownloads()
     {
@@ -969,10 +1058,14 @@ public sealed class MainViewModel : ViewModelBase
     /// <summary>
     /// Busca "na sua conta, não instalado" — só dispara se
     /// HasSteamWebApiCredentials (senão a tela já mostra a mensagem
-    /// explicando o que falta configurar, ver MainWindow.axaml). Mais
-    /// lenta que RefreshActiveDownloads (chamada de rede de verdade pra
-    /// api.steampowered.com), por isso IsLoadingOwnedGames separado em vez
-    /// de reusar IsLoading* de outra tela.
+    /// explicando o que falta configurar, ver MainWindow.axaml e
+    /// NotInstalledTabMessage). Mais lenta que RefreshActiveDownloads
+    /// (chamada de rede de verdade pra api.steampowered.com), por isso
+    /// IsLoadingOwnedGames separado em vez de reusar IsLoading* de outra
+    /// tela. Alimenta DOIS consumidores da MESMA OwnedNotInstalledGames:
+    /// o painel de Downloads (se IsDownloadsOpen) e a aba "Não instalados"
+    /// da biblioteca principal (se essa for a aba ativa, ver SetFilter) —
+    /// chamado por qualquer um dos dois ao abrir/selecionar.
     /// </summary>
     public async void RefreshOwnedGames()
     {
@@ -980,19 +1073,27 @@ public sealed class MainViewModel : ViewModelBase
 
         IsLoadingOwnedGames = true;
         OwnedGamesErrorMessage = null;
+        UpdateNotInstalledTabMessage();
 
         try
         {
             var owned = await _library.GetOwnedButNotInstalledSteamGamesAsync();
 
-            // Painel pode ter sido fechado enquanto isso estava em voo —
-            // mesma ideia do OpenCoverPicker, não ressuscita com resultado velho.
-            if (!IsDownloadsOpen) return;
+            // Nem o painel nem a aba que pediram isso continuam abertos/
+            // ativos — mesma ideia do OpenCoverPicker, não ressuscita com
+            // resultado velho.
+            if (!IsDownloadsOpen && _activeFilter != LibraryFilter.NotInstalled) return;
 
             OwnedNotInstalledGames.Clear();
             foreach (var game in owned)
             {
                 OwnedNotInstalledGames.Add(game);
+            }
+
+            if (_activeFilter == LibraryFilter.NotInstalled)
+            {
+                RebuildGamesFromLibrary();
+                FetchMissingArtworkForOwnedGames();
             }
         }
         catch (Exception ex)
@@ -1002,6 +1103,42 @@ public sealed class MainViewModel : ViewModelBase
         finally
         {
             IsLoadingOwnedGames = false;
+            UpdateNotInstalledTabMessage();
+        }
+    }
+
+    /// <summary>
+    /// Busca a capa (GridImagePath) pra cada jogo "na sua conta, não
+    /// instalado" que ainda não tem uma — mesma ideia de
+    /// FetchMissingArtwork, só que pra OwnedNotInstalledGames em vez de
+    /// _library.Games (que só tem jogo JÁ instalado). Usa o MESMO esquema
+    /// de Id ("steam_{appid}", ver ILibraryService.BuildEntryForOwnedGame)
+    /// que SteamLibraryScanner usaria se/quando o jogo for instalado de
+    /// verdade — então a capa buscada aqui já aparece pronta depois, sem
+    /// precisar buscar de novo. Só a capa (não hero/logo/wide-grid): essas
+    /// tiles nunca viram a WIDE CAPSULE "último jogo aberto" (ver
+    /// BuildEntryForOwnedGame zerando LastPlayedUtc), então não precisam
+    /// do resto.
+    /// </summary>
+    private async void FetchMissingArtworkForOwnedGames()
+    {
+        if (!_artwork.HasApiKey) return;
+
+        foreach (var owned in OwnedNotInstalledGames.ToList())
+        {
+            // Usuário saiu da aba no meio do caminho — para, sem gastar
+            // mais chamadas à API por nada que mais ninguém vai ver.
+            if (_activeFilter != LibraryFilter.NotInstalled) return;
+
+            var entry = _library.BuildEntryForOwnedGame(owned);
+            if (!string.IsNullOrEmpty(entry.GridImagePath)) continue;
+
+            await _artwork.FetchGridAsync(entry);
+        }
+
+        if (_activeFilter == LibraryFilter.NotInstalled)
+        {
+            RebuildGamesFromLibrary();
         }
     }
 
@@ -1240,19 +1377,34 @@ public sealed class MainViewModel : ViewModelBase
 
         OnPropertyChanged(nameof(IsFilterAllActive));
         OnPropertyChanged(nameof(IsFilterFavoritesActive));
-        OnPropertyChanged(nameof(IsFilterSteamActive));
+        OnPropertyChanged(nameof(IsFilterOfficialActive));
         OnPropertyChanged(nameof(IsFilterNonSteamActive));
-        OnPropertyChanged(nameof(IsFilterXboxActive));
+        OnPropertyChanged(nameof(IsFilterNotInstalledActive));
 
         RebuildGamesFromLibrary();
+
+        // "Não instalados" busca de rede (Steam Web API) — refaz toda vez
+        // que a aba é selecionada, mesma cadência já usada pelo painel de
+        // Downloads (ToggleDownloads chama isso toda vez que abre). Sem
+        // credencial configurada, RefreshOwnedGames já retorna na hora sem
+        // fazer nada (a mensagem "configure..." vem de
+        // UpdateNotInstalledTabMessage, chamado dentro de
+        // RebuildGamesFromLibrary acima).
+        if (filter == LibraryFilter.NotInstalled)
+        {
+            RefreshOwnedGames();
+        }
     }
 
     private bool MatchesActiveFilter(GameEntry game) => _activeFilter switch
     {
         LibraryFilter.Favorites => game.IsFavorite,
-        LibraryFilter.Steam => game.Source == GameSource.Steam,
-        LibraryFilter.NonSteam => game.Source != GameSource.Steam,
-        LibraryFilter.Xbox => game.Source == GameSource.XboxApp,
+        // "Oficiais" = Steam + Xbox juntos (decisão do usuário ao
+        // reorganizar as abas) — "Não Steam" vira o complemento exato
+        // disso (nem Steam nem Xbox), em vez de "qualquer coisa !=
+        // Steam" como era antes (quando isso incluía Xbox também).
+        LibraryFilter.Official => game.Source == GameSource.Steam || game.Source == GameSource.XboxApp,
+        LibraryFilter.NonSteam => game.Source != GameSource.Steam && game.Source != GameSource.XboxApp,
         _ => true,
     };
 
@@ -1264,20 +1416,39 @@ public sealed class MainViewModel : ViewModelBase
     /// (SelectedIndex, MoveNext/MovePrevious, o scroll manual da fileira,
     /// ReorderLastPlayedFirst) continua funcionando sem mudança nenhuma —
     /// eles nunca sabem que existe filtro, só veem uma lista menor.
+    ///
+    /// "Não instalados" é a EXCEÇÃO: não vem de _library.Games (que só
+    /// tem jogo JÁ instalado) — vem de OwnedNotInstalledGames, convertido
+    /// pra GameEntry sintética via ILibraryService.BuildEntryForOwnedGame
+    /// a cada rebuild (ver MainViewModel.RefreshOwnedGames/
+    /// FetchMissingArtworkForOwnedGames pra quando essa lista é
+    /// (re)carregada).
     /// </summary>
     private void RebuildGamesFromLibrary()
     {
         var previouslySelectedId = SelectedTile?.Game.Id;
 
         Games.Clear();
-        foreach (var game in _library.Games)
+
+        if (_activeFilter == LibraryFilter.NotInstalled)
         {
-            if (MatchesActiveFilter(game))
+            foreach (var owned in OwnedNotInstalledGames)
             {
-                Games.Add(new GameTileViewModel(game));
+                Games.Add(new GameTileViewModel(_library.BuildEntryForOwnedGame(owned)));
+            }
+        }
+        else
+        {
+            foreach (var game in _library.Games)
+            {
+                if (MatchesActiveFilter(game))
+                {
+                    Games.Add(new GameTileViewModel(game));
+                }
             }
         }
         ReorderLastPlayedFirst();
+        UpdateNotInstalledTabMessage();
 
         var restoredIndex = previouslySelectedId is null
             ? 0

@@ -67,4 +67,17 @@ public class GameEntry
 
     /// <summary>User-toggled favorite — drives the "Favoritos" filter tab.</summary>
     public bool IsFavorite { get; set; }
+
+    /// <summary>
+    /// True só pras entradas SINTÉTICAS criadas pela aba "Não instalados"
+    /// (ver ILibraryService.BuildEntryForOwnedGame) — um jogo que a conta
+    /// Steam do usuário tem mas que ainda não foi instalado nesta máquina.
+    /// Nunca true pra uma entrada de verdade vinda de um scanner ou de
+    /// "Adicionar jogo"; ExecutablePath sempre null quando isto é true
+    /// (não tem nada instalado pra apontar ainda). Drives o badge "Instalar"
+    /// na tile (GameTileViewModel.IsOwnedNotInstalled) e troca o que
+    /// confirmar/"Abrir jogo" faz pra essa tile (ver MainViewModel.
+    /// LaunchSelected/BuildContextMenu) — instala em vez de lançar.
+    /// </summary>
+    public bool IsOwnedNotInstalled { get; set; }
 }

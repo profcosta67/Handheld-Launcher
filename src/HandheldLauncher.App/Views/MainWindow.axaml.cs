@@ -887,6 +887,17 @@ public partial class MainWindow : Window
         (DataContext as MainViewModel)?.ToggleGlobalMenu();
     }
 
+    /// <summary>
+    /// Atalho de Downloads na barra de cima (novo numa leva posterior,
+    /// pedido do usuário: "colocar um atalho lá em cima igual a Steam") —
+    /// mesmo painel/toggle do item "Downloads" do menu geral, só um
+    /// caminho mais rápido pra mouse/touch chegar lá.
+    /// </summary>
+    private void OnDownloadsShortcutClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        (DataContext as MainViewModel)?.ToggleDownloads();
+    }
+
     private void OnMinimizeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         MinimizeToTray();

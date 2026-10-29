@@ -216,4 +216,21 @@
     <Setter Property="Background" Value="{StaticResource AccentBrush}" />
   </Style>
 
+  <!-- Botão de ícone "fantasma" pra barra de cima — sem fundo/borda por
+       padrão, pra não brigar visualmente com os TextBlocks de bateria/
+       wifi ao lado (que não são clicáveis), só realça levemente no
+       hover/toque. Novo numa leva posterior, pro atalho de Downloads
+       (pedido do usuário: "colocar um atalho lá em cima igual a Steam" —
+       ver MainWindow.axaml "Top bar"). -->
+  <Style Selector="Button.iconGhost">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="4" />
+    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+  </Style>
+
+  <Style Selector="Button.iconGhost:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
+  </Style>
+
 </Styles>

@@ -60,6 +60,28 @@
           <TextBlock Text="Handheld Launcher" Classes="gameTitle" VerticalAlignment="Center" />
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16">
+          <!-- Atalho de Downloads na barra de cima (novo numa leva
+               posterior, pedido do usuário: "colocar um atalho lá em cima
+               igual a Steam") — abre o mesmo painel que o item
+               "Downloads" do menu geral (OnDownloadsShortcutClick só
+               chama vm.ToggleDownloads(), não é um painel separado). O
+               pontinho no canto só aparece com algo baixando agora de
+               verdade (HasActiveDownloads), pra dar uma pista visual sem
+               precisar abrir o painel pra checar. -->
+          <Grid>
+            <Button Classes="iconGhost"
+                    Content="⇩"
+                    FontSize="16"
+                    Click="OnDownloadsShortcutClick"
+                    ToolTip.Tip="Downloads — jogos baixando agora e jogos da conta pra instalar" />
+            <Ellipse Width="8" Height="8"
+                     Fill="{StaticResource AccentBrush}"
+                     HorizontalAlignment="Right"
+                     VerticalAlignment="Top"
+                     Margin="0,-2,-2,0"
+                     IsHitTestVisible="False"
+                     IsVisible="{Binding HasActiveDownloads}" />
+          </Grid>
           <!-- Wifi/clock ainda são placeholder (●●●) — só a bateria virou
                real nesta leva (ver MainViewModel.BatteryStatusText/
                MainWindow.StartBatteryMonitor), corrigindo o bug reportado
@@ -131,11 +153,15 @@
       </Border>
 
       <!-- Abas de filtro — "um pouco acima dos ícones dos jogos e abaixo
-           do hero", pedido do usuário: Favoritos, Todos, Steam, Xbox, Não
-           Steam (ordem pedida nesta leva: "fav, todos/steam/xbox/nao
-           steam"). Trocar de aba só filtra a lista já carregada
+           do hero", pedido do usuário: Favoritos, Todos, Oficiais, Não
+           Steam, Não instalados (reorganizado numa leva posterior —
+           "dividir as subabas, fav, ALL, oficiais, não Steam, não
+           instalados"; era Steam/Xbox separados antes, "Oficiais" junta
+           os dois). Trocar de aba só filtra a lista já carregada
            (MainViewModel.SetFilter/RebuildGamesFromLibrary), não
-           re-escaneia a biblioteca. Grid de 5 colunas IGUAIS (não
+           re-escaneia a biblioteca — exceto "Não instalados", que busca
+           na Steam Web API toda vez que é selecionada (RefreshOwnedGames).
+           Grid de 5 colunas IGUAIS (não
            StackPanel) a pedido do usuário ("centralize... fica com todos
            espaçamentos iguais e ocupe do início ao fim da tela") — cada
            botão ocupa Stretch dentro da sua coluna, então a fileira
@@ -152,9 +178,9 @@
       <Grid Grid.Row="1" ColumnDefinitions="*,*,*,*,*" Margin="0,0,0,20">
         <Button Grid.Column="0" Classes="pill filterTab" Classes.active="{Binding IsFilterFavoritesActive}" Content="Favoritos" Command="{Binding SetFilterFavoritesCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,5,0" />
         <Button Grid.Column="1" Classes="pill filterTab" Classes.active="{Binding IsFilterAllActive}" Content="Todos" Command="{Binding SetFilterAllCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" />
-        <Button Grid.Column="2" Classes="pill filterTab" Classes.active="{Binding IsFilterSteamActive}" Content="Steam" Command="{Binding SetFilterSteamCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" />
-        <Button Grid.Column="3" Classes="pill filterTab" Classes.active="{Binding IsFilterXboxActive}" Content="Xbox" Command="{Binding SetFilterXboxCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" />
-        <Button Grid.Column="4" Classes="pill filterTab" Classes.active="{Binding IsFilterNonSteamActive}" Content="Não Steam" Command="{Binding SetFilterNonSteamCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,0,0" />
+        <Button Grid.Column="2" Classes="pill filterTab" Classes.active="{Binding IsFilterOfficialActive}" Content="Oficiais" Command="{Binding SetFilterOfficialCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" />
+        <Button Grid.Column="3" Classes="pill filterTab" Classes.active="{Binding IsFilterNonSteamActive}" Content="Não Steam" Command="{Binding SetFilterNonSteamCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" />
+        <Button Grid.Column="4" Classes="pill filterTab" Classes.active="{Binding IsFilterNotInstalledActive}" Content="Não instalados" Command="{Binding SetFilterNotInstalledCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,0,0" />
       </Grid>
 
       <!-- Horizontal row of every game (CAPSULE tiles, WIDE CAPSULE pro
@@ -287,6 +313,24 @@
                                VerticalAlignment="Top"
                                Margin="8"
                                IsVisible="{Binding IsFavorite}" />
+
+                    <!-- Badge "Instalar" — canto oposto da estrelinha de
+                         propósito (essas tiles, da aba "Não instalados",
+                         não ficam favoritadas na prática, mas por
+                         garantia nunca os dois no mesmo canto). Confirmar/
+                         clicar na tile já instala sozinho (ver
+                         MainViewModel.LaunchSelected) — isto é só o
+                         indicador visual de que ela se comporta diferente
+                         das outras. -->
+                    <Border Background="#CC000000"
+                            CornerRadius="4"
+                            Padding="6,3"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Bottom"
+                            Margin="8"
+                            IsVisible="{Binding IsOwnedNotInstalled}">
+                      <TextBlock Text="⇩ Instalar" FontSize="11" Foreground="White" />
+                    </Border>
                   </Grid>
                 </Border>
               </StackPanel>
@@ -294,6 +338,22 @@
           </ItemsControl.ItemTemplate>
         </ItemsControl>
       </ScrollViewer>
+
+      <!-- Mensagem no lugar da fileira (aba "Não instalados" sem nada
+           ainda pra mostrar — sem credencial, carregando, erro, ou lista
+           genuinamente vazia). Grid.Row igual ao ScrollViewer acima: como
+           ele fica vazio exatamente nesses casos, não tem sobreposição
+           visual real. Ver MainViewModel.NotInstalledTabMessage. -->
+      <TextBlock Grid.Row="2"
+                 Text="{Binding NotInstalledTabMessage}"
+                 Classes="subtle"
+                 TextWrapping="Wrap"
+                 TextAlignment="Center"
+                 HorizontalAlignment="Center"
+                 VerticalAlignment="Top"
+                 Margin="40,30,40,0"
+                 MaxWidth="600"
+                 IsVisible="{Binding HasNotInstalledTabMessage}" />
     </Grid>
 
     <!-- Bottom bar — deliberadamente minimalista a pedido do usuário:
