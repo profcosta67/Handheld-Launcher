@@ -15,6 +15,8 @@
          -p:Version=X.Y.Z a partir da tag (vX.Y.Z); este valor só vale
          pra builds locais. -->
     <Version>0.0.0-dev</Version>
+    <!-- Ponteiros na memória compartilhada do RTSS (Platform/RtssSharedMemory.cs). -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
@@ -29,6 +31,10 @@
          o `vpk` do workflow de release precisa ser da MESMA versão deste
          pacote (ver .github/workflows/release.yml). -->
     <PackageReference Include="Velopack" Version="1.2.161" />
+    <!-- HUD de desempenho (Platform/SystemMetrics.cs): contadores de CPU/GPU
+         do Windows e consumo da bateria via WMI. -->
+    <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="8.0.0" />
+    <PackageReference Include="System.Management" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>

@@ -306,6 +306,7 @@ public partial class MainWindow : Window
         vm.QuitRequested += (_, _) =>
         {
             WatchdogGate.MarkDeliberateQuit();
+            vm.ClearOverlayNow();
             Close();
         };
         vm.MinimizeRequested += (_, _) => MinimizeToTray();
@@ -425,6 +426,23 @@ public partial class MainWindow : Window
 
         foreach (var action in _gamepad.Poll())
         {
+            // L3+R3 troca o HUD de desempenho — de propósito ANTES da trava
+            // abaixo, pra funcionar com o jogo em primeiro plano.
+            if (action == GamepadAction.CycleOverlay)
+            {
+                vm.CycleOverlayPreset();
+                continue;
+            }
+
+            // Jogo aberto e o launcher NÃO está em primeiro plano: o
+            // controle é do jogo. Sem isto, o XInput (lido mesmo em segundo
+            // plano) fazia B "fechar jogo" e A "abrir jogo" no launcher
+            // escondido enquanto você jogava.
+            if (vm.RunningGame is not null && !IsOurWindowInForeground())
+            {
+                continue;
+            }
+
             // Temporary diagnostic (see Diagnostics/DebugLog.cs) — logs
             // every action AND the exact overlay state at the moment it's
             // dispatched, so a "nothing happens" report can be checked
@@ -967,12 +985,34 @@ public partial class MainWindow : Window
     /// settings.json via AppSettingsStore — a ViewModel fica burra, só
     /// com os campos de texto.
     /// </summary>
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    /// <summary>A janela em primeiro plano é a nossa? (trava do controle com jogo aberto)</summary>
+    private bool IsOurWindowInForeground()
+    {
+        try
+        {
+            var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+            return handle != IntPtr.Zero && GetForegroundWindow() == handle;
+        }
+        catch
+        {
+            // Na dúvida, não bloqueia o controle.
+            return true;
+        }
+    }
+
     private async Task OpenSettingsDialogAsync(MainViewModel vm)
     {
         var dialog = new SettingsWindow();
         dialog.ViewModel.VersionText = vm.AppVersionText;
         dialog.ViewModel.UpdatesAvailable = vm.UpdatesInstalled;
         dialog.CheckForUpdates = vm.CheckForUpdatesWithResultAsync;
+        dialog.ViewModel.OverlayStatusText = vm.OverlayStatusText;
         await dialog.ShowDialog(this);
+
+        // Preset do HUD vale na hora (o resto das Configurações ainda pede reinício).
+        vm.ReloadOverlayPresetFromSettings();
     }
 }

@@ -79,4 +79,10 @@ public class AppSettings
     /// Configurações sozinho na primeira vez pra perguntar.
     /// </summary>
     public bool ModeChosen { get; set; }
+
+    /// <summary>
+    /// HUD de desempenho estilo MangoHud (desenhado pelo RTSS por cima do
+    /// jogo): 0 Desligado, 1 Resumido, 2 Médio (padrão), 3 Completo.
+    /// </summary>
+    public int OverlayPreset { get; set; } = 2;
 }

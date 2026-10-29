@@ -33,7 +33,9 @@ mais sentido de risco crescente):
    "Status atual" mais abaixo. **Nunca testado num build real.**
 2b. ~~Atualização automática~~ — **feita e confirmada no aparelho** (v0.3.1 →
    v0.3.2), ver "Instalação e atualização automática" mais abaixo.
-3. **Overlay de performance mais completo** (presets Resumido/Médio/Completo
+3. ~~Overlay de desempenho estilo MangoHud~~ — **feito na v0.4.0**, ver
+   "HUD de desempenho" abaixo. Nota original do planejamento:
+   **Overlay de performance mais completo** (presets Resumido/Médio/Completo
    em vez de só FPS) — decisão do usuário: **overlay próprio do launcher**,
    não RTSS + Afterburner. Nota técnica importante pra quando for
    implementar: o problema difícil que o RTSS resolve é o *hook* de
@@ -693,6 +695,34 @@ Ainda **não** feito:
     mais abaixo) — isso continua manual, sem automação.
 15. ~~Tela de configuração pra `SteamWebApiKey`/`SteamId64`~~ — **feito
     numa leva posterior**, junto do item 5 (mesma `SettingsWindow`).
+
+## HUD de desempenho (estilo MangoHud) — v0.4.0
+
+**Nunca testado num aparelho ainda.** Texto colorido com a paleta do MangoHud
+(GPU verde, CPU azul, VRAM roxo, RAM rosa, bateria salmão, FPS vermelho;
+carga/FPS mudam de cor verde → amarelo → vermelho) desenhado **pelo RTSS
+dentro do frame do jogo** — funciona até em tela cheia exclusiva.
+
+- **Como funciona**: `Platform/PerformanceHud.cs` roda a cada 1 s numa thread
+  de fundo: lê FPS/frametime da memória compartilhada do RTSS
+  (`RTSSSharedMemoryV2`, `Platform/RtssSharedMemory.cs`), lê sensores
+  (`Platform/SystemMetrics.cs`) e escreve o texto num slot de OSD próprio do
+  RTSS (dono "HandheldLauncher", tags `<C=RRGGBB>`).
+- **Sensores** (sem administrador): CPU % e clock (contadores "Processor
+  Information"), GPU % (contadores "GPU Engine" 3D, mesma conta do Gerenciador
+  de Tarefas), VRAM ("GPU Adapter Memory" dedicada+compartilhada), RAM, bateria
+  %, consumo em W (WMI `root\WMI BatteryStatus`) e tempo restante.
+  **Temperaturas ficaram de fora**: no Windows exigem driver de kernel +
+  administrador.
+- **Presets**: Desligado / Resumido (FPS + bateria numa linha) / Médio (GPU,
+  CPU, RAM, bateria, FPS) / Completo (+ VRAM, clock, W, tempo de bateria).
+  Escolhe em Configurações (vale na hora), no menu geral, ou **L3+R3 no
+  controle durante o jogo**.
+- **Requisito**: RTSS aberto. Desmarcar "Show own statistics" no RTSS evita o
+  FPS duplicado (o próprio RTSS continua medindo).
+- Junto: com um jogo aberto e o launcher em segundo plano, o controle não
+  aciona mais nada no launcher (antes B "fechava jogo" e A "abria jogo" no
+  launcher escondido) — exceto o L3+R3.
 
 ## Tela de Configurações
 

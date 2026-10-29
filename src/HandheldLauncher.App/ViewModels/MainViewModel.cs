@@ -15,19 +15,22 @@ public sealed class MainViewModel : ViewModelBase
     private readonly IArtworkService _artwork;
     private readonly IPerformanceOverlayService _performanceOverlay;
     private readonly UpdateService? _updates;
+    private readonly PerformanceHud? _hud;
 
     public MainViewModel(
         ILibraryService library,
         IGameLauncher launcher,
         IArtworkService artwork,
         IPerformanceOverlayService performanceOverlay,
-        UpdateService? updates = null)
+        UpdateService? updates = null,
+        PerformanceHud? hud = null)
     {
         _library = library;
         _launcher = launcher;
         _artwork = artwork;
         _performanceOverlay = performanceOverlay;
         _updates = updates;
+        _hud = hud;
         _launcher.GameExited += OnGameExited;
 
         Games = new ObservableCollection<GameTileViewModel>();
@@ -227,8 +230,54 @@ public sealed class MainViewModel : ViewModelBase
             return;
         }
 
+        _hud?.ClearNow(); // senão o texto do HUD fica congelado na tela durante a troca
         _updates?.ApplyAndRestart();
     }
+
+    // ------------------------------------------------------------------
+    // HUD de desempenho (Platform/PerformanceHud)
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Desligado → Resumido → Médio → Completo → Desligado. Chamado pelo
+    /// L3+R3 (até com o jogo aberto) e pelo item do menu geral. Salva a
+    /// escolha no settings.json pra valer na próxima abertura também.
+    /// </summary>
+    public void CycleOverlayPreset()
+    {
+        if (_hud is null) return;
+        _hud.Preset = (_hud.Preset + 1) % PerformanceHud.PresetNames.Length;
+
+        try
+        {
+            var settings = AppSettingsStore.Load();
+            settings.OverlayPreset = _hud.Preset;
+            AppSettingsStore.Save(settings);
+        }
+        catch
+        {
+            // Melhor esforço — o preset já mudou na tela de qualquer jeito.
+        }
+    }
+
+    /// <summary>Depois de salvar nas Configurações: aplica o preset na hora, sem reiniciar.</summary>
+    public void ReloadOverlayPresetFromSettings()
+    {
+        if (_hud is null) return;
+        try
+        {
+            _hud.Preset = AppSettingsStore.Load().OverlayPreset;
+        }
+        catch
+        {
+            // Melhor esforço.
+        }
+    }
+
+    /// <summary>Tira o HUD da tela (Sair/fechar), pra não ficar texto congelado no RTSS.</summary>
+    public void ClearOverlayNow() => _hud?.ClearNow();
+
+    public string OverlayStatusText => _hud is null ? "indisponível" : $"{_hud.PresetName} ({_hud.Status})";
 
     private string _batteryStatusText = string.Empty;
 
@@ -955,6 +1004,11 @@ public sealed class MainViewModel : ViewModelBase
         // não estiver instalado), não uma ação do dia a dia. Reavaliado a
         // cada abertura do menu (mesma ideia do "cheap enough to just
         // re-check at open time" dos outros itens acima).
+        if (_hud is not null)
+        {
+            Add($"Overlay de desempenho: {_hud.PresetName} — L3+R3 troca ({_hud.Status})", CycleOverlayPreset);
+        }
+
         if (_performanceOverlay.IsInstalled)
         {
             Add(

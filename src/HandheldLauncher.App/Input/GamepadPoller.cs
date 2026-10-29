@@ -42,6 +42,14 @@ public enum GamepadAction
     /// lado do ícone pra ficar descobrível.
     /// </summary>
     Downloads,
+
+    /// <summary>
+    /// L3+R3 (apertar os dois analógicos juntos) — troca o preset do HUD de
+    /// desempenho (Desligado → Resumido → Médio → Completo). Funciona COM O
+    /// JOGO ABERTO: o XInput é lido mesmo com o launcher em segundo plano,
+    /// e essa combinação quase nenhum jogo usa.
+    /// </summary>
+    CycleOverlay,
 }
 
 /// <summary>
@@ -106,6 +114,12 @@ public sealed class GamepadPoller
         if (WasJustPressed(buttons, XInput.Buttons.LeftShoulder)) actions.Add(GamepadAction.PreviousFilter);
         if (WasJustPressed(buttons, XInput.Buttons.RightShoulder)) actions.Add(GamepadAction.NextFilter);
         if (WasJustPressed(buttons, XInput.Buttons.Y)) actions.Add(GamepadAction.Downloads);
+
+        var bothSticksDown = buttons.HasFlag(XInput.Buttons.LeftThumb) && buttons.HasFlag(XInput.Buttons.RightThumb);
+        if (bothSticksDown && (WasJustPressed(buttons, XInput.Buttons.LeftThumb) || WasJustPressed(buttons, XInput.Buttons.RightThumb)))
+        {
+            actions.Add(GamepadAction.CycleOverlay);
+        }
 
         // D-pad OR left stick — either one holding a direction counts the
         // same way, so you never get a double-fire from both at once.

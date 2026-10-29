@@ -115,6 +115,24 @@ public sealed class SettingsViewModel : ViewModelBase
 
     public bool HasUpdateResult => !string.IsNullOrEmpty(_updateResultText);
 
+    private int _overlayPresetIndex = 2;
+
+    /// <summary>0 Desligado, 1 Resumido, 2 Médio, 3 Completo (ComboBox).</summary>
+    public int OverlayPresetIndex
+    {
+        get => _overlayPresetIndex;
+        set => SetField(ref _overlayPresetIndex, value);
+    }
+
+    private string _overlayStatusText = string.Empty;
+
+    /// <summary>"Médio (ativo)", "Médio (RTSS não está rodando)"... preenchido pelo MainWindow.</summary>
+    public string OverlayStatusText
+    {
+        get => _overlayStatusText;
+        set => SetField(ref _overlayStatusText, value);
+    }
+
     private string? _savedMessage;
     public string? SavedMessage
     {
@@ -138,6 +156,7 @@ public sealed class SettingsViewModel : ViewModelBase
         SteamId64 = settings.SteamId64 ?? string.Empty;
         XboxScanFoldersText = string.Join(Environment.NewLine, settings.XboxScanFolders);
         IsHandheldMode = settings.KioskMode;
+        OverlayPresetIndex = Math.Clamp(settings.OverlayPreset, 0, 3);
         SavedMessage = null;
     }
 
@@ -159,6 +178,7 @@ public sealed class SettingsViewModel : ViewModelBase
         settings.KioskMode = IsHandheldMode;
         settings.AutoRestart = IsHandheldMode;
         settings.ModeChosen = true;
+        settings.OverlayPreset = Math.Clamp(OverlayPresetIndex, 0, 3);
 
         AppSettingsStore.Save(settings);
 

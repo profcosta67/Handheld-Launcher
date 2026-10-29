@@ -64,13 +64,18 @@ public partial class App : Application
             // instalação via Setup.exe vira no-op (ver UpdateService).
             var updateService = new UpdateService();
 
+            // HUD de desempenho estilo MangoHud (texto colorido desenhado
+            // pelo RTSS por cima do jogo) — ver Platform/PerformanceHud.
+            var performanceHud = new PerformanceHud(appSettings.OverlayPreset);
+            desktop.Exit += (_, _) => performanceHud.Dispose();
+
             // Instalação antiga (Install-Launcher.ps1) ainda no aparelho?
             // Redireciona a tarefa, migra o backup e apaga a pasta velha.
             LegacyInstallCleanup.RunInBackground();
 
             var mainWindow = new MainWindow
             {
-                DataContext = new MainViewModel(libraryService, gameLauncher, artworkService, performanceOverlay, updateService),
+                DataContext = new MainViewModel(libraryService, gameLauncher, artworkService, performanceOverlay, updateService, performanceHud),
             };
 
             // Modo kiosk: fullscreen/borderless instead of the normal dev
