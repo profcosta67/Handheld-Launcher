@@ -81,14 +81,23 @@ jobs:
           --mainExe HandheldLauncher.exe
           --icon src/HandheldLauncher.App/Assets/app-icon.ico
 
-      - name: Publicar Release no GitHub
-        run: >
-          vpk upload github
-          --repoUrl ${{ github.server_url }}/${{ github.repository }}
-          --token ${{ secrets.GITHUB_TOKEN }}
-          --publish
-          --releaseName "Handheld Launcher ${{ steps.ver.outputs.version }}"
-          --tag ${{ github.ref_name }}
+      # Sobe os arquivos gerados pelo vpk (Setup.exe, pacotes full/delta e os
+      # índices releases.*.json que o atualizador lê) com o gh, que funciona
+      # tanto se a Release já foi criada pelo site quanto se só a tag existe.
+      - name: Publicar arquivos na Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          Get-ChildItem Releases | Format-Table Name, Length
+          gh release view "${{ github.ref_name }}" 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create "${{ github.ref_name }}" --title "Handheld Launcher ${{ steps.ver.outputs.version }}" --generate-notes
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
+          $files = Get-ChildItem Releases -File | ForEach-Object { $_.FullName }
+          gh release upload "${{ github.ref_name }}" @files --clobber
+          if ($LASTEXITCODE -ne 0) { exit 1 }
 
       - name: Anexar scripts do Modo Console
         shell: pwsh
