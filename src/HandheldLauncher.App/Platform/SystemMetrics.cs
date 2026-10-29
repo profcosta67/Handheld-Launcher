@@ -46,6 +46,7 @@ internal sealed class SystemMetrics : IDisposable
 
     private DateTime _lastWattsRead = DateTime.MinValue;
     private double? _batteryWatts;
+    private double? _remainingMilliwattHours;
     private bool _wmiBroken;
 
     public SystemMetrics()
@@ -63,6 +64,16 @@ internal sealed class SystemMetrics : IDisposable
     {
         var (ramUsed, ramTotal) = ReadRam();
         var battery = ReadBattery();
+        var watts = ReadBatteryWatts();
+
+        // Muitos aparelhos (inclusive handhelds) devolvem "desconhecido" no
+        // tempo restante do GetSystemPowerStatus. Plano B: carga restante
+        // (mWh) ÷ consumo atual (mW), os dois do WMI.
+        var remaining = battery.Remaining;
+        if (remaining is null && !battery.OnAc && watts is > 0.5 && _remainingMilliwattHours is > 0)
+        {
+            remaining = TimeSpan.FromHours(_remainingMilliwattHours.Value / (watts.Value * 1000.0));
+        }
 
         return new MetricsSnapshot(
             CpuPercent: ReadCpuPercent(),
@@ -73,8 +84,8 @@ internal sealed class SystemMetrics : IDisposable
             RamTotalGb: ramTotal,
             BatteryPercent: battery.Percent,
             OnAcPower: battery.OnAc,
-            BatteryWatts: ReadBatteryWatts(),
-            BatteryRemaining: battery.Remaining);
+            BatteryWatts: watts,
+            BatteryRemaining: remaining);
     }
 
     // --- CPU ---------------------------------------------------------------
@@ -251,19 +262,23 @@ internal sealed class SystemMetrics : IDisposable
         try
         {
             using var searcher = new ManagementObjectSearcher(
-                @"root\WMI", "SELECT DischargeRate, ChargeRate FROM BatteryStatus");
+                @"root\WMI", "SELECT DischargeRate, ChargeRate, RemainingCapacity FROM BatteryStatus");
             double? watts = null;
+            double? remainingMwh = null;
             using var results = searcher.Get();
             foreach (var item in results)
             {
                 using var mo = (ManagementObject)item;
                 var discharge = Convert.ToDouble(mo["DischargeRate"] ?? 0);
                 var charge = Convert.ToDouble(mo["ChargeRate"] ?? 0);
+                var capacity = Convert.ToDouble(mo["RemainingCapacity"] ?? 0);
+                if (capacity > 0) remainingMwh = (remainingMwh ?? 0) + capacity;
                 // Valores em mW.
                 if (discharge > 0) watts = (watts ?? 0) + discharge / 1000.0;
                 else if (charge > 0) watts = (watts ?? 0) - charge / 1000.0;
             }
             _batteryWatts = watts;
+            _remainingMilliwattHours = remainingMwh;
             return watts;
         }
         catch

@@ -714,6 +714,12 @@ dentro do frame do jogo** — funciona até em tela cheia exclusiva.
   %, consumo em W (WMI `root\WMI BatteryStatus`) e tempo restante.
   **Temperaturas ficaram de fora**: no Windows exigem driver de kernel +
   administrador.
+- **v0.4.1 (após o 1º teste real, confirmado funcionando incl. L3+R3)**: tudo
+  numa linha só com espaço largo entre os grupos; cor só nos rótulos (valores
+  brancos, vermelho só bateria ≤15%); tempo restante de bateria (plano B via
+  WMI RemainingCapacity ÷ consumo quando o Windows não informa) e horário no
+  fim. Tamanho da letra = "On-Screen Display zoom" do RTSS. Temperatura
+  continua pendente (pedido do usuário, avaliar no futuro).
 - **Presets**: Desligado / Resumido (FPS + bateria numa linha) / Médio (GPU,
   CPU, RAM, bateria, FPS) / Completo (+ VRAM, clock, W, tempo de bateria).
   Escolhe em Configurações (vale na hora), no menu geral, ou **L3+R3 no

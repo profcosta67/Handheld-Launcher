@@ -141,126 +141,118 @@ public sealed class PerformanceHud : IDisposable
 }
 
 /// <summary>
-/// Monta o texto do HUD com as tags de cor do RTSS (&lt;C=RRGGBB&gt; ... &lt;C&gt;),
-/// usando a paleta padrão do MangoHud: rótulo de cada sensor com sua cor
-/// fixa, e os valores de carga/FPS mudando de cor conforme o nível
-/// (verde → amarelo → vermelho), igual gpu_load_change/fps_color_change.
+/// Monta o texto do HUD com as tags de cor do RTSS (&lt;C=RRGGBB&gt; ... &lt;C&gt;).
+///
+/// Ajustado depois do primeiro teste real (v0.4.0, pedidos do usuário):
+/// <list type="bullet">
+/// <item>Tudo numa linha só, com espaço largo entre os grupos
+/// ("GPU 99%    CPU 20%    ...").</item>
+/// <item>Rótulos sempre presentes, inclusive no Resumido.</item>
+/// <item>"Muito colorido": cor só nos rótulos (paleta do MangoHud); valores
+/// em branco e unidades em cinza. Vermelho só no que é crítico de verdade
+/// (bateria baixa).</item>
+/// <item>Bateria com tempo restante e horário atual no fim da linha.</item>
+/// </list>
+/// Tamanho da fonte vem da configuração do próprio RTSS ("On-Screen
+/// Display zoom").
 /// </summary>
 internal static class HudFormatter
 {
-    // Paleta padrão do MangoHud.
+    // Rótulos: paleta padrão do MangoHud.
     private const string GpuColor = "2E9762";
     private const string CpuColor = "2E97CB";
     private const string VramColor = "AD64C1";
     private const string RamColor = "C26693";
     private const string BatteryColor = "FF9078";
     private const string FpsColor = "EB5B5B";
-    private const string FrameTimeColor = "00FF00";
-    private const string UnitColor = "A0A0A0";
+    private const string ClockColor = "CCCCCC";
 
-    private const string Good = "39F900";
-    private const string Medium = "FDFD09";
-    private const string Bad = "B22222";
+    private const string ValueColor = "FFFFFF";
+    private const string UnitColor = "B0B0B0";
+    private const string Critical = "FF4040";
+
+    private const string GroupSeparator = "     ";
 
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
     public static string Format(int preset, FrameStats? frames, MetricsSnapshot m)
     {
-        var sb = new StringBuilder();
+        var groups = new List<string>();
 
         switch (preset)
         {
-            case 1: // Resumido — uma linha só
-                AppendFps(sb, frames);
-                if (m.BatteryPercent is { } pct)
-                {
-                    sb.Append("  ");
-                    AppendBatteryShort(sb, pct, m.OnAcPower);
-                }
+            case 1: // Resumido
+                groups.Add(Fps(frames, withFrameTime: false));
+                AddBattery(groups, m, withWatts: false);
                 break;
 
             case 2: // Médio
-                Line(sb, Label("GPU", GpuColor), Load(m.GpuPercent));
-                Line(sb, Label("CPU", CpuColor), Load(m.CpuPercent));
-                Line(sb, Label("RAM", RamColor), Gb(m.RamUsedGb));
-                if (m.BatteryPercent is { } pct2)
-                {
-                    sb.Append(Label("BAT", BatteryColor)).Append(' ');
-                    AppendBatteryShort(sb, pct2, m.OnAcPower, withLabel: false);
-                    sb.Append('\n');
-                }
-                AppendFps(sb, frames);
+                groups.Add(Group("GPU", GpuColor, Percent(m.GpuPercent)));
+                groups.Add(Group("CPU", CpuColor, Percent(m.CpuPercent)));
+                groups.Add(Group("RAM", RamColor, Value(m.RamUsedGb.ToString("0.0", Inv)) + Unit("GB")));
+                AddBattery(groups, m, withWatts: false);
+                groups.Add(Fps(frames, withFrameTime: true));
                 break;
 
             default: // Completo
-                Line(sb, Label("GPU", GpuColor), Load(m.GpuPercent), m.VramGb is { } vram ? Label("VRAM", VramColor) + " " + Gb(vram) : null);
-                Line(sb, Label("CPU", CpuColor), Load(m.CpuPercent), m.CpuMhz is { } mhz ? mhz.ToString("0", Inv) + Unit("MHz") : null);
-                Line(sb, Label("RAM", RamColor), Gb(m.RamUsedGb) + Unit("/" + m.RamTotalGb.ToString("0", Inv) + "GB"));
-                if (m.BatteryPercent is { } pct3)
+                groups.Add(Group("GPU", GpuColor, Percent(m.GpuPercent)));
+                if (m.VramGb is { } vram)
                 {
-                    var parts = new List<string?> { Battery(pct3, m.OnAcPower) };
-                    if (m.BatteryWatts is { } w) parts.Add((w >= 0 ? w.ToString("0.0", Inv) : "+" + (-w).ToString("0.0", Inv)) + Unit("W"));
-                    if (m.BatteryRemaining is { } left) parts.Add($"{(int)left.TotalHours}h{left.Minutes:00}");
-                    Line(sb, Label("BAT", BatteryColor), parts.ToArray());
+                    groups.Add(Group("VRAM", VramColor, Value(vram.ToString("0.0", Inv)) + Unit("GB")));
                 }
-                AppendFps(sb, frames);
+                groups.Add(Group("CPU", CpuColor,
+                    Percent(m.CpuPercent) + (m.CpuMhz is { } mhz ? " " + Value(mhz.ToString("0", Inv)) + Unit("MHz") : string.Empty)));
+                groups.Add(Group("RAM", RamColor,
+                    Value(m.RamUsedGb.ToString("0.0", Inv)) + Unit("/" + m.RamTotalGb.ToString("0", Inv) + "GB")));
+                AddBattery(groups, m, withWatts: true);
+                groups.Add(Fps(frames, withFrameTime: true));
                 break;
         }
 
-        return sb.ToString().TrimEnd('\n');
+        groups.Add(Color(ClockColor, DateTime.Now.ToString("HH:mm", Inv)));
+        return string.Join(GroupSeparator, groups);
     }
 
-    private static void AppendFps(StringBuilder sb, FrameStats? frames)
+    private static string Fps(FrameStats? frames, bool withFrameTime)
     {
-        sb.Append(Label("FPS", FpsColor)).Append(' ');
-        if (frames is { } f)
+        if (frames is not { } f) return Group("FPS", FpsColor, Unit("--"));
+
+        var text = Value(f.Fps.ToString("0", Inv));
+        if (withFrameTime) text += " " + Value(f.FrameTimeMs.ToString("0.0", Inv)) + Unit("ms");
+        return Group("FPS", FpsColor, text);
+    }
+
+    private static void AddBattery(List<string> groups, MetricsSnapshot m, bool withWatts)
+    {
+        if (m.BatteryPercent is not { } percent) return;
+
+        var valueColor = !m.OnAcPower && percent <= 15 ? Critical : ValueColor;
+        var text = Color(valueColor, percent.ToString(Inv)) + Unit("%");
+
+        if (m.OnAcPower)
         {
-            var fpsColor = f.Fps >= 60 ? Good : f.Fps >= 30 ? Medium : Bad;
-            sb.Append(Color(fpsColor, f.Fps.ToString("0", Inv)))
-              .Append("  ")
-              .Append(Color(FrameTimeColor, f.FrameTimeMs.ToString("0.0", Inv)))
-              .Append(Unit("ms"));
+            text += " " + Unit("AC");
         }
-        else
+        else if (m.BatteryRemaining is { } left)
         {
-            sb.Append(Color(UnitColor, "--"));
+            text += " " + Value($"{(int)left.TotalHours}h{left.Minutes:00}");
         }
-        sb.Append('\n');
-    }
 
-    private static void AppendBatteryShort(StringBuilder sb, int percent, bool onAc, bool withLabel = true)
-    {
-        if (withLabel) sb.Append(Label("BAT", BatteryColor)).Append(' ');
-        sb.Append(Battery(percent, onAc));
-    }
-
-    private static string Battery(int percent, bool onAc)
-    {
-        var color = onAc ? Good : percent > 50 ? Good : percent > 20 ? Medium : Bad;
-        return Color(color, percent.ToString(Inv)) + Unit(onAc ? "% AC" : "%");
-    }
-
-    private static void Line(StringBuilder sb, string label, params string?[] values)
-    {
-        sb.Append(label);
-        foreach (var value in values)
+        if (withWatts && m.BatteryWatts is { } w && Math.Abs(w) > 0.05)
         {
-            if (string.IsNullOrEmpty(value)) continue;
-            sb.Append("  ").Append(value);
+            text += " " + Value((w >= 0 ? w : -w).ToString("0.0", Inv)) + Unit(w >= 0 ? "W" : "W+");
         }
-        sb.Append('\n');
+
+        groups.Add(Group("BAT", BatteryColor, text));
     }
 
-    private static string Load(double? percent)
-    {
-        if (percent is not { } p) return Color(UnitColor, "--");
-        var color = p < 60 ? Good : p < 90 ? Medium : Bad;
-        return Color(color, p.ToString("0", Inv)) + Unit("%");
-    }
+    private static string Group(string label, string labelColor, string valueText)
+        => Color(labelColor, label) + " " + valueText;
 
-    private static string Gb(double value) => value.ToString("0.0", Inv) + Unit("GB");
+    private static string Percent(double? percent)
+        => percent is { } p ? Value(p.ToString("0", Inv)) + Unit("%") : Unit("--");
 
-    private static string Label(string text, string color) => Color(color, text);
+    private static string Value(string text) => Color(ValueColor, text);
 
     private static string Unit(string text) => Color(UnitColor, text);
 

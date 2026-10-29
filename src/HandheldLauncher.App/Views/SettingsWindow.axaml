@@ -49,12 +49,12 @@
         <TextBlock Text="Overlay de desempenho (estilo MangoHud, desenhado pelo RTSS)" Classes="subtle" Margin="0,12,0,0" />
         <ComboBox SelectedIndex="{Binding OverlayPresetIndex}" HorizontalAlignment="Stretch">
           <ComboBoxItem Content="Desligado" />
-          <ComboBoxItem Content="Resumido — FPS e bateria numa linha" />
+          <ComboBoxItem Content="Resumido — FPS, bateria e hora" />
           <ComboBoxItem Content="Médio — GPU, CPU, RAM, bateria e FPS" />
-          <ComboBoxItem Content="Completo — + VRAM, clock da CPU, consumo (W) e tempo de bateria" />
+          <ComboBoxItem Content="Completo — + VRAM, clock da CPU e consumo (W)" />
         </ComboBox>
         <TextBlock Text="{Binding OverlayStatusText, StringFormat='Agora: {0}'}" Classes="subtle" FontSize="11" />
-        <TextBlock Text="No jogo: aperte L3+R3 (os dois analógicos) pra trocar. Precisa do RTSS aberto; desmarque 'Show own statistics' no RTSS pra não aparecer o FPS duplicado."
+        <TextBlock Text="No jogo: aperte L3+R3 (os dois analógicos) pra trocar. Precisa do RTSS aberto; desmarque 'Show own statistics' no RTSS pra não aparecer o FPS duplicado. Tamanho da letra: 'On-Screen Display zoom' no RTSS."
                    Classes="subtle"
                    FontSize="11"
                    TextWrapping="Wrap" />
