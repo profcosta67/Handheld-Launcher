@@ -31,9 +31,8 @@ mais sentido de risco crescente):
    Steam/Não instalados). **Nunca testado num build real.**
 2. ~~Atalho de Downloads na barra de cima~~ — **feito nesta leva**, ver
    "Status atual" mais abaixo. **Nunca testado num build real.**
-2b. ~~Atualização automática~~ — **escrita nesta leva** (GitHub Actions +
-   Velopack), ver "Instalação e atualização automática" mais abaixo. **Nunca
-   testada num build real.**
+2b. ~~Atualização automática~~ — **feita e confirmada no aparelho** (v0.3.1 →
+   v0.3.2), ver "Instalação e atualização automática" mais abaixo.
 3. **Overlay de performance mais completo** (presets Resumido/Médio/Completo
    em vez de só FPS) — decisão do usuário: **overlay próprio do launcher**,
    não RTSS + Afterburner. Nota técnica importante pra quando for
@@ -844,10 +843,10 @@ não investigado ainda).
 
 **Este é o jeito recomendado de instalar daqui pra frente** (a seção "Instalar
 no Legion Go 2 / ROG Ally" abaixo descreve o instalador antigo por `.bat`, que
-continua no repositório mas fica obsoleto). **Nunca testado de ponta a ponta
-num build real** — o código foi escrito num ambiente sem Windows/.NET; o
-workflow de build do GitHub (`.github/workflows/ci.yml`) existe justamente pra
-pegar erro de compilação a cada envio.
+continua no repositório mas fica obsoleto). **Confirmado funcionando de ponta
+a ponta**: v0.3.1 instalada pelo `Setup.exe` e atualizada sozinha pra v0.3.2
+pelo aviso na barra de cima (pacote delta). O workflow de build do GitHub
+(`.github/workflows/ci.yml`) pega erro de compilação a cada envio.
 
 ### Como funciona
 
