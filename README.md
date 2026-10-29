@@ -874,7 +874,28 @@ pelo aviso na barra de cima (pacote delta). O workflow de build do GitHub
 6. `settings.json` (chaves, SteamID, pastas Xbox) e a biblioteca ficam em
    `%AppData%\HandheldLauncher\` — a atualização nunca mexe nisso.
 
-### Modo console (opcional)
+### Modo Desktop × Handheld (Configurações)
+
+Desde a v0.3.5 o modo é escolhido **dentro do launcher** (Configurações → "Modo
+de uso"; na primeira abertura do launcher instalado ele abre essa tela
+sozinho):
+
+- **Desktop**: janela normal, nada automático, "Sair" fecha de verdade (remove
+  a Tarefa Agendada `HandheldLauncherWatchdog`).
+- **Handheld**: tela cheia, abre no login e reabre se fechar (o próprio
+  launcher cria a tarefa via XML — roda também na bateria). "Sair" segura a
+  reabertura até reiniciar o aparelho (`WatchdogGate`, marcador em
+  `%AppData%\HandheldLauncher\quit-flag.txt`); a tarefa **não** é mais
+  desativada pelo Sair (antes ficava desativada pra sempre).
+- Trocar de modo exige reiniciar o launcher. Configurações também mostra a
+  versão e tem o botão "Verificar atualizações".
+- `debug.log` registra a cada início quem abriu o processo (`pai=`) e os
+  argumentos — usado pra descobrir se algo fora da nossa tarefa (Modo Xbox,
+  Legion Space) reabre o launcher depois de "Sair" no Legion Go 2.
+- Local de instalação customizado: não implementado (o `Setup.exe` não tem
+  tela pra isso; `--installto` nunca foi testado).
+
+### Modo console via script (opcional, legado)
 
 O `Setup.exe` só instala o app. O que o instalador antigo fazia além disso
 (abrir em tela cheia no login, reabrir se fechar, desativar Legion Space/

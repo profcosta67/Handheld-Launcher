@@ -8,6 +8,7 @@ using HandheldLauncher.App.Input;
 using HandheldLauncher.App.Platform;
 using HandheldLauncher.App.ViewModels;
 using HandheldLauncher.Core.Models;
+using HandheldLauncher.Core.Services;
 
 namespace HandheldLauncher.App.Views;
 
@@ -231,7 +232,6 @@ public partial class MainWindow : Window
     public void QuitFromTray()
     {
         WatchdogGate.MarkDeliberateQuit();
-        DisableWatchdogIfPresent();
         Close();
     }
 
@@ -306,7 +306,6 @@ public partial class MainWindow : Window
         vm.QuitRequested += (_, _) =>
         {
             WatchdogGate.MarkDeliberateQuit();
-            DisableWatchdogIfPresent();
             Close();
         };
         vm.MinimizeRequested += (_, _) => MinimizeToTray();
@@ -320,6 +319,22 @@ public partial class MainWindow : Window
         // Verificação de atualização em segundo plano (espera ~20s e
         // repete a cada 6h; no-op fora de uma instalação via Setup.exe).
         _ = vm.RunUpdateLoopAsync();
+
+        // Primeira vez no launcher instalado: pergunta o modo (Desktop ou
+        // Handheld) abrindo as Configurações. Quem já está em modo
+        // Handheld (KioskMode ligado) não é incomodado.
+        try
+        {
+            var settings = AppSettingsStore.Load();
+            if (vm.UpdatesInstalled && !settings.ModeChosen && !settings.KioskMode)
+            {
+                Dispatcher.UIThread.Post(() => _ = OpenSettingsDialogAsync(vm), DispatcherPriority.Background);
+            }
+        }
+        catch
+        {
+            // Melhor esforço.
+        }
     }
 
     /// <summary>Toque no aviso "⬆ vX pronta" da barra de cima.</summary>
@@ -402,59 +417,6 @@ public partial class MainWindow : Window
         _batteryTimer.Tick += (_, _) => vm.BatteryStatusText = BatteryStatus.GetDisplayText();
         _batteryTimer.Start();
         Closed += (_, _) => _batteryTimer?.Stop();
-    }
-
-    /// <summary>
-    /// Best-effort: if the installer's watchdog Scheduled Task is present
-    /// (kiosk installs that chose auto-restart — see
-    /// installer/Install-Launcher.ps1), disable it before closing so a
-    /// deliberate "Sair" from the global menu actually sticks instead of
-    /// the watchdog reopening the app within a minute. Alt+F4 or a crash
-    /// skip this on purpose — recovering from exactly those is the whole
-    /// point of the watchdog. On a plain `dotnet run` dev session (no
-    /// task registered), schtasks just fails and this quietly does
-    /// nothing — never blocks quitting over it either way.
-    ///
-    /// Logs the exit code (and stdout/stderr on failure) via DebugLog —
-    /// added after a user report that the launcher still reopens itself
-    /// even after a deliberate "Sair". This call used to be completely
-    /// silent either way, so there was no way to tell whether 1) schtasks
-    /// actually failed here, or 2) it succeeded and something ELSE is
-    /// reopening the app (most likely suspect: Modo Xbox/OmniConsole's own
-    /// "home app" persistence, which is a different mechanism entirely
-    /// from our Scheduled Task and wouldn't be affected by this call at
-    /// all — see README's "Ainda não feito" for the open question on
-    /// that). Next real test run's DebugLog output should say which.
-    /// </summary>
-    private static void DisableWatchdogIfPresent()
-    {
-        try
-        {
-            var psi = new System.Diagnostics.ProcessStartInfo("schtasks.exe",
-                "/Change /TN \"HandheldLauncherWatchdog\" /Disable")
-            {
-                CreateNoWindow = true,
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-            };
-            using var process = System.Diagnostics.Process.Start(psi);
-            if (process is null)
-            {
-                DebugLog.Write("DisableWatchdogIfPresent: Process.Start retornou null");
-                return;
-            }
-
-            var stdout = process.StandardOutput.ReadToEnd();
-            var stderr = process.StandardError.ReadToEnd();
-            process.WaitForExit(2000);
-            DebugLog.Write($"DisableWatchdogIfPresent: schtasks exit={process.ExitCode} stdout=\"{stdout.Trim()}\" stderr=\"{stderr.Trim()}\"");
-        }
-        catch (Exception ex)
-        {
-            DebugLog.Write($"DisableWatchdogIfPresent: EXCEPTION {ex}");
-            // Best-effort only - never let this stop the app from quitting.
-        }
     }
 
     private void OnGamepadTick(object? sender, EventArgs e)
@@ -1008,6 +970,9 @@ public partial class MainWindow : Window
     private async Task OpenSettingsDialogAsync(MainViewModel vm)
     {
         var dialog = new SettingsWindow();
+        dialog.ViewModel.VersionText = vm.AppVersionText;
+        dialog.ViewModel.UpdatesAvailable = vm.UpdatesInstalled;
+        dialog.CheckForUpdates = vm.CheckForUpdatesWithResultAsync;
         await dialog.ShowDialog(this);
     }
 }

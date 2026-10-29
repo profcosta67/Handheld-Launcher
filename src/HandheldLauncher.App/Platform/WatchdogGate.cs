@@ -123,6 +123,23 @@ internal static class WatchdogGate
         int processInformationLength,
         out int returnLength);
 
+    /// <summary>Nome do processo pai ("explorer", "svchost"...), só pra diagnóstico no debug.log.</summary>
+    public static string DescribeParent()
+    {
+        try
+        {
+            var info = new ProcessBasicInformation();
+            using var current = Process.GetCurrentProcess();
+            if (NtQueryInformationProcess(current.Handle, 0, ref info, Marshal.SizeOf(info), out _) != 0) return "?";
+            using var parent = Process.GetProcessById(info.InheritedFromUniqueProcessId.ToInt32());
+            return parent.ProcessName;
+        }
+        catch
+        {
+            return "(pai já encerrou)";
+        }
+    }
+
     private static bool IsLaunchedByTaskScheduler()
     {
         try

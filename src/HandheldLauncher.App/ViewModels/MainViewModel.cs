@@ -195,6 +195,22 @@ public sealed class MainViewModel : ViewModelBase
         }
     }
 
+    /// <summary>Usado pela tela de Configurações: verifica e devolve uma frase com o resultado.</summary>
+    public async Task<string> CheckForUpdatesWithResultAsync()
+    {
+        if (_updates is not { IsInstalled: true })
+        {
+            return "Atualização automática só funciona no launcher instalado pelo Setup.exe.";
+        }
+
+        await CheckForUpdatesAsync(userInitiated: true);
+        return IsUpdateReady
+            ? $"v{PendingUpdateVersion} baixada — feche as Configurações e toque em ⬆ na barra de cima (ou no menu) pra reiniciar."
+            : "Você já está na versão mais recente (ou sem internet).";
+    }
+
+    public bool UpdatesInstalled => _updates is { IsInstalled: true };
+
     /// <summary>
     /// Reinicia pra aplicar a versão já baixada. Recusa se há um jogo
     /// rodando — trocar os arquivos do launcher não mata o jogo, mas

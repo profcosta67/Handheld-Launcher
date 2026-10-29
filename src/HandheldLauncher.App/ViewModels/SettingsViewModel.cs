@@ -1,3 +1,4 @@
+using HandheldLauncher.App.Platform;
 using HandheldLauncher.Core.Models;
 using HandheldLauncher.Core.Services;
 
@@ -54,23 +55,65 @@ public sealed class SettingsViewModel : ViewModelBase
         set => SetField(ref _xboxScanFoldersText, value);
     }
 
-    private bool _kioskMode;
+    private bool _isHandheldMode;
 
-    /// <summary>Tela cheia sem bordas (modo console). Desligado = janela normal (PC).</summary>
-    public bool KioskMode
+    /// <summary>
+    /// true = modo Handheld (tela cheia, abre sozinho no login, reabre se
+    /// fechar); false = modo Desktop (janela normal, nada automático, "Sair"
+    /// fecha de verdade). Substitui as caixinhas separadas de KioskMode/
+    /// AutoRestart — as duas sempre andam juntas.
+    /// </summary>
+    public bool IsHandheldMode
     {
-        get => _kioskMode;
-        set => SetField(ref _kioskMode, value);
+        get => _isHandheldMode;
+        set
+        {
+            if (SetField(ref _isHandheldMode, value))
+            {
+                OnPropertyChanged(nameof(IsDesktopMode));
+            }
+        }
     }
 
-    private bool _autoRestart = true;
-
-    /// <summary>Abrir sozinho no login e reabrir se fechar — ver WatchdogGate.</summary>
-    public bool AutoRestart
+    public bool IsDesktopMode
     {
-        get => _autoRestart;
-        set => SetField(ref _autoRestart, value);
+        get => !_isHandheldMode;
+        set => IsHandheldMode = !value;
     }
+
+    private string _versionText = string.Empty;
+
+    /// <summary>"Handheld Launcher v0.3.5", preenchido pelo MainWindow ao abrir.</summary>
+    public string VersionText
+    {
+        get => _versionText;
+        set => SetField(ref _versionText, value);
+    }
+
+    private bool _updatesAvailable;
+
+    /// <summary>Instalado pelo Setup.exe — só então "Verificar atualizações" faz sentido.</summary>
+    public bool UpdatesAvailable
+    {
+        get => _updatesAvailable;
+        set => SetField(ref _updatesAvailable, value);
+    }
+
+    private string _updateResultText = string.Empty;
+
+    public string UpdateResultText
+    {
+        get => _updateResultText;
+        set
+        {
+            if (SetField(ref _updateResultText, value))
+            {
+                OnPropertyChanged(nameof(HasUpdateResult));
+            }
+        }
+    }
+
+    public bool HasUpdateResult => !string.IsNullOrEmpty(_updateResultText);
 
     private string? _savedMessage;
     public string? SavedMessage
@@ -94,8 +137,7 @@ public sealed class SettingsViewModel : ViewModelBase
         SteamWebApiKey = settings.SteamWebApiKey ?? string.Empty;
         SteamId64 = settings.SteamId64 ?? string.Empty;
         XboxScanFoldersText = string.Join(Environment.NewLine, settings.XboxScanFolders);
-        KioskMode = settings.KioskMode;
-        AutoRestart = settings.AutoRestart;
+        IsHandheldMode = settings.KioskMode;
         SavedMessage = null;
     }
 
@@ -114,11 +156,17 @@ public sealed class SettingsViewModel : ViewModelBase
         settings.XboxScanFolders = XboxScanFoldersText
             .Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
             .ToList();
-        settings.KioskMode = KioskMode;
-        settings.AutoRestart = AutoRestart;
+        settings.KioskMode = IsHandheldMode;
+        settings.AutoRestart = IsHandheldMode;
+        settings.ModeChosen = true;
 
         AppSettingsStore.Save(settings);
 
-        SavedMessage = "Salvo! Reinicie o launcher pra aplicar (Minimizar não basta — precisa fechar de vez e abrir novamente).";
+        // Handheld: cria a tarefa que abre no login e reabre se fechar.
+        // Desktop: remove. (Melhor esforço — ver WatchdogTask.)
+        var taskOk = WatchdogTask.Apply(IsHandheldMode);
+
+        SavedMessage = "Salvo! Reinicie o launcher pra aplicar (Minimizar não basta — precisa fechar de vez e abrir novamente)."
+            + (taskOk ? string.Empty : " Aviso: não consegui ajustar a abertura automática do Windows (veja debug.log).");
     }
 }

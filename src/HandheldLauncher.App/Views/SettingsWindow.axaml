@@ -4,7 +4,7 @@
         x:Class="HandheldLauncher.App.Views.SettingsWindow"
         x:DataType="vm:SettingsViewModel"
         Title="Configurações"
-        Width="560" Height="560"
+        Width="560" Height="660"
         CanResize="False"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource BackgroundBrush}">
@@ -34,14 +34,26 @@
                  Height="80"
                  TextWrapping="Wrap" />
 
-        <TextBlock Text="Modo console" Classes="subtle" Margin="0,8,0,0" />
-        <CheckBox IsChecked="{Binding KioskMode}"
-                  Content="Tela cheia sem bordas (desmarque pra usar em janela no PC)" />
-        <CheckBox IsChecked="{Binding AutoRestart}"
-                  Content="Abrir sozinho no login e reabrir se fechar (desmarque no PC)" />
-        <TextBlock Text="Abrir pelo atalho sempre funciona. 'Sair' (menu Power) segura a reabertura até reiniciar o aparelho."
+        <TextBlock Text="Modo de uso" Classes="subtle" Margin="0,8,0,0" />
+        <RadioButton GroupName="Modo"
+                     IsChecked="{Binding IsDesktopMode}"
+                     Content="Desktop (PC) — janela normal, não abre sozinho, 'Sair' fecha de verdade" />
+        <RadioButton GroupName="Modo"
+                     IsChecked="{Binding IsHandheldMode}"
+                     Content="Handheld (modo jogo) — tela cheia, abre no login, reabre se fechar" />
+        <TextBlock Text="No modo Handheld, 'Sair' (menu Power) segura a reabertura até reiniciar o aparelho. Abrir pelo atalho sempre funciona."
                    Classes="subtle"
                    FontSize="11"
+                   TextWrapping="Wrap" />
+
+        <TextBlock Text="{Binding VersionText}" Classes="subtle" Margin="0,12,0,0" />
+        <Button Classes="pill"
+                Content="Verificar atualizações"
+                Click="OnCheckUpdatesClick"
+                HorizontalAlignment="Left"
+                IsVisible="{Binding UpdatesAvailable}" />
+        <TextBlock Text="{Binding UpdateResultText}"
+                   IsVisible="{Binding HasUpdateResult}"
                    TextWrapping="Wrap" />
 
         <TextBlock Text="{Binding SavedMessage}"

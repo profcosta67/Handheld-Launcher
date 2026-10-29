@@ -36,6 +36,16 @@ public partial class SettingsWindow : Window
         ViewModel.SaveTo(_settings);
     }
 
+    /// <summary>Preenchido por quem abre (MainWindow.OpenSettingsDialogAsync).</summary>
+    public Func<Task<string>>? CheckForUpdates { get; set; }
+
+    private async void OnCheckUpdatesClick(object? sender, RoutedEventArgs e)
+    {
+        if (CheckForUpdates is null) return;
+        ViewModel.UpdateResultText = "Verificando…";
+        ViewModel.UpdateResultText = await CheckForUpdates();
+    }
+
     private void OnCloseClick(object? sender, RoutedEventArgs e)
     {
         Close();

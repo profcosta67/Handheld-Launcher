@@ -22,6 +22,12 @@ internal static class Program
         // qualquer coisa nossa (mutex, janela) rodar.
         Velopack.VelopackApp.Build().Run();
 
+        // Diagnóstico: quem abriu este processo e com quais argumentos. Se o
+        // launcher reabrir sozinho depois de "Sair" (ex: Modo Xbox/Legion
+        // Space reabrindo o app principal), o debug.log mostra o culpado.
+        HandheldLauncher.App.Diagnostics.DebugLog.Write(
+            $"START v{System.Diagnostics.FileVersionInfo.GetVersionInfo(Environment.ProcessPath ?? string.Empty).ProductVersion} pai={WatchdogGate.DescribeParent()} args=[{string.Join(' ', args)}]");
+
         // Launcher da instalação ANTIGA rodando? Fecha ele antes de tudo —
         // senão o mutex dele faz este (novo) só trazer a janela velha pra
         // frente. Ver LegacyInstallCleanup.
@@ -32,6 +38,7 @@ internal static class Program
         // Ver WatchdogGate.
         if (WatchdogGate.ShouldExitImmediately(args))
         {
+            HandheldLauncher.App.Diagnostics.DebugLog.Write("START ignorado (abertura automática bloqueada: Sair recente ou modo Desktop).");
             return;
         }
 

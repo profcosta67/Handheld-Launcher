@@ -72,4 +72,11 @@ public class AppSettings
     /// ver App/Platform/WatchdogGate. Abrir pelo atalho continua normal.
     /// </summary>
     public bool AutoRestart { get; set; } = true;
+
+    /// <summary>
+    /// O usuário já escolheu o modo (Desktop/Handheld) na tela de
+    /// Configurações. Falso + KioskMode desligado = o launcher abre as
+    /// Configurações sozinho na primeira vez pra perguntar.
+    /// </summary>
+    public bool ModeChosen { get; set; }
 }
