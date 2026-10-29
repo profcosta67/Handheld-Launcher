@@ -1875,6 +1875,14 @@ public sealed class MainViewModel : ViewModelBase
     /// FetchMissingArtworkForOwnedGames pra quando essa lista é
     /// (re)carregada).
     /// </summary>
+    /// <summary>Recria as tiles (ex: depois de mudar o tamanho das capas nas Configurações).</summary>
+    public void ReloadTiles()
+    {
+        var selected = SelectedIndex;
+        RebuildGamesFromLibrary();
+        if (selected >= 0 && Games.Count > 0) SelectedIndex = Math.Min(selected, Games.Count - 1);
+    }
+
     private void RebuildGamesFromLibrary()
     {
         var previouslySelectedId = SelectedTile?.Game.Id;

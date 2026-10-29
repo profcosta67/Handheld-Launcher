@@ -73,6 +73,11 @@ public partial class App : Application
             // Redireciona a tarefa, migra o backup e apaga a pasta velha.
             LegacyInstallCleanup.RunInBackground();
 
+            // Aparência (v0.6.0) — antes de criar a janela/tiles: cores do
+            // tema e escala das capas já valem desde o primeiro desenho.
+            ThemeManager.Apply(appSettings.Theme);
+            GameTileViewModel.SizeScale = GameTileViewModel.ScaleForSetting(appSettings.TileSize);
+
             var mainWindow = new MainWindow
             {
                 DataContext = new MainViewModel(libraryService, gameLauncher, artworkService, performanceOverlay, updateService, performanceHud),

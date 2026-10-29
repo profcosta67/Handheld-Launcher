@@ -133,6 +133,20 @@ public sealed class SettingsViewModel : ViewModelBase
         set => SetField(ref _overlayStatusText, value);
     }
 
+    private int _themeIndex;
+    public int ThemeIndex { get => _themeIndex; set => SetField(ref _themeIndex, value); }
+
+    private int _tileSizeIndex = 1;
+    public int TileSizeIndex { get => _tileSizeIndex; set => SetField(ref _tileSizeIndex, value); }
+
+    private int _layoutIndex;
+
+    /// <summary>0 = fileira horizontal, 1 = grade vertical.</summary>
+    public int LayoutIndex { get => _layoutIndex; set => SetField(ref _layoutIndex, value); }
+
+    private bool _animations = true;
+    public bool Animations { get => _animations; set => SetField(ref _animations, value); }
+
     private string? _savedMessage;
     public string? SavedMessage
     {
@@ -157,6 +171,10 @@ public sealed class SettingsViewModel : ViewModelBase
         XboxScanFoldersText = string.Join(Environment.NewLine, settings.XboxScanFolders);
         IsHandheldMode = settings.KioskMode;
         OverlayPresetIndex = Math.Clamp(settings.OverlayPreset, 0, 3);
+        ThemeIndex = Math.Clamp(settings.Theme, 0, 3);
+        TileSizeIndex = Math.Clamp(settings.TileSize, 0, 2);
+        LayoutIndex = settings.VerticalLayout ? 1 : 0;
+        Animations = settings.Animations;
         SavedMessage = null;
     }
 
@@ -179,6 +197,10 @@ public sealed class SettingsViewModel : ViewModelBase
         settings.AutoRestart = IsHandheldMode;
         settings.ModeChosen = true;
         settings.OverlayPreset = Math.Clamp(OverlayPresetIndex, 0, 3);
+        settings.Theme = Math.Clamp(ThemeIndex, 0, 3);
+        settings.TileSize = Math.Clamp(TileSizeIndex, 0, 2);
+        settings.VerticalLayout = LayoutIndex == 1;
+        settings.Animations = Animations;
 
         AppSettingsStore.Save(settings);
 
@@ -186,7 +208,7 @@ public sealed class SettingsViewModel : ViewModelBase
         // Desktop: remove. (Melhor esforço — ver WatchdogTask.)
         var taskOk = WatchdogTask.Apply(IsHandheldMode);
 
-        SavedMessage = "Salvo! Reinicie o launcher pra aplicar (Minimizar não basta — precisa fechar de vez e abrir novamente)."
+        SavedMessage = "Salvo! Aparência e HUD já valem ao fechar esta tela; chaves e modo de uso pedem reiniciar o launcher (fechar de vez e abrir de novo)."
             + (taskOk ? string.Empty : " Aviso: não consegui ajustar a abertura automática do Windows (veja debug.log).");
     }
 }

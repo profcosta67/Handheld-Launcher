@@ -260,7 +260,7 @@
              Ajuste fino de verdade aqui precisa da resolução/altura real
              da janela no Legion Go 2 pra calcular sem continuar
              tentando "no escuro". -->
-        <ItemsControl ItemsSource="{Binding Games}">
+        <ItemsControl x:Name="GamesItemsControl" ItemsSource="{Binding Games}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
               <!-- Spacing 14 → 18 nesta leva — junto com a WIDE CAPSULE
@@ -327,6 +327,8 @@
                 <Border Classes="gameTile"
                         Classes.focused="{Binding IsFocused}"
                         Classes.lastPlayed="{Binding IsLastPlayed}"
+                        Width="{Binding TileWidth}"
+                        Height="{Binding TileHeight}"
                         PointerPressed="OnTilePointerPressed"
                         DoubleTapped="OnTileDoubleTapped">
                   <Grid>

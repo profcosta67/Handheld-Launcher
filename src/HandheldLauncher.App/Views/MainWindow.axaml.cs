@@ -1,7 +1,11 @@
 using System.Runtime.InteropServices;
 using Avalonia;
+using Avalonia.Animation;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Templates;
 using Avalonia.Input;
+using Avalonia.Layout;
 using Avalonia.Threading;
 using HandheldLauncher.App.Diagnostics;
 using HandheldLauncher.App.Input;
@@ -44,6 +48,10 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+
+        // Espaço entre as capas na grade vertical (a fileira horizontal usa
+        // o Spacing do StackPanel do XAML).
+        GamesItemsControl.ContainerPrepared += (_, e) => e.Container.Margin = ContainerMargin();
 
         // 20Hz is plenty for menu navigation and cheap enough to just leave
         // running the whole time the launcher is open.
@@ -347,6 +355,9 @@ public partial class MainWindow : Window
         StartBatteryMonitor(vm);
         StartDownloadsRefreshTimer(vm);
 
+        // Aparência salva (tema, tamanho das capas, layout, animações).
+        ApplyAppearance(vm, AppSettingsStore.Load());
+
         // Verificação de atualização em segundo plano (espera ~20s e
         // repete a cada 6h; no-op fora de uma instalação via Setup.exe).
         _ = vm.RunUpdateLoopAsync();
@@ -638,6 +649,12 @@ public partial class MainWindow : Window
                     vm.MoveNext();
                     ScrollGameRowSelectionIntoView(vm);
                     break;
+                case GamepadAction.MoveUp:
+                    MoveSelectionVertical(vm, -1);
+                    break;
+                case GamepadAction.MoveDown:
+                    MoveSelectionVertical(vm, 1);
+                    break;
                 case GamepadAction.Confirm:
                     vm.LaunchSelected();
                     // LaunchSelected reorders the row (the game just
@@ -818,6 +835,14 @@ public partial class MainWindow : Window
                 ScrollGameRowSelectionIntoView(vm);
                 e.Handled = true;
                 break;
+            case Key.Up:
+                MoveSelectionVertical(vm, -1);
+                e.Handled = true;
+                break;
+            case Key.Down:
+                MoveSelectionVertical(vm, 1);
+                e.Handled = true;
+                break;
             case Key.Enter:
                 vm.LaunchSelected();
                 ScrollGameRowSelectionIntoView(vm);
@@ -905,12 +930,54 @@ public partial class MainWindow : Window
     /// </summary>
     private void ScrollGameRowSelectionIntoView(MainViewModel vm)
     {
-        if (GameRowScrollViewer is null) return;
-        if (vm.Games.Count == 0 || vm.SelectedIndex < 0) return;
+        // Depois do próximo passe de layout: depois de reordenar/recriar as
+        // tiles (abrir jogo, trocar tamanho/layout) as posições só ficam
+        // certas depois que o Avalonia mede de novo.
+        Dispatcher.UIThread.Post(() => ScrollSelectionIntoViewNow(vm), DispatcherPriority.Background);
+    }
 
-        const double normalWidth = 220;
-        const double lastPlayedWidth = 580; // 620 → 580 nesta leva — ver Theme.axaml
-        const double spacing = 18; // 14 → 18 nesta leva — junto com a largura menor acima, resolve a WIDE CAPSULE sobrepondo a tile vizinha
+    /// <summary>
+    /// Traz o jogo selecionado pra dentro da área visível — pelo retângulo
+    /// REAL da tile na tela, o que serve pros dois layouts (fileira
+    /// horizontal e grade vertical) e pra qualquer tamanho de capa. Se a
+    /// tile ainda não existir, cai na conta antiga por larguras fixas.
+    /// </summary>
+    private void ScrollSelectionIntoViewNow(MainViewModel vm)
+    {
+        if (GameRowScrollViewer is null) return;
+        if (vm.Games.Count == 0 || vm.SelectedIndex < 0 || vm.SelectedIndex >= vm.Games.Count) return;
+
+        var container = GamesItemsControl?.ContainerFromIndex(vm.SelectedIndex);
+        var position = container?.TranslatePoint(new Point(0, 0), GamesItemsControl!);
+        if (container is not null && position is { } p)
+        {
+            var offset = GameRowScrollViewer.Offset;
+            var viewport = GameRowScrollViewer.Viewport;
+
+            if (_verticalLayout)
+            {
+                var top = p.Y - 12;
+                var bottom = p.Y + container.Bounds.Height + 12;
+                if (top < offset.Y) GameRowScrollViewer.Offset = new Vector(offset.X, Math.Max(0, top));
+                else if (bottom > offset.Y + viewport.Height) GameRowScrollViewer.Offset = new Vector(offset.X, bottom - viewport.Height);
+            }
+            else
+            {
+                var left = p.X;
+                var right = p.X + container.Bounds.Width;
+                if (left < offset.X) GameRowScrollViewer.Offset = new Vector(left, offset.Y);
+                else if (right > offset.X + viewport.Width) GameRowScrollViewer.Offset = new Vector(right - viewport.Width, offset.Y);
+            }
+            return;
+        }
+
+        if (_verticalLayout) return;
+
+        // Plano B (fileira horizontal, tile ainda não criada): larguras fixas × escala.
+        var scale = GameTileViewModel.SizeScale;
+        var normalWidth = 220 * scale;
+        var lastPlayedWidth = 580 * scale;
+        const double spacing = 18;
 
         double itemLeft = 0;
         for (var i = 0; i < vm.SelectedIndex; i++)
@@ -918,9 +985,7 @@ public partial class MainWindow : Window
             itemLeft += (vm.Games[i].IsLastPlayed ? lastPlayedWidth : normalWidth) + spacing;
         }
 
-        var itemWidth = vm.Games[vm.SelectedIndex].IsLastPlayed ? lastPlayedWidth : normalWidth;
-        var itemRight = itemLeft + itemWidth;
-
+        var itemRight = itemLeft + (vm.Games[vm.SelectedIndex].IsLastPlayed ? lastPlayedWidth : normalWidth);
         var viewLeft = GameRowScrollViewer.Offset.X;
         var viewRight = viewLeft + GameRowScrollViewer.Viewport.Width;
 
@@ -932,6 +997,119 @@ public partial class MainWindow : Window
         {
             GameRowScrollViewer.Offset = new Vector(itemRight - GameRowScrollViewer.Viewport.Width, GameRowScrollViewer.Offset.Y);
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Aparência (v0.6.0): tema, tamanho das capas, layout, animações
+    // ------------------------------------------------------------------
+
+    private bool _verticalLayout;
+    private bool _layoutInitialized;
+    private ITemplate<Panel?>? _horizontalPanelTemplate;
+    private Transitions? _rowScrollTransitions;
+
+    private Thickness ContainerMargin() => _verticalLayout ? new Thickness(0, 0, 18, 24) : default;
+
+    /// <summary>Aplica tudo da seção Aparência das Configurações, na hora.</summary>
+    private void ApplyAppearance(MainViewModel vm, AppSettings settings)
+    {
+        try
+        {
+            ThemeManager.Apply(settings.Theme);
+
+            Classes.Set("noAnim", !settings.Animations);
+            _rowScrollTransitions ??= GameRowScrollViewer.Transitions;
+            GameRowScrollViewer.Transitions = settings.Animations ? _rowScrollTransitions : null;
+
+            var scale = GameTileViewModel.ScaleForSetting(settings.TileSize);
+            var scaleChanged = Math.Abs(scale - GameTileViewModel.SizeScale) > 0.001;
+            GameTileViewModel.SizeScale = scale;
+
+            if (!_layoutInitialized || settings.VerticalLayout != _verticalLayout)
+            {
+                SetLayout(settings.VerticalLayout);
+                _layoutInitialized = true;
+            }
+
+            if (scaleChanged) vm.ReloadTiles();
+
+            ScrollGameRowSelectionIntoView(vm);
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"ApplyAppearance EXCEPTION {ex}");
+        }
+    }
+
+    /// <summary>
+    /// Fileira horizontal (StackPanel do XAML, rola pros lados) ou grade
+    /// vertical (WrapPanel, rola pra cima/baixo) — pedido do usuário: "os
+    /// jogos aparecer e correr ou horizontal ou vertical". Mesmo
+    /// ItemsControl e mesmo template de tile nos dois; só troca o painel.
+    /// </summary>
+    private void SetLayout(bool vertical)
+    {
+        _verticalLayout = vertical;
+        _horizontalPanelTemplate ??= GamesItemsControl.ItemsPanel;
+
+        GamesItemsControl.ItemsPanel = vertical
+            ? new FuncTemplate<Panel?>(() => new WrapPanel { Orientation = Orientation.Horizontal })
+            : _horizontalPanelTemplate;
+
+        GameRowScrollViewer.HorizontalScrollBarVisibility = vertical ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Auto;
+        GameRowScrollViewer.VerticalScrollBarVisibility = vertical ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
+        GameRowScrollViewer.Offset = default;
+
+        foreach (var container in GamesItemsControl.GetRealizedContainers())
+        {
+            container.Margin = ContainerMargin();
+        }
+    }
+
+    /// <summary>
+    /// ↑/↓ na grade vertical: vai pra tile da linha de cima/baixo mais
+    /// alinhada com a atual (pelas posições reais — a capa larga do "último
+    /// jogo aberto" ocupa mais de uma coluna). Na fileira horizontal não faz
+    /// nada (como antes).
+    /// </summary>
+    private void MoveSelectionVertical(MainViewModel vm, int direction)
+    {
+        if (!_verticalLayout || vm.SelectedIndex < 0) return;
+
+        var current = GamesItemsControl.ContainerFromIndex(vm.SelectedIndex);
+        if (current is null) return;
+
+        var currentBounds = current.Bounds;
+        var currentCenterX = currentBounds.X + currentBounds.Width / 2;
+
+        var best = -1;
+        var bestRowY = direction > 0 ? double.MaxValue : double.MinValue;
+        var bestDx = double.MaxValue;
+
+        for (var i = 0; i < vm.Games.Count; i++)
+        {
+            var container = GamesItemsControl.ContainerFromIndex(i);
+            if (container is null) continue;
+            var b = container.Bounds;
+
+            var isInDirection = direction > 0 ? b.Y > currentBounds.Y + 1 : b.Y < currentBounds.Y - 1;
+            if (!isInDirection) continue;
+
+            var isCloserRow = direction > 0 ? b.Y < bestRowY - 1 : b.Y > bestRowY + 1;
+            var isSameRow = Math.Abs(b.Y - bestRowY) <= 1;
+            var dx = Math.Abs(b.X + b.Width / 2 - currentCenterX);
+
+            if (isCloserRow || (isSameRow && dx < bestDx))
+            {
+                best = i;
+                bestRowY = b.Y;
+                bestDx = dx;
+            }
+        }
+
+        if (best < 0) return;
+        vm.SelectedIndex = best;
+        ScrollGameRowSelectionIntoView(vm);
     }
 
     private void OnTilePointerPressed(object? sender, PointerPressedEventArgs e)
@@ -1054,7 +1232,8 @@ public partial class MainWindow : Window
         dialog.ViewModel.OverlayStatusText = vm.OverlayStatusText;
         await dialog.ShowDialog(this);
 
-        // Preset do HUD vale na hora (o resto das Configurações ainda pede reinício).
+        // Preset do HUD e aparência valem na hora (chaves e modo de uso ainda pedem reinício).
         vm.ReloadOverlayPresetFromSettings();
+        ApplyAppearance(vm, AppSettingsStore.Load());
     }
 }

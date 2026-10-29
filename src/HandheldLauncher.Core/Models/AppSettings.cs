@@ -85,4 +85,16 @@ public class AppSettings
     /// jogo): 0 Desligado, 1 Resumido, 2 Médio (padrão), 3 Completo.
     /// </summary>
     public int OverlayPreset { get; set; } = 2;
+
+    /// <summary>Tema (v0.6.0): 0 Escuro, 1 Claro, 2 Azul, 3 Vermelho.</summary>
+    public int Theme { get; set; }
+
+    /// <summary>Tamanho das capas na biblioteca: 0 Pequeno, 1 Médio (padrão), 2 Grande.</summary>
+    public int TileSize { get; set; } = 1;
+
+    /// <summary>Biblioteca em grade com rolagem vertical (true) ou fileira horizontal (false, padrão).</summary>
+    public bool VerticalLayout { get; set; }
+
+    /// <summary>Animações (zoom no jogo selecionado/ao passar o mouse, rolagem suave). Padrão ligado.</summary>
+    public bool Animations { get; set; } = true;
 }

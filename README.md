@@ -28,8 +28,8 @@ mais sentido de risco crescente):
 
 0. ~~Organização da interface (menu em subpastas, Power, Downloads com
    velocidade, capas cinza, ícone no seletor)~~ — **v0.5.0**, ver seção própria.
-   **Próximos lotes combinados**: v0.6.0 visual (temas, transições, tamanho
-   de ícone, zoom no selecionado); depois HUD 2 (temperatura — pesquisar
+   **Próximos lotes combinados**: ~~v0.6.0 visual~~ (feito, ver "Aparência");
+   depois HUD 2 (temperatura — pesquisar
    caminho sem driver bloqueado; mini gráfico de frametime); mais pra
    frente: login Steam, pasta de instalação, Modo Xbox/"Sair" no Legion.
 1. ~~Reorganizar as abas da biblioteca~~ — **feito nesta leva**, ver
@@ -56,7 +56,8 @@ mais sentido de risco crescente):
    com os 3 presets controlados na nossa tela de Configurações. Isso dá o
    controle visual total que foi pedido, sem reinventar a parte mais
    arriscada (a medição do FPS em si).
-4. **Temas + customização visual** (dark/claro/azul/vermelho, efeitos de
+4. ~~Temas + customização visual~~ — **feito na v0.6.0** (+ layout vertical).
+   Nota original: **Temas + customização visual** (dark/claro/azul/vermelho, efeitos de
    transição entre telas, tamanho de ícone configurável, zoom ao passar o
    mouse/focar um ícone) — deixado por último de propósito porque mexe em
    praticamente todo `Theme.axaml`/XAML existente; faz mais sentido depois
@@ -701,6 +702,25 @@ Ainda **não** feito:
     mais abaixo) — isso continua manual, sem automação.
 15. ~~Tela de configuração pra `SteamWebApiKey`/`SteamId64`~~ — **feito
     numa leva posterior**, junto do item 5 (mesma `SettingsWindow`).
+
+## Aparência — v0.6.0
+
+**Nunca testado num aparelho ainda.** Tudo em Configurações → Aparência e vale
+na hora ao fechar a tela (sem reiniciar):
+
+- **Tema**: Escuro (original) / Claro / Azul / Vermelho — `Platform/ThemeManager.cs`
+  troca a cor dos pincéis do `Theme.axaml` (mesma instância usada por todo
+  `StaticResource`, então repinta ao vivo) e a variante do Fluent (Claro =
+  Light). Cores fixas no XAML (véus pretos, badges) não mudam.
+- **Tamanho das capas**: Pequeno 0.8× / Médio 1× / Grande 1.2×
+  (`GameTileViewModel.SizeScale`; largura/altura agora bindadas direto na capa).
+- **Biblioteca**: fileira horizontal (rola pros lados) ou **grade vertical**
+  (WrapPanel, rola pra cima/baixo; ↑↓ vão pra linha de cima/baixo mais
+  alinhada, pelas posições reais das tiles). Mesmo ItemsControl, só troca o painel.
+- **Animações**: zoom no foco (já existia) + **zoom ao passar o mouse** +
+  rolagem suave; desligar põe a classe `noAnim` na janela.
+- Rolagem até o selecionado agora usa o retângulo real da tile (serve pros
+  dois layouts e qualquer tamanho), com a conta antiga como plano B.
 
 ## Organização da interface — v0.5.0
 

@@ -233,4 +233,30 @@
     <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
   </Style>
 
+
+  <!-- v0.6.0: zoom leve ao passar o mouse (pedido do usuário: "colocar o
+       zoom quando passar por cima do ícone"). Mesma transição do foco. -->
+  <Style Selector="Border.gameTile:pointerover">
+    <Setter Property="RenderTransform" Value="scale(1.05)" />
+  </Style>
+  <Style Selector="Border.gameTile.focused:pointerover">
+    <Setter Property="RenderTransform" Value="scale(1.08)" />
+  </Style>
+
+  <!-- Configurações → "Animações" desligado: classe noAnim na janela
+       (MainWindow.ApplyAppearance). Definidos por último pra vencer os de
+       cima (no Avalonia, entre estilos que batem, o declarado depois ganha). -->
+  <Style Selector="Window.noAnim Border.gameTile">
+    <Setter Property="Transitions">
+      <Transitions />
+    </Setter>
+    <Setter Property="RenderTransform" Value="scale(1.0)" />
+  </Style>
+  <Style Selector="Window.noAnim Border.gameTile.focused">
+    <Setter Property="RenderTransform" Value="scale(1.0)" />
+  </Style>
+  <Style Selector="Window.noAnim Border.gameTile:pointerover">
+    <Setter Property="RenderTransform" Value="scale(1.0)" />
+  </Style>
+
 </Styles>

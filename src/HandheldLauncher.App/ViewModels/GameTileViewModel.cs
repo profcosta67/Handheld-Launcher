@@ -90,7 +90,19 @@ public sealed class GameTileViewModel : ViewModelBase
     /// comment) so this size difference never shifts the capsule images
     /// below out of alignment across the row.
     /// </summary>
-    public double CaptionLogoHeight => IsLastPlayed ? 32 : 22;
+    public double CaptionLogoHeight => (IsLastPlayed ? 32 : 22) * SizeScale;
+
+    /// <summary>
+    /// Escala do "Tamanho das capas" (Configurações, v0.6.0): 0.8 pequeno,
+    /// 1.0 médio, 1.2 grande. Estático porque vale pra biblioteca inteira;
+    /// MainViewModel recria as tiles depois de mudar.
+    /// </summary>
+    public static double SizeScale { get; set; } = 1.0;
+
+    public static double ScaleForSetting(int tileSize) => tileSize switch { 0 => 0.8, 2 => 1.2, _ => 1.0 };
+
+    /// <summary>Altura da capa (bindada direto no Border.gameTile desde a v0.6.0).</summary>
+    public double TileHeight => 290 * SizeScale;
 
     /// <summary>
     /// The centered title-only placeholder INSIDE the capsule border
@@ -115,7 +127,7 @@ public sealed class GameTileViewModel : ViewModelBase
     /// encolheu um pouco (620 → 580) porque o usuário reportou que ela
     /// estava "pegando o ícone do lado" (sobrepondo a próxima tile).
     /// </summary>
-    public double TileWidth => IsLastPlayed ? 580 : 220;
+    public double TileWidth => (IsLastPlayed ? 580 : 220) * SizeScale;
 
     /// <summary>
     /// What the hero banner (the crisp, non-blurred box back at the top of
@@ -171,6 +183,7 @@ public sealed class GameTileViewModel : ViewModelBase
             if (SetField(ref _isLastPlayed, value))
             {
                 OnPropertyChanged(nameof(TileWidth));
+                OnPropertyChanged(nameof(TileHeight));
                 OnPropertyChanged(nameof(CaptionLogoHeight));
 
                 // TileImagePath agora depende de IsLastPlayed (WideGridImagePath
