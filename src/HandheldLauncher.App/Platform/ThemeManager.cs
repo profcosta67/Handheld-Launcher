@@ -13,7 +13,21 @@ namespace HandheldLauncher.App.Platform;
 /// </summary>
 public static class ThemeManager
 {
-    public static readonly string[] ThemeNames = ["Escuro", "Claro", "Azul", "Vermelho"];
+    public static readonly string[] ThemeNames =
+        ["Escuro", "Claro", "Azul", "Vermelho", "Verde", "Laranja", "Rosa", "Ciano", "Preto (OLED)", "Dourado"];
+
+    /// <summary>
+    /// Fontes da interface — todas já vêm instaladas no Windows 10/11 (nada
+    /// pra empacotar). Índice salvo em AppSettings.UiFont.
+    /// </summary>
+    public static readonly (string Name, string? Family)[] Fonts =
+    [
+        ("Moderna (Segoe UI)", null), // null = a padrão do Theme.axaml
+        ("Divertida (Comic Sans)", "Comic Sans MS"),
+        ("Formal (Georgia)", "Georgia"),
+        ("Gamer (Bahnschrift)", "Bahnschrift"),
+        ("Terminal (Consolas)", "Consolas"),
+    ];
 
     private sealed record Palette(
         string Background, string Surface, string SurfaceRaised,
@@ -30,6 +44,18 @@ public static class ThemeManager
         new("#07101E", "#0E1B2F", "#152741", "#2F8CFF", "#1D5FB8", "#EEF4FF", "#8EA3C2", false),
         // Vermelho
         new("#130A0C", "#201114", "#2C171B", "#E5334B", "#A3243A", "#FFF1F2", "#B39497", false),
+        // Verde
+        new("#08120C", "#0F1D15", "#17291E", "#2FCB6B", "#1F8A4A", "#EEFFF4", "#8FB09C", false),
+        // Laranja
+        new("#140D07", "#21160D", "#2E1F13", "#FF8A2B", "#B35F1C", "#FFF5EC", "#B9A08B", false),
+        // Rosa
+        new("#140A12", "#21101D", "#2D1728", "#FF4FA3", "#B33574", "#FFF0F8", "#B596A9", false),
+        // Ciano
+        new("#061214", "#0C1E21", "#13292D", "#22D3EE", "#1590A3", "#ECFDFF", "#8DADB2", false),
+        // Preto (OLED) — fundo preto de verdade (economiza bateria em tela OLED)
+        new("#000000", "#0A0A0A", "#161616", "#FFFFFF", "#4A4A4A", "#FFFFFF", "#8C8C8C", false),
+        // Dourado
+        new("#0E0C08", "#1A160E", "#262015", "#E5B33E", "#9C7A27", "#FFF8E6", "#B3A584", false),
     ];
 
     /// <summary>
@@ -41,9 +67,10 @@ public static class ThemeManager
     {
         try
         {
-            if (uiFont == 1)
+            var family = uiFont > 0 && uiFont < Fonts.Length ? Fonts[uiFont].Family : null;
+            if (family is not null)
             {
-                window.FontFamily = new FontFamily("Comic Sans MS");
+                window.FontFamily = new FontFamily(family);
             }
             else
             {

@@ -86,7 +86,7 @@ public class AppSettings
     /// </summary>
     public int OverlayPreset { get; set; } = 2;
 
-    /// <summary>Tema (v0.6.0): 0 Escuro, 1 Claro, 2 Azul, 3 Vermelho.</summary>
+    /// <summary>Tema (índice em ThemeManager.ThemeNames): 0 Escuro, 1 Claro, 2 Azul, 3 Vermelho, 4 Verde, 5 Laranja, 6 Rosa, 7 Ciano, 8 Preto (OLED), 9 Dourado.</summary>
     public int Theme { get; set; }
 
     /// <summary>Tamanho das capas na biblioteca: 0 Pequeno, 1 Médio (padrão), 2 Grande.</summary>
@@ -98,6 +98,6 @@ public class AppSettings
     /// <summary>Animações (zoom no jogo selecionado/ao passar o mouse, rolagem suave). Padrão ligado.</summary>
     public bool Animations { get; set; } = true;
 
-    /// <summary>Fonte da interface (v0.7.0): 0 Moderna (Segoe UI, padrão), 1 Divertida (Comic Sans).</summary>
+    /// <summary>Fonte da interface (índice em ThemeManager.Fonts): 0 Moderna (Segoe UI, padrão), 1 Divertida, 2 Formal, 3 Gamer, 4 Terminal.</summary>
     public int UiFont { get; set; }
 }

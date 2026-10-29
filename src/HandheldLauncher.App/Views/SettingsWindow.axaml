@@ -53,11 +53,20 @@
           <ComboBoxItem Content="Claro" />
           <ComboBoxItem Content="Azul" />
           <ComboBoxItem Content="Vermelho" />
+          <ComboBoxItem Content="Verde" />
+          <ComboBoxItem Content="Laranja" />
+          <ComboBoxItem Content="Rosa" />
+          <ComboBoxItem Content="Ciano" />
+          <ComboBoxItem Content="Preto (OLED)" />
+          <ComboBoxItem Content="Dourado" />
         </ComboBox>
         <TextBlock Text="Fonte" FontSize="12" />
         <ComboBox SelectedIndex="{Binding FontIndex}" HorizontalAlignment="Stretch">
           <ComboBoxItem Content="Moderna (Segoe UI)" />
           <ComboBoxItem Content="Divertida (Comic Sans)" />
+          <ComboBoxItem Content="Formal (Georgia)" />
+          <ComboBoxItem Content="Gamer (Bahnschrift)" />
+          <ComboBoxItem Content="Terminal (Consolas)" />
         </ComboBox>
         <TextBlock Text="Tamanho das capas" FontSize="12" />
         <ComboBox SelectedIndex="{Binding TileSizeIndex}" HorizontalAlignment="Stretch">
