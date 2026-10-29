@@ -27,6 +27,13 @@ public class GameEntry
     /// <summary>Command-line arguments passed to ExecutablePath, if any.</summary>
     public string? LaunchArguments { get; set; }
 
+    /// <summary>
+    /// Link oficial da loja pra abrir o jogo (ex: com.epicgames.launcher://...).
+    /// Quando existe, GameLauncher usa ele em vez do .exe (o app da loja cuida
+    /// de conta/DRM). Nunca persistido como override.
+    /// </summary>
+    public string? LaunchUri { get; set; }
+
     /// <summary>Working directory to launch from. Defaults to the exe's folder.</summary>
     public string? WorkingDirectory { get; set; }
 

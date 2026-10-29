@@ -51,7 +51,7 @@ public partial class App : Application
             var steamOwnedGamesCandidate = new SteamOwnedGamesClient(appSettings.SteamWebApiKey, appSettings.SteamId64);
             var steamOwnedGamesClient = steamOwnedGamesCandidate.HasCredentials ? steamOwnedGamesCandidate : null;
             var libraryStore = new GameLibraryStore();
-            var libraryService = new LibraryService(steamScanner, libraryStore, xboxFolderScanner, steamOwnedGamesClient);
+            var libraryService = new LibraryService(steamScanner, libraryStore, xboxFolderScanner, steamOwnedGamesClient, new EpicLibraryScanner());
             var gameLauncher = new GameLauncher();
 
             var gridDbClient = new SteamGridDbClient(appSettings.SteamGridDbApiKey);

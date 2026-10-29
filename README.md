@@ -52,8 +52,11 @@ SteamGridDB, navegação por controle.
   **Segurança do mantenedor:** como todo aparelho instalado aceita o que for
   publicado aqui, a conta GitHub `profcosta67` precisa de **verificação em duas
   etapas (2FA)** ligada.
-- **Licença:** ainda não definida (ver discussão com o mantenedor). Sem um
-  arquivo LICENSE, por padrão ninguém tem permissão legal de reutilizar o código.
+- **Licença: GPL-3.0** (arquivo `LICENSE`). Qualquer um pode usar, estudar e
+  modificar, mas quem distribuir uma versão modificada precisa manter os
+  créditos e liberar o código sob a mesma licença — ninguém pode transformar
+  o launcher num produto fechado. A própria GPL já traz a cláusula de "sem
+  garantia / sem responsabilidade" (seções 15 e 16).
 
 ## Roteiro planejado (próximas levas)
 
@@ -739,6 +742,20 @@ Ainda **não** feito:
     mais abaixo) — isso continua manual, sem automação.
 15. ~~Tela de configuração pra `SteamWebApiKey`/`SteamId64`~~ — **feito
     numa leva posterior**, junto do item 5 (mesma `SettingsWindow`).
+
+## Epic, licença e versões — v0.9.1
+
+**Nunca testado num aparelho ainda.**
+
+- **Epic Games Store (só instalados)**: `Core/Services/EpicLibraryScanner` lê
+  `%ProgramData%\Epic\EpicGamesLauncher\Data\Manifests\*.item`, ignora
+  instalação incompleta, DLC (`MainGameAppName` ≠ `AppName`) e o que não for
+  categoria "games"; Id `epic_<AppName>`; abre por `GameEntry.LaunchUri`
+  (`com.epicgames.launcher://apps/<ns>%3A<item>%3A<app>?action=launch&silent=true`).
+  Entra em Todos/Oficiais; capas pelo nome no SteamGridDB. Sem login (ver v0.9.0).
+- **Licença GPL-3.0** adicionada.
+- **Página de versões**: notas curtas em `release-notes/X.Y.Z.md` no lugar da
+  lista automática de commits; o workflow mantém só as 3 versões mais recentes.
 
 ## Integração Steam (etapa 1) e segurança — v0.9.0
 

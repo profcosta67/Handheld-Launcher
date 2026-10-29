@@ -39,6 +39,12 @@ public sealed class GameLauncher : IGameLauncher
             return;
         }
 
+        if (!string.IsNullOrWhiteSpace(game.LaunchUri))
+        {
+            Process.Start(new ProcessStartInfo { FileName = game.LaunchUri, UseShellExecute = true });
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(game.ExecutablePath))
         {
             throw new InvalidOperationException(

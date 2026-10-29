@@ -1897,8 +1897,8 @@ public sealed class MainViewModel : ViewModelBase
         // reorganizar as abas) — "Não Steam" vira o complemento exato
         // disso (nem Steam nem Xbox), em vez de "qualquer coisa !=
         // Steam" como era antes (quando isso incluía Xbox também).
-        LibraryFilter.Official => game.Source == GameSource.Steam || game.Source == GameSource.XboxApp,
-        LibraryFilter.NonSteam => game.Source != GameSource.Steam && game.Source != GameSource.XboxApp,
+        LibraryFilter.Official => game.Source is GameSource.Steam or GameSource.XboxApp or GameSource.EpicGames,
+        LibraryFilter.NonSteam => game.Source is not (GameSource.Steam or GameSource.XboxApp or GameSource.EpicGames),
         _ => true,
     };
 

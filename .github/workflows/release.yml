@@ -152,9 +152,36 @@ jobs:
           Get-ChildItem Releases | Format-Table Name, Length
           gh release view $tag -R $env:GITHUB_REPOSITORY 2>$null | Out-Null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag -R $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Handheld Launcher ${{ steps.ver.outputs.version }}" --generate-notes
+            # Notas curtas escritas à mão (release-notes/X.Y.Z.md) em vez da
+            # lista automática de commits — página de versões mais limpa.
+            $notesFile = "release-notes/${{ steps.ver.outputs.version }}.md"
+            if (Test-Path $notesFile) {
+              gh release create $tag -R $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Handheld Launcher ${{ steps.ver.outputs.version }}" --notes-file $notesFile
+            } else {
+              gh release create $tag -R $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Handheld Launcher ${{ steps.ver.outputs.version }}" --notes "Handheld Launcher ${{ steps.ver.outputs.version }}"
+            }
             if ($LASTEXITCODE -ne 0) { exit 1 }
           }
           $files = @(Get-ChildItem Releases -File | ForEach-Object { $_.FullName }) + @((Resolve-Path Modo-Console.zip).Path)
           gh release upload $tag @files -R $env:GITHUB_REPOSITORY --clobber
           if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      # Mantém só as 3 versões mais recentes publicadas (o atualizador só
+      # precisa da mais nova; as anteriores servem de "volta" manual). As
+      # mantidas ganham as notas curtas, se houver arquivo pra elas.
+      - name: Limpar versões antigas
+        if: steps.exists.outputs.skip != 'true'
+        shell: bash
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --jq 'sort_by(.created_at) | reverse | .[].tag_name' > tags.txt
+          n=0
+          while read -r t; do
+            [ -z "$t" ] && continue
+            n=$((n+1))
+            if [ "$n" -gt 3 ]; then
+              echo "Apagando versão antiga: $t"
+              gh release delete "$t" --cleanup-tag --yes -R "$GITHUB_REPOSITORY" || true
+            elif [ -f "release-notes/${t#v}.md" ]; then
+              gh release edit "$t" --notes-file "release-notes/${t#v}.md" -R "$GITHUB_REPOSITORY" || true
+            fi
+          done < tags.txt

@@ -6,6 +6,7 @@ public sealed class LibraryService : ILibraryService
 {
     private readonly ISteamLibraryScanner _steamScanner;
     private readonly IXboxFolderScanner? _xboxFolderScanner;
+    private readonly IEpicLibraryScanner? _epicScanner;
     private readonly ISteamOwnedGamesClient? _steamOwnedGamesClient;
     private readonly IGameLibraryStore _store;
     private List<GameEntry> _games = new();
@@ -20,11 +21,13 @@ public sealed class LibraryService : ILibraryService
         ISteamLibraryScanner steamScanner,
         IGameLibraryStore store,
         IXboxFolderScanner? xboxFolderScanner = null,
-        ISteamOwnedGamesClient? steamOwnedGamesClient = null)
+        ISteamOwnedGamesClient? steamOwnedGamesClient = null,
+        IEpicLibraryScanner? epicScanner = null)
     {
         _steamScanner = steamScanner;
         _store = store;
         _xboxFolderScanner = xboxFolderScanner;
+        _epicScanner = epicScanner;
         _steamOwnedGamesClient = steamOwnedGamesClient;
         Refresh();
     }
@@ -88,7 +91,25 @@ public sealed class LibraryService : ILibraryService
             }
         }
 
-        // Future scanners (Epic, emulator folders) plug in here the same
+        // Epic Games Store (v0.9.1) — só instalados, lidos dos manifestos
+        // locais (ver EpicLibraryScanner). Mesmo dedup do Xbox: se o
+        // usuário já tinha adicionado o jogo à mão (mesmo .exe), mantém o
+        // manual (favorito/capas escolhidas) e pula o da Epic.
+        if (_epicScanner is not null)
+        {
+            foreach (var game in _epicScanner.ScanInstalledGames())
+            {
+                if (merged.Any(existing => ExecutablePathsMatch(existing.ExecutablePath, game.ExecutablePath)))
+                {
+                    continue;
+                }
+
+                ApplyOverride(game, overrides);
+                merged.Add(game);
+            }
+        }
+
+        // Future scanners (emulator folders, GOG...) plug in here the same
         // way: scan -> ApplyOverride -> merged.Add.
 
         merged.Sort((a, b) => string.Compare(a.Title, b.Title, StringComparison.OrdinalIgnoreCase));
