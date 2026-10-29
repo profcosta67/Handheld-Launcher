@@ -17,4 +17,28 @@ public class GameMetadataOverride
     public long PlaytimeMinutes { get; set; }
     public DateTimeOffset? LastPlayedUtc { get; set; }
     public bool IsFavorite { get; set; }
+
+    /// <summary>
+    /// Nome escolhido pelo usuário (v0.9.19, pedido dele: "editar o nome do
+    /// atalho do jogo, senti falta disso"). Null = usa o nome que o scanner
+    /// achou.
+    /// <para>
+    /// Mora aqui, e não em GameEntry.Title direto, justamente porque é isto
+    /// que esta classe existe pra resolver: um re-scan reconstrói o
+    /// GameEntry do zero a partir do manifesto/arquivo e sobrescreveria o
+    /// nome editado. Efeito colateral bom: faz o renomear funcionar pra
+    /// QUALQUER entrada, inclusive jogo escaneado da Steam, não só atalho
+    /// criado à mão.
+    /// </para>
+    /// </summary>
+    public string? TitleOverride { get; set; }
+
+    /// <summary>
+    /// Marca a entrada como PROGRAMA, não jogo (v0.9.19, pedido do usuário:
+    /// "incluir uma aba de programas pra adicionar Chrome, Navegador de
+    /// pastas etc."). Programas aparecem só na aba "Programas" — ficam fora
+    /// de Todos/Computador/Emuladores, pra não misturar utilitário com jogo
+    /// na biblioteca.
+    /// </summary>
+    public bool IsApplication { get; set; }
 }

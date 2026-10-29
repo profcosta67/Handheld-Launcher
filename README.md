@@ -289,6 +289,34 @@ mais sentido de risco crescente):
      - Ainda **sem pedido explícito pra começar a codar** — usuário
        combinou de parar exatamente neste ponto (perguntas de escopo)
        nesta sessão.
+   - ~~**Editar nome do jogo + aba Programas + destacar subfiltros**~~ —
+     **feito na v0.9.19**, três pedidos do teste da v0.9.18:
+     - **Renomear**: `GameMetadataOverride.TitleOverride`, aplicado em
+       `LibraryService.ApplyOverride`. Escolhido esse mecanismo (e não
+       mexer em `GameEntry.Title` direto) porque é exatamente o que ele
+       existe pra resolver — re-scan reconstrói a entrada do zero. Efeito
+       colateral bom: renomear funciona pra jogo escaneado da Steam
+       também, não só atalho manual.
+       - **Pegadinha resolvida**: `ToOverride` reconstrói o override a
+         partir do `GameEntry`, então favoritar um jogo renomeado
+         APAGARIA o nome. Por isso `GameEntry` carrega também o
+         `TitleOverride` cru, e `ToOverride` o repassa.
+     - **Aba Programas**: `GameMetadataOverride.IsApplication`, marcado no
+       diálogo de edição (nada tenta adivinhar se um .exe é jogo ou
+       programa). Programas saem de Todos/Computador/Emuladores e só
+       aparecem na aba própria; Favoritos mostra qualquer favorito,
+       programa incluído.
+     - **Subfiltros**: centralizados e com a cor da plataforma — contorno
+       + texto na cor quando desmarcado, preenchido quando marcado
+       (Switch = fundo branco, texto vermelho, pedido explícito dele).
+       A cor vem por BINDING e não por estilo: valor local vence estilo no
+       Avalonia, e um estilo único não saberia a cor de cada plataforma —
+       por isso o binding cobre os dois estados e o estilo `.marked`
+       deixou de existir. Tons mais claros que os do selo da capa porque
+       aqui a cor também é texto/contorno sobre o fundo do tema (o
+       `#1B2838` da Steam desaparece num tema escuro).
+     - **Novo diálogo** `EditGameWindow`, sem ViewModel própria (dois
+       campos, nenhuma regra) — a MainWindow lê as propriedades direto.
    - ~~**Reorganizar as abas de filtro da biblioteca**~~ — **feito na
      v0.9.18**, pedido do usuário: `Favoritos / Todos / Computador /
      Emuladores / Não instalados`, com fileira de subfiltros

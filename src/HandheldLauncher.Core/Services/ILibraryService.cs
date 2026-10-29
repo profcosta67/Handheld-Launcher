@@ -22,6 +22,14 @@ public interface ILibraryService
     void RecordPlaySession(string gameId, TimeSpan duration);
 
     /// <summary>
+    /// v0.9.19: nome editado pelo usuário e marca de "é um programa, não um
+    /// jogo" (ver GameMetadataOverride.TitleOverride/IsApplication).
+    /// <paramref name="title"/> vazio/null limpa o nome editado, voltando
+    /// pro que o scanner achou.
+    /// </summary>
+    void SaveEntryEdits(string gameId, string? title, bool isApplication);
+
+    /// <summary>
     /// Marks a game as the one just opened — distinct from RecordPlaySession
     /// (which only fires once the game exits): this is the "último jogo
     /// aberto" the UI puts in the wide landscape tile, and it has to update

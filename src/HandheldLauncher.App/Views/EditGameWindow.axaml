@@ -1,0 +1,44 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="HandheldLauncher.App.Views.EditGameWindow"
+        Title="Editar"
+        Width="520" Height="300"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BackgroundBrush}">
+
+  <!--
+    v0.9.19, pedido do usuário ("editar o nome do atalho do jogo, senti
+    falta disso" + "incluir uma aba de programas pra adicionar Chrome,
+    Navegador de pastas etc."). Os dois na mesma telinha de propósito: são
+    as duas únicas coisas que se edita numa entrada já existente, e abrir
+    dois diálogos diferentes pra isso seria pior.
+
+    Sem ViewModel própria (ao contrário do AddGameWindow): são dois campos
+    e nenhuma regra — a MainWindow lê as duas propriedades daqui direto
+    quando o diálogo fecha. Navegável pelo controle via
+    DialogGamepadNavigator, igual aos outros diálogos (a MainWindow
+    registra este em _activeDialog enquanto está aberto).
+  -->
+
+  <Grid RowDefinitions="*,Auto" Margin="24">
+    <StackPanel Grid.Row="0" Spacing="12">
+      <TextBlock Text="Nome" Classes="subtle" />
+      <TextBox x:Name="TitleBox" Watermark="Deixe em branco pra voltar ao nome original" />
+      <TextBlock Text="Vale pra qualquer entrada, inclusive jogo encontrado automaticamente — o nome escolhido sobrevive às próximas verificações da biblioteca."
+                 Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+
+      <CheckBox x:Name="IsApplicationBox"
+                Content="É um programa, não um jogo"
+                Margin="0,8,0,0" />
+      <TextBlock Text="Programas (navegador, gerenciador de arquivos...) aparecem só na aba Programas, fora da biblioteca de jogos."
+                 Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+    </StackPanel>
+
+    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,20,0,0">
+      <Button Classes="pill" Content="⌨ Teclado" Click="OnKeyboardClick" />
+      <Button Classes="pill" Content="Cancelar" Click="OnCancelClick" />
+      <Button Classes="pill primary" Content="Salvar" Click="OnSaveClick" />
+    </StackPanel>
+  </Grid>
+</Window>

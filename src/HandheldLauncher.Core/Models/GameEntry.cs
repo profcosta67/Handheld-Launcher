@@ -87,4 +87,26 @@ public class GameEntry
     /// LaunchSelected/BuildContextMenu) — instala em vez de lançar.
     /// </summary>
     public bool IsOwnedNotInstalled { get; set; }
+
+    /// <summary>
+    /// Entrada é um PROGRAMA (Chrome, navegador de pastas...), não um jogo
+    /// — v0.9.19, pedido do usuário. Marcado por ele no diálogo de edição
+    /// e persistido em GameMetadataOverride.IsApplication (não vem de
+    /// scanner nenhum: nada aqui tenta adivinhar se um .exe é jogo ou
+    /// programa). Faz a entrada aparecer SÓ na aba "Programas" — ver
+    /// MainViewModel.MatchesActiveFilter.
+    /// </summary>
+    public bool IsApplication { get; set; }
+
+    /// <summary>
+    /// O nome editado pelo usuário, CRU (null = nunca renomeou) — ver
+    /// GameMetadataOverride.TitleOverride. Fica aqui, ao lado de
+    /// <see cref="Title"/> (que já é o nome final, com o override
+    /// aplicado), por um motivo chato mas real: LibraryService.ToOverride
+    /// reconstrói o override a partir desta entrada quando qualquer OUTRA
+    /// customização é salva (favoritar, mudar coleção, registrar tempo de
+    /// jogo). Sem o valor cru viajar junto, favoritar um jogo renomeado
+    /// salvaria um override sem TitleOverride e apagaria o nome escolhido.
+    /// </summary>
+    public string? TitleOverride { get; set; }
 }

@@ -250,12 +250,17 @@
            misturados com atalhos manuais). As duas novas abas têm uma
            fileira de caixinhas logo abaixo. -->
       <StackPanel Grid.Row="1" Spacing="8" Margin="0,0,0,20">
-        <Grid ColumnDefinitions="*,*,*,*,*">
-          <Button Grid.Column="0" Classes="pill filterTab" Classes.active="{Binding IsFilterFavoritesActive}" Content="Favoritos" Command="{Binding SetFilterFavoritesCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,5,0" />
-          <Button Grid.Column="1" Classes="pill filterTab" Classes.active="{Binding IsFilterAllActive}" Content="Todos" Command="{Binding SetFilterAllCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" />
-          <Button Grid.Column="2" Classes="pill filterTab" Classes.active="{Binding IsFilterComputerActive}" Content="Computador" Command="{Binding SetFilterComputerCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" />
-          <Button Grid.Column="3" Classes="pill filterTab" Classes.active="{Binding IsFilterEmulatorsActive}" Content="Emuladores" Command="{Binding SetFilterEmulatorsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" />
-          <Button Grid.Column="4" Classes="pill filterTab" Classes.active="{Binding IsFilterNotInstalledActive}" Content="Não instalados" Command="{Binding SetFilterNotInstalledCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,0,0" />
+        <!-- v0.9.19: 6ª aba "Programas" (Chrome, navegador de pastas...),
+             pedido do usuário. FontSize menor que o padrão do pill porque
+             6 colunas em 1280px deixam ~200px por aba e "Não instalados"
+             é longo. -->
+        <Grid ColumnDefinitions="*,*,*,*,*,*">
+          <Button Grid.Column="0" Classes="pill filterTab" Classes.active="{Binding IsFilterFavoritesActive}" Content="Favoritos" Command="{Binding SetFilterFavoritesCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,5,0" FontSize="13" />
+          <Button Grid.Column="1" Classes="pill filterTab" Classes.active="{Binding IsFilterAllActive}" Content="Todos" Command="{Binding SetFilterAllCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" FontSize="13" />
+          <Button Grid.Column="2" Classes="pill filterTab" Classes.active="{Binding IsFilterComputerActive}" Content="Computador" Command="{Binding SetFilterComputerCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" FontSize="13" />
+          <Button Grid.Column="3" Classes="pill filterTab" Classes.active="{Binding IsFilterEmulatorsActive}" Content="Emuladores" Command="{Binding SetFilterEmulatorsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" FontSize="13" />
+          <Button Grid.Column="4" Classes="pill filterTab" Classes.active="{Binding IsFilterApplicationsActive}" Content="Programas" Command="{Binding SetFilterApplicationsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" FontSize="13" />
+          <Button Grid.Column="5" Classes="pill filterTab" Classes.active="{Binding IsFilterNotInstalledActive}" Content="Não instalados" Command="{Binding SetFilterNotInstalledCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,0,0" FontSize="13" />
         </Grid>
 
         <!-- Subfiltros da aba ativa (multi-seleção: marca/desmarca, vale a
@@ -264,20 +269,31 @@
              pelo controle, ↑ a partir da grade entra na fileira, ←/→ andam
              e A marca (ver MainWindow.OnGamepadTick e
              MainViewModel.FocusSubFilterRow). -->
-        <ItemsControl ItemsSource="{Binding SubFilters}" IsVisible="{Binding HasSubFilters}">
+        <!-- v0.9.19, pedido do usuário ("acho que ficou um pouco escondido
+             ... dá pra centralizar os filtros das plataformas e destacar um
+             pouco"): centralizadas e com a cor da própria plataforma —
+             contorno + texto na cor quando desmarcada, preenchida quando
+             marcada (Switch = fundo branco, texto vermelho, como ele
+             pediu). Cor vem por binding e não por estilo porque o estilo é
+             um só pra todas e não saberia a cor de cada uma — ver
+             SubFilterViewModel.BackgroundHex. -->
+        <ItemsControl ItemsSource="{Binding SubFilters}" IsVisible="{Binding HasSubFilters}" HorizontalAlignment="Center">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
-              <WrapPanel Orientation="Horizontal" />
+              <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center" />
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:SubFilterViewModel">
               <Button Classes="pill subFilter"
-                      Classes.marked="{Binding IsChecked}"
                       Classes.cursor="{Binding IsCursor}"
                       Content="{Binding Label}"
                       Click="OnSubFilterClick"
-                      Margin="0,0,8,0" />
+                      Background="{Binding BackgroundHex, Converter={StaticResource HexColorToBrushConverter}}"
+                      Foreground="{Binding ForegroundHex, Converter={StaticResource HexColorToBrushConverter}}"
+                      BorderBrush="{Binding AccentHex, Converter={StaticResource HexColorToBrushConverter}}"
+                      BorderThickness="2"
+                      Margin="4,0" />
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>

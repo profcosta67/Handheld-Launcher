@@ -63,6 +63,7 @@ public sealed class MainViewModel : ViewModelBase
         SetFilterFavoritesCommand = new RelayCommand(() => SetFilter(LibraryFilter.Favorites));
         SetFilterComputerCommand = new RelayCommand(() => SetFilter(LibraryFilter.Computer));
         SetFilterEmulatorsCommand = new RelayCommand(() => SetFilter(LibraryFilter.Emulators));
+        SetFilterApplicationsCommand = new RelayCommand(() => SetFilter(LibraryFilter.Applications));
         SetFilterNotInstalledCommand = new RelayCommand(() => SetFilter(LibraryFilter.NotInstalled));
 
         RebuildGamesFromLibrary();
@@ -532,7 +533,13 @@ public sealed class MainViewModel : ViewModelBase
     /// de virar aba nova na fileira de cima.
     /// </para>
     /// </summary>
-    private enum LibraryFilter { All, Favorites, Computer, Emulators, NotInstalled }
+    /// <para>
+    /// v0.9.19: entrou <b>Applications</b> ("Programas"), pedido do usuário
+    /// pra guardar Chrome, navegador de pastas e afins sem misturar com
+    /// jogo. Não vem de scanner nenhum — é o usuário que marca a entrada no
+    /// diálogo de edição (ver GameEntry.IsApplication).
+    /// </para>
+    private enum LibraryFilter { All, Favorites, Computer, Emulators, Applications, NotInstalled }
 
     /// <summary>
     /// Ordem VISUAL das abas — separada da ordem de declaração do enum
@@ -546,6 +553,7 @@ public sealed class MainViewModel : ViewModelBase
         LibraryFilter.All,
         LibraryFilter.Computer,
         LibraryFilter.Emulators,
+        LibraryFilter.Applications,
         LibraryFilter.NotInstalled,
     };
 
@@ -558,6 +566,7 @@ public sealed class MainViewModel : ViewModelBase
     public bool IsFilterFavoritesActive => _activeFilter == LibraryFilter.Favorites;
     public bool IsFilterComputerActive => _activeFilter == LibraryFilter.Computer;
     public bool IsFilterEmulatorsActive => _activeFilter == LibraryFilter.Emulators;
+    public bool IsFilterApplicationsActive => _activeFilter == LibraryFilter.Applications;
     public bool IsFilterNotInstalledActive => _activeFilter == LibraryFilter.NotInstalled;
 
     /// <summary>
@@ -667,26 +676,33 @@ public sealed class MainViewModel : ViewModelBase
 
         switch (_activeFilter)
         {
+            // v0.9.19: cada caixinha leva a cor da sua plataforma (pedido do
+            // usuário pra destacá-las) — ver SubFilterViewModel.AccentHex
+            // pra por que alguns tons são mais claros que os do selo da capa.
             case LibraryFilter.Computer:
-                SubFilters.Add(new SubFilterViewModel("Steam", g => g.Source == GameSource.Steam));
-                SubFilters.Add(new SubFilterViewModel("Xbox", g => g.Source == GameSource.XboxApp));
-                SubFilters.Add(new SubFilterViewModel("Epic", g => g.Source == GameSource.EpicGames));
-                SubFilters.Add(new SubFilterViewModel("GOG", g => g.Source == GameSource.Gog));
-                SubFilters.Add(new SubFilterViewModel("EA", g => g.Source == GameSource.EaApp));
-                SubFilters.Add(new SubFilterViewModel("Ubisoft", g => g.Source == GameSource.Ubisoft));
+                SubFilters.Add(new SubFilterViewModel("Steam", "#66C0F4", "#0A1A2A", g => g.Source == GameSource.Steam));
+                SubFilters.Add(new SubFilterViewModel("Xbox", "#3FB950", "#06220A", g => g.Source == GameSource.XboxApp));
+                SubFilters.Add(new SubFilterViewModel("Epic", "#DCDCDC", "#1A1A1A", g => g.Source == GameSource.EpicGames));
+                SubFilters.Add(new SubFilterViewModel("GOG", "#A06BE0", "#FFFFFF", g => g.Source == GameSource.Gog));
+                SubFilters.Add(new SubFilterViewModel("EA", "#FF4455", "#FFFFFF", g => g.Source == GameSource.EaApp));
+                SubFilters.Add(new SubFilterViewModel("Ubisoft", "#35A4FF", "#06203A", g => g.Source == GameSource.Ubisoft));
                 // "Atalhos" no lugar do antigo subfiltro "não steam" que o
                 // usuário havia proposto: com uma caixinha por loja, "não
                 // steam" seria só desmarcar Steam (redundante), enquanto os
                 // jogos adicionados À MÃO não tinham caixinha nenhuma e
                 // ficariam inalcançáveis. Combinado com ele.
-                SubFilters.Add(new SubFilterViewModel("Atalhos", g => g.Source == GameSource.Manual));
+                SubFilters.Add(new SubFilterViewModel("Atalhos", "#B0B0B0", "#1A1A1A", g => g.Source == GameSource.Manual));
                 break;
 
             case LibraryFilter.Emulators:
+                // Branco com texto vermelho, exatamente como o usuário
+                // pediu ("Switch colocar ela com fundo branco e escrito
+                // vermelho estilo Nintendo") — só a COR remetendo à
+                // plataforma, nenhum logo/fonte oficial.
                 // Por enquanto só um — todo jogo de emulador que existe hoje
                 // vem do EdenLibraryScanner (Switch). Quando entrar outro
                 // emulador, é só mais uma linha aqui.
-                SubFilters.Add(new SubFilterViewModel("Switch", g => g.Id.StartsWith("eden_", StringComparison.Ordinal)));
+                SubFilters.Add(new SubFilterViewModel("Switch", "#FFFFFF", "#E4000F", g => g.Id.StartsWith("eden_", StringComparison.Ordinal)));
                 break;
         }
 
@@ -769,6 +785,29 @@ public sealed class MainViewModel : ViewModelBase
     /// ViewModel só decide QUANDO pedir e PRA QUAL jogo.
     /// </summary>
     public event EventHandler<GameEntry>? GameDetailsRequested;
+
+    /// <summary>
+    /// v0.9.19, pedido do usuário ("editar o nome do atalho do jogo, senti
+    /// falta disso"): item "Editar" do menu de contexto. Mesmo padrão do
+    /// GameDetailsRequested acima — a MainWindow possui o diálogo
+    /// (EditGameWindow) e chama ApplyEntryEdits de volta com o resultado;
+    /// a ViewModel só decide QUANDO pedir e PRA QUAL entrada.
+    /// </summary>
+    public event EventHandler<GameEntry>? EditGameRequested;
+
+    /// <summary>
+    /// Chamado pela MainWindow quando o diálogo de edição foi salvo.
+    /// Delega pro LibraryService (que persiste em
+    /// GameMetadataOverride.TitleOverride/IsApplication e dá Refresh) e
+    /// então reconstrói a lista exibida, pra o nome novo aparecer na hora
+    /// e uma entrada recém-marcada como programa sair da aba de jogos
+    /// imediatamente.
+    /// </summary>
+    public void ApplyEntryEdits(GameEntry game, string? title, bool isApplication)
+    {
+        _library.SaveEntryEdits(game.Id, title, isApplication);
+        RebuildGamesFromLibrary();
+    }
 
     /// <summary>
     /// Only Steam games have a reliable AppId to query the Steam Web API
@@ -902,6 +941,7 @@ public sealed class MainViewModel : ViewModelBase
     public ICommand SetFilterFavoritesCommand { get; }
     public ICommand SetFilterComputerCommand { get; }
     public ICommand SetFilterEmulatorsCommand { get; }
+    public ICommand SetFilterApplicationsCommand { get; }
     public ICommand SetFilterNotInstalledCommand { get; }
 
     public void MoveNext() => SelectedIndex++;
@@ -1046,6 +1086,10 @@ public sealed class MainViewModel : ViewModelBase
             Add("Detalhes do jogo", () => OpenGameDetails(game));
         }
         Add(game.IsFavorite ? "Desfavoritar" : "Favoritar", () => ToggleFavorite(game));
+        // v0.9.19: renomear + marcar como programa (ver EditGameRequested).
+        // Vale pra qualquer entrada, não só atalho manual — o nome editado
+        // vive no override, que sobrevive a re-scan.
+        Add("Editar", () => EditGameRequested?.Invoke(this, game));
 
         // Excluir atalho/jogo. Três caminhos BEM diferentes:
         //   - Steam: "Excluir jogo" abre o desinstalador da própria Steam
@@ -2181,6 +2225,7 @@ public sealed class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsFilterFavoritesActive));
         OnPropertyChanged(nameof(IsFilterComputerActive));
         OnPropertyChanged(nameof(IsFilterEmulatorsActive));
+        OnPropertyChanged(nameof(IsFilterApplicationsActive));
         OnPropertyChanged(nameof(IsFilterNotInstalledActive));
 
         // v0.9.18: as caixinhas de subfiltro são de cada aba, então são
@@ -2205,7 +2250,15 @@ public sealed class MainViewModel : ViewModelBase
 
     private bool MatchesActiveFilter(GameEntry game) => _activeFilter switch
     {
+        // v0.9.19: Favoritos mostra favorito de qualquer tipo, programa
+        // incluído — favoritar é uma escolha explícita do usuário, então
+        // esconder ali seria contrariar o que ele pediu.
         LibraryFilter.Favorites => game.IsFavorite,
+        // Programas ficam FORA das abas de jogo (Todos/Computador/
+        // Emuladores) e só aparecem na própria aba — foi o ponto do pedido:
+        // não misturar utilitário com jogo na biblioteca.
+        LibraryFilter.Applications => game.IsApplication,
+        LibraryFilter.All => !game.IsApplication,
         // v0.9.18: "Computador" = tudo que roda direto no Windows (lojas +
         // atalhos à mão), "Emuladores" = o complemento exato disso. Definir
         // Computador como "NÃO é emulador", em vez de listar as fontes uma
@@ -2214,8 +2267,8 @@ public sealed class MainViewModel : ViewModelBase
         // até alguém lembrar de atualizar esta lista — foi exatamente o que
         // aconteceu com os jogos de emulador antes da v0.9.18, que caíam em
         // "Não Steam" junto dos atalhos manuais.
-        LibraryFilter.Computer => game.Source != GameSource.Emulator && MatchesSubFilters(game),
-        LibraryFilter.Emulators => game.Source == GameSource.Emulator && MatchesSubFilters(game),
+        LibraryFilter.Computer => !game.IsApplication && game.Source != GameSource.Emulator && MatchesSubFilters(game),
+        LibraryFilter.Emulators => !game.IsApplication && game.Source == GameSource.Emulator && MatchesSubFilters(game),
         _ => true,
     };
 

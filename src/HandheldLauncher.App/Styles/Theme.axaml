@@ -285,33 +285,23 @@
 
   <!-- Caixinhas de subfiltro (v0.9.18, abas Computador/Emuladores) —
        menores que as abas de cima de propósito, pra ficar claro na
-       hierarquia visual que são subordinadas a elas. Dois estados
-       INDEPENDENTES, que podem valer ao mesmo tempo:
-         .marked = marcada pelo usuário (é o que filtra de verdade)
-         .cursor = onde o CONTROLE está parado na fileira
-       Separados porque no controle você precisa passar por cima de uma
-       caixinha sem marcá-la — se fossem a mesma coisa, navegar já
-       filtraria. "marked" em vez de "checked" pra não encostar no
-       pseudo-estado :checked que o Avalonia já usa em ToggleButton. -->
+       hierarquia visual que são subordinadas a elas.
+       v0.9.19: a COR de cada caixinha (preenchimento/texto/contorno) NÃO
+       vem daqui — vem por binding da própria caixinha, porque é a cor da
+       plataforma dela e um estilo único não saberia qual é (ver
+       SubFilterViewModel.BackgroundHex). O estado "marcada" também saiu
+       daqui junto, por isso não existe mais .marked. Aqui ficou só o que
+       é igual pra todas: tamanho e o cursor do controle. -->
   <Style Selector="Button.subFilter">
     <Setter Property="Padding" Value="12,5" />
     <Setter Property="FontSize" Value="11" />
-    <Setter Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
   </Style>
 
-  <Style Selector="Button.subFilter.marked">
-    <Setter Property="Background" Value="{StaticResource AccentBrush}" />
-    <Setter Property="Foreground" Value="{StaticResource OnAccentBrush}" />
-  </Style>
-
-  <Style Selector="Button.subFilter.marked /template/ ContentPresenter">
-    <Setter Property="Background" Value="{StaticResource AccentBrush}" />
-    <Setter Property="Foreground" Value="{StaticResource OnAccentBrush}" />
-  </Style>
-
-  <!-- Contorno (não preenchimento) pro cursor do controle, justamente pra
-       dar pra ver "cursor aqui + ainda não marcada" e "cursor aqui + já
-       marcada" sem os dois estados se anularem visualmente. -->
+  <!-- Cursor do controle: sobrescreve o contorno colorido da plataforma
+       (este seletor pega o ContentPresenter do template, que vence o
+       TemplateBinding do BorderBrush vindo do binding local). Contorno e
+       não preenchimento, pra dar pra ver "cursor aqui + ainda não
+       marcada" e "cursor aqui + já marcada" sem os dois se anularem. -->
   <Style Selector="Button.subFilter.cursor">
     <Setter Property="BorderThickness" Value="2" />
     <Setter Property="BorderBrush" Value="{StaticResource TextPrimaryBrush}" />

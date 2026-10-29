@@ -447,6 +447,7 @@ public partial class MainWindow : Window
         if (DataContext is not MainViewModel vm) return;
 
         vm.AddGameRequested += (_, _) => _ = OpenAddGameDialogAsync(vm);
+        vm.EditGameRequested += (_, game) => _ = OpenEditGameDialogAsync(vm, game);
         vm.SettingsRequested += (_, _) => _ = OpenSettingsDialogAsync(vm);
         vm.QuitRequested += (_, _) =>
         {
@@ -1487,6 +1488,30 @@ public partial class MainWindow : Window
         if (result is null) return;
 
         vm.AddManualGame(result);
+    }
+
+    /// <summary>
+    /// v0.9.19: "Editar" do menu de contexto — renomear a entrada e marcar
+    /// se é programa. Mesmo padrão do OpenAddGameDialogAsync acima
+    /// (_activeDialog registrado enquanto aberto, pra o controle navegar o
+    /// diálogo em vez da biblioteca por trás).
+    /// </summary>
+    private async Task OpenEditGameDialogAsync(MainViewModel vm, GameEntry game)
+    {
+        var dialog = new EditGameWindow(game.TitleOverride ?? game.Title, game.IsApplication);
+        _activeDialog = dialog;
+        bool saved;
+        try
+        {
+            saved = await dialog.ShowDialog<bool>(this);
+        }
+        finally
+        {
+            _activeDialog = null;
+        }
+        if (!saved) return;
+
+        vm.ApplyEntryEdits(game, dialog.EditedTitle, dialog.IsApplication);
     }
 
     /// <summary>

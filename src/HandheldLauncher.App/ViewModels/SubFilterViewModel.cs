@@ -38,13 +38,35 @@ public sealed class SubFilterViewModel : ViewModelBase
 {
     private readonly Func<GameEntry, bool> _matches;
 
-    public SubFilterViewModel(string label, Func<GameEntry, bool> matches)
+    public SubFilterViewModel(string label, string accentHex, string onAccentHex, Func<GameEntry, bool> matches)
     {
         Label = label;
+        AccentHex = accentHex;
+        OnAccentHex = onAccentHex;
         _matches = matches;
     }
 
     public string Label { get; }
+
+    /// <summary>
+    /// Cor da plataforma (v0.9.19, pedido do usuário: as caixinhas
+    /// "ficaram um pouco escondidas", e ele pediu pra destacar "colocando
+    /// elas na cor do tema, puxando nosso ícone das capas"). Usada como
+    /// preenchimento quando marcada e como contorno+texto quando
+    /// desmarcada — ver BackgroundHex/ForegroundHex abaixo.
+    /// <para>
+    /// Não é exatamente a mesma cor do selo da capa
+    /// (GameTileViewModel.PlatformBadgeColorHex): lá a cor é SÓ fundo, com
+    /// texto branco fixo, então tons bem escuros funcionam. Aqui a mesma
+    /// cor também vira contorno e TEXTO sobre o fundo do tema, então
+    /// alguns tons precisaram clarear pra continuar legíveis (o
+    /// #1B2838 da Steam, por exemplo, desaparece num tema escuro).
+    /// </para>
+    /// </summary>
+    public string AccentHex { get; }
+
+    /// <summary>Cor do texto quando a caixinha está preenchida (marcada) — tem que contrastar com AccentHex.</summary>
+    public string OnAccentHex { get; }
 
     public bool Matches(GameEntry game) => _matches(game);
 
@@ -54,8 +76,32 @@ public sealed class SubFilterViewModel : ViewModelBase
     public bool IsChecked
     {
         get => _isChecked;
-        set => SetField(ref _isChecked, value);
+        set
+        {
+            if (SetField(ref _isChecked, value))
+            {
+                OnPropertyChanged(nameof(BackgroundHex));
+                OnPropertyChanged(nameof(ForegroundHex));
+            }
+        }
     }
+
+    /// <summary>
+    /// Marcada = preenchida com a cor da plataforma. Desmarcada =
+    /// transparente (só o contorno colorido aparece).
+    /// <para>
+    /// Por que a cor vem ligada por binding em vez de sair de um estilo
+    /// <c>.marked</c> como antes: o estilo é um só pra todas as caixinhas
+    /// e não tem como ele saber a cor de CADA plataforma. E como valor
+    /// local vence estilo no Avalonia, não dá pra misturar os dois — se
+    /// Background vem por binding, ele vence sempre, então o binding tem
+    /// que cobrir os DOIS estados (é o que estas duas propriedades fazem).
+    /// </para>
+    /// </summary>
+    public string BackgroundHex => _isChecked ? AccentHex : "#00000000";
+
+    /// <summary>Marcada = cor de contraste sobre o preenchimento. Desmarcada = a própria cor da plataforma, como texto.</summary>
+    public string ForegroundHex => _isChecked ? OnAccentHex : AccentHex;
 
     private bool _isCursor;
 

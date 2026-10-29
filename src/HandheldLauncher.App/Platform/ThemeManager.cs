@@ -13,8 +13,35 @@ namespace HandheldLauncher.App.Platform;
 /// </summary>
 public static class ThemeManager
 {
+    /// <summary>
+    /// Só PALETA DE COR (ver Palettes abaixo) — o LAYOUT da tela é uma
+    /// opção separada desde a v0.9.19 (AppSettings.LayoutTheme, ver
+    /// LayoutThemeNames). As duas são independentes de propósito: dá pra
+    /// usar o layout Switch com qualquer paleta.
+    /// <para>
+    /// v0.9.19: o índice 10 chamava-se "Switch" e foi renomeado pra
+    /// "Grafite" — era só paleta de cor (cinza-grafite + vermelho), nunca
+    /// imitou a interface do aparelho, e o nome estava reservando
+    /// indevidamente o nome do tema de LAYOUT de verdade. Combinado com o
+    /// usuário. Renomear não desloca índice nenhum, então
+    /// AppSettings.Theme já salvo continua apontando pra mesma paleta —
+    /// sem migração.
+    /// </para>
+    /// </summary>
     public static readonly string[] ThemeNames =
-        ["Escuro", "Claro", "Azul", "Vermelho", "Verde", "Laranja", "Rosa", "Ciano", "Preto (OLED)", "Dourado", "Switch"];
+        ["Escuro", "Claro", "Azul", "Vermelho", "Verde", "Laranja", "Rosa", "Ciano", "Preto (OLED)", "Dourado", "Grafite"];
+
+    /// <summary>
+    /// Temas de LAYOUT (v0.9.19) — o esqueleto da tela, não a cor. Índice
+    /// salvo em AppSettings.LayoutTheme.
+    /// <para>
+    /// Diferente da paleta, trocar isto exige REINICIAR o launcher
+    /// (combinado com o usuário: "pode pedir pra reiniciar"): a área de
+    /// conteúdo da MainWindow é montada uma vez na abertura, a partir
+    /// deste valor — ver MainWindow.ApplyLayoutTheme.
+    /// </para>
+    /// </summary>
+    public static readonly string[] LayoutThemeNames = ["Clássico", "Switch (em construção)"];
 
     /// <summary>
     /// Fontes da interface — todas já vêm instaladas no Windows 10/11 (nada
@@ -98,12 +125,11 @@ public static class ThemeManager
         new("#000000", "#0A0A0A", "#161616", "#FFFFFF", "#4A4A4A", "#FFFFFF", "#8C8C8C", false),
         // Dourado
         new("#0E0C08", "#1A160E", "#262015", "#E5B33E", "#9C7A27", "#FFF8E6", "#B3A584", false),
-        // Switch — inspirado no visual minimalista do menu do Nintendo
-        // Switch: cinza-grafite neutro + vermelho vibrante de destaque,
-        // cantos bem menos arredondados que os outros temas (10/10 em vez
-        // de 16/18 — "disposição limpa", ver TileRadius/BarRadius acima).
-        // Sem nenhum ícone/fonte/logo oficial — só paleta de cor e
-        // arredondamento, nada copiado da interface real do aparelho.
+        // Grafite (chamava-se "Switch" até a v0.9.18) — cinza-grafite
+        // neutro + vermelho vibrante de destaque, cantos bem menos
+        // arredondados que os outros temas (10/10 em vez de 16/18).
+        // Renomeado porque é só paleta de cor: o tema de LAYOUT Switch é
+        // outra coisa, numa opção separada (ver LayoutThemeNames).
         new("#1A1A1A", "#242424", "#2E2E2E", "#E4423F", "#A32E2C", "#FFFFFF", "#ACACAC", false, TileRadius: 10, BarRadius: 10),
     ];
 

@@ -75,7 +75,12 @@
           440 dá folga suficiente pro texto mais longo da tela, "Grade
           vertical (rola pra cima e pra baixo)" (Biblioteca), sem cortar.
         -->
-        <TextBlock Text="Tema" FontSize="12" HorizontalAlignment="Center" />
+        <!-- "Cores" e não "Tema" desde a v0.9.19: o tema de LAYOUT é outra
+             opção, que entra aqui quando o layout Switch existir de verdade
+             (a base já está pronta — AppSettings.LayoutTheme e
+             ThemeManager.LayoutThemeNames; só o ComboBox fica de fora até
+             ter pra onde apontar). -->
+        <TextBlock Text="Cores" FontSize="12" HorizontalAlignment="Center" />
         <ComboBox SelectedIndex="{Binding ThemeIndex}" Width="440" HorizontalAlignment="Center">
           <ComboBoxItem Content="Escuro" />
           <ComboBoxItem Content="Claro" />
@@ -87,11 +92,11 @@
           <ComboBoxItem Content="Ciano" />
           <ComboBoxItem Content="Preto (OLED)" />
           <ComboBoxItem Content="Dourado" />
-          <!-- v0.9.13, item da fila combinado com o usuário: layout mais
-               "quadrado"/minimalista (ver ThemeManager — TileRadius/
-               BarRadius menores só neste tema), sem nenhum ícone/fonte/
-               logo oficial do aparelho real. -->
-          <ComboBoxItem Content="Switch" />
+          <!-- Chamava-se "Switch" até a v0.9.18 (paleta grafite + vermelho,
+               cantos menos arredondados — ver ThemeManager). Renomeado pra
+               "Grafite" porque é só cor: o tema Switch de verdade é o
+               LAYOUT, no ComboBox acima. Mesmo índice, sem migração. -->
+          <ComboBoxItem Content="Grafite" />
         </ComboBox>
         <TextBlock Text="Fonte" FontSize="12" HorizontalAlignment="Center" />
         <ComboBox SelectedIndex="{Binding FontIndex}" Width="440" HorizontalAlignment="Center">

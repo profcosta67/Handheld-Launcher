@@ -345,7 +345,23 @@ public sealed class SettingsViewModel : ViewModelBase
     public int FontSizeIndex { get => _fontSizeIndex; set => SetField(ref _fontSizeIndex, value); }
 
     private int _themeIndex;
+
+    /// <summary>Paleta de COR (ThemeManager.ThemeNames) — só cor, não o esqueleto da tela. Ver LayoutThemeIndex.</summary>
     public int ThemeIndex { get => _themeIndex; set => SetField(ref _themeIndex, value); }
+
+    private int _layoutThemeIndex;
+
+    /// <summary>
+    /// Tema de LAYOUT (ThemeManager.LayoutThemeNames): 0 Clássico,
+    /// 1 Switch. v0.9.19.
+    /// <para>
+    /// CUIDADO com o nome parecido: <see cref="LayoutIndex"/> (abaixo) é
+    /// outra coisa — é fileira horizontal vs. grade vertical DENTRO do
+    /// layout clássico, que já existia muito antes. Este aqui escolhe o
+    /// esqueleto da tela inteiro.
+    /// </para>
+    /// </summary>
+    public int LayoutThemeIndex { get => _layoutThemeIndex; set => SetField(ref _layoutThemeIndex, value); }
 
     private int _tileSizeIndex = 1;
     public int TileSizeIndex { get => _tileSizeIndex; set => SetField(ref _tileSizeIndex, value); }
@@ -430,6 +446,7 @@ public sealed class SettingsViewModel : ViewModelBase
             : $"Conta Steam deste PC: {detected.PersonaName} ({detected.SteamId64})";
         CategoryIndex = 0;
         ThemeIndex = Math.Clamp(settings.Theme, 0, HandheldLauncher.App.Platform.ThemeManager.ThemeNames.Length - 1);
+        LayoutThemeIndex = Math.Clamp(settings.LayoutTheme, 0, HandheldLauncher.App.Platform.ThemeManager.LayoutThemeNames.Length - 1);
         FontIndex = Math.Clamp(settings.UiFont, 0, HandheldLauncher.App.Platform.ThemeManager.Fonts.Length - 1);
         FontSizeIndex = Math.Clamp(settings.UiFontSize, 0, 2);
         TileSizeIndex = Math.Clamp(settings.TileSize, 0, 2);
@@ -465,6 +482,7 @@ public sealed class SettingsViewModel : ViewModelBase
         settings.AutoRestart = IsHandheldMode;
         settings.ModeChosen = true;
         settings.Theme = Math.Clamp(ThemeIndex, 0, HandheldLauncher.App.Platform.ThemeManager.ThemeNames.Length - 1);
+        settings.LayoutTheme = Math.Clamp(LayoutThemeIndex, 0, HandheldLauncher.App.Platform.ThemeManager.LayoutThemeNames.Length - 1);
         settings.UiFont = Math.Clamp(FontIndex, 0, HandheldLauncher.App.Platform.ThemeManager.Fonts.Length - 1);
         settings.UiFontSize = Math.Clamp(FontSizeIndex, 0, 2);
         settings.TileSize = Math.Clamp(TileSizeIndex, 0, 2);

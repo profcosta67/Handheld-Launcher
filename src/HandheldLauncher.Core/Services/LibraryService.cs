@@ -332,6 +332,13 @@ public sealed class LibraryService : ILibraryService
     {
         if (!overrides.TryGetValue(game.Id, out var o)) return;
 
+        // v0.9.19: nome editado pelo usuário vence o do scanner. Só
+        // sobrescreve se tiver algo de verdade — override vazio/em branco
+        // deixaria a tile sem nome nenhum.
+        if (!string.IsNullOrWhiteSpace(o.TitleOverride)) game.Title = o.TitleOverride;
+        game.TitleOverride = o.TitleOverride;
+        game.IsApplication = o.IsApplication;
+
         game.Collection = o.Collection;
         game.GridImagePath = o.GridImagePath;
         game.HeroImagePath = o.HeroImagePath;
@@ -341,6 +348,22 @@ public sealed class LibraryService : ILibraryService
         game.PlaytimeMinutes = o.PlaytimeMinutes;
         game.LastPlayedUtc = o.LastPlayedUtc;
         game.IsFavorite = o.IsFavorite;
+    }
+
+    /// <summary>
+    /// v0.9.19: salva nome editado + "é um programa" (ver
+    /// GameMetadataOverride.TitleOverride/IsApplication). Nome vazio
+    /// LIMPA o override, voltando pro nome original do scanner — é o jeito
+    /// de desfazer um renomear sem ter que lembrar qual era o nome.
+    /// </summary>
+    public void SaveEntryEdits(string gameId, string? title, bool isApplication)
+    {
+        var existing = _games.FirstOrDefault(g => g.Id == gameId);
+        var overrideData = ToOverride(existing) ?? new GameMetadataOverride();
+        overrideData.TitleOverride = string.IsNullOrWhiteSpace(title) ? null : title.Trim();
+        overrideData.IsApplication = isApplication;
+        _store.SaveOverride(gameId, overrideData);
+        Refresh();
     }
 
     private static GameMetadataOverride? ToOverride(GameEntry? game)
@@ -357,6 +380,13 @@ public sealed class LibraryService : ILibraryService
             PlaytimeMinutes = game.PlaytimeMinutes,
             LastPlayedUtc = game.LastPlayedUtc,
             IsFavorite = game.IsFavorite,
+            // v0.9.19: os dois PRECISAM viajar aqui — sem isso, favoritar
+            // (ou mudar coleção, ou registrar tempo de jogo) num jogo
+            // renomeado salvaria um override sem eles e apagaria o nome
+            // escolhido e a marca de "é um programa". Ver
+            // GameEntry.TitleOverride.
+            TitleOverride = game.TitleOverride,
+            IsApplication = game.IsApplication,
         };
     }
 }

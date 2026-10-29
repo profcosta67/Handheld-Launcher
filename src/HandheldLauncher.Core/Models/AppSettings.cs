@@ -86,8 +86,35 @@ public class AppSettings
     /// </summary>
     public int OverlayPreset { get; set; } = 2;
 
-    /// <summary>Tema (índice em ThemeManager.ThemeNames): 0 Escuro, 1 Claro, 2 Azul, 3 Vermelho, 4 Verde, 5 Laranja, 6 Rosa, 7 Ciano, 8 Preto (OLED), 9 Dourado, 10 Switch.</summary>
+    /// <summary>
+    /// Paleta de COR (índice em ThemeManager.ThemeNames): 0 Escuro,
+    /// 1 Claro, 2 Azul, 3 Vermelho, 4 Verde, 5 Laranja, 6 Rosa, 7 Ciano,
+    /// 8 Preto (OLED), 9 Dourado, 10 Grafite (chamava-se "Switch" até a
+    /// v0.9.18 — renomeado, mesmo índice, sem migração).
+    /// <para>
+    /// Só cor: o LAYOUT da tela é LayoutTheme abaixo. As duas são
+    /// independentes — dá pra usar o layout Switch com qualquer paleta.
+    /// </para>
+    /// </summary>
     public int Theme { get; set; }
+
+    /// <summary>
+    /// Tema de LAYOUT, o esqueleto da tela (índice em
+    /// ThemeManager.LayoutThemeNames): 0 Clássico (padrão, o de sempre),
+    /// 1 Switch. v0.9.19, início do projeto de "temas de layout de
+    /// verdade" pedido pelo usuário — até aqui "tema" só trocava cor e
+    /// arredondamento, nunca a disposição dos elementos.
+    /// <para>
+    /// Diferente da paleta (que repinta na hora), trocar isto exige
+    /// REINICIAR o launcher — combinado com o usuário. A área de conteúdo
+    /// da MainWindow é escolhida uma vez na abertura a partir deste valor;
+    /// toda a infraestrutura (menus, Configurações, controle, atalhos,
+    /// bandeja) é compartilhada entre os layouts de propósito, pra um
+    /// layout com defeito nunca conseguir prender o usuário sem acesso às
+    /// Configurações pra voltar.
+    /// </para>
+    /// </summary>
+    public int LayoutTheme { get; set; }
 
     /// <summary>Tamanho das capas na biblioteca: 0 Pequeno, 1 Médio (padrão), 2 Grande.</summary>
     public int TileSize { get; set; } = 1;
