@@ -956,6 +956,49 @@ public sealed class MainViewModel : ViewModelBase
         }
     }
 
+    // ------------------------------------------------------------------
+    // Mouse/toque nos menus (v0.9.2, bug reportado: "o mouse não clica nas
+    // opções de menu"). Passar o mouse destaca; clicar executa — os mesmos
+    // caminhos do controle/teclado, só escolhendo o índice pelo item.
+    // ------------------------------------------------------------------
+
+    public void HighlightContextMenuItem(ContextMenuItemViewModel item)
+    {
+        var index = ContextMenuItems.IndexOf(item);
+        if (index < 0) return;
+        _contextMenuIndex = index;
+        UpdateContextMenuSelection();
+    }
+
+    public void ActivateContextMenuItem(ContextMenuItemViewModel item)
+    {
+        HighlightContextMenuItem(item);
+        if (ContextMenuItems.IndexOf(item) >= 0) ConfirmContextMenuSelection();
+    }
+
+    public void HighlightGlobalMenuItem(ContextMenuItemViewModel item)
+    {
+        var index = GlobalMenuItems.IndexOf(item);
+        if (index < 0) return;
+        _globalMenuIndex = index;
+        UpdateGlobalMenuSelection();
+    }
+
+    public void ActivateGlobalMenuItem(ContextMenuItemViewModel item)
+    {
+        HighlightGlobalMenuItem(item);
+        if (GlobalMenuItems.IndexOf(item) >= 0) ConfirmGlobalMenuSelection();
+    }
+
+    public void ActivateCoverCandidate(ArtworkCandidateViewModel candidate)
+    {
+        var index = CoverPickerCandidates.IndexOf(candidate);
+        if (index < 0) return;
+        _coverPickerIndex = index;
+        UpdateCoverPickerSelection();
+        ConfirmCoverPickerSelection();
+    }
+
     private void UpdateContextMenuSelection()
     {
         for (var i = 0; i < ContextMenuItems.Count; i++)

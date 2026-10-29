@@ -13,7 +13,7 @@
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource BackgroundBrush}"
         Focusable="True"
-        KeyDown="OnWindowKeyDown">
+        >
 
   <!--
     Normal resizable window by default (easy to iterate on during dev).
@@ -482,7 +482,7 @@
          the LAST child of the outer Panel so it paints over absolutely
          everything else, bottom bar included. -->
     <Panel Classes="fadeIn" IsVisible="{Binding IsContextMenuOpen}">
-      <Border Classes="contextMenuOverlay" />
+      <Border Classes="contextMenuOverlay" PointerPressed="OnMenuOverlayPressed" />
       <Border Classes="contextMenuCard" Width="420" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel Spacing="16">
           <!-- v0.7.0: nome do jogo centralizado numa moldura de destaque,
@@ -498,7 +498,10 @@
           <ItemsControl ItemsSource="{Binding ContextMenuItems}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:ContextMenuItemViewModel">
-                <Border Classes="menuItem" Classes.selected="{Binding IsSelected}" Padding="14,10">
+                <Border Classes="menuItem" Classes.selected="{Binding IsSelected}" Padding="14,10"
+                        Cursor="Hand"
+                        PointerEntered="OnContextMenuItemEntered"
+                        PointerPressed="OnContextMenuItemPressed">
                   <TextBlock Text="{Binding Label}" Classes="gameTitle" />
                 </Border>
               </DataTemplate>
@@ -513,7 +516,7 @@
          reachable without a mouse. No "target" title since it's not about
          a specific game. -->
     <Panel Classes="fadeIn" IsVisible="{Binding IsGlobalMenuOpen}">
-      <Border Classes="contextMenuOverlay" />
+      <Border Classes="contextMenuOverlay" PointerPressed="OnMenuOverlayPressed" />
       <Border Classes="contextMenuCard" Width="380" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel Spacing="16">
           <Border Classes="menuHeader">
@@ -522,7 +525,10 @@
           <ItemsControl ItemsSource="{Binding GlobalMenuItems}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:ContextMenuItemViewModel">
-                <Border Classes="menuItem" Classes.selected="{Binding IsSelected}" Padding="14,10">
+                <Border Classes="menuItem" Classes.selected="{Binding IsSelected}" Padding="14,10"
+                        Cursor="Hand"
+                        PointerEntered="OnGlobalMenuItemEntered"
+                        PointerPressed="OnGlobalMenuItemPressed">
                   <TextBlock Text="{Binding Label}" Classes="gameTitle" />
                 </Border>
               </DataTemplate>
@@ -538,7 +544,7 @@
          visual dos outros dois menus acima, 4 ações fixas agora incluindo
          "Sair" (ver MainViewModel.BuildPowerMenu). -->
     <Panel Classes="fadeIn" IsVisible="{Binding IsPowerMenuOpen}">
-      <Border Classes="contextMenuOverlay" />
+      <Border Classes="contextMenuOverlay" PointerPressed="OnMenuOverlayPressed" />
       <Border Classes="contextMenuCard" Width="340" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel Spacing="16">
           <TextBlock Text="Energia" Classes="heroTitle" />
@@ -564,7 +570,7 @@
          "Instalar" é mouse/touch-only, por isso o botão ✕ aqui em vez de
          depender só do controle pra fechar). -->
     <Panel Classes="fadeIn" IsVisible="{Binding IsDownloadsOpen}">
-      <Border Classes="contextMenuOverlay" />
+      <Border Classes="contextMenuOverlay" PointerPressed="OnMenuOverlayPressed" />
       <Border Classes="contextMenuCard" Width="560" MaxHeight="620" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
         <Grid RowDefinitions="Auto,*,Auto,Auto">
           <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
@@ -610,7 +616,7 @@
          (flat list, no row-aware jump yet), A/Enter applies the highlighted
          one, B/Esc/Start/View cancels without changing anything. -->
     <Panel Classes="fadeIn" IsVisible="{Binding IsCoverPickerOpen}">
-      <Border Classes="contextMenuOverlay" />
+      <Border Classes="contextMenuOverlay" PointerPressed="OnMenuOverlayPressed" />
       <Border Classes="contextMenuCard" Width="880" MaxHeight="620" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
         <Grid RowDefinitions="Auto,*,Auto">
           <TextBlock Grid.Row="0" Text="{Binding CoverPickerTitle}" Classes="heroTitle" TextWrapping="Wrap" Margin="0,0,0,16" />
@@ -653,6 +659,8 @@
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:ArtworkCandidateViewModel">
                   <Border Classes="coverCandidate" Classes.selected="{Binding IsSelected}"
+                          Cursor="Hand"
+                          PointerPressed="OnCoverCandidatePressed"
                           Width="150" Height="170" Margin="6"
                           HorizontalAlignment="Center" VerticalAlignment="Center">
                     <Image Source="{Binding LocalThumbnailPath, Converter={StaticResource FileToBitmapConverter}}"
@@ -713,7 +721,7 @@
          Último filho do Panel, então pinta por cima de tudo (inclusive os
          outros menus, embora não devam estar abertos ao mesmo tempo). -->
     <Panel Classes="fadeIn" IsVisible="{Binding IsLaunching}">
-      <Border Classes="contextMenuOverlay" />
+      <Border Classes="contextMenuOverlay" PointerPressed="OnMenuOverlayPressed" />
       <Border Classes="contextMenuCard" Width="420" Padding="32" HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel Spacing="18" HorizontalAlignment="Center">
           <!-- Ícone do jogo (SteamGridDB, seção Icons) — some quando o

@@ -58,6 +58,13 @@ public partial class MainWindow : Window
         // v0.8.0: troca suave do banner (ver HeroBackImage no XAML).
         HeroImage.PropertyChanged += OnHeroImageChanged;
 
+        // v0.9.2: teclado em modo TÚNEL (antes de qualquer botão focado).
+        // Bug: "quando cliquei em configurações pelo PC ou botão sair com
+        // Enter ele não respondeu" — depois de clicar num botão da barra
+        // com o mouse, ele ficava com o foco e "comia" Enter/setas antes do
+        // launcher ver. Aqui o launcher sempre vê a tecla primeiro.
+        AddHandler(KeyDownEvent, OnWindowKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+
         // 20Hz is plenty for menu navigation and cheap enough to just leave
         // running the whole time the launcher is open.
         _gamepadTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
@@ -328,6 +335,59 @@ public partial class MainWindow : Window
 
         HeroBackImage.Source = e.OldValue as Avalonia.Media.IImage;
         FadeIn(HeroImage, 260);
+    }
+
+    // --- mouse nos menus (v0.9.2) -----------------------------------------
+
+    private void OnContextMenuItemEntered(object? sender, PointerEventArgs e)
+    {
+        if (DataContext is MainViewModel vm && sender is Control { DataContext: ContextMenuItemViewModel item })
+            vm.HighlightContextMenuItem(item);
+    }
+
+    private void OnContextMenuItemPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm && sender is Control { DataContext: ContextMenuItemViewModel item })
+        {
+            vm.ActivateContextMenuItem(item);
+            e.Handled = true;
+        }
+    }
+
+    private void OnGlobalMenuItemEntered(object? sender, PointerEventArgs e)
+    {
+        if (DataContext is MainViewModel vm && sender is Control { DataContext: ContextMenuItemViewModel item })
+            vm.HighlightGlobalMenuItem(item);
+    }
+
+    private void OnGlobalMenuItemPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm && sender is Control { DataContext: ContextMenuItemViewModel item })
+        {
+            vm.ActivateGlobalMenuItem(item);
+            e.Handled = true;
+        }
+    }
+
+    private void OnCoverCandidatePressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm && sender is Control { DataContext: ArtworkCandidateViewModel candidate })
+        {
+            vm.ActivateCoverCandidate(candidate);
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>Clique no fundo escurecido, fora do cartão: fecha o que estiver aberto.</summary>
+    private void OnMenuOverlayPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm) return;
+        if (vm.IsCoverPickerOpen) vm.CloseCoverPicker();
+        else if (vm.IsContextMenuOpen) vm.CloseContextMenu();
+        else if (vm.IsGlobalMenuOpen) vm.CloseGlobalMenu();
+        else if (vm.IsDownloadsOpen) vm.CloseDownloads();
+        else if (vm.IsPowerMenuOpen) vm.ClosePowerMenu();
+        e.Handled = true;
     }
 
     private void OnAboutOverlayPressed(object? sender, PointerPressedEventArgs e)
@@ -965,16 +1025,24 @@ public partial class MainWindow : Window
                 ScrollGameRowSelectionIntoView(vm);
                 e.Handled = true;
                 break;
+            // v0.9.2 (modo desktop): Esc/M/Tab abrem o menu principal — antes
+            // Esc "fechava o jogo" e o menu só abria com Tab, que ninguém
+            // descobria. Fechar jogo agora é Ctrl+W (ou pelo menu).
             case Key.Escape:
+            case Key.M:
+            case Key.Tab:
+                vm.ToggleGlobalMenu();
+                e.Handled = true;
+                break;
+            case Key.W when e.KeyModifiers.HasFlag(KeyModifiers.Control):
                 vm.CloseRunningGame();
                 e.Handled = true;
                 break;
+            // Menu do jogo: Espaço, tecla de menu de contexto do teclado, ou
+            // botão direito do mouse na capa.
             case Key.Space:
+            case Key.Apps:
                 vm.ToggleContextMenu();
-                e.Handled = true;
-                break;
-            case Key.Tab:
-                vm.ToggleGlobalMenu();
                 e.Handled = true;
                 break;
             // Q/E = fallback de teclado pra LB/RB (ciclar abas de filtro) —
@@ -1238,6 +1306,14 @@ public partial class MainWindow : Window
 
         var index = vm.Games.IndexOf(tile);
         if (index >= 0) vm.SelectedIndex = index;
+
+        // v0.9.2: botão direito do mouse abre o menu do jogo (igual Start
+        // no controle / Espaço no teclado).
+        if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed && !vm.IsContextMenuOpen)
+        {
+            vm.ToggleContextMenu();
+            e.Handled = true;
+        }
     }
 
     private void OnTileDoubleTapped(object? sender, TappedEventArgs e)

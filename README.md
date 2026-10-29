@@ -743,6 +743,22 @@ Ainda **não** feito:
 15. ~~Tela de configuração pra `SteamWebApiKey`/`SteamId64`~~ — **feito
     numa leva posterior**, junto do item 5 (mesma `SettingsWindow`).
 
+## Mouse e teclado no modo Desktop — v0.9.2
+
+Bugs reportados usando no PC:
+- **Mouse não clicava nas opções dos menus**: itens do menu principal, do menu
+  do jogo e do seletor de artes agora têm `PointerEntered` (destaca) e
+  `PointerPressed` (executa — mesmos caminhos do controle). Clique no fundo
+  escurecido fecha o menu aberto.
+- **Botão direito na capa** abre o menu do jogo.
+- **Teclado**: Esc / M / Tab abrem o menu principal (antes só Tab, e Esc fechava
+  o jogo); Espaço ou a tecla de menu de contexto abrem o menu do jogo;
+  **Ctrl+W** fecha o jogo aberto.
+- **Enter/setas sem resposta depois de clicar num botão**: o botão focado
+  consumia a tecla antes do launcher. O `KeyDown` da janela agora é registrado
+  em modo túnel (`RoutingStrategies.Tunnel`), então o launcher vê toda tecla
+  primeiro.
+
 ## Epic, licença e versões — v0.9.1
 
 **Nunca testado num aparelho ainda.**
