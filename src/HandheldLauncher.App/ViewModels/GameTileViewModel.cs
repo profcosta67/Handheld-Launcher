@@ -46,6 +46,39 @@ public sealed class GameTileViewModel : ViewModelBase
     public bool HasLogo => !string.IsNullOrEmpty(LogoImagePath);
 
     /// <summary>
+    /// Badge minimalista no canto superior direito da capa indicando a
+    /// loja (v0.9.6, pedido do usuário). Deliberadamente NÃO é o logo
+    /// oficial de cada loja — só a inicial/sigla em cor própria — pra não
+    /// reproduzir marca registrada de terceiros dentro do launcher. Null
+    /// pra Manual/Emulador: um atalho criado à mão não tem "loja" nenhuma
+    /// pra indicar.
+    /// </summary>
+    public string? PlatformBadgeText => Game.Source switch
+    {
+        GameSource.Steam => "S",
+        GameSource.EpicGames => "E",
+        GameSource.Gog => "G",
+        GameSource.Ubisoft => "U",
+        GameSource.EaApp => "EA",
+        GameSource.XboxApp => "X",
+        _ => null,
+    };
+
+    public bool HasPlatformBadge => PlatformBadgeText is not null;
+
+    /// <summary>Cor de fundo do badge — uma por loja, só pra diferenciar visualmente, sem tentar imitar a paleta oficial de cada marca.</summary>
+    public string PlatformBadgeColorHex => Game.Source switch
+    {
+        GameSource.Steam => "#1B2838",
+        GameSource.EpicGames => "#2A2A2A",
+        GameSource.Gog => "#5C3A99",
+        GameSource.Ubisoft => "#0070CC",
+        GameSource.EaApp => "#C40C28",
+        GameSource.XboxApp => "#107C10",
+        _ => "#000000",
+    };
+
+    /// <summary>
     /// Toggled pelo item "Favoritar"/"Desfavoritar" do menu de contexto
     /// (ver MainViewModel.ConfirmContextMenuSelection) — drives a estrelinha
     /// discreta no canto da tile, pra dar algum jeito de ver quem tá

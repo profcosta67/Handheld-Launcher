@@ -1,0 +1,59 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:HandheldLauncher.App.ViewModels"
+        x:Class="HandheldLauncher.App.Views.UpdateWindow"
+        x:DataType="vm:MainViewModel"
+        Title="Atualização disponível"
+        Width="460" Height="440"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BackgroundBrush}">
+
+  <!--
+    v0.9.6, pedido do usuário ("ajuste fino do instalador e do update, uma
+    telinha mais bonita e de acordo com o tema, principalmente no update").
+    Antes, tocar no aviso "⬆ vX pronta" da barra de cima aplicava e
+    reiniciava NA HORA, sem tela nenhuma — agora abre esta janela, no
+    mesmo estilo das outras janelas secundárias (AccountsWindow): fundo e
+    cores do tema, botões "pill". "O que há de novo" vem de
+    MainViewModel.PendingUpdateNotesText — texto do release-notes/X.Y.Z.md
+    daquela versão, já embutido no pacote Velopack (ver release.yml).
+  -->
+
+  <Grid RowDefinitions="Auto,*,Auto" Margin="24">
+
+    <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" Margin="0,0,0,16">
+      <Border Width="48" Height="48" CornerRadius="12" Background="{StaticResource SurfaceRaisedBrush}">
+        <Image Source="avares://HandheldLauncher/Assets/app-icon.ico" Width="28" Height="28"
+               HorizontalAlignment="Center" VerticalAlignment="Center" />
+      </Border>
+      <StackPanel VerticalAlignment="Center" Spacing="2">
+        <TextBlock Text="Atualização disponível" Classes="gameTitle" FontSize="18" />
+        <TextBlock Text="{Binding UpdateWindowVersionText}" Classes="subtle" FontSize="12" />
+      </StackPanel>
+    </StackPanel>
+
+    <Border Grid.Row="1" Background="{StaticResource SurfaceBrush}" CornerRadius="12" Padding="16">
+      <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="8">
+          <TextBlock Text="O que há de novo" Classes="subtle" FontSize="12" FontWeight="Bold" />
+          <TextBlock Text="{Binding PendingUpdateNotesText}" TextWrapping="Wrap" FontSize="13"
+                     Foreground="{StaticResource TextPrimaryBrush}" />
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
+    <Grid Grid.Row="2" RowDefinitions="Auto,Auto" Margin="0,16,0,0">
+      <TextBlock Grid.Row="0"
+                 Text="Tem um jogo aberto — fecha ele antes de atualizar pra não perder progresso."
+                 Classes="subtle" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10"
+                 IsVisible="{Binding UpdateBlockedByRunningGame}" />
+      <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+        <Button Classes="pill" Content="Ver no GitHub" Click="OnOpenGitHubClick" />
+        <Button Classes="pill" Content="Agora não" Click="OnLaterClick" />
+        <Button Classes="pill primary" Content="Atualizar e reiniciar" Click="OnUpdateNowClick"
+                IsEnabled="{Binding CanApplyUpdateNow}" />
+      </StackPanel>
+    </Grid>
+  </Grid>
+</Window>

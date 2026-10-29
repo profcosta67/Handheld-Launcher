@@ -214,6 +214,60 @@ public sealed class MainViewModel : ViewModelBase
 
     public bool UpdatesInstalled => _updates is { IsInstalled: true };
 
+    /// <summary>"Versão v1.2.4 pronta pra instalar" — subtítulo da UpdateWindow (v0.9.6).</summary>
+    public string UpdateWindowVersionText => $"Versão v{PendingUpdateVersion} pronta pra instalar";
+
+    /// <summary>
+    /// "O que há de novo" pra UpdateWindow (v0.9.6) — versão em texto
+    /// simples do markdown de release-notes/X.Y.Z.md (ver
+    /// UpdateService.PendingReleaseNotesMarkdown), já embutido no pacote
+    /// Velopack dessa versão. Sem biblioteca de markdown no projeto, então
+    /// só tira a pontuação (##, **, cabeçalho repetindo o título que a
+    /// janela já mostra em cima) em vez de renderizar de verdade — os
+    /// arquivos já são simples (título + lista com "-"), então o resultado
+    /// fica legível igual. Versão empacotada antes desta leva (sem
+    /// --releaseNotes ainda) cai no texto de aviso abaixo.
+    /// </summary>
+    public string PendingUpdateNotesText
+    {
+        get
+        {
+            var markdown = _updates?.PendingReleaseNotesMarkdown;
+            if (string.IsNullOrWhiteSpace(markdown))
+            {
+                return "Essa versão não trouxe notas detalhadas — confira no GitHub (botão abaixo) se quiser ver o que mudou.";
+            }
+
+            var lines = markdown.Replace("\r\n", "\n").Split('\n');
+            var kept = new List<string>();
+            foreach (var raw in lines)
+            {
+                var line = raw.Trim();
+                if (line.Length == 0) continue;
+                if (line.StartsWith('#')) continue; // "## Handheld Launcher 0.9.5" — repete o que a janela já mostra em cima
+
+                line = line.Replace("**", "");
+                if (line.StartsWith("- ")) line = "•  " + line[2..];
+
+                kept.Add(line);
+            }
+
+            return kept.Count > 0 ? string.Join("\n", kept) : markdown;
+        }
+    }
+
+    /// <summary>Mostra o aviso "fecha o jogo antes de atualizar" na UpdateWindow (v0.9.6).</summary>
+    public bool UpdateBlockedByRunningGame => RunningGame is not null;
+
+    /// <summary>
+    /// Complemento de UpdateBlockedByRunningGame, não a negação direto no
+    /// binding — Avalonia não tem o operador "!" confirmado pra esta
+    /// versão, então fica igual o resto do projeto (ShowCurrentLogo/
+    /// ShowNameCaption): dois nomes positivos, cada um na sua ponta.
+    /// Drives o IsEnabled do botão "Atualizar e reiniciar" na UpdateWindow.
+    /// </summary>
+    public bool CanApplyUpdateNow => RunningGame is null;
+
     /// <summary>
     /// Reinicia pra aplicar a versão já baixada. Recusa se há um jogo
     /// rodando — trocar os arquivos do launcher não mata o jogo, mas

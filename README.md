@@ -740,6 +740,85 @@ Ainda **não** feito:
 15. ~~Tela de configuração pra `SteamWebApiKey`/`SteamId64`~~ — **feito
     numa leva posterior**, junto do item 5 (mesma `SettingsWindow`).
 
+## Badge de plataforma, logo consistente, performance e telinha de update — v0.9.6
+
+**Nunca testado num aparelho ainda.**
+
+Lote de quatro pedidos soltos numa mensagem só:
+
+- **Badge de plataforma** no canto superior direito de cada capa
+  (`GameTileViewModel.PlatformBadgeText`/`PlatformBadgeColorHex`,
+  `MainWindow.axaml`) — pedido: "colocar um icone bem minimalista...
+  indicando de qual plataforma". **Decisão importante**: NÃO é o logo
+  oficial de cada loja (Steam/Epic/GOG/Ubisoft/EA/Xbox) — é só a
+  inicial/sigla ("S", "E", "G", "U", "EA", "X") numa cor própria por loja,
+  de propósito, pra não reproduzir marca registrada de terceiros dentro
+  do launcher. Manual/Emulador não ganham badge (não tem "loja" nenhuma
+  pra indicar). A estrelinha de favorito, que antes ficava nesse mesmo
+  canto, foi pro canto inferior direito (o inferior esquerdo já é do
+  badge "⇩ Instalar" da aba "Não instalados" — os dois nunca aparecem
+  juntos, então não tem conflito).
+- **Tamanho do LOGO normalizado**: pedido: "ajustar a logo dos jogos uns
+  ficam pequenas em cima outros ficam em tamanho bom". Causa: o LOGO é um
+  PNG transparente da SteamGridDB e cada fonte exporta com uma margem
+  transparente diferente ao redor do desenho — como a altura exibida é
+  fixa (`GameTileViewModel.CaptionLogoHeight`), a margem invisível contava
+  como "tamanho do logo" e empurrava o desenho de verdade pra bem menor
+  nos casos com mais margem. `ArtworkService.TrimTransparentPadding`
+  corta a imagem pro menor retângulo que ainda tem pixel não-transparente,
+  uma vez, no momento do download/aplicação (tanto no fetch automático
+  quanto no picker manual) — não em toda renderização. Precisou adicionar
+  `System.Drawing.Common` ao `HandheldLauncher.Core` (Windows-only desde
+  o .NET 6, mas o projeto inteiro já é Windows-only de ponta a ponta:
+  publish self-contained win-x64, `System.Management`, RTSS). **Só afeta
+  LOGOs baixados/aplicados a partir desta versão** — os já salvos antes
+  continuam com a margem antiga até serem buscados de novo ("Atualizar
+  Capas Automático" ou escolher de novo no seletor).
+- **Aba "Todos" lenta — corrigido**: pedido: "verificar a aba de todos
+  jogos, parece que ela ta começando ficar lenta, os jogos nao instalados
+  ta bem fluido". Causa real:
+  `FileToBitmapConverter.Convert` fazia `new Bitmap(path)` — decodifica o
+  arquivo do disco de novo, na UI thread, toda vez que o binding é
+  reavaliado — e `MainViewModel.RebuildGamesFromLibrary` cria um
+  `GameTileViewModel` NOVO pra cada jogo em toda troca de aba/favoritar/
+  atualizar. Resultado: toda troca redecodificava a capa de TODOS os
+  tiles visíveis do zero, e "Todos" (a lista com mais jogos, principalmente
+  depois das lojas novas da v0.9.3) é exatamente onde isso mais pesa —
+  "Não instalados" é um subconjunto bem menor, por isso parecia fluida por
+  comparação, batendo exatamente com o relato. Corrigido cacheando o
+  `Bitmap` já decodificado por caminho + data de modificação do arquivo
+  (invalida sozinho se a capa for trocada).
+- **Telinha de atualização temática**: pedido: "ajuste fino do
+  instalador e do update uma telinha mais bonita e de acordo com o tema
+  do launcher principalmente no update". Antes, tocar no aviso "⬆ vX
+  pronta" da barra de cima aplicava e reiniciava NA HORA, sem tela
+  nenhuma. Agora abre `Views/UpdateWindow` — mesmo visual das outras
+  janelas secundárias (`AccountsWindow`): fundo/cores do tema, ícone do
+  app, versão, "O que há de novo" (texto de verdade, não só o número da
+  versão) e os botões "Ver no GitHub" / "Agora não" / "Atualizar e
+  reiniciar" (desabilitado com jogo aberto). O "O que há de novo" vem do
+  mesmo `release-notes/X.Y.Z.md` que a Release do GitHub já usava — agora
+  também embutido DENTRO do pacote Velopack via `vpk pack --releaseNotes`
+  (`release.yml`), e lido de volta por
+  `UpdateService.PendingReleaseNotesMarkdown` /
+  `VelopackAsset.NotesMarkdown`. Sem biblioteca de markdown no projeto, a
+  `MainViewModel.PendingUpdateNotesText` só tira a pontuação (`##`, `**`,
+  cabeçalho repetido) em vez de renderizar de verdade — como os arquivos
+  já são simples (título + lista com "-"), o resultado fica legível
+  igual. **Versões empacotadas antes desta leva não têm essas notas
+  embutidas** (caem no aviso "confira no GitHub").
+  - **Ajuste fino do instalador**: `vpk pack` ganhou
+    `--splashProgressColor "#7C5CFC"` — pinta a barra de progresso do
+    `Setup.exe` com o roxo do tema em vez da cor padrão do Velopack
+    (opção confirmada na [documentação oficial do
+    `vpk pack`](https://docs.velopack.io/reference/cli/content/vpk-windows)).
+    Existe também `--splashImage` (uma imagem de fundo durante a
+    instalação), mas a doc não confirma a dimensão/proporção esperada —
+    melhor não arriscar um instalador com imagem esticada/cortada sem
+    poder ver o resultado de verdade. Fica pendente até decidir com o
+    usuário: ou ele testa uma imagem e reporta como ficou, ou eu arrisco
+    um palpite de tamanho e ele confirma/ajusta depois.
+
 ## Privacidade das chaves + frametime no HUD — v0.9.5
 
 **Nunca testado num aparelho ainda.**
@@ -1240,10 +1319,13 @@ pelo aviso na barra de cima (pacote delta). O workflow de build do GitHub
 5. **Depois disso nunca mais baixa nada na mão**: o launcher pergunta ao
    GitHub se há versão nova ~20 s depois de abrir e a cada 6 h, baixa em
    segundo plano (só o que mudou, quando dá) e mostra na barra de cima
-   **"⬆ vX.Y.Z pronta — toque pra reiniciar"** (também é o primeiro item do
-   menu View/Back, então dá pra aplicar só com o controle). Com um jogo
-   rodando ele **não** reinicia nem baixa. Menu → **Verificar atualizações**
-   força a checagem na hora.
+   **"⬆ vX.Y.Z pronta — toque pra reiniciar"**. Tocar nesse aviso abre a
+   telinha de atualização (`Views/UpdateWindow`, v0.9.6 — versão + "o que
+   há de novo" + Atualizar/Agora não), em vez de reiniciar direto como
+   antes; o item do menu View/Back continua aplicando na hora (sem a
+   telinha), pra quem só quer confirmar rápido pelo controle. Com um jogo
+   rodando ele **não** reinicia nem baixa (nem pela telinha, nem pelo
+   menu). Menu → **Verificar atualizações** força a checagem na hora.
 6. `settings.json` (chaves, SteamID, pastas Xbox) e a biblioteca ficam em
    `%AppData%\HandheldLauncher\` — a atualização nunca mexe nisso.
 

@@ -277,6 +277,20 @@
     <Setter Property="Foreground" Value="{StaticResource OnAccentBrush}" />
   </Style>
 
+  <!-- Pill "primária" — mesma forma do Button.pill comum, só com a cor de
+       destaque (igual Button.filterTab.active), pra marcar a ação
+       principal de um diálogo (ex: "Atualizar e reiniciar" na UpdateWindow,
+       v0.9.6) sem precisar inventar um Background solto em cada tela. -->
+  <Style Selector="Button.pill.primary">
+    <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+    <Setter Property="Foreground" Value="{StaticResource OnAccentBrush}" />
+  </Style>
+
+  <Style Selector="Button.pill.primary /template/ ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+    <Setter Property="Foreground" Value="{StaticResource OnAccentBrush}" />
+  </Style>
+
   <!-- Botão de ícone "fantasma" pra barra de cima — sem fundo/borda por
        padrão, pra não brigar visualmente com os TextBlocks de bateria/
        wifi ao lado (que não são clicáveis), só realça levemente no

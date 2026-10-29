@@ -523,10 +523,32 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>Toque no aviso "⬆ vX pronta" da barra de cima.</summary>
+    /// <summary>
+    /// Toque no aviso "⬆ vX pronta" da barra de cima. v0.9.6, pedido do
+    /// usuário ("ajuste fino do update, uma telinha mais bonita e de
+    /// acordo com o tema"): antes aplicava e reiniciava NA HORA do toque;
+    /// agora abre a UpdateWindow (versão + "o que há de novo" +
+    /// Atualizar/Agora não), que é quem de fato chama vm.ApplyUpdate().
+    /// </summary>
     private void OnUpdateBadgeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (DataContext is MainViewModel vm) vm.ApplyUpdate();
+        if (DataContext is MainViewModel vm) _ = OpenUpdateDialogAsync(vm);
+    }
+
+    private async Task OpenUpdateDialogAsync(MainViewModel vm)
+    {
+        if (!vm.IsUpdateReady) return; // nada pronto pra instalar — não deveria nem estar clicável (ver HasUpdateStatus), mas evita abrir uma telinha vazia
+
+        var dialog = new UpdateWindow(vm);
+        _activeDialog = dialog;
+        try
+        {
+            await dialog.ShowDialog(this);
+        }
+        finally
+        {
+            _activeDialog = null;
+        }
     }
 
     /// <summary>

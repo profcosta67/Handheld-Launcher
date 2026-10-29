@@ -89,6 +89,8 @@ public sealed class ArtworkService : IArtworkService
         var localPath = await DownloadToCache(image.Url, _cacheDir, $"{game.Id}_logo", ct);
         if (localPath is null) return false;
 
+        TrimTransparentPadding(localPath);
+
         var data = GetOrCreateOverride(game.Id);
         data.LogoImagePath = localPath;
         _store.SaveOverride(game.Id, data);
@@ -286,6 +288,15 @@ public sealed class ArtworkService : IArtworkService
             return Task.FromResult(false);
         }
 
+        if (slot == ArtworkSlot.Logo)
+        {
+            // Mesmo corte de margem transparente do fluxo automático
+            // (FetchLogoAsync) — sem isso, escolher o LOGO manualmente no
+            // picker (ApplyLogoCandidateAsync) continuaria herdando o
+            // tamanho inconsistente do PNG original da SteamGridDB.
+            TrimTransparentPadding(localPath);
+        }
+
         var data = GetOrCreateOverride(game.Id);
         switch (slot)
         {
@@ -336,6 +347,69 @@ public sealed class ArtworkService : IArtworkService
             // Network hiccup / bad URL — skip this one image, don't take
             // down the whole fetch (or picker) pass.
             return null;
+        }
+    }
+
+    /// <summary>
+    /// v0.9.6: pedido do usuário ("ajustar a logo dos jogos, uns ficam
+    /// pequenas em cima, outros em tamanho bom"). Causa: o LOGO é um PNG
+    /// transparente da SteamGridDB (wordmark/título do jogo) e cada fonte
+    /// exporta com uma margem transparente diferente em volta do desenho
+    /// real — um logo "gordo" de borda a borda e outro minúsculo cercado
+    /// de ar invisível. GameTileViewModel.CaptionLogoHeight escala todo
+    /// PNG pra uma altura FIXA, então a margem invisível conta como
+    /// "altura do logo" e empurra o desenho de verdade pra um tamanho bem
+    /// menor do que os logos sem margem.
+    ///
+    /// Corrige cortando a imagem pro menor retângulo que ainda contém
+    /// algum pixel não-transparente (bounding box do canal alpha), uma
+    /// vez, no momento do download/aplicação — não em toda renderização.
+    /// Só roda em PNG (o único formato com canal alpha que a SteamGridDB
+    /// usa pra LOGO); best-effort, qualquer erro deixa o arquivo original
+    /// intocado.
+    /// </summary>
+    private static void TrimTransparentPadding(string path)
+    {
+        const byte AlphaThreshold = 8; // ignora halo quase-transparente de anti-aliasing nas bordas
+
+        if (!string.Equals(Path.GetExtension(path), ".png", StringComparison.OrdinalIgnoreCase)) return;
+
+        try
+        {
+            using var original = new System.Drawing.Bitmap(path);
+
+            var minX = original.Width;
+            var minY = original.Height;
+            var maxX = -1;
+            var maxY = -1;
+
+            for (var y = 0; y < original.Height; y++)
+            {
+                for (var x = 0; x < original.Width; x++)
+                {
+                    if (original.GetPixel(x, y).A <= AlphaThreshold) continue;
+
+                    if (x < minX) minX = x;
+                    if (x > maxX) maxX = x;
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                }
+            }
+
+            // Imagem toda transparente (não devia acontecer, mas não é
+            // motivo pra travar) ou já sem nenhuma margem pra cortar.
+            if (maxX < minX || maxY < minY) return;
+            if (minX == 0 && minY == 0 && maxX == original.Width - 1 && maxY == original.Height - 1) return;
+
+            using var cropped = original.Clone(
+                new System.Drawing.Rectangle(minX, minY, maxX - minX + 1, maxY - minY + 1),
+                original.PixelFormat);
+            cropped.Save(path, System.Drawing.Imaging.ImageFormat.Png);
+        }
+        catch (Exception)
+        {
+            // PNG corrompido, sem suporte a GDI+ no ambiente, etc. — deixa
+            // a imagem original (com a margem) em vez de travar o fetch.
         }
     }
 

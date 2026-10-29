@@ -75,6 +75,23 @@ public sealed class UpdateService
     }
 
     /// <summary>
+    /// "O que há de novo" da versão baixada, em markdown simples — vem do
+    /// mesmo release-notes/X.Y.Z.md que o workflow já escreve pra cada
+    /// versão, agora também embutido no pacote Velopack (ver
+    /// release.yml, passo "Empacotar" → --releaseNotes). Null/vazio numa
+    /// versão sem notas (ou empacotada antes desta leva, v0.9.6) — a
+    /// UpdateWindow trata isso mostrando só o número da versão.
+    /// </summary>
+    public string? PendingReleaseNotesMarkdown
+    {
+        get
+        {
+            try { return _pending?.TargetFullRelease.NotesMarkdown; }
+            catch { return null; }
+        }
+    }
+
+    /// <summary>
     /// Pergunta ao GitHub se tem versão nova e, se tiver, baixa. Devolve a
     /// versão nova baixada ("1.2.4") ou null se já está atualizado, não é
     /// uma instalação Velopack, ou deu qualquer erro (sem internet, API do

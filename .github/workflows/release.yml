@@ -119,16 +119,38 @@ jobs:
           --repoUrl ${{ github.server_url }}/${{ github.repository }}
           --token ${{ secrets.GITHUB_TOKEN }}
 
+      # v0.9.6: pedido do usuário ("ajuste fino do instalador e do update,
+      # principalmente no update") — a telinha de atualização agora mostra
+      # "O que há de novo" de verdade (UpdateService.PendingReleaseNotes),
+      # então as notas precisam ir DENTRO do pacote Velopack, não só na
+      # página da Release do GitHub. Reaproveita o mesmo arquivo
+      # release-notes/X.Y.Z.md que o passo "Publicar Release" já usa —
+      # mesma mensagem nos dois lugares. Sem o arquivo (versão sem notas
+      # escritas), empacota sem --releaseNotes — o Velopack aceita
+      # normalmente, só fica sem texto pra mostrar.
+      # --splashProgressColor pinta a barra de progresso do Setup.exe com o
+      # roxo do tema (Theme.axaml AccentColor #7C5CFC) em vez da cor padrão
+      # do Velopack — opção confirmada na doc oficial (vpk pack, Windows).
+      # Existe também --splashImage (imagem de fundo durante a instalação),
+      # mas sem uma dimensão/proporção confirmada na doc pra não arriscar
+      # instalador com imagem esticada/cortada — ver README (ajuste fino
+      # do instalador, v0.9.6) pra decidir com o usuário antes de tentar.
       - name: Empacotar
         if: steps.exists.outputs.skip != 'true'
-        run: >
-          vpk pack
-          --packId HandheldLauncher
-          --packTitle "Handheld Launcher"
-          --packVersion ${{ steps.ver.outputs.version }}
-          --packDir publish
-          --mainExe HandheldLauncher.exe
-          --icon src/HandheldLauncher.App/Assets/app-icon.ico
+        shell: pwsh
+        run: |
+          $notesFile = "release-notes/${{ steps.ver.outputs.version }}.md"
+          $extra = (Test-Path $notesFile) ? @("--releaseNotes", $notesFile) : @()
+          vpk pack `
+            --packId HandheldLauncher `
+            --packTitle "Handheld Launcher" `
+            --packVersion ${{ steps.ver.outputs.version }} `
+            --packDir publish `
+            --mainExe HandheldLauncher.exe `
+            --icon src/HandheldLauncher.App/Assets/app-icon.ico `
+            --splashProgressColor "#7C5CFC" `
+            @extra
+          if ($LASTEXITCODE -ne 0) { exit 1 }
 
       - name: Montar Modo-Console.zip
         if: steps.exists.outputs.skip != 'true'

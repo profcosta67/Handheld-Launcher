@@ -24,6 +24,7 @@
 
   <Window.Resources>
     <conv:FileToBitmapConverter x:Key="FileToBitmapConverter" />
+    <conv:HexColorToBrushConverter x:Key="HexColorToBrushConverter" />
   </Window.Resources>
 
   <Panel>
@@ -361,15 +362,30 @@
                                Margin="10"
                                IsVisible="{Binding ShowEmptyPlaceholder}" />
 
-                    <!-- Estrelinha discreta pra quem foi favoritado
-                         (menu de contexto → Favoritar) — só pra dar algum
-                         jeito de ver na fileira inteira, sem precisar
-                         trocar pra aba "Favoritos" pra checar. -->
+                    <!-- Badge de plataforma (v0.9.6, pedido do usuário:
+                         "ícone minimalista no canto superior direito
+                         indicando de qual plataforma") — ver
+                         GameTileViewModel.PlatformBadgeText/ColorHex pra
+                         saber por que não é o logo oficial de cada loja. -->
+                    <Border Background="{Binding PlatformBadgeColorHex, Converter={StaticResource HexColorToBrushConverter}}"
+                            CornerRadius="4"
+                            Padding="5,2"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top"
+                            Margin="8"
+                            IsVisible="{Binding HasPlatformBadge}">
+                      <TextBlock Text="{Binding PlatformBadgeText}" FontSize="10" FontWeight="Bold" Foreground="White" />
+                    </Border>
+
+                    <!-- Estrelinha discreta pra quem foi favoritado (menu
+                         de contexto → Favoritar) — canto oposto ao badge
+                         de plataforma que assumiu o superior direito nesta
+                         leva, pra não sobrepor. -->
                     <TextBlock Text="★"
                                Foreground="{StaticResource AccentBrush}"
                                FontSize="18"
                                HorizontalAlignment="Right"
-                               VerticalAlignment="Top"
+                               VerticalAlignment="Bottom"
                                Margin="8"
                                IsVisible="{Binding IsFavorite}" />
 
