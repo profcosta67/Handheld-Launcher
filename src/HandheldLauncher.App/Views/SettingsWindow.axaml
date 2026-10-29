@@ -47,26 +47,24 @@
                    TextWrapping="Wrap" />
 
         <TextBlock Text="Aparência" Classes="subtle" Margin="0,12,0,0" />
-        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="8">
-          <TextBlock Grid.Row="0" Grid.Column="0" Text="Tema" VerticalAlignment="Center" />
-          <ComboBox Grid.Row="0" Grid.Column="1" SelectedIndex="{Binding ThemeIndex}" HorizontalAlignment="Stretch">
-            <ComboBoxItem Content="Escuro" />
-            <ComboBoxItem Content="Claro" />
-            <ComboBoxItem Content="Azul" />
-            <ComboBoxItem Content="Vermelho" />
-          </ComboBox>
-          <TextBlock Grid.Row="1" Grid.Column="0" Text="Tamanho das capas" VerticalAlignment="Center" />
-          <ComboBox Grid.Row="1" Grid.Column="1" SelectedIndex="{Binding TileSizeIndex}" HorizontalAlignment="Stretch">
-            <ComboBoxItem Content="Pequeno" />
-            <ComboBoxItem Content="Médio" />
-            <ComboBoxItem Content="Grande" />
-          </ComboBox>
-          <TextBlock Grid.Row="2" Grid.Column="0" Text="Biblioteca" VerticalAlignment="Center" />
-          <ComboBox Grid.Row="2" Grid.Column="1" SelectedIndex="{Binding LayoutIndex}" HorizontalAlignment="Stretch">
-            <ComboBoxItem Content="Fileira horizontal (rola pros lados)" />
-            <ComboBoxItem Content="Grade vertical (rola pra cima e pra baixo)" />
-          </ComboBox>
-        </Grid>
+        <TextBlock Text="Tema" FontSize="12" />
+        <ComboBox SelectedIndex="{Binding ThemeIndex}" HorizontalAlignment="Stretch">
+          <ComboBoxItem Content="Escuro" />
+          <ComboBoxItem Content="Claro" />
+          <ComboBoxItem Content="Azul" />
+          <ComboBoxItem Content="Vermelho" />
+        </ComboBox>
+        <TextBlock Text="Tamanho das capas" FontSize="12" />
+        <ComboBox SelectedIndex="{Binding TileSizeIndex}" HorizontalAlignment="Stretch">
+          <ComboBoxItem Content="Pequeno" />
+          <ComboBoxItem Content="Médio" />
+          <ComboBoxItem Content="Grande" />
+        </ComboBox>
+        <TextBlock Text="Biblioteca" FontSize="12" />
+        <ComboBox SelectedIndex="{Binding LayoutIndex}" HorizontalAlignment="Stretch">
+          <ComboBoxItem Content="Fileira horizontal (rola pros lados)" />
+          <ComboBoxItem Content="Grade vertical (rola pra cima e pra baixo)" />
+        </ComboBox>
         <CheckBox IsChecked="{Binding Animations}"
                   Content="Animações (zoom no jogo selecionado e ao passar o mouse, rolagem suave)" />
 
