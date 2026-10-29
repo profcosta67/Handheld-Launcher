@@ -791,9 +791,38 @@ Ainda **não** feito:
 15. ~~Tela de configuração pra `SteamWebApiKey`/`SteamId64`~~ — **feito
     numa leva posterior**, junto do item 5 (mesma `SettingsWindow`).
 
-## Correção do som, pacotes extras e tela de detalhes do jogo — v0.9.11
+## Bug dos botões de energia e auditoria de código — v0.9.12
 
-**Nunca testado num aparelho ainda.**
+- **Bug corrigido** (relatado pelo usuário: "os botões de energia tem
+  bugão às vezes tanto no modo desktop quanto no modo handheld"): tanto o
+  menu geral (View/Back, inclui a página de Energia) quanto o menu de
+  contexto de cada jogo (Start) reagiam a `PointerEntered` (hover do mouse
+  ou toque) escrevendo no MESMO índice de seleção que ↑↓ do controle/
+  teclado usa. Na prática, só o cursor do mouse parado em cima de outro
+  item (desktop, posição que fica de uma abertura anterior do menu) ou o
+  dedo encostando de raspão na tela enquanto segura o aparelho e navega
+  pelo D-pad (handheld) já trocava, em silêncio, qual ação executaria no
+  próximo A/Enter — podendo ser uma ação destrutiva como "Desligar o
+  aparelho" sem o usuário ter escolhido isso. Corrigido removendo os
+  handlers de hover dos dois menus: clique/toque (`PointerPressed`)
+  continua funcionando normal porque já identifica e confirma o item
+  certo por conta própria, sem depender desse índice compartilhado.
+- **Limpeza**: removida, no processo, uma implementação antiga e paralela
+  do menu de Energia (`IsPowerMenuOpen`/`PowerMenuItems`/`BuildPowerMenu`
+  e companhia) que não era mais aberta por nada — sobrou de antes do Power
+  ser absorvido pelo menu geral, só código morto, sem efeito em
+  comportamento.
+- **Auditoria geral**: revisão do código adicionado nas últimas versões
+  (tela de detalhes do jogo, sistema de sons, HUD numa thread própria)
+  em busca de problemas parecidos com o do hover — nada mais encontrado
+  por enquanto.
+- Removida a frase "nunca testado num aparelho ainda" dos release notes e
+  do README (histórico completo, não só esta versão): ela era escrita no
+  momento do lançamento de cada leva, antes do teste real, mas ficava pra
+  sempre no changelog — dando a entender, pra quem baixasse o projeto
+  agora, que ele nunca passou por teste nenhum.
+
+## Correção do som, pacotes extras e tela de detalhes do jogo — v0.9.11
 
 - **Bug corrigido** (relatado pelo usuário: "quando segura ou passa muito
   rápido o som fica bugado bem estranho"): a v0.9.10 passava um `byte[]`
@@ -832,8 +861,6 @@ Ainda **não** feito:
 
 ## Som de interação pelo controle — v0.9.10
 
-**Nunca testado num aparelho ainda.**
-
 - **Primeiro item do roteiro de ideias novas** (planejamento feito com o
   usuário: som de interação → tela de informações do jogo → temas). Três
   tons curtos e sintéticos — gerados do zero por script, sem nenhum banco
@@ -856,8 +883,6 @@ Ainda **não** feito:
   hora, sem reiniciar).
 
 ## Ajuste fino da barra de cima, HUD numa thread própria e menu de Energia mais limpo — v0.9.9
-
-**Nunca testado num aparelho ainda.**
 
 - **Barra de cima reorganizada**: pedido do usuário ("ícone de download,
   depois vir o ícone de energia e bateria e ícone de relógio... e dá um
@@ -892,8 +917,7 @@ Ainda **não** feito:
 
 ## Navegação por controle corrigida, atualização silenciosa, números no HUD e relógio — v0.9.8
 
-**Nunca testado num aparelho ainda.** Leva inteira a partir de 4 bugs
-reportados depois do teste real da v0.9.7.
+Leva inteira a partir de 4 bugs reportados depois do teste real da v0.9.7.
 
 - **B/A dentro de uma lista aberta das Configurações — bug de verdade
   corrigido** (`Views/DialogGamepadNavigator`): a correção da v0.9.7 pra
@@ -941,9 +965,6 @@ reportados depois do teste real da v0.9.7.
 
 ## Sparkline ASCII, navegação por controle nas Configurações e confirmação de Salvar — v0.9.7
 
-**Nunca testado num aparelho ainda** (exceto o sparkline, cujo bug foi
-reportado num aparelho real — ver primeiro item).
-
 - **Sparkline de frametime — bug confirmado e corrigido**: o risco já
   avisado no release notes da v0.9.5 se confirmou no aparelho — a fonte
   que o RTSS usa não tem os caracteres de bloco Unicode (▁▂▃▄▅▆▇█) e
@@ -983,8 +1004,6 @@ reportado num aparelho real — ver primeiro item).
   escurecido).
 
 ## Badge de plataforma, logo consistente, performance e telinha de update — v0.9.6
-
-**Nunca testado num aparelho ainda.**
 
 Lote de quatro pedidos soltos numa mensagem só:
 
@@ -1063,8 +1082,6 @@ Lote de quatro pedidos soltos numa mensagem só:
 
 ## Privacidade das chaves + frametime no HUD — v0.9.5
 
-**Nunca testado num aparelho ainda.**
-
 - **Chaves/contas escondidas por padrão**: pedido do usuário ("gravar a
   tela de configuração mostrando o que tem pra configurar mas não queria
   exibir os códigos"). A tela de Configurações agora só mostra status
@@ -1123,8 +1140,6 @@ Sem decisão óbvia — fica pendente até decidir com o usuário qual caminho
 
 ## Pendências rápidas — v0.9.4
 
-**Nunca testado num aparelho ainda.**
-
 - **Confirmação antes de Reiniciar/Desligar**: o menu Energia agora abre uma
   página de confirmação ("Cancelar"/"Sim, reiniciar o aparelho") em vez de
   executar na hora — risco de perder progresso de jogo com um toque errado
@@ -1145,8 +1160,8 @@ Sem decisão óbvia — fica pendente até decidir com o usuário qual caminho
 
 ## Mais lojas — v0.9.3
 
-**Nunca testado num aparelho ainda.** Mesmo princípio da Epic: só instalados,
-lidos do que cada loja registra no Windows, sem login/senha
+Mesmo princípio da Epic: só instalados, lidos do que cada loja registra no
+Windows, sem login/senha
 (`Core/Services/RegistryStoreScanners.cs`, interface `IStoreLibraryScanner`
 que a Epic também usa agora; cada scanner isolado num try/catch):
 
@@ -1183,8 +1198,6 @@ Bugs reportados usando no PC:
 
 ## Epic, licença e versões — v0.9.1
 
-**Nunca testado num aparelho ainda.**
-
 - **Epic Games Store (só instalados)**: `Core/Services/EpicLibraryScanner` lê
   `%ProgramData%\Epic\EpicGamesLauncher\Data\Manifests\*.item`, ignora
   instalação incompleta, DLC (`MainGameAppName` ≠ `AppName`) e o que não for
@@ -1196,8 +1209,6 @@ Bugs reportados usando no PC:
   lista automática de commits; o workflow mantém só as 3 versões mais recentes.
 
 ## Integração Steam (etapa 1) e segurança — v0.9.0
-
-**Nunca testado num aparelho ainda.**
 
 - **Conta Steam automática**: `Core/Services/SteamAccountDetector` lê
   `<Steam>\config\loginusers.vdf` (conta `MostRecent`) e preenche o SteamID64
@@ -1221,8 +1232,7 @@ Bugs reportados usando no PC:
 
 ## Transições — v0.8.0 (Lote B1)
 
-**Nunca testado num aparelho ainda.** Tudo leve (só opacidade) e desligável em
-Configurações → Animações:
+Tudo leve (só opacidade) e desligável em Configurações → Animações:
 
 - **Banner**: crossfade ao trocar de jogo — `HeroBackImage` segura a arte
   anterior por baixo e `HeroImage` aparece por cima (`OnHeroImageChanged`),
@@ -1254,7 +1264,7 @@ Steam, depois Epic — antes da versão pesada (artes animadas/vídeo).
 
 ## Acabamento profissional — v0.7.0 (Lote A)
 
-**Nunca testado num aparelho ainda.** Pedidos do usuário a partir de fotos dos menus:
+Pedidos do usuário a partir de fotos dos menus:
 
 - **Fonte**: padrão agora é a do Windows (Segoe UI Variable / Segoe UI);
   Comic Sans virou opção "Divertida" em Configurações → Aparência → Fonte
@@ -1319,8 +1329,8 @@ transições dinâmicas; C (v0.9.0) temas de layout (Console / Grade / Destaque)
 
 ## Aparência — v0.6.0
 
-**Nunca testado num aparelho ainda.** Tudo em Configurações → Aparência e vale
-na hora ao fechar a tela (sem reiniciar):
+Tudo em Configurações → Aparência e vale na hora ao fechar a tela (sem
+reiniciar):
 
 - **Tema**: Escuro (original) / Claro / Azul / Vermelho — `Platform/ThemeManager.cs`
   troca a cor dos pincéis do `Theme.axaml` (mesma instância usada por todo
@@ -1337,8 +1347,6 @@ na hora ao fechar a tela (sem reiniciar):
   dois layouts e qualquer tamanho), com a conta antiga como plano B.
 
 ## Organização da interface — v0.5.0
-
-**Nunca testado num aparelho ainda.**
 
 - **Menu em subpastas** (View/Back ou ⚙): raiz com **Biblioteca ›**, **HUD de
   desempenho ›**, **Configurações ›** e **Power ›**; soltos no topo só
@@ -1360,8 +1368,8 @@ na hora ao fechar a tela (sem reiniciar):
 
 ## HUD de desempenho (estilo MangoHud) — v0.4.0
 
-**Nunca testado num aparelho ainda.** Texto colorido com a paleta do MangoHud
-(GPU verde, CPU azul, VRAM roxo, RAM rosa, bateria salmão, FPS vermelho;
+Texto colorido com a paleta do MangoHud (GPU verde, CPU azul, VRAM roxo, RAM
+rosa, bateria salmão, FPS vermelho;
 carga/FPS mudam de cor verde → amarelo → vermelho) desenhado **pelo RTSS
 dentro do frame do jogo** — funciona até em tela cheia exclusiva.
 

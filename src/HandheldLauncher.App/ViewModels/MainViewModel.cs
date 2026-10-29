@@ -501,7 +501,7 @@ public sealed class MainViewModel : ViewModelBase
 
     /// <summary>
     /// Reconstruído a cada abertura (ver BuildContextMenu) em vez de uma
-    /// lista fixa — mesmo padrão de GlobalMenuItems/PowerMenuItems (List
+    /// lista fixa — mesmo padrão de GlobalMenuItems (List
     /// &lt;Action&gt; + ObservableCollection em paralelo, zerados e
     /// reconstruídos do zero toda vez que o menu abre). Virou necessário
     /// nesta leva: "Excluir atalho" só faz sentido pra jogos não-Steam e
@@ -565,10 +565,10 @@ public sealed class MainViewModel : ViewModelBase
     /// repeated here specifically so the controller can reach them too:
     /// View/Back already reaches this menu from anywhere, so there's no
     /// need for a separate "navigate up/down to the on-screen icons"
-    /// input model. "Sair" moved out of here into the Power menu (see
-    /// BuildPowerMenu). Independent of IsContextMenuOpen; MainWindow only
-    /// lets one of the three menus be entered at a time (see
-    /// OnGamepadTick).
+    /// input model. "Sair" moved out of here into the Power page (see
+    /// GlobalMenuPage.Power in BuildGlobalMenu). Independent of
+    /// IsContextMenuOpen; MainWindow only lets one of the menus be
+    /// entered at a time (see OnGamepadTick).
     /// </summary>
     public bool IsGlobalMenuOpen
     {
@@ -594,7 +594,7 @@ public sealed class MainViewModel : ViewModelBase
     /// </summary>
     public event EventHandler? SettingsRequested;
 
-    /// <summary>Raised when "Sair" is picked (now from the Power menu, not the global menu — see BuildPowerMenu) — MainWindow owns Close(), not the ViewModel.</summary>
+    /// <summary>Raised when "Sair" is picked (from the Power page of the global menu — see GlobalMenuPage.Power in BuildGlobalMenu) — MainWindow owns Close(), not the ViewModel.</summary>
     public event EventHandler? QuitRequested;
 
     /// <summary>Raised when "Minimizar" is picked from the global menu — MainWindow owns Hide(), not the ViewModel. Same action as the bottom-bar "Minimizar" button (OnMinimizeClick); this just gives the controller a path to it too.</summary>
@@ -644,26 +644,6 @@ public sealed class MainViewModel : ViewModelBase
     /// </summary>
     public GameDetailsViewModel CreateGameDetailsViewModel(GameEntry game)
         => new(game, _steamOwnedGames, _steamAchievements);
-
-    private bool _isPowerMenuOpen;
-
-    /// <summary>
-    /// The "Power" button's menu (Desligar tela / Reiniciar o aparelho /
-    /// Desligar o aparelho / Sair) — same visual/overlay pattern as the global menu,
-    /// just a separate independent flag so opening one never interferes
-    /// with the other. MainWindow is the one place that checks which
-    /// overlay (if any) owns gamepad/keyboard input right now.
-    /// </summary>
-    public bool IsPowerMenuOpen
-    {
-        get => _isPowerMenuOpen;
-        private set => SetField(ref _isPowerMenuOpen, value);
-    }
-
-    public ObservableCollection<ContextMenuItemViewModel> PowerMenuItems { get; } = new();
-
-    private readonly List<Action> _powerMenuActions = new();
-    private int _powerMenuIndex;
 
     /// <summary>Raised when "Desligar tela" is picked — MainWindow owns the actual Win32 call, not the ViewModel.</summary>
     public event EventHandler? TurnOffScreenRequested;
@@ -865,7 +845,7 @@ public sealed class MainViewModel : ViewModelBase
 
     /// <summary>
     /// Reconstrói ContextMenuItems/_contextMenuActions do zero pra tile em
-    /// foco — mesma ideia de BuildGlobalMenu/BuildPowerMenu abaixo.
+    /// foco — mesma ideia de BuildGlobalMenu abaixo.
     /// "Favoritar"/"Desfavoritar" sai automaticamente certo (sem precisar
     /// mais do hack de reescrever Label depois) porque isso reconstrói na
     /// hora de abrir, já olhando pro estado atual do jogo.
@@ -1068,7 +1048,7 @@ public sealed class MainViewModel : ViewModelBase
     /// Despacho dinâmico (_contextMenuActions, montado por BuildContextMenu
     /// ou OpenConfirmMenu) em vez do switch fixo por índice de antes — ver
     /// o comentário de ContextMenuItems. Mesmo padrão já usado por
-    /// ConfirmGlobalMenuSelection/ConfirmPowerMenuSelection.
+    /// ConfirmGlobalMenuSelection.
     /// </summary>
     public void ConfirmContextMenuSelection()
     {
@@ -1434,7 +1414,13 @@ public sealed class MainViewModel : ViewModelBase
 
     /// <summary>
     /// Botão ⏻ da barra de baixo: abre o menu direto na página Power, ou
-    /// fecha se já estiver nela (toggle).
+    /// fecha se já estiver nela (toggle). O "Power" é só mais uma página
+    /// do menu geral (GlobalMenuPage.Power, ver BuildGlobalMenu) — não tem
+    /// overlay/estado próprio. Uma implementação paralela e independente
+    /// existiu antes (IsPowerMenuOpen/PowerMenuItems/BuildPowerMenu etc.),
+    /// mas nada além dela mesma a abria — era código morto, removido na
+    /// v0.9.11 junto da auditoria do bug "botões de energia com bugão"
+    /// (ver comentário em MainWindow.axaml acima dos Panel de menu).
     /// </summary>
     public void TogglePowerMenu()
     {
@@ -1445,71 +1431,6 @@ public sealed class MainViewModel : ViewModelBase
         }
 
         OpenGlobalMenuAt(GlobalMenuPage.Power);
-    }
-
-    public void ClosePowerMenu()
-    {
-        IsPowerMenuOpen = false;
-    }
-
-    public void MovePowerMenuSelection(int delta)
-    {
-        if (!IsPowerMenuOpen || PowerMenuItems.Count == 0) return;
-        _powerMenuIndex = ((_powerMenuIndex + delta) % PowerMenuItems.Count + PowerMenuItems.Count) % PowerMenuItems.Count;
-        UpdatePowerMenuSelection();
-    }
-
-    public void ConfirmPowerMenuSelection()
-    {
-        if (!IsPowerMenuOpen) return;
-
-        var index = _powerMenuIndex;
-        ClosePowerMenu();
-
-        if (index >= 0 && index < _powerMenuActions.Count)
-        {
-            _powerMenuActions[index]();
-        }
-    }
-
-    private void UpdatePowerMenuSelection()
-    {
-        for (var i = 0; i < PowerMenuItems.Count; i++)
-        {
-            PowerMenuItems[i].IsSelected = i == _powerMenuIndex;
-        }
-    }
-
-    /// <summary>
-    /// Fixed 3-item list — no state to check, unlike BuildGlobalMenu, so
-    /// this could be built once in the constructor instead, but rebuilding
-    /// on open keeps the same pattern as the other two menus for
-    /// consistency.
-    /// </summary>
-    private void BuildPowerMenu()
-    {
-        PowerMenuItems.Clear();
-        _powerMenuActions.Clear();
-
-        void Add(string label, Action action)
-        {
-            PowerMenuItems.Add(new ContextMenuItemViewModel(label));
-            _powerMenuActions.Add(action);
-        }
-
-        // Rótulos renomeados nesta leva (pedido do usuário) — "Reiniciar
-        // o Legion Go"/"Desligar o Legion Go" eram específicos do Legion
-        // Go, mas o projeto agora também roda no ROG Ally; "o aparelho"
-        // vale pra qualquer um dos dois.
-        Add("Desligar tela", () => TurnOffScreenRequested?.Invoke(this, EventArgs.Empty));
-        Add("Reiniciar o aparelho", () => RestartDeviceRequested?.Invoke(this, EventArgs.Empty));
-        Add("Desligar o aparelho", () => ShutdownDeviceRequested?.Invoke(this, EventArgs.Empty));
-
-        // Movido pra aqui a pedido do usuário (antes vivia no menu
-        // geral/engrenagem) — faz mais sentido ao lado de
-        // reiniciar/desligar o aparelho do que junto de
-        // Atualizar Biblioteca/Adicionar jogo.
-        Add("Sair", () => QuitRequested?.Invoke(this, EventArgs.Empty));
     }
 
     private bool _isDownloadsOpen;

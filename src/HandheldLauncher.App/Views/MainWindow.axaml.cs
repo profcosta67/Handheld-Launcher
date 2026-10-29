@@ -314,12 +314,16 @@ public partial class MainWindow : Window
     }
 
     // --- mouse nos menus (v0.9.2) -----------------------------------------
-
-    private void OnContextMenuItemEntered(object? sender, PointerEventArgs e)
-    {
-        if (DataContext is MainViewModel vm && sender is Control { DataContext: ContextMenuItemViewModel item })
-            vm.HighlightContextMenuItem(item);
-    }
+    //
+    // v0.9.11: sem handler de PointerEntered (hover) aqui de propósito —
+    // ver o comentário em MainWindow.axaml acima dos dois Panel de menu.
+    // Resumo: hover escrevia no mesmo índice que ↑↓ do controle/teclado
+    // usa, e o toque incidental numa tela de handheld (ou o cursor do
+    // mouse só parado em cima de outro item) podia trocar qual ação ia
+    // disparar no próximo A/Enter sem o usuário escolher isso — bug
+    // reportado como "os botões de energia tem bugão às vezes". Clique/
+    // toque (Pressed) não precisa de hover: ele já identifica e confirma
+    // o item certo direto pelo DataContext, independente desse índice.
 
     private void OnContextMenuItemPressed(object? sender, PointerPressedEventArgs e)
     {
@@ -328,12 +332,6 @@ public partial class MainWindow : Window
             vm.ActivateContextMenuItem(item);
             e.Handled = true;
         }
-    }
-
-    private void OnGlobalMenuItemEntered(object? sender, PointerEventArgs e)
-    {
-        if (DataContext is MainViewModel vm && sender is Control { DataContext: ContextMenuItemViewModel item })
-            vm.HighlightGlobalMenuItem(item);
     }
 
     private void OnGlobalMenuItemPressed(object? sender, PointerPressedEventArgs e)
@@ -362,7 +360,6 @@ public partial class MainWindow : Window
         else if (vm.IsContextMenuOpen) vm.CloseContextMenu();
         else if (vm.IsGlobalMenuOpen) vm.CloseGlobalMenu();
         else if (vm.IsDownloadsOpen) vm.CloseDownloads();
-        else if (vm.IsPowerMenuOpen) vm.ClosePowerMenu();
         e.Handled = true;
     }
 
@@ -669,7 +666,7 @@ public partial class MainWindow : Window
             // every action AND the exact overlay state at the moment it's
             // dispatched, so a "nothing happens" report can be checked
             // against what actually fired instead of guessed at blind.
-            DebugLog.Write($"action={action} pickerOpen={vm.IsCoverPickerOpen} ctxOpen={vm.IsContextMenuOpen} globalOpen={vm.IsGlobalMenuOpen} powerOpen={vm.IsPowerMenuOpen} downloadsOpen={vm.IsDownloadsOpen}");
+            DebugLog.Write($"action={action} pickerOpen={vm.IsCoverPickerOpen} ctxOpen={vm.IsContextMenuOpen} globalOpen={vm.IsGlobalMenuOpen} downloadsOpen={vm.IsDownloadsOpen}");
 
             // v0.9.10: ponto único de som pra todo o resto (biblioteca,
             // seletor de capa, menus de contexto/global/energia, painel de
@@ -765,33 +762,6 @@ public partial class MainWindow : Window
                         break;
                     case GamepadAction.GlobalMenu:
                         vm.CloseGlobalMenu();
-                        break;
-                }
-                continue;
-            }
-
-            // The "Power" menu (bottom-bar button, mouse/touch-only for
-            // now — no gamepad button opens it yet) gets the same
-            // "swallow input while open" treatment as the other overlays,
-            // for when it's navigated by keyboard/gamepad once already
-            // open.
-            if (vm.IsPowerMenuOpen)
-            {
-                switch (action)
-                {
-                    case GamepadAction.MoveUp:
-                        vm.MovePowerMenuSelection(-1);
-                        break;
-                    case GamepadAction.MoveDown:
-                        vm.MovePowerMenuSelection(1);
-                        break;
-                    case GamepadAction.Confirm:
-                        vm.ConfirmPowerMenuSelection();
-                        break;
-                    case GamepadAction.Back:
-                    case GamepadAction.Menu:
-                    case GamepadAction.GlobalMenu:
-                        vm.ClosePowerMenu();
                         break;
                 }
                 continue;
@@ -974,30 +944,6 @@ public partial class MainWindow : Window
                     break;
                 case Key.Tab:
                     vm.CloseGlobalMenu();
-                    e.Handled = true;
-                    break;
-            }
-            return;
-        }
-
-        if (vm.IsPowerMenuOpen)
-        {
-            switch (e.Key)
-            {
-                case Key.Up:
-                    vm.MovePowerMenuSelection(-1);
-                    e.Handled = true;
-                    break;
-                case Key.Down:
-                    vm.MovePowerMenuSelection(1);
-                    e.Handled = true;
-                    break;
-                case Key.Enter:
-                    vm.ConfirmPowerMenuSelection();
-                    e.Handled = true;
-                    break;
-                case Key.Escape:
-                    vm.ClosePowerMenu();
                     e.Handled = true;
                     break;
             }

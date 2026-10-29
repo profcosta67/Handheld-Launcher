@@ -514,7 +514,23 @@
 
     <!-- Start-button context menu: dim backdrop + centered card. Sits as
          the LAST child of the outer Panel so it paints over absolutely
-         everything else, bottom bar included. -->
+         everything else, bottom bar included.
+
+         v0.9.11: SEM PointerEntered aqui de propósito — bug reportado
+         pelo usuário ("os botões de energia tem bugão às vezes, tanto no
+         desktop quanto no handheld"). Causa: PointerEntered (hover) do
+         mouse/touch escrevia no MESMO índice que ↑↓ do controle/teclado
+         usa (ver MainViewModel.HighlightContextMenuItem/
+         HighlightGlobalMenuItem) — só o cursor do mouse PARADO em cima de
+         outro item (ou um dedo encostando de raspão na tela num
+         handheld, segurando o aparelho enquanto navega pelo D-pad) já
+         trocava silenciosamente qual item seria executado no próximo A/
+         Enter, sem o usuário escolher isso. Clique/toque (PointerPressed,
+         ver OnContextMenuItemPressed/ActivateContextMenuItem) já
+         identifica e confirma o item certo por conta própria — não
+         depende desse índice compartilhado — então tirar o hover não
+         quebra mouse/touch, só tira o destaque ao passar por cima sem
+         clicar. -->
     <Panel Classes="fadeIn" IsVisible="{Binding IsContextMenuOpen}">
       <Border Classes="contextMenuOverlay" PointerPressed="OnMenuOverlayPressed" />
       <Border Classes="contextMenuCard" Width="420" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -534,7 +550,6 @@
               <DataTemplate x:DataType="vm:ContextMenuItemViewModel">
                 <Border Classes="menuItem" Classes.selected="{Binding IsSelected}" Classes.danger="{Binding IsDanger}" Padding="14,10"
                         Cursor="Hand"
-                        PointerEntered="OnContextMenuItemEntered"
                         PointerPressed="OnContextMenuItemPressed">
                   <TextBlock Text="{Binding Label}" Classes="gameTitle" />
                 </Border>
@@ -548,7 +563,24 @@
     <!-- Global menu (View/Back button) — same visual pattern as the
          per-tile menu above, but for the bottom bar's actions, so they're
          reachable without a mouse. No "target" title since it's not about
-         a specific game. -->
+         a specific game. "Energia" (botão ⏻ da barra de baixo) abre aqui
+         também, na página GlobalMenuPage.Power — ver
+         MainViewModel.TogglePowerMenu/BuildGlobalMenu. Não tem painel
+         próprio: um painel "Power" separado existiu antes (IsPowerMenuOpen/
+         PowerMenuItems) mas nunca era aberto por nada de verdade — era
+         puro código morto, removido na v0.9.11 (ver auditoria do bug do
+         hover abaixo) junto com o resto dessa implementação paralela.
+
+         v0.9.11: SEM PointerEntered aqui também, mesmo motivo do menu de
+         contexto acima — hover do mouse/touch sobrescrevia o índice que
+         ↑↓ do controle usa, então segurar o aparelho com o dedo
+         encostando de raspão na tela (ou só deixar o cursor do mouse
+         parado em cima de outro item, no desktop) podia trocar qual ação
+         de Energia executava no próximo A/Enter sem o usuário notar —
+         bug reportado: "os botões de energia tem bugão às vezes, tanto no
+         desktop quanto no handheld". Clique/toque continua funcionando
+         normal (ver OnGlobalMenuItemPressed/ActivateGlobalMenuItem, que
+         não depende desse índice). -->
     <Panel Classes="fadeIn" IsVisible="{Binding IsGlobalMenuOpen}">
       <Border Classes="contextMenuOverlay" PointerPressed="OnMenuOverlayPressed" />
       <Border Classes="contextMenuCard" Width="380" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -561,7 +593,6 @@
               <DataTemplate x:DataType="vm:ContextMenuItemViewModel">
                 <Border Classes="menuItem" Classes.selected="{Binding IsSelected}" Classes.danger="{Binding IsDanger}" Padding="14,10"
                         Cursor="Hand"
-                        PointerEntered="OnGlobalMenuItemEntered"
                         PointerPressed="OnGlobalMenuItemPressed">
                   <TextBlock Text="{Binding Label}" Classes="gameTitle" />
                 </Border>
@@ -569,29 +600,6 @@
             </ItemsControl.ItemTemplate>
           </ItemsControl>
           <TextBlock Text="{Binding GlobalMenuHint}" Classes="subtle" FontSize="12" TextWrapping="Wrap" TextAlignment="Center" IsVisible="{Binding HasGlobalMenuHint}" />
-        </StackPanel>
-      </Border>
-    </Panel>
-
-    <!-- Power menu (botão "Power"/⏻ da barra de baixo, OU "Power" dentro
-         do menu geral — ver MainViewModel.BuildGlobalMenu) — mesmo padrão
-         visual dos outros dois menus acima, 4 ações fixas agora incluindo
-         "Sair" (ver MainViewModel.BuildPowerMenu). -->
-    <Panel Classes="fadeIn" IsVisible="{Binding IsPowerMenuOpen}">
-      <Border Classes="contextMenuOverlay" PointerPressed="OnMenuOverlayPressed" />
-      <Border Classes="contextMenuCard" Width="340" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
-        <StackPanel Spacing="16">
-          <TextBlock Text="Energia" Classes="heroTitle" />
-          <ItemsControl ItemsSource="{Binding PowerMenuItems}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate x:DataType="vm:ContextMenuItemViewModel">
-                <Border Classes="menuItem" Classes.selected="{Binding IsSelected}" Padding="14,10">
-                  <TextBlock Text="{Binding Label}" Classes="gameTitle" />
-                </Border>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-          <TextBlock Text="↑↓ navega · A/Enter confirma · B/Esc cancela" Classes="subtle" />
         </StackPanel>
       </Border>
     </Panel>
