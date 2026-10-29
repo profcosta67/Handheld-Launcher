@@ -1,46 +1,91 @@
-# Publica uma nova versão do launcher.
+# Publica uma nova versão do launcher — 100% automático.
 #
-# Como usar: com o código já no GitHub, crie uma tag "vX.Y.Z" (ex: v0.3.0)
-# — no GitHub: Releases > Draft a new release > "Choose a tag" > digite
-# v0.3.0 > Create new tag > Publish release. Este workflow roda sozinho,
-# compila, empacota com o Velopack e anexa na Release:
-#   - HandheldLauncher-win-Setup.exe  (instalador, só na 1ª vez)
-#   - os pacotes de atualização que o launcher baixa sozinho
-#   - Modo-Console.zip (scripts opcionais: kiosk/watchdog/RTSS)
+# Como lançar uma versão: mude o número no arquivo VERSION (raiz do repo,
+# ex: 0.3.1 -> 0.3.2) e envie pro GitHub. Este workflow então:
+#   1. apaga Releases quebradas (sem nenhum arquivo anexado);
+#   2. compila, empacota com o Velopack;
+#   3. cria a tag vX.Y.Z + a Release e anexa:
+#      - HandheldLauncher-win-Setup.exe  (instalador, só na 1ª vez)
+#      - os pacotes de atualização que o launcher baixa sozinho
+#      - Modo-Console.zip (scripts opcionais: kiosk/watchdog/RTSS)
+# Se a versão do VERSION já tiver uma Release completa, não faz nada.
+# Também funciona criando a Release/tag "vX.Y.Z" pelo site do GitHub.
 # Os launchers já instalados percebem a versão nova em até ~6h e mostram
 # "Atualização pronta".
 name: Release
 
 on:
   push:
+    branches: [master]
+    paths: ['VERSION']
     tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   release:
     runs-on: windows-latest
     env:
       VPK_VERSION: 1.2.161 # tem que ser igual ao pacote Velopack do HandheldLauncher.App.csproj
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 8.0.x
-
-      - name: Descobrir versão a partir da tag
+      - name: Descobrir versão
         id: ver
         shell: bash
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="$(tr -d ' \r\n' < VERSION)"
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
           echo "Versão: $VERSION"
 
+      # Releases sem nenhum arquivo são restos de tentativas que falharam
+      # (ex: Release criada pelo site antes do workflow funcionar). Além de
+      # poluírem a página, o atualizador olha a Release mais recente — uma
+      # vazia atrapalharia. Apaga a Release E a tag.
+      - name: Apagar Releases quebradas (sem arquivos)
+        shell: bash
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+            --jq '.[] | select((.assets | length) == 0) | .tag_name' > broken.txt || true
+          while read -r t; do
+            [ -z "$t" ] && continue
+            echo "Apagando Release vazia: $t"
+            gh release delete "$t" --cleanup-tag --yes -R "$GITHUB_REPOSITORY" || true
+          done < broken.txt
+
+      - name: Já existe Release completa dessa versão?
+        id: exists
+        shell: bash
+        run: |
+          N=$(gh release view "${{ steps.ver.outputs.tag }}" -R "$GITHUB_REPOSITORY" --json assets --jq '.assets | length' 2>/dev/null || echo 0)
+          if [ "${N:-0}" -gt 0 ]; then
+            echo "Release ${{ steps.ver.outputs.tag }} já existe com $N arquivos — nada a fazer."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-dotnet@v4
+        if: steps.exists.outputs.skip != 'true'
+        with:
+          dotnet-version: 8.0.x
+
       - name: Publicar (self-contained win-x64)
+        if: steps.exists.outputs.skip != 'true'
         run: >
           dotnet publish src/HandheldLauncher.App -c Release -r win-x64
           --self-contained true
@@ -50,6 +95,7 @@ jobs:
       # Trava de segurança: este repositório é público. Nada que se pareça
       # com chave de API ou configuração pessoal pode ir dentro do pacote.
       - name: Conferir que nenhum segredo entrou no pacote
+        if: steps.exists.outputs.skip != 'true'
         shell: bash
         run: |
           if find publish \( -iname '*api-key*' -o -iname 'settings.json' -o -iname '*.pfx' \) | grep -q .; then
@@ -59,12 +105,14 @@ jobs:
           fi
 
       - name: Instalar vpk (Velopack)
+        if: steps.exists.outputs.skip != 'true'
         run: dotnet tool install -g vpk --version ${{ env.VPK_VERSION }}
 
       # Baixa a Release anterior pra o Velopack gerar atualizações "delta"
       # (só o que mudou). Na primeira versão não existe nada — por isso
       # continue-on-error.
       - name: Baixar versões anteriores (pra delta)
+        if: steps.exists.outputs.skip != 'true'
         continue-on-error: true
         run: >
           vpk download github
@@ -72,6 +120,7 @@ jobs:
           --token ${{ secrets.GITHUB_TOKEN }}
 
       - name: Empacotar
+        if: steps.exists.outputs.skip != 'true'
         run: >
           vpk pack
           --packId HandheldLauncher
@@ -81,28 +130,9 @@ jobs:
           --mainExe HandheldLauncher.exe
           --icon src/HandheldLauncher.App/Assets/app-icon.ico
 
-      # Sobe os arquivos gerados pelo vpk (Setup.exe, pacotes full/delta e os
-      # índices releases.*.json que o atualizador lê) com o gh, que funciona
-      # tanto se a Release já foi criada pelo site quanto se só a tag existe.
-      - name: Publicar arquivos na Release
+      - name: Montar Modo-Console.zip
+        if: steps.exists.outputs.skip != 'true'
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          Get-ChildItem Releases | Format-Table Name, Length
-          gh release view "${{ github.ref_name }}" 2>$null
-          if ($LASTEXITCODE -ne 0) {
-            gh release create "${{ github.ref_name }}" --title "Handheld Launcher ${{ steps.ver.outputs.version }}" --generate-notes
-            if ($LASTEXITCODE -ne 0) { exit 1 }
-          }
-          $files = Get-ChildItem Releases -File | ForEach-Object { $_.FullName }
-          gh release upload "${{ github.ref_name }}" @files --clobber
-          if ($LASTEXITCODE -ne 0) { exit 1 }
-
-      - name: Anexar scripts do Modo Console
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           New-Item -ItemType Directory -Path stage/Modo-Console/Arquivos -Force | Out-Null
           Copy-Item installer/Configurar-Modo-Console.bat stage/Modo-Console/
@@ -110,4 +140,21 @@ jobs:
           Copy-Item installer/Arquivos/Configurar-Modo-Console.ps1 stage/Modo-Console/Arquivos/
           Copy-Item installer/Arquivos/Uninstall-Launcher.ps1 stage/Modo-Console/Arquivos/
           Compress-Archive -Path stage/Modo-Console -DestinationPath Modo-Console.zip -Force
-          gh release upload "${{ github.ref_name }}" Modo-Console.zip --clobber
+
+      # Cria a Release (e a tag, no commit atual) se ainda não existir e
+      # sobe tudo: Setup.exe, pacotes full/delta, índices releases.*.json
+      # que o atualizador lê, e o Modo-Console.zip.
+      - name: Publicar Release
+        if: steps.exists.outputs.skip != 'true'
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.ver.outputs.tag }}"
+          Get-ChildItem Releases | Format-Table Name, Length
+          gh release view $tag -R $env:GITHUB_REPOSITORY 2>$null | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag -R $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Handheld Launcher ${{ steps.ver.outputs.version }}" --generate-notes
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
+          $files = @(Get-ChildItem Releases -File | ForEach-Object { $_.FullName }) + @((Resolve-Path Modo-Console.zip).Path)
+          gh release upload $tag @files -R $env:GITHUB_REPOSITORY --clobber
+          if ($LASTEXITCODE -ne 0) { exit 1 }

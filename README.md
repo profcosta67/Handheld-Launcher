@@ -855,11 +855,13 @@ pegar erro de compilação a cada envio.
    (repositório público — nenhuma chave de API está no código; ver abaixo).
 2. A cada envio pro GitHub, `ci.yml` compila tudo num Windows de verdade
    (se quebrar, aparece o erro exato na aba **Actions**).
-3. Pra lançar uma versão nova: crie uma **tag `vX.Y.Z`** (ex: `v0.3.0`) —
-   no GitHub, **Releases → Draft a new release → Choose a tag → digite
-   `v0.3.0` → Create new tag → Publish release**. `release.yml` roda sozinho:
-   publica self-contained win-x64, empacota com o [Velopack](https://velopack.io)
-   (`vpk`) e anexa à Release o instalador e os pacotes de atualização.
+3. Pra lançar uma versão nova: **mude o número no arquivo `VERSION`** (raiz
+   do repo, ex: `0.3.1` → `0.3.2`) e envie pro GitHub. `release.yml` roda
+   sozinho: apaga Releases quebradas (sem arquivos), publica self-contained
+   win-x64, empacota com o [Velopack](https://velopack.io) (`vpk`), cria a tag
+   `vX.Y.Z` + a Release e anexa o instalador, os pacotes de atualização e o
+   `Modo-Console.zip`. (Criar a Release/tag `vX.Y.Z` pelo site também
+   funciona.) Se a versão já tiver Release completa, não faz nada.
 4. **Primeira vez em cada aparelho**: baixe `HandheldLauncher-win-Setup.exe` da
    Release e execute. Instala em `%LocalAppData%\HandheldLauncher\`, cria
    atalhos e abre. Não precisa do .NET SDK.
