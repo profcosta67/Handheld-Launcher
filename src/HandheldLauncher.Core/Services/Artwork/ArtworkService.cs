@@ -97,6 +97,28 @@ public sealed class ArtworkService : IArtworkService
         return true;
     }
 
+    /// <summary>Ícone quadrado (game.IconImagePath) pra tela "Iniciando..." — mesmo formato de FetchLogoAsync.</summary>
+    public async Task<bool> FetchIconAsync(GameEntry game, CancellationToken ct = default)
+    {
+        if (!HasApiKey) return false;
+
+        var image = game.Source == GameSource.Steam && game.SteamAppId is { } appId
+            ? await _client.GetBestIconForSteamAppAsync(appId, ct)
+            : await _client.GetBestIconForTitleAsync(game.Title, ct);
+
+        if (image is null) return false;
+
+        var localPath = await DownloadToCache(image.Url, _cacheDir, $"{game.Id}_icon", ct);
+        if (localPath is null) return false;
+
+        var data = GetOrCreateOverride(game.Id);
+        data.IconImagePath = localPath;
+        _store.SaveOverride(game.Id, data);
+
+        game.IconImagePath = localPath;
+        return true;
+    }
+
     /// <summary>
     /// Same shape as FetchGridAsync, mas pra uma capa LANDSCAPE
     /// (game.WideGridImagePath) — a WIDE CAPSULE ("último jogo aberto")

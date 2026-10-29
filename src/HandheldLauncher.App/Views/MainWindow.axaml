@@ -671,6 +671,13 @@
       <Border Classes="contextMenuOverlay" />
       <Border Classes="contextMenuCard" Width="420" Padding="32" HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel Spacing="18" HorizontalAlignment="Center">
+          <!-- Ícone do jogo (SteamGridDB, seção Icons) — some quando o
+               jogo ainda não tem ícone baixado. -->
+          <Image Source="{Binding LaunchingGameIconPath, Converter={StaticResource FileToBitmapConverter}}"
+                 IsVisible="{Binding LaunchingGameIconPath, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}"
+                 Width="96" Height="96"
+                 Stretch="Uniform"
+                 HorizontalAlignment="Center" />
           <TextBlock Text="{Binding LaunchingGameTitle, StringFormat='Iniciando {0}...'}"
                      Classes="heroTitle"
                      TextWrapping="Wrap"

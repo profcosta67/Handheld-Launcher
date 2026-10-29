@@ -32,6 +32,16 @@ public interface ISteamGridDbClient
     Task<IReadOnlyList<SteamGridDbImage>> GetGridCandidatesForTitleAsync(string title, CancellationToken ct = default);
 
     /// <summary>
+    /// Ícone quadrado do jogo (seção "Icons" do SteamGridDB) — usado na
+    /// tela "Iniciando &lt;jogo&gt;...". Só PNG estático (os .ico do site
+    /// vêm em vários tamanhos num arquivo só e nem sempre abrem bem).
+    /// </summary>
+    Task<SteamGridDbImage?> GetBestIconForSteamAppAsync(uint steamAppId, CancellationToken ct = default);
+
+    /// <summary>Mesmo que GetBestIconForSteamAppAsync, buscando pelo nome (jogos não-Steam).</summary>
+    Task<SteamGridDbImage?> GetBestIconForTitleAsync(string title, CancellationToken ct = default);
+
+    /// <summary>
     /// "Wide grid" — a CAPA (não um banner/hero), só que em formato
     /// landscape (dimensions=460x215/920x430, o "capsule horizontal" que o
     /// próprio Steam usa) em vez do portrait 600x900 normal. Independente

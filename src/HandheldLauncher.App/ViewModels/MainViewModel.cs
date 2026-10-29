@@ -338,6 +338,19 @@ public sealed class MainViewModel : ViewModelBase
         private set => SetField(ref _launchingGameTitle, value);
     }
 
+    private string? _launchingGameIconPath;
+
+    /// <summary>
+    /// Ícone do SteamGridDB (seção Icons) mostrado em cima do "Iniciando
+    /// &lt;jogo&gt;..." — pedido do usuário. Null = sem ícone ainda (some
+    /// da tela, fica só o texto).
+    /// </summary>
+    public string? LaunchingGameIconPath
+    {
+        get => _launchingGameIconPath;
+        private set => SetField(ref _launchingGameIconPath, value);
+    }
+
     private const int LaunchFeedbackMilliseconds = 2500;
 
     private bool _isFetchingArtwork;
@@ -626,7 +639,16 @@ public sealed class MainViewModel : ViewModelBase
         // é exatamente o intervalo "apertei e nada parece acontecer" que o
         // usuário queria coberto.
         LaunchingGameTitle = game.Title;
+        LaunchingGameIconPath = game.IconImagePath;
         IsLaunching = true;
+
+        // Sem ícone ainda: busca agora em segundo plano. Se chegar enquanto a
+        // tela "Iniciando" ainda está aberta, aparece na hora; senão fica
+        // salvo pra próxima vez.
+        if (string.IsNullOrEmpty(game.IconImagePath) && _artwork.HasApiKey)
+        {
+            _ = FetchLaunchIconAsync(game);
+        }
 
         _launcher.Launch(game);
         RunningGame = game;
@@ -645,6 +667,21 @@ public sealed class MainViewModel : ViewModelBase
 
         await Task.Delay(LaunchFeedbackMilliseconds);
         IsLaunching = false;
+    }
+
+    private async Task FetchLaunchIconAsync(GameEntry game)
+    {
+        try
+        {
+            if (await _artwork.FetchIconAsync(game) && IsLaunching && LaunchingGameTitle == game.Title)
+            {
+                LaunchingGameIconPath = game.IconImagePath;
+            }
+        }
+        catch
+        {
+            // Melhor esforço — sem ícone a tela continua só com o texto.
+        }
     }
 
     public void CloseRunningGame()
@@ -1792,6 +1829,13 @@ public sealed class MainViewModel : ViewModelBase
                 if (string.IsNullOrEmpty(game.WideGridImagePath))
                 {
                     await _artwork.FetchWideGridAsync(game);
+                }
+
+                // Ícone quadrado pra tela "Iniciando <jogo>..." (seção Icons
+                // do SteamGridDB).
+                if (string.IsNullOrEmpty(game.IconImagePath))
+                {
+                    await _artwork.FetchIconAsync(game);
                 }
             }
 

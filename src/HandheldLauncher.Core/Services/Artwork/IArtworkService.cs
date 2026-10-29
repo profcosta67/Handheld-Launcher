@@ -38,6 +38,13 @@ public interface IArtworkService
     Task<bool> FetchLogoAsync(GameEntry game, CancellationToken ct = default);
 
     /// <summary>
+    /// Ícone quadrado do jogo (game.IconImagePath) — aparece na tela
+    /// "Iniciando &lt;jogo&gt;...". Mesmo esquema de cache/override das
+    /// outras artes.
+    /// </summary>
+    Task<bool> FetchIconAsync(GameEntry game, CancellationToken ct = default);
+
+    /// <summary>
     /// Same idea as FetchGridAsync but for a LANDSCAPE capa
     /// (game.WideGridImagePath) — a capa, não um banner/hero, só em
     /// formato horizontal. Independente de FetchGridAsync (capa normal,

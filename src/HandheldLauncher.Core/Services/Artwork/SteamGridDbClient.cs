@@ -104,6 +104,24 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
         return await FetchGridCandidates($"{BaseUrl}/logos/steam/{steamAppId}?types=static", ct);
     }
 
+    public async Task<SteamGridDbImage?> GetBestIconForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
+    {
+        if (!HasApiKey) return null;
+        var candidates = await FetchGridCandidates($"{BaseUrl}/icons/steam/{steamAppId}?types=static&mimes=image/png", ct);
+        return candidates.FirstOrDefault();
+    }
+
+    public async Task<SteamGridDbImage?> GetBestIconForTitleAsync(string title, CancellationToken ct = default)
+    {
+        if (!HasApiKey) return null;
+
+        var gameId = await SearchGameId(title, ct);
+        if (gameId is null) return null;
+
+        var candidates = await FetchGridCandidates($"{BaseUrl}/icons/game/{gameId}?types=static&mimes=image/png", ct);
+        return candidates.FirstOrDefault();
+    }
+
     public async Task<IReadOnlyList<SteamGridDbImage>> GetLogoCandidatesForTitleAsync(string title, CancellationToken ct = default)
     {
         if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
