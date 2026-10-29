@@ -111,6 +111,15 @@ public partial class App : Application
             ThemeManager.ApplyFontSize(appSettings.UiFontSize);
             GameTileViewModel.SizeScale = GameTileViewModel.ScaleForSetting(appSettings.TileSize);
 
+            // v0.9.13: modos de imagem/cor (Vívido/OLED/Noturno/Confortável),
+            // via SetDeviceGammaRamp — CaptureOriginal ANTES de qualquer
+            // Apply, pra "Padrão" e a saída do app sempre devolverem a curva
+            // de gama que já estava no Windows (nunca um chute de curva
+            // neutra, que poderia não bater com uma calibração já existente
+            // no PC — ver aviso completo em DisplayColorManager).
+            DisplayColorManager.Apply(appSettings.ColorMode);
+            desktop.Exit += (_, _) => DisplayColorManager.RestoreOriginal();
+
             var mainViewModel = new MainViewModel(libraryService, gameLauncher, artworkService, performanceOverlay, updateService, performanceHud,
                 steamOwnedGamesClient, steamAchievementsClient);
             var mainWindow = new MainWindow

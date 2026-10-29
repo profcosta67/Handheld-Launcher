@@ -87,6 +87,10 @@ internal static class DialogGamepadNavigator
                 {
                     CycleCombo(comboRight, 1);
                 }
+                else if (focused is Slider sliderRight)
+                {
+                    AdjustSlider(sliderRight, 1);
+                }
                 else
                 {
                     MoveFocus(dialog, focused, NavigationDirection.Next);
@@ -97,6 +101,10 @@ internal static class DialogGamepadNavigator
                 if (focused is ComboBox comboLeft && comboLeft.ItemCount > 0)
                 {
                     CycleCombo(comboLeft, -1);
+                }
+                else if (focused is Slider sliderLeft)
+                {
+                    AdjustSlider(sliderLeft, -1);
                 }
                 else
                 {
@@ -118,6 +126,19 @@ internal static class DialogGamepadNavigator
     {
         if (combo.ItemCount == 0) return;
         combo.SelectedIndex = Math.Clamp(combo.SelectedIndex + delta, 0, combo.ItemCount - 1);
+    }
+
+    /// <summary>
+    /// v0.9.13: primeiro Slider do projeto (volume dos sons, ver
+    /// SettingsWindow.axaml) — sem isso, ←/→ num Slider focado cairia no
+    /// "else" de MoveFocus acima e só trocaria de campo, sem jeito de
+    /// ajustar o valor pelo controle (só mouse/touch arrastando). Passo =
+    /// TickFrequency do Slider (5 no caso do volume).
+    /// </summary>
+    private static void AdjustSlider(Slider slider, int direction)
+    {
+        var step = slider.TickFrequency > 0 ? slider.TickFrequency : 1;
+        slider.Value = Math.Clamp(slider.Value + direction * step, slider.Minimum, slider.Maximum);
     }
 
     /// <summary>

@@ -72,6 +72,11 @@
           <ComboBoxItem Content="Ciano" />
           <ComboBoxItem Content="Preto (OLED)" />
           <ComboBoxItem Content="Dourado" />
+          <!-- v0.9.13, item da fila combinado com o usuário: layout mais
+               "quadrado"/minimalista (ver ThemeManager — TileRadius/
+               BarRadius menores só neste tema), sem nenhum ícone/fonte/
+               logo oficial do aparelho real. -->
+          <ComboBoxItem Content="Switch" />
         </ComboBox>
         <TextBlock Text="Fonte" FontSize="12" />
         <ComboBox SelectedIndex="{Binding FontIndex}" HorizontalAlignment="Stretch">
@@ -117,6 +122,36 @@
           <ComboBoxItem Content="Retro" />
           <ComboBoxItem Content="Future" />
         </ComboBox>
+        <!-- v0.9.13, pedido do usuário: "os sons ficaram um pouco alto,
+             testei no volume máximo e dá aquela estourada". PlaySound
+             (winmm) não tem volume próprio — a escala é aplicada direto
+             nas amostras de cada som (ver Platform/UiSounds.Volume).
+             ←/→ pelo controle também ajustam (ver DialogGamepadNavigator). -->
+        <TextBlock Text="{Binding SoundVolume, StringFormat='Volume dos sons ({0}%)'}" FontSize="12" />
+        <Slider Minimum="0" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True"
+                Value="{Binding SoundVolume}" IsEnabled="{Binding SoundEffects}" />
+
+        <!-- v0.9.13, item do roteiro: modos de otimização de imagem/cor,
+             via SetDeviceGammaRamp (Platform/DisplayColorManager) — ajusta
+             a curva de cor da tela INTEIRA, fora do launcher também,
+             enquanto ele estiver aberto (restaura a curva original ao
+             fechar). Marcado como "experimental" na própria tela porque é
+             uma API do Windows com histórico de reagir diferente entre
+             driver/GPU — ver os avisos de robustez no comentário de
+             DisplayColorManager pro que fazer se a tela ficar com cor
+             estranha depois de trocar. -->
+        <TextBlock Text="Modo de imagem/cor (experimental)" FontSize="12" />
+        <ComboBox SelectedIndex="{Binding ColorModeIndex}" HorizontalAlignment="Stretch">
+          <ComboBoxItem Content="Padrão" />
+          <ComboBoxItem Content="Vívido" />
+          <ComboBoxItem Content="OLED (contraste alto)" />
+          <ComboBoxItem Content="Noturno (luz quente)" />
+          <ComboBoxItem Content="Confortável" />
+        </ComboBox>
+        <TextBlock Text="Ajusta a cor da tela inteira (fora do launcher também) enquanto ele estiver aberto. Se a tela ficar estranha depois de trocar, feche e abra o launcher de novo."
+                   Classes="subtle"
+                   FontSize="11"
+                   TextWrapping="Wrap" />
 
         <TextBlock Text="Overlay de desempenho (estilo MangoHud, desenhado pelo RTSS)" Classes="subtle" Margin="0,12,0,0" />
         <ComboBox SelectedIndex="{Binding OverlayPresetIndex}" HorizontalAlignment="Stretch">

@@ -86,7 +86,7 @@ public class AppSettings
     /// </summary>
     public int OverlayPreset { get; set; } = 2;
 
-    /// <summary>Tema (índice em ThemeManager.ThemeNames): 0 Escuro, 1 Claro, 2 Azul, 3 Vermelho, 4 Verde, 5 Laranja, 6 Rosa, 7 Ciano, 8 Preto (OLED), 9 Dourado.</summary>
+    /// <summary>Tema (índice em ThemeManager.ThemeNames): 0 Escuro, 1 Claro, 2 Azul, 3 Vermelho, 4 Verde, 5 Laranja, 6 Rosa, 7 Ciano, 8 Preto (OLED), 9 Dourado, 10 Switch.</summary>
     public int Theme { get; set; }
 
     /// <summary>Tamanho das capas na biblioteca: 0 Pequeno, 1 Médio (padrão), 2 Grande.</summary>
@@ -103,6 +103,24 @@ public class AppSettings
 
     /// <summary>Estilo do som de interação (índice em Platform.UiSounds.PackNames): 0 Clássico (padrão), 1 Suave, 2 Retro, 3 Future.</summary>
     public int SoundTheme { get; set; }
+
+    /// <summary>
+    /// Volume dos sons de interação (0-100, v0.9.13) — índice espelhado em
+    /// Platform.UiSounds.Volume. Padrão 70, não 100: usuário reportou
+    /// "estourada" testando no volume máximo do aparelho; 70 já reduz isso
+    /// sem precisar regerar os .wav (ver UiSounds pra detalhe de como a
+    /// escala é aplicada, já que PlaySound não tem volume próprio).
+    /// </summary>
+    public int SoundVolume { get; set; } = 70;
+
+    /// <summary>
+    /// Modo de otimização de imagem/cor (índice em
+    /// Platform.DisplayColorManager.ModeNames): 0 Padrão (sem ajuste,
+    /// padrão), 1 Vívido, 2 OLED (contraste alto), 3 Noturno (luz quente),
+    /// 4 Confortável. Via SetDeviceGammaRamp — experimental, ver os avisos
+    /// no comentário de DisplayColorManager antes de mudar o padrão.
+    /// </summary>
+    public int ColorMode { get; set; }
 
     /// <summary>Fonte da interface (índice em ThemeManager.Fonts): 0 Moderna (Segoe UI, padrão), 1 Divertida, 2 Formal, 3 Gamer, 4 Terminal, 5 Arial, 6 Times New Roman, 7 Verdana, 8 Trebuchet.</summary>
     public int UiFont { get; set; }

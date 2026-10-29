@@ -244,6 +244,21 @@ public sealed class SettingsViewModel : ViewModelBase
     /// <summary>"Estilo de som" (v0.9.11) — índice em Platform.UiSounds.PackNames.</summary>
     public int SoundThemeIndex { get => _soundThemeIndex; set => SetField(ref _soundThemeIndex, value); }
 
+    private double _soundVolume = 70;
+
+    /// <summary>
+    /// "Volume dos sons" (v0.9.13, 0-100) — espelha Platform.UiSounds.Volume
+    /// (lá é int; aqui é double de propósito, pra bater exatamente com o
+    /// tipo de Slider.Value e não depender de conversão implícita no
+    /// binding, que não dá pra confirmar sem compilar).
+    /// </summary>
+    public double SoundVolume { get => _soundVolume; set => SetField(ref _soundVolume, value); }
+
+    private int _colorModeIndex;
+
+    /// <summary>"Modo de imagem/cor" (v0.9.13) — índice em Platform.DisplayColorManager.ModeNames.</summary>
+    public int ColorModeIndex { get => _colorModeIndex; set => SetField(ref _colorModeIndex, value); }
+
     private string? _savedMessage;
     public string? SavedMessage
     {
@@ -296,6 +311,8 @@ public sealed class SettingsViewModel : ViewModelBase
         Animations = settings.Animations;
         SoundEffects = settings.SoundEffects;
         SoundThemeIndex = Math.Clamp(settings.SoundTheme, 0, HandheldLauncher.App.Platform.UiSounds.PackNames.Length - 1);
+        SoundVolume = Math.Clamp(settings.SoundVolume, 0, 100);
+        ColorModeIndex = Math.Clamp(settings.ColorMode, 0, HandheldLauncher.App.Platform.DisplayColorManager.ModeNames.Length - 1);
         SavedMessage = null;
     }
 
@@ -326,6 +343,8 @@ public sealed class SettingsViewModel : ViewModelBase
         settings.Animations = Animations;
         settings.SoundEffects = SoundEffects;
         settings.SoundTheme = Math.Clamp(SoundThemeIndex, 0, HandheldLauncher.App.Platform.UiSounds.PackNames.Length - 1);
+        settings.SoundVolume = Math.Clamp((int)Math.Round(SoundVolume), 0, 100);
+        settings.ColorMode = Math.Clamp(ColorModeIndex, 0, HandheldLauncher.App.Platform.DisplayColorManager.ModeNames.Length - 1);
 
         AppSettingsStore.Save(settings);
 

@@ -14,7 +14,7 @@ namespace HandheldLauncher.App.Platform;
 public static class ThemeManager
 {
     public static readonly string[] ThemeNames =
-        ["Escuro", "Claro", "Azul", "Vermelho", "Verde", "Laranja", "Rosa", "Ciano", "Preto (OLED)", "Dourado"];
+        ["Escuro", "Claro", "Azul", "Vermelho", "Verde", "Laranja", "Rosa", "Ciano", "Preto (OLED)", "Dourado", "Switch"];
 
     /// <summary>
     /// Fontes da interface — todas já vêm instaladas no Windows 10/11 (nada
@@ -62,10 +62,19 @@ public static class ThemeManager
         }
     }
 
+    /// <summary>
+    /// TileRadius/BarRadius (v0.9.13): até aqui, o arredondamento das tiles
+    /// e das barras era um recurso GLOBAL (TileCornerRadius/BarCornerRadius
+    /// em Theme.axaml), igual pra qualquer tema. O tema Switch pediu algo
+    /// mais "quadrado"/minimalista (ver roteiro: "só a disposição limpa/
+    /// minimalista dos itens"), então os dois ganharam um valor por tema
+    /// aqui — os 10 temas antigos usam o default (16/18, exatamente o que
+    /// já era fixo em Theme.axaml antes), só o Switch passa um valor menor.
+    /// </summary>
     private sealed record Palette(
         string Background, string Surface, string SurfaceRaised,
         string Accent, string AccentSoft, string TextPrimary, string TextSecondary,
-        bool IsLight);
+        bool IsLight, double TileRadius = 16, double BarRadius = 18);
 
     private static readonly Palette[] Palettes =
     [
@@ -89,6 +98,13 @@ public static class ThemeManager
         new("#000000", "#0A0A0A", "#161616", "#FFFFFF", "#4A4A4A", "#FFFFFF", "#8C8C8C", false),
         // Dourado
         new("#0E0C08", "#1A160E", "#262015", "#E5B33E", "#9C7A27", "#FFF8E6", "#B3A584", false),
+        // Switch — inspirado no visual minimalista do menu do Nintendo
+        // Switch: cinza-grafite neutro + vermelho vibrante de destaque,
+        // cantos bem menos arredondados que os outros temas (10/10 em vez
+        // de 16/18 — "disposição limpa", ver TileRadius/BarRadius acima).
+        // Sem nenhum ícone/fonte/logo oficial — só paleta de cor e
+        // arredondamento, nada copiado da interface real do aparelho.
+        new("#1A1A1A", "#242424", "#2E2E2E", "#E4423F", "#A32E2C", "#FFFFFF", "#ACACAC", false, TileRadius: 10, BarRadius: 10),
     ];
 
     /// <summary>
@@ -133,6 +149,20 @@ public static class ThemeManager
         SetBrush(app, "AccentSoftBrush", palette.AccentSoft);
         SetBrush(app, "TextPrimaryBrush", palette.TextPrimary);
         SetBrush(app, "TextSecondaryBrush", palette.TextSecondary);
+
+        // v0.9.13: arredondamento por tema (ver Palette.TileRadius/BarRadius
+        // acima) — precisa ser DynamicResource em Theme.axaml (não
+        // StaticResource) pra essa troca em runtime valer sem reiniciar,
+        // mesma ideia já usada pelo FontSizeBase etc.
+        try
+        {
+            app.Resources["TileCornerRadius"] = new CornerRadius(palette.TileRadius);
+            app.Resources["BarCornerRadius"] = new CornerRadius(palette.BarRadius);
+        }
+        catch
+        {
+            // Melhor esforço.
+        }
 
         // Semitransparentes: mesma cor da superfície/fundo do tema com ~80% de opacidade.
         // Preto (OLED): barras e véu do fundo 100% opacos — senão o fundo

@@ -1184,6 +1184,14 @@ public partial class MainWindow : Window
             UiSounds.Enabled = settings.SoundEffects;
             // v0.9.11: "Estilo do som" (Clássico/Suave/Retro) — mesma ideia.
             UiSounds.Pack = settings.SoundTheme;
+            // v0.9.13: "Volume dos sons" — mesma ideia (ver UiSounds.Volume
+            // pro porquê de reescalar as amostras em vez de um parâmetro
+            // de volume, que PlaySound não tem).
+            UiSounds.Volume = settings.SoundVolume;
+            // v0.9.13: "Modo de imagem/cor" — mesma ideia, mas essa também
+            // já roda uma vez no startup (App.axaml.cs) antes da primeira
+            // janela desenhar; aqui só cobre a troca feita nas Configurações.
+            DisplayColorManager.Apply(settings.ColorMode);
 
             var scale = GameTileViewModel.ScaleForSetting(settings.TileSize);
             var scaleChanged = Math.Abs(scale - GameTileViewModel.SizeScale) > 0.001;

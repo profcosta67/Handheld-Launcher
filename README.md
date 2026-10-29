@@ -117,9 +117,10 @@ mais sentido de risco crescente):
    jogadas e conquistas via Steam Web API — **feito na v0.9.11**, ver seção
    própria; classificação/resumo de loja ficou pra uma fase 2, via API
    não-oficial da loja da Steam, já que a API "de conta" não tem esses
-   dados) → **tema inspirado no Nintendo Switch**: só a disposição
+   dados) → ~~tema inspirado no Nintendo Switch~~: só a disposição
    limpa/minimalista dos itens, **sem** logos/fontes/ícones oficiais (evita
-   problema de marca registrada).
+   problema de marca registrada) — **feito na v0.9.13**, layout criado
+   livremente (usuário preferiu não mandar referência), ver seção própria.
 
 6. **Mais ideias do usuário (pós v0.9.10/v0.9.11), só anotadas por enquanto
    — pedido explícito de não codar/testar ainda**:
@@ -147,22 +148,16 @@ mais sentido de risco crescente):
      num `qt-config.ini` (`Paths\gamedirs`) — precisa confirmar isso na
      prática antes de escrever um `EdenLibraryScanner` (mesmo padrão dos
      scanners de Epic/GOG/Ubisoft/EA já existentes).
-   - **Modos de otimização de imagem/cor** (Vívido, OLED, Noturno,
-     Confortável etc.). Pesquisa inicial: a API do Windows
-     `SetDeviceGammaRamp` (gdi32.dll) ajusta a curva de cor da tela
-     INTEIRA sem depender do fabricante da GPU (funciona em qualquer PC)
-     — é o mesmo caminho de apps como GammaBoost/Dimmer pra efeito
-     parecido. Daria pra ter uns presets prontos nessa curva. Precisa
-     confirmar que isso não baguna o HDR/perfil de cor das telas OLED do
-     Legion Go 2/ROG Ally antes de virar padrão.
-   - **Volume dos sons de interação um pouco alto** (reportado pelo
-     usuário testando a v0.9.12 no volume máximo do aparelho: "dá aquela
-     estourada, fica um pouco desconfortável"). Fica pra quando entrar o
-     tema inspirado no Nintendo Switch (item 5, próximo item da fila) —
-     bom momento pra também
-     adicionar um controle de volume próprio dos sons de interação em
-     Configurações → Aparência (hoje é só ligado/desligado), em vez de só
-     baixar o nível fixo no código.
+   - ~~**Modos de otimização de imagem/cor**~~ (Vívido, OLED, Noturno,
+     Confortável) — **feito na v0.9.13** via `SetDeviceGammaRamp`, ver
+     seção própria. Marcado como experimental na própria tela: é uma API
+     que reage diferente dependendo do driver/GPU e não dá pra confirmar
+     daqui que não vai bagunçar o HDR/perfil de cor das telas OLED do
+     Legion Go 2/ROG Ally — vale testar com calma antes de adotar como
+     uso diário.
+   - ~~**Volume dos sons de interação um pouco alto**~~ — **feito na
+     v0.9.13**: slider próprio em Configurações → Aparência + padrão
+     reduzido de 100% pra 70%, ver seção própria.
 
 ## Status atual
 
@@ -798,6 +793,45 @@ Ainda **não** feito:
     mostrar o FPS" mais abaixo).
 15. ~~Tela de configuração pra `SteamWebApiKey`/`SteamId64`~~ — **feito
     numa leva posterior**, junto do item 5 (mesma `SettingsWindow`).
+
+## Tema Switch, volume dos sons e modos de imagem/cor — v0.9.13
+
+- **Tema Switch**: novo tema em Configurações → Aparência → Tema
+  (`Platform/ThemeManager`) — cinza-grafite + vermelho vibrante, mesmo
+  padrão dos outros 10 temas (só paleta de cor), mas com um toque de
+  "disposição" junto: `TileCornerRadius`/`BarCornerRadius` (antes globais,
+  fixos em Theme.axaml) agora também variam por tema, e o Switch usa um
+  valor bem mais "quadrado" (10 em vez de 16/18) — a parte de "layout" do
+  pedido original ("só a disposição limpa/minimalista dos itens"), dentro
+  do que dá pra variar sem reescrever o XAML inteiro de cada tela.
+  Usuário optou por eu criar o visual livremente (sem mandar fotos de
+  referência como fez no v0.7.0) — sem nenhum ícone/fonte/logo oficial do
+  aparelho real, só a paleta e o arredondamento.
+- **Volume dos sons de interação**: `PlaySound` (winmm) não tem parâmetro
+  de volume próprio — a escala agora é aplicada direto nas amostras PCM
+  de cada som antes de copiar pra memória não gerenciada (ver
+  `Platform/UiSounds.Volume`, slider novo em Configurações → Aparência,
+  0-100%, também ajustável pelo ←/→ do controle — primeiro `Slider` do
+  projeto, então `DialogGamepadNavigator` ganhou suporte a ele). Padrão
+  caiu de 100% pra 70%: usuário reportou "dá aquela estourada" no volume
+  máximo do aparelho testando a v0.9.12.
+- **Modos de otimização de imagem/cor (experimental)**: Vívido, OLED
+  (contraste alto), Noturno (luz quente) e Confortável, via
+  `SetDeviceGammaRamp` (gdi32.dll — `Platform/DisplayColorManager`,
+  pesquisado desde o item 6 do roteiro). Ajusta a curva de cor da tela
+  INTEIRA (fora do launcher também) enquanto ele estiver aberto. Como é
+  uma API que afeta o Windows inteiro e sobrevive ao launcher fechar se
+  não for desfeita, captura a curva ORIGINAL de verdade (via
+  `GetDeviceGammaRamp`) antes de aplicar qualquer preset, e devolve
+  exatamente ela no modo "Padrão" e ao fechar o launcher (`desktop.Exit`
+  + `ProcessExit`/`UnhandledException` como rede de segurança pra um
+  encerramento mais abrupto) — nunca um chute de curva neutra, que
+  poderia não bater com uma calibração já existente no PC. Mesmo assim,
+  marcado como experimental na tela: não dá pra confirmar daqui que o
+  driver/GPU de cada PC aceita essas curvas igual, nem que isso não
+  bagunça o HDR/perfil de cor das telas OLED do Legion Go 2/ROG Ally —
+  se a tela ficar com cor estranha depois de trocar, fechar e abrir o
+  launcher de novo (ou reiniciar o aparelho) resolve.
 
 ## Bug dos botões de energia e auditoria de código — v0.9.12
 

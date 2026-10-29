@@ -40,7 +40,13 @@
       <x:Double x:Key="FontSizeMenuHeader">22</x:Double>
       <SolidColorBrush x:Key="BackdropDimBrush" Color="#CC0C0D12" />
 
-      <!-- Rounded-corner tokens — the look the reference screenshot is built on. -->
+      <!-- Rounded-corner tokens — the look the reference screenshot is built on.
+           TileCornerRadius/BarCornerRadius também são sobrescritos por tema
+           (ThemeManager.Apply, v0.9.13 — tema Switch usa um valor mais
+           "quadrado") — por isso os Setters que os usam abaixo precisam ser
+           DynamicResource, não StaticResource (que fixa o valor na hora do
+           parse e nunca mais muda em runtime). HeroCornerRadius/
+           PillCornerRadius continuam globais, iguais em todo tema. -->
       <CornerRadius x:Key="HeroCornerRadius">24</CornerRadius>
       <CornerRadius x:Key="TileCornerRadius">16</CornerRadius>
       <CornerRadius x:Key="PillCornerRadius">999</CornerRadius>
@@ -75,7 +81,7 @@
        over any style setter and the landscape tile would never resize. -->
   <Style Selector="Border.gameTile">
     <Setter Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
-    <Setter Property="CornerRadius" Value="{StaticResource TileCornerRadius}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource TileCornerRadius}" />
     <Setter Property="ClipToBounds" Value="True" />
     <!-- 170/230 → 190/255 na leva anterior → 220/290 nesta leva, a pedido
          do usuário ("aumente mais o tamanho de todos as capas... deixe
@@ -141,7 +147,7 @@
 
   <Style Selector="Border.contextMenuCard">
     <Setter Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
-    <Setter Property="CornerRadius" Value="{StaticResource BarCornerRadius}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource BarCornerRadius}" />
   </Style>
 
   <Style Selector="Border.menuItem">
@@ -223,7 +229,7 @@
 
   <Style Selector="Border.topBar, Border.bottomBar">
     <Setter Property="Background" Value="{StaticResource BarBrush}" />
-    <Setter Property="CornerRadius" Value="{StaticResource BarCornerRadius}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource BarCornerRadius}" />
   </Style>
 
   <Style Selector="TextBlock.gameTitle">

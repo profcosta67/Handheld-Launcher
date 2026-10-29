@@ -60,6 +60,20 @@ internal static class UiSounds
     /// </summary>
     public static readonly string[] PackNames = ["Clássico", "Suave", "Retro", "Future"];
 
+    // IMPORTANTE: _volumeFraction precisa ser inicializado ANTES de Packs
+    // abaixo — os inicializadores de campo estático executam em ORDEM
+    // TEXTUAL dentro do construtor estático implícito, e o load de Packs já
+    // chama LoadClip/RescaleToUnmanaged usando _volumeFraction na hora. Se
+    // esse campo viesse depois no arquivo (como numa versão anterior desta
+    // leva), Packs carregaria com volume 0.0 (silêncio) e só se corrigiria
+    // se Volume:set algum dia recebesse um valor DIFERENTE do padrão 70 —
+    // com o padrão batendo direto (AppSettings.SoundVolume também é 70), o
+    // early-return do setter nunca chamaria RescaleAllPacks, e o som
+    // ficaria mudo pra sempre em qualquer instalação nova. Bug encontrado e
+    // corrigido ainda nesta leva, antes de qualquer teste real.
+    private static double _volumeFraction = 0.70;
+    private static int _volumePercent = 70;
+
     private static readonly SoundSet[] Packs = PackNames
         .Select(name => LoadPack(FileSlug(name)))
         .ToArray();
@@ -88,11 +102,56 @@ internal static class UiSounds
     /// </summary>
     public static bool Enabled { get; set; } = true;
 
-    public static void PlayMove() => Play(Packs[_pack].Move);
+    /// <summary>
+    /// 0-100 (v0.9.13, pedido do usuário: "os sons ficaram um pouco alto,
+    /// dá aquela estourada no volume máximo"). <c>PlaySound</c> (winmm) não
+    /// tem parâmetro de volume — a escala é aplicada direto nas amostras
+    /// PCM de cada som (ver <see cref="RescaleToUnmanaged"/>), ANTES de
+    /// copiar pra memória não gerenciada. Padrão 70 (não 100): já começa
+    /// mais baixo que o volume "cheio" original pra evitar o estouro
+    /// reportado sem precisar regerar os .wav. Trocar em runtime reconstrói
+    /// os 12 buffers (3 sons × 4 packs) na hora — são poucos KB cada,
+    /// instantâneo.
+    /// </summary>
+    public static int Volume
+    {
+        get => _volumePercent;
+        set
+        {
+            var clamped = Math.Clamp(value, 0, 100);
+            if (clamped == _volumePercent) return;
+            _volumePercent = clamped;
+            _volumeFraction = clamped / 100.0;
+            RescaleAllPacks();
+        }
+    }
 
-    public static void PlayConfirm() => Play(Packs[_pack].Confirm);
+    private static void RescaleAllPacks()
+    {
+        foreach (var pack in Packs)
+        {
+            Rescale(pack.Move);
+            Rescale(pack.Confirm);
+            Rescale(pack.Back);
+        }
+    }
 
-    public static void PlayBack() => Play(Packs[_pack].Back);
+    private static void Rescale(SoundClip clip)
+    {
+        if (clip.Raw.Length == 0) return;
+        var old = clip.Ptr;
+        clip.Ptr = RescaleToUnmanaged(clip.Raw, _volumeFraction);
+        if (old != IntPtr.Zero)
+        {
+            try { Marshal.FreeHGlobal(old); } catch { /* melhor esforço */ }
+        }
+    }
+
+    public static void PlayMove() => Play(Packs[_pack].Move.Ptr);
+
+    public static void PlayConfirm() => Play(Packs[_pack].Confirm.Ptr);
+
+    public static void PlayBack() => Play(Packs[_pack].Back.Ptr);
 
     /// <summary>
     /// Ponto único usado por MainWindow.OnGamepadTick pra cobrir biblioteca,
@@ -146,37 +205,100 @@ internal static class UiSounds
         }
     }
 
-    private readonly record struct SoundSet(IntPtr Move, IntPtr Confirm, IntPtr Back);
-
-    private static SoundSet LoadPack(string slug) => new(
-        LoadWav($"sfx-{slug}-move.wav"),
-        LoadWav($"sfx-{slug}-confirm.wav"),
-        LoadWav($"sfx-{slug}-back.wav"));
+    private sealed class SoundSet
+    {
+        public required SoundClip Move { get; init; }
+        public required SoundClip Confirm { get; init; }
+        public required SoundClip Back { get; init; }
+    }
 
     /// <summary>
-    /// Lê o .wav embutido (recurso do Avalonia) e copia pra memória NÃO
-    /// gerenciada — ver o porquê no comentário da classe. Nunca liberado
-    /// de propósito: são uns KB por som, por um processo que já roda a
-    /// vida toda do app; o Windows recupera tudo no fechamento mesmo.
+    /// v0.9.13: antes, LoadWav só devolvia o IntPtr já escalado (fixo pra
+    /// sempre). Agora guarda também os bytes ORIGINAIS do .wav (Raw), pra
+    /// <see cref="Rescale"/> poder recalcular o buffer não-gerenciado toda
+    /// vez que o usuário troca o volume em Configurações, sem precisar
+    /// reabrir o arquivo embutido de novo.
     /// </summary>
-    private static IntPtr LoadWav(string fileName)
+    private sealed class SoundClip
     {
+        public byte[] Raw = [];
+        public IntPtr Ptr;
+    }
+
+    private static SoundSet LoadPack(string slug) => new()
+    {
+        Move = LoadClip($"sfx-{slug}-move.wav"),
+        Confirm = LoadClip($"sfx-{slug}-confirm.wav"),
+        Back = LoadClip($"sfx-{slug}-back.wav"),
+    };
+
+    /// <summary>
+    /// Lê o .wav embutido (recurso do Avalonia), guarda os bytes originais
+    /// e copia a versão já escalada pelo volume atual (<see
+    /// cref="_volumeFraction"/>) pra memória NÃO gerenciada — ver o porquê
+    /// da memória não gerenciada no comentário da classe. Buffer escalado
+    /// nunca liberado no load inicial (só quando um <see cref="Rescale"/>
+    /// posterior troca ele por outro) — são uns KB por som, por um
+    /// processo que já roda a vida toda do app.
+    /// </summary>
+    private static SoundClip LoadClip(string fileName)
+    {
+        var clip = new SoundClip();
         try
         {
             var uri = new Uri($"avares://HandheldLauncher/Assets/{fileName}");
             using var stream = AssetLoader.Open(uri);
             using var memory = new MemoryStream();
             stream.CopyTo(memory);
-            var bytes = memory.ToArray();
-
-            var unmanaged = Marshal.AllocHGlobal(bytes.Length);
-            Marshal.Copy(bytes, 0, unmanaged, bytes.Length);
-            return unmanaged;
+            clip.Raw = memory.ToArray();
+            clip.Ptr = RescaleToUnmanaged(clip.Raw, _volumeFraction);
         }
         catch (Exception ex)
         {
             DebugLog.Write($"UiSounds: falha ao carregar {fileName} ({ex.Message})");
-            return IntPtr.Zero;
         }
+        return clip;
+    }
+
+    /// <summary>
+    /// Escala as amostras PCM 16-bit do .wav pelo volume (0.0-1.0) e copia
+    /// o resultado pra memória não gerenciada. Nosso próprio gerador
+    /// (scratchpad/gen_sfx_*.py) sempre escreve o cabeçalho WAV canônico de
+    /// 44 bytes (RIFF/WAVEfmt.../data, mono 16-bit) — confere essa
+    /// assinatura antes de tocar nos bytes; se algo não bater (formato
+    /// diferente no futuro), toca o áudio ORIGINAL sem escalar em vez de
+    /// arriscar corromper o som.
+    /// </summary>
+    private static IntPtr RescaleToUnmanaged(byte[] wav, double volumeFraction)
+    {
+        try
+        {
+            if (wav.Length > 44
+                && wav[0] == (byte)'R' && wav[1] == (byte)'I' && wav[2] == (byte)'F' && wav[3] == (byte)'F'
+                && wav[36] == (byte)'d' && wav[37] == (byte)'a' && wav[38] == (byte)'t' && wav[39] == (byte)'a')
+            {
+                var scaled = (byte[])wav.Clone();
+                for (var i = 44; i + 1 < scaled.Length; i += 2)
+                {
+                    var sample = (short)(scaled[i] | (scaled[i + 1] << 8));
+                    var value = Math.Clamp((int)Math.Round(sample * volumeFraction), short.MinValue, short.MaxValue);
+                    scaled[i] = (byte)(value & 0xFF);
+                    scaled[i + 1] = (byte)((value >> 8) & 0xFF);
+                }
+                return CopyToUnmanaged(scaled);
+            }
+        }
+        catch
+        {
+            // Melhor esforço — cai pro áudio original sem escalar abaixo.
+        }
+        return CopyToUnmanaged(wav);
+    }
+
+    private static IntPtr CopyToUnmanaged(byte[] bytes)
+    {
+        var unmanaged = Marshal.AllocHGlobal(bytes.Length);
+        Marshal.Copy(bytes, 0, unmanaged, bytes.Length);
+        return unmanaged;
     }
 }
