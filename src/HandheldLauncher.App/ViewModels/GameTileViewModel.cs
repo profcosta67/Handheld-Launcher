@@ -215,6 +215,34 @@ public sealed class GameTileViewModel : ViewModelBase
     /// </summary>
     public string? TileImagePath => IsLastPlayed ? Game.WideGridImagePath : GridImagePath;
 
+    // --- Três propriedades só pro tema de layout Switch (v0.9.20) ---
+    //
+    // Existem porque as de cima são, por desenho, do layout Clássico: ele
+    // tem a WIDE CAPSULE do "último jogo aberto", que é larga (580) e usa
+    // uma arte landscape própria. Na fileira de ÍCONES QUADRADOS do tema
+    // Switch isso dá dois defeitos: o quadrado do último jogo aberto sairia
+    // 580x580 (gigante, quebrando a fileira), e a arte landscape ficaria
+    // cortada nas laterais dentro de um quadrado.
+    //
+    // Então o tema Switch usa as três abaixo, que ignoram IsLastPlayed de
+    // propósito: lá a fileira é uniforme, sem destaque de tamanho (o jogo em
+    // foco já é destacado pelo palco grande em cima).
+
+    /// <summary>Lado do quadrado na fileira do tema Switch — segue "Tamanho das capas", sem o caso especial do último jogo aberto.</summary>
+    public double SquareTileSize => 220 * SizeScale;
+
+    /// <summary>
+    /// Arte do quadrado: a capa retrato normal. Cai pra landscape só se a
+    /// retrato não existir — melhor uma arte cortada do que um bloco vazio
+    /// (ao contrário do Clássico, onde cair pra outra arte era justamente o
+    /// bug que estava sendo corrigido, porque lá ela seria ESTICADA; aqui
+    /// UniformToFill corta sem distorcer).
+    /// </summary>
+    public string? SquareTileImagePath => GridImagePath ?? Game.WideGridImagePath;
+
+    /// <summary>Sem arte nenhuma pro quadrado — mostra o nome dentro dele, pra não ficar um bloco vazio.</summary>
+    public bool ShowEmptySquarePlaceholder => string.IsNullOrEmpty(SquareTileImagePath);
+
     private bool _isFocused;
     public bool IsFocused
     {

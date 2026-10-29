@@ -1,0 +1,223 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:HandheldLauncher.App.ViewModels"
+             xmlns:conv="using:HandheldLauncher.App.Converters"
+             xmlns:dataConv="using:Avalonia.Data.Converters"
+             x:Class="HandheldLauncher.App.Views.Layouts.SwitchLibraryLayout"
+             x:DataType="vm:MainViewModel">
+
+  <!--
+    Tema de LAYOUT "Switch" (v0.9.20) — primeiro tema de layout de verdade
+    do projeto, pedido do usuário depois de um equívoco meu na v0.9.13 (que
+    entregou só uma paleta de cor nova).
+
+    Referência combinada com ele: a tela HOME do console — "fileira
+    horizontal de jogos", "menu embaixo, capas minimalistas, configurações
+    em cima, fundo claro só com banner + nome do jogo".
+
+    NÃO copia nada da interface real do aparelho: sem logo, sem fonte
+    oficial, sem ícone de sistema. O que vem da referência é a DISPOSIÇÃO
+    (palco grande em cima com a arte do jogo em foco, fileira de ícones
+    quadrados embaixo dele) e o espírito minimalista — nenhum recurso
+    gráfico de terceiro.
+
+    Diferenças deliberadas em relação ao layout Clássico:
+      - Capas QUADRADAS em vez de retrato, como os ícones do console. O
+        lado do quadrado vem de TileWidth, então a configuração "Tamanho
+        das capas" continua valendo (UniformToFill corta a arte retrato,
+        que é o efeito desejado).
+      - Nome do jogo em foco grande sobre o palco, não dentro de cada
+        tile — a fileira fica limpa, só arte.
+      - Fileira sempre HORIZONTAL: a grade vertical não faz sentido nesta
+        disposição (ver SupportsVerticalGrid no code-behind).
+      - Abas/subfiltros embaixo e compactos ("menu embaixo"), em vez de
+        acima da fileira.
+
+    Mesmos x:Name do layout Clássico nos quatro controles que a MainWindow
+    precisa (ver ILibraryLayout) — é o que faz scroll, navegação por
+    controle e transição do banner funcionarem aqui sem código novo.
+
+    AccentBrush via DynamicResource e conversores declarados localmente:
+    mesma razão explicada em ClassicLibraryLayout.axaml (UserControl solto
+    não tem ancestral pra resolver StaticResource no load).
+  -->
+
+  <UserControl.Resources>
+    <conv:FileToBitmapConverter x:Key="FileToBitmapConverter" />
+    <conv:HexColorToBrushConverter x:Key="HexColorToBrushConverter" />
+  </UserControl.Resources>
+
+  <Grid RowDefinitions="*,Auto,Auto" Margin="24,12,24,12">
+
+    <!-- ===== PALCO: arte + nome do jogo em foco ===== -->
+    <Border Grid.Row="0"
+            Background="{DynamicResource SurfaceBrush}"
+            CornerRadius="{DynamicResource TileCornerRadius}"
+            Margin="0,0,0,16"
+            ClipToBounds="True">
+      <Grid>
+        <Grid IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
+          <!-- Os dois Image e a transição são os MESMOS do layout clássico
+               (HeroBackImage segura a arte anterior enquanto a nova entra
+               com fade) — MainWindow.OnHeroImageChanged cuida disso e acha
+               os dois por ILibraryLayout. -->
+          <Image x:Name="HeroBackImage" Stretch="UniformToFill" IsHitTestVisible="False" />
+          <Image x:Name="HeroImage"
+                 Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                 Stretch="UniformToFill" />
+
+          <!-- Faixa clara embaixo do palco: é ela que dá o "fundo claro só
+               com banner + nome do jogo" que o usuário descreveu, sem
+               precisar de tema de cor claro (o nome fica legível sobre
+               qualquer arte). -->
+          <Border VerticalAlignment="Bottom"
+                  Background="#E6F2F2F2"
+                  Padding="24,14">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Grid.Column="0"
+                         Text="{Binding SelectedTile.Title}"
+                         Foreground="#1A1A1A"
+                         FontSize="26"
+                         FontWeight="SemiBold"
+                         VerticalAlignment="Center"
+                         TextWrapping="NoWrap"
+                         TextTrimming="CharacterEllipsis" />
+
+              <!-- Selo de origem do jogo em foco, no mesmo esquema de
+                   letra+cor das capas (GameTileViewModel.PlatformBadgeText)
+                   — nunca logo de loja. -->
+              <Border Grid.Column="1"
+                      Background="{Binding SelectedTile.PlatformBadgeColorHex, Converter={StaticResource HexColorToBrushConverter}}"
+                      CornerRadius="4"
+                      Padding="8,3"
+                      VerticalAlignment="Center"
+                      IsVisible="{Binding SelectedTile.HasPlatformBadge}">
+                <TextBlock Text="{Binding SelectedTile.PlatformBadgeText}"
+                           FontSize="12" FontWeight="Bold" Foreground="White" />
+              </Border>
+            </Grid>
+          </Border>
+        </Grid>
+
+        <TextBlock Text="Nenhum jogo encontrado ainda.&#10;Adicione um jogo manualmente para começar."
+                   Classes="subtle"
+                   TextWrapping="Wrap"
+                   TextAlignment="Center"
+                   VerticalAlignment="Center"
+                   HorizontalAlignment="Center"
+                   Margin="24"
+                   IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
+      </Grid>
+    </Border>
+
+    <!-- ===== FILEIRA DE ÍCONES QUADRADOS ===== -->
+    <ScrollViewer x:Name="GameRowScrollViewer"
+                  Grid.Row="1"
+                  HorizontalScrollBarVisibility="Hidden"
+                  VerticalScrollBarVisibility="Disabled"
+                  Margin="0,0,0,12">
+      <ScrollViewer.Transitions>
+        <Transitions>
+          <VectorTransition Property="Offset" Duration="0:0:0.28" Easing="CubicEaseOut" />
+        </Transitions>
+      </ScrollViewer.Transitions>
+
+      <ItemsControl x:Name="GamesItemsControl" ItemsSource="{Binding Games}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <StackPanel Orientation="Horizontal" Spacing="12" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:GameTileViewModel">
+            <!-- Quadrado uniforme: os dois lados vêm de SquareTileSize, que
+                 segue "Tamanho das capas" e IGNORA o caso especial da
+                 WIDE CAPSULE do último jogo aberto (que no Clássico tem
+                 580 de largura e viraria um quadrado gigante aqui) — ver
+                 as três propriedades Square* em GameTileViewModel. -->
+            <Border Classes="gameTile"
+                    Classes.focused="{Binding IsFocused}"
+                    Width="{Binding SquareTileSize}"
+                    Height="{Binding SquareTileSize}"
+                    PointerPressed="OnTilePointerPressed"
+                    DoubleTapped="OnTileDoubleTapped">
+              <Grid>
+                <Image Source="{Binding SquareTileImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                       Stretch="UniformToFill" />
+
+                <Border Background="#99383838"
+                        IsHitTestVisible="False"
+                        IsVisible="{Binding IsOwnedNotInstalled}" />
+
+                <!-- Sem arte ainda: o nome aparece dentro do quadrado, que
+                     senão ficaria um bloco vazio. Com arte, a fileira fica
+                     só de imagem (o nome do jogo em foco está no palco). -->
+                <TextBlock Text="{Binding Title}"
+                           Classes="gameTitle"
+                           TextWrapping="Wrap"
+                           TextAlignment="Center"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center"
+                           Margin="8"
+                           IsVisible="{Binding ShowEmptySquarePlaceholder}" />
+
+                <TextBlock Text="★"
+                           Foreground="{DynamicResource AccentBrush}"
+                           FontSize="16"
+                           HorizontalAlignment="Right"
+                           VerticalAlignment="Bottom"
+                           Margin="6"
+                           IsVisible="{Binding IsFavorite}" />
+
+                <Border Background="{Binding PlatformBadgeColorHex, Converter={StaticResource HexColorToBrushConverter}}"
+                        CornerRadius="4"
+                        Padding="4,1"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        Margin="6"
+                        IsVisible="{Binding HasPlatformBadge}">
+                  <TextBlock Text="{Binding PlatformBadgeText}" FontSize="9" FontWeight="Bold" Foreground="White" />
+                </Border>
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+
+    <!-- ===== MENU EMBAIXO: abas + subfiltros, compactos ===== -->
+    <StackPanel Grid.Row="2" Spacing="6">
+      <Grid ColumnDefinitions="*,*,*,*,*,*">
+        <Button Grid.Column="0" Classes="pill filterTab" Classes.active="{Binding IsFilterFavoritesActive}" Content="Favoritos" Command="{Binding SetFilterFavoritesCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,4,0" Padding="6,5" FontSize="11" />
+        <Button Grid.Column="1" Classes="pill filterTab" Classes.active="{Binding IsFilterAllActive}" Content="Todos" Command="{Binding SetFilterAllCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0" Padding="6,5" FontSize="11" />
+        <Button Grid.Column="2" Classes="pill filterTab" Classes.active="{Binding IsFilterComputerActive}" Content="Computador" Command="{Binding SetFilterComputerCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0" Padding="6,5" FontSize="11" />
+        <Button Grid.Column="3" Classes="pill filterTab" Classes.active="{Binding IsFilterEmulatorsActive}" Content="Emuladores" Command="{Binding SetFilterEmulatorsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0" Padding="6,5" FontSize="11" />
+        <Button Grid.Column="4" Classes="pill filterTab" Classes.active="{Binding IsFilterApplicationsActive}" Content="Programas" Command="{Binding SetFilterApplicationsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0" Padding="6,5" FontSize="11" />
+        <Button Grid.Column="5" Classes="pill filterTab" Classes.active="{Binding IsFilterNotInstalledActive}" Content="Não instalados" Command="{Binding SetFilterNotInstalledCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0,0,0" Padding="6,5" FontSize="11" />
+      </Grid>
+
+      <ItemsControl ItemsSource="{Binding SubFilters}" IsVisible="{Binding HasSubFilters}" HorizontalAlignment="Center">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:SubFilterViewModel">
+            <Button Classes="pill subFilter"
+                    Classes.cursor="{Binding IsCursor}"
+                    Content="{Binding Label}"
+                    Click="OnSubFilterClick"
+                    Background="{Binding BackgroundHex, Converter={StaticResource HexColorToBrushConverter}}"
+                    Foreground="{Binding ForegroundHex, Converter={StaticResource HexColorToBrushConverter}}"
+                    BorderBrush="{Binding AccentHex, Converter={StaticResource HexColorToBrushConverter}}"
+                    BorderThickness="2"
+                    Margin="4,0" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+
+  </Grid>
+</UserControl>

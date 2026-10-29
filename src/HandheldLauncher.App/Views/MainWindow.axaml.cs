@@ -11,6 +11,7 @@ using HandheldLauncher.App.Diagnostics;
 using HandheldLauncher.App.Input;
 using HandheldLauncher.App.Platform;
 using HandheldLauncher.App.ViewModels;
+using HandheldLauncher.App.Views.Layouts;
 using HandheldLauncher.Core.Models;
 using HandheldLauncher.Core.Services;
 
@@ -47,9 +48,37 @@ public partial class MainWindow : Window
     private DispatcherTimer? _batteryTimer;
     private bool _hotkeyRegistered;
 
+    // --- Tema de LAYOUT (v0.9.20) ---
+    //
+    // Estes quatro campos têm EXATAMENTE os nomes que o Avalonia gerava
+    // sozinho quando os controles moravam no XAML desta janela. Agora eles
+    // vivem dentro do layout escolhido (Views/Layouts/*.axaml) e são
+    // preenchidos por ApplyLayoutTheme, logo no começo do construtor.
+    // Manter os nomes foi deliberado: as ~34 chamadas espalhadas pelo
+    // scroll, pela navegação por controle e pela transição do banner
+    // seguiram compilando sem UMA linha de alteração — o que num refactor
+    // que não dá pra compilar aqui é a diferença entre revisar 4 pontos e
+    // revisar 34.
+    //
+    // `null!` em vez de nullable de propósito: se ApplyLayoutTheme falhar,
+    // o certo é explodir alto no boot (e aparecer no debug.log) em vez de
+    // o launcher abrir pela metade, com scroll e controle mortos e sem
+    // ninguém entender por quê.
+    private ItemsControl GamesItemsControl = null!;
+    private ScrollViewer GameRowScrollViewer = null!;
+    private Image HeroImage = null!;
+    private Image HeroBackImage = null!;
+
+    /// <summary>O layout em uso — ver ILibraryLayout.</summary>
+    private ILibraryLayout _libraryLayout = null!;
+
     public MainWindow()
     {
         InitializeComponent();
+
+        // ANTES de qualquer coisa que toque nos controles da biblioteca:
+        // é isto que preenche os quatro campos acima.
+        ApplyLayoutTheme();
 
         // Espaço entre as capas na grade vertical (a fileira horizontal usa
         // o Spacing do StackPanel do XAML).
@@ -1294,8 +1323,60 @@ public partial class MainWindow : Window
     /// jogos aparecer e correr ou horizontal ou vertical". Mesmo
     /// ItemsControl e mesmo template de tile nos dois; só troca o painel.
     /// </summary>
+    /// <summary>
+    /// v0.9.20: monta a área da biblioteca a partir de
+    /// AppSettings.LayoutTheme e publica os quatro controles que o resto
+    /// desta janela usa (ver os campos lá em cima e ILibraryLayout).
+    ///
+    /// <para>
+    /// Lido UMA vez, na abertura — trocar de layout exige reiniciar o
+    /// launcher, combinado com o usuário ("pode pedir pra reiniciar"). Isso
+    /// evita ter que desmontar/remontar a área da biblioteca com jogo
+    /// rodando, scroll no meio e foco em algum lugar.
+    /// </para>
+    /// <para>
+    /// Índice desconhecido cai no Clássico de propósito: settings.json
+    /// editado à mão (ou de uma versão mais nova) nunca deixa o launcher
+    /// abrir sem biblioteca.
+    /// </para>
+    /// </summary>
+    private void ApplyLayoutTheme()
+    {
+        UserControl layout;
+        try
+        {
+            var settings = AppSettingsStore.Load();
+            layout = settings.LayoutTheme == 1
+                ? new Layouts.SwitchLibraryLayout()
+                : new Layouts.ClassicLibraryLayout();
+        }
+        catch (Exception ex)
+        {
+            // Não conseguir LER as configurações não pode impedir a
+            // biblioteca de existir.
+            DebugLog.Write($"ApplyLayoutTheme: falhou ao ler settings, usando Clássico. {ex}");
+            layout = new Layouts.ClassicLibraryLayout();
+        }
+
+        _libraryLayout = (ILibraryLayout)layout;
+        GamesItemsControl = _libraryLayout.GamesItemsControl;
+        GameRowScrollViewer = _libraryLayout.GameRowScrollViewer;
+        HeroImage = _libraryLayout.HeroImage;
+        HeroBackImage = _libraryLayout.HeroBackImage;
+
+        LibraryLayoutHost.Content = layout;
+    }
+
     private void SetLayout(bool vertical)
     {
+        // v0.9.20: o layout Switch é fileira horizontal por natureza (ver
+        // SupportsVerticalGrid) — ignora o pedido de grade vertical em vez
+        // de trocar o ItemsPanel dele por um WrapPanel, o que desmancharia
+        // a identidade do tema. _verticalLayout fica false, então a
+        // navegação ↑/↓ também segue o caminho de fileira (e ↑ entra nos
+        // subfiltros, que é o comportamento certo ali).
+        if (vertical && !_libraryLayout.SupportsVerticalGrid) return;
+
         _verticalLayout = vertical;
         _horizontalPanelTemplate ??= GamesItemsControl.ItemsPanel;
 
@@ -1378,7 +1459,8 @@ public partial class MainWindow : Window
     /// fileira), mas os dois terminam no mesmo
     /// MainViewModel.ToggleSubFilter.
     /// </summary>
-    private void OnSubFilterClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    /// <summary>Repassado pelos layouts — ver HandleTilePointerPressed acima.</summary>
+    public void HandleSubFilterClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (DataContext is not MainViewModel vm) return;
         if (sender is Button { DataContext: SubFilterViewModel subFilter })
@@ -1387,7 +1469,16 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnTilePointerPressed(object? sender, PointerPressedEventArgs e)
+    /// <summary>
+    /// v0.9.20: era <c>OnTilePointerPressed</c>, handler ligado direto no
+    /// XAML desta janela. As tiles moraram pra dentro dos layouts
+    /// (Views/Layouts/*.axaml), e handler de XAML tem que existir na classe
+    /// do próprio arquivo — então o handler agora vive em cada layout e só
+    /// REPASSA pra cá. A lógica continua num lugar só, e de propósito aqui:
+    /// o <c>e.GetCurrentPoint(this)</c> abaixo precisa da janela como
+    /// referência, não do controle do layout.
+    /// </summary>
+    public void HandleTilePointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (DataContext is not MainViewModel vm) return;
         if (sender is not Control { DataContext: GameTileViewModel tile }) return;
@@ -1404,7 +1495,8 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnTileDoubleTapped(object? sender, TappedEventArgs e)
+    /// <summary>Repassado pelos layouts — ver HandleTilePointerPressed acima.</summary>
+    public void HandleTileDoubleTapped(object? sender, TappedEventArgs e)
     {
         if (DataContext is not MainViewModel vm) return;
         vm.LaunchSelected();

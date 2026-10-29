@@ -41,7 +41,7 @@ public static class ThemeManager
     /// deste valor — ver MainWindow.ApplyLayoutTheme.
     /// </para>
     /// </summary>
-    public static readonly string[] LayoutThemeNames = ["Clássico", "Switch (em construção)"];
+    public static readonly string[] LayoutThemeNames = ["Clássico", "Switch"];
 
     /// <summary>
     /// Fontes da interface — todas já vêm instaladas no Windows 10/11 (nada

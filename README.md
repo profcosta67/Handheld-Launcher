@@ -261,6 +261,49 @@ mais sentido de risco crescente):
      lançar o tema propriamente dito." Fica pra quando o resto desta fila
      estiver fechado, como um projeto dedicado.
 
+     **PRIMEIRA ETAPA FEITA NA v0.9.20** — tema de layout Switch, a tela
+     da biblioteca:
+     - **Arquitetura escolhida**: trocar só a ÁREA DE CONTEÚDO dentro da
+       MainWindow (hero + abas + grade saíram pra
+       `Views/Layouts/*.axaml`, um controle por tema), mantendo toda a
+       infraestrutura compartilhada — menus, diálogos, controle, atalhos,
+       bandeja, overlays. Avaliada e **descartada** a alternativa de uma
+       JANELA separada por tema (que teria risco zero pro tema clássico):
+       se o layout novo tivesse um defeito que impedisse abrir as
+       Configurações, o usuário ficaria **preso nele sem conseguir
+       voltar** — pior que o risco que evitaria.
+     - `ILibraryLayout` expõe os 4 controles que o code-behind da
+       MainWindow usa em ~34 lugares (`GamesItemsControl`,
+       `GameRowScrollViewer`, `HeroImage`, `HeroBackImage`), e a
+       MainWindow guarda as referências em campos com os MESMOS nomes de
+       antes — foi o que fez as 34 chamadas seguirem compilando sem uma
+       linha de alteração.
+     - **Extração feita por script**, não à mão: as 332 linhas do layout
+       clássico foram movidas byte a byte, com só duas mudanças
+       necessárias — `Grid.Row="1"` fora da raiz, e
+       `{StaticResource AccentBrush}` → `{DynamicResource ...}` (um
+       UserControl recém-criado não tem ancestral pra resolver
+       StaticResource no load). Os dois conversores seguem StaticResource
+       e são declarados no próprio controle, porque `Converter` não é
+       propriedade estilizável e não aceita DynamicResource.
+     - Os 3 handlers de XAML das tiles/subfiltros tiveram que ir pros
+       layouts (handler de XAML precisa existir na classe do arquivo), mas
+       só REPASSAM pra `MainWindow.Handle*` — a lógica continua num lugar
+       só, inclusive porque `e.GetCurrentPoint(this)` precisa da janela.
+     - `GameTileViewModel` ganhou `SquareTileSize`/`SquareTileImagePath`/
+       `ShowEmptySquarePlaceholder`: sem elas, a WIDE CAPSULE do "último
+       jogo aberto" (580 de largura, arte landscape) viraria um quadrado
+       de 580x580 com arte cortada na fileira do Switch.
+     - `SupportsVerticalGrid=false` no Switch: `SetLayout` ignora o pedido
+       de grade vertical em vez de trocar o ItemsPanel dele.
+     - **FALTA**: levar o estilo Switch pro menu global, Configurações e
+       HUD (escopo combinado era "atinge tudo"). Deixado pra depois de
+       propósito, pra o usuário aprovar a direção da tela principal antes
+       — se não for o que ele imaginou, o que estiver em cima seria
+       retrabalho.
+     - **Não testado em hardware**, nem o Switch nem o Clássico depois da
+       extração.
+
      **Nota de ordem (pós v0.9.15)**: a aba "Emuladores" (pasta de ROMs
      do Eden + autodetecção do `eden.exe`) entrou NA FRENTE deste item,
      por escolha do usuário — era barata, de baixo risco e consertava a
