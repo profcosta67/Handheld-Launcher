@@ -180,15 +180,22 @@ public sealed class SettingsViewModel : ViewModelBase
     private int _categoryIndex;
 
     /// <summary>
-    /// v0.9.14: aba ativa desta tela (0 Contas e Chaves, 1 Diretórios, 2
-    /// Modo de uso, 3 Aparência) — pedido do usuário pra separar em tópicos
-    /// porque a tela única "encheu". Mesmo padrão visual das abas de filtro
-    /// da biblioteca (Button.pill.filterTab + Classes.active, ver
+    /// v0.9.14: aba ativa desta tela — pedido do usuário pra separar em
+    /// tópicos porque a tela única "encheu". Mesmo padrão visual das abas
+    /// de filtro da biblioteca (Button.pill.filterTab + Classes.active, ver
     /// MainWindow.axaml) em vez de um TabControl de verdade do Avalonia —
     /// assim reaproveita o mesmo estilo/cor do resto do app sem precisar de
     /// nenhum estilo novo pro chrome padrão do FluentTheme. Resetada pra 0
-    /// a cada abertura da tela (ver LoadFrom), então sempre abre em "Contas
-    /// e Chaves".
+    /// a cada abertura da tela (ver LoadFrom).
+    /// <para>
+    /// v0.9.15, pedido do usuário ("Aparencias / Diretorios / Modo de Uso /
+    /// Contas (deixa por ultimo)"): 0 Aparência, 1 Diretórios, 2 Modo de
+    /// uso, 3 Contas e Chaves — ordem trocada (era 0 Contas/1 Diretórios/
+    /// 2 Modo/3 Aparência até a v0.9.14). Só a ORDEM/posição mudou — os
+    /// nomes das propriedades Is*Active abaixo continuam pelos nomes das
+    /// categorias, não pelo índice, de propósito (pra não confundir quem
+    /// ler o .axaml).
+    /// </para>
     /// </summary>
     public int CategoryIndex
     {
@@ -197,18 +204,18 @@ public sealed class SettingsViewModel : ViewModelBase
         {
             if (SetField(ref _categoryIndex, value))
             {
-                OnPropertyChanged(nameof(IsCategoryAccountsActive));
+                OnPropertyChanged(nameof(IsCategoryAppearanceActive));
                 OnPropertyChanged(nameof(IsCategoryFoldersActive));
                 OnPropertyChanged(nameof(IsCategoryModeActive));
-                OnPropertyChanged(nameof(IsCategoryAppearanceActive));
+                OnPropertyChanged(nameof(IsCategoryAccountsActive));
             }
         }
     }
 
-    public bool IsCategoryAccountsActive => _categoryIndex == 0;
+    public bool IsCategoryAppearanceActive => _categoryIndex == 0;
     public bool IsCategoryFoldersActive => _categoryIndex == 1;
     public bool IsCategoryModeActive => _categoryIndex == 2;
-    public bool IsCategoryAppearanceActive => _categoryIndex == 3;
+    public bool IsCategoryAccountsActive => _categoryIndex == 3;
 
     private int _fontIndex;
 

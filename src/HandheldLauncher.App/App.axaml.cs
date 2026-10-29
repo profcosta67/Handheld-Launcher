@@ -58,8 +58,13 @@ public partial class App : Application
             var steamAchievementsCandidate = new SteamAchievementsClient(appSettings.SteamWebApiKey, appSettings.SteamId64);
             var steamAchievementsClient = steamAchievementsCandidate.HasCredentials ? steamAchievementsCandidate : null;
             var libraryStore = new GameLibraryStore();
+            // v0.9.15: EdenLibraryScanner entra na mesma lista — só acha
+            // jogo se AppSettings.EdenExecutablePath estiver configurado
+            // (hand-edit só por enquanto, ver comentário da classe e do
+            // campo); sem isso, devolve lista vazia, comportamento de
+            // antes.
             var libraryService = new LibraryService(steamScanner, libraryStore, xboxFolderScanner, steamOwnedGamesClient,
-                [new EpicLibraryScanner(), new GogLibraryScanner(), new UbisoftLibraryScanner(), new EaLibraryScanner()]);
+                [new EpicLibraryScanner(), new GogLibraryScanner(), new UbisoftLibraryScanner(), new EaLibraryScanner(), new EdenLibraryScanner(appSettings.EdenExecutablePath)]);
             var gameLauncher = new GameLauncher();
 
             var gridDbClient = new SteamGridDbClient(appSettings.SteamGridDbApiKey);

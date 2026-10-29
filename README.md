@@ -132,41 +132,46 @@ mais sentido de risco crescente):
 6. **Mais ideias do usuário (pós v0.9.10/v0.9.11), só anotadas por enquanto
    — pedido explícito de não codar/testar ainda**:
 
-   **Ordem combinada com o usuário (pós v0.9.14)**: (a) ajustes nas abas
-   de Configurações (reordenar Aparência/Diretórios/Modo de uso/Contas,
-   ComboBox de Aparência, tirar "Verificar atualizações" de Contas) →
-   (b) desinstalar jogo do Xbox/Game Pass de verdade + integração com o
-   Eden → **subir update, testar** → (c) temas de LAYOUT de verdade
-   (SteamOS/Switch/Xbox Series) + só então trocar o "Switch" atual (cor)
-   pelo tema real → **subir update, testar** → (d) revisão ampla de
-   qualidade de código (a mais abrangente, pedida no início desta sessão,
-   que até agora só teve uma auditoria focada nas áreas tocadas
-   recentemente).
+   **Ordem combinada com o usuário (pós v0.9.14)**: ~~(a) ajustes nas abas
+   de Configurações~~ + ~~(b) desinstalar jogo do Xbox/Game Pass de
+   verdade + integração com o Eden~~ — **feitos na v0.9.15** (ver bullets
+   próprias abaixo e a seção de changelog) → **subir update, testar**
+   (próximo passo) → (c) temas de LAYOUT de verdade (SteamOS/Switch/Xbox
+   Series) + só então trocar o "Switch" atual (cor) pelo tema real →
+   **subir update, testar** → (d) revisão ampla de qualidade de código (a
+   mais abrangente, pedida no início desta sessão, que até agora só teve
+   uma auditoria focada nas áreas tocadas recentemente).
 
-   - **Desinstalar jogo do Xbox app/Game Pass de verdade.** Hoje (ver
-     "Excluir atalho/Excluir jogo" no menu de contexto, mais abaixo) um
-     jogo escaneado automaticamente de `XboxScanFolders` não ganha NENHUM
-     item de exclusão — só os adicionados à mão por "Adicionar jogo"
-     ganham "Excluir atalho", que só tira da nossa lista, nunca desinstala
-     de verdade. Diferente da Steam, que já tem um desinstalador de
-     verdade (`steam://uninstall/{appid}`, um URI que a própria Steam
-     resolve — **confirmado, já funciona** desde antes desta leva), o
-     Xbox app/Game Pass não tem um equivalente documentado tão simples: e
-     como `XboxFolderScanner` só lê pastas na mão (sem identidade de
-     pacote MSIX/UWP de verdade), não tem como chamar `Remove-AppxPackage`
-     certinho. Caminhos a avaliar antes de codar: (a) abrir
-     `ms-settings:appsfeatures` (Configurações → Apps) pro próprio usuário
-     terminar a desinstalação lá, mesmo sem conseguir pré-selecionar o app
-     certo; (b) o launcher apagar a pasta do jogo ele mesmo — quebra o
-     princípio já seguido no resto do app ("nunca apaga arquivo de jogo
-     diretamente", só aciona o desinstalador de cada loja).
-   - **Integração com o emulador Eden** (sucessor comunitário do Yuzu,
-     roda jogos de Switch — "tipo o Pokémon"). Pesquisa inicial: deve
-     aceitar `eden.exe "caminho\do\jogo.nsp"` igual o Yuzu original (mesmo
-     frontend Qt) e provavelmente guarda as pastas de jogo configuradas
-     num `qt-config.ini` (`Paths\gamedirs`) — precisa confirmar isso na
-     prática antes de escrever um `EdenLibraryScanner` (mesmo padrão dos
-     scanners de Epic/GOG/Ubisoft/EA já existentes).
+   - ~~**Desinstalar jogo do Xbox app/Game Pass de verdade.**~~ — **feito
+     na v0.9.15**: "Excluir jogo" (menu de contexto) pra um jogo escaneado
+     de `XboxScanFolders` agora acha o pacote MSIX/UWP de verdade via
+     PowerShell (`Get-AppxPackage`, comparando `InstallLocation` com a
+     pasta do jogo) e abre a página OFICIAL desse app em Configurações do
+     Windows (`ms-settings:appsfeatures-app?<PackageFamilyName>` —
+     documentado pela própria Microsoft), onde o usuário clica em
+     "Desinstalar". Mesmo princípio da Steam: o launcher nunca apaga nada
+     sozinho. Se não achar o pacote (PowerShell indisponível, instalação
+     não-MSIX, nome não bater), cai pra abrir a lista geral de Apps em vez
+     de falhar silenciosamente — ver `GameLauncher.OpenWindowsAppUninstaller`.
+     **Nunca testado contra uma instalação real** (sem Xbox app/Game Pass
+     neste sandbox pra validar).
+   - ~~**Integração com o emulador Eden**~~ (sucessor comunitário do Yuzu,
+     roda jogos de Switch — "tipo o Pokémon") — **feito na v0.9.15** via
+     `EdenLibraryScanner` (mesmo padrão dos scanners de Epic/GOG/Ubisoft/
+     EA), lendo as pastas de jogo já configuradas DENTRO do próprio Eden
+     (`%AppData%\eden\config\qt-config.ini`, seção `[UI]`, array
+     `Paths\gamedirs`) — pesquisado contra documentação do Eden + relatos
+     da comunidade Yuzu/LaunchBox antes de escrever (ver comentário da
+     classe pras fontes). Precisa configurar `AppSettings.EdenExecutablePath`
+     à mão por enquanto (hand-edit só, igual `XboxScanFolders`/
+     `SteamGridDbApiKey` quando foram criados — sem UI de configuração
+     ainda), já que o Eden não tem um "protocolo" de URI pra abrir um jogo
+     específico (quem abre é o `eden.exe -f -g "caminho\do\jogo"`, sintaxe
+     confirmada contra um PR do próprio Yuzu no GitHub + um relato de quem
+     testou no LaunchBox). **Nunca testado contra uma instalação real do
+     Eden** (sem Switch/Eden neste sandbox pra validar) — se o formato do
+     `qt-config.ini` tiver mudado, o scanner simplesmente não acha nada
+     (nunca derruba o app).
    - ~~**Modos de otimização de imagem/cor**~~ (Vívido, OLED, Noturno,
      Confortável) — **feito na v0.9.13** via `SetDeviceGammaRamp`, ver
      seção própria. Marcado como experimental na própria tela: é uma API
@@ -194,25 +199,15 @@ mais sentido de risco crescente):
      agora e aguardar quando terminar esses blocos de ideia no nosso tema,
      lançar o tema propriamente dito." Fica pra quando o resto desta fila
      estiver fechado, como um projeto dedicado.
-   - **Ajustes nas abas de Configurações (pós v0.9.14)**, pedido do
-     usuário, pra fazer na próxima leva:
-     - Reordenar: **Aparência, Diretórios, Modo de uso, Contas** (Contas
-       e Chaves vai pro final, era a primeira).
-     - Na aba Aparência, os ComboBox estão "pegando no scroll" — usuário
-       pediu pra centralizar e diminuir, sem deixar a caixa maior que o
-       necessário, mas todas do MESMO tamanho entre si (hoje cada ComboBox
-       estica `HorizontalAlignment="Stretch"` até a largura da coluna,
-       sem limite de largura nem altura consistente — precisa investigar
-       com calma antes de codar, já que não dá pra ver o resultado visual
-       real sem compilar no Windows).
-     - Tirar o botão/texto "Verificar atualizações" de dentro da aba
-       Contas e Chaves — usuário disse que "já tem ele em configuração"
-       (hoje ele fica como rodapé sempre visível, fora das 4 abas, mas
-       aparece visualmente colado na primeira aba aberta — por ora Contas,
-       que é a primeira — o que deu a impressão de estar duplicado/dentro
-       dela). Repensar onde esse bloco de versão/atualização deve morar
-       (talvez junto da barra de botões Fechar/Salvar, fora da área
-       rolável das abas).
+   - ~~**Ajustes nas abas de Configurações (pós v0.9.14)**~~ — **feito na
+     v0.9.15**: ordem trocada pra Aparência/Diretórios/Modo de uso/Contas
+     e Chaves (Contas foi pro final, era a primeira); ComboBox de
+     Aparência ganharam `Width="440"` fixa + `HorizontalAlignment="Center"`
+     (eram `Stretch`, indo até perto da barra de rolagem — pedido do
+     usuário pra centralizar/diminuir, todas do mesmo tamanho); e o bloco
+     de versão/"Verificar atualizações" saiu de dentro da área rolável das
+     abas, agora mora fixo no rodapé (acima dos botões Teclado/Fechar/
+     Salvar), nunca mais "dentro" de nenhuma categoria.
 
 ## Status atual
 

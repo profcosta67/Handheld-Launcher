@@ -36,6 +36,21 @@ public interface IGameLauncher
     /// nunca baixa nada diretamente. Ver ISteamOwnedGamesClient.
     /// </summary>
     void OpenSteamInstaller(uint steamAppId);
+
+    /// <summary>
+    /// "Excluir jogo" pra jogos escaneados do Xbox app/Game Pass (v0.9.15,
+    /// item antigo do roteiro). Sem URI de desinstalação direta como a
+    /// Steam tem — tenta achar o pacote MSIX/UWP instalado em
+    /// <paramref name="installDirectory"/> (via PowerShell/Get-AppxPackage)
+    /// e abre a página OFICIAL desse app em Configurações do Windows
+    /// ("ms-settings:appsfeatures-app?&lt;PackageFamilyName&gt;",
+    /// documentado pela Microsoft), onde o USUÁRIO clica em Desinstalar —
+    /// mesmo princípio da Steam, o launcher nunca apaga nada sozinho. Se
+    /// não achar o pacote (instalação não-MSIX, PowerShell falhar, etc.),
+    /// cai pra abrir a lista geral de Apps ("ms-settings:appsfeatures")
+    /// em vez de falhar silenciosamente. Ver GameLauncher pros detalhes.
+    /// </summary>
+    void OpenWindowsAppUninstaller(string? installDirectory);
 }
 
 public sealed class GameExitedEventArgs : EventArgs

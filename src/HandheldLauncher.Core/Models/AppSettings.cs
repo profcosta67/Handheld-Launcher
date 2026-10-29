@@ -127,4 +127,26 @@ public class AppSettings
 
     /// <summary>Tamanho do texto (v0.7.1): 0 Pequeno, 1 Médio (padrão), 2 Grande.</summary>
     public int UiFontSize { get; set; } = 1;
+
+    /// <summary>
+    /// v0.9.15, item antigo do roteiro ("Integração com o emulador Eden"):
+    /// caminho completo pro `eden.exe` instalado (ex:
+    /// "C:\Eden\eden.exe") — precisa ser preenchido à mão, igual
+    /// XboxScanFolders/SteamGridDbApiKey quando foram criados (sem UI de
+    /// configuração ainda). Vazio/null = EdenLibraryScanner não escaneia
+    /// nada (comportamento de antes, nenhum jogo do Eden aparece).
+    /// <para>
+    /// Por quê precisa disso e os outros scanners (Epic/GOG/Ubisoft/EA)
+    /// não: aqueles abrem o jogo pelo LAUNCHER OFICIAL de cada loja (URI
+    /// própria ou .exe do jogo em si) — o Eden não tem um "protocolo" de
+    /// URI pra abrir um jogo específico, então quem abre é o launcher
+    /// (como `eden.exe -g "caminho\do\jogo.nsp"`, ver EdenLibraryScanner),
+    /// e pra isso ele precisa saber onde o `eden.exe` está. Diferente de
+    /// XboxFolderScanner (lê pastas configuradas aqui MESMO pra achar
+    /// jogos), EdenLibraryScanner lê as pastas de jogo que já estão
+    /// configuradas DENTRO do próprio Eden (qt-config.ini) — só o
+    /// caminho do `eden.exe` precisa ser dito aqui.
+    /// </para>
+    /// </summary>
+    public string? EdenExecutablePath { get; set; }
 }

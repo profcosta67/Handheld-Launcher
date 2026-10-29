@@ -116,6 +116,79 @@ public sealed class GameLauncher : IGameLauncher
         });
     }
 
+    /// <summary>
+    /// v0.9.15, item antigo do roteiro ("desinstalar jogo do Xbox app/Game
+    /// Pass de verdade"). Diferente da Steam, o Xbox app/Game Pass não tem
+    /// um protocolo "xbox://uninstall/..." documentado — e
+    /// XboxFolderScanner só lê PASTAS (nunca captura a identidade real do
+    /// pacote MSIX/UWP), então primeiro precisa DESCOBRIR o pacote antes
+    /// de poder abrir a página certa.
+    ///
+    /// Caminho escolhido (avaliado contra apagar a pasta nós mesmos, que
+    /// quebraria o princípio seguido em todo o resto do app — "nunca apaga
+    /// arquivo de jogo diretamente"): PowerShell (Get-AppxPackage) pra
+    /// achar o PackageFamilyName cujo InstallLocation bate com a pasta do
+    /// jogo, depois abre esse app específico em Configurações via
+    /// "ms-settings:appsfeatures-app?&lt;PFN&gt;" — URI documentada pela
+    /// própria Microsoft (learn.microsoft.com/windows/apps/develop/launch/
+    /// launch-settings-app). O usuário termina clicando em "Desinstalar"
+    /// lá; o launcher só abre a tela certa, nunca toca no disco.
+    ///
+    /// NUNCA TESTADO contra uma instalação real do Xbox app/Game Pass
+    /// (sem Windows/Xbox app neste sandbox) — se o PFN não vier por
+    /// qualquer motivo (nome não bater, PowerShell indisponível/bloqueado
+    /// por política, instalação não ser MSIX de verdade), cai pra abrir a
+    /// lista GERAL de Apps em vez de falhar silenciosamente: o usuário
+    /// sempre chega em algum lugar útil pra terminar manualmente.
+    /// </summary>
+    public void OpenWindowsAppUninstaller(string? installDirectory)
+    {
+        var pfn = string.IsNullOrWhiteSpace(installDirectory) ? null : TryFindPackageFamilyName(installDirectory);
+
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = pfn is null ? "ms-settings:appsfeatures" : $"ms-settings:appsfeatures-app?{pfn}",
+            UseShellExecute = true,
+        });
+    }
+
+    /// <summary>
+    /// -ieq com os dois lados sem barra final: InstallLocation normalmente
+    /// não tem barra no final, mas tolera os dois formatos. Nunca lança —
+    /// qualquer falha (powershell.exe ausente, timeout, saída vazia) só
+    /// resulta em null, tratado pelo fallback em OpenWindowsAppUninstaller.
+    /// </summary>
+    private static string? TryFindPackageFamilyName(string installDirectory)
+    {
+        try
+        {
+            var escaped = installDirectory.Replace("'", "''").TrimEnd('\\', '/');
+            var script = "(Get-AppxPackage -AllUsers | Where-Object { $_.InstallLocation -and " +
+                $"$_.InstallLocation.TrimEnd('\\') -ieq '{escaped}' }} | Select-Object -First 1).PackageFamilyName";
+
+            var psi = new ProcessStartInfo("powershell.exe", $"-NoProfile -NonInteractive -Command \"{script}\"")
+            {
+                CreateNoWindow = true,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+
+            using var process = Process.Start(psi);
+            if (process is null) return null;
+
+            var stdout = process.StandardOutput.ReadToEnd();
+            process.WaitForExit(8000);
+
+            var pfn = stdout.Trim();
+            return string.IsNullOrWhiteSpace(pfn) ? null : pfn;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private void LaunchDirect(GameEntry game)
     {
         var workingDirectory = game.WorkingDirectory;

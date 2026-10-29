@@ -23,8 +23,7 @@
         <!--
           v0.9.14, pedido do usuário ("já vi algo que quero mudar o menu
           configuração novamente, separar em tópicos porque encheu"):
-          4 abas — Contas e Chaves / Diretórios / Modo de uso / Aparência.
-          Mesmo padrão visual das abas de filtro da biblioteca
+          4 abas. Mesmo padrão visual das abas de filtro da biblioteca
           (Button.pill.filterTab + Classes.active, ver MainWindow.axaml) em
           vez de um TabControl de verdade do Avalonia — assim herda o
           mesmo visual do resto do app sem precisar de estilo novo pro
@@ -34,10 +33,15 @@
           "Aparência" em temas/cores-fontes-tamanhos/sons/imagem, que o
           usuário marcou como "avaliar se compensa", NÃO entrou aqui —
           só os 4 tópicos de topo, por ora.
+
+          v0.9.15, pedido do usuário ("Aparencias / Diretorios / Modo de
+          Uso / Contas (deixa por ultimo)"): ordem trocada — Aparência
+          agora é a primeira aba (e a aberta por padrão, ver
+          SettingsViewModel.LoadFrom), Contas e Chaves foi pro final.
         -->
         <Grid ColumnDefinitions="*,*,*,*" Margin="0,0,0,4">
-          <Button Grid.Column="0" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAccountsActive}"
-                  Content="Contas e Chaves" Tag="0" Click="OnCategoryTabClick"
+          <Button Grid.Column="0" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAppearanceActive}"
+                  Content="Aparência" Tag="0" Click="OnCategoryTabClick"
                   HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,4,0" Padding="8,8" FontSize="11" />
           <Button Grid.Column="1" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryFoldersActive}"
                   Content="Diretórios" Tag="1" Click="OnCategoryTabClick"
@@ -45,32 +49,122 @@
           <Button Grid.Column="2" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryModeActive}"
                   Content="Modo de uso" Tag="2" Click="OnCategoryTabClick"
                   HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0,4,0" Padding="8,8" FontSize="11" />
-          <Button Grid.Column="3" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAppearanceActive}"
-                  Content="Aparência" Tag="3" Click="OnCategoryTabClick"
+          <Button Grid.Column="3" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAccountsActive}"
+                  Content="Contas e Chaves" Tag="3" Click="OnCategoryTabClick"
                   HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0,0,0" Padding="8,8" FontSize="11" />
         </Grid>
 
-        <!-- ===== Contas e Chaves ===== -->
-        <StackPanel Spacing="12" IsVisible="{Binding IsCategoryAccountsActive}">
-          <!-- v0.9.5: as chaves/IDs não aparecem mais direto aqui (pedido do
-               usuário) — só o status de cada uma. As caixas de verdade
-               (mascaradas) ficam atrás do botão "Gerenciar contas", num
-               diálogo separado (AccountsWindow). -->
-          <StackPanel Spacing="2">
-            <TextBlock FontSize="12">
-              <Run Text="SteamGridDB (capas): " /><Run Text="{Binding SteamGridDbStatusText}" />
-            </TextBlock>
-            <TextBlock FontSize="12">
-              <Run Text="Steam Web API (downloads): " /><Run Text="{Binding SteamWebApiStatusText}" />
-            </TextBlock>
-            <TextBlock FontSize="12">
-              <Run Text="Conta Steam (SteamID64): " /><Run Text="{Binding SteamIdStatusText}" />
-            </TextBlock>
-          </StackPanel>
-          <Button Classes="pill" Content="🔒 Gerenciar contas e chaves de API" Click="OnManageAccountsClick" HorizontalAlignment="Left" />
-          <TextBlock Text="O launcher nunca pede nem guarda a senha da Steam. As chaves ficam criptografadas neste PC (só o seu usuário do Windows consegue ler)."
-                     Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+        <!-- ===== Aparência ===== -->
+        <StackPanel Spacing="12" IsVisible="{Binding IsCategoryAppearanceActive}">
+        <!--
+          v0.9.15, pedido do usuário: os ComboBox abaixo estavam
+          HorizontalAlignment="Stretch" (esticavam até a largura toda da
+          coluna, "pegando no scroll" — iam até bem perto da barra de
+          rolagem). Agora têm uma Width fixa (a mesma pra todos, pedido
+          explícito "todas de tamanhos iguais") e ficam centralizados —
+          440 dá folga suficiente pro texto mais longo da tela, "Grade
+          vertical (rola pra cima e pra baixo)" (Biblioteca), sem cortar.
+        -->
+        <TextBlock Text="Tema" FontSize="12" HorizontalAlignment="Center" />
+        <ComboBox SelectedIndex="{Binding ThemeIndex}" Width="440" HorizontalAlignment="Center">
+          <ComboBoxItem Content="Escuro" />
+          <ComboBoxItem Content="Claro" />
+          <ComboBoxItem Content="Azul" />
+          <ComboBoxItem Content="Vermelho" />
+          <ComboBoxItem Content="Verde" />
+          <ComboBoxItem Content="Laranja" />
+          <ComboBoxItem Content="Rosa" />
+          <ComboBoxItem Content="Ciano" />
+          <ComboBoxItem Content="Preto (OLED)" />
+          <ComboBoxItem Content="Dourado" />
+          <!-- v0.9.13, item da fila combinado com o usuário: layout mais
+               "quadrado"/minimalista (ver ThemeManager — TileRadius/
+               BarRadius menores só neste tema), sem nenhum ícone/fonte/
+               logo oficial do aparelho real. -->
+          <ComboBoxItem Content="Switch" />
+        </ComboBox>
+        <TextBlock Text="Fonte" FontSize="12" HorizontalAlignment="Center" />
+        <ComboBox SelectedIndex="{Binding FontIndex}" Width="440" HorizontalAlignment="Center">
+          <ComboBoxItem Content="Moderna (Segoe UI)" />
+          <ComboBoxItem Content="Divertida (Comic Sans)" />
+          <ComboBoxItem Content="Formal (Georgia)" />
+          <ComboBoxItem Content="Gamer (Bahnschrift)" />
+          <ComboBoxItem Content="Terminal (Consolas)" />
+          <ComboBoxItem Content="Simples (Arial)" />
+          <ComboBoxItem Content="Clássica (Times New Roman)" />
+          <ComboBoxItem Content="Legível (Verdana)" />
+          <ComboBoxItem Content="Elegante (Trebuchet)" />
+        </ComboBox>
+        <TextBlock Text="Tamanho do texto" FontSize="12" HorizontalAlignment="Center" />
+        <ComboBox SelectedIndex="{Binding FontSizeIndex}" Width="440" HorizontalAlignment="Center">
+          <ComboBoxItem Content="Pequeno" />
+          <ComboBoxItem Content="Médio" />
+          <ComboBoxItem Content="Grande" />
+        </ComboBox>
+        <TextBlock Text="Tamanho das capas" FontSize="12" HorizontalAlignment="Center" />
+        <ComboBox SelectedIndex="{Binding TileSizeIndex}" Width="440" HorizontalAlignment="Center">
+          <ComboBoxItem Content="Pequeno" />
+          <ComboBoxItem Content="Médio" />
+          <ComboBoxItem Content="Grande" />
+        </ComboBox>
+        <TextBlock Text="Biblioteca" FontSize="12" HorizontalAlignment="Center" />
+        <ComboBox SelectedIndex="{Binding LayoutIndex}" Width="440" HorizontalAlignment="Center">
+          <ComboBoxItem Content="Fileira horizontal (rola pros lados)" />
+          <ComboBoxItem Content="Grade vertical (rola pra cima e pra baixo)" />
+        </ComboBox>
+        <CheckBox IsChecked="{Binding Animations}"
+                  Content="Animações (zoom no jogo selecionado e ao passar o mouse, rolagem suave)"
+                  HorizontalAlignment="Center" />
+        <!-- v0.9.10, pedido do usuário: "esquecemos de uma coisa importante,
+             som de interação do launcher". -->
+        <CheckBox IsChecked="{Binding SoundEffects}"
+                  Content="Sons de interação (navegar/confirmar/voltar pelo controle)"
+                  HorizontalAlignment="Center" />
+        <!-- v0.9.11, pedido do usuário: "podemos por opções de sons também
+             no tema, alguns diferentes, nada muito exagerado". -->
+        <TextBlock Text="Estilo do som" FontSize="12" HorizontalAlignment="Center" />
+        <ComboBox SelectedIndex="{Binding SoundThemeIndex}" Width="440" HorizontalAlignment="Center" IsEnabled="{Binding SoundEffects}">
+          <ComboBoxItem Content="Clássico" />
+          <ComboBoxItem Content="Suave" />
+          <ComboBoxItem Content="Retro" />
+          <ComboBoxItem Content="Future" />
+        </ComboBox>
+        <!-- v0.9.13, pedido do usuário: "os sons ficaram um pouco alto,
+             testei no volume máximo e dá aquela estourada". PlaySound
+             (winmm) não tem volume próprio — a escala é aplicada direto
+             nas amostras de cada som (ver Platform/UiSounds.Volume).
+             ←/→ pelo controle também ajustam (ver DialogGamepadNavigator). -->
+        <TextBlock Text="{Binding SoundVolume, StringFormat='Volume dos sons ({0}%)'}" FontSize="12" HorizontalAlignment="Center" />
+        <Slider Minimum="0" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True"
+                Value="{Binding SoundVolume}" IsEnabled="{Binding SoundEffects}"
+                Width="440" HorizontalAlignment="Center" />
+
+        <!-- v0.9.13, item do roteiro: modos de otimização de imagem/cor,
+             via SetDeviceGammaRamp (Platform/DisplayColorManager) — ajusta
+             a curva de cor da tela INTEIRA, fora do launcher também,
+             enquanto ele estiver aberto (restaura a curva original ao
+             fechar). Marcado como "experimental" na própria tela porque é
+             uma API do Windows com histórico de reagir diferente entre
+             driver/GPU — ver os avisos de robustez no comentário de
+             DisplayColorManager pro que fazer se a tela ficar com cor
+             estranha depois de trocar. -->
+        <TextBlock Text="Modo de imagem/cor (experimental)" FontSize="12" HorizontalAlignment="Center" />
+        <ComboBox SelectedIndex="{Binding ColorModeIndex}" Width="440" HorizontalAlignment="Center">
+          <ComboBoxItem Content="Padrão" />
+          <ComboBoxItem Content="Vívido" />
+          <ComboBoxItem Content="OLED (contraste alto)" />
+          <ComboBoxItem Content="Noturno (luz quente)" />
+          <ComboBoxItem Content="Confortável" />
+        </ComboBox>
+        <TextBlock Text="Ajusta a cor da tela inteira (fora do launcher também) enquanto ele estiver aberto. Se a tela ficar estranha depois de trocar, feche e abra o launcher de novo."
+                   Classes="subtle"
+                   FontSize="11"
+                   TextWrapping="Wrap"
+                   TextAlignment="Center"
+                   Width="440"
+                   HorizontalAlignment="Center" />
         </StackPanel>
+        <!-- fim Aparência -->
 
         <!-- ===== Diretórios ===== -->
         <StackPanel Spacing="12" IsVisible="{Binding IsCategoryFoldersActive}">
@@ -96,132 +190,56 @@
                      TextWrapping="Wrap" />
         </StackPanel>
 
-        <!-- ===== Aparência ===== -->
-        <StackPanel Spacing="12" IsVisible="{Binding IsCategoryAppearanceActive}">
-        <TextBlock Text="Tema" FontSize="12" />
-        <ComboBox SelectedIndex="{Binding ThemeIndex}" HorizontalAlignment="Stretch">
-          <ComboBoxItem Content="Escuro" />
-          <ComboBoxItem Content="Claro" />
-          <ComboBoxItem Content="Azul" />
-          <ComboBoxItem Content="Vermelho" />
-          <ComboBoxItem Content="Verde" />
-          <ComboBoxItem Content="Laranja" />
-          <ComboBoxItem Content="Rosa" />
-          <ComboBoxItem Content="Ciano" />
-          <ComboBoxItem Content="Preto (OLED)" />
-          <ComboBoxItem Content="Dourado" />
-          <!-- v0.9.13, item da fila combinado com o usuário: layout mais
-               "quadrado"/minimalista (ver ThemeManager — TileRadius/
-               BarRadius menores só neste tema), sem nenhum ícone/fonte/
-               logo oficial do aparelho real. -->
-          <ComboBoxItem Content="Switch" />
-        </ComboBox>
-        <TextBlock Text="Fonte" FontSize="12" />
-        <ComboBox SelectedIndex="{Binding FontIndex}" HorizontalAlignment="Stretch">
-          <ComboBoxItem Content="Moderna (Segoe UI)" />
-          <ComboBoxItem Content="Divertida (Comic Sans)" />
-          <ComboBoxItem Content="Formal (Georgia)" />
-          <ComboBoxItem Content="Gamer (Bahnschrift)" />
-          <ComboBoxItem Content="Terminal (Consolas)" />
-          <ComboBoxItem Content="Simples (Arial)" />
-          <ComboBoxItem Content="Clássica (Times New Roman)" />
-          <ComboBoxItem Content="Legível (Verdana)" />
-          <ComboBoxItem Content="Elegante (Trebuchet)" />
-        </ComboBox>
-        <TextBlock Text="Tamanho do texto" FontSize="12" />
-        <ComboBox SelectedIndex="{Binding FontSizeIndex}" HorizontalAlignment="Stretch">
-          <ComboBoxItem Content="Pequeno" />
-          <ComboBoxItem Content="Médio" />
-          <ComboBoxItem Content="Grande" />
-        </ComboBox>
-        <TextBlock Text="Tamanho das capas" FontSize="12" />
-        <ComboBox SelectedIndex="{Binding TileSizeIndex}" HorizontalAlignment="Stretch">
-          <ComboBoxItem Content="Pequeno" />
-          <ComboBoxItem Content="Médio" />
-          <ComboBoxItem Content="Grande" />
-        </ComboBox>
-        <TextBlock Text="Biblioteca" FontSize="12" />
-        <ComboBox SelectedIndex="{Binding LayoutIndex}" HorizontalAlignment="Stretch">
-          <ComboBoxItem Content="Fileira horizontal (rola pros lados)" />
-          <ComboBoxItem Content="Grade vertical (rola pra cima e pra baixo)" />
-        </ComboBox>
-        <CheckBox IsChecked="{Binding Animations}"
-                  Content="Animações (zoom no jogo selecionado e ao passar o mouse, rolagem suave)" />
-        <!-- v0.9.10, pedido do usuário: "esquecemos de uma coisa importante,
-             som de interação do launcher". -->
-        <CheckBox IsChecked="{Binding SoundEffects}"
-                  Content="Sons de interação (navegar/confirmar/voltar pelo controle)" />
-        <!-- v0.9.11, pedido do usuário: "podemos por opções de sons também
-             no tema, alguns diferentes, nada muito exagerado". -->
-        <TextBlock Text="Estilo do som" FontSize="12" />
-        <ComboBox SelectedIndex="{Binding SoundThemeIndex}" HorizontalAlignment="Stretch" IsEnabled="{Binding SoundEffects}">
-          <ComboBoxItem Content="Clássico" />
-          <ComboBoxItem Content="Suave" />
-          <ComboBoxItem Content="Retro" />
-          <ComboBoxItem Content="Future" />
-        </ComboBox>
-        <!-- v0.9.13, pedido do usuário: "os sons ficaram um pouco alto,
-             testei no volume máximo e dá aquela estourada". PlaySound
-             (winmm) não tem volume próprio — a escala é aplicada direto
-             nas amostras de cada som (ver Platform/UiSounds.Volume).
-             ←/→ pelo controle também ajustam (ver DialogGamepadNavigator). -->
-        <TextBlock Text="{Binding SoundVolume, StringFormat='Volume dos sons ({0}%)'}" FontSize="12" />
-        <Slider Minimum="0" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True"
-                Value="{Binding SoundVolume}" IsEnabled="{Binding SoundEffects}" />
-
-        <!-- v0.9.13, item do roteiro: modos de otimização de imagem/cor,
-             via SetDeviceGammaRamp (Platform/DisplayColorManager) — ajusta
-             a curva de cor da tela INTEIRA, fora do launcher também,
-             enquanto ele estiver aberto (restaura a curva original ao
-             fechar). Marcado como "experimental" na própria tela porque é
-             uma API do Windows com histórico de reagir diferente entre
-             driver/GPU — ver os avisos de robustez no comentário de
-             DisplayColorManager pro que fazer se a tela ficar com cor
-             estranha depois de trocar. -->
-        <TextBlock Text="Modo de imagem/cor (experimental)" FontSize="12" />
-        <ComboBox SelectedIndex="{Binding ColorModeIndex}" HorizontalAlignment="Stretch">
-          <ComboBoxItem Content="Padrão" />
-          <ComboBoxItem Content="Vívido" />
-          <ComboBoxItem Content="OLED (contraste alto)" />
-          <ComboBoxItem Content="Noturno (luz quente)" />
-          <ComboBoxItem Content="Confortável" />
-        </ComboBox>
-        <TextBlock Text="Ajusta a cor da tela inteira (fora do launcher também) enquanto ele estiver aberto. Se a tela ficar estranha depois de trocar, feche e abra o launcher de novo."
-                   Classes="subtle"
-                   FontSize="11"
-                   TextWrapping="Wrap" />
+        <!-- ===== Contas e Chaves ===== -->
+        <StackPanel Spacing="12" IsVisible="{Binding IsCategoryAccountsActive}">
+          <!-- v0.9.5: as chaves/IDs não aparecem mais direto aqui (pedido do
+               usuário) — só o status de cada uma. As caixas de verdade
+               (mascaradas) ficam atrás do botão "Gerenciar contas", num
+               diálogo separado (AccountsWindow). -->
+          <StackPanel Spacing="2">
+            <TextBlock FontSize="12">
+              <Run Text="SteamGridDB (capas): " /><Run Text="{Binding SteamGridDbStatusText}" />
+            </TextBlock>
+            <TextBlock FontSize="12">
+              <Run Text="Steam Web API (downloads): " /><Run Text="{Binding SteamWebApiStatusText}" />
+            </TextBlock>
+            <TextBlock FontSize="12">
+              <Run Text="Conta Steam (SteamID64): " /><Run Text="{Binding SteamIdStatusText}" />
+            </TextBlock>
+          </StackPanel>
+          <Button Classes="pill" Content="🔒 Gerenciar contas e chaves de API" Click="OnManageAccountsClick" HorizontalAlignment="Left" />
+          <TextBlock Text="O launcher nunca pede nem guarda a senha da Steam. As chaves ficam criptografadas neste PC (só o seu usuário do Windows consegue ler)."
+                     Classes="subtle" FontSize="11" TextWrapping="Wrap" />
         </StackPanel>
-        <!-- fim Aparência -->
-
-        <!--
-          v0.9.14: o ComboBox "Overlay de desempenho" que ficava aqui saiu
-          de vez — pedido do usuário ("em configurações tem um quadrado
-          para selecionar o overlay ele esta repetido [...] retirar esse do
-          preferências"): a seleção de preset já existe, completa, no Menu
-          Global → HUD do próprio launcher (marcador ●/○ por preset +
-          status do RTSS + atalho L3+R3), então manter os dois era
-          duplicado. Nada foi perdido — só o caminho redundante.
-        -->
-
-        <!-- Sempre visível, fora das abas (versão/atualização não é bem
-             uma categoria das de cima). -->
-        <TextBlock Text="{Binding VersionText}" Classes="subtle" Margin="0,8,0,0" />
-        <Button Classes="pill"
-                Content="Verificar atualizações"
-                Click="OnCheckUpdatesClick"
-                HorizontalAlignment="Left"
-                IsVisible="{Binding UpdatesAvailable}" />
-        <TextBlock Text="{Binding UpdateResultText}"
-                   IsVisible="{Binding HasUpdateResult}"
-                   TextWrapping="Wrap" />
 
       </StackPanel>
     </ScrollViewer>
 
-    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,20,0,0">
-      <Button Classes="pill" Content="⌨ Teclado" Click="OnKeyboardClick" />
-      <Button Classes="pill" Content="Fechar" Click="OnCloseClick" />
-      <Button Classes="pill" Content="Salvar" Click="OnSaveClick" />
+    <!--
+      v0.9.15, pedido do usuário ("tirar esse verificar atualizações que
+      tem em contas, já tem ele em configuração"): o bloco de versão/
+      atualização morava DENTRO da área rolável das abas, depois da última
+      — então aparecia colado em qualquer aba que estivesse aberta por
+      último (até a v0.9.14, Contas e Chaves, que era a primeira/padrão).
+      Agora mora aqui, fora das abas, sempre no mesmo lugar (rodapé fixo,
+      acima dos botões), nunca mais "dentro" de nenhuma categoria.
+    -->
+    <StackPanel Grid.Row="1" Spacing="10" Margin="0,16,0,0">
+      <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+        <TextBlock Text="{Binding VersionText}" Classes="subtle" VerticalAlignment="Center" />
+        <Button Classes="pill"
+                Content="Verificar atualizações"
+                Click="OnCheckUpdatesClick"
+                IsVisible="{Binding UpdatesAvailable}" />
+      </StackPanel>
+      <TextBlock Text="{Binding UpdateResultText}"
+                 IsVisible="{Binding HasUpdateResult}"
+                 TextWrapping="Wrap" />
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+        <Button Classes="pill" Content="⌨ Teclado" Click="OnKeyboardClick" />
+        <Button Classes="pill" Content="Fechar" Click="OnCloseClick" />
+        <Button Classes="pill" Content="Salvar" Click="OnSaveClick" />
+      </StackPanel>
     </StackPanel>
   </Grid>
 

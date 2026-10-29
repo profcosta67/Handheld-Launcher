@@ -882,23 +882,29 @@ public sealed class MainViewModel : ViewModelBase
         }
         Add(game.IsFavorite ? "Desfavoritar" : "Favoritar", () => ToggleFavorite(game));
 
-        // Excluir atalho/jogo. Dois caminhos BEM diferentes:
+        // Excluir atalho/jogo. Três caminhos BEM diferentes:
         //   - Steam: "Excluir jogo" abre o desinstalador da própria Steam
         //     (steam://uninstall/{appid}, ver GameLauncher) — a Steam
         //     cuida de apagar os arquivos de verdade, o launcher nunca
         //     toca nada no disco.
+        //   - Não-Steam ESCANEADO AUTOMATICAMENTE do Xbox app/Game Pass
+        //     (pasta configurada em AppSettings.XboxScanFolders, ver
+        //     XboxFolderScanner — Id sempre começa com "xboxfolder_"):
+        //     v0.9.15, item antigo do roteiro ("desinstalar jogo do Xbox
+        //     app/Game Pass de verdade") — "Excluir jogo" abre a página
+        //     de Configurações do Windows pro app de verdade (achado via
+        //     PowerShell/Get-AppxPackage, ver
+        //     GameLauncher.OpenWindowsAppUninstaller), onde o usuário
+        //     clica em "Desinstalar". Igual Steam: o launcher não apaga
+        //     nada sozinho. Antes desta leva, esses jogos não ganhavam
+        //     NENHUM item de exclusão (RemoveManualGame não serviria —
+        //     não é um "jogo manual" guardado por nós, reaparecia no
+        //     próximo scan de qualquer forma).
         //   - Não-Steam ADICIONADO À MÃO (Source != Steam, veio de
         //     "Adicionar jogo"/AddManualGame, não de um scanner
         //     automático): "Excluir atalho" chama
         //     ILibraryService.RemoveManualGame — só remove da nossa
         //     lista, nunca apaga os arquivos do jogo em si.
-        //   - Não-Steam ESCANEADO AUTOMATICAMENTE (ex: pasta configurada
-        //     em AppSettings.XboxScanFolders, ver XboxFolderScanner — Id
-        //     sempre começa com "xboxfolder_") NÃO ganha item de exclusão
-        //     ainda: RemoveManualGame não teria o que remover (não é um
-        //     "jogo manual" guardado por nós, reaparece no próximo scan
-        //     de qualquer forma) — pra tirar um desses da lista, por
-        //     enquanto é preciso editar XboxScanFolders no settings.json.
         if (game.Source == GameSource.Steam)
         {
             if (game.SteamAppId is { } appId)
@@ -906,7 +912,11 @@ public sealed class MainViewModel : ViewModelBase
                 Add("Excluir jogo", () => RequestDeleteSteamGame(game, appId));
             }
         }
-        else if (!game.Id.StartsWith("xboxfolder_", StringComparison.Ordinal))
+        else if (game.Id.StartsWith("xboxfolder_", StringComparison.Ordinal))
+        {
+            Add("Excluir jogo", () => RequestDeleteXboxGame(game));
+        }
+        else
         {
             Add("Excluir atalho", () => RequestDeleteShortcut(game));
         }
@@ -1022,6 +1032,12 @@ public sealed class MainViewModel : ViewModelBase
     private void RequestDeleteSteamGame(GameEntry game, uint appId)
     {
         OpenConfirmMenu(game, "Sim, abrir desinstalador da Steam", () => _launcher.OpenSteamUninstaller(appId));
+    }
+
+    /// <summary>v0.9.15 — ver GameLauncher.OpenWindowsAppUninstaller pro caminho completo (PowerShell + ms-settings:appsfeatures-app).</summary>
+    private void RequestDeleteXboxGame(GameEntry game)
+    {
+        OpenConfirmMenu(game, "Sim, abrir desinstalador do Windows", () => _launcher.OpenWindowsAppUninstaller(game.InstallDirectory));
     }
 
     public void CloseContextMenu()
