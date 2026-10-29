@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using HandheldLauncher.App.Platform;
 using HandheldLauncher.App.ViewModels;
 using HandheldLauncher.Core.Models;
@@ -84,11 +85,14 @@ public partial class SettingsWindow : Window
     }
 
     /// <summary>
-    /// v0.9.14: abas "Contas e Chaves/Diretórios/Modo de uso/Aparência" —
-    /// cada Button.pill.categoryTab guarda seu índice no Tag (ver .axaml).
+    /// v0.9.14: abas de categoria (v0.9.16: Aparência/Diretórios/
+    /// Emuladores/Modo de uso/Contas) — cada Button.pill.categoryTab
+    /// guarda seu índice no Tag (ver .axaml).
     /// DialogGamepadNavigator.CycleCategoryTab também cai aqui (ele só acha
     /// o botão certo e simula o clique de verdade), então LB/RB pelo
-    /// controle usam exatamente este mesmo caminho.
+    /// controle usam exatamente este mesmo caminho — e por isso a 5ª aba
+    /// da v0.9.16 não precisou de nenhuma mudança na navegação por
+    /// controle.
     /// </summary>
     private void OnCategoryTabClick(object? sender, RoutedEventArgs e)
     {
@@ -96,6 +100,65 @@ public partial class SettingsWindow : Window
         {
             ViewModel.CategoryIndex = index;
         }
+    }
+
+    /// <summary>
+    /// v0.9.16, aba Emuladores: aponta o `eden.exe` na mão (pra quando a
+    /// detecção automática não achou — ver EdenInstallationDetector).
+    /// Mesmo padrão de StorageProvider do AddGameWindow.OnBrowseClick:
+    /// esta Window já É um TopLevel, então dá pra usar StorageProvider
+    /// direto.
+    /// </summary>
+    private async void OnBrowseEdenClick(object? sender, RoutedEventArgs e)
+    {
+        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Selecione o eden.exe",
+            AllowMultiple = false,
+            FileTypeFilter = new[]
+            {
+                new FilePickerFileType("Executável (*.exe)") { Patterns = new[] { "*.exe" } },
+            },
+        });
+
+        var file = files.FirstOrDefault();
+        if (file is null) return;
+
+        var path = file.TryGetLocalPath();
+        if (string.IsNullOrWhiteSpace(path)) return;
+
+        ViewModel.EdenExecutablePath = path;
+    }
+
+    /// <summary>
+    /// v0.9.16, aba Emuladores: acrescenta uma pasta de ROMs na caixa (uma
+    /// por linha) em vez de substituir o que já está lá — dá pra ter ROM
+    /// em mais de um disco, que é o caso comum em handheld (SSD interno +
+    /// cartão). Ignora pasta repetida pra não encher a lista de duplicatas
+    /// se o usuário clicar duas vezes na mesma.
+    /// </summary>
+    private async void OnAddRomFolderClick(object? sender, RoutedEventArgs e)
+    {
+        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Selecione a pasta com as ROMs",
+            AllowMultiple = false,
+        });
+
+        var folder = folders.FirstOrDefault();
+        if (folder is null) return;
+
+        var path = folder.TryGetLocalPath();
+        if (string.IsNullOrWhiteSpace(path)) return;
+
+        var existing = ViewModel.EdenRomFoldersText
+            .Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+        if (existing.Contains(path, StringComparer.OrdinalIgnoreCase)) return;
+
+        ViewModel.EdenRomFoldersText = existing.Length == 0
+            ? path
+            : string.Join(Environment.NewLine, existing.Append(path));
     }
 
     private void OnKeyboardClick(object? sender, RoutedEventArgs e)

@@ -37,6 +37,21 @@ public partial class App : Application
                 try { AppSettingsStore.Save(appSettings); } catch { /* melhor esforço */ }
             }
 
+            // v0.9.16, mesmo padrão da detecção de conta Steam acima: acha
+            // o eden.exe sozinho no primeiro boot (ver
+            // EdenInstallationDetector) e GRAVA, pra o caminho já aparecer
+            // preenchido na aba Emuladores de Configurações em vez do
+            // usuário ter que descobrir onde instalou. Escolhido em vez de
+            // empacotar o Eden no instalador — ver o comentário da classe
+            // pro porquê. Só roda quando o campo está vazio: se o usuário
+            // apontou na mão, a escolha dele nunca é sobrescrita.
+            if (string.IsNullOrWhiteSpace(appSettings.EdenExecutablePath)
+                && EdenInstallationDetector.FindExecutable() is { } edenExe)
+            {
+                appSettings.EdenExecutablePath = edenExe;
+                try { AppSettingsStore.Save(appSettings); } catch { /* melhor esforço */ }
+            }
+
             var steamScanner = new SteamLibraryScanner();
             // Null quando AppSettings.XboxScanFolders está vazio (padrão) —
             // "editor de onde procurar" jogos Xbox pedido pelo usuário,
@@ -59,12 +74,14 @@ public partial class App : Application
             var steamAchievementsClient = steamAchievementsCandidate.HasCredentials ? steamAchievementsCandidate : null;
             var libraryStore = new GameLibraryStore();
             // v0.9.15: EdenLibraryScanner entra na mesma lista — só acha
-            // jogo se AppSettings.EdenExecutablePath estiver configurado
-            // (hand-edit só por enquanto, ver comentário da classe e do
-            // campo); sem isso, devolve lista vazia, comportamento de
-            // antes.
+            // jogo se o eden.exe for conhecido (detectado acima ou dito na
+            // aba Emuladores); sem isso devolve lista vazia.
+            // v0.9.16: recebe também as pastas de ROM ditas pelo usuário,
+            // que são a fonte PRIMÁRIA agora (o qt-config.ini do Eden virou
+            // fallback — ver comentário da classe).
             var libraryService = new LibraryService(steamScanner, libraryStore, xboxFolderScanner, steamOwnedGamesClient,
-                [new EpicLibraryScanner(), new GogLibraryScanner(), new UbisoftLibraryScanner(), new EaLibraryScanner(), new EdenLibraryScanner(appSettings.EdenExecutablePath)]);
+                [new EpicLibraryScanner(), new GogLibraryScanner(), new UbisoftLibraryScanner(), new EaLibraryScanner(),
+                 new EdenLibraryScanner(appSettings.EdenExecutablePath, appSettings.EdenRomFolders)]);
             var gameLauncher = new GameLauncher();
 
             var gridDbClient = new SteamGridDbClient(appSettings.SteamGridDbApiKey);

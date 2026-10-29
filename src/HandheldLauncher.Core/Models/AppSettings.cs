@@ -131,22 +131,45 @@ public class AppSettings
     /// <summary>
     /// v0.9.15, item antigo do roteiro ("Integração com o emulador Eden"):
     /// caminho completo pro `eden.exe` instalado (ex:
-    /// "C:\Eden\eden.exe") — precisa ser preenchido à mão, igual
-    /// XboxScanFolders/SteamGridDbApiKey quando foram criados (sem UI de
-    /// configuração ainda). Vazio/null = EdenLibraryScanner não escaneia
-    /// nada (comportamento de antes, nenhum jogo do Eden aparece).
+    /// "C:\Eden Emu\eden.exe"). Vazio/null = EdenLibraryScanner não
+    /// escaneia nada (nenhum jogo do Eden aparece).
     /// <para>
     /// Por quê precisa disso e os outros scanners (Epic/GOG/Ubisoft/EA)
     /// não: aqueles abrem o jogo pelo LAUNCHER OFICIAL de cada loja (URI
     /// própria ou .exe do jogo em si) — o Eden não tem um "protocolo" de
     /// URI pra abrir um jogo específico, então quem abre é o launcher
-    /// (como `eden.exe -g "caminho\do\jogo.nsp"`, ver EdenLibraryScanner),
-    /// e pra isso ele precisa saber onde o `eden.exe` está. Diferente de
-    /// XboxFolderScanner (lê pastas configuradas aqui MESMO pra achar
-    /// jogos), EdenLibraryScanner lê as pastas de jogo que já estão
-    /// configuradas DENTRO do próprio Eden (qt-config.ini) — só o
-    /// caminho do `eden.exe` precisa ser dito aqui.
+    /// (`eden.exe -f -g "caminho\do\jogo.nsp"`, sintaxe CONFIRMADA pelo
+    /// usuário na v0.9.16 contra um atalho de verdade da área de trabalho
+    /// dele), e pra isso ele precisa saber onde o `eden.exe` está.
+    /// </para>
+    /// <para>
+    /// v0.9.16: não é mais hand-edit só — tem campo próprio na aba
+    /// "Emuladores" de Configurações, com botão pra procurar o arquivo, e
+    /// o launcher tenta DETECTAR sozinho no primeiro boot (ver
+    /// EdenInstallationDetector, chamado em App.axaml.cs no mesmo padrão
+    /// da detecção automática de conta Steam).
     /// </para>
     /// </summary>
     public string? EdenExecutablePath { get; set; }
+
+    /// <summary>
+    /// v0.9.16, pedido do usuário ("será que não seria viável indicar um
+    /// campo de diretorios para room do eden?"): pastas com as ROMs de
+    /// Switch (ex: "D:\Roms\Switch"), uma por linha na aba "Emuladores"
+    /// de Configurações. Escaneadas RECURSIVAMENTE por EdenLibraryScanner
+    /// procurando .nsp/.xci/.nsz/.xcz.
+    /// <para>
+    /// Por que isso existe em vez de só ler a config do próprio Eden: na
+    /// v0.9.15 o scanner dependia EXCLUSIVAMENTE de ler as pastas de jogo
+    /// configuradas dentro do Eden (`qt-config.ini`, seção [UI], array
+    /// `Paths\gamedirs`) — formato DEDUZIDO por analogia com o Yuzu e
+    /// nunca visto num arquivo de verdade. Se o Eden tiver mudado isso, o
+    /// scanner não achava nada e o usuário não tinha como contornar. Com
+    /// a pasta dita aqui explicitamente, essa dependência frágil sai do
+    /// caminho crítico (o qt-config.ini continua sendo tentado, mas só
+    /// como FALLBACK quando esta lista está vazia — ver
+    /// EdenLibraryScanner).
+    /// </para>
+    /// </summary>
+    public List<string> EdenRomFolders { get; set; } = new();
 }

@@ -139,8 +139,10 @@ internal static class DialogGamepadNavigator
     }
 
     /// <summary>
-    /// Cicla as abas "Contas e Chaves/Diretórios/Modo de uso/Aparência" da
-    /// tela de Configurações clicando o botão de verdade (mesmo truque que
+    /// Cicla as abas de categoria da tela de Configurações (v0.9.16:
+    /// Aparência/Diretórios/Emuladores/Modo de uso/Contas — a lista é
+    /// descoberta na árvore, então aba nova entra aqui sem mexer em nada)
+    /// clicando o botão de verdade (mesmo truque que
     /// <see cref="Activate"/> já usa pra Confirm) — assim a ViewModel nem
     /// precisa expor nada específico de navegação por controle, só reage
     /// ao Click normal (ver SettingsWindow.axaml.cs.OnCategoryTabClick).

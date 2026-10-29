@@ -109,6 +109,67 @@ public sealed class SettingsViewModel : ViewModelBase
         set => SetField(ref _xboxScanFoldersText, value);
     }
 
+    private string _edenExecutablePath = string.Empty;
+
+    /// <summary>
+    /// v0.9.16, aba "Emuladores": caminho do `eden.exe`. Nasce preenchido
+    /// quando a detecção automática achou (ver EdenInstallationDetector,
+    /// que roda em App.axaml.cs e já grava em settings.json) — o botão
+    /// "Procurar eden.exe…" da tela escreve aqui também.
+    /// </summary>
+    public string EdenExecutablePath
+    {
+        get => _edenExecutablePath;
+        set
+        {
+            if (SetField(ref _edenExecutablePath, value))
+            {
+                OnPropertyChanged(nameof(EdenStatusText));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Texto de status abaixo do campo — serve de retorno visual tanto pra
+    /// detecção automática ("achei aqui") quanto pra um caminho digitado
+    /// errado (que senão só falharia silenciosamente na hora de escanear,
+    /// sem o usuário entender por que nenhum jogo apareceu).
+    /// </summary>
+    public string EdenStatusText
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(_edenExecutablePath))
+            {
+                return "Não configurado — nenhum jogo do Eden vai aparecer na biblioteca.";
+            }
+
+            try
+            {
+                return File.Exists(_edenExecutablePath)
+                    ? "Encontrado ✓"
+                    : "Esse arquivo não existe — confira o caminho.";
+            }
+            catch
+            {
+                return "Caminho inválido — confira.";
+            }
+        }
+    }
+
+    private string _edenRomFoldersText = string.Empty;
+
+    /// <summary>
+    /// Uma pasta por linha — convertido de/pra AppSettings.EdenRomFolders
+    /// ao carregar/salvar, igual XboxScanFoldersText acima. Escaneadas
+    /// recursivamente (ver EdenLibraryScanner).
+    /// </summary>
+    public string EdenRomFoldersText
+    {
+        get => _edenRomFoldersText;
+        set => SetField(ref _edenRomFoldersText, value);
+    }
+
     private bool _isHandheldMode;
 
     /// <summary>
@@ -189,12 +250,20 @@ public sealed class SettingsViewModel : ViewModelBase
     /// a cada abertura da tela (ver LoadFrom).
     /// <para>
     /// v0.9.15, pedido do usuário ("Aparencias / Diretorios / Modo de Uso /
-    /// Contas (deixa por ultimo)"): 0 Aparência, 1 Diretórios, 2 Modo de
-    /// uso, 3 Contas e Chaves — ordem trocada (era 0 Contas/1 Diretórios/
+    /// Contas (deixa por ultimo)"): ordem trocada (era 0 Contas/1 Diretórios/
     /// 2 Modo/3 Aparência até a v0.9.14). Só a ORDEM/posição mudou — os
     /// nomes das propriedades Is*Active abaixo continuam pelos nomes das
     /// categorias, não pelo índice, de propósito (pra não confundir quem
     /// ler o .axaml).
+    /// </para>
+    /// <para>
+    /// v0.9.16, pedido do usuário ("criar uma aba com nome 'Emuladores'
+    /// para possiveis integrações futuras"): entrou uma 5ª aba, entre
+    /// Diretórios e Modo de uso — as duas abas "onde as coisas estão" ficam
+    /// juntas, e Contas segue sendo a última (pedido explícito da v0.9.15).
+    /// Ordem atual: 0 Aparência, 1 Diretórios, 2 Emuladores, 3 Modo de uso,
+    /// 4 Contas. O rótulo da última virou só "Contas" (era "Contas e
+    /// Chaves") pra caber 5 abas na largura da janela.
     /// </para>
     /// </summary>
     public int CategoryIndex
@@ -206,6 +275,7 @@ public sealed class SettingsViewModel : ViewModelBase
             {
                 OnPropertyChanged(nameof(IsCategoryAppearanceActive));
                 OnPropertyChanged(nameof(IsCategoryFoldersActive));
+                OnPropertyChanged(nameof(IsCategoryEmulatorsActive));
                 OnPropertyChanged(nameof(IsCategoryModeActive));
                 OnPropertyChanged(nameof(IsCategoryAccountsActive));
             }
@@ -214,8 +284,9 @@ public sealed class SettingsViewModel : ViewModelBase
 
     public bool IsCategoryAppearanceActive => _categoryIndex == 0;
     public bool IsCategoryFoldersActive => _categoryIndex == 1;
-    public bool IsCategoryModeActive => _categoryIndex == 2;
-    public bool IsCategoryAccountsActive => _categoryIndex == 3;
+    public bool IsCategoryEmulatorsActive => _categoryIndex == 2;
+    public bool IsCategoryModeActive => _categoryIndex == 3;
+    public bool IsCategoryAccountsActive => _categoryIndex == 4;
 
     private int _fontIndex;
 
@@ -328,6 +399,8 @@ public sealed class SettingsViewModel : ViewModelBase
         _steamPersonaName = detected?.PersonaName;
         SteamId64 = settings.SteamId64 ?? string.Empty;
         XboxScanFoldersText = string.Join(Environment.NewLine, settings.XboxScanFolders);
+        EdenExecutablePath = settings.EdenExecutablePath ?? string.Empty;
+        EdenRomFoldersText = string.Join(Environment.NewLine, settings.EdenRomFolders);
         IsHandheldMode = settings.KioskMode;
         SteamAccountText = detected is null
             ? "Nenhuma conta Steam encontrada neste PC."
@@ -359,6 +432,10 @@ public sealed class SettingsViewModel : ViewModelBase
         settings.SteamWebApiKey = string.IsNullOrWhiteSpace(SteamWebApiKey) ? null : SteamWebApiKey.Trim();
         settings.SteamId64 = string.IsNullOrWhiteSpace(SteamId64) ? null : SteamId64.Trim();
         settings.XboxScanFolders = XboxScanFoldersText
+            .Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .ToList();
+        settings.EdenExecutablePath = string.IsNullOrWhiteSpace(EdenExecutablePath) ? null : EdenExecutablePath.Trim();
+        settings.EdenRomFolders = EdenRomFoldersText
             .Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
             .ToList();
         settings.KioskMode = IsHandheldMode;

@@ -156,22 +156,48 @@ mais sentido de risco crescente):
      **Nunca testado contra uma instalação real** (sem Xbox app/Game Pass
      neste sandbox pra validar).
    - ~~**Integração com o emulador Eden**~~ (sucessor comunitário do Yuzu,
-     roda jogos de Switch — "tipo o Pokémon") — **feito na v0.9.15** via
-     `EdenLibraryScanner` (mesmo padrão dos scanners de Epic/GOG/Ubisoft/
-     EA), lendo as pastas de jogo já configuradas DENTRO do próprio Eden
-     (`%AppData%\eden\config\qt-config.ini`, seção `[UI]`, array
-     `Paths\gamedirs`) — pesquisado contra documentação do Eden + relatos
-     da comunidade Yuzu/LaunchBox antes de escrever (ver comentário da
-     classe pras fontes). Precisa configurar `AppSettings.EdenExecutablePath`
-     à mão por enquanto (hand-edit só, igual `XboxScanFolders`/
-     `SteamGridDbApiKey` quando foram criados — sem UI de configuração
-     ainda), já que o Eden não tem um "protocolo" de URI pra abrir um jogo
-     específico (quem abre é o `eden.exe -f -g "caminho\do\jogo"`, sintaxe
-     confirmada contra um PR do próprio Yuzu no GitHub + um relato de quem
-     testou no LaunchBox). **Nunca testado contra uma instalação real do
-     Eden** (sem Switch/Eden neste sandbox pra validar) — se o formato do
-     `qt-config.ini` tiver mudado, o scanner simplesmente não acha nada
-     (nunca derruba o app).
+     roda jogos de Switch — "tipo o Pokémon") — **feito na v0.9.15 e
+     reformulado na v0.9.16** via `EdenLibraryScanner` (mesmo padrão dos
+     scanners de Epic/GOG/Ubisoft/EA).
+     - **v0.9.15 (primeira tentativa, frágil)**: lia SÓ as pastas de jogo
+       configuradas dentro do próprio Eden (`%AppData%\eden\config\
+       qt-config.ini`, seção `[UI]`, array `Paths\gamedirs`), formato
+       deduzido por analogia com o Yuzu e **nunca visto num arquivo de
+       verdade** — se o Eden tivesse mudado isso, não achava nada e o
+       usuário não tinha como contornar. O caminho do `eden.exe` era
+       hand-edit só.
+     - **v0.9.16 (atual)**, depois do usuário perguntar "será que não
+       seria viável indicar um campo de diretorios para room do eden?":
+       a fonte PRIMÁRIA agora é `AppSettings.EdenRomFolders`, dito pelo
+       usuário na nova aba **Emuladores** de Configurações (uma pasta por
+       linha + botão "+ Adicionar pasta…", escaneadas recursivamente,
+       extensões `.nsp`/`.xci`/`.nsz`/`.xcz`). O `qt-config.ini` virou
+       FALLBACK (só quando a lista está vazia), saindo do caminho
+       crítico. O `eden.exe` ganhou campo próprio + botão "Procurar…" +
+       **detecção automática** no primeiro boot
+       (`EdenInstallationDetector`, mesmo padrão do `SteamAccountDetector`
+       — olha locais de instalador e também pasta-com-"eden"-no-nome na
+       raiz dos discos, porque o caminho real do usuário é
+       `C:\Eden Emu\eden.exe`, criado à mão).
+     - **Lançamento**: `eden.exe -f -g "caminho\do\jogo"` — pesquisado na
+       v0.9.15 (PR do Yuzu no GitHub + relato do LaunchBox) e
+       **CONFIRMADO pelo usuário na v0.9.16** contra um atalho real da
+       área de trabalho dele: `"C:\Eden Emu\eden.exe" -f -g
+       "D:/Roms\Switch\Pokemon NSP.nsp"` (barras misturadas e funciona —
+       o Qt não é chato com separador).
+     - **Empacotar o Eden no instalador** (ideia do usuário) — avaliado e
+       **descartado de propósito**: o Eden é fork do Yuzu, encerrado por
+       ação judicial da Nintendo, e redistribuir o binário dentro deste
+       instalador (repo público) colocaria o próprio repositório em risco
+       de takedown; além disso o Eden precisa de firmware + `prod.keys`
+       do console do usuário, que nunca poderiam ser empacotados; e a
+       distribuição do Eden muda de lugar com frequência. A detecção
+       automática dá quase a mesma comodidade com zero redistribuição —
+       ver comentário de `EdenInstallationDetector` pro raciocínio
+       completo.
+     - **Ainda nunca testado contra uma instalação real do Eden** (sem
+       Switch/Eden neste sandbox) — mas na v0.9.16 o caminho principal
+       não depende mais de nenhum formato adivinhado.
    - ~~**Modos de otimização de imagem/cor**~~ (Vívido, OLED, Noturno,
      Confortável) — **feito na v0.9.13** via `SetDeviceGammaRamp`, ver
      seção própria. Marcado como experimental na própria tela: é uma API
@@ -199,6 +225,12 @@ mais sentido de risco crescente):
      agora e aguardar quando terminar esses blocos de ideia no nosso tema,
      lançar o tema propriamente dito." Fica pra quando o resto desta fila
      estiver fechado, como um projeto dedicado.
+
+     **Nota de ordem (pós v0.9.15)**: a aba "Emuladores" (pasta de ROMs
+     do Eden + autodetecção do `eden.exe`) entrou NA FRENTE deste item,
+     por escolha do usuário — era barata, de baixo risco e consertava a
+     parte frágil do Eden que acabara de subir. Feita na v0.9.16; este
+     item segue sendo o próximo da fila.
 
      **Escopo combinado com o usuário (pós v0.9.15, só perguntas — ainda
      sem codar)**:

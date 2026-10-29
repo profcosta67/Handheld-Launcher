@@ -5,54 +5,69 @@ namespace HandheldLauncher.Core.Services;
 /// <summary>
 /// Integração com o emulador Eden (sucessor comunitário do Yuzu, roda
 /// jogos de Nintendo Switch — pedido do usuário: "tipo o Pokémon"), item
-/// antigo do roteiro ("só anotado, pedido explícito de não codar ainda")
-/// retomado na v0.9.15.
+/// antigo do roteiro retomado na v0.9.15 e reformulado na v0.9.16.
 ///
 /// <para>
-/// <b>O que foi pesquisado (sem conseguir testar aqui — nenhum Switch/Eden
-/// de verdade neste sandbox) antes de escrever isto:</b>
+/// <b>Como acha os jogos (v0.9.16, duas fontes, nesta ordem):</b>
 /// </para>
-/// <list type="bullet">
-/// <item>Eden é um fork direto do Yuzu (mesmo frontend Qt, mesmo binário
-/// de config — a documentação oficial do Eden confirma que no Windows os
-/// dados/config ficam em <c>%AppData%\Roaming</c>, igual o Yuzu original
-/// ficava em <c>%AppData%\yuzu</c>). Por analogia direta, o arquivo é
-/// <c>%AppData%\eden\config\qt-config.ini</c>.</item>
-/// <item>O Yuzu/Eden guarda as pastas de jogo configuradas (Emulação →
-/// Configurar → Geral → "Diretórios de jogos") na seção <c>[UI]</c> desse
-/// INI, com chaves no padrão de array do Qt (<c>beginWriteArray</c>):
-/// <c>Paths\gamedirs\size</c> (quantas), <c>Paths\gamedirs\1\path</c>,
-/// <c>Paths\gamedirs\1\deep_scan</c>, <c>Paths\gamedirs\2\path</c>... —
-/// confirmado por múltiplas fontes da comunidade Yuzu/LaunchBox, mas
-/// **nunca visto num arquivo de verdade por quem escreveu isto**: se o
-/// Eden tiver mudado esse formato, esta leitura simplesmente não acha
-/// nada (ver <see cref="TryParseGameDirs"/> — nunca derruba o app).</item>
-/// <item>Lançar um jogo específico pelo frontend Qt (não o `eden-cmd`
-/// separado): <c>eden.exe -g "caminho\do\jogo.nsp"</c> (opcionalmente
-/// <c>-f</c> pra abrir em tela cheia, o que faz sentido pro uso em
-/// handheld) — confirmado contra um PR do próprio Yuzu no GitHub e um
-/// relato de quem testou no LaunchBox ("yuzu.exe -f -g "path_to_game""
-/// funcionou). Eden mantém o mesmo frontend/parser de linha de comando.</item>
+/// <list type="number">
+/// <item><b>Pastas ditas pelo usuário</b> (AppSettings.EdenRomFolders, aba
+/// "Emuladores" de Configurações) — fonte PRIMÁRIA, escaneadas
+/// recursivamente. Pedido do próprio usuário ("será que não seria viável
+/// indicar um campo de diretorios para room do eden?") e hoje o caminho
+/// principal justamente porque não depende de adivinhar nada.</item>
+/// <item><b>Config do próprio Eden</b> (<c>%AppData%\eden\config\qt-config.ini</c>,
+/// seção <c>[UI]</c>, array <c>Paths\gamedirs</c>) — só FALLBACK, quando a
+/// lista acima está vazia. Era a única fonte na v0.9.15, e isso era um
+/// problema: esse formato foi DEDUZIDO por analogia com o Yuzu e nunca
+/// foi visto num arquivo de verdade por quem escreveu isto. Se o Eden
+/// mudou o formato, este fallback simplesmente não acha nada — e aí a
+/// pasta explícita do item 1 resolve.</item>
 /// </list>
+///
 /// <para>
-/// Como não tem como escanear Switch/eden.exe de verdade aqui, esta
-/// classe é EXPERIMENTAL por natureza (mesmo espírito do
-/// <see cref="EaLibraryScanner"/>): qualquer coisa que não bater com o
-/// esperado é ignorada (lista vazia), nunca derruba o app nem os outros
-/// scanners — ver AppSettings.EdenExecutablePath pra por que precisa
-/// configurar o caminho do `eden.exe` à mão por enquanto.
+/// <b>Como abre o jogo:</b> <c>eden.exe -f -g "caminho\do\jogo.nsp"</c>
+/// (<c>-f</c> tela cheia, que faz sentido no handheld; <c>-g</c> o jogo).
+/// Essa sintaxe foi pesquisada na v0.9.15 contra um PR do próprio Yuzu no
+/// GitHub + um relato de quem testou no LaunchBox, e <b>CONFIRMADA pelo
+/// usuário na v0.9.16</b> contra um atalho real da área de trabalho dele:
+/// <c>"C:\Eden Emu\eden.exe" -f -g "D:/Roms\Switch\Pokemon NSP.nsp"</c>
+/// (note que ali as barras estão até misturadas e funciona — o Qt não é
+/// chato com separador, então não precisa normalizar caminho aqui).
+/// </para>
+///
+/// <para>
+/// O caminho do <c>eden.exe</c> vem de AppSettings.EdenExecutablePath —
+/// detectado sozinho no primeiro boot quando possível (ver
+/// <see cref="EdenInstallationDetector"/>) ou apontado na mão na aba
+/// Emuladores. Sem ele, este scanner devolve lista vazia: não adianta
+/// listar um jogo que não teria como abrir.
+/// </para>
+///
+/// <para>
+/// Nunca lança: qualquer coisa fora do esperado (pasta que sumiu, disco
+/// sem permissão, config em formato diferente) só resulta em menos jogos
+/// na lista, nunca em erro que derrube o app ou os outros scanners.
 /// </para>
 /// </summary>
 public sealed class EdenLibraryScanner : IStoreLibraryScanner
 {
-    private static readonly string[] RomExtensions = [".nsp", ".xci"];
+    /// <summary>
+    /// .nsp/.xci são os formatos que o usuário usa de fato (o atalho dele
+    /// aponta pra um .nsp). .nsz/.xcz são os mesmos dois comprimidos,
+    /// comuns em quem guarda ROM em disco pequeno de handheld — se o Eden
+    /// instalado não abrir esses, é só tirar daqui.
+    /// </summary>
+    private static readonly string[] RomExtensions = [".nsp", ".xci", ".nsz", ".xcz"];
 
     private readonly string? _edenExecutablePath;
+    private readonly IReadOnlyList<string> _romFolders;
     private readonly string _configPathOverride;
 
-    public EdenLibraryScanner(string? edenExecutablePath, string? configPathOverride = null)
+    public EdenLibraryScanner(string? edenExecutablePath, IReadOnlyList<string>? romFolders = null, string? configPathOverride = null)
     {
         _edenExecutablePath = edenExecutablePath;
+        _romFolders = romFolders ?? [];
         _configPathOverride = configPathOverride ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "eden", "config", "qt-config.ini");
@@ -62,29 +77,16 @@ public sealed class EdenLibraryScanner : IStoreLibraryScanner
     {
         var games = new List<GameEntry>();
 
-        // Sem o caminho do eden.exe configurado (AppSettings.EdenExecutablePath,
-        // hand-edit só por enquanto), não tem como abrir nenhum jogo que a
-        // gente ache — nem vale a pena escanear. Ver comentário da classe.
+        // Sem o caminho do eden.exe (nem detectado nem configurado), não
+        // tem como abrir nenhum jogo que a gente ache — nem vale escanear.
         if (string.IsNullOrWhiteSpace(_edenExecutablePath) || !File.Exists(_edenExecutablePath))
-        {
-            return games;
-        }
-
-        if (!File.Exists(_configPathOverride)) return games;
-
-        List<(string Path, bool DeepScan)> gameDirs;
-        try
-        {
-            gameDirs = TryParseGameDirs(_configPathOverride);
-        }
-        catch
         {
             return games;
         }
 
         var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var (dir, deepScan) in gameDirs)
+        foreach (var (dir, deepScan) in ResolveGameDirs())
         {
             if (string.IsNullOrWhiteSpace(dir) || !Directory.Exists(dir)) continue;
 
@@ -118,9 +120,6 @@ public sealed class EdenLibraryScanner : IStoreLibraryScanner
                         Title = title,
                         Source = GameSource.Emulator,
                         ExecutablePath = _edenExecutablePath,
-                        // v0.9.15: -f abre em tela cheia (faz sentido no
-                        // handheld), -g passa o jogo — ver comentário da
-                        // classe pra onde essa sintaxe foi confirmada.
                         LaunchArguments = $"-f -g \"{romPath}\"",
                         InstallDirectory = Path.GetDirectoryName(romPath),
                     });
@@ -136,10 +135,37 @@ public sealed class EdenLibraryScanner : IStoreLibraryScanner
     }
 
     /// <summary>
+    /// Pastas ditas pelo usuário primeiro (sempre recursivas: quem aponta
+    /// "D:\Roms\Switch" espera que subpasta por console/região também
+    /// conte). Só se não tiver nenhuma é que tenta ler a config do Eden,
+    /// onde o `deep_scan` de cada pasta é respeitado como está lá.
+    /// </summary>
+    private List<(string Path, bool DeepScan)> ResolveGameDirs()
+    {
+        var configured = _romFolders
+            .Where(f => !string.IsNullOrWhiteSpace(f))
+            .Select(f => (Path: f.Trim(), DeepScan: true))
+            .ToList();
+
+        if (configured.Count > 0) return configured;
+
+        try
+        {
+            if (!File.Exists(_configPathOverride)) return new List<(string Path, bool DeepScan)>();
+            return TryParseGameDirs(_configPathOverride);
+        }
+        catch
+        {
+            return new List<(string Path, bool DeepScan)>();
+        }
+    }
+
+    /// <summary>
     /// Lê a seção [UI] do qt-config.ini procurando o array
-    /// "Paths\gamedirs" (ver comentário da classe pro formato esperado).
+    /// "Paths\gamedirs" (ver comentário da classe pro formato esperado e
+    /// pro aviso de que ele nunca foi verificado num arquivo real).
     /// Nunca lança — qualquer formato inesperado só resulta em lista
-    /// vazia (o scanner então não acha nada, mas não derruba nada).
+    /// vazia.
     /// </summary>
     private static List<(string Path, bool DeepScan)> TryParseGameDirs(string configPath)
     {
@@ -173,8 +199,8 @@ public sealed class EdenLibraryScanner : IStoreLibraryScanner
         // mesmo assim subindo o índice até faltar "...\N\path" — mais
         // robusto contra uma variação de formato que não previ.
         var size = 0; // inicializado explicitamente: sem isso o compilador não
-                       // sabe que "size" está sempre atribuído quando hasSize é
-                       // true, por causa do curto-circuito do "&&" abaixo.
+                      // sabe que "size" está sempre atribuído quando hasSize é
+                      // true, por causa do curto-circuito do "&&" abaixo.
         var hasSize = ui.TryGetValue(@"Paths\gamedirs\size", out var sizeText) && int.TryParse(sizeText, out size);
         var maxIndex = hasSize ? size : 64; // limite de segurança pro fallback sem "size"
 

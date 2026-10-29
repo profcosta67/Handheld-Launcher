@@ -37,21 +37,31 @@
           v0.9.15, pedido do usuário ("Aparencias / Diretorios / Modo de
           Uso / Contas (deixa por ultimo)"): ordem trocada — Aparência
           agora é a primeira aba (e a aberta por padrão, ver
-          SettingsViewModel.LoadFrom), Contas e Chaves foi pro final.
+          SettingsViewModel.LoadFrom), Contas foi pro final.
+
+          v0.9.16, pedido do usuário ("criar uma aba com nome 'Emuladores'
+          para possiveis integrações futuras"): 5ª aba, entre Diretórios e
+          Modo de uso (as duas abas de "onde as coisas estão" ficam
+          juntas, e Contas segue última). O rótulo da última encurtou de
+          "Contas e Chaves" pra "Contas" porque 5 colunas em 560px de
+          janela não cabiam o nome inteiro sem cortar.
         -->
-        <Grid ColumnDefinitions="*,*,*,*" Margin="0,0,0,4">
+        <Grid ColumnDefinitions="*,*,*,*,*" Margin="0,0,0,4">
           <Button Grid.Column="0" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAppearanceActive}"
                   Content="Aparência" Tag="0" Click="OnCategoryTabClick"
-                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,4,0" Padding="8,8" FontSize="11" />
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,4,0" Padding="4,8" FontSize="11" />
           <Button Grid.Column="1" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryFoldersActive}"
                   Content="Diretórios" Tag="1" Click="OnCategoryTabClick"
-                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0,4,0" Padding="8,8" FontSize="11" />
-          <Button Grid.Column="2" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryModeActive}"
-                  Content="Modo de uso" Tag="2" Click="OnCategoryTabClick"
-                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0,4,0" Padding="8,8" FontSize="11" />
-          <Button Grid.Column="3" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAccountsActive}"
-                  Content="Contas e Chaves" Tag="3" Click="OnCategoryTabClick"
-                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0,0,0" Padding="8,8" FontSize="11" />
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0,4,0" Padding="4,8" FontSize="11" />
+          <Button Grid.Column="2" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryEmulatorsActive}"
+                  Content="Emuladores" Tag="2" Click="OnCategoryTabClick"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0,4,0" Padding="4,8" FontSize="11" />
+          <Button Grid.Column="3" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryModeActive}"
+                  Content="Modo de uso" Tag="3" Click="OnCategoryTabClick"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0,4,0" Padding="4,8" FontSize="11" />
+          <Button Grid.Column="4" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAccountsActive}"
+                  Content="Contas" Tag="4" Click="OnCategoryTabClick"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0,0,0" Padding="4,8" FontSize="11" />
         </Grid>
 
         <!-- ===== Aparência ===== -->
@@ -174,6 +184,38 @@
                    AcceptsReturn="True"
                    Height="80"
                    TextWrapping="Wrap" />
+        </StackPanel>
+
+        <!-- ===== Emuladores =====
+             v0.9.16, pedido do usuário ("criar uma aba com nome
+             'Emuladores' para possiveis integrações futuras? E jogar os
+             rooms do eden nessa pasta?"). Por ora só o Eden; a estrutura
+             (bloco por emulador) é o que permite Ryujinx/PCSX2/RPCS3
+             entrarem aqui depois sem reorganizar a tela de novo.
+        -->
+        <StackPanel Spacing="12" IsVisible="{Binding IsCategoryEmulatorsActive}">
+          <TextBlock Text="Eden — emulador de Nintendo Switch" FontSize="13" FontWeight="SemiBold" />
+
+          <TextBlock Text="Onde está o eden.exe" Classes="subtle" FontSize="12" />
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBox Grid.Column="0" Text="{Binding EdenExecutablePath}"
+                     Watermark="C:\Eden Emu\eden.exe"
+                     Margin="0,0,8,0" />
+            <Button Grid.Column="1" Classes="pill" Content="Procurar…" Click="OnBrowseEdenClick" />
+          </Grid>
+          <TextBlock Text="{Binding EdenStatusText}" Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+
+          <TextBlock Text="Pastas com as ROMs (uma por linha)" Classes="subtle" FontSize="12" Margin="0,8,0,0" />
+          <TextBox Text="{Binding EdenRomFoldersText}"
+                   Watermark="D:\Roms\Switch"
+                   AcceptsReturn="True"
+                   Height="80"
+                   TextWrapping="Wrap" />
+          <Button Classes="pill" Content="+ Adicionar pasta…" Click="OnAddRomFolderClick" HorizontalAlignment="Left" />
+          <TextBlock Text="As subpastas também são procuradas. Formatos reconhecidos: .nsp, .xci, .nsz, .xcz. Os jogos aparecem na biblioteca junto dos outros e abrem direto no Eden em tela cheia."
+                     Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+          <TextBlock Text="O launcher não instala nem distribui o Eden — ele só abre o que já estiver instalado neste PC. Firmware e chaves continuam sendo responsabilidade sua."
+                     Classes="subtle" FontSize="11" TextWrapping="Wrap" />
         </StackPanel>
 
         <!-- ===== Modo de uso ===== -->
