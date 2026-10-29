@@ -97,4 +97,7 @@ public class AppSettings
 
     /// <summary>Animações (zoom no jogo selecionado/ao passar o mouse, rolagem suave). Padrão ligado.</summary>
     public bool Animations { get; set; } = true;
+
+    /// <summary>Fonte da interface (v0.7.0): 0 Moderna (Segoe UI, padrão), 1 Divertida (Comic Sans).</summary>
+    public int UiFont { get; set; }
 }

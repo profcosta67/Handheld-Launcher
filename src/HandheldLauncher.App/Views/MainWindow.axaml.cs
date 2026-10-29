@@ -269,6 +269,11 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnAboutOverlayPressed(object? sender, PointerPressedEventArgs e)
+    {
+        (DataContext as MainViewModel)?.CloseAbout();
+    }
+
     private void OnOpenSteamDownloadsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         (DataContext as MainViewModel)?.OpenSteamDownloads();
@@ -489,6 +494,16 @@ public partial class MainWindow : Window
 
         foreach (var action in actions)
         {
+            // "Sobre" aberto: qualquer botão de voltar/confirmar fecha.
+            if (vm.IsAboutOpen)
+            {
+                if (action is GamepadAction.Back or GamepadAction.Confirm or GamepadAction.GlobalMenu or GamepadAction.Menu)
+                {
+                    vm.CloseAbout();
+                }
+                continue;
+            }
+
             // L3+R3 troca o HUD de desempenho — de propósito ANTES da trava
             // abaixo, pra funcionar com o jogo em primeiro plano.
             if (action == GamepadAction.CycleOverlay)
@@ -773,6 +788,16 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (vm.IsAboutOpen)
+        {
+            if (e.Key is Key.Escape or Key.Enter or Key.Tab)
+            {
+                vm.CloseAbout();
+                e.Handled = true;
+            }
+            return;
+        }
+
         if (vm.IsGlobalMenuOpen)
         {
             switch (e.Key)
@@ -1038,6 +1063,7 @@ public partial class MainWindow : Window
         try
         {
             ThemeManager.Apply(settings.Theme);
+            ThemeManager.ApplyFont(this, settings.UiFont);
 
             Classes.Set("noAnim", !settings.Animations);
             _rowScrollTransitions ??= GameRowScrollViewer.Transitions;

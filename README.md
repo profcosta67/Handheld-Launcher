@@ -703,6 +703,28 @@ Ainda **não** feito:
 15. ~~Tela de configuração pra `SteamWebApiKey`/`SteamId64`~~ — **feito
     numa leva posterior**, junto do item 5 (mesma `SettingsWindow`).
 
+## Acabamento profissional — v0.7.0 (Lote A)
+
+**Nunca testado num aparelho ainda.** Pedidos do usuário a partir de fotos dos menus:
+
+- **Fonte**: padrão agora é a do Windows (Segoe UI Variable / Segoe UI);
+  Comic Sans virou opção "Divertida" em Configurações → Aparência → Fonte
+  (`ThemeManager.ApplyFont`, valor local na janela).
+- **Cabeçalho dos menus**: título centralizado numa moldura na cor de destaque
+  (`Border.menuHeader`); no menu do jogo, com o ícone do jogo ao lado.
+- **Sem as linhas de "↑↓ navega · A confirma..."** nos menus e no seletor de
+  artes; só fica a dica do atalho do HUD na página HUD.
+- **Textos**: sem a setinha "›" nas pastas; "HUD de desempenho" → "HUD";
+  "Power" → "Energia"; Personalizar sem "Escolher" repetido (Capa, Capa larga,
+  Banner, Logo, Ícone); seletor "Capa · <jogo>"; "Abrir Configurações" →
+  "Preferências".
+- **Rodapé**: "Handheld Launcher vX · por profcosta67".
+- **Sobre** (Configurações → Sobre): ícone, versão, descrição curta, autor,
+  link do GitHub e créditos.
+
+**Próximos lotes combinados**: B (v0.8.0) artes animadas do SteamGridDB +
+transições dinâmicas; C (v0.9.0) temas de layout (Console / Grade / Destaque).
+
 ## Correções v0.6.3
 
 - **L3+R3 com o jogo na frente**: nas versões recentes do Windows a leitura de

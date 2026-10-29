@@ -31,6 +31,7 @@ public partial class SettingsWindow : Window
 
         _settings = AppSettingsStore.Load();
         ViewModel.LoadFrom(_settings);
+        ThemeManager.ApplyFont(this, _settings.UiFont);
 
         // Bug: "o scroll da configuração não está funcionando" — a janela
         // tinha altura fixa maior que a tela do handheld, então a parte de

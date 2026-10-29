@@ -39,6 +39,9 @@ public sealed class GameTileViewModel : ViewModelBase
     /// </summary>
     public string? LogoImagePath => Game.LogoImagePath;
 
+    /// <summary>Ícone quadrado (SteamGridDB, seção Icons) — cabeçalho do menu do jogo.</summary>
+    public string? IconImagePath => Game.IconImagePath;
+
     /// <summary>True once SteamGridDB has actually given us a logo for this game (see "Atualizar Capas Automático").</summary>
     public bool HasLogo => !string.IsNullOrEmpty(LogoImagePath);
 

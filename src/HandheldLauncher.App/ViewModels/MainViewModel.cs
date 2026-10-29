@@ -144,7 +144,7 @@ public sealed class MainViewModel : ViewModelBase
                 version = plus >= 0 ? info[..plus] : info;
             }
 
-            return $"Handheld Launcher v{version}";
+            return $"Handheld Launcher v{version} · por profcosta67";
         }
     }
 
@@ -833,11 +833,12 @@ public sealed class MainViewModel : ViewModelBase
             _contextMenuActions.Add(action);
         }
 
-        Add("Escolher capa", () => OpenCoverPicker(game, ArtworkPickerKind.Grid));
-        Add("Escolher capa larga", () => OpenCoverPicker(game, ArtworkPickerKind.WideGrid)); // WideGridImagePath — a capa só da WIDE CAPSULE, independente da capa normal e do banner
-        Add("Escolher banner", () => OpenCoverPicker(game, ArtworkPickerKind.Hero));
-        Add("Escolher logo", () => OpenCoverPicker(game, ArtworkPickerKind.Logo));
-        Add("Escolher ícone", () => OpenCoverPicker(game, ArtworkPickerKind.Icon)); // IconImagePath — aparece na tela "Iniciando <jogo>..."
+        // v0.7.0: sem o "Escolher" repetido em todo item (pedido do usuário).
+        Add("Capa", () => OpenCoverPicker(game, ArtworkPickerKind.Grid));
+        Add("Capa larga", () => OpenCoverPicker(game, ArtworkPickerKind.WideGrid)); // WideGridImagePath — a capa só da WIDE CAPSULE, independente da capa normal e do banner
+        Add("Banner", () => OpenCoverPicker(game, ArtworkPickerKind.Hero));
+        Add("Logo", () => OpenCoverPicker(game, ArtworkPickerKind.Logo));
+        Add("Ícone", () => OpenCoverPicker(game, ArtworkPickerKind.Icon)); // IconImagePath — aparece na tela "Iniciando <jogo>..."
         Add("Voltar", () => ReopenContextMenu(tile));
 
         _contextMenuIndex = 0;
@@ -993,6 +994,8 @@ public sealed class MainViewModel : ViewModelBase
         private set => SetField(ref _globalMenuHint, value);
     }
 
+    public bool HasGlobalMenuHint => !string.IsNullOrEmpty(_globalMenuHint);
+
     /// <summary>View/Back button: opens the global menu (raiz), or closes it if already open (toggle).</summary>
     public void ToggleGlobalMenu()
     {
@@ -1092,7 +1095,7 @@ public sealed class MainViewModel : ViewModelBase
 
         void Folder(string label, GlobalMenuPage page)
         {
-            GlobalMenuItems.Add(new ContextMenuItemViewModel(label + "  ›"));
+            GlobalMenuItems.Add(new ContextMenuItemViewModel(label));
             _globalMenuActions.Add(() => NavigateGlobalMenu(page));
             _globalMenuNavigates.Add(true);
         }
@@ -1108,7 +1111,7 @@ public sealed class MainViewModel : ViewModelBase
                 break;
 
             case GlobalMenuPage.Hud:
-                GlobalMenuTitle = "HUD de desempenho";
+                GlobalMenuTitle = "HUD";
                 if (_hud is not null)
                 {
                     for (var i = 0; i < PerformanceHud.PresetNames.Length; i++)
@@ -1135,15 +1138,16 @@ public sealed class MainViewModel : ViewModelBase
 
             case GlobalMenuPage.Settings:
                 GlobalMenuTitle = "Configurações";
-                Add("Abrir Configurações", () => SettingsRequested?.Invoke(this, EventArgs.Empty));
+                Add("Preferências", () => SettingsRequested?.Invoke(this, EventArgs.Empty));
                 if (_updates is { IsInstalled: true } && !IsUpdateReady)
                 {
                     Add($"Verificar atualizações (v{_updates.CurrentVersionText})", () => _ = CheckForUpdatesAsync(userInitiated: true));
                 }
+                Add("Sobre", OpenAbout);
                 break;
 
             case GlobalMenuPage.Power:
-                GlobalMenuTitle = "Power";
+                GlobalMenuTitle = "Energia";
                 Add("Ir para a área de trabalho", () => DesktopRequested?.Invoke(this, EventArgs.Empty));
                 Add("Minimizar", () => MinimizeRequested?.Invoke(this, EventArgs.Empty));
                 Add("Desligar tela", () => TurnOffScreenRequested?.Invoke(this, EventArgs.Empty));
@@ -1171,17 +1175,46 @@ public sealed class MainViewModel : ViewModelBase
                 }
 
                 Folder("Biblioteca", GlobalMenuPage.Library);
-                Folder(_hud is null ? "HUD de desempenho" : $"HUD de desempenho ({_hud.PresetName})", GlobalMenuPage.Hud);
+                Folder("HUD", GlobalMenuPage.Hud);
                 Folder("Configurações", GlobalMenuPage.Settings);
-                Folder("Power", GlobalMenuPage.Power);
+                Folder("Energia", GlobalMenuPage.Power);
                 break;
         }
 
-        GlobalMenuHint = _globalMenuPage == GlobalMenuPage.Root
-            ? "↑↓ navega · A abre · B/View fecha"
-            : _globalMenuPage == GlobalMenuPage.Hud
-                ? "No jogo: L3+R3 troca o HUD · B volta · View fecha"
-                : "↑↓ navega · A confirma · B volta · View fecha";
+        // v0.7.0: sem a linha de "↑↓ navega · A confirma..." em todo menu
+        // (pedido do usuário) — só fica uma dica quando ela ensina algo que
+        // não dá pra descobrir sozinho (o atalho do HUD dentro do jogo).
+        GlobalMenuHint = _globalMenuPage == GlobalMenuPage.Hud
+            ? "No jogo: L3+R3 (ou Ctrl+Alt+O) troca o HUD"
+            : string.Empty;
+        OnPropertyChanged(nameof(HasGlobalMenuHint));
+    }
+
+    // ------------------------------------------------------------------
+    // "Sobre" (Configurações → Sobre, v0.7.0)
+    // ------------------------------------------------------------------
+
+    private bool _isAboutOpen;
+    public bool IsAboutOpen
+    {
+        get => _isAboutOpen;
+        private set => SetField(ref _isAboutOpen, value);
+    }
+
+    public void OpenAbout() => IsAboutOpen = true;
+
+    public void CloseAbout() => IsAboutOpen = false;
+
+    /// <summary>"Versão 0.7.0" no Sobre.</summary>
+    public string AboutVersionText
+    {
+        get
+        {
+            var full = AppVersionText;
+            var start = full.IndexOf('v');
+            var end = full.IndexOf(' ', Math.Max(start, 0));
+            return start >= 0 ? "Versão " + (end > start ? full[(start + 1)..end] : full[(start + 1)..]) : full;
+        }
     }
 
     /// <summary>"Ir para a área de trabalho" (página Power) — MainWindow esconde na bandeja e minimiza as outras janelas.</summary>
@@ -1625,11 +1658,11 @@ public sealed class MainViewModel : ViewModelBase
 
         CoverPickerTitle = kind switch
         {
-            ArtworkPickerKind.WideGrid => $"Escolher capa larga — {game.Title}",
-            ArtworkPickerKind.Hero => $"Escolher banner — {game.Title}",
-            ArtworkPickerKind.Logo => $"Escolher logo — {game.Title}",
-            ArtworkPickerKind.Icon => $"Escolher ícone — {game.Title}",
-            _ => $"Escolher capa — {game.Title}",
+            ArtworkPickerKind.WideGrid => $"Capa larga · {game.Title}",
+            ArtworkPickerKind.Hero => $"Banner · {game.Title}",
+            ArtworkPickerKind.Logo => $"Logo · {game.Title}",
+            ArtworkPickerKind.Icon => $"Ícone · {game.Title}",
+            _ => $"Capa · {game.Title}",
         };
         _coverPickerKind = kind;
         _coverPickerGame = game;

@@ -46,8 +46,12 @@
        instalada por padrão), não precisa ser empacotada — só funciona
        assim em Windows mesmo, que é a única plataforma que este launcher
        roda. -->
+  <!-- v0.7.0: fonte padrão passou a ser a do próprio Windows (Segoe UI
+       Variable no Windows 11, Segoe UI no 10) — visual mais profissional,
+       pedido do usuário. A Comic Sans continua como opção "Divertida" nas
+       Configurações (ThemeManager.ApplyFont). -->
   <Style Selector="Window">
-    <Setter Property="FontFamily" Value="Comic Sans MS" />
+    <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI" />
   </Style>
 
   <!-- Row tile. Width/Height live here (not as local attributes in
@@ -132,6 +136,25 @@
 
   <Style Selector="Border.menuItem.selected">
     <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
+  </Style>
+
+  <!-- v0.7.0: cabeçalho dos menus — título centralizado dentro de uma
+       moldura com a cor de destaque (pedido: "destacar o nome do jogo
+       talvez com uma borda e centralizado"). -->
+  <Style Selector="Border.menuHeader">
+    <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+    <Setter Property="BorderThickness" Value="1.5" />
+    <Setter Property="CornerRadius" Value="14" />
+    <Setter Property="Padding" Value="16,10" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="Margin" Value="0,0,0,4" />
+  </Style>
+  <Style Selector="TextBlock.menuHeaderTitle">
+    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+    <Setter Property="FontSize" Value="22" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="TextAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
 
   <!-- Cover/banner picker grid cells. Unlike Border.gameTile above, Width/

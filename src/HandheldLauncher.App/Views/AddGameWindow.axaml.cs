@@ -19,6 +19,7 @@ public partial class AddGameWindow : Window
     public AddGameWindow()
     {
         InitializeComponent();
+        HandheldLauncher.App.Platform.ThemeManager.ApplyFont(this, HandheldLauncher.Core.Services.AppSettingsStore.Load().UiFont);
         DataContext = ViewModel;
     }
 

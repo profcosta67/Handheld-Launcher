@@ -459,14 +459,14 @@
                 Content="⚙"
                 Padding="10,6"
                 Click="OnGearMenuClick"
-                ToolTip.Tip="Menu (Atualizar Biblioteca / Atualizar Capas Automático / Adicionar jogo / Downloads / Overlay FPS / Minimizar / Power)"
+                ToolTip.Tip="Menu"
                 Margin="0,0,10,0" />
         <Button Grid.Column="4"
                 Classes="pill"
                 Content="⏻"
                 Padding="14,6"
                 Click="OnPowerMenuClick"
-                ToolTip.Tip="Desligar tela / Reiniciar o aparelho / Desligar o aparelho / Sair" />
+                ToolTip.Tip="Energia" />
       </Grid>
     </Border>
 
@@ -479,7 +479,16 @@
       <Border Classes="contextMenuOverlay" />
       <Border Classes="contextMenuCard" Width="420" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel Spacing="16">
-          <TextBlock Text="{Binding ContextMenuTarget.Title}" Classes="heroTitle" TextWrapping="Wrap" />
+          <!-- v0.7.0: nome do jogo centralizado numa moldura de destaque,
+               com o ícone do jogo (SteamGridDB) do lado quando existir. -->
+          <Border Classes="menuHeader">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+              <Image Source="{Binding ContextMenuTarget.IconImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                     IsVisible="{Binding ContextMenuTarget.IconImagePath, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}"
+                     Width="36" Height="36" Stretch="Uniform" VerticalAlignment="Center" />
+              <TextBlock Text="{Binding ContextMenuTarget.Title}" Classes="menuHeaderTitle" TextWrapping="Wrap" MaxWidth="300" />
+            </StackPanel>
+          </Border>
           <ItemsControl ItemsSource="{Binding ContextMenuItems}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:ContextMenuItemViewModel">
@@ -489,7 +498,6 @@
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
-          <TextBlock Text="↑↓ navega · A/Enter confirma · B/Esc/Start fecha" Classes="subtle" />
         </StackPanel>
       </Border>
     </Panel>
@@ -502,7 +510,9 @@
       <Border Classes="contextMenuOverlay" />
       <Border Classes="contextMenuCard" Width="380" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel Spacing="16">
-          <TextBlock Text="{Binding GlobalMenuTitle}" Classes="heroTitle" />
+          <Border Classes="menuHeader">
+            <TextBlock Text="{Binding GlobalMenuTitle}" Classes="menuHeaderTitle" />
+          </Border>
           <ItemsControl ItemsSource="{Binding GlobalMenuItems}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:ContextMenuItemViewModel">
@@ -512,7 +522,7 @@
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
-          <TextBlock Text="{Binding GlobalMenuHint}" Classes="subtle" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding GlobalMenuHint}" Classes="subtle" FontSize="12" TextWrapping="Wrap" TextAlignment="Center" IsVisible="{Binding HasGlobalMenuHint}" />
         </StackPanel>
       </Border>
     </Panel>
@@ -525,7 +535,7 @@
       <Border Classes="contextMenuOverlay" />
       <Border Classes="contextMenuCard" Width="340" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel Spacing="16">
-          <TextBlock Text="Power" Classes="heroTitle" />
+          <TextBlock Text="Energia" Classes="heroTitle" />
           <ItemsControl ItemsSource="{Binding PowerMenuItems}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:ContextMenuItemViewModel">
@@ -647,8 +657,35 @@
             </ItemsControl>
           </ScrollViewer>
 
-          <TextBlock Grid.Row="2" Text="← → ↑ ↓ navega · A/Enter escolhe · B/Esc cancela" Classes="subtle" Margin="0,16,0,0" />
+
         </Grid>
+      </Border>
+    </Panel>
+
+    <!-- "Sobre" (Configurações → Sobre, v0.7.0) — bem simples, pedido do
+         usuário. Fecha com B/A/View/Esc ou clique. -->
+    <Panel IsVisible="{Binding IsAboutOpen}">
+      <Border Classes="contextMenuOverlay" PointerPressed="OnAboutOverlayPressed" />
+      <Border Classes="contextMenuCard" Width="480" Padding="32" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <StackPanel Spacing="14" HorizontalAlignment="Center">
+          <Image Source="avares://HandheldLauncher/Assets/app-icon.ico" Width="56" Height="56" HorizontalAlignment="Center" />
+          <TextBlock Text="Handheld Launcher" Classes="menuHeaderTitle" FontSize="26" />
+          <TextBlock Text="{Binding AboutVersionText}" Classes="subtle" HorizontalAlignment="Center" />
+          <TextBlock Text="Um launcher em tela cheia para PCs portáteis como o Legion Go e o ROG Ally. Reúne seus jogos da Steam, do Xbox e outros num só lugar, com capas do SteamGridDB, HUD de desempenho e atualização automática."
+                     Classes="gameTitle"
+                     TextWrapping="Wrap"
+                     TextAlignment="Center"
+                     FontWeight="Normal" />
+          <Border Classes="menuHeader" Padding="12,6">
+            <TextBlock Text="Criado por profcosta67" Classes="gameTitle" FontSize="14" />
+          </Border>
+          <TextBlock Text="github.com/profcosta67/Handheld-Launcher" Classes="subtle" HorizontalAlignment="Center" />
+          <TextBlock Text="Feito com Avalonia · Capas: SteamGridDB · HUD: RTSS · Atualizações: Velopack"
+                     Classes="subtle"
+                     FontSize="11"
+                     TextWrapping="Wrap"
+                     TextAlignment="Center" />
+        </StackPanel>
       </Border>
     </Panel>
 

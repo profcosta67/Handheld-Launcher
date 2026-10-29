@@ -54,6 +54,11 @@
           <ComboBoxItem Content="Azul" />
           <ComboBoxItem Content="Vermelho" />
         </ComboBox>
+        <TextBlock Text="Fonte" FontSize="12" />
+        <ComboBox SelectedIndex="{Binding FontIndex}" HorizontalAlignment="Stretch">
+          <ComboBoxItem Content="Moderna (Segoe UI)" />
+          <ComboBoxItem Content="Divertida (Comic Sans)" />
+        </ComboBox>
         <TextBlock Text="Tamanho das capas" FontSize="12" />
         <ComboBox SelectedIndex="{Binding TileSizeIndex}" HorizontalAlignment="Stretch">
           <ComboBoxItem Content="Pequeno" />

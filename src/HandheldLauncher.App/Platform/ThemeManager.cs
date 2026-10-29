@@ -32,6 +32,30 @@ public static class ThemeManager
         new("#130A0C", "#201114", "#2C171B", "#E5334B", "#A3243A", "#FFF1F2", "#B39497", false),
     ];
 
+    /// <summary>
+    /// Fonte da interface: 0 = Moderna (Segoe UI, a do próprio Windows — vem
+    /// do Theme.axaml), 1 = Divertida (Comic Sans, a fonte original do
+    /// projeto). Aplicada como valor local na janela, que vence o estilo.
+    /// </summary>
+    public static void ApplyFont(Avalonia.Controls.Window window, int uiFont)
+    {
+        try
+        {
+            if (uiFont == 1)
+            {
+                window.FontFamily = new FontFamily("Comic Sans MS");
+            }
+            else
+            {
+                window.ClearValue(Avalonia.Controls.Primitives.TemplatedControl.FontFamilyProperty);
+            }
+        }
+        catch
+        {
+            // Melhor esforço.
+        }
+    }
+
     public static void Apply(int themeIndex)
     {
         var app = Application.Current;
