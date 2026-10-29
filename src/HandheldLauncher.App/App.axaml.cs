@@ -64,6 +64,10 @@ public partial class App : Application
             // instalação via Setup.exe vira no-op (ver UpdateService).
             var updateService = new UpdateService();
 
+            // Tarefa Agendada antiga ainda abrindo o exe da instalação
+            // antiga? Aponta pro exe atual (ver WatchdogGate).
+            WatchdogGate.RepointLegacyTaskIfNeeded(updateService.IsInstalled);
+
             var mainWindow = new MainWindow
             {
                 DataContext = new MainViewModel(libraryService, gameLauncher, artworkService, performanceOverlay, updateService),

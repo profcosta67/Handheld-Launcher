@@ -22,6 +22,14 @@ internal static class Program
         // qualquer coisa nossa (mutex, janela) rodar.
         Velopack.VelopackApp.Build().Run();
 
+        // Abertura automática (watchdog/login) depois de um "Sair", ou com
+        // "abrir sozinho" desligado nas Configurações → sai sem abrir nada.
+        // Ver WatchdogGate.
+        if (WatchdogGate.ShouldExitImmediately(args))
+        {
+            return;
+        }
+
         if (!SingleInstance.TryAcquire())
         {
             SingleInstance.NotifyExistingInstance();

@@ -128,7 +128,10 @@ catch {
 $watchdogTaskName = 'HandheldLauncherWatchdog'
 try {
     $triggerLogon = New-ScheduledTaskTrigger -AtLogOn
-    $action = New-ScheduledTaskAction -Execute $exePath -WorkingDirectory $exeDir
+    # --watchdog: avisa o launcher que esta abertura e automatica - ele mesmo
+    # decide sair na hora se o usuario clicou 'Sair' (ate reiniciar) ou
+    # desligou 'Abrir sozinho' nas Configuracoes (ver WatchdogGate.cs).
+    $action = New-ScheduledTaskAction -Execute $exePath -Argument '--watchdog' -WorkingDirectory $exeDir
     $settingsSet = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero)
 
     if ($NoWatchdog) {

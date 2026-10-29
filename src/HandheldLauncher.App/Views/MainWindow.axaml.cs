@@ -230,6 +230,7 @@ public partial class MainWindow : Window
     /// <summary>Called by the tray icon's "Sair" menu item (App.axaml.cs) — same deliberate-quit behavior as the gear/global menu's own "Sair".</summary>
     public void QuitFromTray()
     {
+        WatchdogGate.MarkDeliberateQuit();
         DisableWatchdogIfPresent();
         Close();
     }
@@ -304,6 +305,7 @@ public partial class MainWindow : Window
         vm.SettingsRequested += (_, _) => _ = OpenSettingsDialogAsync(vm);
         vm.QuitRequested += (_, _) =>
         {
+            WatchdogGate.MarkDeliberateQuit();
             DisableWatchdogIfPresent();
             Close();
         };

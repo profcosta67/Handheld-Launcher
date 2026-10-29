@@ -34,6 +34,16 @@
                  Height="80"
                  TextWrapping="Wrap" />
 
+        <TextBlock Text="Modo console" Classes="subtle" Margin="0,8,0,0" />
+        <CheckBox IsChecked="{Binding KioskMode}"
+                  Content="Tela cheia sem bordas (desmarque pra usar em janela no PC)" />
+        <CheckBox IsChecked="{Binding AutoRestart}"
+                  Content="Abrir sozinho no login e reabrir se fechar (desmarque no PC)" />
+        <TextBlock Text="Abrir pelo atalho sempre funciona. 'Sair' (menu Power) segura a reabertura até reiniciar o aparelho."
+                   Classes="subtle"
+                   FontSize="11"
+                   TextWrapping="Wrap" />
+
         <TextBlock Text="{Binding SavedMessage}"
                    IsVisible="{Binding HasSavedMessage}"
                    TextWrapping="Wrap"

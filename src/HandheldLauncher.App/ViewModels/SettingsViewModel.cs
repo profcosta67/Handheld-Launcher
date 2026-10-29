@@ -54,6 +54,24 @@ public sealed class SettingsViewModel : ViewModelBase
         set => SetField(ref _xboxScanFoldersText, value);
     }
 
+    private bool _kioskMode;
+
+    /// <summary>Tela cheia sem bordas (modo console). Desligado = janela normal (PC).</summary>
+    public bool KioskMode
+    {
+        get => _kioskMode;
+        set => SetField(ref _kioskMode, value);
+    }
+
+    private bool _autoRestart = true;
+
+    /// <summary>Abrir sozinho no login e reabrir se fechar — ver WatchdogGate.</summary>
+    public bool AutoRestart
+    {
+        get => _autoRestart;
+        set => SetField(ref _autoRestart, value);
+    }
+
     private string? _savedMessage;
     public string? SavedMessage
     {
@@ -76,6 +94,8 @@ public sealed class SettingsViewModel : ViewModelBase
         SteamWebApiKey = settings.SteamWebApiKey ?? string.Empty;
         SteamId64 = settings.SteamId64 ?? string.Empty;
         XboxScanFoldersText = string.Join(Environment.NewLine, settings.XboxScanFolders);
+        KioskMode = settings.KioskMode;
+        AutoRestart = settings.AutoRestart;
         SavedMessage = null;
     }
 
@@ -94,6 +114,8 @@ public sealed class SettingsViewModel : ViewModelBase
         settings.XboxScanFolders = XboxScanFoldersText
             .Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
             .ToList();
+        settings.KioskMode = KioskMode;
+        settings.AutoRestart = AutoRestart;
 
         AppSettingsStore.Save(settings);
 

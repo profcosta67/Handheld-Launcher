@@ -64,4 +64,12 @@ public class AppSettings
     /// GetOwnedGames devolver alguma coisa (ver README).
     /// </summary>
     public string? SteamId64 { get; set; }
+
+    /// <summary>
+    /// "Abrir sozinho no login e reabrir se fechar" (Tarefa Agendada do
+    /// modo console). Padrão true (comportamento de handheld/console).
+    /// Desligado (uso no PC): toda abertura automática encerra na hora —
+    /// ver App/Platform/WatchdogGate. Abrir pelo atalho continua normal.
+    /// </summary>
+    public bool AutoRestart { get; set; } = true;
 }
