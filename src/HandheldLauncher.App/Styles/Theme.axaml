@@ -21,6 +21,10 @@
       <SolidColorBrush x:Key="AccentSoftBrush" Color="{StaticResource AccentSoftColor}" />
       <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}" />
       <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryColor}" />
+      <!-- Barras de cima/baixo e véu sobre o fundo borrado — semitransparentes,
+           também trocam com o tema (ThemeManager). -->
+      <SolidColorBrush x:Key="BarBrush" Color="#CC12141C" />
+      <SolidColorBrush x:Key="BackdropDimBrush" Color="#CC0C0D12" />
 
       <!-- Rounded-corner tokens — the look the reference screenshot is built on. -->
       <CornerRadius x:Key="HeroCornerRadius">24</CornerRadius>
@@ -163,7 +167,7 @@
   </Style>
 
   <Style Selector="Border.topBar, Border.bottomBar">
-    <Setter Property="Background" Value="#CC12141C" />
+    <Setter Property="Background" Value="{StaticResource BarBrush}" />
     <Setter Property="CornerRadius" Value="{StaticResource BarCornerRadius}" />
   </Style>
 

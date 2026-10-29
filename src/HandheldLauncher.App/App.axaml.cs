@@ -92,6 +92,14 @@ public partial class App : Application
             var overlayHotkeys = new HandheldLauncher.App.Input.OverlayHotkeyWatcher(mainViewModel.CycleOverlayPreset);
             desktop.Exit += (_, _) => overlayHotkeys.Dispose();
 
+            // ...e com o JOGO na frente, via GameInput num processo ajudante
+            // (o Windows não entrega o controle pra apps em segundo plano
+            // sem pedir). Os dois caminhos chamam o mesmo
+            // CycleOverlayPreset, que ignora disparos repetidos em < 0,5 s.
+            HandheldLauncher.App.Input.GameInputHelper.ListenInBackground(mainViewModel.CycleOverlayPreset);
+            HandheldLauncher.App.Input.GameInputHelper.StartHelperProcess();
+            desktop.Exit += (_, _) => HandheldLauncher.App.Input.GameInputHelper.StopHelperProcess();
+
             // Modo kiosk: fullscreen/borderless instead of the normal dev
             // window, driven entirely by settings.json (set by the
             // installer) — never by a build-time switch, so the exact same

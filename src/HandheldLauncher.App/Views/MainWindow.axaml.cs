@@ -34,6 +34,8 @@ public partial class MainWindow : Window
     private const uint ModAlt = 0x0001;
     private const uint ModNoRepeat = 0x4000; // don't refire while the keys are held down
     private const uint VkH = 0x48; // 'H' - as in "Handheld"/"Home"
+    private const int OverlayHotkeyId = 0xB01;
+    private const uint VkO = 0x4F; // 'O' - Ctrl+Alt+O troca o HUD (dá pra mapear num botão traseiro do Legion/Ally)
     private const uint WmHotkey = 0x0312;
     private const uint WmSysCommand = 0x0112;
     private const int ScMonitorPower = 0xF170;
@@ -185,6 +187,7 @@ public partial class MainWindow : Window
 
         Win32Properties.AddWndProcHookCallback(this, OnNativeWndProcHook);
         _hotkeyRegistered = RegisterHotKey(handle.Handle, RestoreHotkeyId, ModControl | ModAlt | ModNoRepeat, VkH);
+        RegisterHotKey(handle.Handle, OverlayHotkeyId, ModControl | ModAlt | ModNoRepeat, VkO);
     }
 
     private void UnregisterRestoreHotkeyIfNeeded()
@@ -192,6 +195,7 @@ public partial class MainWindow : Window
         if (_hotkeyRegistered && TryGetPlatformHandle() is { } handle)
         {
             UnregisterHotKey(handle.Handle, RestoreHotkeyId);
+            UnregisterHotKey(handle.Handle, OverlayHotkeyId);
         }
         Win32Properties.RemoveWndProcHookCallback(this, OnNativeWndProcHook);
         _hotkeyRegistered = false;
@@ -210,6 +214,11 @@ public partial class MainWindow : Window
         if (msg == WmHotkey && wParam.ToInt32() == RestoreHotkeyId)
         {
             RestoreFromTray();
+            handled = true;
+        }
+        else if (msg == WmHotkey && wParam.ToInt32() == OverlayHotkeyId)
+        {
+            (DataContext as MainViewModel)?.CycleOverlayPreset();
             handled = true;
         }
         else if (msg == SingleInstance.RestoreMessageId)

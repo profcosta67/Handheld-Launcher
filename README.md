@@ -703,6 +703,22 @@ Ainda **não** feito:
 15. ~~Tela de configuração pra `SteamWebApiKey`/`SteamId64`~~ — **feito
     numa leva posterior**, junto do item 5 (mesma `SettingsWindow`).
 
+## Correções v0.6.3
+
+- **L3+R3 com o jogo na frente**: nas versões recentes do Windows a leitura de
+  controle passa pelo GameInput, que por padrão não entrega botões pra apps em
+  segundo plano. `Input/GameInputHelper`: processo ajudante (mesmo exe, arg
+  `--gameinput-helper <pid>`) que liga `SetFocusPolicy(EnableBackgroundInput)`
+  e sinaliza o evento nomeado `HandheldLauncher_HudCycle_7f3a9c2e` no L3+R3.
+  Isolado em processo próprio porque a tabela de métodos COM do GameInput
+  (v0) nunca foi testada — se falhar, só o ajudante cai (ver debug.log
+  "GameInputHelper:"). Morto antes de aplicar atualização (seguraria o exe).
+  `CycleOverlayPreset` ignora disparos em < 0,5 s (XInput + GameInput + atalho).
+- **Ctrl+Alt+O** (atalho global) também troca o HUD — dá pra mapear num botão
+  traseiro pelo Legion Space/Armoury Crate.
+- **Tema**: barras de cima/baixo e véu do fundo eram cores fixas; agora
+  `BarBrush`/`BackdropDimBrush` seguem o tema.
+
 ## Correções v0.6.2 — Configurações no handheld
 
 - **Rolagem**: a janela tinha altura fixa maior que a tela do handheld (Salvar/

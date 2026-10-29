@@ -49,6 +49,10 @@ public static class ThemeManager
         SetBrush(app, "AccentSoftBrush", palette.AccentSoft);
         SetBrush(app, "TextPrimaryBrush", palette.TextPrimary);
         SetBrush(app, "TextSecondaryBrush", palette.TextSecondary);
+
+        // Semitransparentes: mesma cor da superfície/fundo do tema com ~80% de opacidade.
+        SetBrush(app, "BarBrush", "#CC" + palette.Surface.TrimStart('#'));
+        SetBrush(app, "BackdropDimBrush", "#CC" + palette.Background.TrimStart('#'));
     }
 
     private static void SetBrush(Application app, string key, string hex)

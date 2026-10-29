@@ -42,7 +42,7 @@
           <media:BlurEffect Radius="60" />
         </Image.Effect>
       </Image>
-      <Border Background="#CC0C0D12" />
+      <Border Background="{StaticResource BackdropDimBrush}" />
     </Panel>
 
   <Grid RowDefinitions="Auto,*,Auto" Margin="0">

@@ -231,6 +231,7 @@ public sealed class MainViewModel : ViewModelBase
         }
 
         _hud?.ClearNow(); // senão o texto do HUD fica congelado na tela durante a troca
+        HandheldLauncher.App.Input.GameInputHelper.StopHelperProcess(); // roda do mesmo exe — liberar os arquivos pra troca
         _updates?.ApplyAndRestart();
     }
 
@@ -243,9 +244,18 @@ public sealed class MainViewModel : ViewModelBase
     /// L3+R3 (até com o jogo aberto) e pelo item do menu geral. Salva a
     /// escolha no settings.json pra valer na próxima abertura também.
     /// </summary>
+    private long _lastOverlayCycleTicks;
+
     public void CycleOverlayPreset()
     {
         if (_hud is null) return;
+
+        // Pode vir de três lugares ao mesmo tempo (XInput, GameInput, atalho
+        // de teclado) e de threads diferentes — um aperto = uma troca.
+        var now = Environment.TickCount64;
+        var last = Interlocked.Read(ref _lastOverlayCycleTicks);
+        if (now - last < 500 || Interlocked.CompareExchange(ref _lastOverlayCycleTicks, now, last) != last) return;
+
         _hud.Preset = (_hud.Preset + 1) % PerformanceHud.PresetNames.Length;
 
         try

@@ -22,6 +22,16 @@ internal static class Program
         // qualquer coisa nossa (mutex, janela) rodar.
         Velopack.VelopackApp.Build().Run();
 
+        // Processo ajudante do GameInput (L3+R3 com o jogo na frente) — o
+        // mesmo exe, aberto pelo launcher com "--gameinput-helper <pid>".
+        // Sai daqui antes de QUALQUER outra coisa (log START, mutex, trava
+        // do watchdog): não é uma abertura do launcher. Ver Input/GameInputHelper.
+        if (args.Length > 0 && args[0] == HandheldLauncher.App.Input.GameInputHelper.Argument)
+        {
+            HandheldLauncher.App.Input.GameInputHelper.RunHelper(args);
+            return;
+        }
+
         // Diagnóstico: quem abriu este processo e com quais argumentos. Se o
         // launcher reabrir sozinho depois de "Sair" (ex: Modo Xbox/Legion
         // Space reabrindo o app principal), o debug.log mostra o culpado.
