@@ -83,6 +83,21 @@ public partial class SettingsWindow : Window
         await new AccountsWindow(ViewModel).ShowDialog(this);
     }
 
+    /// <summary>
+    /// v0.9.14: abas "Contas e Chaves/Diretórios/Modo de uso/Aparência" —
+    /// cada Button.pill.categoryTab guarda seu índice no Tag (ver .axaml).
+    /// DialogGamepadNavigator.CycleCategoryTab também cai aqui (ele só acha
+    /// o botão certo e simula o clique de verdade), então LB/RB pelo
+    /// controle usam exatamente este mesmo caminho.
+    /// </summary>
+    private void OnCategoryTabClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string tag } && int.TryParse(tag, out var index))
+        {
+            ViewModel.CategoryIndex = index;
+        }
+    }
+
     private void OnKeyboardClick(object? sender, RoutedEventArgs e)
     {
         TouchKeyboard.Toggle();

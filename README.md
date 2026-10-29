@@ -117,10 +117,17 @@ mais sentido de risco crescente):
    jogadas e conquistas via Steam Web API — **feito na v0.9.11**, ver seção
    própria; classificação/resumo de loja ficou pra uma fase 2, via API
    não-oficial da loja da Steam, já que a API "de conta" não tem esses
-   dados) → ~~tema inspirado no Nintendo Switch~~: só a disposição
+   dados) → tema inspirado no Nintendo Switch: só a disposição
    limpa/minimalista dos itens, **sem** logos/fontes/ícones oficiais (evita
-   problema de marca registrada) — **feito na v0.9.13**, layout criado
-   livremente (usuário preferiu não mandar referência), ver seção própria.
+   problema de marca registrada) — **parcial na v0.9.13** (paleta de cor
+   cinza-grafite + vermelho e cantos mais retos, ver seção própria), **mas
+   não é o que foi pedido**: usuário esclareceu depois que a ideia era
+   mudar a DISPOSIÇÃO de verdade (menu embaixo, capas minimalistas,
+   configurações em cima, fundo claro só com banner + nome — um esqueleto
+   visual diferente, não cor em cima do mesmo esqueleto de sempre). O
+   projeto de verdade (junto de temas parecidos inspirados em SteamOS e
+   Xbox Series) foi **adiado de propósito pelo próprio usuário** — ver
+   item 6 abaixo.
 
 6. **Mais ideias do usuário (pós v0.9.10/v0.9.11), só anotadas por enquanto
    — pedido explícito de não codar/testar ainda**:
@@ -158,6 +165,23 @@ mais sentido de risco crescente):
    - ~~**Volume dos sons de interação um pouco alto**~~ — **feito na
      v0.9.13**: slider próprio em Configurações → Aparência + padrão
      reduzido de 100% pra 70%, ver seção própria.
+   - **Temas de LAYOUT de verdade** (SteamOS-style, Switch-style, Xbox
+     Series-style) — pedido original, esclarecido depois de um equívoco meu
+     na v0.9.13 (saiu só uma paleta de cor nova pro "tema Switch", quando a
+     ideia era mudar a disposição inteira: posição do menu, grade vs.
+     fileira, tratamento de fundo). Visão do usuário: um tema "SteamOS"
+     (referência enviada); um "Switch" com menu embaixo, capas
+     minimalistas, configurações em cima, fundo claro só com banner + nome
+     do jogo; um "Xbox Series" (referência enviada); e por aí vai — cada um
+     um ESQUELETO visual diferente, não só cor/raio em cima do esqueleto de
+     hoje (`ThemeManager` hoje só troca `Palette`: cor + `TileRadius`/
+     `BarRadius`, nunca a posição/forma dos elementos). Entraria um nível
+     acima do `ThemeManager` atual — provavelmente trocar o layout raiz da
+     tela principal por tema, não só `Brush`/`CornerRadius`. **Adiado de
+     propósito pelo próprio usuário**: "Prefiro finalizar o que temos por
+     agora e aguardar quando terminar esses blocos de ideia no nosso tema,
+     lançar o tema propriamente dito." Fica pra quando o resto desta fila
+     estiver fechado, como um projeto dedicado.
 
 ## Status atual
 
@@ -794,6 +818,31 @@ Ainda **não** feito:
 15. ~~Tela de configuração pra `SteamWebApiKey`/`SteamId64`~~ — **feito
     numa leva posterior**, junto do item 5 (mesma `SettingsWindow`).
 
+## Reorganização da tela de Configurações — v0.9.14
+
+- **Abas**: a tela de Configurações, que tinha virado uma lista única rolável
+  cada vez mais longa (pedido do usuário: "já vi algo que quero mudar o menu
+  configuração novamente, separar em tópicos porque encheu"), agora é
+  dividida em 4 abas — **Contas e Chaves** / **Diretórios** / **Modo de
+  uso** / **Aparência** — cada uma com só o que é dela. Mesmo padrão visual
+  das abas de filtro da biblioteca (botão "pill" que muda de cor quando
+  ativo) em vez de um `TabControl` de verdade do Avalonia, pra herdar o
+  visual do resto do app sem precisar estilizar o chrome padrão do
+  FluentTheme do zero. Navegável pelo controle: LB/RB ciclam as abas (mesmo
+  botão que já cicla os filtros da biblioteca por trás), igual peço pra
+  qualquer outra lista do launcher. A subdivisão de "Aparência" em
+  temas/cores-fontes-tamanhos/sons/imagem, que o próprio usuário marcou como
+  "avaliar se compensa", **não** entrou nesta leva — só os 4 tópicos de
+  topo, por ora.
+- **Overlay de desempenho duplicado, removido**: o ComboBox "Overlay de
+  desempenho" que vivia em Configurações → Aparência foi embora de vez —
+  ele é repetido com a seleção de preset que já existe, completa, no Menu
+  Global → HUD do próprio launcher (marcador ●/○ por preset, status do
+  RTSS, atalho L3+R3) desde antes desta leva. Pedido do usuário: "Nos temos
+  o overlay em menu-HUD e depois em menu-configurações-preferencias-overlay
+  de desempenho (retirar esse do preferências)." Nada de persistência se
+  perde — o Menu Global já grava o preset escolhido por conta própria.
+
 ## Tema Switch, volume dos sons e modos de imagem/cor — v0.9.13
 
 - **Tema Switch**: novo tema em Configurações → Aparência → Tema
@@ -807,6 +856,12 @@ Ainda **não** feito:
   Usuário optou por eu criar o visual livremente (sem mandar fotos de
   referência como fez no v0.7.0) — sem nenhum ícone/fonte/logo oficial do
   aparelho real, só a paleta e o arredondamento.
+  **Atualização, pós-feedback do usuário**: isso não era o pedido —
+  "disposição" aqui ficou só no arredondamento dos cantos; a ideia de
+  verdade era um LAYOUT diferente (menu embaixo, capas minimalistas,
+  configurações em cima, fundo claro), igual outros temas pensados pra
+  SteamOS/Xbox Series. Esse projeto de verdade foi adiado de propósito
+  pelo próprio usuário pra depois — ver item 6 do roteiro.
 - **Volume dos sons de interação**: `PlaySound` (winmm) não tem parâmetro
   de volume próprio — a escala agora é aplicada direto nas amostras PCM
   de cada som antes de copiar pra memória não gerenciada (ver

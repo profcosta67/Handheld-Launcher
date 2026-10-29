@@ -1,3 +1,4 @@
+using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
@@ -119,7 +120,48 @@ internal static class DialogGamepadNavigator
             case GamepadAction.Back:
                 dialog.Close();
                 break;
+
+            // v0.9.14: LB/RB cicla as abas de categoria da tela de
+            // Configurações (ver CycleCategoryTab) — mesmo botão físico que
+            // já cicla as abas de filtro da biblioteca por trás (pedido do
+            // usuário na reorganização da tela: "separar em tópicos"). Sem
+            // efeito num diálogo sem nenhum Button.categoryTab (ex:
+            // AddGameWindow) — CycleCategoryTab simplesmente não acha nada
+            // e não faz nada.
+            case GamepadAction.PreviousFilter:
+                CycleCategoryTab(dialog, -1);
+                break;
+
+            case GamepadAction.NextFilter:
+                CycleCategoryTab(dialog, 1);
+                break;
         }
+    }
+
+    /// <summary>
+    /// Cicla as abas "Contas e Chaves/Diretórios/Modo de uso/Aparência" da
+    /// tela de Configurações clicando o botão de verdade (mesmo truque que
+    /// <see cref="Activate"/> já usa pra Confirm) — assim a ViewModel nem
+    /// precisa expor nada específico de navegação por controle, só reage
+    /// ao Click normal (ver SettingsWindow.axaml.cs.OnCategoryTabClick).
+    /// Marca os candidatos pela classe de estilo "categoryTab" (não pelo
+    /// tipo Button sozinho, que também cobriria "Salvar"/"Fechar" etc.) e
+    /// pela classe "active" (ligada por Classes.active="{Binding ...}" no
+    /// XAML) pra achar qual é a aba atual.
+    /// </summary>
+    private static void CycleCategoryTab(Window dialog, int delta)
+    {
+        var tabs = dialog.GetLogicalDescendants()
+            .OfType<Button>()
+            .Where(b => b.Classes.Contains("categoryTab") && b.IsEffectivelyEnabled)
+            .OrderBy(b => b.Tag is string s && int.TryParse(s, out var i) ? i : 0)
+            .ToList();
+        if (tabs.Count == 0) return;
+
+        var activeIndex = tabs.FindIndex(b => b.Classes.Contains("active"));
+        if (activeIndex < 0) activeIndex = 0;
+        var nextIndex = ((activeIndex + delta) % tabs.Count + tabs.Count) % tabs.Count;
+        tabs[nextIndex].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
     }
 
     private static void CycleCombo(ComboBox combo, int delta)

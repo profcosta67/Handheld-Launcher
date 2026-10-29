@@ -351,24 +351,18 @@ public sealed class MainViewModel : ViewModelBase
         }
     }
 
-    /// <summary>Depois de salvar nas Configurações: aplica o preset na hora, sem reiniciar.</summary>
-    public void ReloadOverlayPresetFromSettings()
-    {
-        if (_hud is null) return;
-        try
-        {
-            _hud.Preset = AppSettingsStore.Load().OverlayPreset;
-        }
-        catch
-        {
-            // Melhor esforço.
-        }
-    }
-
     /// <summary>Tira o HUD da tela (Sair/fechar), pra não ficar texto congelado no RTSS.</summary>
     public void ClearOverlayNow() => _hud?.ClearNow();
 
-    public string OverlayStatusText => _hud is null ? "indisponível" : $"{_hud.PresetName} ({_hud.Status})";
+    // v0.9.14: ReloadOverlayPresetFromSettings() e OverlayStatusText (que só
+    // existiam pra alimentar o ComboBox "Overlay de desempenho" repetido na
+    // tela de Configurações) foram removidos junto com esse ComboBox —
+    // pedido do usuário: "em configurações tem um quadrado para selecionar
+    // o overlay ele esta repetido [com o] menu-HUD [...] retirar esse do
+    // preferências". A seleção de preset de verdade (com marcador ●/○ e
+    // status do RTSS) já vive só no Menu Global → HUD (ver BuildGlobalMenu,
+    // case GlobalMenuPage.Hud, que chama SetOverlayPreset acima) — nenhuma
+    // função fica perdida, só a duplicata.
 
     private string _batteryStatusText = string.Empty;
 

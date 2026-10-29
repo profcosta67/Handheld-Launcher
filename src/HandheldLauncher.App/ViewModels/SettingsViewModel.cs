@@ -169,23 +169,46 @@ public sealed class SettingsViewModel : ViewModelBase
 
     public bool HasUpdateResult => !string.IsNullOrEmpty(_updateResultText);
 
-    private int _overlayPresetIndex = 2;
+    // v0.9.14: OverlayPresetIndex/OverlayStatusText (ComboBox "Overlay de
+    // desempenho") saíram daqui — pedido do usuário: esse ComboBox era
+    // repetido com a seleção de preset que já existe no Menu Global → HUD
+    // do próprio launcher (marcador ●/○ + status do RTSS, ver
+    // MainViewModel.BuildGlobalMenu/GlobalMenuPage.Hud), então "retirar
+    // esse do preferências". Nada de persistência se perde: aquele menu já
+    // grava em AppSettings.OverlayPreset por conta própria.
 
-    /// <summary>0 Desligado, 1 Resumido, 2 Médio, 3 Completo (ComboBox).</summary>
-    public int OverlayPresetIndex
+    private int _categoryIndex;
+
+    /// <summary>
+    /// v0.9.14: aba ativa desta tela (0 Contas e Chaves, 1 Diretórios, 2
+    /// Modo de uso, 3 Aparência) — pedido do usuário pra separar em tópicos
+    /// porque a tela única "encheu". Mesmo padrão visual das abas de filtro
+    /// da biblioteca (Button.pill.filterTab + Classes.active, ver
+    /// MainWindow.axaml) em vez de um TabControl de verdade do Avalonia —
+    /// assim reaproveita o mesmo estilo/cor do resto do app sem precisar de
+    /// nenhum estilo novo pro chrome padrão do FluentTheme. Resetada pra 0
+    /// a cada abertura da tela (ver LoadFrom), então sempre abre em "Contas
+    /// e Chaves".
+    /// </summary>
+    public int CategoryIndex
     {
-        get => _overlayPresetIndex;
-        set => SetField(ref _overlayPresetIndex, value);
+        get => _categoryIndex;
+        set
+        {
+            if (SetField(ref _categoryIndex, value))
+            {
+                OnPropertyChanged(nameof(IsCategoryAccountsActive));
+                OnPropertyChanged(nameof(IsCategoryFoldersActive));
+                OnPropertyChanged(nameof(IsCategoryModeActive));
+                OnPropertyChanged(nameof(IsCategoryAppearanceActive));
+            }
+        }
     }
 
-    private string _overlayStatusText = string.Empty;
-
-    /// <summary>"Médio (ativo)", "Médio (RTSS não está rodando)"... preenchido pelo MainWindow.</summary>
-    public string OverlayStatusText
-    {
-        get => _overlayStatusText;
-        set => SetField(ref _overlayStatusText, value);
-    }
+    public bool IsCategoryAccountsActive => _categoryIndex == 0;
+    public bool IsCategoryFoldersActive => _categoryIndex == 1;
+    public bool IsCategoryModeActive => _categoryIndex == 2;
+    public bool IsCategoryAppearanceActive => _categoryIndex == 3;
 
     private int _fontIndex;
 
@@ -302,7 +325,7 @@ public sealed class SettingsViewModel : ViewModelBase
         SteamAccountText = detected is null
             ? "Nenhuma conta Steam encontrada neste PC."
             : $"Conta Steam deste PC: {detected.PersonaName} ({detected.SteamId64})";
-        OverlayPresetIndex = Math.Clamp(settings.OverlayPreset, 0, 3);
+        CategoryIndex = 0;
         ThemeIndex = Math.Clamp(settings.Theme, 0, HandheldLauncher.App.Platform.ThemeManager.ThemeNames.Length - 1);
         FontIndex = Math.Clamp(settings.UiFont, 0, HandheldLauncher.App.Platform.ThemeManager.Fonts.Length - 1);
         FontSizeIndex = Math.Clamp(settings.UiFontSize, 0, 2);
@@ -334,7 +357,6 @@ public sealed class SettingsViewModel : ViewModelBase
         settings.KioskMode = IsHandheldMode;
         settings.AutoRestart = IsHandheldMode;
         settings.ModeChosen = true;
-        settings.OverlayPreset = Math.Clamp(OverlayPresetIndex, 0, 3);
         settings.Theme = Math.Clamp(ThemeIndex, 0, HandheldLauncher.App.Platform.ThemeManager.ThemeNames.Length - 1);
         settings.UiFont = Math.Clamp(FontIndex, 0, HandheldLauncher.App.Platform.ThemeManager.Fonts.Length - 1);
         settings.UiFontSize = Math.Clamp(FontSizeIndex, 0, 2);
@@ -352,7 +374,7 @@ public sealed class SettingsViewModel : ViewModelBase
         // Desktop: remove. (Melhor esforço — ver WatchdogTask.)
         var taskOk = WatchdogTask.Apply(IsHandheldMode);
 
-        SavedMessage = "Salvo! Aparência e HUD já valem ao fechar esta tela; chaves e modo de uso pedem reiniciar o launcher (fechar de vez e abrir de novo)."
+        SavedMessage = "Salvo! Aparência já vale ao fechar esta tela; chaves e modo de uso pedem reiniciar o launcher (fechar de vez e abrir de novo)."
             + (taskOk ? string.Empty : " Aviso: não consegui ajustar a abertura automática do Windows (veja debug.log).");
     }
 

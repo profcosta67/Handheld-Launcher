@@ -1421,7 +1421,6 @@ public partial class MainWindow : Window
         dialog.ViewModel.VersionText = vm.AppVersionText;
         dialog.ViewModel.UpdatesAvailable = vm.UpdatesInstalled;
         dialog.CheckForUpdates = vm.CheckForUpdatesWithResultAsync;
-        dialog.ViewModel.OverlayStatusText = vm.OverlayStatusText;
         _activeDialog = dialog;
         try
         {
@@ -1432,8 +1431,12 @@ public partial class MainWindow : Window
             _activeDialog = null;
         }
 
-        // Preset do HUD e aparência valem na hora (chaves e modo de uso ainda pedem reinício).
-        vm.ReloadOverlayPresetFromSettings();
+        // Aparência vale na hora (chaves e modo de uso ainda pedem reinício).
+        // v0.9.14: não recarrega mais o preset do HUD aqui — o ComboBox
+        // "Overlay de desempenho" que exigia isso saiu da tela de
+        // Configurações (era repetido com o Menu Global → HUD, pedido do
+        // usuário); o preset de verdade só muda por lá (SetOverlayPreset),
+        // que já persiste e aplica no mesmo instante, sem precisar desta tela.
         ApplyAppearance(vm, AppSettingsStore.Load());
     }
 

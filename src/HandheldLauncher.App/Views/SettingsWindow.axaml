@@ -20,46 +20,84 @@
   <Grid RowDefinitions="*,Auto" Margin="24" IsEnabled="{Binding FormEnabled}">
     <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="12">
-        <!-- v0.9.5: as chaves/IDs não aparecem mais direto aqui (pedido do
-             usuário) — só o status de cada uma. As caixas de verdade
-             (mascaradas) ficam atrás do botão "Gerenciar contas", num
-             diálogo separado (AccountsWindow). -->
-        <TextBlock Text="Contas e chaves de API" Classes="subtle" />
-        <StackPanel Spacing="2">
-          <TextBlock FontSize="12">
-            <Run Text="SteamGridDB (capas): " /><Run Text="{Binding SteamGridDbStatusText}" />
-          </TextBlock>
-          <TextBlock FontSize="12">
-            <Run Text="Steam Web API (downloads): " /><Run Text="{Binding SteamWebApiStatusText}" />
-          </TextBlock>
-          <TextBlock FontSize="12">
-            <Run Text="Conta Steam (SteamID64): " /><Run Text="{Binding SteamIdStatusText}" />
-          </TextBlock>
+        <!--
+          v0.9.14, pedido do usuário ("já vi algo que quero mudar o menu
+          configuração novamente, separar em tópicos porque encheu"):
+          4 abas — Contas e Chaves / Diretórios / Modo de uso / Aparência.
+          Mesmo padrão visual das abas de filtro da biblioteca
+          (Button.pill.filterTab + Classes.active, ver MainWindow.axaml) em
+          vez de um TabControl de verdade do Avalonia — assim herda o
+          mesmo visual do resto do app sem precisar de estilo novo pro
+          chrome padrão do FluentTheme, e o controle (LB/RB) cicla clicando
+          o botão certo de verdade (ver DialogGamepadNavigator.CycleCategoryTab,
+          que procura pela classe "categoryTab" abaixo). A subdivisão de
+          "Aparência" em temas/cores-fontes-tamanhos/sons/imagem, que o
+          usuário marcou como "avaliar se compensa", NÃO entrou aqui —
+          só os 4 tópicos de topo, por ora.
+        -->
+        <Grid ColumnDefinitions="*,*,*,*" Margin="0,0,0,4">
+          <Button Grid.Column="0" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAccountsActive}"
+                  Content="Contas e Chaves" Tag="0" Click="OnCategoryTabClick"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,4,0" Padding="8,8" FontSize="11" />
+          <Button Grid.Column="1" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryFoldersActive}"
+                  Content="Diretórios" Tag="1" Click="OnCategoryTabClick"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0,4,0" Padding="8,8" FontSize="11" />
+          <Button Grid.Column="2" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryModeActive}"
+                  Content="Modo de uso" Tag="2" Click="OnCategoryTabClick"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0,4,0" Padding="8,8" FontSize="11" />
+          <Button Grid.Column="3" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAppearanceActive}"
+                  Content="Aparência" Tag="3" Click="OnCategoryTabClick"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0,0,0" Padding="8,8" FontSize="11" />
+        </Grid>
+
+        <!-- ===== Contas e Chaves ===== -->
+        <StackPanel Spacing="12" IsVisible="{Binding IsCategoryAccountsActive}">
+          <!-- v0.9.5: as chaves/IDs não aparecem mais direto aqui (pedido do
+               usuário) — só o status de cada uma. As caixas de verdade
+               (mascaradas) ficam atrás do botão "Gerenciar contas", num
+               diálogo separado (AccountsWindow). -->
+          <StackPanel Spacing="2">
+            <TextBlock FontSize="12">
+              <Run Text="SteamGridDB (capas): " /><Run Text="{Binding SteamGridDbStatusText}" />
+            </TextBlock>
+            <TextBlock FontSize="12">
+              <Run Text="Steam Web API (downloads): " /><Run Text="{Binding SteamWebApiStatusText}" />
+            </TextBlock>
+            <TextBlock FontSize="12">
+              <Run Text="Conta Steam (SteamID64): " /><Run Text="{Binding SteamIdStatusText}" />
+            </TextBlock>
+          </StackPanel>
+          <Button Classes="pill" Content="🔒 Gerenciar contas e chaves de API" Click="OnManageAccountsClick" HorizontalAlignment="Left" />
+          <TextBlock Text="O launcher nunca pede nem guarda a senha da Steam. As chaves ficam criptografadas neste PC (só o seu usuário do Windows consegue ler)."
+                     Classes="subtle" FontSize="11" TextWrapping="Wrap" />
         </StackPanel>
-        <Button Classes="pill" Content="🔒 Gerenciar contas e chaves de API" Click="OnManageAccountsClick" HorizontalAlignment="Left" />
-        <TextBlock Text="O launcher nunca pede nem guarda a senha da Steam. As chaves ficam criptografadas neste PC (só o seu usuário do Windows consegue ler)."
-                   Classes="subtle" FontSize="11" TextWrapping="Wrap" />
 
-        <TextBlock Text="Pastas extras pra procurar jogos do Xbox app (uma por linha)" Classes="subtle" Margin="0,8,0,0" />
-        <TextBox Text="{Binding XboxScanFoldersText}"
-                 Watermark="C:\Xbox&#10;D:\Xbox"
-                 AcceptsReturn="True"
-                 Height="80"
-                 TextWrapping="Wrap" />
-
-        <TextBlock Text="Modo de uso" Classes="subtle" Margin="0,8,0,0" />
-        <RadioButton GroupName="Modo"
-                     IsChecked="{Binding IsDesktopMode}"
-                     Content="Desktop (PC) — janela normal, não abre sozinho, 'Sair' fecha de verdade" />
-        <RadioButton GroupName="Modo"
-                     IsChecked="{Binding IsHandheldMode}"
-                     Content="Handheld (modo jogo) — tela cheia, abre no login, reabre se fechar" />
-        <TextBlock Text="No modo Handheld, 'Sair' (menu Energia) segura a reabertura até reiniciar o aparelho. Abrir pelo atalho sempre funciona."
-                   Classes="subtle"
-                   FontSize="11"
+        <!-- ===== Diretórios ===== -->
+        <StackPanel Spacing="12" IsVisible="{Binding IsCategoryFoldersActive}">
+          <TextBlock Text="Pastas extras pra procurar jogos do Xbox app (uma por linha)" Classes="subtle" />
+          <TextBox Text="{Binding XboxScanFoldersText}"
+                   Watermark="C:\Xbox&#10;D:\Xbox"
+                   AcceptsReturn="True"
+                   Height="80"
                    TextWrapping="Wrap" />
+        </StackPanel>
 
-        <TextBlock Text="Aparência" Classes="subtle" Margin="0,12,0,0" />
+        <!-- ===== Modo de uso ===== -->
+        <StackPanel Spacing="12" IsVisible="{Binding IsCategoryModeActive}">
+          <RadioButton GroupName="Modo"
+                       IsChecked="{Binding IsDesktopMode}"
+                       Content="Desktop (PC) — janela normal, não abre sozinho, 'Sair' fecha de verdade" />
+          <RadioButton GroupName="Modo"
+                       IsChecked="{Binding IsHandheldMode}"
+                       Content="Handheld (modo jogo) — tela cheia, abre no login, reabre se fechar" />
+          <TextBlock Text="No modo Handheld, 'Sair' (menu Energia) segura a reabertura até reiniciar o aparelho. Abrir pelo atalho sempre funciona."
+                     Classes="subtle"
+                     FontSize="11"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+
+        <!-- ===== Aparência ===== -->
+        <StackPanel Spacing="12" IsVisible="{Binding IsCategoryAppearanceActive}">
         <TextBlock Text="Tema" FontSize="12" />
         <ComboBox SelectedIndex="{Binding ThemeIndex}" HorizontalAlignment="Stretch">
           <ComboBoxItem Content="Escuro" />
@@ -152,21 +190,22 @@
                    Classes="subtle"
                    FontSize="11"
                    TextWrapping="Wrap" />
+        </StackPanel>
+        <!-- fim Aparência -->
 
-        <TextBlock Text="Overlay de desempenho (estilo MangoHud, desenhado pelo RTSS)" Classes="subtle" Margin="0,12,0,0" />
-        <ComboBox SelectedIndex="{Binding OverlayPresetIndex}" HorizontalAlignment="Stretch">
-          <ComboBoxItem Content="Desligado" />
-          <ComboBoxItem Content="Resumido — FPS, bateria e hora" />
-          <ComboBoxItem Content="Médio — GPU, CPU, RAM, bateria e FPS" />
-          <ComboBoxItem Content="Completo — + VRAM, clock da CPU, consumo (W) e mín/méd/pico de frametime" />
-        </ComboBox>
-        <TextBlock Text="{Binding OverlayStatusText, StringFormat='Agora: {0}'}" Classes="subtle" FontSize="11" />
-        <TextBlock Text="No jogo: aperte L3+R3 (os dois analógicos) pra trocar. Precisa do RTSS aberto (o launcher já liga o OSD dele e desliga o 'Show own statistics' sozinho, pra não duplicar o FPS). Tamanho da letra: 'On-Screen Display zoom' no RTSS. Faixa preta atrás do texto: desmarque 'On-Screen Display fill' no RTSS (sem fundo)."
-                   Classes="subtle"
-                   FontSize="11"
-                   TextWrapping="Wrap" />
+        <!--
+          v0.9.14: o ComboBox "Overlay de desempenho" que ficava aqui saiu
+          de vez — pedido do usuário ("em configurações tem um quadrado
+          para selecionar o overlay ele esta repetido [...] retirar esse do
+          preferências"): a seleção de preset já existe, completa, no Menu
+          Global → HUD do próprio launcher (marcador ●/○ por preset +
+          status do RTSS + atalho L3+R3), então manter os dois era
+          duplicado. Nada foi perdido — só o caminho redundante.
+        -->
 
-        <TextBlock Text="{Binding VersionText}" Classes="subtle" Margin="0,12,0,0" />
+        <!-- Sempre visível, fora das abas (versão/atualização não é bem
+             uma categoria das de cima). -->
+        <TextBlock Text="{Binding VersionText}" Classes="subtle" Margin="0,8,0,0" />
         <Button Classes="pill"
                 Content="Verificar atualizações"
                 Click="OnCheckUpdatesClick"
