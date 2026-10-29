@@ -135,9 +135,26 @@ public static class ThemeManager
         SetBrush(app, "TextSecondaryBrush", palette.TextSecondary);
 
         // Semitransparentes: mesma cor da superfície/fundo do tema com ~80% de opacidade.
-        SetBrush(app, "BarBrush", "#CC" + palette.Surface.TrimStart('#'));
+        // Preto (OLED): barras e véu do fundo 100% opacos — senão o fundo
+        // borrado da arte do jogo aparece por baixo e o "preto" vira cinza
+        // (bug reportado na v0.7.1). Nos outros temas, ~80% como antes.
+        var isOled = palette.Background.Equals("#000000", StringComparison.OrdinalIgnoreCase);
+        var alpha = isOled ? "#FF" : "#CC";
+        SetBrush(app, "BarBrush", alpha + palette.Surface.TrimStart('#'));
         SetBrush(app, "AccentTranslucentBrush", "#40" + palette.Accent.TrimStart('#'));
-        SetBrush(app, "BackdropDimBrush", "#CC" + palette.Background.TrimStart('#'));
+        SetBrush(app, "BackdropDimBrush", alpha + palette.Background.TrimStart('#'));
+
+        // Texto em cima da cor de destaque (aba de filtro ativa): branco em
+        // destaques escuros, quase preto em destaques claros (OLED é branco,
+        // Ciano/Dourado são claros) — antes era sempre a cor do texto normal
+        // e no OLED ficava branco em cima de branco.
+        SetBrush(app, "OnAccentBrush", IsLightColor(palette.Accent) ? "#111111" : "#FFFFFF");
+    }
+
+    private static bool IsLightColor(string hex)
+    {
+        var c = Color.Parse(hex);
+        return (0.299 * c.R + 0.587 * c.G + 0.114 * c.B) / 255.0 > 0.6;
     }
 
     private static void SetBrush(Application app, string key, string hex)

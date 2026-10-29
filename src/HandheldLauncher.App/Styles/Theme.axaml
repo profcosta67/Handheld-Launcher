@@ -26,6 +26,8 @@
       <SolidColorBrush x:Key="BarBrush" Color="#CC12141C" />
       <!-- Fundo semitransparente na cor de destaque (cabeçalho dos menus). -->
       <SolidColorBrush x:Key="AccentTranslucentBrush" Color="#407C5CFC" />
+      <!-- Texto por cima da cor de destaque (aba ativa) — ThemeManager escolhe claro/escuro. -->
+      <SolidColorBrush x:Key="OnAccentBrush" Color="#FFFFFF" />
 
       <!-- Tamanhos de texto (v0.7.1) — DynamicResource nos estilos, pra
            Configurações → Tamanho do texto valer na hora
@@ -253,10 +255,12 @@
        Button.pill por baixo, só troca de cor quando é a aba ativa. -->
   <Style Selector="Button.filterTab.active">
     <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+    <Setter Property="Foreground" Value="{StaticResource OnAccentBrush}" />
   </Style>
 
   <Style Selector="Button.filterTab.active /template/ ContentPresenter">
     <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+    <Setter Property="Foreground" Value="{StaticResource OnAccentBrush}" />
   </Style>
 
   <!-- Botão de ícone "fantasma" pra barra de cima — sem fundo/borda por
