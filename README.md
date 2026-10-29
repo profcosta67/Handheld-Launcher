@@ -745,6 +745,8 @@ Ainda **não** feito:
 
 ## Mouse e teclado no modo Desktop — v0.9.2
 
+**Confirmado funcionando no PC pelo usuário** (checklist de 10 itens, todos ok).
+
 Bugs reportados usando no PC:
 - **Mouse não clicava nas opções dos menus**: itens do menu principal, do menu
   do jogo e do seletor de artes agora têm `PointerEntered` (destaca) e
