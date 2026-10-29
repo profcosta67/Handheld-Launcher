@@ -49,9 +49,22 @@ public sealed class GameTileViewModel : ViewModelBase
     /// Badge minimalista no canto superior direito da capa indicando a
     /// loja (v0.9.6, pedido do usuário). Deliberadamente NÃO é o logo
     /// oficial de cada loja — só a inicial/sigla em cor própria — pra não
-    /// reproduzir marca registrada de terceiros dentro do launcher. Null
-    /// pra Manual/Emulador: um atalho criado à mão não tem "loja" nenhuma
-    /// pra indicar.
+    /// reproduzir marca registrada de terceiros dentro do launcher.
+    ///
+    /// <para>
+    /// v0.9.18, pedido do usuário ("por exemplo Xbox um X verde, Switch
+    /// como o éden e rosa"): emulador e atalho manual deixaram de ser null
+    /// (eram, com a justificativa de que "não têm loja") e ganharam selo —
+    /// "SW" rosa pro Switch/Eden e "A" cinza pros atalhos adicionados à
+    /// mão, agora que existe subfiltro "Atalhos" na aba Computador e faz
+    /// sentido identificá-los na capa. O X verde do Xbox já era assim
+    /// desde a v0.9.6, então saiu exatamente como ele pediu sem mexer.
+    /// </para>
+    /// <para>
+    /// "SW" com DUAS letras de propósito, não "S": o Steam já usa "S", e
+    /// dois selos iguais diferenciados só pela cor seriam frágeis (tela no
+    /// sol, daltonismo). Mesma razão do "EA" ao lado do "E" da Epic.
+    /// </para>
     /// </summary>
     public string? PlatformBadgeText => Game.Source switch
     {
@@ -61,6 +74,8 @@ public sealed class GameTileViewModel : ViewModelBase
         GameSource.Ubisoft => "U",
         GameSource.EaApp => "EA",
         GameSource.XboxApp => "X",
+        GameSource.Emulator => "SW",
+        GameSource.Manual => "A",
         _ => null,
     };
 
@@ -75,6 +90,12 @@ public sealed class GameTileViewModel : ViewModelBase
         GameSource.Ubisoft => "#0070CC",
         GameSource.EaApp => "#C40C28",
         GameSource.XboxApp => "#107C10",
+        // Rosa pedido pelo usuário pro Switch/Eden. Tom escuro o
+        // suficiente pro texto branco em cima continuar legível (o selo
+        // usa Foreground="White" fixo, ver MainWindow.axaml) — um rosa
+        // claro ficaria bonito e ilegível.
+        GameSource.Emulator => "#C2185B",
+        GameSource.Manual => "#5A5A5A",
         _ => "#000000",
     };
 

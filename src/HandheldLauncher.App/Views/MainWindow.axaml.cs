@@ -794,6 +794,41 @@ public partial class MainWindow : Window
                 continue;
             }
 
+            // v0.9.18: fileira de subfiltros focada (abas Computador/
+            // Emuladores) — o controle navega ELA, não a grade. De
+            // propósito ANTES do switch da biblioteca, e não dentro dele,
+            // pra não ter que repetir cada direção com um "if focado" no
+            // meio. Só LB/RB escapam daqui (trocar de aba de cima funciona
+            // de qualquer lugar, igual antes) — e trocar de aba já desfoca
+            // a fileira sozinho, via RebuildSubFilters.
+            if (vm.IsSubFilterRowFocused)
+            {
+                switch (action)
+                {
+                    case GamepadAction.MoveLeft:
+                        vm.MoveSubFilterCursor(-1);
+                        continue;
+                    case GamepadAction.MoveRight:
+                        vm.MoveSubFilterCursor(1);
+                        continue;
+                    case GamepadAction.Confirm:
+                        vm.ToggleFocusedSubFilter();
+                        continue;
+                    case GamepadAction.MoveDown:
+                    case GamepadAction.Back:
+                        vm.LeaveSubFilterRow();
+                        continue;
+                    case GamepadAction.MoveUp:
+                        // Já está no topo — não tem pra onde subir.
+                        continue;
+                    case GamepadAction.PreviousFilter:
+                    case GamepadAction.NextFilter:
+                        break; // cai no switch de baixo (troca de aba)
+                    default:
+                        continue; // Start/Back-global/Y/X não agem na fileira
+                }
+            }
+
             switch (action)
             {
                 case GamepadAction.Downloads:
@@ -808,7 +843,11 @@ public partial class MainWindow : Window
                     ScrollGameRowSelectionIntoView(vm);
                     break;
                 case GamepadAction.MoveUp:
-                    MoveSelectionVertical(vm, -1);
+                    // Grade sem mais pra onde subir (ou layout de fileira,
+                    // onde ↑ nunca movia nada) = entra nos subfiltros, se a
+                    // aba atual tiver. Sem subfiltro, FocusSubFilterRow é
+                    // no-op e ↑ continua não fazendo nada, como antes.
+                    if (!MoveSelectionVertical(vm, -1)) vm.FocusSubFilterRow();
                     break;
                 case GamepadAction.MoveDown:
                     MoveSelectionVertical(vm, 1);
@@ -970,6 +1009,41 @@ public partial class MainWindow : Window
             return;
         }
 
+        // v0.9.18: mesma ideia do OnGamepadTick — com a fileira de
+        // subfiltros focada, as setas/Enter agem NELA. Teclado e controle
+        // compartilham os mesmos métodos da ViewModel de propósito, pra não
+        // existir "funciona no controle mas não no teclado" (ou o
+        // contrário) como já aconteceu antes com as abas de filtro.
+        if (vm.IsSubFilterRowFocused)
+        {
+            switch (e.Key)
+            {
+                case Key.Left:
+                    vm.MoveSubFilterCursor(-1);
+                    e.Handled = true;
+                    return;
+                case Key.Right:
+                    vm.MoveSubFilterCursor(1);
+                    e.Handled = true;
+                    return;
+                case Key.Enter:
+                case Key.Space:
+                    vm.ToggleFocusedSubFilter();
+                    e.Handled = true;
+                    return;
+                case Key.Down:
+                case Key.Escape:
+                    vm.LeaveSubFilterRow();
+                    e.Handled = true;
+                    return;
+                case Key.Up:
+                    e.Handled = true;
+                    return;
+            }
+            // Qualquer outra tecla (Q/E pra trocar aba, D pra Downloads...)
+            // segue pro switch normal abaixo.
+        }
+
         switch (e.Key)
         {
             case Key.Left:
@@ -983,7 +1057,7 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 break;
             case Key.Up:
-                MoveSelectionVertical(vm, -1);
+                if (!MoveSelectionVertical(vm, -1)) vm.FocusSubFilterRow();
                 e.Handled = true;
                 break;
             case Key.Down:
@@ -1243,13 +1317,22 @@ public partial class MainWindow : Window
     /// alinhada com a atual (pelas posições reais — a capa larga do "último
     /// jogo aberto" ocupa mais de uma coluna). Na fileira horizontal não faz
     /// nada (como antes).
+    ///
+    /// <para>
+    /// v0.9.18: passou a devolver bool — "conseguiu mover?". Quem chama usa
+    /// isso pra saber que a grade acabou e, subindo, entrar na fileira de
+    /// subfiltros (ver MainViewModel.FocusSubFilterRow). No layout de
+    /// FILEIRA horizontal ↑/↓ nunca moveram nada, então ali o false é
+    /// imediato e ↑ sempre vai pros subfiltros — que é exatamente o
+    /// comportamento desejado, sem caso especial nenhum.
+    /// </para>
     /// </summary>
-    private void MoveSelectionVertical(MainViewModel vm, int direction)
+    private bool MoveSelectionVertical(MainViewModel vm, int direction)
     {
-        if (!_verticalLayout || vm.SelectedIndex < 0) return;
+        if (!_verticalLayout || vm.SelectedIndex < 0) return false;
 
         var current = GamesItemsControl.ContainerFromIndex(vm.SelectedIndex);
-        if (current is null) return;
+        if (current is null) return false;
 
         var currentBounds = current.Bounds;
         var currentCenterX = currentBounds.X + currentBounds.Width / 2;
@@ -1279,9 +1362,28 @@ public partial class MainWindow : Window
             }
         }
 
-        if (best < 0) return;
+        if (best < 0) return false;
         vm.SelectedIndex = best;
         ScrollGameRowSelectionIntoView(vm);
+        return true;
+    }
+
+    /// <summary>
+    /// v0.9.18: clique do mouse numa caixinha de subfiltro. Mesmo padrão
+    /// de SettingsWindow.OnCategoryTabClick (Click + DataContext do botão)
+    /// em vez de um Command com parâmetro, que exigiria um
+    /// RelayCommand&lt;T&gt; que o projeto não tem. O A do controle NÃO
+    /// passa por aqui (vai por ToggleFocusedSubFilter, que usa o cursor da
+    /// fileira), mas os dois terminam no mesmo
+    /// MainViewModel.ToggleSubFilter.
+    /// </summary>
+    private void OnSubFilterClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm) return;
+        if (sender is Button { DataContext: SubFilterViewModel subFilter })
+        {
+            vm.ToggleSubFilter(subFilter);
+        }
     }
 
     private void OnTilePointerPressed(object? sender, PointerPressedEventArgs e)

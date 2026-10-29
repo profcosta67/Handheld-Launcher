@@ -61,8 +61,8 @@ public sealed class MainViewModel : ViewModelBase
         // reconstrói Games (sem re-escanear a biblioteca) — ver SetFilter.
         SetFilterAllCommand = new RelayCommand(() => SetFilter(LibraryFilter.All));
         SetFilterFavoritesCommand = new RelayCommand(() => SetFilter(LibraryFilter.Favorites));
-        SetFilterOfficialCommand = new RelayCommand(() => SetFilter(LibraryFilter.Official));
-        SetFilterNonSteamCommand = new RelayCommand(() => SetFilter(LibraryFilter.NonSteam));
+        SetFilterComputerCommand = new RelayCommand(() => SetFilter(LibraryFilter.Computer));
+        SetFilterEmulatorsCommand = new RelayCommand(() => SetFilter(LibraryFilter.Emulators));
         SetFilterNotInstalledCommand = new RelayCommand(() => SetFilter(LibraryFilter.NotInstalled));
 
         RebuildGamesFromLibrary();
@@ -517,12 +517,25 @@ public sealed class MainViewModel : ViewModelBase
     /// instalados"): Steam e Xbox viraram uma aba só (Official), e
     /// NotInstalled é nova — não filtra _library.Games como as outras,
     /// puxa de OwnedNotInstalledGames (ver RebuildGamesFromLibrary).
+    ///
+    /// <para>
+    /// v0.9.18, nova reorganização pedida pelo usuário ("Favoritos /
+    /// Todos / Computador (subfiltro com as plataformas) / Emuladores
+    /// (subfiltro, por enquanto só Switch) / não instalados"): "Oficiais"
+    /// e "Não Steam" saíram, substituídos por <b>Computador</b> e
+    /// <b>Emuladores</b>. Além dos nomes serem mais claros ("Oficiais"
+    /// não dizia nada), isso conserta uma confusão conceitual real: até a
+    /// v0.9.17 os jogos de emulador caíam em "Não Steam" (o filtro era
+    /// literalmente <c>Manual or Emulator</c>), misturados com atalhos
+    /// feitos à mão. Agora a divisão é por ONDE o jogo roda, o que
+    /// escala: Ryujinx/PCSX2 entram como subfiltro de Emuladores em vez
+    /// de virar aba nova na fileira de cima.
+    /// </para>
     /// </summary>
-    private enum LibraryFilter { All, Favorites, Official, NonSteam, NotInstalled }
+    private enum LibraryFilter { All, Favorites, Computer, Emulators, NotInstalled }
 
     /// <summary>
-    /// Ordem VISUAL das abas (pedido do usuário: "fav, ALL, oficiais, não
-    /// Steam, não instalados") — separada da ordem de declaração do enum
+    /// Ordem VISUAL das abas — separada da ordem de declaração do enum
     /// acima de propósito, porque LB/RB (CyclePreviousFilter/
     /// CycleNextFilter) têm que andar na mesma ordem em que as abas
     /// aparecem na tela, não na ordem em que o enum foi escrito.
@@ -531,8 +544,8 @@ public sealed class MainViewModel : ViewModelBase
     {
         LibraryFilter.Favorites,
         LibraryFilter.All,
-        LibraryFilter.Official,
-        LibraryFilter.NonSteam,
+        LibraryFilter.Computer,
+        LibraryFilter.Emulators,
         LibraryFilter.NotInstalled,
     };
 
@@ -543,9 +556,161 @@ public sealed class MainViewModel : ViewModelBase
     // fileira de abas (ver MainWindow.axaml).
     public bool IsFilterAllActive => _activeFilter == LibraryFilter.All;
     public bool IsFilterFavoritesActive => _activeFilter == LibraryFilter.Favorites;
-    public bool IsFilterOfficialActive => _activeFilter == LibraryFilter.Official;
-    public bool IsFilterNonSteamActive => _activeFilter == LibraryFilter.NonSteam;
+    public bool IsFilterComputerActive => _activeFilter == LibraryFilter.Computer;
+    public bool IsFilterEmulatorsActive => _activeFilter == LibraryFilter.Emulators;
     public bool IsFilterNotInstalledActive => _activeFilter == LibraryFilter.NotInstalled;
+
+    /// <summary>
+    /// Caixinhas de subfiltro da aba ativa (v0.9.18) — vazia nas abas que
+    /// não têm subfiltro (Favoritos/Todos/Não instalados), e a fileira
+    /// inteira desaparece da tela nesse caso (ver HasSubFilters e o
+    /// IsVisible dela em MainWindow.axaml).
+    /// </summary>
+    public ObservableCollection<SubFilterViewModel> SubFilters { get; } = new();
+
+    public bool HasSubFilters => SubFilters.Count > 0;
+
+    private bool _isSubFilterRowFocused;
+
+    /// <summary>
+    /// True quando o CONTROLE/TECLADO está navegando a fileira de
+    /// subfiltros em vez da grade de jogos (ver
+    /// MainWindow.OnGamepadTick). Não existe pro mouse — clicar numa
+    /// caixinha marca direto, sem precisar "entrar" na fileira.
+    /// </summary>
+    public bool IsSubFilterRowFocused
+    {
+        get => _isSubFilterRowFocused;
+        private set => SetField(ref _isSubFilterRowFocused, value);
+    }
+
+    private int _subFilterCursor;
+
+    /// <summary>
+    /// Entra na fileira de subfiltros com o controle (↑ a partir da grade,
+    /// quando a grade não tem mais pra onde subir — ver
+    /// MainWindow.MoveSelectionVertical). No-op quando a aba atual não tem
+    /// subfiltro, pra ↑ não "prender" o foco numa fileira invisível.
+    /// </summary>
+    public void FocusSubFilterRow()
+    {
+        if (SubFilters.Count == 0) return;
+
+        _subFilterCursor = Math.Clamp(_subFilterCursor, 0, SubFilters.Count - 1);
+        IsSubFilterRowFocused = true;
+        UpdateSubFilterCursorFlags();
+    }
+
+    /// <summary>Volta o foco pra grade de jogos (↓ ou B).</summary>
+    public void LeaveSubFilterRow()
+    {
+        if (!IsSubFilterRowFocused) return;
+
+        IsSubFilterRowFocused = false;
+        UpdateSubFilterCursorFlags();
+    }
+
+    /// <summary>
+    /// ←/→ dentro da fileira. Para nas pontas em vez de dar a volta, de
+    /// propósito: a fileira é curta e dar a volta faz o usuário passar do
+    /// alvo sem perceber.
+    /// </summary>
+    public void MoveSubFilterCursor(int delta)
+    {
+        if (!IsSubFilterRowFocused || SubFilters.Count == 0) return;
+
+        _subFilterCursor = Math.Clamp(_subFilterCursor + delta, 0, SubFilters.Count - 1);
+        UpdateSubFilterCursorFlags();
+    }
+
+    /// <summary>A, com a fileira focada — marca/desmarca a caixinha onde o cursor está.</summary>
+    public void ToggleFocusedSubFilter()
+    {
+        if (!IsSubFilterRowFocused || SubFilters.Count == 0) return;
+
+        ToggleSubFilter(SubFilters[Math.Clamp(_subFilterCursor, 0, SubFilters.Count - 1)]);
+    }
+
+    /// <summary>
+    /// Ponto único de marcar/desmarcar — usado tanto pelo clique do mouse
+    /// (ToggleSubFilterCommand, ver MainWindow.axaml) quanto pelo A do
+    /// controle (ToggleFocusedSubFilter acima), pra os dois caminhos nunca
+    /// divergirem.
+    /// </summary>
+    public void ToggleSubFilter(SubFilterViewModel subFilter)
+    {
+        subFilter.IsChecked = !subFilter.IsChecked;
+        RebuildGamesFromLibrary();
+    }
+
+    private void UpdateSubFilterCursorFlags()
+    {
+        for (var i = 0; i < SubFilters.Count; i++)
+        {
+            SubFilters[i].IsCursor = IsSubFilterRowFocused && i == _subFilterCursor;
+        }
+    }
+
+    /// <summary>
+    /// Monta as caixinhas da aba que acabou de ficar ativa. Chamada só na
+    /// troca de aba (ver SetFilter) — o estado marcado/desmarcado é
+    /// deliberadamente DESCARTADO aqui, porque combinado com o usuário os
+    /// subfiltros valem "por sessão" e, mais importante, as caixinhas de
+    /// Computador e Emuladores são conjuntos diferentes: guardar seleção
+    /// de uma pra outra não significaria nada.
+    /// </summary>
+    private void RebuildSubFilters()
+    {
+        SubFilters.Clear();
+        _subFilterCursor = 0;
+        IsSubFilterRowFocused = false;
+
+        switch (_activeFilter)
+        {
+            case LibraryFilter.Computer:
+                SubFilters.Add(new SubFilterViewModel("Steam", g => g.Source == GameSource.Steam));
+                SubFilters.Add(new SubFilterViewModel("Xbox", g => g.Source == GameSource.XboxApp));
+                SubFilters.Add(new SubFilterViewModel("Epic", g => g.Source == GameSource.EpicGames));
+                SubFilters.Add(new SubFilterViewModel("GOG", g => g.Source == GameSource.Gog));
+                SubFilters.Add(new SubFilterViewModel("EA", g => g.Source == GameSource.EaApp));
+                SubFilters.Add(new SubFilterViewModel("Ubisoft", g => g.Source == GameSource.Ubisoft));
+                // "Atalhos" no lugar do antigo subfiltro "não steam" que o
+                // usuário havia proposto: com uma caixinha por loja, "não
+                // steam" seria só desmarcar Steam (redundante), enquanto os
+                // jogos adicionados À MÃO não tinham caixinha nenhuma e
+                // ficariam inalcançáveis. Combinado com ele.
+                SubFilters.Add(new SubFilterViewModel("Atalhos", g => g.Source == GameSource.Manual));
+                break;
+
+            case LibraryFilter.Emulators:
+                // Por enquanto só um — todo jogo de emulador que existe hoje
+                // vem do EdenLibraryScanner (Switch). Quando entrar outro
+                // emulador, é só mais uma linha aqui.
+                SubFilters.Add(new SubFilterViewModel("Switch", g => g.Id.StartsWith("eden_", StringComparison.Ordinal)));
+                break;
+        }
+
+        OnPropertyChanged(nameof(HasSubFilters));
+        UpdateSubFilterCursorFlags();
+    }
+
+    /// <summary>
+    /// União das caixinhas marcadas. Nenhuma marcada = passa tudo (regra
+    /// combinada com o usuário) — então entrar numa aba nunca esconde
+    /// jogo sem ele ter marcado algo.
+    /// </summary>
+    private bool MatchesSubFilters(GameEntry game)
+    {
+        var anyChecked = false;
+        foreach (var subFilter in SubFilters)
+        {
+            if (!subFilter.IsChecked) continue;
+            anyChecked = true;
+            if (subFilter.Matches(game)) return true;
+        }
+
+        return !anyChecked;
+    }
 
     private bool _isGlobalMenuOpen;
 
@@ -735,8 +900,8 @@ public sealed class MainViewModel : ViewModelBase
 
     public ICommand SetFilterAllCommand { get; }
     public ICommand SetFilterFavoritesCommand { get; }
-    public ICommand SetFilterOfficialCommand { get; }
-    public ICommand SetFilterNonSteamCommand { get; }
+    public ICommand SetFilterComputerCommand { get; }
+    public ICommand SetFilterEmulatorsCommand { get; }
     public ICommand SetFilterNotInstalledCommand { get; }
 
     public void MoveNext() => SelectedIndex++;
@@ -2014,9 +2179,14 @@ public sealed class MainViewModel : ViewModelBase
 
         OnPropertyChanged(nameof(IsFilterAllActive));
         OnPropertyChanged(nameof(IsFilterFavoritesActive));
-        OnPropertyChanged(nameof(IsFilterOfficialActive));
-        OnPropertyChanged(nameof(IsFilterNonSteamActive));
+        OnPropertyChanged(nameof(IsFilterComputerActive));
+        OnPropertyChanged(nameof(IsFilterEmulatorsActive));
         OnPropertyChanged(nameof(IsFilterNotInstalledActive));
+
+        // v0.9.18: as caixinhas de subfiltro são de cada aba, então são
+        // montadas aqui ANTES de reconstruir Games — RebuildGamesFromLibrary
+        // chama MatchesActiveFilter, que já consulta MatchesSubFilters.
+        RebuildSubFilters();
 
         RebuildGamesFromLibrary();
 
@@ -2036,13 +2206,16 @@ public sealed class MainViewModel : ViewModelBase
     private bool MatchesActiveFilter(GameEntry game) => _activeFilter switch
     {
         LibraryFilter.Favorites => game.IsFavorite,
-        // "Oficiais" = Steam + Xbox juntos (decisão do usuário ao
-        // reorganizar as abas) — "Não Steam" vira o complemento exato
-        // disso (nem Steam nem Xbox), em vez de "qualquer coisa !=
-        // Steam" como era antes (quando isso incluía Xbox também).
-        LibraryFilter.Official => game.Source is GameSource.Steam or GameSource.XboxApp or GameSource.EpicGames
-                                  or GameSource.Gog or GameSource.EaApp or GameSource.Ubisoft,
-        LibraryFilter.NonSteam => game.Source is GameSource.Manual or GameSource.Emulator,
+        // v0.9.18: "Computador" = tudo que roda direto no Windows (lojas +
+        // atalhos à mão), "Emuladores" = o complemento exato disso. Definir
+        // Computador como "NÃO é emulador", em vez de listar as fontes uma
+        // por uma, é de propósito: fonte nova (uma loja que entre depois)
+        // aparece automaticamente em Computador em vez de ficar invisível
+        // até alguém lembrar de atualizar esta lista — foi exatamente o que
+        // aconteceu com os jogos de emulador antes da v0.9.18, que caíam em
+        // "Não Steam" junto dos atalhos manuais.
+        LibraryFilter.Computer => game.Source != GameSource.Emulator && MatchesSubFilters(game),
+        LibraryFilter.Emulators => game.Source == GameSource.Emulator && MatchesSubFilters(game),
         _ => true,
     };
 

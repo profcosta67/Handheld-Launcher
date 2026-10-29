@@ -289,6 +289,47 @@ mais sentido de risco crescente):
      - Ainda **sem pedido explícito pra começar a codar** — usuário
        combinou de parar exatamente neste ponto (perguntas de escopo)
        nesta sessão.
+   - ~~**Reorganizar as abas de filtro da biblioteca**~~ — **feito na
+     v0.9.18**, pedido do usuário: `Favoritos / Todos / Computador /
+     Emuladores / Não instalados`, com fileira de subfiltros
+     multi-seleção nas duas abas do meio.
+     - **Computador** = tudo que não é emulador (definido pelo
+       complemento de propósito: loja nova entra automaticamente em vez
+       de ficar invisível até alguém atualizar uma lista — foi exatamente
+       o que acontecia com os jogos de emulador, que caíam em "Não
+       Steam"). Subfiltros: Steam/Xbox/Epic/GOG/EA/Ubisoft/**Atalhos**.
+     - **Atalhos** entrou no lugar do subfiltro "não steam" que o usuário
+       propôs: com uma caixinha por loja, "não steam" é só desmarcar
+       Steam (redundante), enquanto `GameSource.Manual` não teria
+       caixinha nenhuma. Combinado com ele.
+     - **"Não instalados" ficou SÓ como aba de cima**, não como subfiltro
+       de Computador (como ele havia proposto): ela não filtra
+       `_library.Games`, puxa de `OwnedNotInstalledGames` (Steam Web
+       API) — não existe nada em disco pra filtrar ali.
+     - Regras combinadas: nenhuma caixinha marcada = mostra tudo (nunca
+       tela vazia sem o usuário ter pedido); seleção vale por sessão.
+     - `SubFilterViewModel` guarda o próprio predicado em vez de ter um
+       switch na MainViewModel, pra emulador novo (Ryujinx/PCSX2) ser uma
+       linha em `RebuildSubFilters` e nada mais.
+     - `IsChecked` (marcada, filtra) e `IsCursor` (onde o controle está
+       parado) são estados SEPARADOS de propósito — no controle é preciso
+       passar por cima de uma caixinha sem marcá-la. Estilos
+       `Button.subFilter.marked` (preenchimento) e `.cursor` (contorno),
+       em Theme.axaml. "marked" e não "checked" pra não encostar no
+       pseudo-estado `:checked` do Avalonia.
+     - Navegação: `MoveSelectionVertical` passou a devolver bool, e
+       ↑ só entra na fileira quando a grade não conseguiu subir — no
+       layout de fileira horizontal ↑/↓ nunca moviam nada, então ali
+       sempre entra. Teclado e controle usam os MESMOS métodos da
+       ViewModel, pra não repetir o bug histórico de "funciona no
+       controle mas não no teclado".
+     - Selo de origem: `GameSource.Emulator` → "SW" rosa (#C2185B) e
+       `GameSource.Manual` → "A" cinza; os dois eram `null` desde a
+       v0.9.6 ("não têm loja"). Duas letras no "SW" porque "S" sozinho
+       ficaria igual ao do Steam, distinguível só pela cor.
+     - **Não testado em hardware** — principalmente a navegação da
+       fileira pelo controle, que é a parte mais provável de precisar
+       ajuste.
    - ~~**Ajustes nas abas de Configurações (pós v0.9.14)**~~ — **feito na
      v0.9.15**: ordem trocada pra Aparência/Diretórios/Modo de uso/Contas
      e Chaves (Contas foi pro final, era a primeira); ComboBox de

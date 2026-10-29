@@ -244,13 +244,44 @@
       <!-- Margem inferior igual à do hero acima (20, era 16 nos dois) —
            pedido do usuário pra alinhar/igualar o espaçamento
            hero→abas e abas→fileira de jogos. -->
-      <Grid Grid.Row="1" ColumnDefinitions="*,*,*,*,*" Margin="0,0,0,20">
-        <Button Grid.Column="0" Classes="pill filterTab" Classes.active="{Binding IsFilterFavoritesActive}" Content="Favoritos" Command="{Binding SetFilterFavoritesCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,5,0" />
-        <Button Grid.Column="1" Classes="pill filterTab" Classes.active="{Binding IsFilterAllActive}" Content="Todos" Command="{Binding SetFilterAllCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" />
-        <Button Grid.Column="2" Classes="pill filterTab" Classes.active="{Binding IsFilterOfficialActive}" Content="Oficiais" Command="{Binding SetFilterOfficialCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" />
-        <Button Grid.Column="3" Classes="pill filterTab" Classes.active="{Binding IsFilterNonSteamActive}" Content="Não Steam" Command="{Binding SetFilterNonSteamCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" />
-        <Button Grid.Column="4" Classes="pill filterTab" Classes.active="{Binding IsFilterNotInstalledActive}" Content="Não instalados" Command="{Binding SetFilterNotInstalledCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,0,0" />
-      </Grid>
+      <!-- v0.9.18, pedido do usuário: "Oficiais"/"Não Steam" viraram
+           "Computador"/"Emuladores" — ver MainViewModel.LibraryFilter pro
+           porquê (nomes mais claros + os jogos de emulador deixam de ficar
+           misturados com atalhos manuais). As duas novas abas têm uma
+           fileira de caixinhas logo abaixo. -->
+      <StackPanel Grid.Row="1" Spacing="8" Margin="0,0,0,20">
+        <Grid ColumnDefinitions="*,*,*,*,*">
+          <Button Grid.Column="0" Classes="pill filterTab" Classes.active="{Binding IsFilterFavoritesActive}" Content="Favoritos" Command="{Binding SetFilterFavoritesCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,5,0" />
+          <Button Grid.Column="1" Classes="pill filterTab" Classes.active="{Binding IsFilterAllActive}" Content="Todos" Command="{Binding SetFilterAllCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" />
+          <Button Grid.Column="2" Classes="pill filterTab" Classes.active="{Binding IsFilterComputerActive}" Content="Computador" Command="{Binding SetFilterComputerCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" />
+          <Button Grid.Column="3" Classes="pill filterTab" Classes.active="{Binding IsFilterEmulatorsActive}" Content="Emuladores" Command="{Binding SetFilterEmulatorsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" />
+          <Button Grid.Column="4" Classes="pill filterTab" Classes.active="{Binding IsFilterNotInstalledActive}" Content="Não instalados" Command="{Binding SetFilterNotInstalledCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,0,0" />
+        </Grid>
+
+        <!-- Subfiltros da aba ativa (multi-seleção: marca/desmarca, vale a
+             união das marcadas, nenhuma marcada = mostra tudo). A fileira
+             inteira desaparece nas abas sem subfiltro. Clicar marca direto;
+             pelo controle, ↑ a partir da grade entra na fileira, ←/→ andam
+             e A marca (ver MainWindow.OnGamepadTick e
+             MainViewModel.FocusSubFilterRow). -->
+        <ItemsControl ItemsSource="{Binding SubFilters}" IsVisible="{Binding HasSubFilters}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel Orientation="Horizontal" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:SubFilterViewModel">
+              <Button Classes="pill subFilter"
+                      Classes.marked="{Binding IsChecked}"
+                      Classes.cursor="{Binding IsCursor}"
+                      Content="{Binding Label}"
+                      Click="OnSubFilterClick"
+                      Margin="0,0,8,0" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
 
       <!-- Horizontal row of every game (CAPSULE tiles, WIDE CAPSULE pro
            último jogo aberto). -->
