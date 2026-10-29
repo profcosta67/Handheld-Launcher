@@ -24,6 +24,18 @@
       <!-- Barras de cima/baixo e véu sobre o fundo borrado — semitransparentes,
            também trocam com o tema (ThemeManager). -->
       <SolidColorBrush x:Key="BarBrush" Color="#CC12141C" />
+      <!-- Fundo semitransparente na cor de destaque (cabeçalho dos menus). -->
+      <SolidColorBrush x:Key="AccentTranslucentBrush" Color="#407C5CFC" />
+
+      <!-- Tamanhos de texto (v0.7.1) — DynamicResource nos estilos, pra
+           Configurações → Tamanho do texto valer na hora
+           (ThemeManager.ApplyFontSize sobrescreve em Application.Resources). -->
+      <x:Double x:Key="FontSizeBase">14</x:Double>
+      <x:Double x:Key="FontSizeBody">15</x:Double>
+      <x:Double x:Key="FontSizeTitle">30</x:Double>
+      <x:Double x:Key="FontSizeSubtle">14</x:Double>
+      <x:Double x:Key="FontSizeCaption">11</x:Double>
+      <x:Double x:Key="FontSizeMenuHeader">22</x:Double>
       <SolidColorBrush x:Key="BackdropDimBrush" Color="#CC0C0D12" />
 
       <!-- Rounded-corner tokens — the look the reference screenshot is built on. -->
@@ -52,6 +64,7 @@
        Configurações (ThemeManager.ApplyFont). -->
   <Style Selector="Window">
     <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI" />
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeBase}" />
   </Style>
 
   <!-- Row tile. Width/Height live here (not as local attributes in
@@ -141,17 +154,20 @@
   <!-- v0.7.0: cabeçalho dos menus — título centralizado dentro de uma
        moldura com a cor de destaque (pedido: "destacar o nome do jogo
        talvez com uma borda e centralizado"). -->
+  <!-- v0.7.1: a moldura (contorno) não agradou — agora é uma faixa com
+       fundo semitransparente na cor do tema, largura total do menu, texto
+       centralizado (pedido: "plano de fundo meio transparente parecido com
+       a cor do tema"). -->
   <Style Selector="Border.menuHeader">
-    <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
-    <Setter Property="BorderThickness" Value="1.5" />
+    <Setter Property="Background" Value="{StaticResource AccentTranslucentBrush}" />
     <Setter Property="CornerRadius" Value="14" />
-    <Setter Property="Padding" Value="16,10" />
-    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="Padding" Value="16,12" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
     <Setter Property="Margin" Value="0,0,0,4" />
   </Style>
   <Style Selector="TextBlock.menuHeaderTitle">
     <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-    <Setter Property="FontSize" Value="22" />
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeMenuHeader}" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="TextAlignment" Value="Center" />
     <Setter Property="VerticalAlignment" Value="Center" />
@@ -196,19 +212,19 @@
 
   <Style Selector="TextBlock.gameTitle">
     <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-    <Setter Property="FontSize" Value="15" />
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
     <Setter Property="FontWeight" Value="SemiBold" />
   </Style>
 
   <Style Selector="TextBlock.heroTitle">
     <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-    <Setter Property="FontSize" Value="30" />
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeTitle}" />
     <Setter Property="FontWeight" Value="Bold" />
   </Style>
 
   <Style Selector="TextBlock.subtle">
     <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
-    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeSubtle}" />
   </Style>
 
   <!-- Nome em cima das tiles pequenas da fileira (ver MainWindow.axaml) —
@@ -217,7 +233,7 @@
        nenhuma arte ainda). -->
   <Style Selector="TextBlock.tileCaption">
     <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}" />
     <Setter Property="FontWeight" Value="SemiBold" />
   </Style>
 

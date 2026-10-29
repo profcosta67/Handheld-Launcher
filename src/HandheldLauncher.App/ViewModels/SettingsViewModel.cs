@@ -138,6 +138,9 @@ public sealed class SettingsViewModel : ViewModelBase
     /// <summary>0 Moderna (Segoe UI), 1 Divertida (Comic Sans).</summary>
     public int FontIndex { get => _fontIndex; set => SetField(ref _fontIndex, value); }
 
+    private int _fontSizeIndex = 1;
+    public int FontSizeIndex { get => _fontSizeIndex; set => SetField(ref _fontSizeIndex, value); }
+
     private int _themeIndex;
     public int ThemeIndex { get => _themeIndex; set => SetField(ref _themeIndex, value); }
 
@@ -178,6 +181,7 @@ public sealed class SettingsViewModel : ViewModelBase
         OverlayPresetIndex = Math.Clamp(settings.OverlayPreset, 0, 3);
         ThemeIndex = Math.Clamp(settings.Theme, 0, HandheldLauncher.App.Platform.ThemeManager.ThemeNames.Length - 1);
         FontIndex = Math.Clamp(settings.UiFont, 0, HandheldLauncher.App.Platform.ThemeManager.Fonts.Length - 1);
+        FontSizeIndex = Math.Clamp(settings.UiFontSize, 0, 2);
         TileSizeIndex = Math.Clamp(settings.TileSize, 0, 2);
         LayoutIndex = settings.VerticalLayout ? 1 : 0;
         Animations = settings.Animations;
@@ -205,6 +209,7 @@ public sealed class SettingsViewModel : ViewModelBase
         settings.OverlayPreset = Math.Clamp(OverlayPresetIndex, 0, 3);
         settings.Theme = Math.Clamp(ThemeIndex, 0, HandheldLauncher.App.Platform.ThemeManager.ThemeNames.Length - 1);
         settings.UiFont = Math.Clamp(FontIndex, 0, HandheldLauncher.App.Platform.ThemeManager.Fonts.Length - 1);
+        settings.UiFontSize = Math.Clamp(FontSizeIndex, 0, 2);
         settings.TileSize = Math.Clamp(TileSizeIndex, 0, 2);
         settings.VerticalLayout = LayoutIndex == 1;
         settings.Animations = Animations;

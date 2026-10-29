@@ -1143,7 +1143,6 @@ public sealed class MainViewModel : ViewModelBase
                 {
                     Add($"Verificar atualizações (v{_updates.CurrentVersionText})", () => _ = CheckForUpdatesAsync(userInitiated: true));
                 }
-                Add("Sobre", OpenAbout);
                 break;
 
             case GlobalMenuPage.Power:
@@ -1178,6 +1177,7 @@ public sealed class MainViewModel : ViewModelBase
                 Folder("HUD", GlobalMenuPage.Hud);
                 Folder("Configurações", GlobalMenuPage.Settings);
                 Folder("Energia", GlobalMenuPage.Power);
+                Add("Sobre", OpenAbout);
                 break;
         }
 

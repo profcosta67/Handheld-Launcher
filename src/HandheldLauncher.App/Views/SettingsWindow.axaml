@@ -67,6 +67,16 @@
           <ComboBoxItem Content="Formal (Georgia)" />
           <ComboBoxItem Content="Gamer (Bahnschrift)" />
           <ComboBoxItem Content="Terminal (Consolas)" />
+          <ComboBoxItem Content="Simples (Arial)" />
+          <ComboBoxItem Content="Clássica (Times New Roman)" />
+          <ComboBoxItem Content="Legível (Verdana)" />
+          <ComboBoxItem Content="Elegante (Trebuchet)" />
+        </ComboBox>
+        <TextBlock Text="Tamanho do texto" FontSize="12" />
+        <ComboBox SelectedIndex="{Binding FontSizeIndex}" HorizontalAlignment="Stretch">
+          <ComboBoxItem Content="Pequeno" />
+          <ComboBoxItem Content="Médio" />
+          <ComboBoxItem Content="Grande" />
         </ComboBox>
         <TextBlock Text="Tamanho das capas" FontSize="12" />
         <ComboBox SelectedIndex="{Binding TileSizeIndex}" HorizontalAlignment="Stretch">

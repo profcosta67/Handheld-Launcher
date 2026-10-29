@@ -482,7 +482,7 @@
           <!-- v0.7.0: nome do jogo centralizado numa moldura de destaque,
                com o ícone do jogo (SteamGridDB) do lado quando existir. -->
           <Border Classes="menuHeader">
-            <StackPanel Orientation="Horizontal" Spacing="12">
+            <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
               <Image Source="{Binding ContextMenuTarget.IconImagePath, Converter={StaticResource FileToBitmapConverter}}"
                      IsVisible="{Binding ContextMenuTarget.IconImagePath, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}"
                      Width="36" Height="36" Stretch="Uniform" VerticalAlignment="Center" />
@@ -511,7 +511,7 @@
       <Border Classes="contextMenuCard" Width="380" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel Spacing="16">
           <Border Classes="menuHeader">
-            <TextBlock Text="{Binding GlobalMenuTitle}" Classes="menuHeaderTitle" />
+            <TextBlock Text="{Binding GlobalMenuTitle}" Classes="menuHeaderTitle" HorizontalAlignment="Center" />
           </Border>
           <ItemsControl ItemsSource="{Binding GlobalMenuItems}">
             <ItemsControl.ItemTemplate>
@@ -676,8 +676,11 @@
                      TextWrapping="Wrap"
                      TextAlignment="Center"
                      FontWeight="Normal" />
-          <Border Classes="menuHeader" Padding="12,6">
-            <TextBlock Text="Criado por profcosta67" Classes="gameTitle" FontSize="14" />
+          <Border Classes="menuHeader" Padding="12,8">
+            <StackPanel Spacing="2" HorizontalAlignment="Center">
+              <TextBlock Text="Criado por profcosta67" Classes="gameTitle" HorizontalAlignment="Center" FontWeight="SemiBold" />
+              <TextBlock Text="Desenvolvido com Claude (Anthropic)" Classes="subtle" HorizontalAlignment="Center" />
+            </StackPanel>
           </Border>
           <TextBlock Text="github.com/profcosta67/Handheld-Launcher" Classes="subtle" HorizontalAlignment="Center" />
           <TextBlock Text="Feito com Avalonia · Capas: SteamGridDB · HUD: RTSS · Atualizações: Velopack"

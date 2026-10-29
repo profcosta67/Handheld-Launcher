@@ -1064,6 +1064,7 @@ public partial class MainWindow : Window
         {
             ThemeManager.Apply(settings.Theme);
             ThemeManager.ApplyFont(this, settings.UiFont);
+            ThemeManager.ApplyFontSize(settings.UiFontSize);
 
             Classes.Set("noAnim", !settings.Animations);
             _rowScrollTransitions ??= GameRowScrollViewer.Transitions;

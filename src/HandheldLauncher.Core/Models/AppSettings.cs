@@ -98,6 +98,9 @@ public class AppSettings
     /// <summary>Animações (zoom no jogo selecionado/ao passar o mouse, rolagem suave). Padrão ligado.</summary>
     public bool Animations { get; set; } = true;
 
-    /// <summary>Fonte da interface (índice em ThemeManager.Fonts): 0 Moderna (Segoe UI, padrão), 1 Divertida, 2 Formal, 3 Gamer, 4 Terminal.</summary>
+    /// <summary>Fonte da interface (índice em ThemeManager.Fonts): 0 Moderna (Segoe UI, padrão), 1 Divertida, 2 Formal, 3 Gamer, 4 Terminal, 5 Arial, 6 Times New Roman, 7 Verdana, 8 Trebuchet.</summary>
     public int UiFont { get; set; }
+
+    /// <summary>Tamanho do texto (v0.7.1): 0 Pequeno, 1 Médio (padrão), 2 Grande.</summary>
+    public int UiFontSize { get; set; } = 1;
 }

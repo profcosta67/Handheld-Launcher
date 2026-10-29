@@ -76,6 +76,7 @@ public partial class App : Application
             // Aparência (v0.6.0) — antes de criar a janela/tiles: cores do
             // tema e escala das capas já valem desde o primeiro desenho.
             ThemeManager.Apply(appSettings.Theme);
+            ThemeManager.ApplyFontSize(appSettings.UiFontSize);
             GameTileViewModel.SizeScale = GameTileViewModel.ScaleForSetting(appSettings.TileSize);
 
             var mainViewModel = new MainViewModel(libraryService, gameLauncher, artworkService, performanceOverlay, updateService, performanceHud);

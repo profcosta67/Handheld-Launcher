@@ -703,6 +703,21 @@ Ainda **não** feito:
 15. ~~Tela de configuração pra `SteamWebApiKey`/`SteamId64`~~ — **feito
     numa leva posterior**, junto do item 5 (mesma `SettingsWindow`).
 
+## Ajustes v0.7.1
+
+- **Fontes** (todas do Windows): Moderna (Segoe UI), Divertida (Comic Sans),
+  Formal (Georgia), Gamer (Bahnschrift), Terminal (Consolas), Simples (Arial),
+  Clássica (Times New Roman), Legível (Verdana), Elegante (Trebuchet).
+- **Tamanho do texto** Pequeno/Médio/Grande (0.88×/1×/1.18×): tamanhos do
+  Theme.axaml viraram `DynamicResource FontSize*`, sobrescritos em
+  `Application.Resources` por `ThemeManager.ApplyFontSize` (vale na hora).
+  Tamanhos fixos direto no XAML (alguns textos pequenos) não escalam.
+- **Paletas**: + Verde, Laranja, Rosa, Ciano, Preto (OLED), Dourado (10 no total).
+- **Cabeçalho dos menus**: a moldura de contorno virou faixa com fundo
+  semitransparente na cor do tema (`AccentTranslucentBrush`), largura total.
+- **Sobre** foi pro menu principal (abaixo de Energia) e ganhou o crédito
+  "Desenvolvido com Claude (Anthropic)".
+
 ## Acabamento profissional — v0.7.0 (Lote A)
 
 **Nunca testado num aparelho ainda.** Pedidos do usuário a partir de fotos dos menus:

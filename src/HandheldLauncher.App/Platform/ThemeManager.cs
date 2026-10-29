@@ -27,7 +27,40 @@ public static class ThemeManager
         ("Formal (Georgia)", "Georgia"),
         ("Gamer (Bahnschrift)", "Bahnschrift"),
         ("Terminal (Consolas)", "Consolas"),
+        ("Simples (Arial)", "Arial"),
+        ("Clássica (Times New Roman)", "Times New Roman"),
+        ("Legível (Verdana)", "Verdana"),
+        ("Elegante (Trebuchet)", "Trebuchet MS"),
     ];
+
+    public static readonly string[] FontSizeNames = ["Pequeno", "Médio", "Grande"];
+
+    /// <summary>
+    /// Tamanho do texto (v0.7.1): reescala os tamanhos-base do Theme.axaml.
+    /// Os estilos usam DynamicResource, e Application.Resources tem
+    /// prioridade sobre os recursos do Theme.axaml — então gravar aqui muda
+    /// a tela inteira na hora.
+    /// </summary>
+    public static void ApplyFontSize(int fontSizeIndex)
+    {
+        var app = Application.Current;
+        if (app is null) return;
+
+        var scale = fontSizeIndex switch { 0 => 0.88, 2 => 1.18, _ => 1.0 };
+        try
+        {
+            app.Resources["FontSizeBase"] = Math.Round(14 * scale);
+            app.Resources["FontSizeBody"] = Math.Round(15 * scale);
+            app.Resources["FontSizeTitle"] = Math.Round(30 * scale);
+            app.Resources["FontSizeSubtle"] = Math.Round(14 * scale);
+            app.Resources["FontSizeCaption"] = Math.Round(11 * scale);
+            app.Resources["FontSizeMenuHeader"] = Math.Round(22 * scale);
+        }
+        catch
+        {
+            // Melhor esforço.
+        }
+    }
 
     private sealed record Palette(
         string Background, string Surface, string SurfaceRaised,
@@ -103,6 +136,7 @@ public static class ThemeManager
 
         // Semitransparentes: mesma cor da superfície/fundo do tema com ~80% de opacidade.
         SetBrush(app, "BarBrush", "#CC" + palette.Surface.TrimStart('#'));
+        SetBrush(app, "AccentTranslucentBrush", "#40" + palette.Accent.TrimStart('#'));
         SetBrush(app, "BackdropDimBrush", "#CC" + palette.Background.TrimStart('#'));
     }
 
