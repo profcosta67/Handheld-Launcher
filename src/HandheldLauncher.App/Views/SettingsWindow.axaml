@@ -108,6 +108,15 @@
              som de interação do launcher". -->
         <CheckBox IsChecked="{Binding SoundEffects}"
                   Content="Sons de interação (navegar/confirmar/voltar pelo controle)" />
+        <!-- v0.9.11, pedido do usuário: "podemos por opções de sons também
+             no tema, alguns diferentes, nada muito exagerado". -->
+        <TextBlock Text="Estilo do som" FontSize="12" />
+        <ComboBox SelectedIndex="{Binding SoundThemeIndex}" HorizontalAlignment="Stretch" IsEnabled="{Binding SoundEffects}">
+          <ComboBoxItem Content="Clássico" />
+          <ComboBoxItem Content="Suave" />
+          <ComboBoxItem Content="Retro" />
+          <ComboBoxItem Content="Future" />
+        </ComboBox>
 
         <TextBlock Text="Overlay de desempenho (estilo MangoHud, desenhado pelo RTSS)" Classes="subtle" Margin="0,12,0,0" />
         <ComboBox SelectedIndex="{Binding OverlayPresetIndex}" HorizontalAlignment="Stretch">

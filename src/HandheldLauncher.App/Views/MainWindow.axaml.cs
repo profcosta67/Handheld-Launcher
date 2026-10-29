@@ -461,6 +461,9 @@ public partial class MainWindow : Window
         vm.TurnOffScreenRequested += (_, _) => TurnOffScreen();
         vm.RestartDeviceRequested += (_, _) => RestartDevice();
         vm.ShutdownDeviceRequested += (_, _) => ShutdownDevice();
+        // v0.9.11, etapa 2 ("tela de informações do jogo"): mesmo padrão
+        // dos diálogos acima — MainWindow possui a janela/_activeDialog.
+        vm.GameDetailsRequested += (_, game) => _ = OpenGameDetailsDialogAsync(vm, game);
 
         StartBatteryMonitor(vm);
         StartDownloadsRefreshTimer(vm);
@@ -863,6 +866,9 @@ public partial class MainWindow : Window
                 case GamepadAction.NextFilter:
                     vm.CycleNextFilter();
                     break;
+                case GamepadAction.GameDetails:
+                    vm.OpenGameDetailsForSelected();
+                    break;
             }
         }
     }
@@ -1230,6 +1236,8 @@ public partial class MainWindow : Window
             // acima, aplicado na hora (startup e toda vez que Configurações
             // salva), sem precisar reiniciar.
             UiSounds.Enabled = settings.SoundEffects;
+            // v0.9.11: "Estilo do som" (Clássico/Suave/Retro) — mesma ideia.
+            UiSounds.Pack = settings.SoundTheme;
 
             var scale = GameTileViewModel.ScaleForSetting(settings.TileSize);
             var scaleChanged = Math.Abs(scale - GameTileViewModel.SizeScale) > 0.001;
@@ -1473,5 +1481,30 @@ public partial class MainWindow : Window
         // Preset do HUD e aparência valem na hora (chaves e modo de uso ainda pedem reinício).
         vm.ReloadOverlayPresetFromSettings();
         ApplyAppearance(vm, AppSettingsStore.Load());
+    }
+
+    /// <summary>
+    /// v0.9.11, etapa 2 ("tela de informações do jogo") — chamado por
+    /// vm.GameDetailsRequested (botão X ou "Detalhes do jogo" no menu de
+    /// contexto, ver OnDataContextChanged). Mesmo padrão modal de
+    /// OpenSettingsDialogAsync acima: MainWindow possui a janela,
+    /// MainViewModel monta a ViewModel (com os clients Steam que só ela
+    /// tem — ver MainViewModel.CreateGameDetailsViewModel).
+    /// </summary>
+    private async Task OpenGameDetailsDialogAsync(MainViewModel vm, GameEntry game)
+    {
+        var dialog = new GameDetailsWindow
+        {
+            DataContext = vm.CreateGameDetailsViewModel(game),
+        };
+        _activeDialog = dialog;
+        try
+        {
+            await dialog.ShowDialog(this);
+        }
+        finally
+        {
+            _activeDialog = null;
+        }
     }
 }

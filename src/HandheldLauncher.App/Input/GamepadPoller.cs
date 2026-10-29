@@ -50,6 +50,15 @@ public enum GamepadAction
     /// e essa combinação quase nenhum jogo usa.
     /// </summary>
     CycleOverlay,
+
+    /// <summary>
+    /// X — abre a tela de "Detalhes do jogo" (horas jogadas, conquistas —
+    /// v0.9.11, etapa 2) pro jogo em foco na biblioteca. Botão livre até
+    /// aqui (só A/B/Start/View/LB/RB/Y eram usados) — mesmo raciocínio de
+    /// Downloads/Y: um botão dedicado é mais rápido num handheld do que
+    /// inventar um caminho de foco até algum ícone na tela.
+    /// </summary>
+    GameDetails,
 }
 
 /// <summary>
@@ -114,6 +123,7 @@ public sealed class GamepadPoller
         if (WasJustPressed(buttons, XInput.Buttons.LeftShoulder)) actions.Add(GamepadAction.PreviousFilter);
         if (WasJustPressed(buttons, XInput.Buttons.RightShoulder)) actions.Add(GamepadAction.NextFilter);
         if (WasJustPressed(buttons, XInput.Buttons.Y)) actions.Add(GamepadAction.Downloads);
+        if (WasJustPressed(buttons, XInput.Buttons.X)) actions.Add(GamepadAction.GameDetails);
 
         // L3+R3 (troca do HUD) NÃO é mais detectado aqui desde a v0.6.1 —
         // ver OverlayHotkeyWatcher (thread própria, funciona com o launcher

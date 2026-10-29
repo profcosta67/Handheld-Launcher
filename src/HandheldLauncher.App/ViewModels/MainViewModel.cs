@@ -16,6 +16,8 @@ public sealed class MainViewModel : ViewModelBase
     private readonly IPerformanceOverlayService _performanceOverlay;
     private readonly UpdateService? _updates;
     private readonly PerformanceHud? _hud;
+    private readonly ISteamOwnedGamesClient? _steamOwnedGames;
+    private readonly ISteamAchievementsClient? _steamAchievements;
 
     public MainViewModel(
         ILibraryService library,
@@ -23,7 +25,9 @@ public sealed class MainViewModel : ViewModelBase
         IArtworkService artwork,
         IPerformanceOverlayService performanceOverlay,
         UpdateService? updates = null,
-        PerformanceHud? hud = null)
+        PerformanceHud? hud = null,
+        ISteamOwnedGamesClient? steamOwnedGames = null,
+        ISteamAchievementsClient? steamAchievements = null)
     {
         _library = library;
         _launcher = launcher;
@@ -31,6 +35,12 @@ public sealed class MainViewModel : ViewModelBase
         _performanceOverlay = performanceOverlay;
         _updates = updates;
         _hud = hud;
+        // v0.9.11, etapa 2 ("tela de informações do jogo"): os dois ficam
+        // null quando SteamWebApiKey/SteamId64 não estão configurados —
+        // GameDetailsViewModel trata esse caso mostrando a mesma mensagem
+        // "falta configurar" do painel de Downloads, em vez de travar.
+        _steamOwnedGames = steamOwnedGames;
+        _steamAchievements = steamAchievements;
         _launcher.GameExited += OnGameExited;
 
         Games = new ObservableCollection<GameTileViewModel>();
@@ -590,6 +600,51 @@ public sealed class MainViewModel : ViewModelBase
     /// <summary>Raised when "Minimizar" is picked from the global menu — MainWindow owns Hide(), not the ViewModel. Same action as the bottom-bar "Minimizar" button (OnMinimizeClick); this just gives the controller a path to it too.</summary>
     public event EventHandler? MinimizeRequested;
 
+    /// <summary>
+    /// v0.9.11, etapa 2 ("tela de informações do jogo"): disparado pelo
+    /// botão X (GamepadAction.GameDetails, ver OpenGameDetailsForSelected)
+    /// ou pelo item "Detalhes do jogo" do menu de contexto (ver
+    /// BuildContextMenu). Mesmo padrão de AddGameRequested/SettingsRequested
+    /// acima — MainWindow é quem possui o diálogo (GameDetailsWindow) e
+    /// quem monta o GameDetailsViewModel com os clients Steam, a
+    /// ViewModel só decide QUANDO pedir e PRA QUAL jogo.
+    /// </summary>
+    public event EventHandler<GameEntry>? GameDetailsRequested;
+
+    /// <summary>
+    /// Only Steam games have a reliable AppId to query the Steam Web API
+    /// with — Xbox/Epic/GOG/Ubisoft/EA/manual entries never get a "Detalhes
+    /// do jogo" option (same gate used for "Excluir jogo" above, which
+    /// also requires game.SteamAppId).
+    /// </summary>
+    private static bool HasGameDetails(GameEntry game) => game.Source == GameSource.Steam && game.SteamAppId is not null;
+
+    /// <summary>Chamado pelo item de menu "Detalhes do jogo" (ver BuildContextMenu) — fecha o menu e dispara GameDetailsRequested.</summary>
+    private void OpenGameDetails(GameEntry game)
+    {
+        CloseContextMenu();
+        GameDetailsRequested?.Invoke(this, game);
+    }
+
+    /// <summary>Chamado pelo botão X (ver MainWindow.OnGamepadTick) — mesma ideia de LaunchSelected, mas abrindo a tela de detalhes em vez de lançar o jogo. Sem SelectedTile, ou jogo sem AppId Steam: não faz nada (sem feedback sonoro de erro — simplesmente não existe atalho pra esse caso).</summary>
+    public void OpenGameDetailsForSelected()
+    {
+        if (SelectedTile?.Game is { } game && HasGameDetails(game))
+        {
+            GameDetailsRequested?.Invoke(this, game);
+        }
+    }
+
+    /// <summary>
+    /// Chamado por MainWindow ao tratar GameDetailsRequested — monta a
+    /// ViewModel da janela com os mesmos clients Steam recebidos no
+    /// construtor (podem ser null, ver GameDetailsViewModel). MainWindow
+    /// nunca vê _steamOwnedGames/_steamAchievements diretamente, mesmo
+    /// espírito de "a View não conhece os serviços" do resto do app.
+    /// </summary>
+    public GameDetailsViewModel CreateGameDetailsViewModel(GameEntry game)
+        => new(game, _steamOwnedGames, _steamAchievements);
+
     private bool _isPowerMenuOpen;
 
     /// <summary>
@@ -845,6 +900,12 @@ public sealed class MainViewModel : ViewModelBase
         // antes eram itens soltos no topo agora vivem dentro do submenu
         // "Personalizar" (ver OpenPersonalizeMenu).
         Add("Abrir jogo", () => OpenGameFromMenu(game));
+        // v0.9.11, etapa 2: só pra jogos Steam (ver HasGameDetails) — mesmo
+        // botão X do controle, caminho pra quem está no mouse/touch.
+        if (HasGameDetails(game))
+        {
+            Add("Detalhes do jogo", () => OpenGameDetails(game));
+        }
         Add(game.IsFavorite ? "Desfavoritar" : "Favoritar", () => ToggleFavorite(game));
 
         // Excluir atalho/jogo. Dois caminhos BEM diferentes:

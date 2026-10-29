@@ -50,6 +50,13 @@ public partial class App : Application
             // instalado" (ver ILibraryService.HasSteamWebApiCredentials).
             var steamOwnedGamesCandidate = new SteamOwnedGamesClient(appSettings.SteamWebApiKey, appSettings.SteamId64);
             var steamOwnedGamesClient = steamOwnedGamesCandidate.HasCredentials ? steamOwnedGamesCandidate : null;
+            // v0.9.11, etapa 2 ("tela de informações do jogo"): mesma
+            // credencial do client acima (GetOwnedGames), só que pra
+            // ISteamUserStats/GetSchemaForGame + GetPlayerAchievements —
+            // ver SteamAchievementsClient. Null = mesma mensagem "falta
+            // configurar" que o resto da integração Steam Web API já usa.
+            var steamAchievementsCandidate = new SteamAchievementsClient(appSettings.SteamWebApiKey, appSettings.SteamId64);
+            var steamAchievementsClient = steamAchievementsCandidate.HasCredentials ? steamAchievementsCandidate : null;
             var libraryStore = new GameLibraryStore();
             var libraryService = new LibraryService(steamScanner, libraryStore, xboxFolderScanner, steamOwnedGamesClient,
                 [new EpicLibraryScanner(), new GogLibraryScanner(), new UbisoftLibraryScanner(), new EaLibraryScanner()]);
@@ -104,7 +111,8 @@ public partial class App : Application
             ThemeManager.ApplyFontSize(appSettings.UiFontSize);
             GameTileViewModel.SizeScale = GameTileViewModel.ScaleForSetting(appSettings.TileSize);
 
-            var mainViewModel = new MainViewModel(libraryService, gameLauncher, artworkService, performanceOverlay, updateService, performanceHud);
+            var mainViewModel = new MainViewModel(libraryService, gameLauncher, artworkService, performanceOverlay, updateService, performanceHud,
+                steamOwnedGamesClient, steamAchievementsClient);
             var mainWindow = new MainWindow
             {
                 DataContext = mainViewModel,

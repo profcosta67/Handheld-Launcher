@@ -239,6 +239,11 @@ public sealed class SettingsViewModel : ViewModelBase
     /// <summary>"Sons de interação" (v0.9.10) — Platform.UiSounds.Enabled espelha isto ao vivo (ver SettingsWindow.axaml.cs).</summary>
     public bool SoundEffects { get => _soundEffects; set => SetField(ref _soundEffects, value); }
 
+    private int _soundThemeIndex;
+
+    /// <summary>"Estilo de som" (v0.9.11) — índice em Platform.UiSounds.PackNames.</summary>
+    public int SoundThemeIndex { get => _soundThemeIndex; set => SetField(ref _soundThemeIndex, value); }
+
     private string? _savedMessage;
     public string? SavedMessage
     {
@@ -290,6 +295,7 @@ public sealed class SettingsViewModel : ViewModelBase
         LayoutIndex = settings.VerticalLayout ? 1 : 0;
         Animations = settings.Animations;
         SoundEffects = settings.SoundEffects;
+        SoundThemeIndex = Math.Clamp(settings.SoundTheme, 0, HandheldLauncher.App.Platform.UiSounds.PackNames.Length - 1);
         SavedMessage = null;
     }
 
@@ -319,6 +325,7 @@ public sealed class SettingsViewModel : ViewModelBase
         settings.VerticalLayout = LayoutIndex == 1;
         settings.Animations = Animations;
         settings.SoundEffects = SoundEffects;
+        settings.SoundTheme = Math.Clamp(SoundThemeIndex, 0, HandheldLauncher.App.Platform.UiSounds.PackNames.Length - 1);
 
         AppSettingsStore.Save(settings);
 

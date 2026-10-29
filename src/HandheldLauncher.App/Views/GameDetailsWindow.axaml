@@ -1,0 +1,75 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:HandheldLauncher.App.ViewModels"
+        xmlns:conv="using:HandheldLauncher.App.Converters"
+        x:Class="HandheldLauncher.App.Views.GameDetailsWindow"
+        x:DataType="vm:GameDetailsViewModel"
+        Title="Detalhes do jogo"
+        Width="640" Height="760"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BackgroundBrush}">
+
+  <!--
+    v0.9.11, etapa 2 ("tela de informações do jogo", pedido do usuário:
+    "ideias para tema original de informações de jogos igual tem no decky
+    loader, classificação, resumo etc... puxar horas jogadas da Steam,
+    medalhas e conquistas"). DataContext é a GameDetailsViewModel montada
+    por MainViewModel.CreateGameDetailsViewModel (ver MainWindow.
+    OpenGameDetailsDialogAsync) — já chega preenchida pro jogo certo, essa
+    janela só exibe. Classificação/resumo ficam pra fase 2 (ver comentário
+    em GameDetailsViewModel) — só horas jogadas + conquistas por enquanto.
+
+    Controle: SEM leitor próprio, igual SettingsWindow/AddGameWindow — o
+    MainWindow._activeDialog genérico (ver DialogGamepadNavigator) já
+    cobre foco ↑/↓ + B fecha, sem precisar de nenhum código extra aqui.
+  -->
+
+  <Grid RowDefinitions="*,Auto" Margin="24">
+    <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+      <StackPanel Spacing="16">
+
+        <Grid ColumnDefinitions="Auto,*">
+          <Border Grid.Column="0" Width="120" Height="180" CornerRadius="6" ClipToBounds="True"
+                  Background="{StaticResource SurfaceBrush}">
+            <Image Source="{Binding CoverImagePath, Converter={x:Static conv:FileToBitmapConverter.Instance}}"
+                   Stretch="UniformToFill" />
+          </Border>
+          <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center" Spacing="6">
+            <TextBlock Text="{Binding Title}" Classes="menuHeaderTitle" FontSize="22" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding PlaytimeText}" TextWrapping="Wrap" />
+          </StackPanel>
+        </Grid>
+
+        <TextBlock Text="Conquistas" Classes="subtle" FontSize="14" Margin="0,8,0,0" />
+        <TextBlock Text="{Binding AchievementsStatusText}" Classes="subtle" FontSize="12" TextWrapping="Wrap" />
+
+        <ItemsControl ItemsSource="{Binding Achievements}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:AchievementItemViewModel">
+              <Border Padding="8" Margin="0,0,0,6" CornerRadius="10" Background="{StaticResource SurfaceRaisedBrush}">
+                <Grid ColumnDefinitions="48,*">
+                  <Border Grid.Column="0" Width="40" Height="40" CornerRadius="6" ClipToBounds="True"
+                          Background="{StaticResource SurfaceBrush}">
+                    <Image Source="{Binding IconLocalPath, Converter={x:Static conv:FileToBitmapConverter.Instance}}"
+                           Stretch="UniformToFill" />
+                  </Border>
+                  <StackPanel Grid.Column="1" Margin="12,0,0,0" Spacing="2">
+                    <TextBlock Text="{Binding DisplayName}" FontWeight="Bold" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding Description}" Classes="subtle" FontSize="12" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding StatusText}" FontSize="11" Classes="subtle" />
+                  </StackPanel>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+      </StackPanel>
+    </ScrollViewer>
+
+    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,20,0,0">
+      <Button Classes="pill" Content="Fechar" Click="OnCloseClick" />
+    </StackPanel>
+  </Grid>
+</Window>

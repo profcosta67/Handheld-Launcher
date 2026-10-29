@@ -112,13 +112,49 @@ mais sentido de risco crescente):
 
 5. **Nova rodada de ideias combinada com o usuário (pós v0.9.9)**, ordem de
    risco/esforço crescente: ~~som de interação pelo controle~~ (**feito na
-   v0.9.10**, ver seção própria) → **tela de informações do jogo**, estilo
-   Decky Loader (horas jogadas e conquistas via Steam Web API — caminho
-   confiável; classificação/resumo de loja ficaria pra uma fase 2, via API
+   v0.9.10**, correção de bug + 3 pacotes extras na **v0.9.11**, ver seções
+   próprias) → ~~tela de informações do jogo~~, estilo Decky Loader (horas
+   jogadas e conquistas via Steam Web API — **feito na v0.9.11**, ver seção
+   própria; classificação/resumo de loja ficou pra uma fase 2, via API
    não-oficial da loja da Steam, já que a API "de conta" não tem esses
    dados) → **tema inspirado no Nintendo Switch**: só a disposição
    limpa/minimalista dos itens, **sem** logos/fontes/ícones oficiais (evita
    problema de marca registrada).
+
+6. **Mais ideias do usuário (pós v0.9.10/v0.9.11), só anotadas por enquanto
+   — pedido explícito de não codar/testar ainda**:
+   - **Desinstalar jogo do Xbox app/Game Pass de verdade.** Hoje (ver
+     "Excluir atalho/Excluir jogo" no menu de contexto, mais abaixo) um
+     jogo escaneado automaticamente de `XboxScanFolders` não ganha NENHUM
+     item de exclusão — só os adicionados à mão por "Adicionar jogo"
+     ganham "Excluir atalho", que só tira da nossa lista, nunca desinstala
+     de verdade. Diferente da Steam, que já tem um desinstalador de
+     verdade (`steam://uninstall/{appid}`, um URI que a própria Steam
+     resolve — **confirmado, já funciona** desde antes desta leva), o
+     Xbox app/Game Pass não tem um equivalente documentado tão simples: e
+     como `XboxFolderScanner` só lê pastas na mão (sem identidade de
+     pacote MSIX/UWP de verdade), não tem como chamar `Remove-AppxPackage`
+     certinho. Caminhos a avaliar antes de codar: (a) abrir
+     `ms-settings:appsfeatures` (Configurações → Apps) pro próprio usuário
+     terminar a desinstalação lá, mesmo sem conseguir pré-selecionar o app
+     certo; (b) o launcher apagar a pasta do jogo ele mesmo — quebra o
+     princípio já seguido no resto do app ("nunca apaga arquivo de jogo
+     diretamente", só aciona o desinstalador de cada loja).
+   - **Integração com o emulador Eden** (sucessor comunitário do Yuzu,
+     roda jogos de Switch — "tipo o Pokémon"). Pesquisa inicial: deve
+     aceitar `eden.exe "caminho\do\jogo.nsp"` igual o Yuzu original (mesmo
+     frontend Qt) e provavelmente guarda as pastas de jogo configuradas
+     num `qt-config.ini` (`Paths\gamedirs`) — precisa confirmar isso na
+     prática antes de escrever um `EdenLibraryScanner` (mesmo padrão dos
+     scanners de Epic/GOG/Ubisoft/EA já existentes).
+   - **Modos de otimização de imagem/cor** (Vívido, OLED, Noturno,
+     Confortável etc.). Pesquisa inicial: a API do Windows
+     `SetDeviceGammaRamp` (gdi32.dll) ajusta a curva de cor da tela
+     INTEIRA sem depender do fabricante da GPU (funciona em qualquer PC)
+     — é o mesmo caminho de apps como GammaBoost/Dimmer pra efeito
+     parecido. Daria pra ter uns presets prontos nessa curva. Precisa
+     confirmar que isso não baguna o HDR/perfil de cor das telas OLED do
+     Legion Go 2/ROG Ally antes de virar padrão.
 
 ## Status atual
 
@@ -754,6 +790,45 @@ Ainda **não** feito:
     mostrar o FPS" mais abaixo).
 15. ~~Tela de configuração pra `SteamWebApiKey`/`SteamId64`~~ — **feito
     numa leva posterior**, junto do item 5 (mesma `SettingsWindow`).
+
+## Correção do som, pacotes extras e tela de detalhes do jogo — v0.9.11
+
+**Nunca testado num aparelho ainda.**
+
+- **Bug corrigido** (relatado pelo usuário: "quando segura ou passa muito
+  rápido o som fica bugado bem estranho"): a v0.9.10 passava um `byte[]`
+  gerenciado direto pro `PlaySound(..., SND_ASYNC | SND_MEMORY, ...)`. O
+  P/Invoke só fixa (pin) esse array na memória DURANTE a chamada — como
+  `SND_ASYNC` retorna na hora e o Windows continua lendo esse buffer em
+  segundo plano enquanto o som toca, o garbage collector tinha liberdade
+  pra mover/coletar aquele array a qualquer momento depois da chamada
+  retornar, corrompendo o áudio — mais provável quanto mais rápido o som é
+  disparado de novo (segurar um direcional = repetição rápida). Corrigido
+  copiando cada `.wav`, uma única vez, pra memória NÃO gerenciada
+  (`Marshal.AllocHGlobal`) — o garbage collector nunca toca nisso, então o
+  buffer fica sempre válido pra qualquer replay assíncrono.
+- **3 estilos de som novos** (pedido: "podemos por opções de sons também
+  no tema, alguns diferentes, nada muito exagerado"), além do "Clássico"
+  (o original, mantido igual — pedido explícito do usuário: "gostei desse,
+  está bem estilo Mario"): **Suave** (mais grave, ataque mais lento),
+  **Retro** (onda quadrada, chiptune) e **Future** (senoide + um harmônico
+  quieto por cima, mais agudo — "shimmer" digital sem virar chiptune).
+  Escolha em Configurações → Aparência → "Estilo do som" (`SoundTheme` em
+  `AppSettings`, `Platform/UiSounds.PackNames`).
+- **Tela "Detalhes do jogo"** (segundo item do roteiro de ideias novas —
+  ver "Roteiro planejado"), só pra jogos da Steam: horas jogadas de
+  verdade (`IPlayerService/GetOwnedGames`, já integrado desde antes pro
+  painel de Downloads — diferente de `GameEntry.PlaytimeMinutes`, que é só
+  o controle local do próprio launcher) e conquistas
+  (`ISteamUserStats/GetSchemaForGame` + `GetPlayerAchievements`, cliente
+  novo — `SteamAchievementsClient`). Jogo sem conquista nenhuma, ou perfil
+  Steam privado, mostram uma mensagem em vez de travar a tela. Abre pelo
+  botão **X** do controle (livre até agora) com o jogo em foco na
+  biblioteca, ou por "Detalhes do jogo" no menu de contexto (Start) —
+  mouse/touch também funciona, já que é um item de menu normal. Precisa
+  da Steam Web API key + SteamID64 já configurados (mesma credencial do
+  painel de Downloads). Classificação/resumo da loja ficaram de fora
+  (API não-oficial, pouco estável — ver "Roteiro planejado").
 
 ## Som de interação pelo controle — v0.9.10
 
