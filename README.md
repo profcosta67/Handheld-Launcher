@@ -274,9 +274,24 @@ Construído até agora:
     menu geral — só um caminho mais rápido pra mouse/touch. Ganha um
     pontinho no canto quando `HasActiveDownloads` é true (algo baixando
     de verdade agora), pra dar uma pista visual sem precisar abrir o
-    painel. Mouse/touch-only, mesmo padrão do botão "Instalar" do próprio
-    painel — o controle continua chegando em Downloads pelo menu geral
-    (View/Back). **Nunca testado num build real.**
+    painel. **Confirmado funcionando no build real** pelo usuário.
+    **Ajustado na leva seguinte** (pedido: "não consigo acessar o ícone
+    pelo controle" + "algo que indica visual o percentual do download"):
+    - **Botão Y do controle** abre/fecha o painel de Downloads de
+      qualquer lugar da tela principal (`GamepadAction.Downloads`; tecla
+      D como fallback de teclado) — botão dedicado em vez de um modelo de
+      foco "subir até a barra de cima", que num handheld seria mais lento.
+      Um "Y" pequeno aparece do lado do ícone pra ficar descobrível.
+      Instalar pelo controle continua sendo pela aba "Não instalados" (a
+      lista do painel em si segue mouse/touch-only).
+    - **Percentual + mini barra de progresso** do lado do ícone quando
+      tem algo baixando (o download que está DE FATO em andamento — a
+      Steam baixa um por vez, o resto fica na fila; o tooltip diz o nome
+      do jogo e quantos estão na fila). Pra isso o "baixando agora" agora
+      é relido também com o painel FECHADO, a cada ~6s — e **pausa
+      sozinho enquanto um jogo está rodando**, pra não mexer em disco no
+      meio da jogatina.
+    **Ajustes da leva seguinte nunca testados num build real.**
   - **Overlay de FPS/performance via RTSS (novo nesta leva)** — pedido
     como "aquele mangohud... sem usar aquele nativo do legion". Em vez de
     construir um overlay do zero (exigiria hookar `Present()` de DirectX/

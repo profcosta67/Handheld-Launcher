@@ -31,6 +31,17 @@ public enum GamepadAction
 
     /// <summary>RB — mesma ideia de PreviousFilter, só que pra frente.</summary>
     NextFilter,
+
+    /// <summary>
+    /// Y — abre/fecha o painel de Downloads direto, de qualquer lugar da
+    /// tela principal. Pedido do usuário: "não consigo acessar... o ícone
+    /// [de download] lá em cima pelo controle". Botão dedicado em vez de
+    /// inventar um modelo de foco "subir até a barra de cima" — num
+    /// handheld um botão físico é mais rápido, e Y estava livre (só A/B/
+    /// Start/View/LB/RB eram usados). A barra de cima mostra um "Y" do
+    /// lado do ícone pra ficar descobrível.
+    /// </summary>
+    Downloads,
 }
 
 /// <summary>
@@ -94,6 +105,7 @@ public sealed class GamepadPoller
         if (WasJustPressed(buttons, XInput.Buttons.Back)) actions.Add(GamepadAction.GlobalMenu);
         if (WasJustPressed(buttons, XInput.Buttons.LeftShoulder)) actions.Add(GamepadAction.PreviousFilter);
         if (WasJustPressed(buttons, XInput.Buttons.RightShoulder)) actions.Add(GamepadAction.NextFilter);
+        if (WasJustPressed(buttons, XInput.Buttons.Y)) actions.Add(GamepadAction.Downloads);
 
         // D-pad OR left stick — either one holding a direction counts the
         // same way, so you never get a double-fire from both at once.

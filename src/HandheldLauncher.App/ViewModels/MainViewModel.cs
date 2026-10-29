@@ -932,6 +932,44 @@ public sealed class MainViewModel : ViewModelBase
     public bool HasActiveDownloads => ActiveDownloads.Count > 0;
     public bool NoActiveDownloads => !HasActiveDownloads;
 
+    /// <summary>
+    /// O download que o indicador da barra de cima representa (pedido do
+    /// usuário: "algo que indica visual o percentual do download"). A
+    /// Steam baixa um jogo por vez e deixa o resto na fila — então
+    /// prefere o que já está DE FATO em andamento (algum byte baixado, mas
+    /// não terminado); sem nenhum assim, cai pro primeiro da lista.
+    /// </summary>
+    private DownloadProgressInfo? PrimaryActiveDownload =>
+        ActiveDownloads.FirstOrDefault(d => d.BytesDownloaded > 0 && d.BytesDownloaded < d.BytesToDownload)
+        ?? ActiveDownloads.FirstOrDefault();
+
+    /// <summary>0-100 pra mini barra de progresso do lado do ícone ⇩ (só aparece com HasActiveDownloads).</summary>
+    public double TopBarDownloadPercent => PrimaryActiveDownload?.PercentComplete ?? 0;
+
+    /// <summary>
+    /// Texto "45%" do lado do ícone ⇩. Montado aqui em C# de propósito, em
+    /// vez de StringFormat no XAML — foi exatamente um StringFormat
+    /// começando com chave de abertura que quebrou o build numa leva
+    /// anterior (AVLN2000).
+    /// </summary>
+    public string TopBarDownloadPercentText =>
+        PrimaryActiveDownload is { } d ? $"{d.PercentComplete:0}%" : string.Empty;
+
+    /// <summary>Tooltip do atalho de Downloads: sempre diz que o Y abre, e quando tem algo baixando diz o quê (e quantos na fila).</summary>
+    public string TopBarDownloadToolTip
+    {
+        get
+        {
+            var tip = "Downloads (Y no controle)";
+            if (PrimaryActiveDownload is not { } d) return tip;
+
+            tip += $"\nBaixando: {d.Title} — {d.PercentComplete:0}%";
+            var queued = ActiveDownloads.Count - 1;
+            if (queued > 0) tip += $" (+{queued} na fila)";
+            return tip;
+        }
+    }
+
     public ObservableCollection<OwnedSteamGame> OwnedNotInstalledGames { get; } = new();
 
     /// <summary>True só quando settings.json tem SteamWebApiKey E SteamId64 preenchidos — ver AppSettings.</summary>
@@ -1053,6 +1091,9 @@ public sealed class MainViewModel : ViewModelBase
         }
         OnPropertyChanged(nameof(HasActiveDownloads));
         OnPropertyChanged(nameof(NoActiveDownloads));
+        OnPropertyChanged(nameof(TopBarDownloadPercent));
+        OnPropertyChanged(nameof(TopBarDownloadPercentText));
+        OnPropertyChanged(nameof(TopBarDownloadToolTip));
     }
 
     /// <summary>

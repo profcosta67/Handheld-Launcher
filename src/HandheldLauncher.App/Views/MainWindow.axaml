@@ -68,20 +68,53 @@
                pontinho no canto só aparece com algo baixando agora de
                verdade (HasActiveDownloads), pra dar uma pista visual sem
                precisar abrir o painel pra checar. -->
-          <Grid>
-            <Button Classes="iconGhost"
-                    Content="⇩"
-                    FontSize="16"
-                    Click="OnDownloadsShortcutClick"
-                    ToolTip.Tip="Downloads — jogos baixando agora e jogos da conta pra instalar" />
-            <Ellipse Width="8" Height="8"
-                     Fill="{StaticResource AccentBrush}"
-                     HorizontalAlignment="Right"
-                     VerticalAlignment="Top"
-                     Margin="0,-2,-2,0"
-                     IsHitTestVisible="False"
-                     IsVisible="{Binding HasActiveDownloads}" />
-          </Grid>
+          <!-- Leva seguinte: + "Y" do lado (o controle abre isso pelo Y —
+               GamepadAction.Downloads, pedido do usuário: "não consigo
+               acessar... pelo controle") e, com algo baixando, o % e uma
+               mini barra de progresso (pedido: "algo que indica visual o
+               percentual do download"). Atualiza sozinho mesmo com o
+               painel fechado — ver MainWindow.StartDownloadsRefreshTimer. -->
+          <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
+                      ToolTip.Tip="{Binding TopBarDownloadToolTip}">
+            <Grid VerticalAlignment="Center">
+              <Button Classes="iconGhost"
+                      Content="⇩"
+                      FontSize="16"
+                      Click="OnDownloadsShortcutClick" />
+              <Ellipse Width="8" Height="8"
+                       Fill="{StaticResource AccentBrush}"
+                       HorizontalAlignment="Right"
+                       VerticalAlignment="Top"
+                       Margin="0,-2,-2,0"
+                       IsHitTestVisible="False"
+                       IsVisible="{Binding HasActiveDownloads}" />
+            </Grid>
+
+            <StackPanel Orientation="Vertical" Spacing="2" VerticalAlignment="Center"
+                        IsVisible="{Binding HasActiveDownloads}">
+              <TextBlock Text="{Binding TopBarDownloadPercentText}"
+                         Classes="subtle"
+                         FontSize="11"
+                         HorizontalAlignment="Center" />
+              <ProgressBar Minimum="0" Maximum="100"
+                           Value="{Binding TopBarDownloadPercent}"
+                           Width="44" Height="3" MinHeight="3"
+                           Foreground="{StaticResource AccentBrush}" />
+            </StackPanel>
+
+            <!-- Dica do botão do controle — discreta, só pra quem joga só
+                 no controle descobrir que existe. -->
+            <Border BorderBrush="{StaticResource AccentBrush}"
+                    BorderThickness="1"
+                    CornerRadius="9"
+                    Width="18" Height="18"
+                    VerticalAlignment="Center"
+                    IsHitTestVisible="False">
+              <TextBlock Text="Y" FontSize="10" FontWeight="Bold"
+                         Foreground="{StaticResource AccentBrush}"
+                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+          </StackPanel>
           <!-- Wifi/clock ainda são placeholder (●●●) — só a bateria virou
                real nesta leva (ver MainViewModel.BatteryStatusText/
                MainWindow.StartBatteryMonitor), corrigindo o bug reportado
@@ -536,7 +569,7 @@
             </StackPanel>
           </ScrollViewer>
 
-          <TextBlock Grid.Row="3" Text="Mouse/toque pra instalar · B/Esc/View fecha" Classes="subtle" Margin="0,16,0,0" />
+          <TextBlock Grid.Row="3" Text="Mouse/toque pra instalar (no controle: aba Não instalados) · Y/B/Esc fecha" Classes="subtle" Margin="0,16,0,0" />
         </Grid>
       </Border>
     </Panel>

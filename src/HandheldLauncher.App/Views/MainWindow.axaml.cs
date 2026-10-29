@@ -333,13 +333,42 @@ public partial class MainWindow : Window
 
     private void StartDownloadsRefreshTimer(MainViewModel vm)
     {
+        // Ampliado numa leva posterior: o indicador de % na barra de cima
+        // (pedido do usuário: "incluir algo que indica visual o percentual
+        // do download") precisa de "baixando agora" atualizado MESMO com o
+        // painel fechado. Então: painel aberto → a cada 2s (igual antes);
+        // painel fechado → a cada 6s (3 ticks), só pra barra de cima — e
+        // PAUSADO enquanto um jogo estiver rodando (RunningGame != null),
+        // pra não ficar relendo .acf no disco no meio da jogatina num
+        // handheld (é pouca coisa, mas zero é melhor que pouco). Volta
+        // sozinho quando o jogo fecha.
+        var ticksSinceBackgroundRefresh = 0;
+
         _downloadsRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         _downloadsRefreshTimer.Tick += (_, _) =>
         {
-            if (vm.IsDownloadsOpen) vm.RefreshActiveDownloads();
+            if (vm.IsDownloadsOpen)
+            {
+                vm.RefreshActiveDownloads();
+                ticksSinceBackgroundRefresh = 0;
+                return;
+            }
+
+            if (vm.RunningGame is not null) return;
+
+            ticksSinceBackgroundRefresh++;
+            if (ticksSinceBackgroundRefresh >= 3)
+            {
+                ticksSinceBackgroundRefresh = 0;
+                vm.RefreshActiveDownloads();
+            }
         };
         _downloadsRefreshTimer.Start();
         Closed += (_, _) => _downloadsRefreshTimer?.Stop();
+
+        // Primeira leitura já na abertura, pra barra de cima não ficar sem
+        // indicador nos primeiros segundos se algo já estiver baixando.
+        vm.RefreshActiveDownloads();
     }
 
     /// <summary>
@@ -562,6 +591,7 @@ public partial class MainWindow : Window
                     case GamepadAction.Back:
                     case GamepadAction.Menu:
                     case GamepadAction.GlobalMenu:
+                    case GamepadAction.Downloads: // Y abre E fecha (toggle)
                         vm.CloseDownloads();
                         break;
                 }
@@ -570,6 +600,9 @@ public partial class MainWindow : Window
 
             switch (action)
             {
+                case GamepadAction.Downloads:
+                    vm.ToggleDownloads();
+                    break;
                 case GamepadAction.MoveLeft:
                     vm.MovePrevious();
                     ScrollGameRowSelectionIntoView(vm);
@@ -731,6 +764,7 @@ public partial class MainWindow : Window
             {
                 case Key.Escape:
                 case Key.Tab:
+                case Key.D: // fallback de teclado do Y (toggle)
                     vm.CloseDownloads();
                     e.Handled = true;
                     break;
@@ -775,6 +809,11 @@ public partial class MainWindow : Window
                 break;
             case Key.E:
                 vm.CycleNextFilter();
+                e.Handled = true;
+                break;
+            // D = fallback de teclado pro Y do controle (abrir Downloads).
+            case Key.D:
+                vm.ToggleDownloads();
                 e.Handled = true;
                 break;
         }
