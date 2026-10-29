@@ -155,7 +155,13 @@
              externo, alternados por IsVisible. -->
         <Grid>
           <Grid IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
-            <Image Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
+            <!-- v0.8.0: troca suave do banner — HeroBackImage segura a arte
+                 ANTERIOR por baixo enquanto a nova (HeroImage) aparece por
+                 cima com fade (MainWindow.OnHeroImageChanged). Assim não
+                 "pisca" escuro entre um jogo e outro. -->
+            <Image x:Name="HeroBackImage" Stretch="UniformToFill" IsHitTestVisible="False" />
+            <Image x:Name="HeroImage"
+                   Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
                    Stretch="UniformToFill" />
 
             <!-- Placeholder enquanto não tem hero/capa nenhuma ainda (pre-SteamGridDB) -->
@@ -475,7 +481,7 @@
     <!-- Start-button context menu: dim backdrop + centered card. Sits as
          the LAST child of the outer Panel so it paints over absolutely
          everything else, bottom bar included. -->
-    <Panel IsVisible="{Binding IsContextMenuOpen}">
+    <Panel Classes="fadeIn" IsVisible="{Binding IsContextMenuOpen}">
       <Border Classes="contextMenuOverlay" />
       <Border Classes="contextMenuCard" Width="420" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel Spacing="16">
@@ -506,7 +512,7 @@
          per-tile menu above, but for the bottom bar's actions, so they're
          reachable without a mouse. No "target" title since it's not about
          a specific game. -->
-    <Panel IsVisible="{Binding IsGlobalMenuOpen}">
+    <Panel Classes="fadeIn" IsVisible="{Binding IsGlobalMenuOpen}">
       <Border Classes="contextMenuOverlay" />
       <Border Classes="contextMenuCard" Width="380" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel Spacing="16">
@@ -531,7 +537,7 @@
          do menu geral — ver MainViewModel.BuildGlobalMenu) — mesmo padrão
          visual dos outros dois menus acima, 4 ações fixas agora incluindo
          "Sair" (ver MainViewModel.BuildPowerMenu). -->
-    <Panel IsVisible="{Binding IsPowerMenuOpen}">
+    <Panel Classes="fadeIn" IsVisible="{Binding IsPowerMenuOpen}">
       <Border Classes="contextMenuOverlay" />
       <Border Classes="contextMenuCard" Width="340" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel Spacing="16">
@@ -557,7 +563,7 @@
          IsDownloadsOpen pras decisões de escopo da v1 (só Steam; lista
          "Instalar" é mouse/touch-only, por isso o botão ✕ aqui em vez de
          depender só do controle pra fechar). -->
-    <Panel IsVisible="{Binding IsDownloadsOpen}">
+    <Panel Classes="fadeIn" IsVisible="{Binding IsDownloadsOpen}">
       <Border Classes="contextMenuOverlay" />
       <Border Classes="contextMenuCard" Width="560" MaxHeight="620" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
         <Grid RowDefinitions="Auto,*,Auto,Auto">
@@ -603,7 +609,7 @@
          animated-GIF follow-up); ← → ↑ ↓ all move the highlight by one
          (flat list, no row-aware jump yet), A/Enter applies the highlighted
          one, B/Esc/Start/View cancels without changing anything. -->
-    <Panel IsVisible="{Binding IsCoverPickerOpen}">
+    <Panel Classes="fadeIn" IsVisible="{Binding IsCoverPickerOpen}">
       <Border Classes="contextMenuOverlay" />
       <Border Classes="contextMenuCard" Width="880" MaxHeight="620" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
         <Grid RowDefinitions="Auto,*,Auto">
@@ -664,7 +670,7 @@
 
     <!-- "Sobre" (Configurações → Sobre, v0.7.0) — bem simples, pedido do
          usuário. Fecha com B/A/View/Esc ou clique. -->
-    <Panel IsVisible="{Binding IsAboutOpen}">
+    <Panel Classes="fadeIn" IsVisible="{Binding IsAboutOpen}">
       <Border Classes="contextMenuOverlay" PointerPressed="OnAboutOverlayPressed" />
       <Border Classes="contextMenuCard" Width="480" Padding="32" HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel Spacing="14" HorizontalAlignment="Center">
@@ -701,7 +707,7 @@
          com certeza quando o processo externo terminou de carregar.
          Último filho do Panel, então pinta por cima de tudo (inclusive os
          outros menus, embora não devam estar abertos ao mesmo tempo). -->
-    <Panel IsVisible="{Binding IsLaunching}">
+    <Panel Classes="fadeIn" IsVisible="{Binding IsLaunching}">
       <Border Classes="contextMenuOverlay" />
       <Border Classes="contextMenuCard" Width="420" Padding="32" HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel Spacing="18" HorizontalAlignment="Center">

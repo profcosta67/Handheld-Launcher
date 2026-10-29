@@ -290,6 +290,24 @@
     <Setter Property="RenderTransform" Value="scale(1.08)" />
   </Style>
 
+  <!-- v0.8.0 (B1): menus, Downloads, Sobre, seletor de artes e tela
+       "Iniciando" aparecem com fade em vez de surgir secos. Animação de
+       estilo que dispara toda vez que o painel fica visível; só opacidade
+       (a placa de vídeo faz isso quase de graça). Desligada junto com
+       Configurações → Animações (Window.noAnim). -->
+  <Style Selector="Window:not(.noAnim) Panel.fadeIn[IsVisible=True]">
+    <Style.Animations>
+      <Animation Duration="0:0:0.18" Easing="CubicEaseOut">
+        <KeyFrame Cue="0%">
+          <Setter Property="Opacity" Value="0" />
+        </KeyFrame>
+        <KeyFrame Cue="100%">
+          <Setter Property="Opacity" Value="1" />
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+
   <!-- Configurações → "Animações" desligado: classe noAnim na janela
        (MainWindow.ApplyAppearance). Definidos por último pra vencer os de
        cima (no Avalonia, entre estilos que batem, o declarado depois ganha). -->

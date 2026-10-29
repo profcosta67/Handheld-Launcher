@@ -55,6 +55,9 @@ public partial class MainWindow : Window
         // o Spacing do StackPanel do XAML).
         GamesItemsControl.ContainerPrepared += (_, e) => e.Container.Margin = ContainerMargin();
 
+        // v0.8.0: troca suave do banner (ver HeroBackImage no XAML).
+        HeroImage.PropertyChanged += OnHeroImageChanged;
+
         // 20Hz is plenty for menu navigation and cheap enough to just leave
         // running the whole time the launcher is open.
         _gamepadTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
@@ -269,6 +272,64 @@ public partial class MainWindow : Window
         }
     }
 
+    // ------------------------------------------------------------------
+    // Transições (v0.8.0, Lote B1)
+    // ------------------------------------------------------------------
+
+    private bool AnimationsEnabled => !Classes.Contains("noAnim");
+
+    /// <summary>
+    /// Faz o controle aparecer do transparente pro opaco. Zera a opacidade
+    /// SEM transição (senão ele animaria até sumir), e só no próximo ciclo
+    /// liga a transição e manda pra 1.
+    /// </summary>
+    private void FadeIn(Control control, int milliseconds)
+    {
+        if (!AnimationsEnabled)
+        {
+            control.Transitions = null;
+            control.Opacity = 1;
+            return;
+        }
+
+        control.Transitions = null;
+        control.Opacity = 0;
+        Dispatcher.UIThread.Post(() =>
+        {
+            control.Transitions = new Transitions
+            {
+                new DoubleTransition
+                {
+                    Property = Visual.OpacityProperty,
+                    Duration = TimeSpan.FromMilliseconds(milliseconds),
+                    Easing = new Avalonia.Animation.Easings.CubicEaseOut(),
+                },
+            };
+            control.Opacity = 1;
+        }, DispatcherPriority.Background);
+    }
+
+    /// <summary>
+    /// Banner trocou de imagem: a anterior fica por baixo (HeroBackImage) e a
+    /// nova aparece por cima com fade — crossfade sem escurecer no meio. Sem
+    /// imagem anterior/nova, ou com animações desligadas, troca direto.
+    /// </summary>
+    private void OnHeroImageChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property != Image.SourceProperty) return;
+
+        if (!AnimationsEnabled || e.OldValue is null || e.NewValue is null)
+        {
+            HeroBackImage.Source = null;
+            HeroImage.Transitions = null;
+            HeroImage.Opacity = 1;
+            return;
+        }
+
+        HeroBackImage.Source = e.OldValue as Avalonia.Media.IImage;
+        FadeIn(HeroImage, 260);
+    }
+
     private void OnAboutOverlayPressed(object? sender, PointerPressedEventArgs e)
     {
         (DataContext as MainViewModel)?.CloseAbout();
@@ -368,6 +429,15 @@ public partial class MainWindow : Window
 
         StartBatteryMonitor(vm);
         StartDownloadsRefreshTimer(vm);
+
+        // v0.8.0: ao trocar de aba, a fileira de jogos entra com fade.
+        vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(MainViewModel.IsFilterAllActive))
+            {
+                FadeIn(GamesItemsControl, 220);
+            }
+        };
 
         // Aparência salva (tema, tamanho das capas, layout, animações).
         ApplyAppearance(vm, AppSettingsStore.Load());

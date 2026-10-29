@@ -703,6 +703,24 @@ Ainda **não** feito:
 15. ~~Tela de configuração pra `SteamWebApiKey`/`SteamId64`~~ — **feito
     numa leva posterior**, junto do item 5 (mesma `SettingsWindow`).
 
+## Transições — v0.8.0 (Lote B1)
+
+**Nunca testado num aparelho ainda.** Tudo leve (só opacidade) e desligável em
+Configurações → Animações:
+
+- **Banner**: crossfade ao trocar de jogo — `HeroBackImage` segura a arte
+  anterior por baixo e `HeroImage` aparece por cima (`OnHeroImageChanged`),
+  sem escurecer no meio. O fundo borrado da janela troca direto (fazer
+  crossfade nele dobraria o custo do blur).
+- **Menus, Downloads, Sobre, seletor de artes, "Iniciando"**: aparecem com fade
+  (classe `fadeIn` + `Style.Animations` em `Panel.fadeIn[IsVisible=True]`).
+- **Troca de aba**: a fileira de jogos entra com fade (`FadeIn`).
+- Inclui a correção do tema Preto (OLED): barras/véu 100% opacos e texto da aba
+  ativa com contraste automático (`OnAccentBrush`).
+
+**Próximo combinado com o usuário**: integração das plataformas — primeiro
+Steam, depois Epic — antes da versão pesada (artes animadas/vídeo).
+
 ## Ajustes v0.7.1
 
 - **Fontes** (todas do Windows): Moderna (Segoe UI), Divertida (Comic Sans),
