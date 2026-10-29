@@ -16,6 +16,12 @@ internal static class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // Velopack PRECISA ser a primeira coisa: o instalador/atualizador
+        // reabre o exe com argumentos especiais (ex: "--veloapp-install")
+        // e este Run() trata e encerra o processo ali mesmo, antes de
+        // qualquer coisa nossa (mutex, janela) rodar.
+        Velopack.VelopackApp.Build().Run();
+
         if (!SingleInstance.TryAcquire())
         {
             SingleInstance.NotifyExistingInstance();

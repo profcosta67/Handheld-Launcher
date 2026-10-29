@@ -60,6 +60,17 @@
           <TextBlock Text="Handheld Launcher" Classes="gameTitle" VerticalAlignment="Center" />
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16">
+          <!-- Aviso de atualização do launcher (Velopack): "Verificando…",
+               "⬆ v1.2.4 pronta — toque pra reiniciar" etc. Só aparece com
+               algo a dizer (HasUpdateStatus); tocar aplica a atualização
+               já baixada (no controle: item no topo do menu View/Back). -->
+          <Button Classes="iconGhost"
+                  VerticalAlignment="Center"
+                  Content="{Binding UpdateStatusText}"
+                  FontSize="12"
+                  Foreground="{StaticResource AccentBrush}"
+                  IsVisible="{Binding HasUpdateStatus}"
+                  Click="OnUpdateBadgeClick" />
           <!-- Atalho de Downloads na barra de cima (novo numa leva
                posterior, pedido do usuário: "colocar um atalho lá em cima
                igual a Steam") — abre o mesmo painel que o item

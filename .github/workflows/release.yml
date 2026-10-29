@@ -1,0 +1,104 @@
+# Publica uma nova versão do launcher.
+#
+# Como usar: com o código já no GitHub, crie uma tag "vX.Y.Z" (ex: v0.3.0)
+# — no GitHub: Releases > Draft a new release > "Choose a tag" > digite
+# v0.3.0 > Create new tag > Publish release. Este workflow roda sozinho,
+# compila, empacota com o Velopack e anexa na Release:
+#   - HandheldLauncher-win-Setup.exe  (instalador, só na 1ª vez)
+#   - os pacotes de atualização que o launcher baixa sozinho
+#   - Modo-Console.zip (scripts opcionais: kiosk/watchdog/RTSS)
+# Os launchers já instalados percebem a versão nova em até ~6h e mostram
+# "Atualização pronta".
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      VPK_VERSION: 1.2.161 # tem que ser igual ao pacote Velopack do HandheldLauncher.App.csproj
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Descobrir versão a partir da tag
+        id: ver
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Versão: $VERSION"
+
+      - name: Publicar (self-contained win-x64)
+        run: >
+          dotnet publish src/HandheldLauncher.App -c Release -r win-x64
+          --self-contained true
+          -p:Version=${{ steps.ver.outputs.version }}
+          -o publish
+
+      # Trava de segurança: este repositório é público. Nada que se pareça
+      # com chave de API ou configuração pessoal pode ir dentro do pacote.
+      - name: Conferir que nenhum segredo entrou no pacote
+        shell: bash
+        run: |
+          if find publish \( -iname '*api-key*' -o -iname 'settings.json' -o -iname '*.pfx' \) | grep -q .; then
+            echo "ERRO: arquivo sensível dentro de publish/ — abortando."
+            find publish \( -iname '*api-key*' -o -iname 'settings.json' -o -iname '*.pfx' \)
+            exit 1
+          fi
+
+      - name: Instalar vpk (Velopack)
+        run: dotnet tool install -g vpk --version ${{ env.VPK_VERSION }}
+
+      # Baixa a Release anterior pra o Velopack gerar atualizações "delta"
+      # (só o que mudou). Na primeira versão não existe nada — por isso
+      # continue-on-error.
+      - name: Baixar versões anteriores (pra delta)
+        continue-on-error: true
+        run: >
+          vpk download github
+          --repoUrl ${{ github.server_url }}/${{ github.repository }}
+          --token ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Empacotar
+        run: >
+          vpk pack
+          --packId HandheldLauncher
+          --packTitle "Handheld Launcher"
+          --packVersion ${{ steps.ver.outputs.version }}
+          --packDir publish
+          --mainExe HandheldLauncher.exe
+          --icon src/HandheldLauncher.App/Assets/app-icon.ico
+
+      - name: Publicar Release no GitHub
+        run: >
+          vpk upload github
+          --repoUrl ${{ github.server_url }}/${{ github.repository }}
+          --token ${{ secrets.GITHUB_TOKEN }}
+          --publish
+          --releaseName "Handheld Launcher ${{ steps.ver.outputs.version }}"
+          --tag ${{ github.ref_name }}
+
+      - name: Anexar scripts do Modo Console
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          New-Item -ItemType Directory -Path stage/Modo-Console/Arquivos -Force | Out-Null
+          Copy-Item installer/Configurar-Modo-Console.bat stage/Modo-Console/
+          Copy-Item installer/Desinstalar.bat stage/Modo-Console/
+          Copy-Item installer/Arquivos/Configurar-Modo-Console.ps1 stage/Modo-Console/Arquivos/
+          Copy-Item installer/Arquivos/Uninstall-Launcher.ps1 stage/Modo-Console/Arquivos/
+          Compress-Archive -Path stage/Modo-Console -DestinationPath Modo-Console.zip -Force
+          gh release upload "${{ github.ref_name }}" Modo-Console.zip --clobber

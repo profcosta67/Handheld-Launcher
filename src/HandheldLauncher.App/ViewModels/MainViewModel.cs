@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using HandheldLauncher.App.Diagnostics;
+using HandheldLauncher.App.Platform;
 using HandheldLauncher.Core.Models;
 using HandheldLauncher.Core.Services;
 using HandheldLauncher.Core.Services.Artwork;
@@ -13,13 +14,20 @@ public sealed class MainViewModel : ViewModelBase
     private readonly IGameLauncher _launcher;
     private readonly IArtworkService _artwork;
     private readonly IPerformanceOverlayService _performanceOverlay;
+    private readonly UpdateService? _updates;
 
-    public MainViewModel(ILibraryService library, IGameLauncher launcher, IArtworkService artwork, IPerformanceOverlayService performanceOverlay)
+    public MainViewModel(
+        ILibraryService library,
+        IGameLauncher launcher,
+        IArtworkService artwork,
+        IPerformanceOverlayService performanceOverlay,
+        UpdateService? updates = null)
     {
         _library = library;
         _launcher = launcher;
         _artwork = artwork;
         _performanceOverlay = performanceOverlay;
+        _updates = updates;
         _launcher.GameExited += OnGameExited;
 
         Games = new ObservableCollection<GameTileViewModel>();
@@ -76,6 +84,106 @@ public sealed class MainViewModel : ViewModelBase
     {
         get => _selectedTile;
         private set => SetField(ref _selectedTile, value);
+    }
+
+    // ------------------------------------------------------------------
+    // Atualização automática (UpdateService / Velopack). Tudo aqui é
+    // no-op quando _updates é null ou o app não foi instalado pelo
+    // Setup.exe (ex: `dotnet run`, instalação antiga via .ps1).
+    // ------------------------------------------------------------------
+
+    private string _updateStatusText = string.Empty;
+
+    /// <summary>
+    /// Texto do aviso de atualização na barra de cima ("Verificando…",
+    /// "⬆ v1.2.4 pronta", etc.). Vazio = nada aparece.
+    /// </summary>
+    public string UpdateStatusText
+    {
+        get => _updateStatusText;
+        private set
+        {
+            if (SetField(ref _updateStatusText, value))
+            {
+                OnPropertyChanged(nameof(HasUpdateStatus));
+            }
+        }
+    }
+
+    public bool HasUpdateStatus => !string.IsNullOrEmpty(_updateStatusText);
+
+    /// <summary>Já baixou uma versão nova; só falta reiniciar.</summary>
+    public bool IsUpdateReady => _updates?.IsUpdateReady ?? false;
+
+    public string? PendingUpdateVersion => _updates?.PendingVersionText;
+
+    /// <summary>
+    /// Loop de verificação: espera ~20s (não competir com a abertura do
+    /// launcher), checa, e depois repete a cada 6h (aparelho que fica dias
+    /// ligado em suspensão). Chamado uma vez pelo MainWindow. Silencioso
+    /// por padrão — só aparece algo na tela quando existe versão nova.
+    /// </summary>
+    public async Task RunUpdateLoopAsync()
+    {
+        if (_updates is not { IsInstalled: true }) return;
+
+        await Task.Delay(TimeSpan.FromSeconds(20));
+        while (true)
+        {
+            await CheckForUpdatesAsync(userInitiated: false);
+            await Task.Delay(TimeSpan.FromHours(6));
+        }
+    }
+
+    /// <summary>
+    /// Verifica e baixa. <paramref name="userInitiated"/> = veio do item
+    /// de menu "Verificar atualizações": nesse caso mostra o resultado
+    /// ("Verificando…" / "Já está atualizado") por alguns segundos; no
+    /// caso automático só aparece o aviso final, se houver versão nova.
+    /// Nunca baixa enquanto um jogo está rodando (não disputar disco/rede
+    /// com o jogo).
+    /// </summary>
+    public async Task CheckForUpdatesAsync(bool userInitiated)
+    {
+        if (_updates is not { IsInstalled: true }) return;
+        if (IsUpdateReady) return;
+        if (!userInitiated && RunningGame is not null) return;
+
+        if (userInitiated) UpdateStatusText = "Verificando atualizações…";
+
+        var version = await _updates.CheckAndDownloadAsync();
+
+        if (version is not null)
+        {
+            UpdateStatusText = $"⬆ v{version} pronta — toque pra reiniciar";
+            OnPropertyChanged(nameof(IsUpdateReady));
+            OnPropertyChanged(nameof(PendingUpdateVersion));
+        }
+        else if (userInitiated)
+        {
+            UpdateStatusText = "Já está na versão mais recente (ou sem internet).";
+            await Task.Delay(TimeSpan.FromSeconds(5));
+            if (!IsUpdateReady) UpdateStatusText = string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// Reinicia pra aplicar a versão já baixada. Recusa se há um jogo
+    /// rodando — trocar os arquivos do launcher não mata o jogo, mas
+    /// reiniciar o launcher com um jogo aberto atrapalha o "Fechar jogo"
+    /// e o retorno pro launcher; melhor esperar o jogo fechar.
+    /// </summary>
+    public void ApplyUpdate()
+    {
+        if (!IsUpdateReady) return;
+
+        if (RunningGame is not null)
+        {
+            UpdateStatusText = $"⬆ v{PendingUpdateVersion} pronta — feche o jogo antes de reiniciar";
+            return;
+        }
+
+        _updates?.ApplyAndRestart();
     }
 
     private string _batteryStatusText = string.Empty;
@@ -764,6 +872,19 @@ public sealed class MainViewModel : ViewModelBase
             _globalMenuActions.Add(action);
         }
 
+        // Atualização automática (só aparece numa instalação via
+        // Setup.exe — ver UpdateService). Com uma versão baixada, o item
+        // fica no TOPO do menu pra ser a primeira coisa vista; o item de
+        // "verificar agora" vai mais pra baixo, perto de Configurações.
+        if (IsUpdateReady)
+        {
+            Add(
+                RunningGame is null
+                    ? $"Reiniciar pra atualizar (v{PendingUpdateVersion})"
+                    : $"Atualização v{PendingUpdateVersion} pronta — feche o jogo pra aplicar",
+                ApplyUpdate);
+        }
+
         if (RunningGame is not null)
         {
             Add($"Fechar: {RunningGame.Title}", CloseRunningGame);
@@ -778,6 +899,11 @@ public sealed class MainViewModel : ViewModelBase
         Add("Atualizar Biblioteca", Refresh);
         Add("Downloads", ToggleDownloads);
         Add("Configurações", () => SettingsRequested?.Invoke(this, EventArgs.Empty));
+
+        if (_updates is { IsInstalled: true } && !IsUpdateReady)
+        {
+            Add($"Verificar atualizações (v{_updates.CurrentVersionText})", () => _ = CheckForUpdatesAsync(userInitiated: true));
+        }
 
         // Status do overlay de FPS (RTSS) — entra no menu global em vez de
         // num botão fixo na barra de baixo porque na prática é algo que se

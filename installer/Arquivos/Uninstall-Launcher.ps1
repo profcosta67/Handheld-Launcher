@@ -27,8 +27,16 @@ param(
 
 $ErrorActionPreference = 'Continue'   # continua tentando desfazer o resto mesmo se um passo falhar
 
+# Instalacao ANTIGA (Install-Launcher.ps1) - pasta e backup ficavam aqui.
 $installDir = Join-Path $env:LOCALAPPDATA 'Programs\HandheldLauncher'
-$backupPath = Join-Path $installDir 'kiosk-backup.json'
+# Instalacao NOVA (Setup.exe + Configurar-Modo-Console.ps1) - o backup de
+# registro fica junto do settings.json, e o app em si e desinstalado pelo
+# proprio Windows (Configuracoes > Aplicativos > Handheld Launcher).
+$dataDir = Join-Path $env:APPDATA 'HandheldLauncher'
+$backupPath = Join-Path $dataDir 'kiosk-backup.json'
+if (-not (Test-Path $backupPath)) {
+    $backupPath = Join-Path $installDir 'kiosk-backup.json'
+}
 
 Write-Host "== Handheld Launcher - desinstalacao iniciada =="
 
@@ -85,10 +93,20 @@ $desktopShortcut = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Handheld
 $startMenuShortcut = Join-Path ([Environment]::GetFolderPath('Programs')) 'Handheld Launcher.lnk'
 $startupShortcut = Join-Path ([Environment]::GetFolderPath('Startup')) 'Handheld Launcher.lnk'
 
+# Desktop/Menu Iniciar: so remove se o atalho aponta pra instalacao ANTIGA
+# (pasta Programs\HandheldLauncher) - os atalhos do Setup.exe novo apontam
+# pra %LocalAppData%\HandheldLauncher e saem junto com a desinstalacao
+# normal do Windows. O de Inicializacao e nosso nos dois casos.
+$wsh = New-Object -ComObject WScript.Shell
 foreach ($shortcut in @($desktopShortcut, $startMenuShortcut, $startupShortcut)) {
     if (Test-Path $shortcut) {
-        Remove-Item $shortcut -Force
-        Write-Host "Atalho removido: $shortcut"
+        $isStartup = ($shortcut -eq $startupShortcut)
+        $target = ''
+        try { $target = $wsh.CreateShortcut($shortcut).TargetPath } catch { }
+        if ($isStartup -or ($target -and $target.StartsWith($installDir, [System.StringComparison]::OrdinalIgnoreCase))) {
+            Remove-Item $shortcut -Force
+            Write-Host "Atalho removido: $shortcut"
+        }
     }
 }
 
@@ -105,6 +123,10 @@ if (-not $KeepFiles) {
     if (Test-Path $installDir) {
         Remove-Item $installDir -Recurse -Force
         Write-Host "Pasta de instalacao removida: $installDir"
+    }
+
+    if (Test-Path (Join-Path $env:LOCALAPPDATA 'HandheldLauncher\Update.exe')) {
+        Write-Host "O launcher instalado pelo Setup.exe continua no PC: desinstale em Configuracoes > Aplicativos > Handheld Launcher (este script so desfez o modo console)."
     }
 
     $settingsPath = Join-Path $env:APPDATA 'HandheldLauncher\settings.json'

@@ -1,0 +1,25 @@
+# Compila a solução a cada envio pro GitHub. Serve de "rede de segurança":
+# se um commit quebrar a compilação (erro de C#/XAML), aparece aqui com o
+# erro exato, sem precisar abrir o Visual Studio.
+name: Build
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restaurar pacotes
+        run: dotnet restore HandheldLauncher.sln
+
+      - name: Compilar
+        run: dotnet build HandheldLauncher.sln -c Release --no-restore

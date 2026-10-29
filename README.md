@@ -31,6 +31,9 @@ mais sentido de risco crescente):
    Steam/Não instalados). **Nunca testado num build real.**
 2. ~~Atalho de Downloads na barra de cima~~ — **feito nesta leva**, ver
    "Status atual" mais abaixo. **Nunca testado num build real.**
+2b. ~~Atualização automática~~ — **escrita nesta leva** (GitHub Actions +
+   Velopack), ver "Instalação e atualização automática" mais abaixo. **Nunca
+   testada num build real.**
 3. **Overlay de performance mais completo** (presets Resumido/Médio/Completo
    em vez de só FPS) — decisão do usuário: **overlay próprio do launcher**,
    não RTSS + Afterburner. Nota técnica importante pra quando for
@@ -836,6 +839,72 @@ continua manual — automatizar só a instalação (o que já foi feito) não
 dá pra automatizar essa configuração de dentro do RTSS sem entender
 melhor onde ele guarda esse estado (provavelmente registro do Windows,
 não investigado ainda).
+
+## Instalação e atualização automática (GitHub + Velopack)
+
+**Este é o jeito recomendado de instalar daqui pra frente** (a seção "Instalar
+no Legion Go 2 / ROG Ally" abaixo descreve o instalador antigo por `.bat`, que
+continua no repositório mas fica obsoleto). **Nunca testado de ponta a ponta
+num build real** — o código foi escrito num ambiente sem Windows/.NET; o
+workflow de build do GitHub (`.github/workflows/ci.yml`) existe justamente pra
+pegar erro de compilação a cada envio.
+
+### Como funciona
+
+1. O código mora em <https://github.com/profcosta67/Handheld-Launcher>
+   (repositório público — nenhuma chave de API está no código; ver abaixo).
+2. A cada envio pro GitHub, `ci.yml` compila tudo num Windows de verdade
+   (se quebrar, aparece o erro exato na aba **Actions**).
+3. Pra lançar uma versão nova: crie uma **tag `vX.Y.Z`** (ex: `v0.3.0`) —
+   no GitHub, **Releases → Draft a new release → Choose a tag → digite
+   `v0.3.0` → Create new tag → Publish release**. `release.yml` roda sozinho:
+   publica self-contained win-x64, empacota com o [Velopack](https://velopack.io)
+   (`vpk`) e anexa à Release o instalador e os pacotes de atualização.
+4. **Primeira vez em cada aparelho**: baixe `HandheldLauncher-win-Setup.exe` da
+   Release e execute. Instala em `%LocalAppData%\HandheldLauncher\`, cria
+   atalhos e abre. Não precisa do .NET SDK.
+5. **Depois disso nunca mais baixa nada na mão**: o launcher pergunta ao
+   GitHub se há versão nova ~20 s depois de abrir e a cada 6 h, baixa em
+   segundo plano (só o que mudou, quando dá) e mostra na barra de cima
+   **"⬆ vX.Y.Z pronta — toque pra reiniciar"** (também é o primeiro item do
+   menu View/Back, então dá pra aplicar só com o controle). Com um jogo
+   rodando ele **não** reinicia nem baixa. Menu → **Verificar atualizações**
+   força a checagem na hora.
+6. `settings.json` (chaves, SteamID, pastas Xbox) e a biblioteca ficam em
+   `%AppData%\HandheldLauncher\` — a atualização nunca mexe nisso.
+
+### Modo console (opcional)
+
+O `Setup.exe` só instala o app. O que o instalador antigo fazia além disso
+(abrir em tela cheia no login, reabrir se fechar, desativar Legion Space/
+Armoury Crate/Xbox Game Bar na inicialização, instalar o RTSS) agora é o script
+**`Modo-Console.zip`** (também anexado à Release): extraia e dê duplo clique em
+`Configurar-Modo-Console.bat` **depois** de instalar pelo `Setup.exe`. Ele:
+migra e remove a instalação antiga (se existir), registra a Tarefa Agendada
+`HandheldLauncherWatchdog` apontando pro exe novo, liga `KioskMode` **sem
+apagar as outras chaves do `settings.json`**, e guarda log/backup em
+`%AppData%\HandheldLauncher\`. `Desinstalar.bat` desfaz isso (o app em si
+desinstala-se por Configurações → Aplicativos).
+
+### Segurança do repositório público
+
+- Nenhuma chave de API/SteamID está no código nem no histórico (conferido nos
+  commits antes de publicar); elas só existem no `settings.json` de cada
+  aparelho. `installer/Arquivos/steamgriddb-api-key.txt` é ignorado pelo git.
+- `release.yml` tem uma trava: falha se aparecer qualquer `*api-key*`,
+  `settings.json` ou `.pfx` dentro do pacote publicado.
+- Os e-mails dos commits antigos foram trocados pelo e-mail anônimo do GitHub.
+
+### Pontos de atenção
+
+- **Versão do `vpk`** no `release.yml` (`VPK_VERSION`) tem que ser igual à
+  versão do pacote `Velopack` no `HandheldLauncher.App.csproj` (hoje 1.2.161).
+- Fora de uma instalação do `Setup.exe` (`dotnet run`, instalação antiga) o
+  atualizador vira no-op silencioso (`UpdateService.IsInstalled == false`).
+- Código: `Platform/UpdateService.cs`, `MainViewModel` (`RunUpdateLoopAsync`,
+  `CheckForUpdatesAsync`, `ApplyUpdate`, `UpdateStatusText`), botão de aviso na
+  barra de cima em `MainWindow.axaml` e `Program.Main` (`VelopackApp.Build().Run()`
+  tem que ser a primeira linha).
 
 ## Instalar no Legion Go 2 / ROG Ally (beta v0.1)
 

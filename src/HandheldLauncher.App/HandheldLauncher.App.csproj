@@ -11,6 +11,10 @@
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <RootNamespace>HandheldLauncher.App</RootNamespace>
     <AssemblyName>HandheldLauncher</AssemblyName>
+    <!-- Versão do app. O workflow de release sobrescreve com
+         -p:Version=X.Y.Z a partir da tag (vX.Y.Z); este valor só vale
+         pra builds locais. -->
+    <Version>0.0.0-dev</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -21,6 +25,10 @@
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.*" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="11.2.*" />
     <PackageReference Include="Avalonia.Diagnostics" Version="11.2.*" Condition="'$(Configuration)' == 'Debug'" />
+    <!-- Atualização automática (GitHub Releases). Versão fixa de propósito:
+         o `vpk` do workflow de release precisa ser da MESMA versão deste
+         pacote (ver .github/workflows/release.yml). -->
+    <PackageReference Include="Velopack" Version="1.2.161" />
   </ItemGroup>
 
   <ItemGroup>

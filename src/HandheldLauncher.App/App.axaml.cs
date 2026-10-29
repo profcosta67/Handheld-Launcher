@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform;
+using HandheldLauncher.App.Platform;
 using HandheldLauncher.App.ViewModels;
 using HandheldLauncher.App.Views;
 using HandheldLauncher.Core.Services;
@@ -59,9 +60,13 @@ public partial class App : Application
                 // Melhor esforço.
             }
 
+            // Atualização automática (Velopack/GitHub Releases). Fora de uma
+            // instalação via Setup.exe vira no-op (ver UpdateService).
+            var updateService = new UpdateService();
+
             var mainWindow = new MainWindow
             {
-                DataContext = new MainViewModel(libraryService, gameLauncher, artworkService, performanceOverlay),
+                DataContext = new MainViewModel(libraryService, gameLauncher, artworkService, performanceOverlay, updateService),
             };
 
             // Modo kiosk: fullscreen/borderless instead of the normal dev

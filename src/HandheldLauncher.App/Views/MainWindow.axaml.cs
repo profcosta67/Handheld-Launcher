@@ -314,6 +314,16 @@ public partial class MainWindow : Window
 
         StartBatteryMonitor(vm);
         StartDownloadsRefreshTimer(vm);
+
+        // Verificação de atualização em segundo plano (espera ~20s e
+        // repete a cada 6h; no-op fora de uma instalação via Setup.exe).
+        _ = vm.RunUpdateLoopAsync();
+    }
+
+    /// <summary>Toque no aviso "⬆ vX pronta" da barra de cima.</summary>
+    private void OnUpdateBadgeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm) vm.ApplyUpdate();
     }
 
     /// <summary>
