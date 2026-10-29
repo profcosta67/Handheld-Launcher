@@ -170,6 +170,29 @@ public sealed class SettingsViewModel : ViewModelBase
         set => SetField(ref _edenRomFoldersText, value);
     }
 
+    private string _edenScanResultText = string.Empty;
+
+    /// <summary>
+    /// v0.9.17: resultado do botão "Testar agora" (ver
+    /// SettingsWindow.OnTestEdenScanClick). Existe porque, na v0.9.16, a
+    /// única forma de saber se a pasta configurada tinha funcionado era
+    /// salvar, reiniciar e olhar a biblioteca — e quando o resultado veio
+    /// errado (1 jogo de 18 arquivos), não havia nenhuma pista do porquê.
+    /// </summary>
+    public string EdenScanResultText
+    {
+        get => _edenScanResultText;
+        set
+        {
+            if (SetField(ref _edenScanResultText, value))
+            {
+                OnPropertyChanged(nameof(HasEdenScanResult));
+            }
+        }
+    }
+
+    public bool HasEdenScanResult => !string.IsNullOrWhiteSpace(_edenScanResultText);
+
     private bool _isHandheldMode;
 
     /// <summary>

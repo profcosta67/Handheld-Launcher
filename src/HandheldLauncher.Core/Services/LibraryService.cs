@@ -111,8 +111,7 @@ public sealed class LibraryService : ILibraryService
 
             foreach (var game in scanned)
             {
-                if (merged.Any(existing => ExecutablePathsMatch(existing.ExecutablePath, game.ExecutablePath)
-                                           || SameFolder(existing.InstallDirectory, game.InstallDirectory)))
+                if (merged.Any(existing => SameLaunchTarget(existing, game) || SameInstallFolder(existing, game)))
                 {
                     continue;
                 }
@@ -136,6 +135,53 @@ public sealed class LibraryService : ILibraryService
     /// "bate" com nada, pra não tratar dois jogos sem ExecutablePath como
     /// duplicados um do outro.
     /// </summary>
+    /// <summary>
+    /// v0.9.17, BUG REPORTADO pelo usuário: "ele detectou apenas uma room
+    /// que na vdd eh uma dlc nsp do digimon time strange. as outras rooms
+    /// ele não detectou" — 18 arquivos .nsp na pasta, 1 jogo na
+    /// biblioteca.
+    ///
+    /// <para>
+    /// Causa: o dedup deste laço foi escrito pensando em LOJAS, onde vale
+    /// "um executável = um jogo" e "uma pasta = um jogo". Pra EMULADOR as
+    /// duas premissas são falsas: todos os jogos do Eden compartilham o
+    /// MESMO executável (o `eden.exe`) e normalmente a MESMA pasta (a das
+    /// ROMs). Então o 1º jogo entrava e todos os outros eram descartados
+    /// como duplicata dele — sobrava exatamente um, o primeiro em ordem
+    /// alfabética (no caso do usuário, uma DLC do Digimon).
+    /// </para>
+    ///
+    /// <para>
+    /// Correção: o que identifica o jogo não é só o executável, é o
+    /// executável MAIS os argumentos (pro Eden, o argumento é o caminho da
+    /// ROM — ver EdenLibraryScanner). Pra entradas de loja, que não têm
+    /// argumento nenhum, os dois lados ficam vazios e o comportamento é
+    /// idêntico ao de antes.
+    /// </para>
+    /// </summary>
+    private static bool SameLaunchTarget(GameEntry a, GameEntry b)
+    {
+        if (!ExecutablePathsMatch(a.ExecutablePath, b.ExecutablePath)) return false;
+
+        return string.Equals(
+            a.LaunchArguments?.Trim() ?? string.Empty,
+            b.LaunchArguments?.Trim() ?? string.Empty,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Mesma causa do bug acima, outra regra: pra emulador, a "pasta de
+    /// instalação" é a pasta das ROMs — compartilhada por todos os jogos
+    /// dali — então comparar por pasta jogaria fora todos menos o
+    /// primeiro. Nunca trata entrada de emulador como duplicata por pasta;
+    /// pra loja, segue valendo igual antes (ver SameFolder).
+    /// </summary>
+    private static bool SameInstallFolder(GameEntry a, GameEntry b)
+    {
+        if (a.Source == GameSource.Emulator || b.Source == GameSource.Emulator) return false;
+        return SameFolder(a.InstallDirectory, b.InstallDirectory);
+    }
+
     /// <summary>
     /// Mesma pasta de instalação = mesmo jogo (v0.9.3) — evita, por exemplo,
     /// um jogo da EA comprado na Steam aparecer duas vezes (Steam + EA).

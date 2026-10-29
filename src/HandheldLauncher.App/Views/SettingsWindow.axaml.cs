@@ -161,6 +161,70 @@ public partial class SettingsWindow : Window
             : string.Join(Environment.NewLine, existing.Append(path));
     }
 
+    /// <summary>
+    /// v0.9.17, "Testar agora" da aba Emuladores: escaneia com o que está
+    /// NAS CAIXAS agora (não com o que está salvo em settings.json), pra o
+    /// usuário conferir a configuração sem salvar nem reiniciar o
+    /// launcher. Nasceu de um diagnóstico às cegas: na v0.9.16 ele
+    /// configurou a pasta certa, reiniciou, viu 1 jogo de 18 arquivos e
+    /// não tinha nenhuma informação sobre o motivo.
+    /// </summary>
+    private void OnTestEdenScanClick(object? sender, RoutedEventArgs e)
+    {
+        var folders = ViewModel.EdenRomFoldersText
+            .Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .ToList();
+
+        var exePath = ViewModel.EdenExecutablePath?.Trim();
+
+        try
+        {
+            var scanner = new EdenLibraryScanner(string.IsNullOrWhiteSpace(exePath) ? null : exePath, folders);
+            scanner.ScanInstalledGames(out var report);
+            ViewModel.EdenScanResultText = DescribeScan(report);
+        }
+        catch (Exception ex)
+        {
+            ViewModel.EdenScanResultText = $"Não deu pra escanear: {ex.Message}";
+        }
+    }
+
+    private static string DescribeScan(EdenScanReport report)
+    {
+        if (!report.EdenExecutableFound)
+        {
+            return "O eden.exe não foi encontrado no caminho acima — sem ele nenhum jogo é listado.";
+        }
+
+        var parts = new List<string>
+        {
+            report.Games == 1 ? "1 jogo encontrado" : $"{report.Games} jogos encontrados",
+        };
+
+        if (report.SkippedAddOns > 0)
+        {
+            parts.Add(report.SkippedAddOns == 1
+                ? "1 arquivo ignorado (DLC ou atualização)"
+                : $"{report.SkippedAddOns} arquivos ignorados (DLC ou atualização)");
+        }
+
+        if (report.FoldersMissing > 0)
+        {
+            parts.Add(report.FoldersMissing == 1
+                ? "1 pasta da lista não existe"
+                : $"{report.FoldersMissing} pastas da lista não existem");
+        }
+
+        if (report.UsedEdenConfigFallback)
+        {
+            parts.Add(report.FoldersScanned > 0
+                ? "nenhuma pasta informada aqui, então foi usada a configuração do próprio Eden"
+                : "nenhuma pasta informada aqui e a configuração do próprio Eden não tem pasta nenhuma");
+        }
+
+        return string.Join(" · ", parts) + ".";
+    }
+
     private void OnKeyboardClick(object? sender, RoutedEventArgs e)
     {
         TouchKeyboard.Toggle();

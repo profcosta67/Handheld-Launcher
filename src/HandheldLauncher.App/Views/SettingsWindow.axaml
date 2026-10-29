@@ -211,8 +211,15 @@
                    AcceptsReturn="True"
                    Height="80"
                    TextWrapping="Wrap" />
-          <Button Classes="pill" Content="+ Adicionar pasta…" Click="OnAddRomFolderClick" HorizontalAlignment="Left" />
-          <TextBlock Text="As subpastas também são procuradas. Formatos reconhecidos: .nsp, .xci, .nsz, .xcz. Os jogos aparecem na biblioteca junto dos outros e abrem direto no Eden em tela cheia."
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Classes="pill" Content="+ Adicionar pasta…" Click="OnAddRomFolderClick" />
+            <Button Classes="pill" Content="Testar agora" Click="OnTestEdenScanClick" />
+          </StackPanel>
+          <TextBlock Text="{Binding EdenScanResultText}" IsVisible="{Binding HasEdenScanResult}"
+                     FontSize="11" TextWrapping="Wrap" />
+          <TextBlock Text="As subpastas também são procuradas. Formatos reconhecidos: .nsp, .xci, .nsz, .xcz. DLC e arquivos de atualização são ignorados — eles não abrem como jogo. Os jogos aparecem na biblioteca junto dos outros e abrem direto no Eden em tela cheia."
+                     Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+          <TextBlock Text="Mudanças aqui só valem na biblioteca depois de fechar e abrir o launcher. O 'Testar agora' escaneia com o que está nas caixas acima, sem precisar salvar nem reiniciar."
                      Classes="subtle" FontSize="11" TextWrapping="Wrap" />
           <TextBlock Text="O launcher não instala nem distribui o Eden — ele só abre o que já estiver instalado neste PC. Firmware e chaves continuam sendo responsabilidade sua."
                      Classes="subtle" FontSize="11" TextWrapping="Wrap" />

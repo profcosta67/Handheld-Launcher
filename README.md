@@ -195,9 +195,44 @@ mais sentido de risco crescente):
        automática dá quase a mesma comodidade com zero redistribuição —
        ver comentário de `EdenInstallationDetector` pro raciocínio
        completo.
-     - **Ainda nunca testado contra uma instalação real do Eden** (sem
-       Switch/Eden neste sandbox) — mas na v0.9.16 o caminho principal
-       não depende mais de nenhum formato adivinhado.
+     - **v0.9.17, BUG REPORTADO e corrigido** — primeiro teste real do
+       usuário contra a pasta dele (18 `.nsp` em `D:\Roms\Switch`): "ele
+       detectou apenas uma room que na vdd eh uma dlc nsp do digimon time
+       strange. as outras rooms ele não detectou". Diagnóstico com os
+       dados reais da pasta (listagem + `settings.json`):
+       - **Causa**: as DUAS regras de dedup do laço de `storeScanners` em
+         `LibraryService.Refresh` — `ExecutablePathsMatch` e
+         `SameFolder` — assumem "um executável = um jogo" e "uma pasta =
+         um jogo", que valem pra loja e são FALSAS pra emulador (todos os
+         jogos dividem o mesmo `eden.exe` e a mesma pasta de ROM). O 1º
+         entrava, os outros 17 eram descartados como duplicata dele;
+         sobrava o primeiro em ordem alfabética, que por acaso era uma
+         DLC. Corrigido com `SameLaunchTarget` (executável + argumentos,
+         sendo o argumento o caminho da ROM) e `SameInstallFolder` (nunca
+         dedupa entrada `GameSource.Emulator` por pasta). Comportamento
+         de loja inalterado: elas não têm argumento, então os dois lados
+         ficam vazios e a comparação dá o mesmo resultado de antes.
+       - **DLC/update como jogo**: filtrado por title ID de 16 hex no
+         nome (convenção Nintendo — base termina em `000`, update em
+         `800`, DLC no resto) com fallback por marcação de nome. Validado
+         contra os 18 nomes reais do usuário: sobram os 3 jogos base
+         (`Pokemon NSP`, `Pokemon Legends Arceus-002`, `Digimon Story
+         Time Stranger Switch NSP Base Game`) e caem 15 DLC/update.
+       - **Diagnóstico às cegas**: a v0.9.16 não dava NENHUM retorno —
+         pra saber se a configuração pegou, era salvar, reiniciar e olhar
+         a biblioteca. Isso custou uma rodada inteira de ida e volta.
+         Corrigido com o botão "Testar agora" (escaneia com o que está
+         nas caixas, sem salvar nem reiniciar, e reporta achados/
+         ignorados/pastas faltando/uso do fallback — ver
+         `EdenScanReport`).
+       - **Confirmado funcionando no PC do usuário**: a autodetecção
+         achou o `C:\Eden Emu\eden.exe` sozinho, e o lançamento
+         (`-f -g "caminho"`) abre o jogo.
+       - **O fallback do `qt-config.ini` não achou nada** na máquina dele
+         (`Select-String "gamedir"` no arquivo não retornou linha
+         nenhuma) — segue sem confirmação de que aquele formato deduzido
+         do Yuzu existe de verdade. Não importa mais pro caminho
+         principal, mas não dá pra chamar de verificado.
    - ~~**Modos de otimização de imagem/cor**~~ (Vívido, OLED, Noturno,
      Confortável) — **feito na v0.9.13** via `SetDeviceGammaRamp`, ver
      seção própria. Marcado como experimental na própria tela: é uma API
