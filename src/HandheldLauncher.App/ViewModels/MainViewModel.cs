@@ -118,6 +118,34 @@ public sealed class MainViewModel : ViewModelBase
     public string? PendingUpdateVersion => _updates?.PendingVersionText;
 
     /// <summary>
+    /// "Handheld Launcher v0.3.4" no rodapé. Instalado pelo Setup.exe: versão
+    /// do Velopack. Fora disso (dotnet run): versão do assembly, sem o
+    /// sufixo "+hash do commit" que o .NET 8 anexa.
+    /// </summary>
+    public string AppVersionText
+    {
+        get
+        {
+            string version;
+            if (_updates is { IsInstalled: true })
+            {
+                version = _updates.CurrentVersionText;
+            }
+            else
+            {
+                var info = System.Reflection.Assembly.GetExecutingAssembly()
+                    .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+                    .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
+                    .FirstOrDefault()?.InformationalVersion ?? "dev";
+                var plus = info.IndexOf('+');
+                version = plus >= 0 ? info[..plus] : info;
+            }
+
+            return $"Handheld Launcher v{version}";
+        }
+    }
+
+    /// <summary>
     /// Loop de verificação: espera ~20s (não competir com a abertura do
     /// launcher), checa, e depois repete a cada 6h (aparelho que fica dias
     /// ligado em suspensão). Chamado uma vez pelo MainWindow. Silencioso

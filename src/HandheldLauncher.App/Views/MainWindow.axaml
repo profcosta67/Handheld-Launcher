@@ -416,6 +416,14 @@
          → Engrenagem → Power, nessa ordem. -->
     <Border Grid.Row="2" Classes="bottomBar" Margin="24,0,24,20" Padding="20,12">
       <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+        <!-- Versão atual no rodapé (pedido do usuário: "nota de rodapé com
+             a versão atual" — pra conferir se a atualização pegou). -->
+        <TextBlock Grid.Column="0"
+                   Text="{Binding AppVersionText}"
+                   Classes="subtle"
+                   FontSize="11"
+                   Opacity="0.7"
+                   VerticalAlignment="Center" />
         <Button Grid.Column="1"
                 Classes="pill"
                 Content="{Binding RunningGame.Title, StringFormat='Fechar: {0}'}"
