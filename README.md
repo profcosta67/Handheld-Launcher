@@ -703,6 +703,19 @@ Ainda **não** feito:
 15. ~~Tela de configuração pra `SteamWebApiKey`/`SteamId64`~~ — **feito
     numa leva posterior**, junto do item 5 (mesma `SettingsWindow`).
 
+## Correções v0.6.1
+
+- **L3+R3 parava de trocar o HUD** (funcionava na primeira vez, depois não):
+  o combo era lido pelo timer de 50 ms da janela, que o Windows 11 pode
+  desacelerar com o launcher em segundo plano (modo de eficiência/EcoQoS) —
+  toque rápido se perdia. Agora: `Input/OverlayHotkeyWatcher` (thread própria,
+  lê os 4 slots do XInput a cada 40 ms, loga no debug.log) +
+  `Platform/PowerThrottling` (pede ao Windows pra não desacelerar o launcher).
+- **Faixa preta atrás do HUD**: é o "On-Screen Display fill" do próprio RTSS
+  (fundo do OSD), não algo que o launcher desenha — desmarcar no RTSS deixa
+  sem fundo. Controlar isso pelo launcher (sólido/transparente/sem fundo)
+  exigiria editar o perfil do RTSS em Program Files (admin) — não feito.
+
 ## Aparência — v0.6.0
 
 **Nunca testado num aparelho ainda.** Tudo em Configurações → Aparência e vale

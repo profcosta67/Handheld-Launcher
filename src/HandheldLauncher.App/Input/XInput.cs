@@ -66,11 +66,14 @@ internal static class XInput
     /// a real Windows 10/11 handheld, but we don't want a missing DLL to
     /// crash the whole launcher).
     /// </summary>
-    public static bool TryGetState(out XInputState state)
+    public static bool TryGetState(out XInputState state) => TryGetState(0, out state);
+
+    /// <summary>Mesmo que TryGetState, pra qualquer um dos 4 slots do XInput (0-3).</summary>
+    public static bool TryGetState(uint userIndex, out XInputState state)
     {
         try
         {
-            return XInputGetStateNative(0, out state) == ErrorSuccess;
+            return XInputGetStateNative(userIndex, out state) == ErrorSuccess;
         }
         catch (DllNotFoundException)
         {

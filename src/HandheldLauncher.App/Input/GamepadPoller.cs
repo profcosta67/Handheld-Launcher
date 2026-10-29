@@ -115,11 +115,10 @@ public sealed class GamepadPoller
         if (WasJustPressed(buttons, XInput.Buttons.RightShoulder)) actions.Add(GamepadAction.NextFilter);
         if (WasJustPressed(buttons, XInput.Buttons.Y)) actions.Add(GamepadAction.Downloads);
 
-        var bothSticksDown = buttons.HasFlag(XInput.Buttons.LeftThumb) && buttons.HasFlag(XInput.Buttons.RightThumb);
-        if (bothSticksDown && (WasJustPressed(buttons, XInput.Buttons.LeftThumb) || WasJustPressed(buttons, XInput.Buttons.RightThumb)))
-        {
-            actions.Add(GamepadAction.CycleOverlay);
-        }
+        // L3+R3 (troca do HUD) NÃO é mais detectado aqui desde a v0.6.1 —
+        // ver OverlayHotkeyWatcher (thread própria, funciona com o launcher
+        // escondido/em segundo plano, onde este timer da interface pode ser
+        // desacelerado pelo Windows).
 
         // D-pad OR left stick — either one holding a direction counts the
         // same way, so you never get a double-fire from both at once.

@@ -78,10 +78,19 @@ public partial class App : Application
             ThemeManager.Apply(appSettings.Theme);
             GameTileViewModel.SizeScale = GameTileViewModel.ScaleForSetting(appSettings.TileSize);
 
+            var mainViewModel = new MainViewModel(libraryService, gameLauncher, artworkService, performanceOverlay, updateService, performanceHud);
             var mainWindow = new MainWindow
             {
-                DataContext = new MainViewModel(libraryService, gameLauncher, artworkService, performanceOverlay, updateService, performanceHud),
+                DataContext = mainViewModel,
             };
+
+            // L3+R3 troca o HUD numa thread própria (funciona com o jogo na
+            // frente e o launcher escondido) + pede pro Windows não
+            // desacelerar o launcher em segundo plano. Ver
+            // Input/OverlayHotkeyWatcher e Platform/PowerThrottling.
+            PowerThrottling.DisableForThisProcess();
+            var overlayHotkeys = new HandheldLauncher.App.Input.OverlayHotkeyWatcher(mainViewModel.CycleOverlayPreset);
+            desktop.Exit += (_, _) => overlayHotkeys.Dispose();
 
             // Modo kiosk: fullscreen/borderless instead of the normal dev
             // window, driven entirely by settings.json (set by the
