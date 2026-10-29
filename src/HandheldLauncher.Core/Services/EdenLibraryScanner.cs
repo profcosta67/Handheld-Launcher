@@ -172,7 +172,10 @@ public sealed class EdenLibraryScanner : IStoreLibraryScanner
         // array, mas se não achar (formato diferente do esperado), tenta
         // mesmo assim subindo o índice até faltar "...\N\path" — mais
         // robusto contra uma variação de formato que não previ.
-        var hasSize = ui.TryGetValue(@"Paths\gamedirs\size", out var sizeText) && int.TryParse(sizeText, out var size);
+        var size = 0; // inicializado explicitamente: sem isso o compilador não
+                       // sabe que "size" está sempre atribuído quando hasSize é
+                       // true, por causa do curto-circuito do "&&" abaixo.
+        var hasSize = ui.TryGetValue(@"Paths\gamedirs\size", out var sizeText) && int.TryParse(sizeText, out size);
         var maxIndex = hasSize ? size : 64; // limite de segurança pro fallback sem "size"
 
         for (var i = 1; i <= maxIndex; i++)
