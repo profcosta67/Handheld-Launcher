@@ -75,17 +75,16 @@
           440 dá folga suficiente pro texto mais longo da tela, "Grade
           vertical (rola pra cima e pra baixo)" (Biblioteca), sem cortar.
         -->
-        <!-- v0.9.20: "layout" e "cor" são opções SEPARADAS de propósito —
-             dá pra usar o layout Switch com qualquer paleta. Trocar o
-             layout exige reiniciar (ver AppSettings.LayoutTheme); trocar a
-             cor vale na hora. -->
+        <!-- "layout" e "cor" são opções SEPARADAS de propósito — dá pra
+             usar o layout Switch com qualquer paleta.
+             v0.9.21: era um ComboBox aqui, que o usuário achou confuso
+             ("acho que ficou complicado a mudança") porque não deixava
+             claro que precisava reiniciar. Agora é um botão que abre uma
+             telinha com as duas opções descritas, pede confirmação e
+             reinicia o launcher sozinho — ver LayoutPickerWindow. -->
         <TextBlock Text="Layout da tela" FontSize="12" HorizontalAlignment="Center" />
-        <ComboBox SelectedIndex="{Binding LayoutThemeIndex}" Width="440" HorizontalAlignment="Center">
-          <ComboBoxItem Content="Clássico" />
-          <ComboBoxItem Content="Switch" />
-        </ComboBox>
-        <TextBlock Text="O layout Switch tem capas quadradas em fileira, nome do jogo sobre o banner e os filtros embaixo. Mudar de layout só vale depois de fechar e abrir o launcher."
-                   Classes="subtle" FontSize="11" HorizontalAlignment="Center" TextWrapping="Wrap" />
+        <Button Classes="pill" Content="{Binding LayoutThemeButtonText}" Click="OnPickLayoutClick"
+                Width="440" HorizontalAlignment="Center" HorizontalContentAlignment="Center" />
 
         <TextBlock Text="Cores" FontSize="12" HorizontalAlignment="Center" />
         <ComboBox SelectedIndex="{Binding ThemeIndex}" Width="440" HorizontalAlignment="Center">

@@ -3,43 +3,36 @@
              xmlns:vm="using:HandheldLauncher.App.ViewModels"
              xmlns:conv="using:HandheldLauncher.App.Converters"
              xmlns:dataConv="using:Avalonia.Data.Converters"
+             xmlns:media="using:Avalonia.Media"
              x:Class="HandheldLauncher.App.Views.Layouts.SwitchLibraryLayout"
              x:DataType="vm:MainViewModel">
 
   <!--
-    Tema de LAYOUT "Switch" (v0.9.20) — primeiro tema de layout de verdade
-    do projeto, pedido do usuário depois de um equívoco meu na v0.9.13 (que
-    entregou só uma paleta de cor nova).
+    Tema de LAYOUT "Switch" — v0.9.20 (primeira versão) e REFEITO na
+    v0.9.21 com o retorno do usuário:
 
-    Referência combinada com ele: a tela HOME do console — "fileira
-    horizontal de jogos", "menu embaixo, capas minimalistas, configurações
-    em cima, fundo claro só com banner + nome do jogo".
+      "retirar essa parte do hero, o banner no caso ficaria como tela de
+       fundo com uma transparência e filtro branco pra remeter aquele fundo
+       branco do Switch"
+      "os ícones ficaram lá embaixo, centralizar ele no meio do home"
+      "deixar ele tamanho do capsule original para não danificar as artes"
+      "os ícones com um aspecto de arco sendo o selecionado no centro com
+       zoom pra frente da tela, e ir passando e fazendo uma espécie de
+       roleta horizontal"
+      "em baixo pode deixar os menus de filtro igual você deixou"
 
-    NÃO copia nada da interface real do aparelho: sem logo, sem fonte
-    oficial, sem ícone de sistema. O que vem da referência é a DISPOSIÇÃO
-    (palco grande em cima com a arte do jogo em foco, fileira de ícones
-    quadrados embaixo dele) e o espírito minimalista — nenhum recurso
-    gráfico de terceiro.
+    O que mudou em relação à v0.9.20: o palco/hero com caixa própria SAIU.
+    A arte do jogo em foco agora é o FUNDO da tela inteira, coberta por um
+    véu branco — daí o "fundo branco do Switch", mas tingido pela arte do
+    jogo em vez de branco puro. A fileira de capas foi pro MEIO vertical,
+    voltou à proporção capsule (era quadrada) e ganhou o arco/roleta.
 
-    Diferenças deliberadas em relação ao layout Clássico:
-      - Capas QUADRADAS em vez de retrato, como os ícones do console. O
-        lado do quadrado vem de TileWidth, então a configuração "Tamanho
-        das capas" continua valendo (UniformToFill corta a arte retrato,
-        que é o efeito desejado).
-      - Nome do jogo em foco grande sobre o palco, não dentro de cada
-        tile — a fileira fica limpa, só arte.
-      - Fileira sempre HORIZONTAL: a grade vertical não faz sentido nesta
-        disposição (ver SupportsVerticalGrid no code-behind).
-      - Abas/subfiltros embaixo e compactos ("menu embaixo"), em vez de
-        acima da fileira.
+    NÃO copia nada da interface real do aparelho: sem logo, fonte ou ícone
+    de sistema. O que vem da referência é a disposição.
 
-    Mesmos x:Name do layout Clássico nos quatro controles que a MainWindow
-    precisa (ver ILibraryLayout) — é o que faz scroll, navegação por
-    controle e transição do banner funcionarem aqui sem código novo.
-
-    AccentBrush via DynamicResource e conversores declarados localmente:
-    mesma razão explicada em ClassicLibraryLayout.axaml (UserControl solto
-    não tem ancestral pra resolver StaticResource no load).
+    Os quatro x:Name que a MainWindow precisa (ILibraryLayout) continuam
+    aqui — HeroImage/HeroBackImage agora são as imagens DE FUNDO, o que
+    mantém a transição suave entre jogos funcionando sem código novo.
   -->
 
   <UserControl.Resources>
@@ -47,177 +40,217 @@
     <conv:HexColorToBrushConverter x:Key="HexColorToBrushConverter" />
   </UserControl.Resources>
 
-  <Grid RowDefinitions="*,Auto,Auto" Margin="24,12,24,12">
+  <Panel>
 
-    <!-- ===== PALCO: arte + nome do jogo em foco ===== -->
-    <Border Grid.Row="0"
-            Background="{DynamicResource SurfaceBrush}"
-            CornerRadius="{DynamicResource TileCornerRadius}"
-            Margin="0,0,0,16"
-            ClipToBounds="True">
-      <Grid>
-        <Grid IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
-          <!-- Os dois Image e a transição são os MESMOS do layout clássico
-               (HeroBackImage segura a arte anterior enquanto a nova entra
-               com fade) — MainWindow.OnHeroImageChanged cuida disso e acha
-               os dois por ILibraryLayout. -->
-          <Image x:Name="HeroBackImage" Stretch="UniformToFill" IsHitTestVisible="False" />
-          <Image x:Name="HeroImage"
-                 Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
-                 Stretch="UniformToFill" />
+    <!-- ===== FUNDO: arte do jogo em foco + véu branco ===== -->
+    <!-- As duas imagens são o mesmo par de sempre (a de trás segura a arte
+         anterior enquanto a nova entra com fade — MainWindow.OnHeroImageChanged
+         acha as duas por ILibraryLayout). UniformToFill aqui de propósito,
+         ao contrário do resto: fundo tem que COBRIR a tela, e é a única
+         exceção à regra de "sem zoom" que o usuário pediu — cabe a imagem
+         inteira num fundo deixaria faixas vazias na tela toda. -->
+    <Image x:Name="HeroBackImage" Stretch="UniformToFill" IsHitTestVisible="False" />
+    <Image x:Name="HeroImage"
+           Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
+           Stretch="UniformToFill"
+           IsHitTestVisible="False" />
 
-          <!-- Faixa clara embaixo do palco: é ela que dá o "fundo claro só
-               com banner + nome do jogo" que o usuário descreveu, sem
-               precisar de tema de cor claro (o nome fica legível sobre
-               qualquer arte). -->
-          <Border VerticalAlignment="Bottom"
-                  Background="#E6F2F2F2"
-                  Padding="24,14">
-            <Grid ColumnDefinitions="*,Auto">
-              <TextBlock Grid.Column="0"
-                         Text="{Binding SelectedTile.Title}"
-                         Foreground="#1A1A1A"
-                         FontSize="26"
-                         FontWeight="SemiBold"
-                         VerticalAlignment="Center"
-                         TextWrapping="NoWrap"
-                         TextTrimming="CharacterEllipsis" />
-
-              <!-- Selo de origem do jogo em foco, no mesmo esquema de
-                   letra+cor das capas (GameTileViewModel.PlatformBadgeText)
-                   — nunca logo de loja. -->
-              <Border Grid.Column="1"
-                      Background="{Binding SelectedTile.PlatformBadgeColorHex, Converter={StaticResource HexColorToBrushConverter}}"
-                      CornerRadius="4"
-                      Padding="8,3"
-                      VerticalAlignment="Center"
-                      IsVisible="{Binding SelectedTile.HasPlatformBadge}">
-                <TextBlock Text="{Binding SelectedTile.PlatformBadgeText}"
-                           FontSize="12" FontWeight="Bold" Foreground="White" />
-              </Border>
-            </Grid>
-          </Border>
-        </Grid>
-
-        <TextBlock Text="Nenhum jogo encontrado ainda.&#10;Adicione um jogo manualmente para começar."
-                   Classes="subtle"
-                   TextWrapping="Wrap"
-                   TextAlignment="Center"
-                   VerticalAlignment="Center"
-                   HorizontalAlignment="Center"
-                   Margin="24"
-                   IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
-      </Grid>
+    <!-- Desfoque leve: a arte precisa virar AMBIENTE, não competir com as
+         capas em cima dela. -->
+    <Border IsHitTestVisible="False">
+      <Border.Effect>
+        <media:BlurEffect Radius="40" />
+      </Border.Effect>
     </Border>
 
-    <!-- ===== FILEIRA DE ÍCONES QUADRADOS ===== -->
-    <ScrollViewer x:Name="GameRowScrollViewer"
-                  Grid.Row="1"
-                  HorizontalScrollBarVisibility="Hidden"
-                  VerticalScrollBarVisibility="Disabled"
-                  Margin="0,0,0,12">
-      <ScrollViewer.Transitions>
-        <Transitions>
-          <VectorTransition Property="Offset" Duration="0:0:0.28" Easing="CubicEaseOut" />
-        </Transitions>
-      </ScrollViewer.Transitions>
+    <!-- O "filtro branco": véu branco bem opaco por cima da arte. É ele
+         que dá o fundo claro do Switch sem precisar de tema de cor claro,
+         e deixa a tela tingida pela arte do jogo em foco em vez de branco
+         chapado. -->
+    <Border Background="#E8FFFFFF" IsHitTestVisible="False" />
 
-      <ItemsControl x:Name="GamesItemsControl" ItemsSource="{Binding Games}">
-        <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate>
-            <StackPanel Orientation="Horizontal" Spacing="12" />
-          </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
+    <Grid RowDefinitions="*,Auto" Margin="24,12,24,12">
 
-        <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="vm:GameTileViewModel">
-            <!-- Quadrado uniforme: os dois lados vêm de SquareTileSize, que
-                 segue "Tamanho das capas" e IGNORA o caso especial da
-                 WIDE CAPSULE do último jogo aberto (que no Clássico tem
-                 580 de largura e viraria um quadrado gigante aqui) — ver
-                 as três propriedades Square* em GameTileViewModel. -->
-            <Border Classes="gameTile"
-                    Classes.focused="{Binding IsFocused}"
-                    Width="{Binding SquareTileSize}"
-                    Height="{Binding SquareTileSize}"
-                    PointerPressed="OnTilePointerPressed"
-                    DoubleTapped="OnTileDoubleTapped">
-              <Grid>
-                <Image Source="{Binding SquareTileImagePath, Converter={StaticResource FileToBitmapConverter}}"
-                       Stretch="UniformToFill" />
+      <!-- ===== ROLETA: capas centralizadas no meio da tela ===== -->
+      <ScrollViewer x:Name="GameRowScrollViewer"
+                    Grid.Row="0"
+                    HorizontalScrollBarVisibility="Hidden"
+                    VerticalScrollBarVisibility="Disabled"
+                    VerticalAlignment="Center">
+        <ScrollViewer.Transitions>
+          <Transitions>
+            <VectorTransition Property="Offset" Duration="0:0:0.28" Easing="CubicEaseOut" />
+          </Transitions>
+        </ScrollViewer.Transitions>
 
-                <Border Background="#99383838"
-                        IsHitTestVisible="False"
-                        IsVisible="{Binding IsOwnedNotInstalled}" />
+        <ItemsControl x:Name="GamesItemsControl" ItemsSource="{Binding Games}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <!-- Alinhado pelo TOPO (não pelo centro): o deslocamento do
+                   arco é pra BAIXO, então as capas longe do foco precisam
+                   de um topo comum pra descerem a partir dele. -->
+              <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Top" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
 
-                <!-- Sem arte ainda: o nome aparece dentro do quadrado, que
-                     senão ficaria um bloco vazio. Com arte, a fileira fica
-                     só de imagem (o nome do jogo em foco está no palco). -->
-                <TextBlock Text="{Binding Title}"
-                           Classes="gameTitle"
-                           TextWrapping="Wrap"
-                           TextAlignment="Center"
-                           VerticalAlignment="Center"
-                           HorizontalAlignment="Center"
-                           Margin="8"
-                           IsVisible="{Binding ShowEmptySquarePlaceholder}" />
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:GameTileViewModel">
+              <!-- Zoom/arco/opacidade vêm todos de CarouselDistance (ver
+                   GameTileViewModel). RenderTransform não mexe no layout,
+                   então a capa em foco cresce POR CIMA das vizinhas sem a
+                   fileira pular a cada navegação — e o ZIndex garante que
+                   ela desenhe na frente delas.
 
-                <TextBlock Text="★"
-                           Foreground="{DynamicResource AccentBrush}"
-                           FontSize="16"
-                           HorizontalAlignment="Right"
-                           VerticalAlignment="Bottom"
-                           Margin="6"
-                           IsVisible="{Binding IsFavorite}" />
+                   RenderTransformOrigin em 50%,50% pro zoom sair do centro
+                   da própria capa, e a transição faz o crescer/encolher
+                   acontecer suave ao navegar, que é o que dá a sensação de
+                   roleta. -->
+              <Border Classes="gameTile"
+                      Classes.focused="{Binding IsFocused}"
+                      Width="{Binding CarouselTileWidth}"
+                      Height="{Binding CarouselTileHeight}"
+                      Opacity="{Binding CarouselOpacity}"
+                      ZIndex="{Binding CarouselZIndex}"
+                      RenderTransformOrigin="50%,50%"
+                      PointerPressed="OnTilePointerPressed"
+                      DoubleTapped="OnTileDoubleTapped">
+                <!-- A transição de suavização vai em CADA transform, e não
+                     num TransformOperationsTransition no RenderTransform do
+                     Border: esse tipo de transição interpola a sintaxe de
+                     TEXTO de transformação ("scale(1.1) translateY(4px)"),
+                     não um TransformGroup montado com objetos como este.
+                     Transform herda de Animatable no Avalonia, então cada
+                     um aceita as próprias Transitions — que é o caminho
+                     que funciona com bindings. -->
+                <Border.RenderTransform>
+                  <TransformGroup>
+                    <ScaleTransform ScaleX="{Binding CarouselScale}" ScaleY="{Binding CarouselScale}">
+                      <ScaleTransform.Transitions>
+                        <Transitions>
+                          <DoubleTransition Property="ScaleX" Duration="0:0:0.22" Easing="CubicEaseOut" />
+                          <DoubleTransition Property="ScaleY" Duration="0:0:0.22" Easing="CubicEaseOut" />
+                        </Transitions>
+                      </ScaleTransform.Transitions>
+                    </ScaleTransform>
+                    <TranslateTransform Y="{Binding CarouselOffsetY}">
+                      <TranslateTransform.Transitions>
+                        <Transitions>
+                          <DoubleTransition Property="Y" Duration="0:0:0.22" Easing="CubicEaseOut" />
+                        </Transitions>
+                      </TranslateTransform.Transitions>
+                    </TranslateTransform>
+                  </TransformGroup>
+                </Border.RenderTransform>
+                <Border.Transitions>
+                  <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.22" />
+                  </Transitions>
+                </Border.Transitions>
 
-                <Border Background="{Binding PlatformBadgeColorHex, Converter={StaticResource HexColorToBrushConverter}}"
-                        CornerRadius="4"
-                        Padding="4,1"
-                        HorizontalAlignment="Right"
-                        VerticalAlignment="Top"
-                        Margin="6"
-                        IsVisible="{Binding HasPlatformBadge}">
-                  <TextBlock Text="{Binding PlatformBadgeText}" FontSize="9" FontWeight="Bold" Foreground="White" />
-                </Border>
-              </Grid>
-            </Border>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
-    </ScrollViewer>
+                <Grid>
+                  <!-- Uniform (não UniformToFill): pedido do usuário pra as
+                       artes não serem cortadas. Com a capa na proporção
+                       capsule original, sobra pouco ou nada de fundo. -->
+                  <Image Source="{Binding CarouselTileImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                         Stretch="Uniform" />
 
-    <!-- ===== MENU EMBAIXO: abas + subfiltros, compactos ===== -->
-    <StackPanel Grid.Row="2" Spacing="6">
-      <Grid ColumnDefinitions="*,*,*,*,*,*">
-        <Button Grid.Column="0" Classes="pill filterTab" Classes.active="{Binding IsFilterFavoritesActive}" Content="Favoritos" Command="{Binding SetFilterFavoritesCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,4,0" Padding="6,5" FontSize="11" />
-        <Button Grid.Column="1" Classes="pill filterTab" Classes.active="{Binding IsFilterAllActive}" Content="Todos" Command="{Binding SetFilterAllCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0" Padding="6,5" FontSize="11" />
-        <Button Grid.Column="2" Classes="pill filterTab" Classes.active="{Binding IsFilterComputerActive}" Content="Computador" Command="{Binding SetFilterComputerCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0" Padding="6,5" FontSize="11" />
-        <Button Grid.Column="3" Classes="pill filterTab" Classes.active="{Binding IsFilterEmulatorsActive}" Content="Emuladores" Command="{Binding SetFilterEmulatorsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0" Padding="6,5" FontSize="11" />
-        <Button Grid.Column="4" Classes="pill filterTab" Classes.active="{Binding IsFilterApplicationsActive}" Content="Programas" Command="{Binding SetFilterApplicationsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0" Padding="6,5" FontSize="11" />
-        <Button Grid.Column="5" Classes="pill filterTab" Classes.active="{Binding IsFilterNotInstalledActive}" Content="Não instalados" Command="{Binding SetFilterNotInstalledCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0,0,0" Padding="6,5" FontSize="11" />
-      </Grid>
+                  <Border Background="#99383838"
+                          IsHitTestVisible="False"
+                          IsVisible="{Binding IsOwnedNotInstalled}" />
 
-      <ItemsControl ItemsSource="{Binding SubFilters}" IsVisible="{Binding HasSubFilters}" HorizontalAlignment="Center">
-        <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate>
-            <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center" />
-          </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="vm:SubFilterViewModel">
-            <Button Classes="pill subFilter"
-                    Classes.cursor="{Binding IsCursor}"
-                    Content="{Binding Label}"
-                    Click="OnSubFilterClick"
-                    Background="{Binding BackgroundHex, Converter={StaticResource HexColorToBrushConverter}}"
-                    Foreground="{Binding ForegroundHex, Converter={StaticResource HexColorToBrushConverter}}"
-                    BorderBrush="{Binding AccentHex, Converter={StaticResource HexColorToBrushConverter}}"
-                    BorderThickness="2"
-                    Margin="4,0" />
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
-    </StackPanel>
+                  <TextBlock Text="{Binding Title}"
+                             Classes="gameTitle"
+                             TextWrapping="Wrap"
+                             TextAlignment="Center"
+                             VerticalAlignment="Center"
+                             HorizontalAlignment="Center"
+                             Margin="8"
+                             IsVisible="{Binding ShowEmptyCarouselPlaceholder}" />
 
-  </Grid>
+                  <TextBlock Text="★"
+                             Foreground="{DynamicResource AccentBrush}"
+                             FontSize="16"
+                             HorizontalAlignment="Right"
+                             VerticalAlignment="Bottom"
+                             Margin="6"
+                             IsVisible="{Binding IsFavorite}" />
+
+                  <Border Background="{Binding PlatformBadgeColorHex, Converter={StaticResource HexColorToBrushConverter}}"
+                          CornerRadius="4"
+                          Padding="4,1"
+                          HorizontalAlignment="Right"
+                          VerticalAlignment="Top"
+                          Margin="6"
+                          IsVisible="{Binding HasPlatformBadge}">
+                    <TextBlock Text="{Binding PlatformBadgeText}" FontSize="9" FontWeight="Bold" Foreground="White" />
+                  </Border>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+
+      <!-- Nome do jogo em foco, sobre o fundo claro. Texto escuro fixo
+           porque o véu branco acima garante fundo claro em qualquer paleta
+           — usar a cor de texto do tema deixaria branco-no-branco nos
+           temas escuros. -->
+      <TextBlock Grid.Row="0"
+                 Text="{Binding SelectedTile.Title}"
+                 Foreground="#1A1A1A"
+                 FontSize="24"
+                 FontWeight="SemiBold"
+                 HorizontalAlignment="Center"
+                 VerticalAlignment="Bottom"
+                 Margin="24,0,24,8"
+                 MaxWidth="900"
+                 TextWrapping="NoWrap"
+                 TextTrimming="CharacterEllipsis"
+                 IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}" />
+
+      <TextBlock Grid.Row="0"
+                 Text="Nenhum jogo encontrado ainda.&#10;Adicione um jogo manualmente para começar."
+                 Foreground="#4A4A4A"
+                 TextWrapping="Wrap"
+                 TextAlignment="Center"
+                 VerticalAlignment="Center"
+                 HorizontalAlignment="Center"
+                 Margin="24"
+                 IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
+
+      <!-- ===== MENU EMBAIXO: abas + subfiltros (mantidos como estavam) ===== -->
+      <StackPanel Grid.Row="1" Spacing="6" Margin="0,12,0,0">
+        <Grid ColumnDefinitions="*,*,*,*,*,*">
+          <Button Grid.Column="0" Classes="pill filterTab" Classes.active="{Binding IsFilterFavoritesActive}" Content="Favoritos" Command="{Binding SetFilterFavoritesCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,4,0" Padding="6,5" FontSize="11" />
+          <Button Grid.Column="1" Classes="pill filterTab" Classes.active="{Binding IsFilterAllActive}" Content="Todos" Command="{Binding SetFilterAllCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0" Padding="6,5" FontSize="11" />
+          <Button Grid.Column="2" Classes="pill filterTab" Classes.active="{Binding IsFilterComputerActive}" Content="Computador" Command="{Binding SetFilterComputerCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0" Padding="6,5" FontSize="11" />
+          <Button Grid.Column="3" Classes="pill filterTab" Classes.active="{Binding IsFilterEmulatorsActive}" Content="Emuladores" Command="{Binding SetFilterEmulatorsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0" Padding="6,5" FontSize="11" />
+          <Button Grid.Column="4" Classes="pill filterTab" Classes.active="{Binding IsFilterApplicationsActive}" Content="Programas" Command="{Binding SetFilterApplicationsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0" Padding="6,5" FontSize="11" />
+          <Button Grid.Column="5" Classes="pill filterTab" Classes.active="{Binding IsFilterNotInstalledActive}" Content="Não instalados" Command="{Binding SetFilterNotInstalledCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0,0,0" Padding="6,5" FontSize="11" />
+        </Grid>
+
+        <ItemsControl ItemsSource="{Binding SubFilters}" IsVisible="{Binding HasSubFilters}" HorizontalAlignment="Center">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:SubFilterViewModel">
+              <Button Classes="pill subFilter"
+                      Classes.cursor="{Binding IsCursor}"
+                      Content="{Binding Label}"
+                      Click="OnSubFilterClick"
+                      Background="{Binding BackgroundHex, Converter={StaticResource HexColorToBrushConverter}}"
+                      Foreground="{Binding ForegroundHex, Converter={StaticResource HexColorToBrushConverter}}"
+                      BorderBrush="{Binding AccentHex, Converter={StaticResource HexColorToBrushConverter}}"
+                      BorderThickness="2"
+                      Margin="4,0" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+
+    </Grid>
+  </Panel>
 </UserControl>

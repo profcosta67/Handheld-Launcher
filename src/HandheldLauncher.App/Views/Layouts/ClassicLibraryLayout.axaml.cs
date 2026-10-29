@@ -34,6 +34,9 @@ public partial class ClassicLibraryLayout : UserControl, ILibraryLayout
     /// <summary>Este layout tem os dois modos (fileira horizontal e grade vertical), como sempre teve.</summary>
     bool ILibraryLayout.SupportsVerticalGrid => true;
 
+    /// <summary>Scroll mínimo, como sempre foi — ver ILibraryLayout.CentersSelection.</summary>
+    bool ILibraryLayout.CentersSelection => false;
+
     // Handler de XAML tem que existir na classe do próprio arquivo, então
     // estes três moraram pra cá junto com as tiles. São só repasse: a
     // lógica continua na MainWindow (ver HandleTilePointerPressed lá pro

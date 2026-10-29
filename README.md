@@ -261,6 +261,51 @@ mais sentido de risco crescente):
      lançar o tema propriamente dito." Fica pra quando o resto desta fila
      estiver fechado, como um projeto dedicado.
 
+     **SEGUNDA ETAPA, v0.9.21** — retorno do primeiro teste do usuário:
+     - Hero com caixa própria SAIU do tema Switch; a arte do jogo em foco
+       virou o FUNDO da tela (desfoque leve + véu branco `#E8FFFFFF`),
+       pedido dele: "o banner ficaria como tela de fundo com uma
+       transparência e filtro branco pra remeter aquele fundo branco do
+       Switch". HeroImage/HeroBackImage continuam sendo esse par, então a
+       transição suave entre jogos segue funcionando sem código novo.
+     - Capas voltaram à proporção **capsule** (eram quadradas) — "para não
+       danificar as artes da capa" — e foram pro MEIO vertical da tela.
+       `SquareTile*` virou `CarouselTile*` em GameTileViewModel.
+     - **Roleta com arco**: `GameTileViewModel.CarouselDistance` (atualizada
+       em `MainViewModel.UpdateFocus`, único ponto que sabe da troca de
+       seleção) é a ÚNICA entrada; dela derivam `CarouselScale`,
+       `CarouselOffsetY` (quadrático, pra ser arco e não rampa),
+       `CarouselOpacity` e `CarouselZIndex`. Distância com teto de 4
+       posições, senão as pontas de uma biblioteca grande viravam riscos
+       minúsculos. Usa RenderTransform (não layout), então a capa em foco
+       cresce POR CIMA das vizinhas sem a fileira pular a cada navegação.
+     - Suavização vai nas Transitions de CADA transform, não num
+       `TransformOperationsTransition` no RenderTransform do Border: esse
+       tipo interpola a sintaxe de TEXTO de transformação, não um
+       TransformGroup montado com objetos. (Não deu pra compilar/testar
+       aqui — escolha pelo caminho documentado como suportado.)
+     - `ILibraryLayout.CentersSelection`: o Switch centraliza sempre a capa
+       em foco (é o que faz a roleta); o Clássico segue com scroll mínimo.
+     - **Stretch Uniform** no banner e nas capas dos dois layouts (era
+       UniformToFill, que preenche e corta) — pedido dele: "o ideal é que
+       as imagens se ajustem ao quadro sem dar zoom". O fundo desfocado de
+       tela cheia segue UniformToFill de propósito.
+     - **Seletor de layout** virou telinha própria com confirmação e
+       reinício automático (`LayoutPickerWindow` + `LauncherRestart`), em
+       vez do ComboBox que ele achou confuso. O reinício precisou de
+       cuidado: existe trava de instância única por mutex, então o processo
+       novo nasce com `--relaunch-after <pid>` e espera o antigo morrer
+       ANTES de disputar o mutex (sem isso o "reiniciar" cairia no
+       NotifyExistingInstance e não reiniciaria nada, em silêncio). Se o
+       processo novo não puder ser aberto, NÃO fecha o launcher.
+     - **Bug reportado: Reiniciar/Desligar o aparelho não funcionam.**
+       Caminho menu → confirmação → evento revisado e correto; o
+       `RunShutdownExe` engolia a exceção sem log, que é por que nunca
+       houve informação. Agora usa caminho completo do shutdown.exe (PATH
+       diferente no contexto da instalação explicaria o sintoma), tem plano
+       B via shell, e registra chamada/exit code/stderr no debug.log.
+       **Causa ainda não confirmada** — depende do log dele.
+
      **PRIMEIRA ETAPA FEITA NA v0.9.20** — tema de layout Switch, a tela
      da biblioteca:
      - **Arquitetura escolhida**: trocar só a ÁREA DE CONTEÚDO dentro da

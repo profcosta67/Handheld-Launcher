@@ -1,4 +1,6 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
@@ -223,6 +225,37 @@ public partial class SettingsWindow : Window
         }
 
         return string.Join(" · ", parts) + ".";
+    }
+
+    /// <summary>
+    /// v0.9.21: abre o seletor de layout, e se o usuário confirmar, salva
+    /// TODAS as configurações da tela (não só o layout — ele pode ter
+    /// mexido em outras coisas antes de clicar aqui, e perder isso num
+    /// reinício seria péssimo) e reinicia o launcher.
+    ///
+    /// <para>
+    /// Se o reinício não puder ser iniciado, NÃO fecha o launcher: avisa
+    /// que a troca vale na próxima abertura. Fechar sem ter conseguido
+    /// abrir a instância nova deixaria o usuário na tela do Windows sem
+    /// launcher nenhum — ver LauncherRestart.TryStartReplacement.
+    /// </para>
+    /// </summary>
+    private async void OnPickLayoutClick(object? sender, RoutedEventArgs e)
+    {
+        var dialog = new LayoutPickerWindow(ViewModel.LayoutThemeIndex);
+        var apply = await dialog.ShowDialog<bool>(this);
+        if (!apply) return;
+
+        ViewModel.LayoutThemeIndex = dialog.SelectedLayout;
+        ViewModel.SaveTo(_settings);
+
+        if (LauncherRestart.TryStartReplacement())
+        {
+            (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown();
+            return;
+        }
+
+        ViewModel.UpdateResultText = "Layout salvo, mas não deu pra reiniciar sozinho — feche e abra o launcher para aplicar.";
     }
 
     private void OnKeyboardClick(object? sender, RoutedEventArgs e)

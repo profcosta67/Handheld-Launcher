@@ -50,4 +50,14 @@ internal interface ILibraryLayout
     /// por natureza, então a MainWindow não tenta trocar o ItemsPanel dele.
     /// </summary>
     bool SupportsVerticalGrid { get; }
+
+    /// <summary>
+    /// True = a capa em foco deve ficar SEMPRE centralizada na tela, com a
+    /// fileira correndo por baixo dela (a roleta do tema Switch, v0.9.21).
+    /// False = traz pra área visível com o movimento mínimo, que é o
+    /// comportamento do Clássico — ali a capa em foco pode ficar em
+    /// qualquer ponto da fileira, e recentralizar a cada passo deixaria a
+    /// tela inquieta. Ver MainWindow.ScrollSelectionIntoViewNow.
+    /// </summary>
+    bool CentersSelection { get; }
 }

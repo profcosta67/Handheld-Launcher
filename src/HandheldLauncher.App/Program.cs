@@ -52,6 +52,13 @@ internal static class Program
             return;
         }
 
+        // v0.9.21: aberto por um "reiniciar o launcher" (seletor de layout)
+        // — espera o processo anterior morrer ANTES de disputar o mutex.
+        // Sem isto, o reinício perderia a disputa, cairia no
+        // NotifyExistingInstance abaixo e não reiniciaria nada. Ver
+        // LauncherRestart.
+        LauncherRestart.WaitForPreviousInstance(args);
+
         if (!SingleInstance.TryAcquire())
         {
             SingleInstance.NotifyExistingInstance();

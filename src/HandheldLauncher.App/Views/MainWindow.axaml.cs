@@ -454,20 +454,76 @@ public partial class MainWindow : Window
     /// <summary>`shutdown /s /t 0` — immediate shutdown, same no-confirmation caveat as RestartDevice.</summary>
     private static void ShutdownDevice() => RunShutdownExe("/s /t 0");
 
+    /// <summary>
+    /// BUG REPORTADO v0.9.21: "os botões reiniciar e desligar aparelho
+    /// ainda não estão funcionando". O caminho até aqui (menu → confirmação
+    /// → evento) foi revisado linha por linha e está correto, então o
+    /// problema está nesta chamada — e a versão anterior deste método
+    /// ENGOLIA a exceção sem registrar nada, que é justamente por que
+    /// nunca houve informação nenhuma sobre a falha.
+    ///
+    /// <para>
+    /// Três mudanças, todas pensadas pra esse caso:
+    /// </para>
+    /// <list type="bullet">
+    /// <item><b>Caminho completo</b> (%SystemRoot%\System32\shutdown.exe)
+    /// em vez de depender do PATH. Um PATH diferente no contexto da
+    /// instalação (ou de uma abertura pelo Agendador de Tarefas) explicaria
+    /// exatamente o sintoma: nada acontece, sem erro visível.</item>
+    /// <item><b>Registra tudo no debug.log</b> — o que foi chamado, o
+    /// código de saída e a saída de erro do shutdown.exe. Se ainda falhar,
+    /// o log diz o motivo em vez de a gente adivinhar de novo.</item>
+    /// <item><b>Plano B com UseShellExecute=true</b> se a chamada direta
+    /// falhar.</item>
+    /// </list>
+    /// </summary>
     private static void RunShutdownExe(string arguments)
     {
+        var systemRoot = Environment.GetFolderPath(Environment.SpecialFolder.System);
+        var fullPath = Path.Combine(systemRoot, "shutdown.exe");
+        var exe = File.Exists(fullPath) ? fullPath : "shutdown.exe";
+
+        DebugLog.Write($"RunShutdownExe: '{exe}' {arguments}");
+
         try
         {
-            var psi = new System.Diagnostics.ProcessStartInfo("shutdown.exe", arguments)
+            var psi = new System.Diagnostics.ProcessStartInfo(exe, arguments)
             {
                 CreateNoWindow = true,
                 UseShellExecute = false,
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
             };
-            System.Diagnostics.Process.Start(psi);
+
+            using var process = System.Diagnostics.Process.Start(psi);
+            if (process is null)
+            {
+                DebugLog.Write("RunShutdownExe: Process.Start devolveu null.");
+                return;
+            }
+
+            var stderr = process.StandardError.ReadToEnd();
+            var stdout = process.StandardOutput.ReadToEnd();
+            process.WaitForExit(5000);
+
+            DebugLog.Write($"RunShutdownExe: exit={process.ExitCode} stdout='{stdout.Trim()}' stderr='{stderr.Trim()}'");
         }
-        catch
+        catch (Exception ex)
         {
-            // Best-effort — never let this crash the app.
+            DebugLog.Write($"RunShutdownExe EXCEPTION ({exe}): {ex.Message} — tentando via shell.");
+
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe, arguments)
+                {
+                    UseShellExecute = true,
+                    CreateNoWindow = true,
+                });
+            }
+            catch (Exception shellEx)
+            {
+                DebugLog.Write($"RunShutdownExe FALHOU também via shell: {shellEx.Message}");
+            }
         }
     }
 
@@ -1219,6 +1275,19 @@ public partial class MainWindow : Window
                 var bottom = p.Y + container.Bounds.Height + 12;
                 if (top < offset.Y) GameRowScrollViewer.Offset = new Vector(offset.X, Math.Max(0, top));
                 else if (bottom > offset.Y + viewport.Height) GameRowScrollViewer.Offset = new Vector(offset.X, bottom - viewport.Height);
+            }
+            else if (_libraryLayout.CentersSelection)
+            {
+                // v0.9.21, roleta do tema Switch: a capa em foco fica SEMPRE
+                // no centro da tela, e é a fileira que corre por baixo dela
+                // — é isso que dá a sensação de roleta. Diferente do
+                // Clássico abaixo, que só traz pra dentro da área visível
+                // com o movimento mínimo (lá a capa em foco pode estar em
+                // qualquer ponto da fileira, e empurrar a fileira a cada
+                // passo seria inquieto).
+                var target = p.X + container.Bounds.Width / 2 - viewport.Width / 2;
+                var maxOffset = Math.Max(0, GameRowScrollViewer.Extent.Width - viewport.Width);
+                GameRowScrollViewer.Offset = new Vector(Math.Clamp(target, 0, maxOffset), offset.Y);
             }
             else
             {

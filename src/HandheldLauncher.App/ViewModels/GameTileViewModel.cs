@@ -215,33 +215,85 @@ public sealed class GameTileViewModel : ViewModelBase
     /// </summary>
     public string? TileImagePath => IsLastPlayed ? Game.WideGridImagePath : GridImagePath;
 
-    // --- Três propriedades só pro tema de layout Switch (v0.9.20) ---
+    // --- Propriedades da ROLETA do tema de layout Switch ---
     //
     // Existem porque as de cima são, por desenho, do layout Clássico: ele
-    // tem a WIDE CAPSULE do "último jogo aberto", que é larga (580) e usa
-    // uma arte landscape própria. Na fileira de ÍCONES QUADRADOS do tema
-    // Switch isso dá dois defeitos: o quadrado do último jogo aberto sairia
-    // 580x580 (gigante, quebrando a fileira), e a arte landscape ficaria
-    // cortada nas laterais dentro de um quadrado.
+    // tem a WIDE CAPSULE do "último jogo aberto", larga (580) e com arte
+    // landscape própria. Na roleta do tema Switch a fileira é UNIFORME —
+    // uma capa destoando do tamanho quebraria o arco — e o jogo em foco já
+    // é destacado pelo zoom, não pelo tamanho da caixa.
     //
-    // Então o tema Switch usa as três abaixo, que ignoram IsLastPlayed de
-    // propósito: lá a fileira é uniforme, sem destaque de tamanho (o jogo em
-    // foco já é destacado pelo palco grande em cima).
+    // v0.9.21: eram quadradas (SquareTile*); o usuário pediu "tamanho do
+    // capsule original para não danificar as artes da capa", então voltaram
+    // à proporção retrato de sempre.
 
-    /// <summary>Lado do quadrado na fileira do tema Switch — segue "Tamanho das capas", sem o caso especial do último jogo aberto.</summary>
-    public double SquareTileSize => 220 * SizeScale;
+    /// <summary>Largura da capa na roleta — a capsule normal, sem o caso especial do último jogo aberto.</summary>
+    public double CarouselTileWidth => 220 * SizeScale;
+
+    /// <summary>Altura da capa na roleta — mesma proporção da capsule clássica.</summary>
+    public double CarouselTileHeight => 290 * SizeScale;
 
     /// <summary>
-    /// Arte do quadrado: a capa retrato normal. Cai pra landscape só se a
-    /// retrato não existir — melhor uma arte cortada do que um bloco vazio
-    /// (ao contrário do Clássico, onde cair pra outra arte era justamente o
-    /// bug que estava sendo corrigido, porque lá ela seria ESTICADA; aqui
-    /// UniformToFill corta sem distorcer).
+    /// Arte da capa na roleta: a retrato normal, caindo pra landscape só
+    /// se a retrato não existir (melhor uma arte em proporção errada do que
+    /// um bloco vazio — e com Stretch=Uniform ela aparece inteira, sem
+    /// esticar nem cortar).
     /// </summary>
-    public string? SquareTileImagePath => GridImagePath ?? Game.WideGridImagePath;
+    public string? CarouselTileImagePath => GridImagePath ?? Game.WideGridImagePath;
 
-    /// <summary>Sem arte nenhuma pro quadrado — mostra o nome dentro dele, pra não ficar um bloco vazio.</summary>
-    public bool ShowEmptySquarePlaceholder => string.IsNullOrEmpty(SquareTileImagePath);
+    /// <summary>Sem arte nenhuma — mostra o nome dentro da caixa, pra não ficar um bloco vazio.</summary>
+    public bool ShowEmptyCarouselPlaceholder => string.IsNullOrEmpty(CarouselTileImagePath);
+
+    private int _carouselDistance;
+
+    /// <summary>
+    /// Posições de distância até o jogo em foco, COM SINAL (-2 = duas à
+    /// esquerda, +3 = três à direita, 0 = é o foco). Atualizada por
+    /// MainViewModel.UpdateFocus. É a única entrada da roleta: tudo abaixo
+    /// é derivado dela.
+    /// </summary>
+    public int CarouselDistance
+    {
+        get => _carouselDistance;
+        set
+        {
+            if (SetField(ref _carouselDistance, value))
+            {
+                OnPropertyChanged(nameof(CarouselScale));
+                OnPropertyChanged(nameof(CarouselOffsetY));
+                OnPropertyChanged(nameof(CarouselOpacity));
+                OnPropertyChanged(nameof(CarouselZIndex));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Quantas posições longe do foco, com teto — passando disso a capa
+    /// não encolhe nem desce mais, senão as pontas de uma biblioteca grande
+    /// viravam riscos minúsculos lá embaixo.
+    /// </summary>
+    private int ClampedDistance => Math.Min(Math.Abs(_carouselDistance), 4);
+
+    /// <summary>
+    /// Zoom: a do meio vem "pra frente da tela" (1.18) e as vizinhas vão
+    /// encolhendo. Como isto é RenderTransform (não layout), a capa em foco
+    /// cresce POR CIMA das vizinhas sem empurrar a fileira — é o que dá o
+    /// efeito de profundidade sem a fileira "pular" a cada navegação.
+    /// </summary>
+    public double CarouselScale => 1.18 - ClampedDistance * 0.14;
+
+    /// <summary>
+    /// O arco: quanto mais longe do foco, mais a capa desce. Quadrático de
+    /// propósito — linear dá uma rampa reta, e o que o usuário pediu foi
+    /// "aspecto de arco".
+    /// </summary>
+    public double CarouselOffsetY => ClampedDistance * ClampedDistance * 5.0;
+
+    /// <summary>As pontas desbotam, reforçando a profundidade sem escondê-las.</summary>
+    public double CarouselOpacity => 1.0 - ClampedDistance * 0.14;
+
+    /// <summary>A capa em foco desenha por cima das vizinhas — sem isto o zoom dela ficaria recortado pelas de depois na ordem da fileira.</summary>
+    public int CarouselZIndex => 100 - ClampedDistance;
 
     private bool _isFocused;
     public bool IsFocused

@@ -2422,6 +2422,12 @@ public sealed class MainViewModel : ViewModelBase
         for (var i = 0; i < Games.Count; i++)
         {
             Games[i].IsFocused = i == _selectedIndex;
+            // v0.9.21: distância (com sinal) até o jogo em foco — é dela
+            // que saem zoom, deslocamento do arco e opacidade de cada
+            // capa na roleta do tema Switch. Calculada aqui, num lugar só,
+            // porque é o único ponto que sabe quando a seleção muda; o
+            // layout Clássico simplesmente ignora essas propriedades.
+            Games[i].CarouselDistance = i - _selectedIndex;
         }
     }
 

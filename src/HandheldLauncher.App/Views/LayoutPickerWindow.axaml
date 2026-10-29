@@ -1,0 +1,59 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="HandheldLauncher.App.Views.LayoutPickerWindow"
+        Title="Layout da tela"
+        Width="520" Height="420"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BackgroundBrush}">
+
+  <!--
+    v0.9.21, pedido do usuário: "acho que ficou complicado a mudança, acho
+    que deveria vir em configurações / layout aí abrir uma tela popup com
+    as duas opções selecionar uma delas e pedir pra confirmar, confirmando
+    já reinicia o Launcher".
+
+    Antes era um ComboBox perdido no meio da aba Aparência, e o usuário
+    tinha que descobrir sozinho que precisava fechar e abrir o launcher pra
+    ver efeito. Aqui a escolha é explícita, a consequência está escrita no
+    botão ("Aplicar e reiniciar") e o reinício acontece sozinho (ver
+    Platform/LauncherRestart).
+
+    Sem ViewModel própria: são duas opções e nenhuma regra.
+  -->
+
+  <Grid RowDefinitions="Auto,*,Auto" Margin="24">
+    <TextBlock Grid.Row="0"
+               Text="Escolha o layout da tela principal"
+               Classes="subtle"
+               TextWrapping="Wrap"
+               Margin="0,0,0,16" />
+
+    <StackPanel Grid.Row="1" Spacing="16">
+      <RadioButton x:Name="ClassicOption" GroupName="Layout" IsChecked="True">
+        <StackPanel Spacing="4">
+          <TextBlock Text="Clássico" FontWeight="SemiBold" />
+          <TextBlock Text="Banner grande em cima, abas de filtro no meio e as capas embaixo. Permite grade vertical."
+                     Classes="subtle" FontSize="11" TextWrapping="Wrap" MaxWidth="400" />
+        </StackPanel>
+      </RadioButton>
+
+      <RadioButton x:Name="SwitchOption" GroupName="Layout">
+        <StackPanel Spacing="4">
+          <TextBlock Text="Switch" FontWeight="SemiBold" />
+          <TextBlock Text="A arte do jogo em foco vira o fundo da tela, com filtro branco. As capas ficam centralizadas numa roleta horizontal, com a do meio ampliada, e os filtros no pé da tela."
+                     Classes="subtle" FontSize="11" TextWrapping="Wrap" MaxWidth="400" />
+        </StackPanel>
+      </RadioButton>
+    </StackPanel>
+
+    <StackPanel Grid.Row="2" Spacing="10" Margin="0,16,0,0">
+      <TextBlock Text="O launcher vai fechar e abrir sozinho para aplicar. Nenhum jogo aberto é fechado por isso, mas evite trocar com um jogo rodando."
+                 Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+        <Button Classes="pill" Content="Cancelar" Click="OnCancelClick" />
+        <Button Classes="pill primary" Content="Aplicar e reiniciar" Click="OnApplyClick" />
+      </StackPanel>
+    </StackPanel>
+  </Grid>
+</Window>

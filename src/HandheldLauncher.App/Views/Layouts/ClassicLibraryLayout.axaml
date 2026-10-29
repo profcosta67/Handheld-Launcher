@@ -50,10 +50,22 @@
                  ANTERIOR por baixo enquanto a nova (HeroImage) aparece por
                  cima com fade (MainWindow.OnHeroImageChanged). Assim não
                  "pisca" escuro entre um jogo e outro. -->
-            <Image x:Name="HeroBackImage" Stretch="UniformToFill" IsHitTestVisible="False" />
+            <!-- v0.9.21, pedido do usuário ("o ideal é que as imagens se
+                 ajustem ao quadro sem dar zoom; percebo que tem cortado
+                 algumas imagens, do hero principalmente"): Stretch
+                 UniformToFill -> Uniform aqui e nas tiles. UniformToFill
+                 PREENCHE a caixa e corta o que sobra — num banner largo
+                 exibindo uma capa retrato (quando o jogo não tem arte de
+                 hero própria) isso cortava quase tudo. Uniform cabe a
+                 imagem inteira; o preço é sobrar fundo nas laterais
+                 quando a proporção não bate, o que ele preferiu a cortar.
+                 O fundo desfocado de tela cheia (MainWindow.axaml)
+                 continua UniformToFill de propósito: ali o papel é
+                 justamente cobrir a tela toda. -->
+            <Image x:Name="HeroBackImage" Stretch="Uniform" IsHitTestVisible="False" />
             <Image x:Name="HeroImage"
                    Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
-                   Stretch="UniformToFill" />
+                   Stretch="Uniform" />
 
             <!-- Placeholder enquanto não tem hero/capa nenhuma ainda (pre-SteamGridDB) -->
             <TextBlock Text="{Binding SelectedTile.Title}"
@@ -277,7 +289,7 @@
                         DoubleTapped="OnTileDoubleTapped">
                   <Grid>
                     <Image Source="{Binding TileImagePath, Converter={StaticResource FileToBitmapConverter}}"
-                           Stretch="UniformToFill" />
+                           Stretch="Uniform" />
 
                     <!-- Jogo não instalado (aba "Não instalados"): véu cinza
                          por cima da capa pra diferenciar dos instalados —

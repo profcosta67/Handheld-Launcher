@@ -361,7 +361,32 @@ public sealed class SettingsViewModel : ViewModelBase
     /// esqueleto da tela inteiro.
     /// </para>
     /// </summary>
-    public int LayoutThemeIndex { get => _layoutThemeIndex; set => SetField(ref _layoutThemeIndex, value); }
+    public int LayoutThemeIndex
+    {
+        get => _layoutThemeIndex;
+        set
+        {
+            if (SetField(ref _layoutThemeIndex, value))
+            {
+                OnPropertyChanged(nameof(LayoutThemeButtonText));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Texto do botão que abre o seletor de layout (v0.9.21) — mostra o que
+    /// está ativo AGORA, pra a tela de Configurações responder a pergunta
+    /// "qual layout estou usando?" sem precisar abrir a telinha.
+    /// </summary>
+    public string LayoutThemeButtonText
+    {
+        get
+        {
+            var names = HandheldLauncher.App.Platform.ThemeManager.LayoutThemeNames;
+            var index = Math.Clamp(_layoutThemeIndex, 0, names.Length - 1);
+            return $"{names[index]}  —  toque para trocar";
+        }
+    }
 
     private int _tileSizeIndex = 1;
     public int TileSizeIndex { get => _tileSizeIndex; set => SetField(ref _tileSizeIndex, value); }

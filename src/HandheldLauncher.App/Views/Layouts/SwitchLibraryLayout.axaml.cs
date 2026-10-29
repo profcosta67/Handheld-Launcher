@@ -40,6 +40,9 @@ public partial class SwitchLibraryLayout : UserControl, ILibraryLayout
     /// </summary>
     bool ILibraryLayout.SupportsVerticalGrid => false;
 
+    /// <summary>A roleta vive disso: a capa em foco no centro, a fileira correndo por baixo.</summary>
+    bool ILibraryLayout.CentersSelection => true;
+
     // Mesmos repasses do ClassicLibraryLayout — ver comentário lá.
     private MainWindow? Owner => TopLevel.GetTopLevel(this) as MainWindow;
 
