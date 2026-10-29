@@ -155,6 +155,14 @@ mais sentido de risco crescente):
      parecido. Daria pra ter uns presets prontos nessa curva. Precisa
      confirmar que isso não baguna o HDR/perfil de cor das telas OLED do
      Legion Go 2/ROG Ally antes de virar padrão.
+   - **Volume dos sons de interação um pouco alto** (reportado pelo
+     usuário testando a v0.9.12 no volume máximo do aparelho: "dá aquela
+     estourada, fica um pouco desconfortável"). Fica pra quando entrar o
+     tema inspirado no Nintendo Switch (item 5, próximo item da fila) —
+     bom momento pra também
+     adicionar um controle de volume próprio dos sons de interação em
+     Configurações → Aparência (hoje é só ligado/desligado), em vez de só
+     baixar o nível fixo no código.
 
 ## Status atual
 
