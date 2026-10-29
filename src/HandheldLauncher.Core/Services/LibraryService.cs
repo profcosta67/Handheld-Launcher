@@ -6,7 +6,7 @@ public sealed class LibraryService : ILibraryService
 {
     private readonly ISteamLibraryScanner _steamScanner;
     private readonly IXboxFolderScanner? _xboxFolderScanner;
-    private readonly IEpicLibraryScanner? _epicScanner;
+    private readonly IReadOnlyList<IStoreLibraryScanner> _storeScanners;
     private readonly ISteamOwnedGamesClient? _steamOwnedGamesClient;
     private readonly IGameLibraryStore _store;
     private List<GameEntry> _games = new();
@@ -22,12 +22,12 @@ public sealed class LibraryService : ILibraryService
         IGameLibraryStore store,
         IXboxFolderScanner? xboxFolderScanner = null,
         ISteamOwnedGamesClient? steamOwnedGamesClient = null,
-        IEpicLibraryScanner? epicScanner = null)
+        IReadOnlyList<IStoreLibraryScanner>? storeScanners = null)
     {
         _steamScanner = steamScanner;
         _store = store;
         _xboxFolderScanner = xboxFolderScanner;
-        _epicScanner = epicScanner;
+        _storeScanners = storeScanners ?? Array.Empty<IStoreLibraryScanner>();
         _steamOwnedGamesClient = steamOwnedGamesClient;
         Refresh();
     }
@@ -95,11 +95,24 @@ public sealed class LibraryService : ILibraryService
         // locais (ver EpicLibraryScanner). Mesmo dedup do Xbox: se o
         // usuário já tinha adicionado o jogo à mão (mesmo .exe), mantém o
         // manual (favorito/capas escolhidas) e pula o da Epic.
-        if (_epicScanner is not null)
+        // v0.9.3: o mesmo laço vale pra todas as lojas (Epic, GOG, EA,
+        // Ubisoft). Cada scanner é isolado: se um falhar, os outros seguem.
+        foreach (var scanner in _storeScanners)
         {
-            foreach (var game in _epicScanner.ScanInstalledGames())
+            IReadOnlyList<GameEntry> scanned;
+            try
             {
-                if (merged.Any(existing => ExecutablePathsMatch(existing.ExecutablePath, game.ExecutablePath)))
+                scanned = scanner.ScanInstalledGames();
+            }
+            catch
+            {
+                continue;
+            }
+
+            foreach (var game in scanned)
+            {
+                if (merged.Any(existing => ExecutablePathsMatch(existing.ExecutablePath, game.ExecutablePath)
+                                           || SameFolder(existing.InstallDirectory, game.InstallDirectory)))
                 {
                     continue;
                 }
@@ -123,6 +136,26 @@ public sealed class LibraryService : ILibraryService
     /// "bate" com nada, pra não tratar dois jogos sem ExecutablePath como
     /// duplicados um do outro.
     /// </summary>
+    /// <summary>
+    /// Mesma pasta de instalação = mesmo jogo (v0.9.3) — evita, por exemplo,
+    /// um jogo da EA comprado na Steam aparecer duas vezes (Steam + EA).
+    /// </summary>
+    private static bool SameFolder(string? a, string? b)
+    {
+        if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b)) return false;
+        try
+        {
+            return string.Equals(
+                Path.GetFullPath(a).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                Path.GetFullPath(b).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private static bool ExecutablePathsMatch(string? a, string? b)
     {
         if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b)) return false;

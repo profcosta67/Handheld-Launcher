@@ -3,7 +3,8 @@ using HandheldLauncher.Core.Models;
 
 namespace HandheldLauncher.Core.Services;
 
-public interface IEpicLibraryScanner
+/// <summary>Uma loja/plataforma cujos jogos INSTALADOS o launcher lê sozinho (Epic, GOG, EA, Ubisoft...).</summary>
+public interface IStoreLibraryScanner
 {
     IReadOnlyList<GameEntry> ScanInstalledGames();
 }
@@ -22,7 +23,7 @@ public interface IEpicLibraryScanner
 /// do DRM e das atualizações; abrir o .exe direto costuma falhar nos jogos
 /// da Epic justamente por falta dessa autenticação.
 /// </summary>
-public sealed class EpicLibraryScanner : IEpicLibraryScanner
+public sealed class EpicLibraryScanner : IStoreLibraryScanner
 {
     private readonly string _manifestsDir;
 

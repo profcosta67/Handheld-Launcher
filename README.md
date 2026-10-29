@@ -743,6 +743,26 @@ Ainda **não** feito:
 15. ~~Tela de configuração pra `SteamWebApiKey`/`SteamId64`~~ — **feito
     numa leva posterior**, junto do item 5 (mesma `SettingsWindow`).
 
+## Mais lojas — v0.9.3
+
+**Nunca testado num aparelho ainda.** Mesmo princípio da Epic: só instalados,
+lidos do que cada loja registra no Windows, sem login/senha
+(`Core/Services/RegistryStoreScanners.cs`, interface `IStoreLibraryScanner`
+que a Epic também usa agora; cada scanner isolado num try/catch):
+
+- **GOG**: `HKLM\SOFTWARE\GOG.com\Games\<id>` (32/64 bits) — `gameName`,
+  `exe`, `path`, `workingDir`, `launchParam`; pula DLC (`dependsOn`). Abre pelo
+  .exe (sem DRM).
+- **Ubisoft Connect**: `HKLM\SOFTWARE\Ubisoft\Launcher\Installs\<id>\InstallDir`;
+  título = nome da pasta (o registro não tem nome); abre por `uplay://launch/<id>/0`.
+- **EA app (experimental)**: não há índice aberto do EA app — usa as entradas
+  "Programas instalados" (Uninstall) com Publisher "Electronic Arts",
+  `InstallLocation` e um `.exe` em `DisplayIcon`; abre por esse .exe (o jogo
+  chama o EA app). Pode não achar alguns jogos.
+- **Dedup**: além do mesmo .exe, mesma pasta de instalação conta como o mesmo
+  jogo (evita EA-na-Steam duplicado). Aba Oficiais inclui todas as lojas; Não
+  Steam = só manuais/emuladores.
+
 ## Mouse e teclado no modo Desktop — v0.9.2
 
 **Confirmado funcionando no PC pelo usuário** (checklist de 10 itens, todos ok).

@@ -10,5 +10,8 @@ public enum GameSource
     Manual,
     XboxApp,
     EpicGames,
+    Gog,
+    EaApp,
+    Ubisoft,
     Emulator,
 }
