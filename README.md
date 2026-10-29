@@ -26,6 +26,12 @@ planejar as próximas levas antes de sair codando tudo de uma vez. Ordem
 combinada (ele não tinha preferência forte, então ficou a ordem que faz
 mais sentido de risco crescente):
 
+0. ~~Organização da interface (menu em subpastas, Power, Downloads com
+   velocidade, capas cinza, ícone no seletor)~~ — **v0.5.0**, ver seção própria.
+   **Próximos lotes combinados**: v0.6.0 visual (temas, transições, tamanho
+   de ícone, zoom no selecionado); depois HUD 2 (temperatura — pesquisar
+   caminho sem driver bloqueado; mini gráfico de frametime); mais pra
+   frente: login Steam, pasta de instalação, Modo Xbox/"Sair" no Legion.
 1. ~~Reorganizar as abas da biblioteca~~ — **feito nesta leva**, ver
    "Status atual" mais abaixo pros detalhes (Favoritos/Todos/Oficiais/Não
    Steam/Não instalados). **Nunca testado num build real.**
@@ -695,6 +701,28 @@ Ainda **não** feito:
     mais abaixo) — isso continua manual, sem automação.
 15. ~~Tela de configuração pra `SteamWebApiKey`/`SteamId64`~~ — **feito
     numa leva posterior**, junto do item 5 (mesma `SettingsWindow`).
+
+## Organização da interface — v0.5.0
+
+**Nunca testado num aparelho ainda.**
+
+- **Menu em subpastas** (View/Back ou ⚙): raiz com **Biblioteca ›**, **HUD de
+  desempenho ›**, **Configurações ›** e **Power ›**; soltos no topo só
+  "Reiniciar pra atualizar" e "Fechar: <jogo>" quando existem. B volta pra
+  raiz, View fecha. O botão ⏻ abre direto na página Power (o menu Power
+  separado antigo ficou sem uso — `BuildPowerMenu` é código morto).
+- **Power**: Ir para a área de trabalho (esconde na bandeja +
+  `Shell.Application.MinimizeAll`; processo continua vivo, a tarefa do modo
+  Handheld não reabre), Minimizar, Desligar tela, Reiniciar, Desligar, Sair.
+- **HUD ›**: escolhe o preset direto (● marca o atual) + estado do RTSS.
+- **Downloads (Y)**: só downloads em andamento, com %, barra, **MB/s e tempo
+  restante** (velocidade = diferença do `.acf` entre leituras; a Steam só
+  regrava o arquivo de tempos em tempos, então mantém a última medida por
+  até 30 s). Botão/A **"Abrir downloads na Steam"** (`steam://open/downloads`)
+  — a Steam não permite outro programa pausar/retomar. A lista "na conta, não
+  instalado" saiu do painel (já é a aba Não instalados).
+- **Aba Não instalados**: véu cinza por cima da capa.
+- **Seletor de artes**: novo "Escolher ícone" (ícone da tela "Iniciando").
 
 ## HUD de desempenho (estilo MangoHud) — v0.4.0
 

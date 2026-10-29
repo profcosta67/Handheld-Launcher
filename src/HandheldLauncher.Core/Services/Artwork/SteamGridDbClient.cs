@@ -105,21 +105,25 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
     }
 
     public async Task<SteamGridDbImage?> GetBestIconForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
-    {
-        if (!HasApiKey) return null;
-        var candidates = await FetchGridCandidates($"{BaseUrl}/icons/steam/{steamAppId}?types=static&mimes=image/png", ct);
-        return candidates.FirstOrDefault();
-    }
+        => (await GetIconCandidatesForSteamAppAsync(steamAppId, ct)).FirstOrDefault();
 
     public async Task<SteamGridDbImage?> GetBestIconForTitleAsync(string title, CancellationToken ct = default)
+        => (await GetIconCandidatesForTitleAsync(title, ct)).FirstOrDefault();
+
+    public async Task<IReadOnlyList<SteamGridDbImage>> GetIconCandidatesForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
     {
-        if (!HasApiKey) return null;
+        if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
+        return await FetchGridCandidates($"{BaseUrl}/icons/steam/{steamAppId}?types=static&mimes=image/png", ct);
+    }
+
+    public async Task<IReadOnlyList<SteamGridDbImage>> GetIconCandidatesForTitleAsync(string title, CancellationToken ct = default)
+    {
+        if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
 
         var gameId = await SearchGameId(title, ct);
-        if (gameId is null) return null;
+        if (gameId is null) return Array.Empty<SteamGridDbImage>();
 
-        var candidates = await FetchGridCandidates($"{BaseUrl}/icons/game/{gameId}?types=static&mimes=image/png", ct);
-        return candidates.FirstOrDefault();
+        return await FetchGridCandidates($"{BaseUrl}/icons/game/{gameId}?types=static&mimes=image/png", ct);
     }
 
     public async Task<IReadOnlyList<SteamGridDbImage>> GetLogoCandidatesForTitleAsync(string title, CancellationToken ct = default)

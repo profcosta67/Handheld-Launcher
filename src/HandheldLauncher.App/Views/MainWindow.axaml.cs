@@ -228,6 +228,35 @@ public partial class MainWindow : Window
         Hide();
     }
 
+    /// <summary>
+    /// "Ir para a área de trabalho" (Power): esconde o launcher na bandeja
+    /// (processo continua vivo — a tarefa do modo Handheld não reabre) e
+    /// minimiza as outras janelas, deixando a área de trabalho limpa. Volta
+    /// pelo ícone da bandeja ou Ctrl+Alt+H.
+    /// </summary>
+    private void GoToDesktop()
+    {
+        MinimizeToTray();
+
+        try
+        {
+            // Mesmo que "Win+M": Shell.Application.MinimizeAll (COM do Explorer).
+            var shellType = Type.GetTypeFromProgID("Shell.Application");
+            if (shellType is null) return;
+            var shell = Activator.CreateInstance(shellType);
+            shellType.InvokeMember("MinimizeAll", System.Reflection.BindingFlags.InvokeMethod, null, shell, null);
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"GoToDesktop: MinimizeAll falhou ({ex.Message})");
+        }
+    }
+
+    private void OnOpenSteamDownloadsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        (DataContext as MainViewModel)?.OpenSteamDownloads();
+    }
+
     /// <summary>Called by the tray icon's "Sair" menu item (App.axaml.cs) — same deliberate-quit behavior as the gear/global menu's own "Sair".</summary>
     public void QuitFromTray()
     {
@@ -310,6 +339,7 @@ public partial class MainWindow : Window
             Close();
         };
         vm.MinimizeRequested += (_, _) => MinimizeToTray();
+        vm.DesktopRequested += (_, _) => GoToDesktop();
         vm.TurnOffScreenRequested += (_, _) => TurnOffScreen();
         vm.RestartDeviceRequested += (_, _) => RestartDevice();
         vm.ShutdownDeviceRequested += (_, _) => ShutdownDevice();
@@ -532,6 +562,8 @@ public partial class MainWindow : Window
                         vm.ConfirmGlobalMenuSelection();
                         break;
                     case GamepadAction.Back:
+                        vm.GlobalMenuBack(); // subpasta → volta pra raiz
+                        break;
                     case GamepadAction.GlobalMenu:
                         vm.CloseGlobalMenu();
                         break;
@@ -585,6 +617,9 @@ public partial class MainWindow : Window
                     case GamepadAction.GlobalMenu:
                     case GamepadAction.Downloads: // Y abre E fecha (toggle)
                         vm.CloseDownloads();
+                        break;
+                    case GamepadAction.Confirm: // A = "Abrir downloads na Steam"
+                        vm.OpenSteamDownloads();
                         break;
                 }
                 continue;
@@ -716,6 +751,9 @@ public partial class MainWindow : Window
                     e.Handled = true;
                     break;
                 case Key.Escape:
+                    vm.GlobalMenuBack();
+                    e.Handled = true;
+                    break;
                 case Key.Tab:
                     vm.CloseGlobalMenu();
                     e.Handled = true;
@@ -758,6 +796,10 @@ public partial class MainWindow : Window
                 case Key.Tab:
                 case Key.D: // fallback de teclado do Y (toggle)
                     vm.CloseDownloads();
+                    e.Handled = true;
+                    break;
+                case Key.Enter:
+                    vm.OpenSteamDownloads();
                     e.Handled = true;
                     break;
             }

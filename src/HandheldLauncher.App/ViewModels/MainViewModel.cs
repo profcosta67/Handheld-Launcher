@@ -260,6 +260,23 @@ public sealed class MainViewModel : ViewModelBase
         }
     }
 
+    /// <summary>Página HUD do menu: escolhe um preset direto (e salva).</summary>
+    public void SetOverlayPreset(int preset)
+    {
+        if (_hud is null) return;
+        _hud.Preset = preset;
+        try
+        {
+            var settings = AppSettingsStore.Load();
+            settings.OverlayPreset = _hud.Preset;
+            AppSettingsStore.Save(settings);
+        }
+        catch
+        {
+            // Melhor esforço.
+        }
+    }
+
     /// <summary>Depois de salvar nas Configurações: aplica o preset na hora, sem reiniciar.</summary>
     public void ReloadOverlayPresetFromSettings()
     {
@@ -408,7 +425,7 @@ public sealed class MainViewModel : ViewModelBase
     private readonly List<Action> _contextMenuActions = new();
 
     /// <summary>Qual dos quatro tipos de arte o seletor (IsCoverPickerOpen) está escolhendo no momento — ver OpenCoverPicker/ConfirmCoverPickerSelection.</summary>
-    private enum ArtworkPickerKind { Grid, WideGrid, Hero, Logo }
+    private enum ArtworkPickerKind { Grid, WideGrid, Hero, Logo, Icon }
 
     /// <summary>
     /// Abas de filtro. Reorganizado numa leva posterior a pedido do
@@ -810,6 +827,7 @@ public sealed class MainViewModel : ViewModelBase
         Add("Escolher capa larga", () => OpenCoverPicker(game, ArtworkPickerKind.WideGrid)); // WideGridImagePath — a capa só da WIDE CAPSULE, independente da capa normal e do banner
         Add("Escolher banner", () => OpenCoverPicker(game, ArtworkPickerKind.Hero));
         Add("Escolher logo", () => OpenCoverPicker(game, ArtworkPickerKind.Logo));
+        Add("Escolher ícone", () => OpenCoverPicker(game, ArtworkPickerKind.Icon)); // IconImagePath — aparece na tela "Iniciando <jogo>..."
         Add("Voltar", () => ReopenContextMenu(tile));
 
         _contextMenuIndex = 0;
@@ -935,7 +953,37 @@ public sealed class MainViewModel : ViewModelBase
         }
     }
 
-    /// <summary>View/Back button: opens the global menu, or closes it if already open (toggle).</summary>
+    // ------------------------------------------------------------------
+    // Menu geral em subpastas (v0.5.0, pedido do usuário: "menu ficou muito
+    // poluído... separar e fazer subpastas"). Uma única janela de menu com
+    // "páginas": Raiz → Biblioteca / HUD / Configurações / Power. B volta
+    // pra Raiz; View fecha de vez. O antigo menu Power separado agora é só
+    // a página Power deste mesmo menu (o botão ⏻ abre direto nela).
+    // ------------------------------------------------------------------
+
+    private enum GlobalMenuPage { Root, Library, Hud, Settings, Power }
+
+    private GlobalMenuPage _globalMenuPage = GlobalMenuPage.Root;
+
+    // Paralelo a _globalMenuActions: true = o item só troca de página
+    // (menu continua aberto); false = ação de verdade (fecha e executa).
+    private readonly List<bool> _globalMenuNavigates = new();
+
+    private string _globalMenuTitle = "Menu";
+    public string GlobalMenuTitle
+    {
+        get => _globalMenuTitle;
+        private set => SetField(ref _globalMenuTitle, value);
+    }
+
+    private string _globalMenuHint = string.Empty;
+    public string GlobalMenuHint
+    {
+        get => _globalMenuHint;
+        private set => SetField(ref _globalMenuHint, value);
+    }
+
+    /// <summary>View/Back button: opens the global menu (raiz), or closes it if already open (toggle).</summary>
     public void ToggleGlobalMenu()
     {
         if (IsGlobalMenuOpen)
@@ -944,6 +992,12 @@ public sealed class MainViewModel : ViewModelBase
             return;
         }
 
+        OpenGlobalMenuAt(GlobalMenuPage.Root);
+    }
+
+    private void OpenGlobalMenuAt(GlobalMenuPage page)
+    {
+        _globalMenuPage = page;
         BuildGlobalMenu();
         if (GlobalMenuItems.Count == 0) return;
 
@@ -952,9 +1006,29 @@ public sealed class MainViewModel : ViewModelBase
         IsGlobalMenuOpen = true;
     }
 
+    private void NavigateGlobalMenu(GlobalMenuPage page)
+    {
+        _globalMenuPage = page;
+        BuildGlobalMenu();
+        _globalMenuIndex = 0;
+        UpdateGlobalMenuSelection();
+    }
+
     public void CloseGlobalMenu()
     {
         IsGlobalMenuOpen = false;
+    }
+
+    /// <summary>B/Esc: numa subpasta volta pra raiz; na raiz fecha.</summary>
+    public void GlobalMenuBack()
+    {
+        if (_globalMenuPage != GlobalMenuPage.Root)
+        {
+            NavigateGlobalMenu(GlobalMenuPage.Root);
+            return;
+        }
+
+        CloseGlobalMenu();
     }
 
     public void MoveGlobalMenuSelection(int delta)
@@ -969,12 +1043,16 @@ public sealed class MainViewModel : ViewModelBase
         if (!IsGlobalMenuOpen) return;
 
         var index = _globalMenuIndex;
-        CloseGlobalMenu();
+        if (index < 0 || index >= _globalMenuActions.Count) return;
 
-        if (index >= 0 && index < _globalMenuActions.Count)
+        if (_globalMenuNavigates[index])
         {
             _globalMenuActions[index]();
+            return;
         }
+
+        CloseGlobalMenu();
+        _globalMenuActions[index]();
     }
 
     private void UpdateGlobalMenuSelection()
@@ -986,109 +1064,132 @@ public sealed class MainViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Rebuilt fresh every time the menu opens (not kept live while it's
-    /// closed) — the set of available actions depends on state (is a game
-    /// running? do we have an API key?) that's cheap enough to just
-    /// re-check at open time rather than track reactively.
+    /// Rebuilt fresh every time a page opens — the set of available actions
+    /// depends on state (is a game running? update ready? API key?).
     /// </summary>
     private void BuildGlobalMenu()
     {
         GlobalMenuItems.Clear();
         _globalMenuActions.Clear();
+        _globalMenuNavigates.Clear();
 
         void Add(string label, Action action)
         {
             GlobalMenuItems.Add(new ContextMenuItemViewModel(label));
             _globalMenuActions.Add(action);
+            _globalMenuNavigates.Add(false);
         }
 
-        // Atualização automática (só aparece numa instalação via
-        // Setup.exe — ver UpdateService). Com uma versão baixada, o item
-        // fica no TOPO do menu pra ser a primeira coisa vista; o item de
-        // "verificar agora" vai mais pra baixo, perto de Configurações.
-        if (IsUpdateReady)
+        void Folder(string label, GlobalMenuPage page)
         {
-            Add(
-                RunningGame is null
-                    ? $"Reiniciar pra atualizar (v{PendingUpdateVersion})"
-                    : $"Atualização v{PendingUpdateVersion} pronta — feche o jogo pra aplicar",
-                ApplyUpdate);
+            GlobalMenuItems.Add(new ContextMenuItemViewModel(label + "  ›"));
+            _globalMenuActions.Add(() => NavigateGlobalMenu(page));
+            _globalMenuNavigates.Add(true);
         }
 
-        if (RunningGame is not null)
+        switch (_globalMenuPage)
         {
-            Add($"Fechar: {RunningGame.Title}", CloseRunningGame);
-        }
+            case GlobalMenuPage.Library:
+                GlobalMenuTitle = "Biblioteca";
+                Add("Atualizar Biblioteca", Refresh);
+                if (CanFetchArtwork) Add("Atualizar Capas Automático", FetchMissingArtwork);
+                Add("Adicionar jogo", () => AddGameRequested?.Invoke(this, EventArgs.Empty));
+                Add("Downloads", ToggleDownloads);
+                break;
 
-        if (CanFetchArtwork)
-        {
-            Add("Atualizar Capas Automático", FetchMissingArtwork);
-        }
-
-        Add("Adicionar jogo", () => AddGameRequested?.Invoke(this, EventArgs.Empty));
-        Add("Atualizar Biblioteca", Refresh);
-        Add("Downloads", ToggleDownloads);
-        Add("Configurações", () => SettingsRequested?.Invoke(this, EventArgs.Empty));
-
-        if (_updates is { IsInstalled: true } && !IsUpdateReady)
-        {
-            Add($"Verificar atualizações (v{_updates.CurrentVersionText})", () => _ = CheckForUpdatesAsync(userInitiated: true));
-        }
-
-        // Status do overlay de FPS (RTSS) — entra no menu global em vez de
-        // num botão fixo na barra de baixo porque na prática é algo que se
-        // olha raramente (só pra confirmar "tá rodando?" ou ir buscar se
-        // não estiver instalado), não uma ação do dia a dia. Reavaliado a
-        // cada abertura do menu (mesma ideia do "cheap enough to just
-        // re-check at open time" dos outros itens acima).
-        if (_hud is not null)
-        {
-            Add($"Overlay de desempenho: {_hud.PresetName} — L3+R3 troca ({_hud.Status})", CycleOverlayPreset);
-        }
-
-        if (_performanceOverlay.IsInstalled)
-        {
-            Add(
-                _performanceOverlay.IsRunning ? "Overlay FPS (RTSS): rodando" : "Overlay FPS (RTSS): iniciar",
-                () =>
+            case GlobalMenuPage.Hud:
+                GlobalMenuTitle = "HUD de desempenho";
+                if (_hud is not null)
                 {
-                    if (!_performanceOverlay.IsRunning) _performanceOverlay.EnsureRunning();
-                });
-        }
-        else
-        {
-            Add("Overlay FPS (RTSS): baixar", _performanceOverlay.OpenDownloadPage);
+                    for (var i = 0; i < PerformanceHud.PresetNames.Length; i++)
+                    {
+                        var preset = i;
+                        var marker = _hud.Preset == preset ? "●" : "○";
+                        Add($"{marker}  {PerformanceHud.PresetNames[preset]}", () => SetOverlayPreset(preset));
+                    }
+                }
+                if (_performanceOverlay.IsInstalled)
+                {
+                    Add(
+                        _performanceOverlay.IsRunning ? "RTSS: rodando" : "RTSS: iniciar",
+                        () =>
+                        {
+                            if (!_performanceOverlay.IsRunning) _performanceOverlay.EnsureRunning();
+                        });
+                }
+                else
+                {
+                    Add("RTSS: baixar (necessário pro HUD)", _performanceOverlay.OpenDownloadPage);
+                }
+                break;
+
+            case GlobalMenuPage.Settings:
+                GlobalMenuTitle = "Configurações";
+                Add("Abrir Configurações", () => SettingsRequested?.Invoke(this, EventArgs.Empty));
+                if (_updates is { IsInstalled: true } && !IsUpdateReady)
+                {
+                    Add($"Verificar atualizações (v{_updates.CurrentVersionText})", () => _ = CheckForUpdatesAsync(userInitiated: true));
+                }
+                break;
+
+            case GlobalMenuPage.Power:
+                GlobalMenuTitle = "Power";
+                Add("Ir para a área de trabalho", () => DesktopRequested?.Invoke(this, EventArgs.Empty));
+                Add("Minimizar", () => MinimizeRequested?.Invoke(this, EventArgs.Empty));
+                Add("Desligar tela", () => TurnOffScreenRequested?.Invoke(this, EventArgs.Empty));
+                Add("Reiniciar o aparelho", () => RestartDeviceRequested?.Invoke(this, EventArgs.Empty));
+                Add("Desligar o aparelho", () => ShutdownDeviceRequested?.Invoke(this, EventArgs.Empty));
+                Add("Sair", () => QuitRequested?.Invoke(this, EventArgs.Empty));
+                break;
+
+            default:
+                GlobalMenuTitle = "Menu";
+
+                // Coisas do momento ficam soltas no topo, só quando existem.
+                if (IsUpdateReady)
+                {
+                    Add(
+                        RunningGame is null
+                            ? $"Reiniciar pra atualizar (v{PendingUpdateVersion})"
+                            : $"Atualização v{PendingUpdateVersion} pronta — feche o jogo pra aplicar",
+                        ApplyUpdate);
+                }
+
+                if (RunningGame is not null)
+                {
+                    Add($"Fechar: {RunningGame.Title}", CloseRunningGame);
+                }
+
+                Folder("Biblioteca", GlobalMenuPage.Library);
+                Folder(_hud is null ? "HUD de desempenho" : $"HUD de desempenho ({_hud.PresetName})", GlobalMenuPage.Hud);
+                Folder("Configurações", GlobalMenuPage.Settings);
+                Folder("Power", GlobalMenuPage.Power);
+                break;
         }
 
-        // "Minimizar" e "Power" entram aqui também (além dos próprios
-        // botões da barra de baixo) especificamente pra resolver o
-        // controle não alcançar esses ícones apertando o direcional: como
-        // esse menu já é 100% navegável por gamepad (View/Back), colocar
-        // as duas ações aqui dá acesso total sem precisar inventar um novo
-        // modelo de foco pra cima/baixo na tela. "Power" aqui fecha este
-        // menu e abre o TogglePowerMenu (mesmo padrão de "overlay fecha o
-        // anterior antes de abrir o próximo" já usado em
-        // ConfirmGlobalMenuSelection). "Sair" NÃO fica mais aqui — mudou
-        // pro menu Power (ver BuildPowerMenu) a pedido do usuário.
-        Add("Minimizar", () => MinimizeRequested?.Invoke(this, EventArgs.Empty));
-        Add("Power", TogglePowerMenu);
+        GlobalMenuHint = _globalMenuPage == GlobalMenuPage.Root
+            ? "↑↓ navega · A abre · B/View fecha"
+            : _globalMenuPage == GlobalMenuPage.Hud
+                ? "No jogo: L3+R3 troca o HUD · B volta · View fecha"
+                : "↑↓ navega · A confirma · B volta · View fecha";
     }
 
-    /// <summary>Botão "Power" da barra de baixo: abre o menu, ou fecha se já estiver aberto (toggle).</summary>
+    /// <summary>"Ir para a área de trabalho" (página Power) — MainWindow esconde na bandeja e minimiza as outras janelas.</summary>
+    public event EventHandler? DesktopRequested;
+
+    /// <summary>
+    /// Botão ⏻ da barra de baixo: abre o menu direto na página Power, ou
+    /// fecha se já estiver nela (toggle).
+    /// </summary>
     public void TogglePowerMenu()
     {
-        if (IsPowerMenuOpen)
+        if (IsGlobalMenuOpen && _globalMenuPage == GlobalMenuPage.Power)
         {
-            ClosePowerMenu();
+            CloseGlobalMenu();
             return;
         }
 
-        BuildPowerMenu();
-        if (PowerMenuItems.Count == 0) return;
-
-        _powerMenuIndex = 0;
-        UpdatePowerMenuSelection();
-        IsPowerMenuOpen = true;
+        OpenGlobalMenuAt(GlobalMenuPage.Power);
     }
 
     public void ClosePowerMenu()
@@ -1325,10 +1426,27 @@ public sealed class MainViewModel : ViewModelBase
 
         RefreshActiveDownloads();
         IsDownloadsOpen = true;
+    }
 
-        if (HasSteamWebApiCredentials)
+    /// <summary>
+    /// Botão "Abrir downloads na Steam" (A no controle com o painel aberto) —
+    /// a Steam não oferece nenhum jeito oficial de outro programa pausar/
+    /// retomar um download dela, então o caminho é levar direto pra tela de
+    /// downloads da própria Steam, onde dá pra pausar.
+    /// </summary>
+    public void OpenSteamDownloads()
+    {
+        try
         {
-            RefreshOwnedGames();
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "steam://open/downloads",
+                UseShellExecute = true,
+            });
+        }
+        catch
+        {
+            // Steam não instalada — melhor esforço.
         }
     }
 
@@ -1343,11 +1461,39 @@ public sealed class MainViewModel : ViewModelBase
     /// já que o progresso real continua mudando com o painel aberto na
     /// tela.
     /// </summary>
+    // Última leitura de cada download (por título) pra calcular velocidade.
+    private readonly Dictionary<string, (long Bytes, DateTime At, double? Speed)> _downloadSamples = new();
+
     public void RefreshActiveDownloads()
     {
+        var now = DateTime.UtcNow;
         ActiveDownloads.Clear();
         foreach (var download in _library.GetActiveDownloads())
         {
+            // Velocidade = bytes novos ÷ tempo desde a leitura anterior. A
+            // Steam só regrava o .acf de tempos em tempos, então entre duas
+            // gravações a diferença é 0 — nesse caso mantém a última
+            // velocidade medida em vez de mostrar "parado" piscando.
+            if (_downloadSamples.TryGetValue(download.Title, out var previous))
+            {
+                var seconds = (now - previous.At).TotalSeconds;
+                var delta = download.BytesDownloaded - previous.Bytes;
+                if (delta > 0 && seconds > 0.5)
+                {
+                    var speed = delta / seconds;
+                    download.BytesPerSecond = speed;
+                    _downloadSamples[download.Title] = (download.BytesDownloaded, now, speed);
+                }
+                else
+                {
+                    download.BytesPerSecond = (now - previous.At).TotalSeconds < 30 ? previous.Speed : null;
+                }
+            }
+            else
+            {
+                _downloadSamples[download.Title] = (download.BytesDownloaded, now, null);
+            }
+
             ActiveDownloads.Add(download);
         }
         OnPropertyChanged(nameof(HasActiveDownloads));
@@ -1472,6 +1618,7 @@ public sealed class MainViewModel : ViewModelBase
             ArtworkPickerKind.WideGrid => $"Escolher capa larga — {game.Title}",
             ArtworkPickerKind.Hero => $"Escolher banner — {game.Title}",
             ArtworkPickerKind.Logo => $"Escolher logo — {game.Title}",
+            ArtworkPickerKind.Icon => $"Escolher ícone — {game.Title}",
             _ => $"Escolher capa — {game.Title}",
         };
         _coverPickerKind = kind;
@@ -1494,6 +1641,7 @@ public sealed class MainViewModel : ViewModelBase
                 ArtworkPickerKind.WideGrid => await _artwork.GetWideGridCandidatesAsync(game),
                 ArtworkPickerKind.Hero => await _artwork.GetHeroCandidatesAsync(game),
                 ArtworkPickerKind.Logo => await _artwork.GetLogoCandidatesAsync(game),
+                ArtworkPickerKind.Icon => await _artwork.GetIconCandidatesAsync(game),
                 _ => await _artwork.GetGridCandidatesAsync(game),
             };
 
@@ -1610,6 +1758,7 @@ public sealed class MainViewModel : ViewModelBase
                 ArtworkPickerKind.WideGrid => await _artwork.ApplyWideGridCandidateAsync(game, chosen),
                 ArtworkPickerKind.Hero => await _artwork.ApplyHeroCandidateAsync(game, chosen),
                 ArtworkPickerKind.Logo => await _artwork.ApplyLogoCandidateAsync(game, chosen),
+                ArtworkPickerKind.Icon => await _artwork.ApplyIconCandidateAsync(game, chosen),
                 _ => await _artwork.ApplyGridCandidateAsync(game, chosen),
             };
 

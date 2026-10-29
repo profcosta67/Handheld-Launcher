@@ -69,6 +69,9 @@ public interface IArtworkService
     /// <summary>Same idea as GetGridCandidatesAsync but for logos — powers the "Escolher logo" picker.</summary>
     Task<IReadOnlyList<ArtworkCandidate>> GetLogoCandidatesAsync(GameEntry game, CancellationToken ct = default);
 
+    /// <summary>Candidatos de ícone (seção Icons do SteamGridDB) pro seletor de artes.</summary>
+    Task<IReadOnlyList<ArtworkCandidate>> GetIconCandidatesAsync(GameEntry game, CancellationToken ct = default);
+
     /// <summary>Same idea as GetGridCandidatesAsync but for a capa landscape (WideGridImagePath) — powers o "Escolher capa larga" picker.</summary>
     Task<IReadOnlyList<ArtworkCandidate>> GetWideGridCandidatesAsync(GameEntry game, CancellationToken ct = default);
 
@@ -85,6 +88,9 @@ public interface IArtworkService
 
     /// <summary>Same idea as ApplyGridCandidateAsync but for logos.</summary>
     Task<bool> ApplyLogoCandidateAsync(GameEntry game, ArtworkCandidate candidate, CancellationToken ct = default);
+
+    /// <summary>Aplica o ícone escolhido no seletor (game.IconImagePath).</summary>
+    Task<bool> ApplyIconCandidateAsync(GameEntry game, ArtworkCandidate candidate, CancellationToken ct = default);
 
     /// <summary>Same idea as ApplyGridCandidateAsync but for a capa landscape (WideGridImagePath).</summary>
     Task<bool> ApplyWideGridCandidateAsync(GameEntry game, ArtworkCandidate candidate, CancellationToken ct = default);

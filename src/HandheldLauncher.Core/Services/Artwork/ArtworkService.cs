@@ -179,6 +179,17 @@ public sealed class ArtworkService : IArtworkService
         return await DownloadCandidatesAsync(images, $"{game.Id}_logo_candidate", ct);
     }
 
+    public async Task<IReadOnlyList<ArtworkCandidate>> GetIconCandidatesAsync(GameEntry game, CancellationToken ct = default)
+    {
+        if (!HasApiKey) return Array.Empty<ArtworkCandidate>();
+
+        var images = game.Source == GameSource.Steam && game.SteamAppId is { } appId
+            ? await _client.GetIconCandidatesForSteamAppAsync(appId, ct)
+            : await _client.GetIconCandidatesForTitleAsync(game.Title, ct);
+
+        return await DownloadCandidatesAsync(images, $"{game.Id}_icon_candidate", ct);
+    }
+
     public async Task<IReadOnlyList<ArtworkCandidate>> GetWideGridCandidatesAsync(GameEntry game, CancellationToken ct = default)
     {
         if (!HasApiKey) return Array.Empty<ArtworkCandidate>();
@@ -199,11 +210,14 @@ public sealed class ArtworkService : IArtworkService
     public Task<bool> ApplyLogoCandidateAsync(GameEntry game, ArtworkCandidate candidate, CancellationToken ct = default)
         => ApplyCandidateAsync(game, candidate, ArtworkSlot.Logo);
 
+    public Task<bool> ApplyIconCandidateAsync(GameEntry game, ArtworkCandidate candidate, CancellationToken ct = default)
+        => ApplyCandidateAsync(game, candidate, ArtworkSlot.Icon);
+
     public Task<bool> ApplyWideGridCandidateAsync(GameEntry game, ArtworkCandidate candidate, CancellationToken ct = default)
         => ApplyCandidateAsync(game, candidate, ArtworkSlot.WideGrid);
 
     /// <summary>Which GameEntry/GameMetadataOverride field ApplyCandidateAsync below writes to — grid/hero/logo/widegrid, matching the 4 picker types.</summary>
-    private enum ArtworkSlot { Grid, Hero, Logo, WideGrid }
+    private enum ArtworkSlot { Grid, Hero, Logo, WideGrid, Icon }
 
     /// <summary>
     /// Downloads every candidate image to disk (once — a file that's
@@ -260,7 +274,7 @@ public sealed class ArtworkService : IArtworkService
     {
         Directory.CreateDirectory(_cacheDir);
         var extension = Path.GetExtension(candidate.LocalThumbnailPath);
-        var suffix = slot switch { ArtworkSlot.Hero => "hero", ArtworkSlot.Logo => "logo", ArtworkSlot.WideGrid => "widegrid", _ => "grid" };
+        var suffix = slot switch { ArtworkSlot.Hero => "hero", ArtworkSlot.Logo => "logo", ArtworkSlot.WideGrid => "widegrid", ArtworkSlot.Icon => "icon", _ => "grid" };
         var localPath = Path.Combine(_cacheDir, $"{game.Id}_{suffix}_{candidate.Id}{extension}");
 
         try
@@ -286,6 +300,10 @@ public sealed class ArtworkService : IArtworkService
             case ArtworkSlot.WideGrid:
                 data.WideGridImagePath = localPath;
                 game.WideGridImagePath = localPath;
+                break;
+            case ArtworkSlot.Icon:
+                data.IconImagePath = localPath;
+                game.IconImagePath = localPath;
                 break;
             default:
                 data.GridImagePath = localPath;

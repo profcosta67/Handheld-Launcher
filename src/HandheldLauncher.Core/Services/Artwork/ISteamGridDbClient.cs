@@ -41,6 +41,12 @@ public interface ISteamGridDbClient
     /// <summary>Mesmo que GetBestIconForSteamAppAsync, buscando pelo nome (jogos não-Steam).</summary>
     Task<SteamGridDbImage?> GetBestIconForTitleAsync(string title, CancellationToken ct = default);
 
+    /// <summary>Lista de ícones candidatos pro seletor de artes ("Escolher ícone").</summary>
+    Task<IReadOnlyList<SteamGridDbImage>> GetIconCandidatesForSteamAppAsync(uint steamAppId, CancellationToken ct = default);
+
+    /// <summary>Mesmo que GetIconCandidatesForSteamAppAsync, buscando pelo nome.</summary>
+    Task<IReadOnlyList<SteamGridDbImage>> GetIconCandidatesForTitleAsync(string title, CancellationToken ct = default);
+
     /// <summary>
     /// "Wide grid" — a CAPA (não um banner/hero), só que em formato
     /// landscape (dimensions=460x215/920x430, o "capsule horizontal" que o

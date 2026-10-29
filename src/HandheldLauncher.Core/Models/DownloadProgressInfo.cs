@@ -25,4 +25,33 @@ public sealed class DownloadProgressInfo
     public long BytesDownloaded { get; set; }
 
     public long BytesToDownload { get; set; }
+
+    /// <summary>
+    /// Velocidade medida pelo launcher (diferença de BytesDownloaded entre
+    /// duas leituras do .acf ÷ tempo). Null = ainda sem duas leituras, ou
+    /// parado.
+    /// </summary>
+    public double? BytesPerSecond { get; set; }
+
+    /// <summary>"12.4 MB/s · faltam ~8 min" — vazio enquanto não há velocidade medida.</summary>
+    public string DetailText
+    {
+        get
+        {
+            var percent = $"{PercentComplete:0}%";
+            if (BytesPerSecond is not { } speed || speed <= 0) return percent;
+
+            var mbps = speed / (1024 * 1024);
+            var text = $"{percent} · {mbps.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)} MB/s";
+            var left = BytesToDownload - BytesDownloaded;
+            if (left > 0)
+            {
+                var eta = TimeSpan.FromSeconds(left / speed);
+                text += eta.TotalHours >= 1
+                    ? $" · faltam ~{(int)eta.TotalHours}h{eta.Minutes:00}"
+                    : $" · faltam ~{Math.Max(1, (int)Math.Ceiling(eta.TotalMinutes))} min";
+            }
+            return text;
+        }
+    }
 }

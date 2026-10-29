@@ -333,6 +333,13 @@
                     <Image Source="{Binding TileImagePath, Converter={StaticResource FileToBitmapConverter}}"
                            Stretch="UniformToFill" />
 
+                    <!-- Jogo não instalado (aba "Não instalados"): véu cinza
+                         por cima da capa pra diferenciar dos instalados —
+                         pedido do usuário ("leve aspecto cinza"). -->
+                    <Border Background="#99383838"
+                            IsHitTestVisible="False"
+                            IsVisible="{Binding IsOwnedNotInstalled}" />
+
                     <!-- Placeholder: só aparece quando essa tile específica
                          não tem NENHUMA arte ainda (nem capa) — a caption já
                          aparece em cima (Grid acima), isso aqui é só pra não
@@ -491,9 +498,9 @@
          a specific game. -->
     <Panel IsVisible="{Binding IsGlobalMenuOpen}">
       <Border Classes="contextMenuOverlay" />
-      <Border Classes="contextMenuCard" Width="340" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+      <Border Classes="contextMenuCard" Width="380" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel Spacing="16">
-          <TextBlock Text="Menu" Classes="heroTitle" />
+          <TextBlock Text="{Binding GlobalMenuTitle}" Classes="heroTitle" />
           <ItemsControl ItemsSource="{Binding GlobalMenuItems}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:ContextMenuItemViewModel">
@@ -503,7 +510,7 @@
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
-          <TextBlock Text="↑↓ navega · A/Enter confirma · B/Esc/View fecha" Classes="subtle" />
+          <TextBlock Text="{Binding GlobalMenuHint}" Classes="subtle" TextWrapping="Wrap" />
         </StackPanel>
       </Border>
     </Panel>
@@ -541,54 +548,39 @@
     <Panel IsVisible="{Binding IsDownloadsOpen}">
       <Border Classes="contextMenuOverlay" />
       <Border Classes="contextMenuCard" Width="560" MaxHeight="620" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
-        <Grid RowDefinitions="Auto,Auto,*,Auto">
+        <Grid RowDefinitions="Auto,*,Auto,Auto">
           <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
-            <TextBlock Grid.Column="0" Text="Downloads" Classes="heroTitle" />
+            <TextBlock Grid.Column="0" Text="Downloads (Steam)" Classes="heroTitle" />
             <Button Grid.Column="1" Classes="pill" Content="✕" Padding="10,4" Click="OnCloseDownloadsClick" ToolTip.Tip="Fechar" />
           </Grid>
 
-          <StackPanel Grid.Row="1" Spacing="10" Margin="0,16,0,0">
-            <TextBlock Text="Baixando agora (Steam)" Classes="gameTitle" />
-            <TextBlock Text="Nada baixando no momento." Classes="subtle" IsVisible="{Binding NoActiveDownloads}" />
-            <ItemsControl ItemsSource="{Binding ActiveDownloads}" IsVisible="{Binding HasActiveDownloads}">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="models:DownloadProgressInfo">
-                  <StackPanel Spacing="4" Margin="0,0,0,10">
-                    <TextBlock Text="{Binding Title}" Classes="gameTitle" />
-                    <ProgressBar Minimum="0" Maximum="100" Value="{Binding PercentComplete}" />
-                    <TextBlock Text="{Binding PercentComplete, StringFormat='{}{0:0}%'}" Classes="subtle" />
-                  </StackPanel>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-          </StackPanel>
-
-          <ScrollViewer Grid.Row="2" MaxHeight="300" Margin="0,16,0,0">
+          <ScrollViewer Grid.Row="1" MaxHeight="380" Margin="0,16,0,0">
             <StackPanel Spacing="10">
-              <TextBlock Text="Na sua conta, não instalado (Steam)" Classes="gameTitle" />
-
-              <TextBlock Text="Configure SteamWebApiKey e SteamId64 em settings.json pra ver esta lista (ver README)."
-                         Classes="subtle" TextWrapping="Wrap"
-                         IsVisible="{Binding NoSteamWebApiCredentials}" />
-
-              <TextBlock Text="Buscando jogos da conta..." Classes="subtle" IsVisible="{Binding IsLoadingOwnedGames}" />
-
-              <TextBlock Text="{Binding OwnedGamesErrorMessage}" Classes="subtle" TextWrapping="Wrap" IsVisible="{Binding HasOwnedGamesError}" />
-
-              <ItemsControl ItemsSource="{Binding OwnedNotInstalledGames}" IsVisible="{Binding HasSteamWebApiCredentials}">
+              <TextBlock Text="Nada baixando no momento." Classes="subtle" IsVisible="{Binding NoActiveDownloads}" />
+              <ItemsControl ItemsSource="{Binding ActiveDownloads}" IsVisible="{Binding HasActiveDownloads}">
                 <ItemsControl.ItemTemplate>
-                  <DataTemplate x:DataType="models:OwnedSteamGame">
-                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
-                      <TextBlock Grid.Column="0" Text="{Binding Title}" Classes="gameTitle" VerticalAlignment="Center" TextWrapping="Wrap" />
-                      <Button Grid.Column="1" Classes="pill" Content="Instalar" Click="OnInstallOwnedGameClick" />
-                    </Grid>
+                  <DataTemplate x:DataType="models:DownloadProgressInfo">
+                    <StackPanel Spacing="4" Margin="0,0,0,12">
+                      <TextBlock Text="{Binding Title}" Classes="gameTitle" />
+                      <ProgressBar Minimum="0" Maximum="100" Value="{Binding PercentComplete}" />
+                      <TextBlock Text="{Binding DetailText}" Classes="subtle" />
+                    </StackPanel>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
             </StackPanel>
           </ScrollViewer>
 
-          <TextBlock Grid.Row="3" Text="Mouse/toque pra instalar (no controle: aba Não instalados) · Y/B/Esc fecha" Classes="subtle" Margin="0,16,0,0" />
+          <!-- A Steam não deixa outro programa pausar/retomar download —
+               este botão leva pra tela de downloads dela, onde dá. -->
+          <Button Grid.Row="2"
+                  Classes="pill"
+                  Content="Abrir downloads na Steam (pausar/retomar)"
+                  HorizontalAlignment="Left"
+                  Margin="0,12,0,0"
+                  Click="OnOpenSteamDownloadsClick" />
+
+          <TextBlock Grid.Row="3" Text="A abre os downloads na Steam · Y/B fecha · jogos da conta ficam na aba Não instalados" Classes="subtle" TextWrapping="Wrap" Margin="0,12,0,0" />
         </Grid>
       </Border>
     </Panel>
