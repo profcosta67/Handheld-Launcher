@@ -465,7 +465,20 @@ public partial class MainWindow : Window
     {
         if (DataContext is not MainViewModel vm) return;
 
-        foreach (var action in _gamepad.Poll())
+        var actions = _gamepad.Poll();
+
+        // Diálogo aberto (Configurações / Adicionar jogo): o controle passa
+        // a navegar DENTRO dele, nunca na biblioteca por trás.
+        if (_activeDialog is { } dialog)
+        {
+            foreach (var dialogAction in actions)
+            {
+                DialogGamepadNavigator.Handle(dialog, dialogAction);
+            }
+            return;
+        }
+
+        foreach (var action in actions)
         {
             // L3+R3 troca o HUD de desempenho — de propósito ANTES da trava
             // abaixo, pra funcionar com o jogo em primeiro plano.
@@ -1186,10 +1199,22 @@ public partial class MainWindow : Window
     }
 
     /// <summary>Called by the global menu's "Adicionar jogo" entry (vm.AddGameRequested, wired in OnDataContextChanged).</summary>
+    /// <summary>Diálogo modal aberto agora (recebe o controle — ver DialogGamepadNavigator), ou null.</summary>
+    private Window? _activeDialog;
+
     private async Task OpenAddGameDialogAsync(MainViewModel vm)
     {
         var dialog = new AddGameWindow();
-        var result = await dialog.ShowDialog<GameEntry?>(this);
+        _activeDialog = dialog;
+        GameEntry? result;
+        try
+        {
+            result = await dialog.ShowDialog<GameEntry?>(this);
+        }
+        finally
+        {
+            _activeDialog = null;
+        }
         if (result is null) return;
 
         vm.AddManualGame(result);
@@ -1230,7 +1255,15 @@ public partial class MainWindow : Window
         dialog.ViewModel.UpdatesAvailable = vm.UpdatesInstalled;
         dialog.CheckForUpdates = vm.CheckForUpdatesWithResultAsync;
         dialog.ViewModel.OverlayStatusText = vm.OverlayStatusText;
-        await dialog.ShowDialog(this);
+        _activeDialog = dialog;
+        try
+        {
+            await dialog.ShowDialog(this);
+        }
+        finally
+        {
+            _activeDialog = null;
+        }
 
         // Preset do HUD e aparência valem na hora (chaves e modo de uso ainda pedem reinício).
         vm.ReloadOverlayPresetFromSettings();

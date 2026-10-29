@@ -703,6 +703,20 @@ Ainda **não** feito:
 15. ~~Tela de configuração pra `SteamWebApiKey`/`SteamId64`~~ — **feito
     numa leva posterior**, junto do item 5 (mesma `SettingsWindow`).
 
+## Correções v0.6.2 — Configurações no handheld
+
+- **Rolagem**: a janela tinha altura fixa maior que a tela do handheld (Salvar/
+  Fechar ficavam fora da tela); agora se limita à área útil (`FitToScreen`).
+- **Teclado virtual**: o Windows não abre o teclado de toque sozinho pro
+  Avalonia; `Platform/TouchKeyboard` abre via COM `ITipInvocation` (TabTip,
+  mesmo do botão da barra de tarefas) ao tocar numa caixa de texto com o dedo,
+  ou pelo botão "⌨ Teclado"; plano B `osk.exe`. No Windows 11 não dá pra saber
+  com certeza se o teclado já está aberto (trava de 1,5 s evita abre/fecha).
+- **Controle nos diálogos** (`Views/DialogGamepadNavigator`): com Configurações
+  ou Adicionar jogo aberto, o MainWindow repassa o controle pro diálogo: ↑↓
+  foco, ←→ troca opção de caixa de seleção, A aperta/marca/abre teclado, B
+  fecha. Antes o controle mexia na biblioteca por trás do diálogo.
+
 ## Correções v0.6.1
 
 - **L3+R3 parava de trocar o HUD** (funcionava na primeira vez, depois não):

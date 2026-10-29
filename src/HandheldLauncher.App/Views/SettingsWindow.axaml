@@ -16,7 +16,7 @@
   -->
 
   <Grid RowDefinitions="*,Auto" Margin="24">
-    <ScrollViewer Grid.Row="0">
+    <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="12">
         <TextBlock Text="SteamGridDB API key (capas)" Classes="subtle" />
         <TextBox Text="{Binding SteamGridDbApiKey}" Watermark="Cole aqui — steamgriddb.com/profile/preferences/api" />
@@ -100,6 +100,7 @@
     </ScrollViewer>
 
     <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,20,0,0">
+      <Button Classes="pill" Content="⌨ Teclado" Click="OnKeyboardClick" />
       <Button Classes="pill" Content="Fechar" Click="OnCloseClick" />
       <Button Classes="pill" Content="Salvar" Click="OnSaveClick" />
     </StackPanel>
