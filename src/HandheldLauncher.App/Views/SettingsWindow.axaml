@@ -18,18 +18,23 @@
   <Grid RowDefinitions="*,Auto" Margin="24">
     <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="12">
-        <TextBlock Text="SteamGridDB API key (capas)" Classes="subtle" />
-        <TextBox Text="{Binding SteamGridDbApiKey}" Watermark="Cole aqui a chave do SteamGridDB" />
-        <Button Classes="pill" Content="Obter chave do SteamGridDB" Click="OnGetGridDbKeyClick" HorizontalAlignment="Left" />
-
-        <TextBlock Text="Steam Web API key (lista 'na conta, não instalado')" Classes="subtle" Margin="0,8,0,0" />
-        <TextBox Text="{Binding SteamWebApiKey}" Watermark="Cole aqui a chave da Steam Web API" />
-        <Button Classes="pill" Content="Obter chave da Steam (abre o site oficial)" Click="OnGetSteamKeyClick" HorizontalAlignment="Left" />
-
-        <TextBlock Text="SteamID64" Classes="subtle" Margin="0,8,0,0" />
-        <TextBox Text="{Binding SteamId64}" Watermark="Preenchido sozinho com a conta da Steam deste PC" />
-        <TextBlock Text="{Binding SteamAccountText}" Classes="subtle" FontSize="12" TextWrapping="Wrap" />
-        <Button Classes="pill" Content="Usar conta da Steam deste PC" Click="OnUseSteamAccountClick" HorizontalAlignment="Left" />
+        <!-- v0.9.5: as chaves/IDs não aparecem mais direto aqui (pedido do
+             usuário) — só o status de cada uma. As caixas de verdade
+             (mascaradas) ficam atrás do botão "Gerenciar contas", num
+             diálogo separado (AccountsWindow). -->
+        <TextBlock Text="Contas e chaves de API" Classes="subtle" />
+        <StackPanel Spacing="2">
+          <TextBlock FontSize="12">
+            <Run Text="SteamGridDB (capas): " /><Run Text="{Binding SteamGridDbStatusText}" />
+          </TextBlock>
+          <TextBlock FontSize="12">
+            <Run Text="Steam Web API (downloads): " /><Run Text="{Binding SteamWebApiStatusText}" />
+          </TextBlock>
+          <TextBlock FontSize="12">
+            <Run Text="Conta Steam (SteamID64): " /><Run Text="{Binding SteamIdStatusText}" />
+          </TextBlock>
+        </StackPanel>
+        <Button Classes="pill" Content="🔒 Gerenciar contas e chaves de API" Click="OnManageAccountsClick" HorizontalAlignment="Left" />
         <TextBlock Text="O launcher nunca pede nem guarda a senha da Steam. As chaves ficam criptografadas neste PC (só o seu usuário do Windows consegue ler)."
                    Classes="subtle" FontSize="11" TextWrapping="Wrap" />
 
@@ -103,7 +108,7 @@
           <ComboBoxItem Content="Desligado" />
           <ComboBoxItem Content="Resumido — FPS, bateria e hora" />
           <ComboBoxItem Content="Médio — GPU, CPU, RAM, bateria e FPS" />
-          <ComboBoxItem Content="Completo — + VRAM, clock da CPU e consumo (W)" />
+          <ComboBoxItem Content="Completo — + VRAM, clock da CPU, consumo (W) e mini-gráfico de frametime" />
         </ComboBox>
         <TextBlock Text="{Binding OverlayStatusText, StringFormat='Agora: {0}'}" Classes="subtle" FontSize="11" />
         <TextBlock Text="No jogo: aperte L3+R3 (os dois analógicos) pra trocar. Precisa do RTSS aberto (o launcher já liga o OSD dele e desliga o 'Show own statistics' sozinho, pra não duplicar o FPS). Tamanho da letra: 'On-Screen Display zoom' no RTSS. Faixa preta atrás do texto: desmarque 'On-Screen Display fill' no RTSS (sem fundo)."

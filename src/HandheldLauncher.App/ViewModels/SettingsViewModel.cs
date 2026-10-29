@@ -25,26 +25,80 @@ namespace HandheldLauncher.App.ViewModels;
 /// </summary>
 public sealed class SettingsViewModel : ViewModelBase
 {
+    // v0.9.5: a tela principal de Configurações não mostra mais as caixas
+    // de chave/ID direto (pedido do usuário: "gravar a tela de
+    // configuração mostrando o que tem pra configurar mas não queria
+    // exibir os códigos") — só o status (Has*KeyText abaixo). As caixas de
+    // verdade (ainda mascaradas, ver AccountsWindow) ficam atrás do botão
+    // "Gerenciar contas e chaves de API". Por isso os três setters agora
+    // também notificam o Has* correspondente.
+
     private string _steamGridDbApiKey = string.Empty;
     public string SteamGridDbApiKey
     {
         get => _steamGridDbApiKey;
-        set => SetField(ref _steamGridDbApiKey, value);
+        set
+        {
+            if (SetField(ref _steamGridDbApiKey, value))
+            {
+                OnPropertyChanged(nameof(HasSteamGridDbKey));
+                OnPropertyChanged(nameof(SteamGridDbStatusText));
+            }
+        }
     }
+
+    public bool HasSteamGridDbKey => !string.IsNullOrWhiteSpace(_steamGridDbApiKey);
+
+    /// <summary>"configurado ✓"/"não configurado" — pra tela principal mostrar status sem o valor da chave.</summary>
+    public string SteamGridDbStatusText => HasSteamGridDbKey ? "configurado ✓" : "não configurado";
 
     private string _steamWebApiKey = string.Empty;
     public string SteamWebApiKey
     {
         get => _steamWebApiKey;
-        set => SetField(ref _steamWebApiKey, value);
+        set
+        {
+            if (SetField(ref _steamWebApiKey, value))
+            {
+                OnPropertyChanged(nameof(HasSteamWebApiKey));
+                OnPropertyChanged(nameof(SteamWebApiStatusText));
+            }
+        }
     }
+
+    public bool HasSteamWebApiKey => !string.IsNullOrWhiteSpace(_steamWebApiKey);
+
+    public string SteamWebApiStatusText => HasSteamWebApiKey ? "configurado ✓" : "não configurado";
 
     private string _steamId64 = string.Empty;
     public string SteamId64
     {
         get => _steamId64;
-        set => SetField(ref _steamId64, value);
+        set
+        {
+            if (SetField(ref _steamId64, value))
+            {
+                OnPropertyChanged(nameof(HasSteamId64));
+                OnPropertyChanged(nameof(SteamIdStatusText));
+            }
+        }
     }
+
+    public bool HasSteamId64 => !string.IsNullOrWhiteSpace(_steamId64);
+
+    private string? _steamPersonaName;
+
+    /// <summary>
+    /// Status pra tela PRINCIPAL de Configurações: mostra o apelido da
+    /// conta detectada (não é segredo) mas NUNCA o número do SteamID64 —
+    /// "esconder o número" foi pedido explícito do usuário. O número de
+    /// verdade só aparece dentro de AccountsWindow (e mesmo lá, mascarado).
+    /// </summary>
+    public string SteamIdStatusText => !HasSteamId64
+        ? "não configurado"
+        : string.IsNullOrWhiteSpace(_steamPersonaName)
+            ? "configurado ✓"
+            : $"{_steamPersonaName} (configurado ✓)";
 
     private string _xboxScanFoldersText = string.Empty;
 
@@ -147,7 +201,7 @@ public sealed class SettingsViewModel : ViewModelBase
         set => SetField(ref _steamAccountText, value);
     }
 
-    /// <summary>Botão "Usar conta da Steam deste PC" — preenche o SteamID64.</summary>
+    /// <summary>Botão "Usar conta da Steam deste PC" (dentro de AccountsWindow) — preenche o SteamID64.</summary>
     public void UseDetectedSteamAccount()
     {
         var account = SteamAccountDetector.FindMostRecent();
@@ -157,8 +211,10 @@ public sealed class SettingsViewModel : ViewModelBase
             return;
         }
 
+        _steamPersonaName = account.PersonaName;
         SteamId64 = account.SteamId64;
         SteamAccountText = $"Conta Steam deste PC: {account.PersonaName} ({account.SteamId64})";
+        OnPropertyChanged(nameof(SteamIdStatusText));
     }
 
     private int _fontSizeIndex = 1;
@@ -198,10 +254,15 @@ public sealed class SettingsViewModel : ViewModelBase
     {
         SteamGridDbApiKey = settings.SteamGridDbApiKey ?? string.Empty;
         SteamWebApiKey = settings.SteamWebApiKey ?? string.Empty;
+
+        // Detecta ANTES de preencher SteamId64, pra SteamIdStatusText (tela
+        // principal) já nascer com o apelido certo em vez de "configurado
+        // ✓" genérico — ver comentário da propriedade.
+        var detected = SteamAccountDetector.FindMostRecent();
+        _steamPersonaName = detected?.PersonaName;
         SteamId64 = settings.SteamId64 ?? string.Empty;
         XboxScanFoldersText = string.Join(Environment.NewLine, settings.XboxScanFolders);
         IsHandheldMode = settings.KioskMode;
-        var detected = SteamAccountDetector.FindMostRecent();
         SteamAccountText = detected is null
             ? "Nenhuma conta Steam encontrada neste PC."
             : $"Conta Steam deste PC: {detected.PersonaName} ({detected.SteamId64})";

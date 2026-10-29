@@ -25,6 +25,13 @@ public sealed class PerformanceHud : IDisposable
     private bool _isShowing;
     private string? _lastLoggedError;
 
+    // Mini-gráfico de frametime (preset Completo, v0.9.5) — histórico
+    // curto só pra desenhar a tendência; não precisa de lock separado
+    // porque só o próprio Tick() (protegido por _ticking acima) toca
+    // nisso, nunca duas vezes ao mesmo tempo.
+    private const int FrameTimeHistorySize = 20;
+    private readonly Queue<double> _frameTimeHistory = new(FrameTimeHistorySize + 1);
+
     public PerformanceHud(int preset)
     {
         _preset = Math.Clamp(preset, 0, PresetNames.Length - 1);
@@ -77,7 +84,20 @@ public sealed class PerformanceHud : IDisposable
             lock (_rtss)
             {
                 var frames = _rtss.ReadFrameStats(GetForegroundProcessId());
-                var text = HudFormatter.Format(preset, frames, metrics);
+
+                if (frames is { } f)
+                {
+                    _frameTimeHistory.Enqueue(f.FrameTimeMs);
+                    while (_frameTimeHistory.Count > FrameTimeHistorySize) _frameTimeHistory.Dequeue();
+                }
+                else
+                {
+                    // Sem jogo em foco agora — esvazia pra não deixar o
+                    // gráfico "congelado" com dados de uma sessão anterior.
+                    _frameTimeHistory.Clear();
+                }
+
+                var text = HudFormatter.Format(preset, frames, metrics, _frameTimeHistory);
                 written = _rtss.WriteOsd(text);
             }
 
@@ -173,9 +193,20 @@ internal static class HudFormatter
 
     private const string GroupSeparator = "     ";
 
+    // Mini-gráfico de frametime (v0.9.5, pedido antigo do planejamento) —
+    // RTSS OSD só desenha TEXTO (sem API de gráfico de verdade), então o
+    // "gráfico" é um sparkline feito com caracteres de bloco Unicode
+    // (▁▂▃▄▅▆▇█), uma "barrinha" por amostra. NUNCA testado contra um RTSS
+    // de verdade: se a fonte que o RTSS está usando não tiver esses
+    // glyphs, pode aparecer em branco/quadradinhos em vez da barra — avisar
+    // se isso acontecer, dá pra trocar por caracteres ASCII simples.
+    private static readonly char[] SparkChars = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+    private const double SparklineMaxMs = 33.0; // ~30 FPS pra cima já vira a barra mais alta da escala
+    private const string FrameColor = "F2C14E";
+
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
-    public static string Format(int preset, FrameStats? frames, MetricsSnapshot m)
+    public static string Format(int preset, FrameStats? frames, MetricsSnapshot m, IReadOnlyCollection<double>? frameTimeHistoryMs = null)
     {
         var groups = new List<string>();
 
@@ -206,6 +237,10 @@ internal static class HudFormatter
                     Value(m.RamUsedGb.ToString("0.0", Inv)) + Unit("/" + m.RamTotalGb.ToString("0", Inv) + "GB")));
                 AddBattery(groups, m, withWatts: true);
                 groups.Add(Fps(frames, withFrameTime: true));
+                if (Sparkline(frameTimeHistoryMs) is { Length: > 0 } spark)
+                {
+                    groups.Add(Group("FRAME", FrameColor, Value(spark)));
+                }
                 break;
         }
 
@@ -244,6 +279,27 @@ internal static class HudFormatter
         }
 
         groups.Add(Group("BAT", BatteryColor, text));
+    }
+
+    /// <summary>
+    /// Uma barra por amostra do histórico (mais recente por último),
+    /// escalada de 0 a <see cref="SparklineMaxMs"/> — acima disso já é a
+    /// barra mais alta. string.Empty se não tem histórico ainda (jogo
+    /// recém-aberto ou nenhum jogo em foco).
+    /// </summary>
+    private static string Sparkline(IReadOnlyCollection<double>? frameTimeHistoryMs)
+    {
+        if (frameTimeHistoryMs is null || frameTimeHistoryMs.Count == 0) return string.Empty;
+
+        var sb = new StringBuilder(frameTimeHistoryMs.Count);
+        foreach (var ms in frameTimeHistoryMs)
+        {
+            var t = Math.Clamp(ms / SparklineMaxMs, 0.0, 1.0);
+            var level = (int)Math.Round(t * (SparkChars.Length - 1));
+            sb.Append(SparkChars[level]);
+        }
+
+        return sb.ToString();
     }
 
     private static string Group(string label, string labelColor, string valueText)

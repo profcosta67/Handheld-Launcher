@@ -1,0 +1,63 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:HandheldLauncher.App.ViewModels"
+        x:Class="HandheldLauncher.App.Views.AccountsWindow"
+        x:DataType="vm:SettingsViewModel"
+        Title="Contas e chaves de API"
+        Width="520" Height="520"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BackgroundBrush}">
+
+  <!--
+    v0.9.5, pedido do usuário: a tela principal de Configurações só mostra
+    STATUS ("configurado ✓"/"não configurado"), nunca o valor — quem quer
+    ver/editar a chave de verdade entra aqui de propósito (botão "Gerenciar
+    contas e chaves de API"). Mesma SettingsViewModel do caller (passada no
+    construtor, não uma cópia) — editar aqui já reflete na tela principal
+    na hora, mas só grava em disco quando o usuário clicar "Salvar" lá,
+    igual antes. Além do "degrau extra" pra chegar aqui, os campos também
+    ficam mascarados (PasswordChar) por padrão — "proteção de visualização"
+    pedida — com um botão 👁 por campo pra revelar só quando precisar
+    (colar/confirmar a chave), sem precisar de nenhum estado na ViewModel
+    (é só UI, resolvido no code-behind).
+  -->
+
+  <Grid RowDefinitions="*,Auto" Margin="24">
+    <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+      <StackPanel Spacing="12">
+        <TextBlock Text="As chaves ficam mascaradas por padrão — toque no 👁 pra revelar." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+
+        <TextBlock Text="SteamGridDB API key (capas)" Classes="subtle" Margin="0,8,0,0" />
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBox x:Name="GridDbKeyBox" Grid.Column="0" Text="{Binding SteamGridDbApiKey}" PasswordChar="•" Watermark="Cole aqui a chave do SteamGridDB" />
+          <Button Grid.Column="1" Classes="pill" Content="👁" Padding="12,6" Margin="6,0,0,0" Click="OnToggleGridDbVisibilityClick" ToolTip.Tip="Mostrar/ocultar" />
+        </Grid>
+        <Button Classes="pill" Content="Obter chave do SteamGridDB" Click="OnGetGridDbKeyClick" HorizontalAlignment="Left" />
+
+        <TextBlock Text="Steam Web API key (lista 'na conta, não instalado')" Classes="subtle" Margin="0,8,0,0" />
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBox x:Name="SteamWebKeyBox" Grid.Column="0" Text="{Binding SteamWebApiKey}" PasswordChar="•" Watermark="Cole aqui a chave da Steam Web API" />
+          <Button Grid.Column="1" Classes="pill" Content="👁" Padding="12,6" Margin="6,0,0,0" Click="OnToggleSteamWebVisibilityClick" ToolTip.Tip="Mostrar/ocultar" />
+        </Grid>
+        <Button Classes="pill" Content="Obter chave da Steam (abre o site oficial)" Click="OnGetSteamKeyClick" HorizontalAlignment="Left" />
+
+        <TextBlock Text="SteamID64" Classes="subtle" Margin="0,8,0,0" />
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBox x:Name="SteamIdBox" Grid.Column="0" Text="{Binding SteamId64}" PasswordChar="•" Watermark="Preenchido sozinho com a conta da Steam deste PC" />
+          <Button Grid.Column="1" Classes="pill" Content="👁" Padding="12,6" Margin="6,0,0,0" Click="OnToggleSteamIdVisibilityClick" ToolTip.Tip="Mostrar/ocultar" />
+        </Grid>
+        <TextBlock Text="{Binding SteamAccountText}" Classes="subtle" FontSize="12" TextWrapping="Wrap" />
+        <Button Classes="pill" Content="Usar conta da Steam deste PC" Click="OnUseSteamAccountClick" HorizontalAlignment="Left" />
+
+        <TextBlock Text="O launcher nunca pede nem guarda a senha da Steam. As chaves ficam criptografadas neste PC (só o seu usuário do Windows consegue ler)."
+                   Classes="subtle" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0" />
+      </StackPanel>
+    </ScrollViewer>
+
+    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,16,0,0">
+      <TextBlock Text="Lembra de clicar Salvar na tela de Configurações pra valer" Classes="subtle" FontSize="11" VerticalAlignment="Center" />
+      <Button Classes="pill" Content="Fechar" Click="OnCloseClick" />
+    </StackPanel>
+  </Grid>
+</Window>

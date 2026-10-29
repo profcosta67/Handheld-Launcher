@@ -69,9 +69,10 @@ mais sentido de risco crescente):
 0. ~~Organização da interface (menu em subpastas, Power, Downloads com
    velocidade, capas cinza, ícone no seletor)~~ — **v0.5.0**, ver seção própria.
    **Próximos lotes combinados**: ~~v0.6.0 visual~~ (feito, ver "Aparência");
-   depois HUD 2 (temperatura — pesquisar
-   caminho sem driver bloqueado; mini gráfico de frametime); mais pra
-   frente: login Steam, pasta de instalação, Modo Xbox/"Sair" no Legion.
+   depois HUD 2 — ~~mini gráfico de frametime~~ (feito na v0.9.5) e
+   temperatura (pesquisado na v0.9.5, ver "Temperatura no HUD — pesquisado,
+   ainda sem caminho bom", ainda pendente de decisão); mais pra frente:
+   login Steam, pasta de instalação, Modo Xbox/"Sair" no Legion.
 1. ~~Reorganizar as abas da biblioteca~~ — **feito nesta leva**, ver
    "Status atual" mais abaixo pros detalhes (Favoritos/Todos/Oficiais/Não
    Steam/Não instalados). **Nunca testado num build real.**
@@ -738,6 +739,62 @@ Ainda **não** feito:
     mostrar o FPS" mais abaixo).
 15. ~~Tela de configuração pra `SteamWebApiKey`/`SteamId64`~~ — **feito
     numa leva posterior**, junto do item 5 (mesma `SettingsWindow`).
+
+## Privacidade das chaves + frametime no HUD — v0.9.5
+
+**Nunca testado num aparelho ainda.**
+
+- **Chaves/contas escondidas por padrão**: pedido do usuário ("gravar a
+  tela de configuração mostrando o que tem pra configurar mas não queria
+  exibir os códigos"). A tela de Configurações agora só mostra status
+  (`SteamGridDbStatusText`/`SteamWebApiStatusText`/`SteamIdStatusText` em
+  `SettingsViewModel`) — nunca o valor da chave nem o número do SteamID64
+  (só o apelido da conta, quando detectada). As caixas de verdade ficam
+  num diálogo separado (`Views/AccountsWindow`), aberto pelo botão "🔒
+  Gerenciar contas e chaves de API" — mesma `SettingsViewModel` do caller
+  (não uma cópia), então editar lá já atualiza o status na tela principal
+  na hora. "Proteção de visualização" pedida também: os três campos usam
+  `PasswordChar` (mascarados) por padrão, com um botão 👁 por campo pra
+  revelar só quando precisar. Salvar continua só na tela principal — o
+  diálogo de contas não tem Salvar próprio.
+- **HUD: mini-gráfico de frametime** (item do planejamento original,
+  nunca atacado até agora) — `PerformanceHud` guarda os últimos 20
+  frametimes lidos do RTSS e `HudFormatter.Sparkline` desenha um gráfico
+  de barras com caracteres Unicode (▁▂▃▄▅▆▇█), escalado de 0 a ~33ms (abaixo
+  de 30 FPS já vira a barra mais alta). Só no preset Completo. RTSS OSD só
+  desenha texto — não existe uma API de gráfico de verdade pra usar, então
+  isso é a aproximação possível. Risco conhecido: se a fonte do RTSS não
+  tiver esses glyphs, pode aparecer em branco — nesse caso é só avisar pra
+  trocar por uma versão em caracteres ASCII simples.
+
+### Temperatura no HUD — pesquisado, ainda sem caminho bom
+
+Pedido antigo ("HUD 2"), travado desde o início porque LibreHardwareMonitor/
+WinRing0 exigem driver de kernel + admin e o Defender costuma marcar como
+vulnerável. Pesquisa nesta leva, três alternativas avaliadas — nenhuma é um
+"sim" claro:
+
+1. **HWiNFO Shared Memory** — API madura e bem documentada, mas: (a) na
+   versão grátis (não-Pro) tem limite de 12h contínuas, depois para e pede
+   pra reativar na mão — ruim pro uso num handheld que fica ligado o dia
+   todo; (b) a licença histórica do protocolo exigia manter a parte de
+   leitura com CÓDIGO FECHADO em apps open-source — direto contra a nossa
+   licença GPL-3.0 (qualquer modificação tem que ficar aberta). Tem uma
+   mudança anunciada pela HWiNFO que tornaria isso mais aberto, mas ainda
+   não está em vigor nem confirmada.
+2. **AMD ADLX** (biblioteca oficial da AMD, Legion Go 2 e ROG Ally são os
+   dois AMD) — sem precisar de outro app rodando, e tem binding oficial pra
+   C#. Mas: só achei documentação/exemplos pra GPUs discretas Radeon (RX
+   5000/6000/7000) — nenhuma confirmação de que funciona pra ler a
+   temperatura da parte gráfica de uma APU integrada (que é o caso aqui);
+   exige o driver "AMD Software: Adrenalin" instalado; e de qualquer forma
+   só dá temperatura de GPU, não de CPU.
+3. **WMI (ACPI Thermal Zone)** — zero dependência extra, sem admin, mas é
+   historicamente pouco confiável em notebooks/handhelds (muitos reportam
+   valor estático ou sem relação com CPU/GPU de verdade).
+
+Sem decisão óbvia — fica pendente até decidir com o usuário qual caminho
+(ou nenhum, por agora) vale tentar. Ver conversa/decisão mais recente.
 
 ## Pendências rápidas — v0.9.4
 

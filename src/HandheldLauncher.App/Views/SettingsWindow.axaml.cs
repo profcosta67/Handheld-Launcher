@@ -73,22 +73,14 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private void OnUseSteamAccountClick(object? sender, RoutedEventArgs e) => ViewModel.UseDetectedSteamAccount();
-
-    private void OnGetSteamKeyClick(object? sender, RoutedEventArgs e) => OpenUrl("https://steamcommunity.com/dev/apikey");
-
-    private void OnGetGridDbKeyClick(object? sender, RoutedEventArgs e) => OpenUrl("https://www.steamgriddb.com/profile/preferences/api");
-
-    private static void OpenUrl(string url)
+    // v0.9.5: as chaves/SteamID64 saíram da tela principal (ver .axaml) —
+    // só o status aparece aqui. "Gerenciar contas" abre o diálogo de
+    // verdade, passando a MESMA ViewModel (edição ali já reflete no status
+    // desta tela na hora, via INotifyPropertyChanged — sem precisar
+    // reconsultar nada quando o diálogo fechar).
+    private async void OnManageAccountsClick(object? sender, RoutedEventArgs e)
     {
-        try
-        {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
-        }
-        catch
-        {
-            // Melhor esforço.
-        }
+        await new AccountsWindow(ViewModel).ShowDialog(this);
     }
 
     private void OnKeyboardClick(object? sender, RoutedEventArgs e)
