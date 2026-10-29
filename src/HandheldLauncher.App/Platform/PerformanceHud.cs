@@ -17,24 +17,56 @@ public sealed class PerformanceHud : IDisposable
     public static readonly string[] PresetNames = ["Desligado", "Resumido", "Médio", "Completo"];
 
     private readonly RtssSharedMemory _rtss = new();
-    private readonly Timer _timer;
+    private readonly Thread _thread;
+    private volatile bool _stop;
     private SystemMetrics? _metrics;
     private volatile int _preset;
-    private int _ticking;
     private bool _isShowing;
     private string? _lastLoggedError;
 
     // Mini-gráfico de frametime (preset Completo, v0.9.5) — histórico
     // curto só pra desenhar a tendência; não precisa de lock separado
-    // porque só o próprio Tick() (protegido por _ticking acima) toca
-    // nisso, nunca duas vezes ao mesmo tempo.
+    // porque só a própria thread de Tick toca nisso, uma chamada por vez,
+    // nunca duas em paralelo.
     private const int FrameTimeHistorySize = 20;
     private readonly Queue<double> _frameTimeHistory = new(FrameTimeHistorySize + 1);
 
     public PerformanceHud(int preset)
     {
         _preset = Math.Clamp(preset, 0, PresetNames.Length - 1);
-        _timer = new Timer(Tick, null, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1));
+
+        // v0.9.9 — bug reportado como ainda persistindo ("no jogo só
+        // muda quando launcher tá em primeiro plano"): antes disparava
+        // Tick() por um System.Threading.Timer, que agenda a chamada no
+        // ThreadPool. Mesmo com Platform.PowerThrottling desligando o
+        // EcoQoS do PROCESSO inteiro (v0.6.1), o ThreadPool tem seu
+        // próprio algoritmo de injeção de threads ("hill-climbing"), que
+        // pode demorar bem mais pra despachar um callback quando o app
+        // está em segundo plano/ocioso. Trocado pra uma thread dedicada
+        // — mesmo padrão do Input/OverlayHotkeyWatcher, que já resolveu
+        // exatamente esse tipo de atraso pro combo L3+R3 também na
+        // v0.6.1: thread própria, AboveNormal, dormindo 1 s entre
+        // leituras, sem depender do ThreadPool decidir quando rodar.
+        _thread = new Thread(Run)
+        {
+            IsBackground = true,
+            Name = "PerformanceHud",
+            Priority = ThreadPriority.AboveNormal,
+        };
+        _thread.Start();
+    }
+
+    private void Run()
+    {
+        // Mesmo atraso inicial de antes — dá tempo do RTSS/jogo
+        // iniciarem antes da primeira leitura.
+        Thread.Sleep(TimeSpan.FromSeconds(2));
+
+        while (!_stop)
+        {
+            Tick();
+            Thread.Sleep(TimeSpan.FromSeconds(1));
+        }
     }
 
     public int Preset
@@ -62,10 +94,8 @@ public sealed class PerformanceHud : IDisposable
         }
     }
 
-    private void Tick(object? state)
+    private void Tick()
     {
-        if (Interlocked.Exchange(ref _ticking, 1) == 1) return;
-
         try
         {
             var preset = _preset;
@@ -116,10 +146,6 @@ public sealed class PerformanceHud : IDisposable
             Status = "erro: " + ex.Message;
             LogOnce(ex.ToString());
         }
-        finally
-        {
-            Volatile.Write(ref _ticking, 0);
-        }
     }
 
     private void LogOnce(string message)
@@ -152,7 +178,11 @@ public sealed class PerformanceHud : IDisposable
 
     public void Dispose()
     {
-        _timer.Dispose();
+        // Só sinaliza — sem Join() (thread em background, dorme até 1s;
+        // esperar ela "notar" aqui só atrasaria o fechamento do launcher
+        // sem necessidade, igual o Timer.Dispose() de antes também não
+        // esperava um Tick em andamento terminar).
+        _stop = true;
         ClearNow();
         _rtss.Dispose();
         _metrics?.Dispose();

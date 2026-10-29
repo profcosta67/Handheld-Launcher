@@ -60,7 +60,10 @@
           <Ellipse Width="10" Height="10" Fill="{StaticResource AccentBrush}" VerticalAlignment="Center" />
           <TextBlock Text="Handheld Launcher" Classes="gameTitle" VerticalAlignment="Center" />
         </StackPanel>
-        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16">
+        <!-- Espaçamento 16 → 28 nesta leva (pedido do usuário: "da um
+             espaçamento maior entre eles") — downloads/bateria/relógio
+             ficavam colados demais um no outro. -->
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="28">
           <!-- Aviso de atualização do launcher (Velopack): "Verificando…",
                "⬆ v1.2.4 pronta — toque pra reiniciar" etc. Só aparece com
                algo a dizer (HasUpdateStatus); tocar aplica a atualização
@@ -127,13 +130,10 @@
                          HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Border>
           </StackPanel>
-          <!-- Relógio (v0.9.8, pedido do usuário: "faltou um relógio no
-               nosso home perto da bateria") — tirou o lugar do antigo
-               placeholder de wifi "●●●" (nunca foi real, só um texto fixo;
-               wifi de verdade fica pra outra leva). Empurrado de fora pelo
-               mesmo timer da bateria (ver MainViewModel.ClockText/
-               MainWindow.StartBatteryMonitor). -->
-          <TextBlock Text="{Binding ClockText}" Classes="subtle" VerticalAlignment="Center" />
+          <!-- Ordem reorganizada nesta leva (pedido do usuário: "ícone de
+               download, depois vir o ícone de energia e bateria e ícone de
+               relógio") — downloads (acima) → bateria → relógio, nessa
+               ordem, da esquerda pra direita dentro deste grupo. -->
           <!-- Bateria real desde outra leva (ver MainViewModel.
                BatteryStatusText/MainWindow.StartBatteryMonitor), corrigindo
                o bug reportado de ficar cravada em 100%. O ícone de
@@ -145,6 +145,13 @@
                tomada ou não"). Texto vazio (nada aparece) em PC sem
                bateria nenhuma. -->
           <TextBlock Text="{Binding BatteryStatusText}" Classes="subtle" VerticalAlignment="Center" />
+          <!-- Relógio (v0.9.8, pedido do usuário: "faltou um relógio no
+               nosso home perto da bateria") — tirou o lugar do antigo
+               placeholder de wifi "●●●" (nunca foi real, só um texto fixo;
+               wifi de verdade fica pra outra leva). Empurrado de fora pelo
+               mesmo timer da bateria (ver MainViewModel.ClockText/
+               MainWindow.StartBatteryMonitor). -->
+          <TextBlock Text="{Binding ClockText}" Classes="subtle" VerticalAlignment="Center" />
         </StackPanel>
       </Grid>
     </Border>

@@ -72,7 +72,12 @@ mais sentido de risco crescente):
    depois HUD 2 — ~~mini gráfico de frametime~~ (feito na v0.9.5) e
    temperatura (pesquisado na v0.9.5, ver "Temperatura no HUD — pesquisado,
    ainda sem caminho bom", ainda pendente de decisão); mais pra frente:
-   login Steam, pasta de instalação, Modo Xbox/"Sair" no Legion.
+   login Steam, pasta de instalação. "Modo Xbox/'Sair' no Legion" foi
+   tentado (esconder a janela + minimizar as outras, item "Ir para a
+   área de trabalho" no menu de Energia) e **removido na v0.9.9** — não
+   achava o modo Desktop de verdade, só minimizava, e sair do Modo Xbox
+   de fato não tem um jeito documentado de fazer só por fora (sem vir de
+   uma API do próprio Windows/fabricante).
 1. ~~Reorganizar as abas da biblioteca~~ — **feito nesta leva**, ver
    "Status atual" mais abaixo pros detalhes (Favoritos/Todos/Oficiais/Não
    Steam/Não instalados). **Nunca testado num build real.**
@@ -739,6 +744,41 @@ Ainda **não** feito:
     mostrar o FPS" mais abaixo).
 15. ~~Tela de configuração pra `SteamWebApiKey`/`SteamId64`~~ — **feito
     numa leva posterior**, junto do item 5 (mesma `SettingsWindow`).
+
+## Ajuste fino da barra de cima, HUD numa thread própria e menu de Energia mais limpo — v0.9.9
+
+**Nunca testado num aparelho ainda.**
+
+- **Barra de cima reorganizada**: pedido do usuário ("ícone de download,
+  depois vir o ícone de energia e bateria e ícone de relógio... e dá um
+  espaçamento maior entre eles"). Ordem agora é downloads → bateria →
+  relógio (antes era relógio → bateria), com mais espaço entre os grupos
+  (16px → 28px) — ficavam colados demais um no outro.
+- **HUD "só atualiza com o launcher em primeiro plano" — nova tentativa**:
+  bug antigo (reportado já na v0.6.1 pro combo L3+R3, aparentemente ainda
+  presente no HUD em si). `PerformanceHud` disparava a leitura/escrita a
+  cada 1s por um `System.Threading.Timer`, que agenda a chamada no
+  ThreadPool — mesmo com `Platform.PowerThrottling` desligando o EcoQoS do
+  processo inteiro, o ThreadPool tem seu próprio algoritmo de injeção de
+  threads, que pode atrasar um callback bem mais quando o app está em
+  segundo plano. Trocado pra uma thread dedicada (mesmo padrão já usado
+  pelo `Input/OverlayHotkeyWatcher` desde a v0.6.1, que resolveu
+  exatamente esse tipo de atraso pro combo L3+R3): thread própria,
+  prioridade AboveNormal, dormindo 1s entre leituras, sem depender do
+  ThreadPool decidir quando rodar.
+- **Menu de Energia (View/Back → Energia) mais limpo**: pedido do usuário
+  ("tem coisa desnecessária"). Nova ordem: Desligar tela → Reiniciar o
+  aparelho → Desligar o aparelho → Sair. "Minimizar" saiu de lá — já é um
+  botão próprio na barra de baixo, duplicado sem necessidade ali dentro.
+  "Ir para a área de trabalho" também saiu: só escondia a nossa janela e
+  minimizava as outras (como um "Win+M"), o que não é a mesma coisa que o
+  modo Desktop de verdade do Legion Go/ROG Ally — isso é um modo do
+  próprio Windows ("Modo Xbox"/Full-Screen-Experience, já mencionado no
+  roteiro planejado), não algo que dá pra replicar só escondendo janelas.
+  Sem um jeito documentado de sair desse modo por conta própria, e com
+  autorização explícita do usuário pra tirar se não funcionasse ("se
+  funcionar, se não retira ele" — e não funcionava: "simplesmente
+  minimiza, não entra no modo desktop"), foi removido.
 
 ## Navegação por controle corrigida, atualização silenciosa, números no HUD e relógio — v0.9.8
 

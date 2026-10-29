@@ -255,30 +255,6 @@ public partial class MainWindow : Window
         Hide();
     }
 
-    /// <summary>
-    /// "Ir para a área de trabalho" (Power): esconde o launcher na bandeja
-    /// (processo continua vivo — a tarefa do modo Handheld não reabre) e
-    /// minimiza as outras janelas, deixando a área de trabalho limpa. Volta
-    /// pelo ícone da bandeja ou Ctrl+Alt+H.
-    /// </summary>
-    private void GoToDesktop()
-    {
-        MinimizeToTray();
-
-        try
-        {
-            // Mesmo que "Win+M": Shell.Application.MinimizeAll (COM do Explorer).
-            var shellType = Type.GetTypeFromProgID("Shell.Application");
-            if (shellType is null) return;
-            var shell = Activator.CreateInstance(shellType);
-            shellType.InvokeMember("MinimizeAll", System.Reflection.BindingFlags.InvokeMethod, null, shell, null);
-        }
-        catch (Exception ex)
-        {
-            DebugLog.Write($"GoToDesktop: MinimizeAll falhou ({ex.Message})");
-        }
-    }
-
     // ------------------------------------------------------------------
     // Transições (v0.8.0, Lote B1)
     // ------------------------------------------------------------------
@@ -482,7 +458,6 @@ public partial class MainWindow : Window
             Close();
         };
         vm.MinimizeRequested += (_, _) => MinimizeToTray();
-        vm.DesktopRequested += (_, _) => GoToDesktop();
         vm.TurnOffScreenRequested += (_, _) => TurnOffScreen();
         vm.RestartDeviceRequested += (_, _) => RestartDevice();
         vm.ShutdownDeviceRequested += (_, _) => ShutdownDevice();

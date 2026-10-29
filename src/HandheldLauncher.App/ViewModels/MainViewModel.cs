@@ -1278,8 +1278,19 @@ public sealed class MainViewModel : ViewModelBase
 
             case GlobalMenuPage.Power:
                 GlobalMenuTitle = "Energia";
-                Add("Ir para a área de trabalho", () => DesktopRequested?.Invoke(this, EventArgs.Empty));
-                Add("Minimizar", () => MinimizeRequested?.Invoke(this, EventArgs.Empty));
+                // Reordenado nesta leva (pedido do usuário: "tem coisa
+                // desnecessária... podemos deixar nessa ordem"). "Minimizar"
+                // saiu de aqui — já é um botão próprio na barra de baixo
+                // (OnMinimizeClick), duplicado aqui sem necessidade. "Ir
+                // para a área de trabalho" também saiu: só escondia nossa
+                // janela e minimizava as outras, o que NÃO é a mesma coisa
+                // que o modo Desktop de verdade do Legion Go/ROG Ally (esse
+                // é um modo do próprio Windows/Modo Xbox, não algo que dá
+                // pra replicar só escondendo janelas) — bug reportado pelo
+                // usuário ("simplesmente minimiza, não entra no modo
+                // desktop"). Sem um jeito documentado de sair do Modo Xbox
+                // por conta própria, e com autorização explícita do usuário
+                // pra tirar se não funcionasse, foi removido.
                 Add("Desligar tela", () => TurnOffScreenRequested?.Invoke(this, EventArgs.Empty));
                 // v0.9.4: pedem confirmação agora (ver RequestPowerConfirm) —
                 // antes executava na hora, risco de perder progresso de
@@ -1359,9 +1370,6 @@ public sealed class MainViewModel : ViewModelBase
             return start >= 0 ? "Versão " + (end > start ? full[(start + 1)..end] : full[(start + 1)..]) : full;
         }
     }
-
-    /// <summary>"Ir para a área de trabalho" (página Power) — MainWindow esconde na bandeja e minimiza as outras janelas.</summary>
-    public event EventHandler? DesktopRequested;
 
     /// <summary>
     /// Botão ⏻ da barra de baixo: abre o menu direto na página Power, ou
