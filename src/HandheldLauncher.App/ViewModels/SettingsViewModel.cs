@@ -234,6 +234,11 @@ public sealed class SettingsViewModel : ViewModelBase
     private bool _animations = true;
     public bool Animations { get => _animations; set => SetField(ref _animations, value); }
 
+    private bool _soundEffects = true;
+
+    /// <summary>"Sons de interação" (v0.9.10) — Platform.UiSounds.Enabled espelha isto ao vivo (ver SettingsWindow.axaml.cs).</summary>
+    public bool SoundEffects { get => _soundEffects; set => SetField(ref _soundEffects, value); }
+
     private string? _savedMessage;
     public string? SavedMessage
     {
@@ -284,6 +289,7 @@ public sealed class SettingsViewModel : ViewModelBase
         TileSizeIndex = Math.Clamp(settings.TileSize, 0, 2);
         LayoutIndex = settings.VerticalLayout ? 1 : 0;
         Animations = settings.Animations;
+        SoundEffects = settings.SoundEffects;
         SavedMessage = null;
     }
 
@@ -312,6 +318,7 @@ public sealed class SettingsViewModel : ViewModelBase
         settings.TileSize = Math.Clamp(TileSizeIndex, 0, 2);
         settings.VerticalLayout = LayoutIndex == 1;
         settings.Animations = Animations;
+        settings.SoundEffects = SoundEffects;
 
         AppSettingsStore.Save(settings);
 

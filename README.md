@@ -110,6 +110,16 @@ mais sentido de risco crescente):
    que a estrutura das abas (item 1) já estiver estável, pra não re-estilizar
    duas vezes a mesma coisa.
 
+5. **Nova rodada de ideias combinada com o usuário (pós v0.9.9)**, ordem de
+   risco/esforço crescente: ~~som de interação pelo controle~~ (**feito na
+   v0.9.10**, ver seção própria) → **tela de informações do jogo**, estilo
+   Decky Loader (horas jogadas e conquistas via Steam Web API — caminho
+   confiável; classificação/resumo de loja ficaria pra uma fase 2, via API
+   não-oficial da loja da Steam, já que a API "de conta" não tem esses
+   dados) → **tema inspirado no Nintendo Switch**: só a disposição
+   limpa/minimalista dos itens, **sem** logos/fontes/ícones oficiais (evita
+   problema de marca registrada).
+
 ## Status atual
 
 Construído até agora:
@@ -744,6 +754,31 @@ Ainda **não** feito:
     mostrar o FPS" mais abaixo).
 15. ~~Tela de configuração pra `SteamWebApiKey`/`SteamId64`~~ — **feito
     numa leva posterior**, junto do item 5 (mesma `SettingsWindow`).
+
+## Som de interação pelo controle — v0.9.10
+
+**Nunca testado num aparelho ainda.**
+
+- **Primeiro item do roteiro de ideias novas** (planejamento feito com o
+  usuário: som de interação → tela de informações do jogo → temas). Três
+  tons curtos e sintéticos — gerados do zero por script, sem nenhum banco
+  de efeitos de terceiros — `Assets/sfx-move.wav` (navegação),
+  `sfx-confirm.wav` (A/confirmar) e `sfx-back.wav` (B/voltar).
+  `Platform/UiSounds` toca cada um via `winmm.dll PlaySound` com
+  `SND_MEMORY` (direto de um buffer já em memória, sem escrever nada em
+  disco nem precisar de pacote extra).
+- **Um ponto só de disparo**: `MainWindow.OnGamepadTick` já tinha um único
+  `foreach` por onde passa toda ação do controle antes de se espalhar pros
+  estados (biblioteca, seletor de capa, menus de contexto/global/energia,
+  painel de Downloads) — então um som ali já cobre tudo isso de uma vez,
+  sem precisar de uma chamada em cada switch interno. `CycleOverlay`
+  (L3+R3) e o fechamento do "Sobre" têm seus próprios pontos de disparo
+  (saem do loop principal antes de chegar nesse ponto único).
+  **Escopo desta leva: só controle** — mouse/touch ainda não tem som,
+  fica pra depois se fizer falta.
+- **"Sons de interação"** nova opção em Configurações → Aparência, ligada
+  por padrão, mesmo padrão da opção "Animações" já existente (aplica na
+  hora, sem reiniciar).
 
 ## Ajuste fino da barra de cima, HUD numa thread própria e menu de Energia mais limpo — v0.9.9
 

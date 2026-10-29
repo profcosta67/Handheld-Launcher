@@ -104,6 +104,10 @@
         </ComboBox>
         <CheckBox IsChecked="{Binding Animations}"
                   Content="Animações (zoom no jogo selecionado e ao passar o mouse, rolagem suave)" />
+        <!-- v0.9.10, pedido do usuário: "esquecemos de uma coisa importante,
+             som de interação do launcher". -->
+        <CheckBox IsChecked="{Binding SoundEffects}"
+                  Content="Sons de interação (navegar/confirmar/voltar pelo controle)" />
 
         <TextBlock Text="Overlay de desempenho (estilo MangoHud, desenhado pelo RTSS)" Classes="subtle" Margin="0,12,0,0" />
         <ComboBox SelectedIndex="{Binding OverlayPresetIndex}" HorizontalAlignment="Stretch">

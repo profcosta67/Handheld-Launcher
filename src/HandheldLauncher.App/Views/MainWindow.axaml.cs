@@ -625,6 +625,7 @@ public partial class MainWindow : Window
         {
             foreach (var dialogAction in actions)
             {
+                UiSounds.PlayForAction(dialogAction);
                 DialogGamepadNavigator.Handle(dialog, dialogAction);
             }
             return;
@@ -637,6 +638,7 @@ public partial class MainWindow : Window
             {
                 if (action is GamepadAction.Back or GamepadAction.Confirm or GamepadAction.GlobalMenu or GamepadAction.Menu)
                 {
+                    UiSounds.PlayBack();
                     vm.CloseAbout();
                 }
                 continue;
@@ -646,6 +648,7 @@ public partial class MainWindow : Window
             // abaixo, pra funcionar com o jogo em primeiro plano.
             if (action == GamepadAction.CycleOverlay)
             {
+                UiSounds.PlayForAction(action);
                 vm.CycleOverlayPreset();
                 continue;
             }
@@ -664,6 +667,13 @@ public partial class MainWindow : Window
             // dispatched, so a "nothing happens" report can be checked
             // against what actually fired instead of guessed at blind.
             DebugLog.Write($"action={action} pickerOpen={vm.IsCoverPickerOpen} ctxOpen={vm.IsContextMenuOpen} globalOpen={vm.IsGlobalMenuOpen} powerOpen={vm.IsPowerMenuOpen} downloadsOpen={vm.IsDownloadsOpen}");
+
+            // v0.9.10: ponto único de som pra todo o resto (biblioteca,
+            // seletor de capa, menus de contexto/global/energia, painel de
+            // Downloads) — todos esses estados caem no switch abaixo, então
+            // um som aqui já cobre todos eles sem precisar espalhar chamada
+            // em cada case (ver Platform/UiSounds.PlayForAction).
+            UiSounds.PlayForAction(action);
 
             // Cover/banner picker takes over input first — it can be opened
             // from inside the per-tile context menu (which closes itself
@@ -1215,6 +1225,11 @@ public partial class MainWindow : Window
             Classes.Set("noAnim", !settings.Animations);
             _rowScrollTransitions ??= GameRowScrollViewer.Transitions;
             GameRowScrollViewer.Transitions = settings.Animations ? _rowScrollTransitions : null;
+
+            // v0.9.10: "Sons de interação" — mesmo padrão de Animações
+            // acima, aplicado na hora (startup e toda vez que Configurações
+            // salva), sem precisar reiniciar.
+            UiSounds.Enabled = settings.SoundEffects;
 
             var scale = GameTileViewModel.ScaleForSetting(settings.TileSize);
             var scaleChanged = Math.Abs(scale - GameTileViewModel.SizeScale) > 0.001;
