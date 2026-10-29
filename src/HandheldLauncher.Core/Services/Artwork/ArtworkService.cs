@@ -413,34 +413,25 @@ public sealed class ArtworkService : IArtworkService
         }
     }
 
+    /// <summary>
+    /// v0.9.23: era uma cópia CAMPO A CAMPO, e isso já apagou dados do
+    /// usuário três vezes — todo campo novo que alguém esquecesse de
+    /// acrescentar aqui sumia do jogo assim que qualquer busca de capa
+    /// rodasse. Primeiro WideGridImagePath, depois IsFavorite, e por fim
+    /// TitleOverride/IsApplication, este reportado pelo usuário ("eu edito
+    /// o nome, mas mudo a imagem e ele volta pro nome original").
+    ///
+    /// <para>
+    /// Agora é Clone() (MemberwiseClone), que copia tudo — inclusive campo
+    /// que ainda nem existe. A lista de campos sumiu junto com a chance de
+    /// esquecer algum. Ver GameMetadataOverride.Clone.
+    /// </para>
+    /// </summary>
     private GameMetadataOverride GetOrCreateOverride(string gameId)
     {
         var overrides = _store.LoadOverrides();
-        if (overrides.TryGetValue(gameId, out var existing))
-        {
-            // CORRIGIDO: faltavam WideGridImagePath (novo campo desta
-            // leva) E IsFavorite (campo da leva anterior) aqui — como
-            // esse método recria um GameMetadataOverride do zero campo a
-            // campo, qualquer campo esquecido aqui era silenciosamente
-            // APAGADO (voltava a false/null) toda vez que qualquer busca
-            // de capa/banner/logo rodava depois de favoritar um jogo. Bug
-            // real, nunca reportado ainda (só achado revisando o código
-            // pra adicionar a capa larga) — corrigido antes de virar
-            // queixa.
-            return new GameMetadataOverride
-            {
-                Collection = existing.Collection,
-                GridImagePath = existing.GridImagePath,
-                HeroImagePath = existing.HeroImagePath,
-                LogoImagePath = existing.LogoImagePath,
-                IconImagePath = existing.IconImagePath,
-                WideGridImagePath = existing.WideGridImagePath,
-                PlaytimeMinutes = existing.PlaytimeMinutes,
-                LastPlayedUtc = existing.LastPlayedUtc,
-                IsFavorite = existing.IsFavorite,
-            };
-        }
-
-        return new GameMetadataOverride();
+        return overrides.TryGetValue(gameId, out var existing)
+            ? existing.Clone()
+            : new GameMetadataOverride();
     }
 }

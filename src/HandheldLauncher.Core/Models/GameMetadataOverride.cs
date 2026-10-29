@@ -41,4 +41,28 @@ public class GameMetadataOverride
     /// na biblioteca.
     /// </summary>
     public bool IsApplication { get; set; }
+
+    /// <summary>
+    /// Cópia desta customização (v0.9.23). Existe pra matar uma classe de
+    /// bug que já mordeu TRÊS vezes neste arquivo: quem precisava copiar um
+    /// override fazia isso campo a campo, e todo campo novo que alguém
+    /// esquecesse de acrescentar na lista era silenciosamente APAGADO do
+    /// jogo quando aquele caminho rodava.
+    ///
+    /// <para>
+    /// Histórico: aconteceu com <c>WideGridImagePath</c>, com
+    /// <c>IsFavorite</c> e, na v0.9.22, com <c>TitleOverride</c>/
+    /// <c>IsApplication</c> — este último reportado pelo usuário como "eu
+    /// edito o nome, mas mudo a imagem e ele volta pro nome original".
+    /// Buscar uma capa recriava o override sem o nome editado.
+    /// </para>
+    ///
+    /// <para>
+    /// MemberwiseClone copia TUDO, inclusive campos que ainda não existem —
+    /// então campo novo nunca mais precisa ser lembrado em lugar nenhum.
+    /// Cópia rasa é correta aqui porque todo campo é tipo de valor ou
+    /// string (imutável).
+    /// </para>
+    /// </summary>
+    public GameMetadataOverride Clone() => (GameMetadataOverride)MemberwiseClone();
 }

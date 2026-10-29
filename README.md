@@ -261,6 +261,40 @@ mais sentido de risco crescente):
      lançar o tema propriamente dito." Fica pra quando o resto desta fila
      estiver fechado, como um projeto dedicado.
 
+     **QUARTA ETAPA, v0.9.23** — retorno do teste da v0.9.22:
+     - **BUG REPORTADO, e reincidente**: "eu edito o nome, mas mudo a
+       imagem e ele volta pro nome original". Causa:
+       `ArtworkService.GetOrCreateOverride` recriava o
+       `GameMetadataOverride` CAMPO A CAMPO, e `TitleOverride`/
+       `IsApplication` (v0.9.19) não estavam na lista — qualquer busca de
+       arte os apagava. **A mesma causa já tinha apagado
+       `WideGridImagePath` e `IsFavorite` antes**, com direito a comentário
+       no código avisando. Corrigido na RAIZ:
+       `GameMetadataOverride.Clone()` (MemberwiseClone) copia tudo,
+       inclusive campo que ainda não existe. `LibraryService.ToOverride`
+       (que tinha o mesmo risco, reconstruindo a partir do GameEntry) foi
+       substituído por `OverrideFor`, que lê o gravado e clona — sem lista
+       de campos, não há o que esquecer. Lição registrada: **nunca copiar
+       esse tipo por campo**.
+     - Capas do Switch ficaram SOLTAS: saiu `Classes="gameTile"` (fundo +
+       borda + cantos do tema). Agora a arte é dimensionada pela ALTURA e a
+       largura sai da proporção dela, então não sobra fundo nem borda de
+       caixa, qualquer que seja a arte.
+     - Spacing 16 → 56, zoom da capa em foco 1.18 → 1.55 (queda 0.14 →
+       0.22 por posição), arco 5 → 7.
+     - Nome do jogo foi pra CIMA da arte selecionada e usa o mesmo esquema
+       do Clássico (logo baixada no lugar do nome, via
+       `ShowCurrentLogo`/`ShowNameCaption`; sem logo, pílula branca com o
+       nome). Altura fixa de 76 pra o bloco não pular ao trocar entre jogo
+       com e sem logo.
+     - Véu branco 55% → 35%.
+     - Abas do Switch: estilo local `switchTab` (branco, borda `#E4000F`,
+       texto preto; ativa invertida — sem inverter não dava pra ver a
+       selecionada), mais altas, em DUAS LINHAS INTERCALADAS. Feito com 7
+       colunas iguais: linha de cima em 0-1/2-3/4-5, de baixo em
+       1-2/3-4/5-6 — as duas enchem a largura e ficam deslocadas meia
+       coluna, que é o padrão que ele desenhou.
+
      **TERCEIRA ETAPA, v0.9.22** — retorno do teste da v0.9.21 (com fotos
      da tela):
      - **Tarjas pretas no hero**: `Uniform` resolveu o corte mas deixou

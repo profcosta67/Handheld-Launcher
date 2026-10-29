@@ -280,14 +280,20 @@ public sealed class GameTileViewModel : ViewModelBase
     /// cresce POR CIMA das vizinhas sem empurrar a fileira — é o que dá o
     /// efeito de profundidade sem a fileira "pular" a cada navegação.
     /// </summary>
-    public double CarouselScale => 1.18 - ClampedDistance * 0.14;
+    /// <summary>
+    /// v0.9.23: zoom bem maior na do meio (1.55, era 1.18) e queda mais
+    /// forte pras vizinhas — pedido do usuário: "aumenta ainda mais o zoom
+    /// da arte, principalmente [a selecionada]" e "pra ficar menos ícones
+    /// na tela".
+    /// </summary>
+    public double CarouselScale => 1.55 - ClampedDistance * 0.22;
 
     /// <summary>
     /// O arco: quanto mais longe do foco, mais a capa desce. Quadrático de
     /// propósito — linear dá uma rampa reta, e o que o usuário pediu foi
     /// "aspecto de arco".
     /// </summary>
-    public double CarouselOffsetY => ClampedDistance * ClampedDistance * 5.0;
+    public double CarouselOffsetY => ClampedDistance * ClampedDistance * 7.0;
 
     /// <summary>As pontas desbotam, reforçando a profundidade sem escondê-las.</summary>
     public double CarouselOpacity => 1.0 - ClampedDistance * 0.14;

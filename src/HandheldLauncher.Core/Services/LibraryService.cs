@@ -236,8 +236,7 @@ public sealed class LibraryService : ILibraryService
 
     public void SetCollection(string gameId, string? collection)
     {
-        var existing = _games.FirstOrDefault(g => g.Id == gameId);
-        var overrideData = ToOverride(existing) ?? new GameMetadataOverride();
+        var overrideData = OverrideFor(gameId);
         overrideData.Collection = collection;
         _store.SaveOverride(gameId, overrideData);
         Refresh();
@@ -246,7 +245,7 @@ public sealed class LibraryService : ILibraryService
     public void SetFavorite(string gameId, bool isFavorite)
     {
         var existing = _games.FirstOrDefault(g => g.Id == gameId);
-        var overrideData = ToOverride(existing) ?? new GameMetadataOverride();
+        var overrideData = OverrideFor(gameId);
         overrideData.IsFavorite = isFavorite;
         _store.SaveOverride(gameId, overrideData);
 
@@ -258,8 +257,7 @@ public sealed class LibraryService : ILibraryService
 
     public void RecordPlaySession(string gameId, TimeSpan duration)
     {
-        var existing = _games.FirstOrDefault(g => g.Id == gameId);
-        var overrideData = ToOverride(existing) ?? new GameMetadataOverride();
+        var overrideData = OverrideFor(gameId);
         overrideData.PlaytimeMinutes += (long)duration.TotalMinutes;
         overrideData.LastPlayedUtc = DateTimeOffset.UtcNow;
         _store.SaveOverride(gameId, overrideData);
@@ -269,7 +267,7 @@ public sealed class LibraryService : ILibraryService
     public void MarkLaunched(string gameId)
     {
         var existing = _games.FirstOrDefault(g => g.Id == gameId);
-        var overrideData = ToOverride(existing) ?? new GameMetadataOverride();
+        var overrideData = OverrideFor(gameId);
         overrideData.LastPlayedUtc = DateTimeOffset.UtcNow;
         _store.SaveOverride(gameId, overrideData);
 
@@ -358,35 +356,34 @@ public sealed class LibraryService : ILibraryService
     /// </summary>
     public void SaveEntryEdits(string gameId, string? title, bool isApplication)
     {
-        var existing = _games.FirstOrDefault(g => g.Id == gameId);
-        var overrideData = ToOverride(existing) ?? new GameMetadataOverride();
+        var overrideData = OverrideFor(gameId);
         overrideData.TitleOverride = string.IsNullOrWhiteSpace(title) ? null : title.Trim();
         overrideData.IsApplication = isApplication;
         _store.SaveOverride(gameId, overrideData);
         Refresh();
     }
 
-    private static GameMetadataOverride? ToOverride(GameEntry? game)
+    /// <summary>
+    /// v0.9.23: substituiu o antigo <c>ToOverride(GameEntry)</c>, que
+    /// reconstruía a customização campo a campo a partir da entrada em
+    /// memória. Esse padrão já apagou dados do usuário três vezes neste
+    /// projeto (WideGridImagePath, IsFavorite e, na v0.9.22,
+    /// TitleOverride/IsApplication): bastava alguém criar um campo novo e
+    /// esquecer de acrescentar na lista pra ele sumir silenciosamente.
+    ///
+    /// <para>
+    /// Agora lê o que está GRAVADO e clona (ver
+    /// GameMetadataOverride.Clone) — sem lista de campos, não há o que
+    /// esquecer. Ler do disco em vez da entrada em memória também é mais
+    /// correto: a entrada é uma projeção do override, então o override é a
+    /// fonte da verdade, não o contrário.
+    /// </para>
+    /// </summary>
+    private GameMetadataOverride OverrideFor(string gameId)
     {
-        if (game is null) return null;
-        return new GameMetadataOverride
-        {
-            Collection = game.Collection,
-            GridImagePath = game.GridImagePath,
-            HeroImagePath = game.HeroImagePath,
-            LogoImagePath = game.LogoImagePath,
-            IconImagePath = game.IconImagePath,
-            WideGridImagePath = game.WideGridImagePath,
-            PlaytimeMinutes = game.PlaytimeMinutes,
-            LastPlayedUtc = game.LastPlayedUtc,
-            IsFavorite = game.IsFavorite,
-            // v0.9.19: os dois PRECISAM viajar aqui — sem isso, favoritar
-            // (ou mudar coleção, ou registrar tempo de jogo) num jogo
-            // renomeado salvaria um override sem eles e apagaria o nome
-            // escolhido e a marca de "é um programa". Ver
-            // GameEntry.TitleOverride.
-            TitleOverride = game.TitleOverride,
-            IsApplication = game.IsApplication,
-        };
+        var overrides = _store.LoadOverrides();
+        return overrides.TryGetValue(gameId, out var existing)
+            ? existing.Clone()
+            : new GameMetadataOverride();
     }
 }
