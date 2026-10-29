@@ -199,6 +199,29 @@ mais sentido de risco crescente):
      agora e aguardar quando terminar esses blocos de ideia no nosso tema,
      lançar o tema propriamente dito." Fica pra quando o resto desta fila
      estiver fechado, como um projeto dedicado.
+
+     **Escopo combinado com o usuário (pós v0.9.15, só perguntas — ainda
+     sem codar)**:
+     - Mudança **profunda**: cada tema de layout pode ter telas
+       completamente diferentes entre si (não só reposicionar os mesmos
+       elementos) — e atinge **tudo**: grade de jogos, menu global, tela
+       de Configurações e o HUD de desempenho, não só a tela principal.
+     - Referência pro tema Switch (que será o primeiro a sair):
+       **tela HOME do console** — fileira horizontal de ícones de jogos,
+       navegação horizontal (bate com a visão já anotada acima: menu
+       embaixo, capas minimalistas, configurações em cima, fundo claro só
+       com banner + nome do jogo).
+     - Troca de tema de layout **pode pedir reiniciar o launcher** (não
+       precisa trocar ao vivo como hoje acontece com cor/paleta).
+     - Nome do ComboBox de tema **"Switch" atual (só cor)** vai ser
+       renomeado pra algo genérico quando este projeto entrar em pauta —
+       "Switch" fica reservado pro tema de LAYOUT de verdade.
+     - **Ordem de entrega**: em levas, um tema de layout por vez — começa
+       pelo **Switch-style** (não SteamOS/Xbox Series, que ficam pra
+       depois).
+     - Ainda **sem pedido explícito pra começar a codar** — usuário
+       combinou de parar exatamente neste ponto (perguntas de escopo)
+       nesta sessão.
    - ~~**Ajustes nas abas de Configurações (pós v0.9.14)**~~ — **feito na
      v0.9.15**: ordem trocada pra Aparência/Diretórios/Modo de uso/Contas
      e Chaves (Contas foi pro final, era a primeira); ComboBox de
