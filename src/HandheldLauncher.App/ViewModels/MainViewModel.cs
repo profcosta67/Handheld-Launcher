@@ -796,6 +796,13 @@ public sealed class MainViewModel : ViewModelBase
     public event EventHandler<GameEntry>? EditGameRequested;
 
     /// <summary>
+    /// v0.9.22: "Layout da tela" do menu geral → Configurações. Mesmo
+    /// padrão de SettingsRequested — a MainWindow possui a janelinha
+    /// (LayoutPickerWindow), salva a escolha e reinicia o launcher.
+    /// </summary>
+    public event EventHandler? LayoutPickerRequested;
+
+    /// <summary>
     /// Chamado pela MainWindow quando o diálogo de edição foi salvo.
     /// Delega pro LibraryService (que persiste em
     /// GameMetadataOverride.TitleOverride/IsApplication e dá Refresh) e
@@ -1530,6 +1537,15 @@ public sealed class MainViewModel : ViewModelBase
             case GlobalMenuPage.Settings:
                 GlobalMenuTitle = "Configurações";
                 Add("Preferências", () => SettingsRequested?.Invoke(this, EventArgs.Empty));
+                // v0.9.22: posição pedida explicitamente pelo usuário (com
+                // print da tela): "era aqui que era pra ficar a troca de
+                // layout, abaixo dos preferências e em cima de update".
+                // Estava dentro de Preferências → Aparência, onde além de
+                // escondido, a telinha abria como diálogo DE OUTRO diálogo
+                // e ele reportou que "no clássico ele esconde atrás do
+                // menu". Aqui quem abre é a MainWindow direto, igual
+                // "Adicionar jogo"/"Preferências" — um nível só de janela.
+                Add("Layout da tela", () => LayoutPickerRequested?.Invoke(this, EventArgs.Empty));
                 if (_updates is { IsInstalled: true } && !IsUpdateReady)
                 {
                     Add($"Verificar atualizações (v{_updates.CurrentVersionText})", () => _ = CheckForUpdatesAsync(userInitiated: true));

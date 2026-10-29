@@ -49,25 +49,32 @@
          ao contrário do resto: fundo tem que COBRIR a tela, e é a única
          exceção à regra de "sem zoom" que o usuário pediu — cabe a imagem
          inteira num fundo deixaria faixas vazias na tela toda. -->
-    <Image x:Name="HeroBackImage" Stretch="UniformToFill" IsHitTestVisible="False" />
+    <!-- BUG v0.9.21 corrigido aqui: o desfoque estava num Border VAZIO
+         logo abaixo destas imagens, e efeito no Avalonia se aplica ao
+         conteúdo do próprio elemento — um Border sem conteúdo borra nada.
+         Resultado: o fundo não desfocava, e como o véu branco ainda por
+         cima era quase opaco (#E8 = 91%), o usuário via "fundo branco
+         sólido". O desfoque agora vai NAS PRÓPRIAS imagens, que é como o
+         fundo de tela cheia da MainWindow sempre fez. -->
+    <Image x:Name="HeroBackImage" Stretch="UniformToFill" IsHitTestVisible="False">
+      <Image.Effect>
+        <media:BlurEffect Radius="45" />
+      </Image.Effect>
+    </Image>
     <Image x:Name="HeroImage"
            Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
            Stretch="UniformToFill"
-           IsHitTestVisible="False" />
+           IsHitTestVisible="False">
+      <Image.Effect>
+        <media:BlurEffect Radius="45" />
+      </Image.Effect>
+    </Image>
 
-    <!-- Desfoque leve: a arte precisa virar AMBIENTE, não competir com as
-         capas em cima dela. -->
-    <Border IsHitTestVisible="False">
-      <Border.Effect>
-        <media:BlurEffect Radius="40" />
-      </Border.Effect>
-    </Border>
-
-    <!-- O "filtro branco": véu branco bem opaco por cima da arte. É ele
-         que dá o fundo claro do Switch sem precisar de tema de cor claro,
-         e deixa a tela tingida pela arte do jogo em foco em vez de branco
-         chapado. -->
-    <Border Background="#E8FFFFFF" IsHitTestVisible="False" />
+    <!-- O "filtro branco": agora LEVE (55%, era 91%), como ele pediu — "o
+         fundo a imagem do jogo de fundo com blur ou desfoque com leve
+         filtro branco em cima da imagem". A arte aparece de verdade,
+         lavada em direção ao branco em vez de coberta por ele. -->
+    <Border Background="#8CFFFFFF" IsHitTestVisible="False" />
 
     <Grid RowDefinitions="*,Auto" Margin="24,12,24,12">
 
@@ -184,6 +191,29 @@
                           IsVisible="{Binding HasPlatformBadge}">
                     <TextBlock Text="{Binding PlatformBadgeText}" FontSize="9" FontWeight="Bold" Foreground="White" />
                   </Border>
+
+                  <!-- v0.9.22, retorno do usuário: "ficou difícil entender
+                       qual capa tá selecionada, tem que ter um jeito de
+                       identificar, talvez um quadro em volta". O zoom
+                       sozinho não bastou — sobre fundo claro e com as
+                       vizinhas perto, a diferença de tamanho não lê.
+
+                       Dois anéis em vez de um: o branco por fora garante
+                       contraste contra a capa (que pode ser de qualquer
+                       cor) e o da cor de destaque por dentro marca que é
+                       seleção, não borda decorativa. Um anel só sumiria em
+                       capas da mesma cor dele. Fica DENTRO da capa (overlay
+                       com BorderThickness) pra não empurrar nada no
+                       layout, que desalinharia a fileira inteira. -->
+                  <Border BorderBrush="White"
+                          BorderThickness="4"
+                          IsHitTestVisible="False"
+                          IsVisible="{Binding IsFocused}" />
+                  <Border BorderBrush="{DynamicResource AccentBrush}"
+                          BorderThickness="2"
+                          Margin="4"
+                          IsHitTestVisible="False"
+                          IsVisible="{Binding IsFocused}" />
                 </Grid>
               </Border>
             </DataTemplate>
@@ -195,18 +225,26 @@
            porque o véu branco acima garante fundo claro em qualquer paleta
            — usar a cor de texto do tema deixaria branco-no-branco nos
            temas escuros. -->
-      <TextBlock Grid.Row="0"
-                 Text="{Binding SelectedTile.Title}"
-                 Foreground="#1A1A1A"
-                 FontSize="24"
-                 FontWeight="SemiBold"
-                 HorizontalAlignment="Center"
-                 VerticalAlignment="Bottom"
-                 Margin="24,0,24,8"
-                 MaxWidth="900"
-                 TextWrapping="NoWrap"
-                 TextTrimming="CharacterEllipsis"
-                 IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}" />
+      <!-- Nome em pílula branca, e não texto solto: com o véu agora LEVE
+           (v0.9.22), o fundo passa a ter a cor da arte do jogo — um banner
+           escuro deixaria texto escuro ilegível, e texto claro sumiria num
+           banner claro. A pílula garante contraste com qualquer arte. -->
+      <Border Grid.Row="0"
+              Background="#D9FFFFFF"
+              CornerRadius="{DynamicResource BarCornerRadius}"
+              Padding="20,8"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Bottom"
+              Margin="24,0,24,8"
+              MaxWidth="900"
+              IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
+        <TextBlock Text="{Binding SelectedTile.Title}"
+                   Foreground="#1A1A1A"
+                   FontSize="24"
+                   FontWeight="SemiBold"
+                   TextWrapping="NoWrap"
+                   TextTrimming="CharacterEllipsis" />
+      </Border>
 
       <TextBlock Grid.Row="0"
                  Text="Nenhum jogo encontrado ainda.&#10;Adicione um jogo manualmente para começar."

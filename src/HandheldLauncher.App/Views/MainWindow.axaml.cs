@@ -533,6 +533,7 @@ public partial class MainWindow : Window
 
         vm.AddGameRequested += (_, _) => _ = OpenAddGameDialogAsync(vm);
         vm.EditGameRequested += (_, game) => _ = OpenEditGameDialogAsync(vm, game);
+        vm.LayoutPickerRequested += (_, _) => _ = OpenLayoutPickerAsync();
         vm.SettingsRequested += (_, _) => _ = OpenSettingsDialogAsync(vm);
         vm.QuitRequested += (_, _) =>
         {
@@ -1649,6 +1650,71 @@ public partial class MainWindow : Window
         if (result is null) return;
 
         vm.AddManualGame(result);
+    }
+
+    /// <summary>
+    /// v0.9.22: "Layout da tela" (menu geral → Configurações). Aberta pela
+    /// MainWindow, e não mais de dentro das Preferências: lá era diálogo DE
+    /// OUTRO diálogo, e o usuário reportou "no clássico ele esconde atrás
+    /// do menu, não consegui voltar pro Switch". Aqui é o mesmo caminho de
+    /// "Adicionar jogo"/"Editar" — um nível só, dono é a janela principal,
+    /// e o controle navega a janelinha porque ela entra em _activeDialog.
+    ///
+    /// <para>
+    /// Lê e grava settings.json aqui mesmo (AppSettingsStore), sem passar
+    /// pela SettingsViewModel: é UM campo, e envolver a tela de
+    /// Preferências de novo só traria de volta o problema de janela sobre
+    /// janela.
+    /// </para>
+    /// </summary>
+    private async Task OpenLayoutPickerAsync()
+    {
+        AppSettings settings;
+        try
+        {
+            settings = AppSettingsStore.Load();
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"OpenLayoutPicker: falhou ao ler settings: {ex.Message}");
+            return;
+        }
+
+        var dialog = new LayoutPickerWindow(settings.LayoutTheme);
+        _activeDialog = dialog;
+        bool apply;
+        try
+        {
+            apply = await dialog.ShowDialog<bool>(this);
+        }
+        finally
+        {
+            _activeDialog = null;
+        }
+
+        if (!apply || dialog.SelectedLayout == settings.LayoutTheme) return;
+
+        settings.LayoutTheme = dialog.SelectedLayout;
+        try
+        {
+            AppSettingsStore.Save(settings);
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"OpenLayoutPicker: falhou ao salvar: {ex.Message}");
+            return;
+        }
+
+        // Só fecha se a instância nova tiver REALMENTE começado — senão o
+        // usuário ficaria na área de trabalho sem launcher nenhum.
+        if (LauncherRestart.TryStartReplacement())
+        {
+            (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown();
+        }
+        else
+        {
+            DebugLog.Write("OpenLayoutPicker: layout salvo, mas não deu pra reiniciar — vale na próxima abertura.");
+        }
     }
 
     /// <summary>

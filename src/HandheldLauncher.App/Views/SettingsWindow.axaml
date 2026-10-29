@@ -75,16 +75,15 @@
           440 dá folga suficiente pro texto mais longo da tela, "Grade
           vertical (rola pra cima e pra baixo)" (Biblioteca), sem cortar.
         -->
-        <!-- "layout" e "cor" são opções SEPARADAS de propósito — dá pra
-             usar o layout Switch com qualquer paleta.
-             v0.9.21: era um ComboBox aqui, que o usuário achou confuso
-             ("acho que ficou complicado a mudança") porque não deixava
-             claro que precisava reiniciar. Agora é um botão que abre uma
-             telinha com as duas opções descritas, pede confirmação e
-             reinicia o launcher sozinho — ver LayoutPickerWindow. -->
-        <TextBlock Text="Layout da tela" FontSize="12" HorizontalAlignment="Center" />
-        <Button Classes="pill" Content="{Binding LayoutThemeButtonText}" Click="OnPickLayoutClick"
-                Width="440" HorizontalAlignment="Center" HorizontalContentAlignment="Center" />
+        <!-- "Layout da tela" NÃO fica aqui: v0.9.22, pedido do usuário com
+             print da tela — "era aqui que era pra ficar a troca de layout,
+             abaixo dos preferências e em cima de update", ou seja, no menu
+             geral → Configurações (ver MainViewModel.BuildGlobalMenu). Era
+             aqui até a v0.9.21, e além de escondido, a telinha abria como
+             diálogo DE OUTRO diálogo — ele reportou que "no clássico ele
+             esconde atrás do menu". -->
+        <!-- "Cores" e "layout" seguem sendo coisas separadas de propósito:
+             dá pra usar o layout Switch com qualquer paleta. -->
 
         <TextBlock Text="Cores" FontSize="12" HorizontalAlignment="Center" />
         <ComboBox SelectedIndex="{Binding ThemeIndex}" Width="440" HorizontalAlignment="Center">

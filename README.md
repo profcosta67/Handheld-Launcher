@@ -261,6 +261,31 @@ mais sentido de risco crescente):
      lançar o tema propriamente dito." Fica pra quando o resto desta fila
      estiver fechado, como um projeto dedicado.
 
+     **TERCEIRA ETAPA, v0.9.22** — retorno do teste da v0.9.21 (com fotos
+     da tela):
+     - **Tarjas pretas no hero**: `Uniform` resolveu o corte mas deixou
+       preto nas laterais, que ele achou pior. Preencher + não cortar +
+       não deformar é impossível pra UMA imagem. Solução: duas cópias —
+       uma `UniformToFill` + blur 40 como fundo do quadro, a real
+       `Uniform` por cima.
+     - **BUG MEU na v0.9.21**: o blur do fundo do tema Switch estava num
+       `<Border>` VAZIO. Efeito no Avalonia aplica ao conteúdo do próprio
+       elemento, então não desfocava nada — e com o véu em `#E8` (91%) o
+       resultado era o "fundo branco sólido" que ele reportou. Blur foi
+       pras próprias Image e o véu caiu pra `#8C` (55%).
+     - **Seleção invisível no Switch**: zoom sozinho não lê sobre fundo
+       claro. Dois anéis (branco por fora, AccentBrush por dentro) — um só
+       sumiria numa capa da mesma cor. Overlay com BorderThickness, não
+       borda do Border, pra não empurrar o layout e desalinhar a fileira.
+     - **Nome do jogo em pílula branca**: com véu leve o fundo tem a cor da
+       arte, e texto solto ficaria ilegível em banner escuro.
+     - **"Layout da tela" saiu das Preferências** e foi pro menu geral →
+       Configurações, entre Preferências e Verificar atualizações (posição
+       pedida com print). Além de escondido, lá era diálogo DE OUTRO
+       diálogo e ele reportou "no clássico ele esconde atrás do menu";
+       agora quem abre é a MainWindow (um nível só, `_activeDialog`), e o
+       menu já fecha antes de abrir.
+
      **SEGUNDA ETAPA, v0.9.21** — retorno do primeiro teste do usuário:
      - Hero com caixa própria SAIU do tema Switch; a arte do jogo em foco
        virou o FUNDO da tela (desfoque leve + véu branco `#E8FFFFFF`),

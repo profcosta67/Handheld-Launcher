@@ -62,6 +62,27 @@
                  O fundo desfocado de tela cheia (MainWindow.axaml)
                  continua UniformToFill de propósito: ali o papel é
                  justamente cobrir a tela toda. -->
+            <!-- v0.9.22, retorno do usuário: com Stretch=Uniform a arte
+                 passou a caber inteira (bom), mas sobraram TARJAS PRETAS
+                 enormes nas laterais do banner — ele achou pior que o corte
+                 e pediu "preencher, esticar, ajustar sem cortar e sem dar
+                 zoom, mas preencher toda a tela ali do hero".
+
+                 Preencher + não cortar + não distorcer é impossível pra UMA
+                 imagem: ou corta, ou sobra, ou deforma. A saída (a mesma
+                 dos apps de streaming) é usar DUAS cópias — esta preenche o
+                 quadro e leva desfoque forte, virando fundo com as cores do
+                 próprio jogo; a de verdade (HeroImage, logo abaixo) fica
+                 inteira por cima. Quadro cheio, arte completa, nada
+                 deformado; o preço é fundo borrado no lugar do preto. -->
+            <Image Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                   Stretch="UniformToFill"
+                   IsHitTestVisible="False">
+              <Image.Effect>
+                <media:BlurEffect Radius="40" />
+              </Image.Effect>
+            </Image>
+
             <Image x:Name="HeroBackImage" Stretch="Uniform" IsHitTestVisible="False" />
             <Image x:Name="HeroImage"
                    Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
