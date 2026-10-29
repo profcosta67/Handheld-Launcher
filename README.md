@@ -182,6 +182,25 @@ mais sentido de risco crescente):
      agora e aguardar quando terminar esses blocos de ideia no nosso tema,
      lançar o tema propriamente dito." Fica pra quando o resto desta fila
      estiver fechado, como um projeto dedicado.
+   - **Ajustes nas abas de Configurações (pós v0.9.14)**, pedido do
+     usuário, pra fazer na próxima leva:
+     - Reordenar: **Aparência, Diretórios, Modo de uso, Contas** (Contas
+       e Chaves vai pro final, era a primeira).
+     - Na aba Aparência, os ComboBox estão "pegando no scroll" — usuário
+       pediu pra centralizar e diminuir, sem deixar a caixa maior que o
+       necessário, mas todas do MESMO tamanho entre si (hoje cada ComboBox
+       estica `HorizontalAlignment="Stretch"` até a largura da coluna,
+       sem limite de largura nem altura consistente — precisa investigar
+       com calma antes de codar, já que não dá pra ver o resultado visual
+       real sem compilar no Windows).
+     - Tirar o botão/texto "Verificar atualizações" de dentro da aba
+       Contas e Chaves — usuário disse que "já tem ele em configuração"
+       (hoje ele fica como rodapé sempre visível, fora das 4 abas, mas
+       aparece visualmente colado na primeira aba aberta — por ora Contas,
+       que é a primeira — o que deu a impressão de estar duplicado/dentro
+       dela). Repensar onde esse bloco de versão/atualização deve morar
+       (talvez junto da barra de botões Fechar/Salvar, fora da área
+       rolável das abas).
 
 ## Status atual
 
