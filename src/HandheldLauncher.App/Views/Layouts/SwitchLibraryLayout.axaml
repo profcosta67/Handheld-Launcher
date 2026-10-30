@@ -139,6 +139,7 @@
                       Height="430"
                       VerticalAlignment="Center"
                       Background="Transparent"
+                      BorderBrush="Transparent"
                       BorderThickness="0"
                       HorizontalContentAlignment="Center"
                       HorizontalScrollBarVisibility="Hidden"
@@ -149,7 +150,11 @@
             </Transitions>
           </ScrollViewer.Transitions>
 
-          <ItemsControl x:Name="GamesItemsControl" ItemsSource="{Binding Games}">
+          <ItemsControl x:Name="GamesItemsControl"
+                        ItemsSource="{Binding Games}"
+                        HorizontalAlignment="Center"
+                        Background="Transparent"
+                        BorderThickness="0">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
                 <!-- Spacing 56 (era 16): "aumenta os espaços laterais entre
@@ -170,6 +175,7 @@
                      deformação ou corte; o espaço excedente fica livre. -->
                 <Grid Width="{Binding CarouselTileWidth}"
                       Height="{Binding CarouselTileHeight}"
+                      ClipToBounds="False"
                       RenderTransformOrigin="50%,50%"
                       Opacity="{Binding CarouselOpacity}"
                       ZIndex="{Binding CarouselZIndex}"
@@ -248,10 +254,12 @@
                        da mesma cor dele — e capa pode ser de qualquer cor.
                        Sem fundo, só contorno, pra não cobrir a arte. -->
                   <Border BorderBrush="#FFFFFF"
-                          BorderThickness="5"
+                          CornerRadius="5"
+                          BorderThickness="4"
                           IsHitTestVisible="False"
                           IsVisible="{Binding IsFocused}" />
                   <Border BorderBrush="#6579E8"
+                          CornerRadius="5"
                           BorderThickness="3"
                           Margin="5"
                           IsHitTestVisible="False"
