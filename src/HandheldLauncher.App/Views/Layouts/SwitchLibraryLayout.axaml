@@ -156,18 +156,15 @@
 
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:GameTileViewModel">
-                <!-- v0.9.23: a CAIXA da capa saiu — "retira esse limite
-                     inferior das artes, deixa ela solta". Não tem mais
-                     Classes="gameTile" (que trazia fundo, borda e cantos
-                     arredondados do tema): agora é só a arte, dimensionada
-                     pela ALTURA, com a largura saindo da proporção da
-                     própria imagem. Assim nunca sobra fundo em volta nem
-                     aparece borda de caixa, qualquer que seja a proporção
-                     da arte.
-
-                     O Grid se ajusta à imagem, então os anéis de seleção
-                     abaixo acompanham exatamente o tamanho dela. -->
-                <Grid RenderTransformOrigin="50%,50%"
+                <!-- Cada posição da roleta tem uma área fixa (220x290,
+                     respeitando o ajuste global de tamanho). Isso evita
+                     que capas com proporções diferentes alterem o passo
+                     horizontal do carrossel e desloquem as vizinhas.
+                     A arte continua em Uniform: aparece inteira, sem
+                     deformação ou corte; o espaço excedente fica livre. -->
+                <Grid Width="{Binding CarouselTileWidth}"
+                      Height="{Binding CarouselTileHeight}"
+                      RenderTransformOrigin="50%,50%"
                       Opacity="{Binding CarouselOpacity}"
                       ZIndex="{Binding CarouselZIndex}"
                       PointerPressed="OnTilePointerPressed"
@@ -198,14 +195,17 @@
                   </Grid.Transitions>
 
                   <Image Source="{Binding CarouselTileImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                         Width="{Binding CarouselTileWidth}"
                          Height="{Binding CarouselTileHeight}"
-                         Stretch="Uniform" />
+                         Stretch="Uniform"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center" />
 
                   <!-- Sem arte: aí sim precisa de uma caixa, senão não teria
                        nada pra clicar nem pra ver. -->
                   <Border Background="#33000000"
-                          Width="{Binding CarouselTileWidth}"
-                          Height="{Binding CarouselTileHeight}"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
                           IsVisible="{Binding ShowEmptyCarouselPlaceholder}">
                     <TextBlock Text="{Binding Title}"
                                Classes="gameTitle"
