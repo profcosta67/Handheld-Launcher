@@ -347,6 +347,13 @@
           </Button>
         </Grid>
 
+        <Button Content="＋  Adicionar programa"
+                HorizontalAlignment="Center"
+                MinWidth="220"
+                Margin="4,2,4,0"
+                IsVisible="{Binding IsFilterApplicationsActive}"
+                Click="OnAddProgramClick" />
+
         <!-- Subfiltros seguem com a cor de cada plataforma (pedido anterior
              dele, mantido) — abaixo das duas linhas de abas. -->
         <ItemsControl ItemsSource="{Binding SubFilters}" IsVisible="{Binding HasSubFilters}" HorizontalAlignment="Center">
