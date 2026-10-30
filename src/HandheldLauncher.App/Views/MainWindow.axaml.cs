@@ -497,7 +497,12 @@ public partial class MainWindow : Window
                 RedirectStandardError = true,
                 RedirectStandardOutput = true,
             };
+            // /f is intentional: without it, any running Windows app
+            // can veto the shutdown session and shutdown.exe may return 0
+            // even though the device stays on. The UI requires an explicit
+            // second confirmation before reaching this code.
             startInfo.ArgumentList.Add(action);
+            startInfo.ArgumentList.Add("/f");
             startInfo.ArgumentList.Add("/t");
             startInfo.ArgumentList.Add("0");
 
@@ -548,6 +553,7 @@ public partial class MainWindow : Window
                     UseShellExecute = true,
                 };
                 fallback.ArgumentList.Add(action);
+                fallback.ArgumentList.Add("/f");
                 fallback.ArgumentList.Add("/t");
                 fallback.ArgumentList.Add("0");
                 using var process = System.Diagnostics.Process.Start(fallback);
