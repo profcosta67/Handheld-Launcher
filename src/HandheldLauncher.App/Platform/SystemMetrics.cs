@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Management;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 
 namespace HandheldLauncher.App.Platform;
 
@@ -18,21 +19,8 @@ internal readonly record struct MetricsSnapshot(
     TimeSpan? BatteryRemaining);
 
 /// <summary>
-/// Sensores do sistema SEM precisar de administrador nem driver de kernel:
-/// <list type="bullet">
-/// <item>CPU %: contador "Processor Information\% Processor Utility" (o mesmo
-/// número do Gerenciador de Tarefas). Clock: "% Processor Performance" ×
-/// "Processor Frequency".</item>
-/// <item>GPU %: contadores "GPU Engine" (engines 3D), igual o Gerenciador de
-/// Tarefas — funciona em AMD/Intel/NVIDIA, inclusive na APU do Legion/Ally.</item>
-/// <item>VRAM: "GPU Adapter Memory" (dedicada + compartilhada).</item>
-/// <item>RAM: GlobalMemoryStatusEx. Bateria: GetSystemPowerStatus + consumo
-/// em watts pelo WMI (root\WMI BatteryStatus).</item>
-/// </list>
-/// Temperaturas ficaram de fora de propósito: no Windows elas exigem driver
-/// de kernel + administrador (LibreHardwareMonitor/WinRing0, que o Defender
-/// hoje marca como driver vulnerável). Cada sensor é independente — se um
-/// falhar nesta máquina vira null, o resto continua.
+/// Sensores do sistema multiplataforma.
+/// No Windows usa PerformanceCounter/WMI. No Linux usa arquivos do sistema (/proc e /sys).
 /// </summary>
 internal sealed class SystemMetrics : IDisposable
 {
@@ -51,13 +39,16 @@ internal sealed class SystemMetrics : IDisposable
 
     public SystemMetrics()
     {
-        _cpuUtility = TryCounter("Processor Information", "% Processor Utility", "_Total");
-        _cpuPerformance = TryCounter("Processor Information", "% Processor Performance", "_Total");
-        _cpuFrequency = TryCounter("Processor Information", "Processor Frequency", "_Total");
+        if (OperatingSystem.IsWindows())
+        {
+            _cpuUtility = TryCounter("Processor Information", "% Processor Utility", "_Total");
+            _cpuPerformance = TryCounter("Processor Information", "% Processor Performance", "_Total");
+            _cpuFrequency = TryCounter("Processor Information", "Processor Frequency", "_Total");
 
-        // Primeira leitura de contador "%" sempre volta 0 — descarta.
-        try { _cpuUtility?.NextValue(); } catch { }
-        try { _cpuPerformance?.NextValue(); } catch { }
+            // Primeira leitura de contador "%" sempre volta 0 — descarta.
+            try { _cpuUtility?.NextValue(); } catch { }
+            try { _cpuPerformance?.NextValue(); } catch { }
+        }
     }
 
     public MetricsSnapshot Read()
@@ -66,32 +57,32 @@ internal sealed class SystemMetrics : IDisposable
         var battery = ReadBattery();
         var watts = ReadBatteryWatts();
 
-        // Muitos aparelhos (inclusive handhelds) devolvem "desconhecido" no
-        // tempo restante do GetSystemPowerStatus. Plano B: carga restante
-        // (mWh) ÷ consumo atual (mW), os dois do WMI.
+        // Muitos aparelhos devolvem "desconhecido" no tempo restante.
         var remaining = battery.Remaining;
         if (remaining is null && !battery.OnAc && watts is > 0.5 && _remainingMilliwattHours is > 0)
         {
             remaining = TimeSpan.FromHours(_remainingMilliwattHours.Value / (watts.Value * 1000.0));
         }
-
         return new MetricsSnapshot(
-            CpuPercent: ReadCpuPercent(),
-            CpuMhz: ReadCpuMhz(),
-            GpuPercent: ReadGpuPercent(),
-            VramGb: ReadVramGb(),
+            CpuPercent: OperatingSystem.IsWindows() ? ReadCpuPercent() : null,
+            CpuMhz: OperatingSystem.IsWindows() ? ReadCpuMhz() : null,
+            GpuPercent: OperatingSystem.IsWindows() ? ReadGpuPercent() : null,
+            VramGb: OperatingSystem.IsWindows() ? ReadVramGb() : null,
             RamUsedGb: ramUsed,
             RamTotalGb: ramTotal,
             BatteryPercent: battery.Percent,
             OnAcPower: battery.OnAc,
-            BatteryWatts: watts,
+            BatteryWatts: OperatingSystem.IsWindows() ? ReadBatteryWatts() : null,
             BatteryRemaining: remaining);
     }
 
     // --- CPU ---------------------------------------------------------------
 
+    [SupportedOSPlatform("windows")]
     private double? ReadCpuPercent()
     {
+        if (!OperatingSystem.IsWindows()) return null;
+        
         try
         {
             return _cpuUtility is null ? null : Math.Clamp(_cpuUtility.NextValue(), 0, 100);
@@ -102,8 +93,11 @@ internal sealed class SystemMetrics : IDisposable
         }
     }
 
+    [SupportedOSPlatform("windows")]
     private double? ReadCpuMhz()
     {
+        if (!OperatingSystem.IsWindows()) return null;
+
         try
         {
             if (_cpuPerformance is null || _cpuFrequency is null) return null;
@@ -120,14 +114,10 @@ internal sealed class SystemMetrics : IDisposable
 
     // --- GPU ---------------------------------------------------------------
 
-    /// <summary>
-    /// Soma a utilização 3D de todos os processos POR engine (luid+phys+eng)
-    /// e pega a engine mais ocupada — mesma conta do Gerenciador de Tarefas.
-    /// Uma única leitura da categoria inteira por tick (ReadCategory), em vez
-    /// de um contador por instância (seriam centenas de leituras).
-    /// </summary>
+    [SupportedOSPlatform("windows")]
     private double? ReadGpuPercent()
     {
+        if (!OperatingSystem.IsWindows()) return null;
         if (_gpuBroken) return null;
 
         try
@@ -163,8 +153,10 @@ internal sealed class SystemMetrics : IDisposable
         }
     }
 
+    [SupportedOSPlatform("windows")]
     private double? ReadVramGb()
     {
+        if (!OperatingSystem.IsWindows()) return null;
         if (_vramBroken) return null;
 
         try
@@ -191,6 +183,7 @@ internal sealed class SystemMetrics : IDisposable
 
     // --- RAM ---------------------------------------------------------------
 
+    [SupportedOSPlatform("windows")]
     [StructLayout(LayoutKind.Sequential)]
     private struct MemoryStatusEx
     {
@@ -205,19 +198,48 @@ internal sealed class SystemMetrics : IDisposable
         public ulong ullAvailExtendedVirtual;
     }
 
+    [SupportedOSPlatform("windows")]
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool GlobalMemoryStatusEx(ref MemoryStatusEx buffer);
 
     private static (double Used, double Total) ReadRam()
     {
-        var status = new MemoryStatusEx { dwLength = (uint)Marshal.SizeOf<MemoryStatusEx>() };
-        if (!GlobalMemoryStatusEx(ref status)) return (0, 0);
         const double gb = 1024.0 * 1024 * 1024;
-        return ((status.ullTotalPhys - status.ullAvailPhys) / gb, status.ullTotalPhys / gb);
+
+        if (OperatingSystem.IsWindows())
+        {
+            var status = new MemoryStatusEx { dwLength = (uint)Marshal.SizeOf<MemoryStatusEx>() };
+            if (!GlobalMemoryStatusEx(ref status)) return (0, 0);
+            return ((status.ullTotalPhys - status.ullAvailPhys) / gb, status.ullTotalPhys / gb);
+        }
+        
+        if (OperatingSystem.IsLinux())
+        {
+            try
+            {
+                double totalKb = 0, availableKb = 0;
+                foreach (var line in File.ReadLines("/proc/meminfo"))
+                {
+                    if (line.StartsWith("MemTotal:"))
+                        totalKb = double.Parse(line.Split(' ', StringSplitOptions.RemoveEmptyEntries)[1]);
+                    else if (line.StartsWith("MemAvailable:"))
+                        availableKb = double.Parse(line.Split(' ', StringSplitOptions.RemoveEmptyEntries)[1]);
+                }
+                if (totalKb > 0)
+                {
+                    const double kbToGb = 1024.0 * 1024.0;
+                    return ((totalKb - availableKb) / kbToGb, totalKb / kbToGb);
+                }
+            }
+            catch { /* ignora se não conseguir ler */ }
+        }
+
+        return (0, 0);
     }
 
     // --- Bateria -----------------------------------------------------------
 
+    [SupportedOSPlatform("windows")]
     [StructLayout(LayoutKind.Sequential)]
     private struct SystemPowerStatus
     {
@@ -229,32 +251,57 @@ internal sealed class SystemMetrics : IDisposable
         public int BatteryFullLifeTime;
     }
 
+    [SupportedOSPlatform("windows")]
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool GetSystemPowerStatus(out SystemPowerStatus status);
 
     private static (int? Percent, bool OnAc, TimeSpan? Remaining) ReadBattery()
     {
-        if (!GetSystemPowerStatus(out var status)) return (null, true, null);
-
-        // 128 = sem bateria (PC de mesa); 255 = desconhecido.
-        if ((status.BatteryFlag & 128) != 0 || status.BatteryLifePercent == 255)
+        if (OperatingSystem.IsWindows())
         {
-            return (null, true, null);
+            if (!GetSystemPowerStatus(out var status)) return (null, true, null);
+
+            // 128 = sem bateria (PC de mesa); 255 = desconhecido.
+            if ((status.BatteryFlag & 128) != 0 || status.BatteryLifePercent == 255)
+            {
+                return (null, true, null);
+            }
+
+            var onAc = status.ACLineStatus == 1;
+            TimeSpan? remaining = !onAc && status.BatteryLifeTime > 0
+                ? TimeSpan.FromSeconds(status.BatteryLifeTime)
+                : null;
+            return (status.BatteryLifePercent, onAc, remaining);
         }
 
-        var onAc = status.ACLineStatus == 1;
-        TimeSpan? remaining = !onAc && status.BatteryLifeTime > 0
-            ? TimeSpan.FromSeconds(status.BatteryLifeTime)
-            : null;
-        return (status.BatteryLifePercent, onAc, remaining);
+        if (OperatingSystem.IsLinux())
+        {
+            try
+            {
+                var capacityPath = "/sys/class/power_supply/BAT0/capacity";
+                var statusPath = "/sys/class/power_supply/BAT0/status";
+                if (!File.Exists(capacityPath)) return (null, true, null); // Sem bateria
+
+                var percentStr = File.ReadAllText(capacityPath).Trim();
+                var statusStr = File.ReadAllText(statusPath).Trim();
+
+                if (int.TryParse(percentStr, out var percent))
+                {
+                    var onAc = statusStr.Equals("Charging", StringComparison.OrdinalIgnoreCase) 
+                            || statusStr.Equals("Full", StringComparison.OrdinalIgnoreCase);
+                    return (percent, onAc, null);
+                }
+            }
+            catch { /* ignora */ }
+        }
+
+        return (null, true, null);
     }
 
-    /// <summary>
-    /// Consumo em watts: positivo = descarregando (gasto real do aparelho),
-    /// negativo = carregando. WMI é mais lento, então só relê a cada 3 s.
-    /// </summary>
+    [SupportedOSPlatform("windows")]
     private double? ReadBatteryWatts()
     {
+        if (!OperatingSystem.IsWindows()) return null;
         if (_wmiBroken) return null;
         if (DateTime.UtcNow - _lastWattsRead < TimeSpan.FromSeconds(3)) return _batteryWatts;
         _lastWattsRead = DateTime.UtcNow;
@@ -290,8 +337,11 @@ internal sealed class SystemMetrics : IDisposable
 
     // --- util --------------------------------------------------------------
 
+    [SupportedOSPlatform("windows")]
     private static PerformanceCounter? TryCounter(string category, string counter, string instance)
     {
+        if (!OperatingSystem.IsWindows()) return null;
+
         try
         {
             return new PerformanceCounter(category, counter, instance, readOnly: true);
@@ -302,6 +352,7 @@ internal sealed class SystemMetrics : IDisposable
         }
     }
 
+    [SupportedOSPlatform("windows")]
     public void Dispose()
     {
         _cpuUtility?.Dispose();

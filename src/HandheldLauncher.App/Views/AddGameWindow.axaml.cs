@@ -60,6 +60,7 @@ public partial class AddGameWindow : Window
     }
 
 
+        [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     private void OnSearchInstalledClick(object? sender, RoutedEventArgs e)
     {
         try
@@ -74,6 +75,7 @@ public partial class AddGameWindow : Window
             {
                 InstalledProgramsList.ItemsSource = new[] { new InstalledProgramOption("Nenhum programa com executável identificado no registro do Windows.", string.Empty) };
             }
+       
         }
         catch (Exception ex)
         {

@@ -201,8 +201,9 @@ public sealed class GameLauncher : IGameLauncher
 
     /// <summary>
     /// No Linux, garante que o binário tenha permissão de execução (equivalente ao chmod +x).
-    /// </summary>
-    private static void EnsureExecutablePermission(string path)
+    /// </summary>  
+   [System.Runtime.Versioning.SupportedOSPlatform("linux")]
+          private static void EnsureExecutablePermission(string path)
     {
         try
         {

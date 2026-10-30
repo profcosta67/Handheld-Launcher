@@ -23,7 +23,8 @@ internal readonly record struct FrameStats(double Fps, double FrameTimeMs, int P
 /// de app e de OSD). Nunca testado contra um RTSS de verdade por quem
 /// escreveu — tudo com checagem de limites e melhor esforço.
 /// </summary>
-internal sealed unsafe class RtssSharedMemory : IDisposable
+  [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    internal sealed unsafe class RtssSharedMemory : IDisposable
 {
     private const string MapName = "RTSSSharedMemoryV2";
     private const uint SignatureRtss = 0x52545353; // 'RTSS'

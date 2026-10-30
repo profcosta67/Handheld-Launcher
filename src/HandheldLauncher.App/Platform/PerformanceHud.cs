@@ -1,3 +1,4 @@
+
 using System.Globalization;
 using System.Runtime.InteropServices;
 using HandheldLauncher.App.Diagnostics;
@@ -12,7 +13,8 @@ namespace HandheldLauncher.App.Platform;
 /// Presets (Configurações, menu do launcher, ou L3+R3 no controle):
 /// 0 Desligado · 1 Resumido · 2 Médio · 3 Completo.
 /// </summary>
-public sealed class PerformanceHud : IDisposable
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    public sealed class PerformanceHud : IDisposable
 {
     public static readonly string[] PresetNames = ["Desligado", "Resumido", "Médio", "Completo"];
 

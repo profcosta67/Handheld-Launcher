@@ -1,19 +1,20 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using HandheldLauncher.App.Diagnostics;
 
 namespace HandheldLauncher.App.Platform;
 
 /// <summary>
-/// Abre o teclado virtual do Windows (o de toque, "TabTip") — bug reportado:
-/// "quando clica na caixa de texto não abre o teclado". O Windows só abre
-/// esse teclado sozinho pra apps que se anunciam de um jeito que o Avalonia
-/// não faz, então o launcher pede direto, pelo mesmo canal COM que o botão
-/// de teclado da barra de tarefas usa (ITipInvocation.Toggle). Se isso
-/// falhar, cai no teclado clássico (osk.exe), que sempre existe.
+/// Abre o teclado virtual.
+/// No Windows: usa o TabTip via COM (ITipInvocation) com fallback pro osk.exe.
+/// No Linux: tenta abrir o "onboard" (comum no Steam Deck/Desktop) como melhor esforço.
+/// 
+/// v1.0.0 (Linux prep): Adicionado suporte a Linux e travas de plataforma.
 /// </summary>
 internal static class TouchKeyboard
 {
+    [SupportedOSPlatform("windows")]
     [ComImport]
     [Guid("37c994e7-432b-4834-a2f7-dce1f13b834b")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
@@ -24,15 +25,19 @@ internal static class TouchKeyboard
 
     private static readonly Guid UIHostNoLaunch = new("4ce576fa-83dc-4f88-951c-9d0782b4e376");
 
+    [SupportedOSPlatform("windows")]
     [DllImport("user32.dll")]
     private static extern IntPtr GetDesktopWindow();
 
+    [SupportedOSPlatform("windows")]
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern IntPtr FindWindow(string lpClassName, string? lpWindowName);
 
+    [SupportedOSPlatform("windows")]
     [DllImport("user32.dll")]
     private static extern bool IsWindowVisible(IntPtr hWnd);
 
+    [SupportedOSPlatform("windows")]
     [DllImport("user32.dll")]
     private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
 
@@ -41,6 +46,15 @@ internal static class TouchKeyboard
     /// <summary>Mostra o teclado (não faz nada se ele já está visível ou foi pedido há menos de 1,5 s).</summary>
     public static void Show()
     {
+        if (!OperatingSystem.IsWindows()) 
+        {
+            // No Linux, o SO ou o Avalonia geralmente lidam com isso,
+            // mas se o usuário quiser forçar, chamamos o Toggle.
+            if (DateTime.UtcNow - _lastToggle < TimeSpan.FromSeconds(1.5)) return;
+            Toggle();
+            return;
+        }
+
         if (IsVisible()) return;
         if (DateTime.UtcNow - _lastToggle < TimeSpan.FromSeconds(1.5)) return;
         Toggle();
@@ -50,6 +64,23 @@ internal static class TouchKeyboard
     public static void Toggle()
     {
         _lastToggle = DateTime.UtcNow;
+
+        if (OperatingSystem.IsLinux())
+        {
+            try
+            {
+                // Tenta abrir o Onboard (teclado virtual padrão do Linux/Steam Deck Desktop Mode)
+                Process.Start(new ProcessStartInfo("onboard") { UseShellExecute = true });
+            }
+            catch
+            {
+                DebugLog.Write("TouchKeyboard: Onboard não encontrado no Linux.");
+            }
+            return;
+        }
+
+        if (!OperatingSystem.IsWindows()) return;
+
         try
         {
             EnsureTabTipRunning();
@@ -73,6 +104,7 @@ internal static class TouchKeyboard
         }
     }
 
+    [SupportedOSPlatform("windows")]
     private static void EnsureTabTipRunning()
     {
         if (Process.GetProcessesByName("TabTip").Length > 0) return;
@@ -92,6 +124,7 @@ internal static class TouchKeyboard
     /// saber e assume fechado (a trava de 1,5 s em Show evita abrir/fechar em
     /// sequência).
     /// </summary>
+    [SupportedOSPlatform("windows")]
     private static bool IsVisible()
     {
         try

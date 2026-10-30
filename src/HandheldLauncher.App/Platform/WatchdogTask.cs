@@ -1,29 +1,40 @@
 using System.Diagnostics;
 using System.Security.Principal;
 using System.Text;
+using System.Runtime.Versioning;
 using HandheldLauncher.App.Diagnostics;
 
 namespace HandheldLauncher.App.Platform;
 
 /// <summary>
 /// Cria/remove a Tarefa Agendada "HandheldLauncherWatchdog" direto do
-/// launcher (antes só o Configurar-Modo-Console.ps1 fazia isso). Usada pelo
-/// seletor Desktop/Handheld nas Configurações:
+/// launcher. Usada pelo seletor Desktop/Handheld nas Configurações:
 /// - Handheld: tarefa com gatilho "ao fazer login" + repetição a cada 1 min,
 ///   rodando também na bateria (handheld!), sem limite de tempo, sem
 ///   instâncias duplicadas, argumento --watchdog (ver WatchdogGate).
 /// - Desktop: tarefa removida.
 /// Via XML porque o `schtasks /Create` simples não consegue desligar o
 /// "não iniciar/parar na bateria" nem combinar login + repetição.
-/// Melhor esforço: devolve false e loga em vez de lançar.
+/// 
+/// v1.0.0 (Linux prep): Adicionado suporte para Linux. No Linux, essa
+/// funcionalidade é ignorada por enquanto (retorna false/true sem fazer nada),
+/// pois o systemd seria o equivalente ao schtasks e exigiria configuração extra.
 /// </summary>
 internal static class WatchdogTask
 {
     private const string TaskName = "HandheldLauncherWatchdog";
 
     public static bool Apply(bool handheldMode)
-        => handheldMode ? Register() : Remove();
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            DebugLog.Write("WatchdogTask: Ignorado no Linux (não implementado via systemd).");
+            return false;
+        }
+        return handheldMode ? Register() : Remove();
+    }
 
+    [SupportedOSPlatform("windows")]
     private static bool Register()
     {
         string? xmlPath = null;
@@ -87,6 +98,7 @@ internal static class WatchdogTask
         }
     }
 
+    [SupportedOSPlatform("windows")]
     private static bool Remove()
     {
         // Código de saída 1 = "tarefa não existe": já é o estado desejado.
@@ -94,6 +106,7 @@ internal static class WatchdogTask
         return true;
     }
 
+    [SupportedOSPlatform("windows")]
     private static bool RunSchtasks(string arguments, int[]? okExitCodes = null)
     {
         try
@@ -120,5 +133,6 @@ internal static class WatchdogTask
         }
     }
 
+    [SupportedOSPlatform("windows")]
     private static string Escape(string value) => System.Security.SecurityElement.Escape(value) ?? string.Empty;
 }

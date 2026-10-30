@@ -3,15 +3,13 @@
 # Como lançar uma versão: mude o número no arquivo VERSION (raiz do repo,
 # ex: 0.3.1 -> 0.3.2) e envie pro GitHub. Este workflow então:
 #   1. apaga Releases quebradas (sem nenhum arquivo anexado);
-#   2. compila, empacota com o Velopack;
+#   2. compila, empacota com o Velopack (Windows) e gera o ZIP portátil (Linux);
 #   3. cria a tag vX.Y.Z + a Release e anexa:
-#      - HandheldLauncher-win-Setup.exe  (instalador, só na 1ª vez)
-#      - os pacotes de atualização que o launcher baixa sozinho
-#      - Modo-Console.zip (scripts opcionais: kiosk/watchdog/RTSS)
+#      - HandheldLauncher-win-Setup.exe  (instalador Windows)
+#      - os pacotes de atualização delta do Velopack
+#      - HandheldLauncher-linux-x64.zip  (pacote portátil Linux)
+#      - Modo-Console.zip (scripts opcionais)
 # Se a versão do VERSION já tiver uma Release completa, não faz nada.
-# Também funciona criando a Release/tag "vX.Y.Z" pelo site do GitHub.
-# Os launchers já instalados percebem a versão nova em até ~6h e mostram
-# "Atualização pronta".
 name: Release
 
 on:
@@ -52,10 +50,6 @@ jobs:
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
           echo "Versão: $VERSION"
 
-      # Releases sem nenhum arquivo são restos de tentativas que falharam
-      # (ex: Release criada pelo site antes do workflow funcionar). Além de
-      # poluírem a página, o atualizador olha a Release mais recente — uma
-      # vazia atrapalharia. Apaga a Release E a tag.
       - name: Apagar Releases quebradas (sem arquivos)
         shell: bash
         run: |
@@ -84,6 +78,7 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      # --- BUILD WINDOWS ---
       - name: Publicar (self-contained win-x64)
         if: steps.exists.outputs.skip != 'true'
         run: >
@@ -92,15 +87,12 @@ jobs:
           -p:Version=${{ steps.ver.outputs.version }}
           -o publish
 
-      # Trava de segurança: este repositório é público. Nada que se pareça
-      # com chave de API ou configuração pessoal pode ir dentro do pacote.
-      - name: Conferir que nenhum segredo entrou no pacote
+      - name: Conferir que nenhum segredo entrou no pacote (Windows)
         if: steps.exists.outputs.skip != 'true'
         shell: bash
         run: |
           if find publish \( -iname '*api-key*' -o -iname 'settings.json' -o -iname '*.pfx' \) | grep -q .; then
             echo "ERRO: arquivo sensível dentro de publish/ — abortando."
-            find publish \( -iname '*api-key*' -o -iname 'settings.json' -o -iname '*.pfx' \)
             exit 1
           fi
 
@@ -108,9 +100,6 @@ jobs:
         if: steps.exists.outputs.skip != 'true'
         run: dotnet tool install -g vpk --version ${{ env.VPK_VERSION }}
 
-      # Baixa a Release anterior pra o Velopack gerar atualizações "delta"
-      # (só o que mudou). Na primeira versão não existe nada — por isso
-      # continue-on-error.
       - name: Baixar versões anteriores (pra delta)
         if: steps.exists.outputs.skip != 'true'
         continue-on-error: true
@@ -119,23 +108,7 @@ jobs:
           --repoUrl ${{ github.server_url }}/${{ github.repository }}
           --token ${{ secrets.GITHUB_TOKEN }}
 
-      # v0.9.6: pedido do usuário ("ajuste fino do instalador e do update,
-      # principalmente no update") — a telinha de atualização agora mostra
-      # "O que há de novo" de verdade (UpdateService.PendingReleaseNotes),
-      # então as notas precisam ir DENTRO do pacote Velopack, não só na
-      # página da Release do GitHub. Reaproveita o mesmo arquivo
-      # release-notes/X.Y.Z.md que o passo "Publicar Release" já usa —
-      # mesma mensagem nos dois lugares. Sem o arquivo (versão sem notas
-      # escritas), empacota sem --releaseNotes — o Velopack aceita
-      # normalmente, só fica sem texto pra mostrar.
-      # --splashProgressColor pinta a barra de progresso do Setup.exe com o
-      # roxo do tema (Theme.axaml AccentColor #7C5CFC) em vez da cor padrão
-      # do Velopack — opção confirmada na doc oficial (vpk pack, Windows).
-      # Existe também --splashImage (imagem de fundo durante a instalação),
-      # mas sem uma dimensão/proporção confirmada na doc pra não arriscar
-      # instalador com imagem esticada/cortada — ver README (ajuste fino
-      # do instalador, v0.9.6) pra decidir com o usuário antes de tentar.
-      - name: Empacotar
+      - name: Empacotar (Windows Velopack)
         if: steps.exists.outputs.skip != 'true'
         shell: pwsh
         run: |
@@ -152,6 +125,21 @@ jobs:
             @extra
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
+      # --- BUILD LINUX ---
+      - name: Publicar (self-contained linux-x64)
+        if: steps.exists.outputs.skip != 'true'
+        run: >
+          dotnet publish src/HandheldLauncher.App -c Release -r linux-x64
+          --self-contained true
+          -p:Version=${{ steps.ver.outputs.version }}
+          -o publish-linux
+
+      - name: Compactar pacote Linux
+        if: steps.exists.outputs.skip != 'true'
+        shell: pwsh
+        run: Compress-Archive -Path publish-linux/* -DestinationPath HandheldLauncher-linux-x64.zip -Force
+
+      # --- CONSOLE MODE & RELEASE ---
       - name: Montar Modo-Console.zip
         if: steps.exists.outputs.skip != 'true'
         shell: pwsh
@@ -163,9 +151,6 @@ jobs:
           Copy-Item installer/Arquivos/Uninstall-Launcher.ps1 stage/Modo-Console/Arquivos/
           Compress-Archive -Path stage/Modo-Console -DestinationPath Modo-Console.zip -Force
 
-      # Cria a Release (e a tag, no commit atual) se ainda não existir e
-      # sobe tudo: Setup.exe, pacotes full/delta, índices releases.*.json
-      # que o atualizador lê, e o Modo-Console.zip.
       - name: Publicar Release
         if: steps.exists.outputs.skip != 'true'
         shell: pwsh
@@ -174,8 +159,6 @@ jobs:
           Get-ChildItem Releases | Format-Table Name, Length
           gh release view $tag -R $env:GITHUB_REPOSITORY 2>$null | Out-Null
           if ($LASTEXITCODE -ne 0) {
-            # Notas curtas escritas à mão (release-notes/X.Y.Z.md) em vez da
-            # lista automática de commits — página de versões mais limpa.
             $notesFile = "release-notes/${{ steps.ver.outputs.version }}.md"
             if (Test-Path $notesFile) {
               gh release create $tag -R $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Handheld Launcher ${{ steps.ver.outputs.version }}" --notes-file $notesFile
@@ -184,13 +167,13 @@ jobs:
             }
             if ($LASTEXITCODE -ne 0) { exit 1 }
           }
-          $files = @(Get-ChildItem Releases -File | ForEach-Object { $_.FullName }) + @((Resolve-Path Modo-Console.zip).Path)
+          
+          # Anexa os pacotes do Velopack (Windows) + Modo Console + Pacote Linux
+          $files = @(Get-ChildItem Releases -File | ForEach-Object { $_.FullName }) + @((Resolve-Path Modo-Console.zip).Path) + @((Resolve-Path HandheldLauncher-linux-x64.zip).Path)
+          
           gh release upload $tag @files -R $env:GITHUB_REPOSITORY --clobber
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
-      # Mantém só as 3 versões mais recentes publicadas (o atualizador só
-      # precisa da mais nova; as anteriores servem de "volta" manual). As
-      # mantidas ganham as notas curtas, se houver arquivo pra elas.
       - name: Limpar versões antigas
         if: steps.exists.outputs.skip != 'true'
         shell: bash
