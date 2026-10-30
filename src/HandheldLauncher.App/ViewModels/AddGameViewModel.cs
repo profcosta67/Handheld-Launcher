@@ -77,3 +77,6 @@ public sealed class AddGameViewModel : ViewModelBase
         WorkingDirectory = string.IsNullOrWhiteSpace(WorkingDirectory) ? null : WorkingDirectory.Trim(),
     };
 }
+
+/// <summary>Entry discovered from the Windows uninstall registry.</summary>
+public sealed record InstalledProgramOption(string DisplayName, string ExecutablePath);
