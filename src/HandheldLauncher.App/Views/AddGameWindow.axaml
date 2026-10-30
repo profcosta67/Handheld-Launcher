@@ -4,7 +4,7 @@
         x:Class="HandheldLauncher.App.Views.AddGameWindow"
         x:DataType="vm:AddGameViewModel"
         Title="Adicionar jogo"
-        Width="520" Height="420"
+        Width="560" Height="600"
         CanResize="False"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource BackgroundBrush}">
@@ -16,8 +16,20 @@
   -->
 
   <Grid RowDefinitions="*,Auto" Margin="24">
-    <StackPanel Grid.Row="0" Spacing="12">
-      <TextBlock Text="Nome do jogo" Classes="subtle" />
+    <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+    <StackPanel Spacing="12">
+      <TextBlock Text="Nome do programa ou jogo" Classes="subtle" />
+      <Button Content="Buscar programas instalados no Windows" Click="OnSearchInstalledClick" HorizontalAlignment="Stretch" />
+      <ListBox x:Name="InstalledProgramsList" Height="150" IsVisible="False" SelectionChanged="OnInstalledProgramSelectionChanged">
+        <ListBox.ItemTemplate>
+          <DataTemplate>
+            <StackPanel Spacing="2" Margin="4">
+              <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+              <TextBlock Text="{Binding ExecutablePath}" Classes="subtle" FontSize="11" />
+            </StackPanel>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
       <TextBox Text="{Binding Title}" Watermark="Ex: Hollow Knight" />
 
       <TextBlock Text="Executável" Classes="subtle" Margin="0,8,0,0" />
@@ -32,10 +44,12 @@
       <TextBlock Text="Pasta de trabalho (opcional)" Classes="subtle" Margin="0,8,0,0" />
       <TextBox Text="{Binding WorkingDirectory}" Watermark="Em branco = pasta do executável" />
 
+      <CheckBox Content="Adicionar na aba Programas (não como jogo)" IsChecked="{Binding IsApplication}" Margin="0,8,0,0" />
       <CheckBox Content="É um jogo do Xbox app / Game Pass"
                 IsChecked="{Binding IsXboxSource}"
                 Margin="0,8,0,0" />
     </StackPanel>
+    </ScrollViewer>
 
     <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,20,0,0">
       <Button Classes="pill" Content="Cancelar" Click="OnCancelClick" />
