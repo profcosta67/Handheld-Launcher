@@ -74,7 +74,7 @@ public partial class AddGameWindow : Window
         }
         catch (Exception ex)
         {
-            DebugLog.Write($"AddGameWindow: falha ao buscar programas instalados: {ex}");
+            System.Diagnostics.Debug.WriteLine($"AddGameWindow: falha ao buscar programas instalados: {ex}");
             InstalledProgramsList.ItemsSource = new[] { new InstalledProgramOption("Não foi possível consultar os programas instalados.", string.Empty) };
             InstalledProgramsList.IsVisible = true;
         }
