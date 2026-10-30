@@ -1326,8 +1326,10 @@ public sealed class MainViewModel : ViewModelBase
 
     public void ActivateGlobalMenuItem(ContextMenuItemViewModel item)
     {
+        var index = GlobalMenuItems.IndexOf(item);
+        DebugLog.Write($"Global menu: pointer activation requested for '{item.Label}' (index={index}, page={_globalMenuPage}).");
         HighlightGlobalMenuItem(item);
-        if (GlobalMenuItems.IndexOf(item) >= 0) ConfirmGlobalMenuSelection();
+        if (index >= 0) ConfirmGlobalMenuSelection();
     }
 
     public void ActivateCoverCandidate(ArtworkCandidateViewModel candidate)
@@ -1369,6 +1371,7 @@ public sealed class MainViewModel : ViewModelBase
 
     private void RequestPowerConfirm(string lowercaseLabel, Action action)
     {
+        DebugLog.Write($"Power menu: requested confirmation for '{lowercaseLabel}'.");
         _pendingPowerConfirmLabel = lowercaseLabel;
         _pendingPowerAction = action;
         NavigateGlobalMenu(GlobalMenuPage.ConfirmPower);
@@ -1455,6 +1458,8 @@ public sealed class MainViewModel : ViewModelBase
 
         var index = _globalMenuIndex;
         if (index < 0 || index >= _globalMenuActions.Count) return;
+
+        DebugLog.Write($"Global menu: confirming item index={index}, page={_globalMenuPage}, label='{GlobalMenuItems[index].Label}', navigates={_globalMenuNavigates[index]}.");
 
         if (_globalMenuNavigates[index])
         {

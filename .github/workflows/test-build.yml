@@ -1,0 +1,43 @@
+name: Test Build (PR)
+
+on:
+  push:
+    branches: [ "fix/phase1-power-window-focus" ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restaurar pacotes
+        run: dotnet restore HandheldLauncher.sln
+
+      - name: Compilar
+        run: dotnet build HandheldLauncher.sln -c Release --no-restore
+
+      - name: Publicar build portátil de teste
+        shell: pwsh
+        run: |
+          $version = (Get-Content VERSION -Raw).Trim()
+          dotnet publish src/HandheldLauncher.App -c Release -r win-x64 --self-contained true -p:Version=$version -o test-publish
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Compress-Archive -Path test-publish/* -DestinationPath HandheldLauncher-TestBuild-win-x64.zip -Force
+
+      - name: Disponibilizar build para teste manual
+        uses: actions/upload-artifact@v4
+        with:
+          name: HandheldLauncher-TestBuild-win-x64
+          path: HandheldLauncher-TestBuild-win-x64.zip
+          if-no-files-found: error
+          retention-days: 14
