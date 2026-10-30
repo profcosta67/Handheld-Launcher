@@ -270,29 +270,6 @@
           </ItemsControl>
         </ScrollViewer>
 
-        <!-- Identificação persistente do item em foco: não depende de a capa
-             ter logo, nem da cor/contraste da arte. -->
-        <Border Background="{DynamicResource SurfaceBrush}"
-                BorderBrush="{DynamicResource TextSecondaryBrush}"
-                BorderThickness="1"
-                CornerRadius="12"
-                Padding="18,9"
-                HorizontalAlignment="Center"
-                MaxWidth="760"
-                IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
-          <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
-            <Border Background="{DynamicResource AccentBrush}" CornerRadius="5" Padding="7,3" VerticalAlignment="Center">
-              <TextBlock Text="SELECIONADO" Foreground="White" FontSize="9" FontWeight="Bold" />
-            </Border>
-            <TextBlock Text="{Binding SelectedTile.Title}"
-                       Foreground="White"
-                       FontSize="16"
-                       FontWeight="SemiBold"
-                       VerticalAlignment="Center"
-                       TextTrimming="CharacterEllipsis"
-                       MaxWidth="560" />
-          </StackPanel>
-        </Border>
       </StackPanel>
 
       <TextBlock Grid.Row="0"
