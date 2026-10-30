@@ -281,7 +281,7 @@
                 MaxWidth="760"
                 IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
           <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
-            <Border Background="#6579E8" CornerRadius="5" Padding="7,3" VerticalAlignment="Center">
+            <Border Background="{DynamicResource AccentBrush}" CornerRadius="5" Padding="7,3" VerticalAlignment="Center">
               <TextBlock Text="SELECIONADO" Foreground="White" FontSize="9" FontWeight="Bold" />
             </Border>
             <TextBlock Text="{Binding SelectedTile.Title}"
