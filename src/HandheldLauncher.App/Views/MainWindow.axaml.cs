@@ -565,7 +565,6 @@ public partial class MainWindow : Window
             vm.ClearOverlayNow();
             Close();
         };
-        vm.MinimizeRequested += (_, _) => MinimizeToTray();
         vm.TurnOffScreenRequested += (_, _) => TurnOffScreen();
         vm.RestartDeviceRequested += (_, _) => RestartDevice();
         vm.ShutdownDeviceRequested += (_, _) => ShutdownDevice();
