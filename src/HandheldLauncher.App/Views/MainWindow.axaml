@@ -27,6 +27,34 @@
     <conv:HexColorToBrushConverter x:Key="HexColorToBrushConverter" />
   </Window.Resources>
 
+  <Window.Styles>
+    <Style Selector="Button.switchAction">
+      <Setter Property="Width" Value="46" />
+      <Setter Property="Height" Value="42" />
+      <Setter Property="MinWidth" Value="46" />
+      <Setter Property="MinHeight" Value="42" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="#252A36" />
+      <Setter Property="Foreground" Value="#F3F5FA" />
+      <Setter Property="BorderBrush" Value="#424A5D" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="FontSize" Value="20" />
+    </Style>
+    <Style Selector="Button.switchAction:pointerover">
+      <Setter Property="Background" Value="#343C50" />
+      <Setter Property="BorderBrush" Value="#6579E8" />
+    </Style>
+    <Style Selector="Button.switchAction /template/ ContentPresenter">
+      <Setter Property="Background" Value="#252A36" />
+      <Setter Property="Foreground" Value="#F3F5FA" />
+      <Setter Property="BorderBrush" Value="#424A5D" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+  </Window.Styles>
+
   <Panel>
 
     <!-- Full-window backdrop: the focused game's art, blurred and
@@ -205,12 +233,8 @@
                 Margin="0,0,10,0" />
         <!-- Ações rápidas com área de toque uniforme e ícones legíveis. -->
         <Button Grid.Column="2"
-                Classes="pill"
-                Width="46"
-                Height="42"
-                Padding="0"
+                Classes="switchAction"
                 Content="—"
-                FontSize="22"
                 Click="OnMinimizeClick"
                 ToolTip.Tip="Minimizar — envia para a bandeja do Windows. Reabra pelo ícone da bandeja ou Ctrl+Alt+H."
                 Margin="0,0,8,0" />
@@ -221,22 +245,14 @@
              opções (Atualizar Biblioteca/Atualizar Capas Automático/
              Adicionar jogo/Downloads/Overlay FPS). -->
         <Button Grid.Column="3"
-                Classes="pill"
-                Width="46"
-                Height="42"
-                Padding="0"
+                Classes="switchAction"
                 Content="⚙"
-                FontSize="20"
                 Click="OnGearMenuClick"
                 ToolTip.Tip="Configurações e ferramentas"
                 Margin="0,0,8,0" />
         <Button Grid.Column="4"
-                Classes="pill"
-                Width="46"
-                Height="42"
-                Padding="0"
+                Classes="switchAction"
                 Content="⏻"
-                FontSize="20"
                 Click="OnPowerMenuClick"
                 ToolTip.Tip="Energia" />
       </Grid>
