@@ -12,14 +12,12 @@
          (só o mesmo usuário do Windows consegue ler) — ver AppSettingsStore. -->
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
 
-    <!-- v0.9.6: pedido do usuário ("ajustar a logo dos jogos, uns ficam
-         pequenas, outros em tamanho bom") — usada só pra cortar a margem
-         transparente do PNG do LOGO (SteamGridDB) depois do download (ver
-         ArtworkService.TrimTransparentPadding). System.Drawing.Common é
-         Windows-only desde o .NET 6, mas este projeto já é Windows-only de
-         ponta a ponta (publish self-contained win-x64, System.Management,
-         RTSS) — mesma categoria de dependência que já existe aqui. -->
-    <PackageReference Include="System.Drawing.Common" Version="8.0.0" />
+    <!-- SkiaSharp substitui o System.Drawing.Common. É multiplataforma e é a
+         mesma engine gráfica que o Avalonia usa por baixo dos panos, então
+         não adiciona peso extra ao produto final. -->
+    <PackageReference Include="SkiaSharp" Version="2.88.8" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="2.88.8" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="2.88.8" />
   </ItemGroup>
 
 </Project>

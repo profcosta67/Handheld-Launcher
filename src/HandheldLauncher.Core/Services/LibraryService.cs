@@ -11,12 +11,9 @@ public sealed class LibraryService : ILibraryService
     private readonly IGameLibraryStore _store;
     private List<GameEntry> _games = new();
 
-    /// <summary>
-    /// xboxFolderScanner e steamOwnedGamesClient são opcionais (null =
-    /// não configurado em settings.json, comportamento idêntico a antes
-    /// de cada um existir) — ver XboxFolderScanner/ISteamOwnedGamesClient
-    /// pra o que cada um faz.
-    /// </summary>
+    // NOVO: Cache de overrides em memória para evitar leituras repetidas no disco
+    private IReadOnlyDictionary<string, GameMetadataOverride>? _cachedOverrides;
+
     public LibraryService(
         ISteamLibraryScanner steamScanner,
         IGameLibraryStore store,
@@ -29,74 +26,75 @@ public sealed class LibraryService : ILibraryService
         _xboxFolderScanner = xboxFolderScanner;
         _storeScanners = storeScanners ?? Array.Empty<IStoreLibraryScanner>();
         _steamOwnedGamesClient = steamOwnedGamesClient;
-        Refresh();
+
+        try
+        {
+            Refresh();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[LibraryService] Falha crítica no construtor: {ex.Message}");
+        }
     }
 
     public IReadOnlyList<GameEntry> Games => _games;
 
     public void Refresh()
     {
-        var overrides = _store.LoadOverrides();
+        // Carrega os overrides UMA VEZ e guarda no cache
+        _cachedOverrides = _store.LoadOverrides();
         var merged = new List<GameEntry>();
 
-        foreach (var game in _steamScanner.ScanInstalledGames())
+        // 1. Scanner Steam
+        try
         {
-            ApplyOverride(game, overrides);
-            merged.Add(game);
-        }
-
-        foreach (var game in _store.LoadManualGames())
-        {
-            ApplyOverride(game, overrides);
-            merged.Add(game);
-        }
-
-        // XboxFolderScanner — pastas extras configuradas em
-        // AppSettings.XboxScanFolders (nova numa leva anterior, ver essa
-        // classe). Null quando nenhuma pasta está configurada, então nada
-        // muda pra quem não configurou isso.
-        if (_xboxFolderScanner is not null)
-        {
-            foreach (var game in _xboxFolderScanner.ScanInstalledGames())
+            foreach (var game in _steamScanner.ScanInstalledGames())
             {
-                // DEDUP contra jogo manual (bug reportado nesta leva: "ele
-                // aparece como não steam e como xbox no launcher") —
-                // acontece quando um jogo foi adicionado à mão (via
-                // "Adicionar jogo", ANTES de XboxScanFolders existir ou
-                // antes da pasta certa ser configurada) e agora a MESMA
-                // instalação também é encontrada pelo scanner automático:
-                // sem isso, os dois ficam como tiles separadas (Ids
-                // diferentes) — uma em "Não Steam", outra em "Xbox".
-                // Compara pelo EXECUTÁVEL (caminho completo, sem
-                // diferenciar maiúsculas) em vez do Id (que são formatos
-                // diferentes e nunca vão bater): se já existe QUALQUER
-                // entrada em `merged` apontando pro mesmo .exe, pula o
-                // duplicado do scanner. De propósito prioriza o que já
-                // está em `merged` (o manual, que entrou no loop acima)
-                // em vez do recém-escaneado, pra não perder o Id/overrides
-                // (favorito, capas já escolhidas) de um jogo que o usuário
-                // talvez já tenha customizado à mão. Efeito colateral:
-                // ele continua classificado como "Não Steam"/Manual, não
-                // "Xbox" — pra corrigir a categoria, é preciso apagar o
-                // atalho manual (Excluir atalho) e deixar o scanner
-                // recriá-lo do zero (perde favorito/capas já escolhidas
-                // nesse caso).
-                if (merged.Any(existing => ExecutablePathsMatch(existing.ExecutablePath, game.ExecutablePath)))
-                {
-                    continue;
-                }
-
-                ApplyOverride(game, overrides);
+                ApplyOverride(game, _cachedOverrides);
                 merged.Add(game);
             }
         }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[LibraryService] Erro ao escanear Steam: {ex.Message}");
+        }
 
-        // Epic Games Store (v0.9.1) — só instalados, lidos dos manifestos
-        // locais (ver EpicLibraryScanner). Mesmo dedup do Xbox: se o
-        // usuário já tinha adicionado o jogo à mão (mesmo .exe), mantém o
-        // manual (favorito/capas escolhidas) e pula o da Epic.
-        // v0.9.3: o mesmo laço vale pra todas as lojas (Epic, GOG, EA,
-        // Ubisoft). Cada scanner é isolado: se um falhar, os outros seguem.
+        // 2. Jogos Manuais
+        try
+        {
+            foreach (var game in _store.LoadManualGames())
+            {
+                ApplyOverride(game, _cachedOverrides);
+                merged.Add(game);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[LibraryService] Erro ao carregar jogos manuais: {ex.Message}");
+        }
+
+        // 3. Scanner Xbox
+        if (_xboxFolderScanner is not null)
+        {
+            try
+            {
+                foreach (var game in _xboxFolderScanner.ScanInstalledGames())
+                {
+                    if (merged.Any(existing => ExecutablePathsMatch(existing.ExecutablePath, game.ExecutablePath)))
+                    {
+                        continue;
+                    }
+                    ApplyOverride(game, _cachedOverrides);
+                    merged.Add(game);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[LibraryService] Erro ao escanear Xbox: {ex.Message}");
+            }
+        }
+
+        // 4. Lojas (Epic, GOG, EA, Ubisoft)
         foreach (var scanner in _storeScanners)
         {
             IReadOnlyList<GameEntry> scanned;
@@ -104,9 +102,10 @@ public sealed class LibraryService : ILibraryService
             {
                 scanned = scanner.ScanInstalledGames();
             }
-            catch
+            catch (Exception ex)
             {
-                continue;
+                System.Diagnostics.Debug.WriteLine($"[LibraryService] Erro no scanner {scanner.GetType().Name}: {ex.Message}");
+                continue; 
             }
 
             foreach (var game in scanned)
@@ -116,49 +115,15 @@ public sealed class LibraryService : ILibraryService
                     continue;
                 }
 
-                ApplyOverride(game, overrides);
+                ApplyOverride(game, _cachedOverrides);
                 merged.Add(game);
             }
         }
-
-        // Future scanners (emulator folders, GOG...) plug in here the same
-        // way: scan -> ApplyOverride -> merged.Add.
 
         merged.Sort((a, b) => string.Compare(a.Title, b.Title, StringComparison.OrdinalIgnoreCase));
         _games = merged;
     }
 
-    /// <summary>
-    /// Compara dois caminhos de executável de forma tolerante (resolve
-    /// "..", separadores diferentes etc. via Path.GetFullPath; Windows não
-    /// diferencia maiúsculas em caminho de arquivo) — null/vazio nunca
-    /// "bate" com nada, pra não tratar dois jogos sem ExecutablePath como
-    /// duplicados um do outro.
-    /// </summary>
-    /// <summary>
-    /// v0.9.17, BUG REPORTADO pelo usuário: "ele detectou apenas uma room
-    /// que na vdd eh uma dlc nsp do digimon time strange. as outras rooms
-    /// ele não detectou" — 18 arquivos .nsp na pasta, 1 jogo na
-    /// biblioteca.
-    ///
-    /// <para>
-    /// Causa: o dedup deste laço foi escrito pensando em LOJAS, onde vale
-    /// "um executável = um jogo" e "uma pasta = um jogo". Pra EMULADOR as
-    /// duas premissas são falsas: todos os jogos do Eden compartilham o
-    /// MESMO executável (o `eden.exe`) e normalmente a MESMA pasta (a das
-    /// ROMs). Então o 1º jogo entrava e todos os outros eram descartados
-    /// como duplicata dele — sobrava exatamente um, o primeiro em ordem
-    /// alfabética (no caso do usuário, uma DLC do Digimon).
-    /// </para>
-    ///
-    /// <para>
-    /// Correção: o que identifica o jogo não é só o executável, é o
-    /// executável MAIS os argumentos (pro Eden, o argumento é o caminho da
-    /// ROM — ver EdenLibraryScanner). Pra entradas de loja, que não têm
-    /// argumento nenhum, os dois lados ficam vazios e o comportamento é
-    /// idêntico ao de antes.
-    /// </para>
-    /// </summary>
     private static bool SameLaunchTarget(GameEntry a, GameEntry b)
     {
         if (!ExecutablePathsMatch(a.ExecutablePath, b.ExecutablePath)) return false;
@@ -169,23 +134,12 @@ public sealed class LibraryService : ILibraryService
             StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>
-    /// Mesma causa do bug acima, outra regra: pra emulador, a "pasta de
-    /// instalação" é a pasta das ROMs — compartilhada por todos os jogos
-    /// dali — então comparar por pasta jogaria fora todos menos o
-    /// primeiro. Nunca trata entrada de emulador como duplicata por pasta;
-    /// pra loja, segue valendo igual antes (ver SameFolder).
-    /// </summary>
     private static bool SameInstallFolder(GameEntry a, GameEntry b)
     {
         if (a.Source == GameSource.Emulator || b.Source == GameSource.Emulator) return false;
         return SameFolder(a.InstallDirectory, b.InstallDirectory);
     }
 
-    /// <summary>
-    /// Mesma pasta de instalação = mesmo jogo (v0.9.3) — evita, por exemplo,
-    /// um jogo da EA comprado na Steam aparecer duas vezes (Steam + EA).
-    /// </summary>
     private static bool SameFolder(string? a, string? b)
     {
         if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b)) return false;
@@ -212,18 +166,12 @@ public sealed class LibraryService : ILibraryService
         }
         catch (ArgumentException)
         {
-            // Caminho malformado — trata como "não bate" em vez de deixar
-            // Refresh() inteiro explodir por causa de um caminho estranho.
             return false;
         }
     }
 
     public void AddManualGame(GameEntry game)
     {
-        // Não força mais Source = Manual aqui: a tela "Adicionar jogo" agora
-        // deixa marcar "É um jogo do Xbox/Game Pass", e sobrescrever sempre
-        // pra Manual jogaria essa escolha fora. O default do próprio
-        // GameEntry (Manual) já cobre o caso comum.
         _store.AddManualGame(game);
         Refresh();
     }
@@ -239,6 +187,7 @@ public sealed class LibraryService : ILibraryService
         var overrideData = OverrideFor(gameId);
         overrideData.Collection = collection;
         _store.SaveOverride(gameId, overrideData);
+        _cachedOverrides = null; // Invalida o cache
         Refresh();
     }
 
@@ -248,10 +197,8 @@ public sealed class LibraryService : ILibraryService
         var overrideData = OverrideFor(gameId);
         overrideData.IsFavorite = isFavorite;
         _store.SaveOverride(gameId, overrideData);
+        _cachedOverrides = null; // Invalida o cache
 
-        // Mesma ideia do MarkLaunched: muta a instância em memória direto em
-        // vez de dar Refresh() completo, pra não perder SelectedTile/etc e
-        // pro toggle refletir na hora (a aba "Favoritos" depende disso).
         if (existing is not null) existing.IsFavorite = isFavorite;
     }
 
@@ -261,6 +208,7 @@ public sealed class LibraryService : ILibraryService
         overrideData.PlaytimeMinutes += (long)duration.TotalMinutes;
         overrideData.LastPlayedUtc = DateTimeOffset.UtcNow;
         _store.SaveOverride(gameId, overrideData);
+        _cachedOverrides = null; // Invalida o cache
         Refresh();
     }
 
@@ -270,33 +218,35 @@ public sealed class LibraryService : ILibraryService
         var overrideData = OverrideFor(gameId);
         overrideData.LastPlayedUtc = DateTimeOffset.UtcNow;
         _store.SaveOverride(gameId, overrideData);
+        _cachedOverrides = null; // Invalida o cache
 
-        // No Refresh() here on purpose — a full re-scan would replace every
-        // GameEntry instance, orphaning whatever the UI currently holds
-        // (SelectedTile, RunningGame...) for no benefit. Mutate the live
-        // instance directly so the "último jogo aberto" change is visible
-        // immediately.
         if (existing is not null) existing.LastPlayedUtc = overrideData.LastPlayedUtc;
     }
 
-    public IReadOnlyList<DownloadProgressInfo> GetActiveDownloads() => _steamScanner.ScanActiveDownloads();
+    public IReadOnlyList<DownloadProgressInfo> GetActiveDownloads() 
+    {
+        try
+        {
+            return _steamScanner.ScanActiveDownloads();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[LibraryService] Erro ao buscar downloads ativos: {ex.Message}");
+            return Array.Empty<DownloadProgressInfo>();
+        }
+    }
 
     public bool HasSteamWebApiCredentials => _steamOwnedGamesClient?.HasCredentials ?? false;
 
-    public async Task<IReadOnlyList<OwnedSteamGame>> GetOwnedButNotInstalledSteamGamesAsync()
+    public async Task<IReadOnlyList<OwnedSteamGame>> GetOwnedButNotInstalledSteamGamesAsync(CancellationToken ct = default)
     {
         if (_steamOwnedGamesClient is null || !_steamOwnedGamesClient.HasCredentials)
         {
             return Array.Empty<OwnedSteamGame>();
         }
 
-        var owned = await _steamOwnedGamesClient.GetOwnedGamesAsync();
+        var owned = await _steamOwnedGamesClient.GetOwnedGamesAsync(ct);
 
-        // _games (não Games da MainViewModel, que é filtrada pela aba
-        // ativa) — comparar contra a biblioteca FILTRADA esconderia jogo
-        // já instalado sempre que uma aba diferente de "Todos" estivesse
-        // selecionada no momento, mostrando ele como "não instalado"
-        // erradamente.
         var installedAppIds = _games
             .Where(g => g.Source == GameSource.Steam && g.SteamAppId is not null)
             .Select(g => g.SteamAppId!.Value)
@@ -316,11 +266,10 @@ public sealed class LibraryService : ILibraryService
             IsOwnedNotInstalled = true,
         };
 
-        ApplyOverride(game, _store.LoadOverrides());
+        // Em vez de ler do disco, usa o cache na memória
+        var overrides = _cachedOverrides ?? _store.LoadOverrides();
+        ApplyOverride(game, overrides);
 
-        // Nunca "último jogo aberto" (WIDE CAPSULE) pra um jogo que nem
-        // está instalado — mesmo que o override tenha uma data de uma
-        // instalação anterior (jogo já desinstalado e reinstalado antes).
         game.LastPlayedUtc = null;
 
         return game;
@@ -330,9 +279,6 @@ public sealed class LibraryService : ILibraryService
     {
         if (!overrides.TryGetValue(game.Id, out var o)) return;
 
-        // v0.9.19: nome editado pelo usuário vence o do scanner. Só
-        // sobrescreve se tiver algo de verdade — override vazio/em branco
-        // deixaria a tile sem nome nenhum.
         if (!string.IsNullOrWhiteSpace(o.TitleOverride)) game.Title = o.TitleOverride;
         game.TitleOverride = o.TitleOverride;
         game.IsApplication = o.IsApplication;
@@ -348,41 +294,22 @@ public sealed class LibraryService : ILibraryService
         game.IsFavorite = o.IsFavorite;
     }
 
-    /// <summary>
-    /// v0.9.19: salva nome editado + "é um programa" (ver
-    /// GameMetadataOverride.TitleOverride/IsApplication). Nome vazio
-    /// LIMPA o override, voltando pro nome original do scanner — é o jeito
-    /// de desfazer um renomear sem ter que lembrar qual era o nome.
-    /// </summary>
     public void SaveEntryEdits(string gameId, string? title, bool isApplication)
     {
         var overrideData = OverrideFor(gameId);
         overrideData.TitleOverride = string.IsNullOrWhiteSpace(title) ? null : title.Trim();
         overrideData.IsApplication = isApplication;
         _store.SaveOverride(gameId, overrideData);
+        _cachedOverrides = null; // Invalida o cache
         Refresh();
     }
 
-    /// <summary>
-    /// v0.9.23: substituiu o antigo <c>ToOverride(GameEntry)</c>, que
-    /// reconstruía a customização campo a campo a partir da entrada em
-    /// memória. Esse padrão já apagou dados do usuário três vezes neste
-    /// projeto (WideGridImagePath, IsFavorite e, na v0.9.22,
-    /// TitleOverride/IsApplication): bastava alguém criar um campo novo e
-    /// esquecer de acrescentar na lista pra ele sumir silenciosamente.
-    ///
-    /// <para>
-    /// Agora lê o que está GRAVADO e clona (ver
-    /// GameMetadataOverride.Clone) — sem lista de campos, não há o que
-    /// esquecer. Ler do disco em vez da entrada em memória também é mais
-    /// correto: a entrada é uma projeção do override, então o override é a
-    /// fonte da verdade, não o contrário.
-    /// </para>
-    /// </summary>
     private GameMetadataOverride OverrideFor(string gameId)
     {
-        var overrides = _store.LoadOverrides();
-        return overrides.TryGetValue(gameId, out var existing)
+        // Se o cache estiver nulo, carrega do disco uma vez
+        _cachedOverrides ??= _store.LoadOverrides();
+        
+        return _cachedOverrides.TryGetValue(gameId, out var existing)
             ? existing.Clone()
             : new GameMetadataOverride();
     }

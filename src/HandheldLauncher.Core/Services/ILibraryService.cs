@@ -64,7 +64,7 @@ public interface ILibraryService
     /// for false; lança se a chamada de rede falhar (quem chama decide
     /// como mostrar o erro).
     /// </summary>
-    Task<IReadOnlyList<OwnedSteamGame>> GetOwnedButNotInstalledSteamGamesAsync();
+   Task<IReadOnlyList<OwnedSteamGame>> GetOwnedButNotInstalledSteamGamesAsync(CancellationToken ct = default);
 
     /// <summary>
     /// Monta uma GameEntry SINTÉTICA (nunca persistida como "jogo manual",

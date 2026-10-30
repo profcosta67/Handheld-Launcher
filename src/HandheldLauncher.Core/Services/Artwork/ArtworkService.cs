@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using HandheldLauncher.Core.Models;
+using SkiaSharp;
 
 namespace HandheldLauncher.Core.Services.Artwork;
 
@@ -367,6 +368,10 @@ public sealed class ArtworkService : IArtworkService
     /// Só roda em PNG (o único formato com canal alpha que a SteamGridDB
     /// usa pra LOGO); best-effort, qualquer erro deixa o arquivo original
     /// intocado.
+    /// 
+    /// v1.0.0 (Linux prep): Trocado System.Drawing.Common (Windows-only)
+    /// por SkiaSharp (cross-platform). A lógica é idêntica, mas agora
+    /// roda no Linux sem depender de GDI+.
     /// </summary>
     private static void TrimTransparentPadding(string path)
     {
@@ -376,18 +381,22 @@ public sealed class ArtworkService : IArtworkService
 
         try
         {
-            using var original = new System.Drawing.Bitmap(path);
+            // Carrega a imagem como bytes para não travar o arquivo em disco.
+            var bytes = File.ReadAllBytes(path);
+            using var original = SKBitmap.Decode(bytes);
+            if (original is null) return;
 
             var minX = original.Width;
             var minY = original.Height;
             var maxX = -1;
             var maxY = -1;
 
+            // Itera pelos pixels para achar o bounding box do alpha.
             for (var y = 0; y < original.Height; y++)
             {
                 for (var x = 0; x < original.Width; x++)
                 {
-                    if (original.GetPixel(x, y).A <= AlphaThreshold) continue;
+                    if (original.GetPixel(x, y).Alpha <= AlphaThreshold) continue;
 
                     if (x < minX) minX = x;
                     if (x > maxX) maxX = x;
@@ -401,15 +410,25 @@ public sealed class ArtworkService : IArtworkService
             if (maxX < minX || maxY < minY) return;
             if (minX == 0 && minY == 0 && maxX == original.Width - 1 && maxY == original.Height - 1) return;
 
-            using var cropped = original.Clone(
-                new System.Drawing.Rectangle(minX, minY, maxX - minX + 1, maxY - minY + 1),
-                original.PixelFormat);
-            cropped.Save(path, System.Drawing.Imaging.ImageFormat.Png);
+            // Cria um novo bitmap apenas com a área do bounding box.
+            var cropRect = new SKRectI(minX, minY, maxX + 1, maxY + 1);
+            using var cropped = new SKBitmap(cropRect.Width, cropRect.Height);
+            
+            using (var canvas = new SKCanvas(cropped))
+            {
+                canvas.DrawBitmap(original, cropRect, new SKRect(0, 0, cropRect.Width, cropRect.Height));
+            }
+
+            // Salva por cima do original.
+            using var image = SKImage.FromBitmap(cropped);
+            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+            using var stream = File.OpenWrite(path);
+            data.SaveTo(stream);
         }
         catch (Exception)
         {
-            // PNG corrompido, sem suporte a GDI+ no ambiente, etc. — deixa
-            // a imagem original (com a margem) em vez de travar o fetch.
+            // PNG corrompido, etc. — deixa a imagem original (com a margem)
+            // em vez de travar o fetch.
         }
     }
 

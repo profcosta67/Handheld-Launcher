@@ -10,15 +10,15 @@ public static class AppSettingsStore
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
+    private static void LogError(string message, Exception ex)
+    {
+        System.Diagnostics.Debug.WriteLine($"[AppSettingsStore] {message} Detalhes: {ex.Message}");
+    }
+
     public static string DefaultPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "HandheldLauncher", "settings.json");
 
-    /// <summary>
-    /// Loads settings.json, creating it with empty fields if it doesn't
-    /// exist yet — read/written through the "Configurações" dialog
-    /// (SettingsWindow), hand-editing the file still works too.
-    /// </summary>
     public static AppSettings Load(string? pathOverride = null)
     {
         var path = pathOverride ?? DefaultPath;
@@ -35,8 +35,6 @@ public static class AppSettingsStore
             var json = File.ReadAllText(path);
             var settings = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
 
-            // Chaves gravadas em texto puro (versões antigas, ou coladas à
-            // mão no arquivo) são criptografadas na primeira leitura.
             var hadPlainSecret = IsPlain(settings.SteamGridDbApiKey) || IsPlain(settings.SteamWebApiKey);
 
             settings.SteamGridDbApiKey = Unprotect(settings.SteamGridDbApiKey);
@@ -49,18 +47,17 @@ public static class AppSettingsStore
 
             return settings;
         }
-        catch (JsonException)
+        catch (Exception ex)
         {
+            LogError("Falha ao carregar settings.json. Usando configurações padrão.", ex);
             return new AppSettings();
         }
     }
 
     // ------------------------------------------------------------------
-    // Proteção das chaves (v0.9.0): a chave do SteamGridDB e a da Steam Web
-    // API ficam no settings.json criptografadas com o DPAPI do Windows
-    // (escopo do usuário atual) — copiar o arquivo pra outro PC ou outro
-    // usuário não revela as chaves. Em memória o resto do app continua
-    // vendo o texto normal. Valor criptografado = "dpapi:" + base64.
+    // Proteção das chaves: 
+    // Windows = DPAPI (seguro).
+    // Linux = Texto puro com permissão de arquivo restrita (0600).
     // ------------------------------------------------------------------
 
     private const string ProtectedPrefix = "dpapi:";
@@ -71,7 +68,14 @@ public static class AppSettingsStore
 
     private static string? Protect(string? value)
     {
-        if (string.IsNullOrEmpty(value) || !OperatingSystem.IsWindows()) return value;
+        if (string.IsNullOrEmpty(value)) return value;
+
+        if (!OperatingSystem.IsWindows())
+        {
+            // No Linux não temos DPAPI. O arquivo será protegido via permissão 0600 (ver Save).
+            return value; 
+        }
+
         try
         {
             var bytes = ProtectedData.Protect(Encoding.UTF8.GetBytes(value), Entropy, DataProtectionScope.CurrentUser);
@@ -86,7 +90,14 @@ public static class AppSettingsStore
     private static string? Unprotect(string? value)
     {
         if (value is null || !value.StartsWith(ProtectedPrefix, StringComparison.Ordinal)) return value;
-        if (!OperatingSystem.IsWindows()) return null;
+
+        if (!OperatingSystem.IsWindows())
+        {
+            // Arquivo veio do Windows, não conseguimos ler as chaves aqui.
+            // Retorna null para o usuário digitar de novo.
+            return null; 
+        }
+
         try
         {
             var bytes = ProtectedData.Unprotect(Convert.FromBase64String(value[ProtectedPrefix.Length..]), Entropy, DataProtectionScope.CurrentUser);
@@ -94,7 +105,6 @@ public static class AppSettingsStore
         }
         catch
         {
-            // Arquivo veio de outro PC/usuário: a chave não pode ser lida aqui.
             return null;
         }
     }
@@ -104,6 +114,7 @@ public static class AppSettingsStore
         var path = pathOverride ?? DefaultPath;
         var dir = Path.GetDirectoryName(path);
         if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+
         var node = JsonSerializer.SerializeToNode(settings, JsonOptions) as JsonObject;
         if (node is null)
         {
@@ -113,6 +124,21 @@ public static class AppSettingsStore
 
         node[nameof(AppSettings.SteamGridDbApiKey)] = Protect(settings.SteamGridDbApiKey);
         node[nameof(AppSettings.SteamWebApiKey)] = Protect(settings.SteamWebApiKey);
+        
         File.WriteAllText(path, node.ToJsonString(JsonOptions));
+
+        // NOVO: No Linux, restringe a permissão do arquivo para 0600 (apenas o dono lê/escreve).
+        if (!OperatingSystem.IsWindows())
+        {
+            try
+            {
+                // Chmod 0600 (UserRead | UserWrite)
+                File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            }
+            catch (Exception ex)
+            {
+                LogError("Não foi possível alterar as permissões do settings.json no Linux.", ex);
+            }
+        }
     }
 }

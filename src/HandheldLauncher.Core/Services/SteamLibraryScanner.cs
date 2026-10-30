@@ -217,31 +217,54 @@ public sealed class SteamLibraryScanner : ISteamLibraryScanner
     /// Windows registry here on purpose (it would need the extra
     /// Microsoft.Win32.Registry package) — if none of these hit, the caller
     /// should fall back to asking the user to point at their Steam folder.
+    /// 
+    /// v1.0.0 (Linux prep): Adicionado suporte a caminhos Linux e Steam Deck.
     /// </summary>
     private static string? FindSteamRoot()
     {
         var candidates = new List<string>();
 
-        var programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
-        if (!string.IsNullOrEmpty(programFilesX86))
+        if (OperatingSystem.IsWindows())
         {
-            candidates.Add(Path.Combine(programFilesX86, "Steam"));
+            var programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+            if (!string.IsNullOrEmpty(programFilesX86))
+            {
+                candidates.Add(Path.Combine(programFilesX86, "Steam"));
+            }
+
+            var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+            if (!string.IsNullOrEmpty(programFiles))
+            {
+                candidates.Add(Path.Combine(programFiles, "Steam"));
+            }
+
+            // Handhelds are frequently set up with Steam on a second drive to
+            // save space on the OS drive — check the common drive letters too.
+            foreach (var drive in new[] { "D", "E", "F" })
+            {
+                candidates.Add($@"{drive}:\SteamLibrary");
+                candidates.Add($@"{drive}:\Steam");
+            }
+
+            // No Windows, procura pelo steam.exe
+            return candidates.FirstOrDefault(c => File.Exists(Path.Combine(c, "steam.exe")));
+        }
+        else if (OperatingSystem.IsLinux())
+        {
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            
+            // Caminhos padrão do Linux (Desktop e Steam Deck)
+            candidates.Add(Path.Combine(home, ".steam", "steam"));
+            candidates.Add(Path.Combine(home, ".local", "share", "Steam"));
+            
+            // Versão Flatpak do Steam (comum em distros como Fedora e Bazzite)
+            candidates.Add(Path.Combine(home, ".var", "app", "com.valvesoftware.Steam", ".local", "share", "Steam"));
+
+            // No Linux, verificamos se a pasta "steamapps" existe. 
+            // Se existir, achamos a raiz da Steam!
+            return candidates.FirstOrDefault(c => Directory.Exists(Path.Combine(c, "steamapps")));
         }
 
-        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-        if (!string.IsNullOrEmpty(programFiles))
-        {
-            candidates.Add(Path.Combine(programFiles, "Steam"));
-        }
-
-        // Handhelds are frequently set up with Steam on a second drive to
-        // save space on the OS drive — check the common drive letters too.
-        foreach (var drive in new[] { "D", "E", "F" })
-        {
-            candidates.Add($@"{drive}:\SteamLibrary");
-            candidates.Add($@"{drive}:\Steam");
-        }
-
-        return candidates.FirstOrDefault(c => File.Exists(Path.Combine(c, "steam.exe")));
+        return null;
     }
 }

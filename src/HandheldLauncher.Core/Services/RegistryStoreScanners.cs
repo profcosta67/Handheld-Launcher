@@ -30,7 +30,7 @@ internal static class RegistryHelper
             if (key is not null) yield return key;
         }
     }
-
+    [SupportedOSPlatform("windows")]
     public static string? Str(RegistryKey key, string name)
     {
         try
@@ -43,7 +43,6 @@ internal static class RegistryHelper
         }
     }
 }
-
 /// <summary>
 /// GOG (GOG Galaxy ou instalador offline): HKLM\SOFTWARE\GOG.com\Games\&lt;id&gt;
 /// com gameName / exe / path / workingDir / launchParam. Jogos da GOG não

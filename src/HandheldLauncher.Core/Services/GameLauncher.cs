@@ -5,23 +5,11 @@ namespace HandheldLauncher.Core.Services;
 
 /// <summary>
 /// Starts games and tracks how long they ran.
-///
-/// Manual / emulator entries: we own the process directly (Process.Start),
-/// so we get an exact start/exit time and exit code, and CloseGame can just
-/// kill the process tree we started.
-///
-/// Steam entries: we launch via "steam://rungameid/{appid}" and hand off to
-/// Steam's own client, which means the process we start is just the URI
-/// activation — it exits almost immediately, before the real game process
-/// even appears. We don't own that process, so:
-///   - GameExited never fires for Steam titles (no automatic exit
-///     detection yet — a real fix needs watching for a new process under
-///     the install dir, or polling Steam's RunningAppID, neither
-///     implemented here so we don't ship an untested polling loop).
-///   - CloseGame falls back to a best-effort sweep: kill anything currently
-///     running whose executable lives under the game's InstallDirectory.
-///     Good enough for "stuck, get me back to the launcher"; not meant to
-///     be surgical.
+/// 
+/// v1.0.0 (Linux prep): Adaptado para funcionar no Windows e no Linux.
+/// - No Linux, URIs (steam://) são abertas via "xdg-open".
+/// - No Linux, jogos diretos ganham permissão de execução (chmod +x).
+/// - Funções exclusivas do Windows (AppUninstaller) são bloqueadas em outros SOs.
 /// </summary>
 public sealed class GameLauncher : IGameLauncher
 {
@@ -41,7 +29,7 @@ public sealed class GameLauncher : IGameLauncher
 
         if (!string.IsNullOrWhiteSpace(game.LaunchUri))
         {
-            Process.Start(new ProcessStartInfo { FileName = game.LaunchUri, UseShellExecute = true });
+            OpenUri(game.LaunchUri);
             return;
         }
 
@@ -63,14 +51,15 @@ public sealed class GameLauncher : IGameLauncher
             return;
         }
 
-        // Not a process we started ourselves (Steam) — best-effort sweep by
-        // install directory. No-op if we never learned the install path.
         if (string.IsNullOrWhiteSpace(game.InstallDirectory)) return;
+
+        // Comparação de caminho ciente do sistema operacional
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
         foreach (var candidate in Process.GetProcesses())
         {
             if (TryGetMainModulePath(candidate, out var path) &&
-                path.StartsWith(game.InstallDirectory, StringComparison.OrdinalIgnoreCase))
+                path.StartsWith(game.InstallDirectory, comparison))
             {
                 TryKill(candidate);
             }
@@ -79,87 +68,35 @@ public sealed class GameLauncher : IGameLauncher
 
     private static void LaunchViaSteamUri(uint appId)
     {
-        Process.Start(new ProcessStartInfo
-        {
-            FileName = $"steam://rungameid/{appId}",
-            UseShellExecute = true,
-        });
+        OpenUri($"steam://rungameid/{appId}");
     }
 
-    /// <summary>
-    /// "Excluir jogo" (menu de contexto, só Steam) — abre o fluxo de
-    /// desinstalação da própria Steam em vez do launcher apagar qualquer
-    /// coisa diretamente. Mesmo padrão de UseShellExecute=true da URI de
-    /// lançamento acima; só muda o verbo da URI.
-    /// </summary>
     public void OpenSteamUninstaller(uint steamAppId)
     {
-        Process.Start(new ProcessStartInfo
-        {
-            FileName = $"steam://uninstall/{steamAppId}",
-            UseShellExecute = true,
-        });
+        OpenUri($"steam://uninstall/{steamAppId}");
     }
 
-    /// <summary>
-    /// "Instalar" no painel de Downloads, pra um jogo que está na conta
-    /// Steam mas ainda não foi instalado (ver ISteamOwnedGamesClient) —
-    /// mesmo padrão de OpenSteamUninstaller acima, só muda o verbo da
-    /// URI. A Steam mesma baixa/instala; o launcher nunca baixa nada.
-    /// </summary>
     public void OpenSteamInstaller(uint steamAppId)
     {
-        Process.Start(new ProcessStartInfo
-        {
-            FileName = $"steam://install/{steamAppId}",
-            UseShellExecute = true,
-        });
+        OpenUri($"steam://install/{steamAppId}");
     }
 
-    /// <summary>
-    /// v0.9.15, item antigo do roteiro ("desinstalar jogo do Xbox app/Game
-    /// Pass de verdade"). Diferente da Steam, o Xbox app/Game Pass não tem
-    /// um protocolo "xbox://uninstall/..." documentado — e
-    /// XboxFolderScanner só lê PASTAS (nunca captura a identidade real do
-    /// pacote MSIX/UWP), então primeiro precisa DESCOBRIR o pacote antes
-    /// de poder abrir a página certa.
-    ///
-    /// Caminho escolhido (avaliado contra apagar a pasta nós mesmos, que
-    /// quebraria o princípio seguido em todo o resto do app — "nunca apaga
-    /// arquivo de jogo diretamente"): PowerShell (Get-AppxPackage) pra
-    /// achar o PackageFamilyName cujo InstallLocation bate com a pasta do
-    /// jogo, depois abre esse app específico em Configurações via
-    /// "ms-settings:appsfeatures-app?&lt;PFN&gt;" — URI documentada pela
-    /// própria Microsoft (learn.microsoft.com/windows/apps/develop/launch/
-    /// launch-settings-app). O usuário termina clicando em "Desinstalar"
-    /// lá; o launcher só abre a tela certa, nunca toca no disco.
-    ///
-    /// NUNCA TESTADO contra uma instalação real do Xbox app/Game Pass
-    /// (sem Windows/Xbox app neste sandbox) — se o PFN não vier por
-    /// qualquer motivo (nome não bater, PowerShell indisponível/bloqueado
-    /// por política, instalação não ser MSIX de verdade), cai pra abrir a
-    /// lista GERAL de Apps em vez de falhar silenciosamente: o usuário
-    /// sempre chega em algum lugar útil pra terminar manualmente.
-    /// </summary>
     public void OpenWindowsAppUninstaller(string? installDirectory)
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            throw new PlatformNotSupportedException("Desinstalar apps do Xbox via launcher é uma funcionalidade exclusiva do Windows.");
+        }
+
         var pfn = string.IsNullOrWhiteSpace(installDirectory) ? null : TryFindPackageFamilyName(installDirectory);
 
-        Process.Start(new ProcessStartInfo
-        {
-            FileName = pfn is null ? "ms-settings:appsfeatures" : $"ms-settings:appsfeatures-app?{pfn}",
-            UseShellExecute = true,
-        });
+        OpenUri(pfn is null ? "ms-settings:appsfeatures" : $"ms-settings:appsfeatures-app?{pfn}");
     }
 
-    /// <summary>
-    /// -ieq com os dois lados sem barra final: InstallLocation normalmente
-    /// não tem barra no final, mas tolera os dois formatos. Nunca lança —
-    /// qualquer falha (powershell.exe ausente, timeout, saída vazia) só
-    /// resulta em null, tratado pelo fallback em OpenWindowsAppUninstaller.
-    /// </summary>
     private static string? TryFindPackageFamilyName(string installDirectory)
     {
+        if (!OperatingSystem.IsWindows()) return null;
+
         try
         {
             var escaped = installDirectory.Replace("'", "''").TrimEnd('\\', '/');
@@ -197,6 +134,12 @@ public sealed class GameLauncher : IGameLauncher
             workingDirectory = Path.GetDirectoryName(game.ExecutablePath);
         }
 
+        // NOVO: No Linux, garante que o arquivo tem permissão de execução (chmod +x)
+        if (OperatingSystem.IsLinux() && !string.IsNullOrWhiteSpace(game.ExecutablePath))
+        {
+            EnsureExecutablePermission(game.ExecutablePath);
+        }
+
         var startInfo = new ProcessStartInfo
         {
             FileName = game.ExecutablePath,
@@ -220,17 +163,72 @@ public sealed class GameLauncher : IGameLauncher
         _processByGameId[game.Id] = process;
     }
 
+    /// <summary>
+    /// Abre uma URI (steam://, uplay://, ms-settings:) de forma compatível
+    /// com o sistema operacional em uso.
+    /// </summary>
+    private static void OpenUri(string uri)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = uri,
+                UseShellExecute = true,
+            });
+        }
+        else if (OperatingSystem.IsLinux())
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "xdg-open",
+                Arguments = uri,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+        }
+        else if (OperatingSystem.IsMacOS())
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "open",
+                Arguments = uri,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+        }
+    }
+
+    /// <summary>
+    /// No Linux, garante que o binário tenha permissão de execução (equivalente ao chmod +x).
+    /// </summary>
+    private static void EnsureExecutablePermission(string path)
+    {
+        try
+        {
+            if (!File.Exists(path)) return;
+            var mode = File.GetUnixFileMode(path);
+            
+            // Adiciona permissão de execução para o dono, grupo e outros (se ainda não tiver)
+            var executeMask = UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute;
+            if ((mode & executeMask) != executeMask)
+            {
+                File.SetUnixFileMode(path, mode | executeMask);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[GameLauncher] Erro ao tentar dar permissão de execução no Linux: {ex.Message}");
+        }
+    }
+
     private static void TryKill(Process process)
     {
         try
         {
             if (!process.HasExited) process.Kill(entireProcessTree: true);
         }
-        catch
-        {
-            // Already exited, or we don't have permission (protected/system
-            // process) — either way, nothing more we can do here.
-        }
+        catch { }
     }
 
     private static bool TryGetMainModulePath(Process process, out string path)
@@ -243,15 +241,12 @@ public sealed class GameLauncher : IGameLauncher
         }
         catch
         {
-            // Most system/other-user processes throw (access denied) here —
-            // skip them rather than let one bad process break the sweep.
             return false;
         }
     }
 
     private static bool HasExitedSafe(Process p)
     {
-        try { return p.HasExited; }
-        catch { return true; }
+        try { return p.HasExited; } catch { return true; }
     }
 }
