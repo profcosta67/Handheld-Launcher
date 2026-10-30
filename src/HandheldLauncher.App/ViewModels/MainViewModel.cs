@@ -1996,9 +1996,17 @@ public sealed class MainViewModel : ViewModelBase
             if (_activeFilter != LibraryFilter.NotInstalled) return;
 
             var entry = _library.BuildEntryForOwnedGame(owned);
-            if (!string.IsNullOrEmpty(entry.GridImagePath)) continue;
 
-            await _artwork.FetchGridAsync(entry);
+            // A aba "Não instalados" usa entradas sintéticas; buscar só a
+            // capa deixava o título em texto mesmo quando havia logo no SGDB.
+            // Os dois métodos persistem o caminho no override, então a logo
+            // reaparece em cada reconstrução da lista.
+            if (string.IsNullOrEmpty(entry.GridImagePath))
+                await _artwork.FetchGridAsync(entry);
+
+            if (_activeFilter != LibraryFilter.NotInstalled) return;
+            if (string.IsNullOrEmpty(entry.LogoImagePath))
+                await _artwork.FetchLogoAsync(entry);
         }
 
         if (_activeFilter == LibraryFilter.NotInstalled)
