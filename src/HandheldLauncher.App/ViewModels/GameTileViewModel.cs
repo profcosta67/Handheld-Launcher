@@ -286,14 +286,14 @@ public sealed class GameTileViewModel : ViewModelBase
     /// da arte, principalmente [a selecionada]" e "pra ficar menos ícones
     /// na tela".
     /// </summary>
-    public double CarouselScale => 1.55 - ClampedDistance * 0.22;
+    public double CarouselScale => 1.42 - ClampedDistance * 0.16;
 
     /// <summary>
     /// O arco: quanto mais longe do foco, mais a capa desce. Quadrático de
     /// propósito — linear dá uma rampa reta, e o que o usuário pediu foi
     /// "aspecto de arco".
     /// </summary>
-    public double CarouselOffsetY => ClampedDistance * ClampedDistance * 7.0;
+    public double CarouselOffsetY => ClampedDistance * ClampedDistance * 14.0;
 
     /// <summary>As pontas desbotam, reforçando a profundidade sem escondê-las.</summary>
     public double CarouselOpacity => 1.0 - ClampedDistance * 0.14;

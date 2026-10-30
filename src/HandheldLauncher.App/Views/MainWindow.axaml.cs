@@ -1330,7 +1330,7 @@ public partial class MainWindow : Window
         var scale = GameTileViewModel.SizeScale;
         var normalWidth = 220 * scale;
         var lastPlayedWidth = 580 * scale;
-        const double spacing = 18;
+        const double spacing = 120;
 
         double itemLeft = 0;
         for (var i = 0; i < vm.SelectedIndex; i++)

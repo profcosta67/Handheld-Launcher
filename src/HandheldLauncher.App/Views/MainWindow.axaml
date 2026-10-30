@@ -27,6 +27,34 @@
     <conv:HexColorToBrushConverter x:Key="HexColorToBrushConverter" />
   </Window.Resources>
 
+  <Window.Styles>
+    <Style Selector="Button.switchAction">
+      <Setter Property="Width" Value="46" />
+      <Setter Property="Height" Value="42" />
+      <Setter Property="MinWidth" Value="46" />
+      <Setter Property="MinHeight" Value="42" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="#252A36" />
+      <Setter Property="Foreground" Value="#F3F5FA" />
+      <Setter Property="BorderBrush" Value="#424A5D" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="FontSize" Value="20" />
+    </Style>
+    <Style Selector="Button.switchAction:pointerover">
+      <Setter Property="Background" Value="#343C50" />
+      <Setter Property="BorderBrush" Value="#6579E8" />
+    </Style>
+    <Style Selector="Button.switchAction /template/ ContentPresenter">
+      <Setter Property="Background" Value="#252A36" />
+      <Setter Property="Foreground" Value="#F3F5FA" />
+      <Setter Property="BorderBrush" Value="#424A5D" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+  </Window.Styles>
+
   <Panel>
 
     <!-- Full-window backdrop: the focused game's art, blurred and
@@ -187,8 +215,8 @@
          (ver Top bar acima) e entrou aqui, e "Minimizar" trocou de texto
          pra ícone: canto inferior direito agora é sempre Minimizar(ícone)
          → Engrenagem → Power, nessa ordem. -->
-    <Border Grid.Row="2" Classes="bottomBar" Margin="24,0,24,20" Padding="20,12">
-      <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+    <Border Grid.Row="2" Classes="bottomBar" Margin="24,0,24,20" Padding="18,10">
+      <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" VerticalAlignment="Center">
         <!-- Versão atual no rodapé (pedido do usuário: "nota de rodapé com
              a versão atual" — pra conferir se a atualização pegou). -->
         <TextBlock Grid.Column="0"
@@ -203,15 +231,13 @@
                 Click="OnCloseGameClick"
                 IsVisible="{Binding RunningGame, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}"
                 Margin="0,0,10,0" />
-        <!-- "─" como ícone de minimizar (mesma lógica visual de ⚙/⏻ —
-             glyph simples, sem depender de uma fonte de ícones extra). -->
+        <!-- Ações rápidas com área de toque uniforme e ícones legíveis. -->
         <Button Grid.Column="2"
-                Classes="pill"
-                Content="─"
-                Padding="14,6"
+                Classes="switchAction"
+                Content="—"
                 Click="OnMinimizeClick"
-                ToolTip.Tip="Minimizar — minimiza pra bandeja do Windows sem fechar o processo (não dispara o watchdog de reabertura). Reabre clicando no ícone da bandeja, pelo menu dele, ou com Ctrl+Alt+H de qualquer lugar."
-                Margin="0,0,10,0" />
+                ToolTip.Tip="Minimizar — envia para a bandeja do Windows. Reabra pelo ícone da bandeja ou Ctrl+Alt+H."
+                Margin="0,0,8,0" />
         <!-- Engrenagem — movida do topo pra aqui nesta leva. Abre o mesmo
              menu geral do botão View/Back (OnGearMenuClick só chama
              vm.ToggleGlobalMenu(), nada de menu separado) — assim
@@ -219,16 +245,14 @@
              opções (Atualizar Biblioteca/Atualizar Capas Automático/
              Adicionar jogo/Downloads/Overlay FPS). -->
         <Button Grid.Column="3"
-                Classes="pill"
+                Classes="switchAction"
                 Content="⚙"
-                Padding="10,6"
                 Click="OnGearMenuClick"
-                ToolTip.Tip="Menu"
-                Margin="0,0,10,0" />
+                ToolTip.Tip="Configurações e ferramentas"
+                Margin="0,0,8,0" />
         <Button Grid.Column="4"
-                Classes="pill"
+                Classes="switchAction"
                 Content="⏻"
-                Padding="14,6"
                 Click="OnPowerMenuClick"
                 ToolTip.Tip="Energia" />
       </Grid>

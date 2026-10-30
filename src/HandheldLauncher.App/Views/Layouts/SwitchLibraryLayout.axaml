@@ -42,25 +42,26 @@
          A ativa precisa INVERTER: se todas ficassem brancas com borda
          vermelha, não daria pra ver qual está selecionada. -->
     <Style Selector="Button.switchTab">
-      <Setter Property="Background" Value="#FFFFFF" />
-      <Setter Property="Foreground" Value="#111111" />
-      <Setter Property="BorderBrush" Value="#E4000F" />
-      <Setter Property="BorderThickness" Value="2" />
-      <Setter Property="CornerRadius" Value="18" />
-      <Setter Property="Padding" Value="8,11" />
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Background" Value="#252A36" />
+      <Setter Property="Foreground" Value="#E9ECF4" />
+      <Setter Property="BorderBrush" Value="#424A5D" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="Padding" Value="8,7" />
+      <Setter Property="MinHeight" Value="58" />
+      <Setter Property="FontSize" Value="11" />
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="HorizontalAlignment" Value="Stretch" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
     </Style>
     <Style Selector="Button.switchTab /template/ ContentPresenter">
-      <Setter Property="Background" Value="#FFFFFF" />
-      <Setter Property="Foreground" Value="#111111" />
-      <Setter Property="BorderBrush" Value="#E4000F" />
-      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="Background" Value="#252A36" />
+      <Setter Property="Foreground" Value="#E9ECF4" />
+      <Setter Property="BorderBrush" Value="#424A5D" />
+      <Setter Property="BorderThickness" Value="1" />
     </Style>
     <Style Selector="Button.switchTab.active /template/ ContentPresenter">
-      <Setter Property="Background" Value="#E4000F" />
+      <Setter Property="Background" Value="#6579E8" />
       <Setter Property="Foreground" Value="#FFFFFF" />
     </Style>
   </UserControl.Styles>
@@ -90,14 +91,14 @@
     <!-- Véu branco: 35% na v0.9.23 (era 55%, e 91% na v0.9.21) — "o branco
          de fundo ainda está muito forte, coloca mais transparência". Agora
          a arte do jogo domina e o branco só lava. -->
-    <Border Background="#59FFFFFF" IsHitTestVisible="False" />
+    <Border Background="#A6101219" IsHitTestVisible="False" />
 
-    <Grid RowDefinitions="*,Auto" Margin="24,12,24,12">
+    <Grid RowDefinitions="*,Auto" Margin="28,16,28,16">
 
       <!-- Logo/nome + roleta juntos num bloco centralizado: é o que coloca
            o nome exatamente EM CIMA da arte selecionada, que fica sempre no
            meio da tela. -->
-      <StackPanel Grid.Row="0" VerticalAlignment="Center" Spacing="10">
+      <StackPanel Grid.Row="0" VerticalAlignment="Center" Spacing="16">
 
         <!-- Mesmo sistema do layout Clássico, a pedido: quando o jogo já
              tem logo baixado, ela aparece NO LUGAR do nome; só cai pro
@@ -115,15 +116,17 @@
           <!-- Sem logo: nome em pílula branca. A pílula existe porque o
                fundo agora tem a cor da arte do jogo — texto solto some num
                banner claro ou num escuro, dependendo do jogo. -->
-          <Border Background="#D9FFFFFF"
-                  CornerRadius="{DynamicResource BarCornerRadius}"
+          <Border Background="#D91A1F2B"
+                  BorderBrush="#6579E8"
+                  BorderThickness="1"
+                  CornerRadius="14"
                   Padding="20,8"
                   HorizontalAlignment="Center"
                   VerticalAlignment="Center"
                   MaxWidth="900"
                   IsVisible="{Binding SelectedTile.ShowNameCaption}">
             <TextBlock Text="{Binding SelectedTile.Title}"
-                       Foreground="#1A1A1A"
+                       Foreground="#FFFFFF"
                        FontSize="26"
                        FontWeight="SemiBold"
                        TextWrapping="NoWrap"
@@ -133,6 +136,12 @@
 
         <!-- ===== ROLETA ===== -->
         <ScrollViewer x:Name="GameRowScrollViewer"
+                      Height="430"
+                      VerticalAlignment="Center"
+                      Background="Transparent"
+                      BorderBrush="Transparent"
+                      BorderThickness="0"
+                      HorizontalContentAlignment="Center"
                       HorizontalScrollBarVisibility="Hidden"
                       VerticalScrollBarVisibility="Disabled">
           <ScrollViewer.Transitions>
@@ -141,31 +150,33 @@
             </Transitions>
           </ScrollViewer.Transitions>
 
-          <ItemsControl x:Name="GamesItemsControl" ItemsSource="{Binding Games}">
+          <ItemsControl x:Name="GamesItemsControl"
+                        ItemsSource="{Binding Games}"
+                        HorizontalAlignment="Center"
+                        Background="Transparent"
+                        BorderThickness="0">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
                 <!-- Spacing 56 (era 16): "aumenta os espaços laterais entre
                      as artes, pra ficar menos ícones na tela". Com o zoom
                      maior da capa em foco, o espaço também evita que ela
                      cubra as vizinhas ao crescer. -->
-                <StackPanel Orientation="Horizontal" Spacing="56" VerticalAlignment="Top" />
+                <StackPanel Orientation="Horizontal" Spacing="120" Margin="900,0,900,0" VerticalAlignment="Center" />
               </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
 
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:GameTileViewModel">
-                <!-- v0.9.23: a CAIXA da capa saiu — "retira esse limite
-                     inferior das artes, deixa ela solta". Não tem mais
-                     Classes="gameTile" (que trazia fundo, borda e cantos
-                     arredondados do tema): agora é só a arte, dimensionada
-                     pela ALTURA, com a largura saindo da proporção da
-                     própria imagem. Assim nunca sobra fundo em volta nem
-                     aparece borda de caixa, qualquer que seja a proporção
-                     da arte.
-
-                     O Grid se ajusta à imagem, então os anéis de seleção
-                     abaixo acompanham exatamente o tamanho dela. -->
-                <Grid RenderTransformOrigin="50%,50%"
+                <!-- Cada posição da roleta tem uma área fixa (220x290,
+                     respeitando o ajuste global de tamanho). Isso evita
+                     que capas com proporções diferentes alterem o passo
+                     horizontal do carrossel e desloquem as vizinhas.
+                     A arte continua em Uniform: aparece inteira, sem
+                     deformação ou corte; o espaço excedente fica livre. -->
+                <Grid Width="{Binding CarouselTileWidth}"
+                      Height="{Binding CarouselTileHeight}"
+                      ClipToBounds="False"
+                      RenderTransformOrigin="50%,50%"
                       Opacity="{Binding CarouselOpacity}"
                       ZIndex="{Binding CarouselZIndex}"
                       PointerPressed="OnTilePointerPressed"
@@ -196,14 +207,17 @@
                   </Grid.Transitions>
 
                   <Image Source="{Binding CarouselTileImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                         Width="{Binding CarouselTileWidth}"
                          Height="{Binding CarouselTileHeight}"
-                         Stretch="Uniform" />
+                         Stretch="Uniform"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center" />
 
                   <!-- Sem arte: aí sim precisa de uma caixa, senão não teria
                        nada pra clicar nem pra ver. -->
                   <Border Background="#33000000"
-                          Width="{Binding CarouselTileWidth}"
-                          Height="{Binding CarouselTileHeight}"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
                           IsVisible="{Binding ShowEmptyCarouselPlaceholder}">
                     <TextBlock Text="{Binding Title}"
                                Classes="gameTitle"
@@ -239,13 +253,15 @@
                   <!-- Anéis de seleção: dois, porque um só sumiria numa capa
                        da mesma cor dele — e capa pode ser de qualquer cor.
                        Sem fundo, só contorno, pra não cobrir a arte. -->
-                  <Border BorderBrush="White"
+                  <Border BorderBrush="#FFFFFF"
+                          CornerRadius="5"
                           BorderThickness="4"
                           IsHitTestVisible="False"
                           IsVisible="{Binding IsFocused}" />
-                  <Border BorderBrush="#E4000F"
-                          BorderThickness="2"
-                          Margin="4"
+                  <Border BorderBrush="#6579E8"
+                          CornerRadius="5"
+                          BorderThickness="3"
+                          Margin="5"
                           IsHitTestVisible="False"
                           IsVisible="{Binding IsFocused}" />
                 </Grid>
@@ -253,6 +269,30 @@
             </ItemsControl.ItemTemplate>
           </ItemsControl>
         </ScrollViewer>
+
+        <!-- Identificação persistente do item em foco: não depende de a capa
+             ter logo, nem da cor/contraste da arte. -->
+        <Border Background="#E61A1F2B"
+                BorderBrush="#52607D"
+                BorderThickness="1"
+                CornerRadius="12"
+                Padding="18,9"
+                HorizontalAlignment="Center"
+                MaxWidth="760"
+                IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
+          <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+            <Border Background="#6579E8" CornerRadius="5" Padding="7,3" VerticalAlignment="Center">
+              <TextBlock Text="SELECIONADO" Foreground="White" FontSize="9" FontWeight="Bold" />
+            </Border>
+            <TextBlock Text="{Binding SelectedTile.Title}"
+                       Foreground="White"
+                       FontSize="16"
+                       FontWeight="SemiBold"
+                       VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis"
+                       MaxWidth="560" />
+          </StackPanel>
+        </Border>
       </StackPanel>
 
       <TextBlock Grid.Row="0"
@@ -265,24 +305,46 @@
                  Margin="24"
                  IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
 
-      <!-- ===== MENU EMBAIXO: duas linhas INTERCALADAS ===== -->
-      <!-- Pedido do usuário, desenhado por ele assim:
-             Favoritos......  ......todos...........computador....
-             ......Emuladores......programas.........não instalados
-           ou seja, cada aba de baixo cai no VÃO entre duas de cima.
-           Conseguido com 7 colunas iguais: a linha de cima ocupa 0-1, 2-3,
-           4-5 (sobra a 6), e a de baixo ocupa 1-2, 3-4, 5-6 (sobra a 0).
-           As duas linhas enchem a largura e ficam deslocadas meia coluna
-           uma da outra, que é exatamente o padrão do desenho. -->
-      <StackPanel Grid.Row="1" Spacing="8" Margin="0,14,0,0">
-        <Grid ColumnDefinitions="*,*,*,*,*,*,*" RowDefinitions="Auto,Auto">
-          <Button Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Classes="switchTab" Classes.active="{Binding IsFilterFavoritesActive}" Content="Favoritos" Command="{Binding SetFilterFavoritesCommand}" Margin="4" />
-          <Button Grid.Row="0" Grid.Column="2" Grid.ColumnSpan="2" Classes="switchTab" Classes.active="{Binding IsFilterAllActive}" Content="Todos" Command="{Binding SetFilterAllCommand}" Margin="4" />
-          <Button Grid.Row="0" Grid.Column="4" Grid.ColumnSpan="2" Classes="switchTab" Classes.active="{Binding IsFilterComputerActive}" Content="Computador" Command="{Binding SetFilterComputerCommand}" Margin="4" />
-
-          <Button Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Classes="switchTab" Classes.active="{Binding IsFilterEmulatorsActive}" Content="Emuladores" Command="{Binding SetFilterEmulatorsCommand}" Margin="4" />
-          <Button Grid.Row="1" Grid.Column="3" Grid.ColumnSpan="2" Classes="switchTab" Classes.active="{Binding IsFilterApplicationsActive}" Content="Programas" Command="{Binding SetFilterApplicationsCommand}" Margin="4" />
-          <Button Grid.Row="1" Grid.Column="5" Grid.ColumnSpan="2" Classes="switchTab" Classes.active="{Binding IsFilterNotInstalledActive}" Content="Não instalados" Command="{Binding SetFilterNotInstalledCommand}" Margin="4" />
+      <!-- Barra de filtros compacta: uma única linha para liberar área útil
+           para a biblioteca. Mantém os seis filtros e seus comandos originais. -->
+      <StackPanel Grid.Row="1" Spacing="8" Margin="0,16,0,0">
+        <Grid ColumnDefinitions="*,*,*,*,*,*">
+          <Button Grid.Column="0" Classes="switchTab" Classes.active="{Binding IsFilterFavoritesActive}" Command="{Binding SetFilterFavoritesCommand}" Margin="4">
+            <StackPanel HorizontalAlignment="Center" Spacing="3">
+              <TextBlock Text="★" FontSize="19" HorizontalAlignment="Center" />
+              <TextBlock Text="Favoritos" />
+            </StackPanel>
+          </Button>
+          <Button Grid.Column="1" Classes="switchTab" Classes.active="{Binding IsFilterAllActive}" Command="{Binding SetFilterAllCommand}" Margin="4">
+            <StackPanel HorizontalAlignment="Center" Spacing="3">
+              <TextBlock Text="▦" FontSize="19" HorizontalAlignment="Center" />
+              <TextBlock Text="Todos" />
+            </StackPanel>
+          </Button>
+          <Button Grid.Column="2" Classes="switchTab" Classes.active="{Binding IsFilterComputerActive}" Command="{Binding SetFilterComputerCommand}" Margin="4">
+            <StackPanel HorizontalAlignment="Center" Spacing="3">
+              <TextBlock Text="⌨" FontSize="19" HorizontalAlignment="Center" />
+              <TextBlock Text="Computador" />
+            </StackPanel>
+          </Button>
+          <Button Grid.Column="3" Classes="switchTab" Classes.active="{Binding IsFilterEmulatorsActive}" Command="{Binding SetFilterEmulatorsCommand}" Margin="4">
+            <StackPanel HorizontalAlignment="Center" Spacing="3">
+              <TextBlock Text="🎮" FontSize="19" HorizontalAlignment="Center" />
+              <TextBlock Text="Emuladores" />
+            </StackPanel>
+          </Button>
+          <Button Grid.Column="4" Classes="switchTab" Classes.active="{Binding IsFilterApplicationsActive}" Command="{Binding SetFilterApplicationsCommand}" Margin="4">
+            <StackPanel HorizontalAlignment="Center" Spacing="3">
+              <TextBlock Text="▣" FontSize="19" HorizontalAlignment="Center" />
+              <TextBlock Text="Programas" />
+            </StackPanel>
+          </Button>
+          <Button Grid.Column="5" Classes="switchTab" Classes.active="{Binding IsFilterNotInstalledActive}" Command="{Binding SetFilterNotInstalledCommand}" Margin="4">
+            <StackPanel HorizontalAlignment="Center" Spacing="3">
+              <TextBlock Text="↓" FontSize="19" HorizontalAlignment="Center" />
+              <TextBlock Text="Não instalados" />
+            </StackPanel>
+          </Button>
         </Grid>
 
         <!-- Subfiltros seguem com a cor de cada plataforma (pedido anterior
