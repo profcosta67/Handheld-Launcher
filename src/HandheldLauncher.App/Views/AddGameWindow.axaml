@@ -22,7 +22,7 @@
       <Button Content="Buscar programas instalados no Windows" Click="OnSearchInstalledClick" HorizontalAlignment="Stretch" />
       <ListBox x:Name="InstalledProgramsList" Height="150" IsVisible="False" SelectionChanged="OnInstalledProgramSelectionChanged">
         <ListBox.ItemTemplate>
-          <DataTemplate>
+          <DataTemplate x:DataType="vm:InstalledProgramOption">
             <StackPanel Spacing="2" Margin="4">
               <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
               <TextBlock Text="{Binding ExecutablePath}" Classes="subtle" FontSize="11" />
