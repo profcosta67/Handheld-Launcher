@@ -42,9 +42,9 @@
          A ativa precisa INVERTER: se todas ficassem brancas com borda
          vermelha, não daria pra ver qual está selecionada. -->
     <Style Selector="Button.switchTab">
-      <Setter Property="Background" Value="#252A36" />
-      <Setter Property="Foreground" Value="#E9ECF4" />
-      <Setter Property="BorderBrush" Value="#424A5D" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource TextSecondaryBrush}" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="12" />
       <Setter Property="Padding" Value="8,7" />
@@ -55,14 +55,14 @@
       <Setter Property="HorizontalContentAlignment" Value="Center" />
     </Style>
     <Style Selector="Button.switchTab /template/ ContentPresenter">
-      <Setter Property="Background" Value="#252A36" />
-      <Setter Property="Foreground" Value="#E9ECF4" />
-      <Setter Property="BorderBrush" Value="#424A5D" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource TextSecondaryBrush}" />
       <Setter Property="BorderThickness" Value="1" />
     </Style>
     <Style Selector="Button.switchTab.active /template/ ContentPresenter">
-      <Setter Property="Background" Value="#6579E8" />
-      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}" />
     </Style>
   </UserControl.Styles>
 
@@ -91,7 +91,7 @@
     <!-- Véu branco: 35% na v0.9.23 (era 55%, e 91% na v0.9.21) — "o branco
          de fundo ainda está muito forte, coloca mais transparência". Agora
          a arte do jogo domina e o branco só lava. -->
-    <Border Background="#A6101219" IsHitTestVisible="False" />
+    <Border Background="{DynamicResource BackdropDimBrush}" IsHitTestVisible="False" />
 
     <Grid RowDefinitions="*,Auto" Margin="28,16,28,16">
 
@@ -116,8 +116,8 @@
           <!-- Sem logo: nome em pílula branca. A pílula existe porque o
                fundo agora tem a cor da arte do jogo — texto solto some num
                banner claro ou num escuro, dependendo do jogo. -->
-          <Border Background="#D91A1F2B"
-                  BorderBrush="#6579E8"
+          <Border Background="{DynamicResource SurfaceRaisedBrush}"
+                  BorderBrush="{DynamicResource AccentBrush}"
                   BorderThickness="1"
                   CornerRadius="14"
                   Padding="20,8"
@@ -126,7 +126,7 @@
                   MaxWidth="900"
                   IsVisible="{Binding SelectedTile.ShowNameCaption}">
             <TextBlock Text="{Binding SelectedTile.Title}"
-                       Foreground="#FFFFFF"
+                       Foreground="{DynamicResource TextPrimaryBrush}"
                        FontSize="26"
                        FontWeight="SemiBold"
                        TextWrapping="NoWrap"
@@ -215,7 +215,7 @@
 
                   <!-- Sem arte: aí sim precisa de uma caixa, senão não teria
                        nada pra clicar nem pra ver. -->
-                  <Border Background="#33000000"
+                  <Border Background="{DynamicResource BackdropDimBrush}"
                           HorizontalAlignment="Stretch"
                           VerticalAlignment="Stretch"
                           IsVisible="{Binding ShowEmptyCarouselPlaceholder}">
@@ -228,12 +228,12 @@
                                Margin="8" />
                   </Border>
 
-                  <Border Background="#99383838"
+                  <Border Background="{DynamicResource SurfaceBrush}"
                           IsHitTestVisible="False"
                           IsVisible="{Binding IsOwnedNotInstalled}" />
 
                   <TextBlock Text="★"
-                             Foreground="#E4000F"
+                             Foreground="{DynamicResource AccentBrush}"
                              FontSize="18"
                              HorizontalAlignment="Right"
                              VerticalAlignment="Bottom"
@@ -253,12 +253,12 @@
                   <!-- Anéis de seleção: dois, porque um só sumiria numa capa
                        da mesma cor dele — e capa pode ser de qualquer cor.
                        Sem fundo, só contorno, pra não cobrir a arte. -->
-                  <Border BorderBrush="#FFFFFF"
+                  <Border BorderBrush="{DynamicResource TextPrimaryBrush}"
                           CornerRadius="5"
                           BorderThickness="4"
                           IsHitTestVisible="False"
                           IsVisible="{Binding IsFocused}" />
-                  <Border BorderBrush="#6579E8"
+                  <Border BorderBrush="{DynamicResource AccentBrush}"
                           CornerRadius="5"
                           BorderThickness="3"
                           Margin="5"
@@ -272,8 +272,8 @@
 
         <!-- Identificação persistente do item em foco: não depende de a capa
              ter logo, nem da cor/contraste da arte. -->
-        <Border Background="#E61A1F2B"
-                BorderBrush="#52607D"
+        <Border Background="{DynamicResource SurfaceBrush}"
+                BorderBrush="{DynamicResource TextSecondaryBrush}"
                 BorderThickness="1"
                 CornerRadius="12"
                 Padding="18,9"
@@ -297,7 +297,7 @@
 
       <TextBlock Grid.Row="0"
                  Text="Nenhum jogo encontrado ainda.&#10;Adicione um jogo manualmente para começar."
-                 Foreground="#2A2A2A"
+                 Foreground="{DynamicResource TextPrimaryBrush}"
                  TextWrapping="Wrap"
                  TextAlignment="Center"
                  VerticalAlignment="Center"
