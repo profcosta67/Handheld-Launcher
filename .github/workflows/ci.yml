@@ -1,12 +1,14 @@
-# Compila a solução a cada envio pro GitHub. Serve de "rede de segurança":
-# se um commit quebrar a compilação (erro de C#/XAML), aparece aqui com o
-# erro exato, sem precisar abrir o Visual Studio.
+# Compila a solução a cada envio pro GitHub. Também gera um pacote portátil
+# de teste para PRs, sem criar Release nem atualizar instalações existentes.
 name: Build
 
 on:
   push:
     branches: [master, main]
   pull_request:
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -23,3 +25,24 @@ jobs:
 
       - name: Compilar
         run: dotnet build HandheldLauncher.sln -c Release --no-restore
+
+      # Pacote independente para testar a interface no handheld.
+      # Não usa Velopack e não publica uma versão oficial.
+      - name: Publicar pacote portátil de teste (win-x64)
+        run: >
+          dotnet publish src/HandheldLauncher.App -c Release -r win-x64
+          --self-contained true
+          -p:Version=0.9.25-preview
+          -o preview-publish
+
+      - name: Compactar pacote de teste
+        shell: pwsh
+        run: Compress-Archive -Path preview-publish/* -DestinationPath HandheldLauncher-preview-win-x64.zip -Force
+
+      - name: Disponibilizar download do pacote de teste
+        uses: actions/upload-artifact@v4
+        with:
+          name: HandheldLauncher-preview-win-x64
+          path: HandheldLauncher-preview-win-x64.zip
+          if-no-files-found: error
+          retention-days: 14
