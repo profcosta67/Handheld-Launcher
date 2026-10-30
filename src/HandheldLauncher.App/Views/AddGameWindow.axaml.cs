@@ -105,7 +105,6 @@ public partial class AddGameWindow : Window
         ViewModel.WorkingDirectory = Path.GetDirectoryName(selected.ExecutablePath) ?? string.Empty;
     }
 
-    private sealed record InstalledProgramOption(string DisplayName, string ExecutablePath);
 
     private void OnAddClick(object? sender, RoutedEventArgs e)
     {
