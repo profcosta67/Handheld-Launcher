@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Microsoft.Win32;
 using HandheldLauncher.App.ViewModels;
 using HandheldLauncher.Core.Models;
 
@@ -16,9 +17,10 @@ public partial class AddGameWindow : Window
 {
     public AddGameViewModel ViewModel { get; } = new();
 
-    public AddGameWindow()
+    public AddGameWindow(bool isApplication = false)
     {
         InitializeComponent();
+        ViewModel.IsApplication = isApplication;
         HandheldLauncher.App.Platform.ThemeManager.ApplyFont(this, HandheldLauncher.Core.Services.AppSettingsStore.Load().UiFont);
         DataContext = ViewModel;
     }
@@ -53,6 +55,56 @@ public partial class AddGameWindow : Window
             ViewModel.Title = Path.GetFileNameWithoutExtension(path);
         }
     }
+
+
+    private void OnSearchInstalledClick(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var found = new Dictionary<string, InstalledProgramOption>(StringComparer.OrdinalIgnoreCase);
+            ScanUninstallRegistry(RegistryHive.LocalMachine, RegistryView.Registry64, found);
+            ScanUninstallRegistry(RegistryHive.LocalMachine, RegistryView.Registry32, found);
+            ScanUninstallRegistry(RegistryHive.CurrentUser, RegistryView.Registry64, found);
+            InstalledProgramsList.ItemsSource = found.Values.OrderBy(x => x.DisplayName).ToList();
+            InstalledProgramsList.IsVisible = true;
+            if (found.Count == 0)
+            {
+                InstalledProgramsList.ItemsSource = new[] { new InstalledProgramOption("Nenhum programa com executável identificado no registro do Windows.", string.Empty) };
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"AddGameWindow: falha ao buscar programas instalados: {ex}");
+            InstalledProgramsList.ItemsSource = new[] { new InstalledProgramOption("Não foi possível consultar os programas instalados.", string.Empty) };
+            InstalledProgramsList.IsVisible = true;
+        }
+    }
+
+    private static void ScanUninstallRegistry(RegistryHive hive, RegistryView view, IDictionary<string, InstalledProgramOption> found)
+    {
+        using var baseKey = RegistryKey.OpenBaseKey(hive, view);
+        using var uninstall = baseKey.OpenSubKey(@"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall");
+        if (uninstall is null) return;
+        foreach (var subName in uninstall.GetSubKeyNames())
+        {
+            using var app = uninstall.OpenSubKey(subName);
+            var name = app?.GetValue("DisplayName") as string;
+            var icon = app?.GetValue("DisplayIcon") as string;
+            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(icon)) continue;
+            var candidate = Environment.ExpandEnvironmentVariables(icon.Split(',')[0].Trim().Trim('"'));
+            if (!candidate.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) || !File.Exists(candidate)) continue;
+            if (!found.ContainsKey(candidate)) found[candidate] = new InstalledProgramOption(name.Trim(), candidate);
+        }
+    }
+
+    private void OnInstalledProgramSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (InstalledProgramsList.SelectedItem is not InstalledProgramOption selected || string.IsNullOrWhiteSpace(selected.ExecutablePath)) return;
+        ViewModel.Title = selected.DisplayName;
+        ViewModel.ExecutablePath = selected.ExecutablePath;
+        ViewModel.WorkingDirectory = Path.GetDirectoryName(selected.ExecutablePath) ?? string.Empty;
+    }
+
 
     private void OnAddClick(object? sender, RoutedEventArgs e)
     {

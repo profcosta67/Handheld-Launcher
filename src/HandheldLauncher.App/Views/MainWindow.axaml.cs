@@ -1478,7 +1478,7 @@ public partial class MainWindow : Window
             ? new FuncTemplate<Panel?>(() => new WrapPanel { Orientation = Orientation.Horizontal })
             : _horizontalPanelTemplate;
 
-        GameRowScrollViewer.HorizontalScrollBarVisibility = vertical ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Auto;
+        GameRowScrollViewer.HorizontalScrollBarVisibility = vertical || !_libraryLayout.SupportsVerticalGrid ? ScrollBarVisibility.Hidden : ScrollBarVisibility.Auto;
         GameRowScrollViewer.VerticalScrollBarVisibility = vertical ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
         GameRowScrollViewer.Offset = default;
 
@@ -1657,6 +1657,23 @@ public partial class MainWindow : Window
     /// <summary>Called by the global menu's "Adicionar jogo" entry (vm.AddGameRequested, wired in OnDataContextChanged).</summary>
     /// <summary>Diálogo modal aberto agora (recebe o controle — ver DialogGamepadNavigator), ou null.</summary>
     private Window? _activeDialog;
+
+    public void HandleAddProgramClick()
+    {
+        if (DataContext is MainViewModel vm) _ = OpenAddProgramDialogAsync(vm);
+    }
+
+    private async Task OpenAddProgramDialogAsync(MainViewModel vm)
+    {
+        var dialog = new AddGameWindow(isApplication: true);
+        _activeDialog = dialog;
+        GameEntry? result;
+        try { result = await dialog.ShowDialog<GameEntry?>(this); }
+        finally { _activeDialog = null; }
+        if (result is null) return;
+        vm.AddManualGame(result);
+        vm.SetFilterApplicationsCommand.Execute(null);
+    }
 
     private async Task OpenAddGameDialogAsync(MainViewModel vm)
     {
