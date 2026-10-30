@@ -1,34 +1,12 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:anim="https://github.com/whistyun/AnimatedImage.Avalonia"
              xmlns:vm="using:HandheldLauncher.App.ViewModels"
              xmlns:conv="using:HandheldLauncher.App.Converters"
              xmlns:dataConv="using:Avalonia.Data.Converters"
              xmlns:media="using:Avalonia.Media"
              x:Class="HandheldLauncher.App.Views.Layouts.ClassicLibraryLayout"
              x:DataType="vm:MainViewModel">
-
-  <!--
-    v0.9.20: ESTE ARQUIVO E O LAYOUT DE SEMPRE, MOVIDO PRA CA SEM NENHUMA
-    MUDANCA DE COMPORTAMENTO. Saiu de dentro de MainWindow.axaml (era o
-    Grid.Row="1" dela) pra o esqueleto da tela poder ser trocado por tema
-    de layout — ver AppSettings.LayoutTheme e MainWindow.ApplyLayoutTheme.
-
-    Duas diferencas em relacao ao que estava na MainWindow, as duas por
-    causa de virar UserControl:
-      - Grid.Row="1" saiu da raiz (quem posiciona agora e o ContentControl
-        que hospeda este controle na MainWindow).
-      - {StaticResource AccentBrush} virou {DynamicResource ...}: um
-        UserControl recem-criado, antes de ser anexado a janela, nao tem
-        ancestral nenhum pra resolver StaticResource na hora do load. Os
-        dois conversores continuam StaticResource (Converter nao e
-        propriedade estilizavel, nao aceita DynamicResource) e por isso sao
-        declarados aqui embaixo, no proprio controle.
-
-    Os controles com x:Name daqui (GamesItemsControl, GameRowScrollViewer,
-    HeroImage, HeroBackImage) sao expostos pela MainWindow via
-    ILibraryLayout — o code-behind dela usa os quatro em ~34 lugares
-    (scroll, navegacao do controle, transicao do banner).
-  -->
 
   <UserControl.Resources>
     <conv:FileToBitmapConverter x:Key="FileToBitmapConverter" />
@@ -37,44 +15,11 @@
 
     <Grid RowDefinitions="Auto,Auto,*" Margin="24,20,24,20">
 
-      <!-- Hero: o jogo focado, banner largo deitado. 320 → 380 nesta
-           leva, a pedido do usuário ("aumenta o eixo vertical do hero
-           deixe um pouco maior"). -->
+      <!-- Hero: o jogo focado, banner largo deitado. -->
       <Border Grid.Row="0" Classes="heroBanner" Height="380" Margin="0,0,0,20">
-        <!-- Border só aceita um filho, então os dois estados (jogo
-             selecionado / biblioteca vazia) vivem dentro do mesmo Grid
-             externo, alternados por IsVisible. -->
         <Grid>
           <Grid IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
-            <!-- v0.8.0: troca suave do banner — HeroBackImage segura a arte
-                 ANTERIOR por baixo enquanto a nova (HeroImage) aparece por
-                 cima com fade (MainWindow.OnHeroImageChanged). Assim não
-                 "pisca" escuro entre um jogo e outro. -->
-            <!-- v0.9.21, pedido do usuário ("o ideal é que as imagens se
-                 ajustem ao quadro sem dar zoom; percebo que tem cortado
-                 algumas imagens, do hero principalmente"): Stretch
-                 UniformToFill -> Uniform aqui e nas tiles. UniformToFill
-                 PREENCHE a caixa e corta o que sobra — num banner largo
-                 exibindo uma capa retrato (quando o jogo não tem arte de
-                 hero própria) isso cortava quase tudo. Uniform cabe a
-                 imagem inteira; o preço é sobrar fundo nas laterais
-                 quando a proporção não bate, o que ele preferiu a cortar.
-                 O fundo desfocado de tela cheia (MainWindow.axaml)
-                 continua UniformToFill de propósito: ali o papel é
-                 justamente cobrir a tela toda. -->
-            <!-- v0.9.22, retorno do usuário: com Stretch=Uniform a arte
-                 passou a caber inteira (bom), mas sobraram TARJAS PRETAS
-                 enormes nas laterais do banner — ele achou pior que o corte
-                 e pediu "preencher, esticar, ajustar sem cortar e sem dar
-                 zoom, mas preencher toda a tela ali do hero".
-
-                 Preencher + não cortar + não distorcer é impossível pra UMA
-                 imagem: ou corta, ou sobra, ou deforma. A saída (a mesma
-                 dos apps de streaming) é usar DUAS cópias — esta preenche o
-                 quadro e leva desfoque forte, virando fundo com as cores do
-                 próprio jogo; a de verdade (HeroImage, logo abaixo) fica
-                 inteira por cima. Quadro cheio, arte completa, nada
-                 deformado; o preço é fundo borrado no lugar do preto. -->
+            <!-- Fundo desfocado do Hero (MANTIDO COMO IMAGE) -->
             <Image Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
                    Stretch="UniformToFill"
                    IsHitTestVisible="False">
@@ -88,7 +33,6 @@
                    Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
                    Stretch="Uniform" />
 
-            <!-- Placeholder enquanto não tem hero/capa nenhuma ainda (pre-SteamGridDB) -->
             <TextBlock Text="{Binding SelectedTile.Title}"
                        Classes="heroTitle"
                        TextWrapping="Wrap"
@@ -98,16 +42,6 @@
                        Margin="20"
                        IsVisible="{Binding SelectedTile.BannerImagePath, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
 
-            <!-- CURRENT LOGO: canto superior ESQUERDO do hero, sem nenhuma
-                 barra/fundo escuro por trás (a barra de baixo com
-                 título+minutos jogados foi removida nesta leva — pedido
-                 explícito do usuário: "retirar essa linha escura do hero,
-                 jogar a logo para o canto esquerdo superior e aumentar
-                 ainda mais o tamanho da logo somente que aparece no
-                 hero"). Maior que o logo das tiles da fileira (64 contra
-                 22/32 — ver GameTileViewModel.CaptionLogoHeight). Sem logo
-                 pra esse jogo ainda, não mostra nada aqui (o nome já
-                 aparece normalmente na caption de cada tile, logo abaixo). -->
             <Image Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
                    Height="64" Stretch="Uniform"
                    HorizontalAlignment="Left" VerticalAlignment="Top"
@@ -126,39 +60,8 @@
         </Grid>
       </Border>
 
-      <!-- Abas de filtro — "um pouco acima dos ícones dos jogos e abaixo
-           do hero", pedido do usuário: Favoritos, Todos, Oficiais, Não
-           Steam, Não instalados (reorganizado numa leva posterior —
-           "dividir as subabas, fav, ALL, oficiais, não Steam, não
-           instalados"; era Steam/Xbox separados antes, "Oficiais" junta
-           os dois). Trocar de aba só filtra a lista já carregada
-           (MainViewModel.SetFilter/RebuildGamesFromLibrary), não
-           re-escaneia a biblioteca — exceto "Não instalados", que busca
-           na Steam Web API toda vez que é selecionada (RefreshOwnedGames).
-           Grid de 5 colunas IGUAIS (não
-           StackPanel) a pedido do usuário ("centralize... fica com todos
-           espaçamentos iguais e ocupe do início ao fim da tela") — cada
-           botão ocupa Stretch dentro da sua coluna, então a fileira
-           inteira sempre vai de uma ponta à outra com espaçamento
-           simétrico, não só o tamanho do conteúdo. Alcançável por
-           mouse/touch (clique direto numa aba) E agora por LB/RB no
-           controle (GamepadAction.PreviousFilter/NextFilter, ciclando
-           nesta mesma ordem visual — ver MainViewModel.FilterOrder),
-           depois do usuário reportar que não conseguia acessar pelo
-           controle. -->
-      <!-- Margem inferior igual à do hero acima (20, era 16 nos dois) —
-           pedido do usuário pra alinhar/igualar o espaçamento
-           hero→abas e abas→fileira de jogos. -->
-      <!-- v0.9.18, pedido do usuário: "Oficiais"/"Não Steam" viraram
-           "Computador"/"Emuladores" — ver MainViewModel.LibraryFilter pro
-           porquê (nomes mais claros + os jogos de emulador deixam de ficar
-           misturados com atalhos manuais). As duas novas abas têm uma
-           fileira de caixinhas logo abaixo. -->
+      <!-- Abas de filtro -->
       <StackPanel Grid.Row="1" Spacing="8" Margin="0,0,0,20">
-        <!-- v0.9.19: 6ª aba "Programas" (Chrome, navegador de pastas...),
-             pedido do usuário. FontSize menor que o padrão do pill porque
-             6 colunas em 1280px deixam ~200px por aba e "Não instalados"
-             é longo. -->
         <Grid ColumnDefinitions="*,*,*,*,*,*">
           <Button Grid.Column="0" Classes="pill filterTab" Classes.active="{Binding IsFilterFavoritesActive}" Content="Favoritos" Command="{Binding SetFilterFavoritesCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,5,0" FontSize="13" />
           <Button Grid.Column="1" Classes="pill filterTab" Classes.active="{Binding IsFilterAllActive}" Content="Todos" Command="{Binding SetFilterAllCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" FontSize="13" />
@@ -168,7 +71,6 @@
           <Button Grid.Column="5" Classes="pill filterTab" Classes.active="{Binding IsFilterNotInstalledActive}" Content="Não instalados" Command="{Binding SetFilterNotInstalledCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,0,0" FontSize="13" />
         </Grid>
 
-        <!-- Ação de adicionar programa, disponível também no layout Clássico. -->
         <Button Content="＋  Adicionar programa"
                 HorizontalAlignment="Center"
                 MinWidth="220"
@@ -176,20 +78,6 @@
                 IsVisible="{Binding IsFilterApplicationsActive}"
                 Click="OnAddProgramClick" />
 
-        <!-- Subfiltros da aba ativa (multi-seleção: marca/desmarca, vale a
-             união das marcadas, nenhuma marcada = mostra tudo). A fileira
-             inteira desaparece nas abas sem subfiltro. Clicar marca direto;
-             pelo controle, ↑ a partir da grade entra na fileira, ←/→ andam
-             e A marca (ver MainWindow.OnGamepadTick e
-             MainViewModel.FocusSubFilterRow). -->
-        <!-- v0.9.19, pedido do usuário ("acho que ficou um pouco escondido
-             ... dá pra centralizar os filtros das plataformas e destacar um
-             pouco"): centralizadas e com a cor da própria plataforma —
-             contorno + texto na cor quando desmarcada, preenchida quando
-             marcada (Switch = fundo branco, texto vermelho, como ele
-             pediu). Cor vem por binding e não por estilo porque o estilo é
-             um só pra todas e não saberia a cor de cada uma — ver
-             SubFilterViewModel.BackgroundHex. -->
         <ItemsControl ItemsSource="{Binding SubFilters}" IsVisible="{Binding HasSubFilters}" HorizontalAlignment="Center">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
@@ -212,82 +100,25 @@
         </ItemsControl>
       </StackPanel>
 
-      <!-- Horizontal row of every game (CAPSULE tiles, WIDE CAPSULE pro
-           último jogo aberto). -->
+      <!-- Fileira de jogos -->
       <ScrollViewer x:Name="GameRowScrollViewer" Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-        <!-- Suavização pedida pelo usuário ("sistema de suavização... quando
-             passar pro lado entre os jogos"): anima qualquer mudança de
-             Offset, incluindo as que MainWindow.ScrollGameRowSelectionIntoView
-             já fazia via código (Transitions do Avalonia reage a QUALQUER
-             troca de valor da propriedade, não só troca via Setter/estilo) —
-             então o scroll que antes pulava direto agora desliza. Não dá pra
-             compilar aqui pra confirmar, mas é a API documentada do Avalonia
-             pra isso (VectorTransition, já que Offset é um Vector). Duração
-             0.22s → 0.28s nesta leva — usuário reportou "não notei a
-             transição entre os ícones". -->
         <ScrollViewer.Transitions>
           <Transitions>
             <VectorTransition Property="Offset" Duration="0:0:0.28" Easing="CubicEaseOut" />
           </Transitions>
         </ScrollViewer.Transitions>
-        <!-- REVERTIDO nesta leva: tinha colocado VerticalAlignment="Center"
-             aqui pra tentar dividir o espaço vertical sobrando em cima e
-             embaixo da fileira (em vez de acumular tudo embaixo, que era a
-             queixa da leva anterior). No Legion Go 2 de verdade isso
-             piorou: o usuário reportou "agora baixou demais e tá cortando
-             a parte de baixo" — nessa resolução real a fileira
-             (Height=290 por tile) aparentemente é mais alta que o espaço
-             "*" sobrando, então centralizar empurrou a fileira pra baixo o
-             suficiente pra cortar a base contra a barra de baixo, em vez
-             de só deixar sobrar embaixo (que era cosmético, não cortava
-             nada). Voltou pro padrão (sem VerticalAlignment, topo) —
-             prefere sobrar espaço embaixo do que cortar a fileira.
-             Ajuste fino de verdade aqui precisa da resolução/altura real
-             da janela no Legion Go 2 pra calcular sem continuar
-             tentando "no escuro". -->
+        
         <ItemsControl x:Name="GamesItemsControl" ItemsSource="{Binding Games}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
-              <!-- Spacing 14 → 18 nesta leva — junto com a WIDE CAPSULE
-                   um pouco mais estreita (Theme.axaml, 620 → 580), resolve
-                   a tile larga "pegando o ícone do lado" reportada pelo
-                   usuário. -->
               <StackPanel Orientation="Horizontal" Spacing="18" />
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
 
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:GameTileViewModel">
-              <!-- Width vem do TileWidth do ViewModel (precisa bater com o
-                   Width do Border.gameTile/.lastPlayed abaixo, vindo do
-                   Theme.axaml) — sem isso o StackPanel ia se dimensionar
-                   pelo conteúdo mais largo (o texto do nome, pra títulos
-                   compridos), quebrando o alinhamento fixo da fileira e a
-                   conta de scroll em MainWindow.ScrollGameRowSelectionIntoView. -->
               <StackPanel Width="{Binding TileWidth}" Spacing="6">
 
-                <!-- Caption ACIMA da capa (nunca por dentro dela): LOGO no
-                     lugar do nome, em QUALQUER tile (CAPSULE ou WIDE
-                     CAPSULE) que já tenha logo baixado — regra final e
-                     explícita do usuário: "a LOGO não vai dentro das capas
-                     ... ele vai apenas dentro da hero (banner) lá em cima e
-                     ACIMA DAS CAPAS NO LUGAR DO NOME". Sem logo ainda, cai
-                     pro nome (ShowNameCaption). Nunca os dois juntos.
-                     Altura FIXA (36) pra toda tile reservar o mesmo espaço
-                     aqui em cima — sem isso, a tile com um logo MAIOR (a
-                     WIDE CAPSULE usa CaptionLogoHeight=32 contra 22 da
-                     CAPSULE normal, pedido do usuário: "deixa ela um pouco
-                     maior... na wide capsule") desalinharia verticalmente a
-                     capa de baixo em relação às tiles vizinhas, já que o
-                     StackPanel horizontal da fileira alinha os filhos pelo
-                     topo — com a altura fixa, qualquer tamanho de logo/nome
-                     fica centralizado dentro da MESMA caixa de 36px.
-                     Alinhamento LEFT nesta leva (era Center) — pedido do
-                     usuário: "alinhe os ícones de nome dos jogos a
-                     esquerda iniciando no começo da arte do jogo". Como
-                     essa Grid tem a MESMA largura da capa abaixo
-                     (StackPanel Width=TileWidth), alinhar à esquerda aqui
-                     já começa exatamente na borda esquerda da capa. -->
                 <Grid Height="36">
                   <TextBlock Text="{Binding Title}"
                              Classes="tileCaption"
@@ -306,9 +137,6 @@
                          IsVisible="{Binding ShowCurrentLogo}" />
                 </Grid>
 
-                <!-- Width/Height do Border vêm das styles gameTile/
-                     gameTile.lastPlayed em Theme.axaml (não daqui), pra
-                     bater exatamente com TileWidth acima. -->
                 <Border Classes="gameTile"
                         Classes.focused="{Binding IsFocused}"
                         Classes.lastPlayed="{Binding IsLastPlayed}"
@@ -317,20 +145,13 @@
                         PointerPressed="OnTilePointerPressed"
                         DoubleTapped="OnTileDoubleTapped">
                   <Grid>
-                    <Image Source="{Binding TileImagePath, Converter={StaticResource FileToBitmapConverter}}"
-                           Stretch="Uniform" />
+                    <!-- CAPA ANIMADA -->
+                    <Image anim:ImageBehavior.AnimatedSource="{Binding TileImagePath}" Stretch="Uniform" />
 
-                    <!-- Jogo não instalado (aba "Não instalados"): véu cinza
-                         por cima da capa pra diferenciar dos instalados —
-                         pedido do usuário ("leve aspecto cinza"). -->
                     <Border Background="#99383838"
                             IsHitTestVisible="False"
                             IsVisible="{Binding IsOwnedNotInstalled}" />
 
-                    <!-- Placeholder: só aparece quando essa tile específica
-                         não tem NENHUMA arte ainda (nem capa) — a caption já
-                         aparece em cima (Grid acima), isso aqui é só pra não
-                         deixar a área da imagem vazia. -->
                     <TextBlock Text="{Binding Title}"
                                Classes="gameTitle"
                                TextWrapping="Wrap"
@@ -340,11 +161,6 @@
                                Margin="10"
                                IsVisible="{Binding ShowEmptyPlaceholder}" />
 
-                    <!-- Badge de plataforma (v0.9.6, pedido do usuário:
-                         "ícone minimalista no canto superior direito
-                         indicando de qual plataforma") — ver
-                         GameTileViewModel.PlatformBadgeText/ColorHex pra
-                         saber por que não é o logo oficial de cada loja. -->
                     <Border Background="{Binding PlatformBadgeColorHex, Converter={StaticResource HexColorToBrushConverter}}"
                             CornerRadius="4"
                             Padding="5,2"
@@ -355,10 +171,6 @@
                       <TextBlock Text="{Binding PlatformBadgeText}" FontSize="10" FontWeight="Bold" Foreground="White" />
                     </Border>
 
-                    <!-- Estrelinha discreta pra quem foi favoritado (menu
-                         de contexto → Favoritar) — canto oposto ao badge
-                         de plataforma que assumiu o superior direito nesta
-                         leva, pra não sobrepor. -->
                     <TextBlock Text="★"
                                Foreground="{DynamicResource AccentBrush}"
                                FontSize="18"
@@ -367,14 +179,6 @@
                                Margin="8"
                                IsVisible="{Binding IsFavorite}" />
 
-                    <!-- Badge "Instalar" — canto oposto da estrelinha de
-                         propósito (essas tiles, da aba "Não instalados",
-                         não ficam favoritadas na prática, mas por
-                         garantia nunca os dois no mesmo canto). Confirmar/
-                         clicar na tile já instala sozinho (ver
-                         MainViewModel.LaunchSelected) — isto é só o
-                         indicador visual de que ela se comporta diferente
-                         das outras. -->
                     <Border Background="#CC000000"
                             CornerRadius="4"
                             Padding="6,3"
@@ -392,11 +196,6 @@
         </ItemsControl>
       </ScrollViewer>
 
-      <!-- Mensagem no lugar da fileira (aba "Não instalados" sem nada
-           ainda pra mostrar — sem credencial, carregando, erro, ou lista
-           genuinamente vazia). Grid.Row igual ao ScrollViewer acima: como
-           ele fica vazio exatamente nesses casos, não tem sobreposição
-           visual real. Ver MainViewModel.NotInstalledTabMessage. -->
       <TextBlock Grid.Row="2"
                  Text="{Binding NotInstalledTabMessage}"
                  Classes="subtle"

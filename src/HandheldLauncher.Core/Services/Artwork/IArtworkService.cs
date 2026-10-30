@@ -61,19 +61,19 @@ public interface IArtworkService
     /// picker for the same game skips re-downloading anything already
     /// cached from a previous open.
     /// </summary>
-    Task<IReadOnlyList<ArtworkCandidate>> GetGridCandidatesAsync(GameEntry game, CancellationToken ct = default);
+    Task<IReadOnlyList<ArtworkCandidate>> GetGridCandidatesAsync(GameEntry game, bool animatedOnly = false, CancellationToken ct = default);
 
     /// <summary>Same idea as GetGridCandidatesAsync but for hero banners.</summary>
-    Task<IReadOnlyList<ArtworkCandidate>> GetHeroCandidatesAsync(GameEntry game, CancellationToken ct = default);
+    Task<IReadOnlyList<ArtworkCandidate>> GetHeroCandidatesAsync(GameEntry game, bool animatedOnly = false, CancellationToken ct = default);
 
     /// <summary>Same idea as GetGridCandidatesAsync but for logos — powers the "Escolher logo" picker.</summary>
-    Task<IReadOnlyList<ArtworkCandidate>> GetLogoCandidatesAsync(GameEntry game, CancellationToken ct = default);
+    Task<IReadOnlyList<ArtworkCandidate>> GetLogoCandidatesAsync(GameEntry game, bool animatedOnly = false, CancellationToken ct = default);
 
     /// <summary>Candidatos de ícone (seção Icons do SteamGridDB) pro seletor de artes.</summary>
-    Task<IReadOnlyList<ArtworkCandidate>> GetIconCandidatesAsync(GameEntry game, CancellationToken ct = default);
+    Task<IReadOnlyList<ArtworkCandidate>> GetIconCandidatesAsync(GameEntry game, bool animatedOnly = false, CancellationToken ct = default);
 
     /// <summary>Same idea as GetGridCandidatesAsync but for a capa landscape (WideGridImagePath) — powers o "Escolher capa larga" picker.</summary>
-    Task<IReadOnlyList<ArtworkCandidate>> GetWideGridCandidatesAsync(GameEntry game, CancellationToken ct = default);
+    Task<IReadOnlyList<ArtworkCandidate>> GetWideGridCandidatesAsync(GameEntry game, bool animatedOnly = false, CancellationToken ct = default);
 
     /// <summary>
     /// Makes one specific candidate (from GetGridCandidatesAsync) this

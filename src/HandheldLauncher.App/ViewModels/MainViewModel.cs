@@ -563,6 +563,22 @@ public sealed class MainViewModel : ViewModelBase
     private int _coverPickerIndex;
     public int CoverPickerIndex => _coverPickerIndex;
 
+    private bool _filterAnimatedOnly;
+    public bool FilterAnimatedOnly
+    {
+        get => _filterAnimatedOnly;
+        set
+        {
+            if (SetField(ref _filterAnimatedOnly, value))
+            {
+                if (IsCoverPickerOpen && _coverPickerGame != null)
+                {
+                    OpenCoverPicker(_coverPickerGame, _coverPickerKind);
+                }
+            }
+        }
+    }
+
     private ArtworkPickerKind _coverPickerKind;
     private GameEntry? _coverPickerGame;
 
@@ -773,7 +789,7 @@ public sealed class MainViewModel : ViewModelBase
 
     private void RequestDeleteXboxGame(GameEntry game)
     {
-        if (!OperatingSystem.IsWindows()) return; // Xbox desinstalador é apenas Windows
+        if (!OperatingSystem.IsWindows()) return;
         OpenConfirmMenu(game, "Sim, abrir desinstalador do Windows", () => _launcher.OpenWindowsAppUninstaller(game.InstallDirectory));
     }
 
@@ -1320,11 +1336,11 @@ public sealed class MainViewModel : ViewModelBase
         {
             var candidates = kind switch
             {
-                ArtworkPickerKind.WideGrid => await _artwork.GetWideGridCandidatesAsync(game),
-                ArtworkPickerKind.Hero => await _artwork.GetHeroCandidatesAsync(game),
-                ArtworkPickerKind.Logo => await _artwork.GetLogoCandidatesAsync(game),
-                ArtworkPickerKind.Icon => await _artwork.GetIconCandidatesAsync(game),
-                _ => await _artwork.GetGridCandidatesAsync(game),
+                ArtworkPickerKind.WideGrid => await _artwork.GetWideGridCandidatesAsync(game, FilterAnimatedOnly),
+                ArtworkPickerKind.Hero => await _artwork.GetHeroCandidatesAsync(game, FilterAnimatedOnly),
+                ArtworkPickerKind.Logo => await _artwork.GetLogoCandidatesAsync(game, FilterAnimatedOnly),
+                ArtworkPickerKind.Icon => await _artwork.GetIconCandidatesAsync(game, FilterAnimatedOnly),
+                _ => await _artwork.GetGridCandidatesAsync(game, FilterAnimatedOnly),
             };
 
             if (!IsCoverPickerOpen || _coverPickerGame != game) return;

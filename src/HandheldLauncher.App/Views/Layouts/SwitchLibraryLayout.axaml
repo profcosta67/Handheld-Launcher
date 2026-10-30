@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:anim="https://github.com/whistyun/AnimatedImage.Avalonia"
              xmlns:vm="using:HandheldLauncher.App.ViewModels"
              xmlns:conv="using:HandheldLauncher.App.Converters"
              xmlns:dataConv="using:Avalonia.Data.Converters"
@@ -7,40 +8,12 @@
              x:Class="HandheldLauncher.App.Views.Layouts.SwitchLibraryLayout"
              x:DataType="vm:MainViewModel">
 
-  <!--
-    Tema de LAYOUT "Switch". Referência combinada: a tela HOME do console —
-    fileira horizontal, capas soltas, fundo claro, menu embaixo. NÃO copia
-    nada da interface real do aparelho (sem logo, fonte ou ícone de
-    sistema); o que vem da referência é a DISPOSIÇÃO.
-
-    v0.9.23, terceira rodada de ajuste com o usuário:
-      "retira esse limite inferior das artes, deixa ela solta em todos"
-      "aumenta os espaços laterais entre as artes, pra ficar menos ícones"
-      "aumenta ainda mais o zoom da arte principalmente"
-      "o nome do jogo selecionado coloca em cima da arte selecionada e
-       vamos usar mesmo sistema do nosso, o nome vai ser o logo"
-      "o branco de fundo ainda está muito forte, coloca mais transparência"
-      "aumenta um pouco a altura dos filtros, fundo branco borda vermelho e
-       letra preto, coloca duas linhas intercaladas"
-
-    Os quatro x:Name que a MainWindow precisa (ILibraryLayout) continuam
-    aqui — HeroImage/HeroBackImage são as imagens DE FUNDO, o que mantém a
-    transição suave entre jogos funcionando sem código novo.
-  -->
-
   <UserControl.Resources>
     <conv:FileToBitmapConverter x:Key="FileToBitmapConverter" />
     <conv:HexColorToBrushConverter x:Key="HexColorToBrushConverter" />
   </UserControl.Resources>
 
   <UserControl.Styles>
-    <!-- Abas do tema Switch: branco com borda vermelha e texto preto, e a
-         ativa invertida (vermelho com texto branco). Pedido do usuário —
-         só a COMBINAÇÃO DE CORES remetendo ao console, nenhum recurso
-         gráfico dele. Estilo local e não o filterTab compartilhado porque
-         o layout Clássico continua com as abas na cor do tema.
-         A ativa precisa INVERTER: se todas ficassem brancas com borda
-         vermelha, não daria pra ver qual está selecionada. -->
     <Style Selector="Button.switchTab">
       <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
       <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
@@ -68,12 +41,6 @@
 
   <Panel>
 
-    <!-- ===== FUNDO: arte do jogo em foco, desfocada + véu branco ===== -->
-    <!-- O desfoque vai NAS IMAGENS (não num Border vazio, que foi o bug da
-         v0.9.21: efeito no Avalonia se aplica ao conteúdo do próprio
-         elemento, então um Border sem conteúdo não borra nada do que está
-         atrás). UniformToFill aqui de propósito: fundo tem que cobrir a
-         tela — é a exceção à regra de "sem zoom". -->
     <Image x:Name="HeroBackImage" Stretch="UniformToFill" IsHitTestVisible="False">
       <Image.Effect>
         <media:BlurEffect Radius="45" />
@@ -88,24 +55,12 @@
       </Image.Effect>
     </Image>
 
-    <!-- Véu branco: 35% na v0.9.23 (era 55%, e 91% na v0.9.21) — "o branco
-         de fundo ainda está muito forte, coloca mais transparência". Agora
-         a arte do jogo domina e o branco só lava. -->
     <Border Background="{DynamicResource BackdropDimBrush}" IsHitTestVisible="False" />
 
     <Grid RowDefinitions="*,Auto" Margin="28,16,28,16">
 
-      <!-- Logo/nome + roleta juntos num bloco centralizado: é o que coloca
-           o nome exatamente EM CIMA da arte selecionada, que fica sempre no
-           meio da tela. -->
       <StackPanel Grid.Row="0" VerticalAlignment="Center" Spacing="16">
 
-        <!-- Mesmo sistema do layout Clássico, a pedido: quando o jogo já
-             tem logo baixado, ela aparece NO LUGAR do nome; só cai pro
-             texto quando ainda não há logo (ver
-             GameTileViewModel.ShowCurrentLogo/ShowNameCaption). Altura
-             fixa pra o bloco não "pular" ao trocar de um jogo com logo pra
-             um sem. -->
         <Grid Height="76" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
           <Image Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
                  Stretch="Uniform"
@@ -113,9 +68,6 @@
                  VerticalAlignment="Center"
                  IsVisible="{Binding SelectedTile.ShowCurrentLogo}" />
 
-          <!-- Sem logo: nome em pílula branca. A pílula existe porque o
-               fundo agora tem a cor da arte do jogo — texto solto some num
-               banner claro ou num escuro, dependendo do jogo. -->
           <Border Background="{DynamicResource SurfaceRaisedBrush}"
                   BorderBrush="{DynamicResource AccentBrush}"
                   BorderThickness="1"
@@ -134,7 +86,6 @@
           </Border>
         </Grid>
 
-        <!-- ===== ROLETA ===== -->
         <ScrollViewer x:Name="GameRowScrollViewer"
                       Height="430"
                       VerticalAlignment="Center"
@@ -157,22 +108,12 @@
                         BorderThickness="0">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
-                <!-- Spacing 56 (era 16): "aumenta os espaços laterais entre
-                     as artes, pra ficar menos ícones na tela". Com o zoom
-                     maior da capa em foco, o espaço também evita que ela
-                     cubra as vizinhas ao crescer. -->
                 <StackPanel Orientation="Horizontal" Spacing="120" Margin="900,0,900,0" VerticalAlignment="Center" />
               </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
 
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:GameTileViewModel">
-                <!-- Cada posição da roleta tem uma área fixa (220x290,
-                     respeitando o ajuste global de tamanho). Isso evita
-                     que capas com proporções diferentes alterem o passo
-                     horizontal do carrossel e desloquem as vizinhas.
-                     A arte continua em Uniform: aparece inteira, sem
-                     deformação ou corte; o espaço excedente fica livre. -->
                 <Grid Width="{Binding CarouselTileWidth}"
                       Height="{Binding CarouselTileHeight}"
                       ClipToBounds="False"
@@ -206,15 +147,14 @@
                     </Transitions>
                   </Grid.Transitions>
 
-                  <Image Source="{Binding CarouselTileImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                  <!-- CAPA ANIMADA NA ROLETA -->
+                  <Image anim:ImageBehavior.AnimatedSource="{Binding CarouselTileImagePath}"
                          Width="{Binding CarouselTileWidth}"
                          Height="{Binding CarouselTileHeight}"
                          Stretch="Uniform"
                          HorizontalAlignment="Center"
                          VerticalAlignment="Center" />
 
-                  <!-- Sem arte: aí sim precisa de uma caixa, senão não teria
-                       nada pra clicar nem pra ver. -->
                   <Border Background="{DynamicResource BackdropDimBrush}"
                           HorizontalAlignment="Stretch"
                           VerticalAlignment="Stretch"
@@ -250,9 +190,6 @@
                     <TextBlock Text="{Binding PlatformBadgeText}" FontSize="9" FontWeight="Bold" Foreground="White" />
                   </Border>
 
-                  <!-- Anéis de seleção: dois, porque um só sumiria numa capa
-                       da mesma cor dele — e capa pode ser de qualquer cor.
-                       Sem fundo, só contorno, pra não cobrir a arte. -->
                   <Border BorderBrush="{DynamicResource TextPrimaryBrush}"
                           CornerRadius="5"
                           BorderThickness="4"
@@ -282,8 +219,6 @@
                  Margin="24"
                  IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
 
-      <!-- Barra de filtros compacta: uma única linha para liberar área útil
-           para a biblioteca. Mantém os seis filtros e seus comandos originais. -->
       <StackPanel Grid.Row="1" Spacing="8" Margin="0,16,0,0">
         <Grid ColumnDefinitions="*,*,*,*,*,*">
           <Button Grid.Column="0" Classes="switchTab" Classes.active="{Binding IsFilterFavoritesActive}" Command="{Binding SetFilterFavoritesCommand}" Margin="4">
@@ -331,8 +266,6 @@
                 IsVisible="{Binding IsFilterApplicationsActive}"
                 Click="OnAddProgramClick" />
 
-        <!-- Subfiltros seguem com a cor de cada plataforma (pedido anterior
-             dele, mantido) — abaixo das duas linhas de abas. -->
         <ItemsControl ItemsSource="{Binding SubFilters}" IsVisible="{Binding HasSubFilters}" HorizontalAlignment="Center">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>

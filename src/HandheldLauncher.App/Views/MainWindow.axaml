@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:anim="https://github.com/whistyun/AnimatedImage.Avalonia"
         xmlns:vm="using:HandheldLauncher.App.ViewModels"
         xmlns:models="using:HandheldLauncher.Core.Models"
         xmlns:conv="using:HandheldLauncher.App.Converters"
@@ -409,7 +410,17 @@
       <Border Classes="contextMenuOverlay" PointerPressed="OnMenuOverlayPressed" />
       <Border Classes="contextMenuCard" Width="880" MaxHeight="620" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
         <Grid RowDefinitions="Auto,*,Auto">
-          <TextBlock Grid.Row="0" Text="{Binding CoverPickerTitle}" Classes="heroTitle" TextWrapping="Wrap" Margin="0,0,0,16" />
+                              <!-- Cabeçalho do Seletor com Filtro -->
+          <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,16">
+            <TextBlock Grid.Column="0" Text="{Binding CoverPickerTitle}" Classes="heroTitle" TextWrapping="Wrap" VerticalAlignment="Center" />
+            
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+              <TextBlock Text="Só animadas" Classes="subtle" VerticalAlignment="Center" FontSize="12" />
+              <ToggleSwitch IsChecked="{Binding FilterAnimatedOnly}" 
+                            OnContent="" OffContent="" 
+                            HorizontalAlignment="Right" />
+            </StackPanel>
+          </Grid>
 
           <TextBlock Grid.Row="1"
                      Text="Buscando opções no SteamGridDB..."
@@ -453,8 +464,7 @@
                           PointerPressed="OnCoverCandidatePressed"
                           Width="150" Height="170" Margin="6"
                           HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <Image Source="{Binding LocalThumbnailPath, Converter={StaticResource FileToBitmapConverter}}"
-                           Stretch="Uniform" />
+                    <Image anim:ImageBehavior.AnimatedSource="{Binding LocalThumbnailPath}" Stretch="UniformToFill" />
                   </Border>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>

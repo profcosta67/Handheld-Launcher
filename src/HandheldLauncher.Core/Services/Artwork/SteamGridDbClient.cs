@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -8,39 +9,12 @@ using System.Threading.Tasks;
 
 namespace HandheldLauncher.Core.Services.Artwork;
 
-/// <summary>
-/// Thin client for the SteamGridDB v2 REST API (docs: steamgriddb.com/api/v2).
-/// Uses plain HttpClient + System.Text.Json — both are base-class-library,
-/// so this needed zero NuGet packages, same reasoning as the XInput P/Invoke
-/// in the App project: everything written where we couldn't reach nuget.org
-/// to verify a package-based approach even builds.
-///
-/// Covers grids (portrait covers), heroes (wide banners) and logos
-/// (transparent wordmark overlays) — all three come back in the same
-/// response shape, so FetchGridCandidates is reused for all of them and
-/// just gets pointed at a different endpoint. Icons aren't wired up yet;
-/// same pattern applies if that's ever needed.
-///
-/// Every request adds "types=static" — SteamGridDB can also serve animated
-/// GIF/webm covers, but Avalonia's Image control doesn't animate those, so
-/// asking the API to filter them out up front means we never even download
-/// something we can't display. Animated support is tracked as a separate,
-/// not-yet-started phase in README's "Seletor de capas" section.
-/// </summary>
 public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
 {
     private const string BaseUrl = "https://www.steamgriddb.com/api/v2";
+    private const int MaxCandidates = 50; // Aumentado para pegar mais animadas
 
-    // A picker UI needs *some* cap — popular games can have hundreds of
-    // candidate grids/heroes, and downloading all of them just to show a
-    // scrollable grid would be slow and wasteful on a handheld's connection.
-    // 24 is generous for "pick the one you like" without pagination.
-    private const int MaxCandidates = 24;
-
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true,
-    };
+    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     private readonly HttpClient _http;
     private readonly string? _apiKey;
@@ -59,158 +33,121 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
     public bool HasApiKey => !string.IsNullOrWhiteSpace(_apiKey);
 
     public async Task<SteamGridDbImage?> GetBestGridForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
-    {
-        var candidates = await GetGridCandidatesForSteamAppAsync(steamAppId, ct);
-        return candidates.FirstOrDefault();
-    }
+        => (await GetGridCandidatesForSteamAppAsync(steamAppId, false, ct)).FirstOrDefault();
 
     public async Task<SteamGridDbImage?> GetBestGridForTitleAsync(string title, CancellationToken ct = default)
-    {
-        var candidates = await GetGridCandidatesForTitleAsync(title, ct);
-        return candidates.FirstOrDefault();
-    }
+        => (await GetGridCandidatesForTitleAsync(title, false, ct)).FirstOrDefault();
 
     public async Task<SteamGridDbImage?> GetBestHeroForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
-    {
-        var candidates = await GetHeroCandidatesForSteamAppAsync(steamAppId, ct);
-        return candidates.FirstOrDefault();
-    }
+        => (await GetHeroCandidatesForSteamAppAsync(steamAppId, false, ct)).FirstOrDefault();
 
     public async Task<SteamGridDbImage?> GetBestHeroForTitleAsync(string title, CancellationToken ct = default)
-    {
-        var candidates = await GetHeroCandidatesForTitleAsync(title, ct);
-        return candidates.FirstOrDefault();
-    }
+        => (await GetHeroCandidatesForTitleAsync(title, false, ct)).FirstOrDefault();
 
     public async Task<SteamGridDbImage?> GetBestLogoForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
-    {
-        var candidates = await GetLogoCandidatesForSteamAppAsync(steamAppId, ct);
-        return candidates.FirstOrDefault();
-    }
+        => (await GetLogoCandidatesForSteamAppAsync(steamAppId, false, ct)).FirstOrDefault();
 
     public async Task<SteamGridDbImage?> GetBestLogoForTitleAsync(string title, CancellationToken ct = default)
-    {
-        var candidates = await GetLogoCandidatesForTitleAsync(title, ct);
-        return candidates.FirstOrDefault();
-    }
-
-    public async Task<IReadOnlyList<SteamGridDbImage>> GetLogoCandidatesForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
-    {
-        if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
-        // No dimensions filter, same reasoning as heroes above — logos
-        // come in varied sizes/aspect ratios and SteamGridDB's logo
-        // coverage is thinner than grids, so narrowing by size would throw
-        // away matches we'd rather keep.
-        return await FetchGridCandidates($"{BaseUrl}/logos/steam/{steamAppId}?types=static", ct);
-    }
+        => (await GetLogoCandidatesForTitleAsync(title, false, ct)).FirstOrDefault();
 
     public async Task<SteamGridDbImage?> GetBestIconForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
-        => (await GetIconCandidatesForSteamAppAsync(steamAppId, ct)).FirstOrDefault();
+        => (await GetIconCandidatesForSteamAppAsync(steamAppId, false, ct)).FirstOrDefault();
 
     public async Task<SteamGridDbImage?> GetBestIconForTitleAsync(string title, CancellationToken ct = default)
-        => (await GetIconCandidatesForTitleAsync(title, ct)).FirstOrDefault();
-
-    public async Task<IReadOnlyList<SteamGridDbImage>> GetIconCandidatesForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
-    {
-        if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
-        return await FetchGridCandidates($"{BaseUrl}/icons/steam/{steamAppId}?types=static&mimes=image/png", ct);
-    }
-
-    public async Task<IReadOnlyList<SteamGridDbImage>> GetIconCandidatesForTitleAsync(string title, CancellationToken ct = default)
-    {
-        if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
-
-        var gameId = await SearchGameId(title, ct);
-        if (gameId is null) return Array.Empty<SteamGridDbImage>();
-
-        return await FetchGridCandidates($"{BaseUrl}/icons/game/{gameId}?types=static&mimes=image/png", ct);
-    }
-
-    public async Task<IReadOnlyList<SteamGridDbImage>> GetLogoCandidatesForTitleAsync(string title, CancellationToken ct = default)
-    {
-        if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
-
-        var gameId = await SearchGameId(title, ct);
-        if (gameId is null) return Array.Empty<SteamGridDbImage>();
-
-        return await FetchGridCandidates($"{BaseUrl}/logos/game/{gameId}?types=static", ct);
-    }
-
-    public async Task<IReadOnlyList<SteamGridDbImage>> GetGridCandidatesForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
-    {
-        if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
-        return await FetchGridCandidates($"{BaseUrl}/grids/steam/{steamAppId}?dimensions=600x900&types=static", ct);
-    }
-
-    public async Task<IReadOnlyList<SteamGridDbImage>> GetGridCandidatesForTitleAsync(string title, CancellationToken ct = default)
-    {
-        if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
-
-        var gameId = await SearchGameId(title, ct);
-        if (gameId is null) return Array.Empty<SteamGridDbImage>();
-
-        return await FetchGridCandidates($"{BaseUrl}/grids/game/{gameId}?dimensions=600x900&types=static", ct);
-    }
+        => (await GetIconCandidatesForTitleAsync(title, false, ct)).FirstOrDefault();
 
     public async Task<SteamGridDbImage?> GetBestWideGridForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
-    {
-        var candidates = await GetWideGridCandidatesForSteamAppAsync(steamAppId, ct);
-        return candidates.FirstOrDefault();
-    }
+        => (await GetWideGridCandidatesForSteamAppAsync(steamAppId, false, ct)).FirstOrDefault();
 
     public async Task<SteamGridDbImage?> GetBestWideGridForTitleAsync(string title, CancellationToken ct = default)
-    {
-        var candidates = await GetWideGridCandidatesForTitleAsync(title, ct);
-        return candidates.FirstOrDefault();
-    }
+        => (await GetWideGridCandidatesForTitleAsync(title, false, ct)).FirstOrDefault();
 
-    public async Task<IReadOnlyList<SteamGridDbImage>> GetWideGridCandidatesForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
+    // --- Candidatos ---
+    public async Task<IReadOnlyList<SteamGridDbImage>> GetGridCandidatesForSteamAppAsync(uint steamAppId, bool animatedOnly = false, CancellationToken ct = default)
     {
         if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
-        // Mesmo endpoint /grids/ da capa normal, só troca o dimensions pro
-        // formato landscape (460x215/920x430 — o "capsule horizontal" que
-        // o próprio Steam usa) em vez do portrait 600x900. Independente da
-        // capa normal E do hero — ver comentário na interface.
-        return await FetchGridCandidates($"{BaseUrl}/grids/steam/{steamAppId}?dimensions=460x215,920x430&types=static", ct);
+        var type = animatedOnly ? "animated" : "static,animated";
+        return await FetchGridCandidates($"{BaseUrl}/grids/steam/{steamAppId}?dimensions=600x900&types={type}", ct);
     }
 
-    public async Task<IReadOnlyList<SteamGridDbImage>> GetWideGridCandidatesForTitleAsync(string title, CancellationToken ct = default)
+    public async Task<IReadOnlyList<SteamGridDbImage>> GetGridCandidatesForTitleAsync(string title, bool animatedOnly = false, CancellationToken ct = default)
     {
         if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
-
         var gameId = await SearchGameId(title, ct);
         if (gameId is null) return Array.Empty<SteamGridDbImage>();
-
-        return await FetchGridCandidates($"{BaseUrl}/grids/game/{gameId}?dimensions=460x215,920x430&types=static", ct);
+        var type = animatedOnly ? "animated" : "static,animated";
+        return await FetchGridCandidates($"{BaseUrl}/grids/game/{gameId}?dimensions=600x900&types={type}", ct);
     }
 
-    public async Task<IReadOnlyList<SteamGridDbImage>> GetHeroCandidatesForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<SteamGridDbImage>> GetHeroCandidatesForSteamAppAsync(uint steamAppId, bool animatedOnly = false, CancellationToken ct = default)
     {
         if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
-        // No dimensions filter here on purpose — heroes come in a few wide
-        // aspect ratios (1920x620, 3840x1240, 1600x650...) and SteamGridDB's
-        // hero library is thinner than its grid library, so narrowing by
-        // dimensions would throw away matches we'd rather keep.
-        return await FetchGridCandidates($"{BaseUrl}/heroes/steam/{steamAppId}?types=static", ct);
+        var type = animatedOnly ? "animated" : "static,animated";
+        return await FetchGridCandidates($"{BaseUrl}/heroes/steam/{steamAppId}?types={type}", ct);
     }
 
-    public async Task<IReadOnlyList<SteamGridDbImage>> GetHeroCandidatesForTitleAsync(string title, CancellationToken ct = default)
+    public async Task<IReadOnlyList<SteamGridDbImage>> GetHeroCandidatesForTitleAsync(string title, bool animatedOnly = false, CancellationToken ct = default)
     {
         if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
-
         var gameId = await SearchGameId(title, ct);
         if (gameId is null) return Array.Empty<SteamGridDbImage>();
+        var type = animatedOnly ? "animated" : "static,animated";
+        return await FetchGridCandidates($"{BaseUrl}/heroes/game/{gameId}?types={type}", ct);
+    }
 
-        return await FetchGridCandidates($"{BaseUrl}/heroes/game/{gameId}?types=static", ct);
+    public async Task<IReadOnlyList<SteamGridDbImage>> GetLogoCandidatesForSteamAppAsync(uint steamAppId, bool animatedOnly = false, CancellationToken ct = default)
+    {
+        if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
+        var type = animatedOnly ? "animated" : "static,animated";
+        return await FetchGridCandidates($"{BaseUrl}/logos/steam/{steamAppId}?types={type}", ct);
+    }
+
+    public async Task<IReadOnlyList<SteamGridDbImage>> GetLogoCandidatesForTitleAsync(string title, bool animatedOnly = false, CancellationToken ct = default)
+    {
+        if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
+        var gameId = await SearchGameId(title, ct);
+        if (gameId is null) return Array.Empty<SteamGridDbImage>();
+        var type = animatedOnly ? "animated" : "static,animated";
+        return await FetchGridCandidates($"{BaseUrl}/logos/game/{gameId}?types={type}", ct);
+    }
+
+    public async Task<IReadOnlyList<SteamGridDbImage>> GetIconCandidatesForSteamAppAsync(uint steamAppId, bool animatedOnly = false, CancellationToken ct = default)
+    {
+        if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
+        var type = animatedOnly ? "animated" : "static,animated";
+        return await FetchGridCandidates($"{BaseUrl}/icons/steam/{steamAppId}?types={type}&mimes=image/png,image/webp", ct);
+    }
+
+    public async Task<IReadOnlyList<SteamGridDbImage>> GetIconCandidatesForTitleAsync(string title, bool animatedOnly = false, CancellationToken ct = default)
+    {
+        if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
+        var gameId = await SearchGameId(title, ct);
+        if (gameId is null) return Array.Empty<SteamGridDbImage>();
+        var type = animatedOnly ? "animated" : "static,animated";
+        return await FetchGridCandidates($"{BaseUrl}/icons/game/{gameId}?types={type}&mimes=image/png,image/webp", ct);
+    }
+
+    public async Task<IReadOnlyList<SteamGridDbImage>> GetWideGridCandidatesForSteamAppAsync(uint steamAppId, bool animatedOnly = false, CancellationToken ct = default)
+    {
+        if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
+        var type = animatedOnly ? "animated" : "static,animated";
+        return await FetchGridCandidates($"{BaseUrl}/grids/steam/{steamAppId}?dimensions=460x215,920x430&types={type}", ct);
+    }
+
+    public async Task<IReadOnlyList<SteamGridDbImage>> GetWideGridCandidatesForTitleAsync(string title, bool animatedOnly = false, CancellationToken ct = default)
+    {
+        if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
+        var gameId = await SearchGameId(title, ct);
+        if (gameId is null) return Array.Empty<SteamGridDbImage>();
+        var type = animatedOnly ? "animated" : "static,animated";
+        return await FetchGridCandidates($"{BaseUrl}/grids/game/{gameId}?dimensions=460x215,920x430&types={type}", ct);
     }
 
     private async Task<int?> SearchGameId(string title, CancellationToken ct)
     {
         var url = $"{BaseUrl}/search/autocomplete/{Uri.EscapeDataString(title)}";
-
         using var response = await _http.GetAsync(url, ct);
         if (!response.IsSuccessStatusCode) return null;
-
         var payload = await response.Content.ReadFromJsonSafe<SearchResponse>(ct);
         return payload?.Data?.FirstOrDefault()?.Id;
     }
@@ -223,10 +160,6 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
         var payload = await response.Content.ReadFromJsonSafe<GridResponse>(ct);
         if (payload?.Data is null) return Array.Empty<SteamGridDbImage>();
 
-        // Prefer safe-for-work, highest-scored results first. SteamGridDB
-        // sorts by score already, but we don't trust that ordering blindly —
-        // a bare pass-through on an unexpected order would surface a bad
-        // cover as the top (and, pre-picker, only) pick.
         return payload.Data
             .Where(g => !g.Nsfw && !g.Humor)
             .OrderByDescending(g => g.Score)
@@ -237,21 +170,9 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
 
     public void Dispose() => _http.Dispose();
 
-    private sealed class SearchResponse
-    {
-        public List<SearchResult>? Data { get; set; }
-    }
-
-    private sealed class SearchResult
-    {
-        public int Id { get; set; }
-    }
-
-    private sealed class GridResponse
-    {
-        public List<GridResult>? Data { get; set; }
-    }
-
+    private sealed class SearchResponse { public List<SearchResult>? Data { get; set; } }
+    private sealed class SearchResult { public int Id { get; set; } }
+    private sealed class GridResponse { public List<GridResult>? Data { get; set; } }
     private sealed class GridResult
     {
         public int Id { get; set; }
@@ -266,11 +187,6 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
 
 internal static class HttpContentJsonExtensions
 {
-    /// <summary>
-    /// Deserializes without throwing on a malformed/unexpected body — the
-    /// API being briefly down or rate-limiting shouldn't take the whole
-    /// fetch-artwork pass down with it.
-    /// </summary>
     public static async Task<T?> ReadFromJsonSafe<T>(this HttpContent content, CancellationToken ct) where T : class
     {
         try
@@ -278,9 +194,6 @@ internal static class HttpContentJsonExtensions
             var stream = await content.ReadAsStreamAsync(ct);
             return await JsonSerializer.DeserializeAsync<T>(stream, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }, ct);
         }
-        catch (JsonException)
-        {
-            return null;
-        }
+        catch (JsonException) { return null; }
     }
 }

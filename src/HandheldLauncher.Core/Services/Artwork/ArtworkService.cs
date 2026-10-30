@@ -9,12 +9,6 @@ using SkiaSharp;
 
 namespace HandheldLauncher.Core.Services.Artwork;
 
-/// <summary>
-/// Sits between ISteamGridDbClient (talks to the API) and IGameLibraryStore
-/// (persists the result): resolves the right lookup per game source, downloads
-/// the chosen image to a local cache folder, and saves the path as an override
-/// so a later re-scan doesn't lose it.
-/// </summary>
 public sealed class ArtworkService : IArtworkService
 {
     private readonly ISteamGridDbClient _client;
@@ -76,7 +70,6 @@ public sealed class ArtworkService : IArtworkService
         return true;
     }
 
-    /// <summary>Same shape as FetchHeroAsync, but for the transparent "logo" wordmark (game.LogoImagePath) — the "CURRENT LOGO" overlay on the row's wide tile.</summary>
     public async Task<bool> FetchLogoAsync(GameEntry game, CancellationToken ct = default)
     {
         if (!HasApiKey) return false;
@@ -100,7 +93,6 @@ public sealed class ArtworkService : IArtworkService
         return true;
     }
 
-    /// <summary>Ícone quadrado (game.IconImagePath) pra tela "Iniciando..." — mesmo formato de FetchLogoAsync.</summary>
     public async Task<bool> FetchIconAsync(GameEntry game, CancellationToken ct = default)
     {
         if (!HasApiKey) return false;
@@ -122,12 +114,6 @@ public sealed class ArtworkService : IArtworkService
         return true;
     }
 
-    /// <summary>
-    /// Same shape as FetchGridAsync, mas pra uma capa LANDSCAPE
-    /// (game.WideGridImagePath) — a WIDE CAPSULE ("último jogo aberto")
-    /// usa isso em vez de GridImagePath, pedido do usuário depois de
-    /// reportar a capa portrait sendo esticada dentro da caixa larga.
-    /// </summary>
     public async Task<bool> FetchWideGridAsync(GameEntry game, CancellationToken ct = default)
     {
         if (!HasApiKey) return false;
@@ -149,57 +135,57 @@ public sealed class ArtworkService : IArtworkService
         return true;
     }
 
-    public async Task<IReadOnlyList<ArtworkCandidate>> GetGridCandidatesAsync(GameEntry game, CancellationToken ct = default)
+    public async Task<IReadOnlyList<ArtworkCandidate>> GetGridCandidatesAsync(GameEntry game, bool animatedOnly = false, CancellationToken ct = default)
     {
         if (!HasApiKey) return Array.Empty<ArtworkCandidate>();
 
         var images = game.Source == GameSource.Steam && game.SteamAppId is { } appId
-            ? await _client.GetGridCandidatesForSteamAppAsync(appId, ct)
-            : await _client.GetGridCandidatesForTitleAsync(game.Title, ct);
+            ? await _client.GetGridCandidatesForSteamAppAsync(appId, animatedOnly, ct)
+            : await _client.GetGridCandidatesForTitleAsync(game.Title, animatedOnly, ct);
 
         return await DownloadCandidatesAsync(images, $"{game.Id}_grid_candidate", ct);
     }
 
-    public async Task<IReadOnlyList<ArtworkCandidate>> GetHeroCandidatesAsync(GameEntry game, CancellationToken ct = default)
+    public async Task<IReadOnlyList<ArtworkCandidate>> GetHeroCandidatesAsync(GameEntry game, bool animatedOnly = false, CancellationToken ct = default)
     {
         if (!HasApiKey) return Array.Empty<ArtworkCandidate>();
 
         var images = game.Source == GameSource.Steam && game.SteamAppId is { } appId
-            ? await _client.GetHeroCandidatesForSteamAppAsync(appId, ct)
-            : await _client.GetHeroCandidatesForTitleAsync(game.Title, ct);
+            ? await _client.GetHeroCandidatesForSteamAppAsync(appId, animatedOnly, ct)
+            : await _client.GetHeroCandidatesForTitleAsync(game.Title, animatedOnly, ct);
 
         return await DownloadCandidatesAsync(images, $"{game.Id}_hero_candidate", ct);
     }
 
-    public async Task<IReadOnlyList<ArtworkCandidate>> GetLogoCandidatesAsync(GameEntry game, CancellationToken ct = default)
+    public async Task<IReadOnlyList<ArtworkCandidate>> GetLogoCandidatesAsync(GameEntry game, bool animatedOnly = false, CancellationToken ct = default)
     {
         if (!HasApiKey) return Array.Empty<ArtworkCandidate>();
 
         var images = game.Source == GameSource.Steam && game.SteamAppId is { } appId
-            ? await _client.GetLogoCandidatesForSteamAppAsync(appId, ct)
-            : await _client.GetLogoCandidatesForTitleAsync(game.Title, ct);
+            ? await _client.GetLogoCandidatesForSteamAppAsync(appId, animatedOnly, ct)
+            : await _client.GetLogoCandidatesForTitleAsync(game.Title, animatedOnly, ct);
 
         return await DownloadCandidatesAsync(images, $"{game.Id}_logo_candidate", ct);
     }
 
-    public async Task<IReadOnlyList<ArtworkCandidate>> GetIconCandidatesAsync(GameEntry game, CancellationToken ct = default)
+    public async Task<IReadOnlyList<ArtworkCandidate>> GetIconCandidatesAsync(GameEntry game, bool animatedOnly = false, CancellationToken ct = default)
     {
         if (!HasApiKey) return Array.Empty<ArtworkCandidate>();
 
         var images = game.Source == GameSource.Steam && game.SteamAppId is { } appId
-            ? await _client.GetIconCandidatesForSteamAppAsync(appId, ct)
-            : await _client.GetIconCandidatesForTitleAsync(game.Title, ct);
+            ? await _client.GetIconCandidatesForSteamAppAsync(appId, animatedOnly, ct)
+            : await _client.GetIconCandidatesForTitleAsync(game.Title, animatedOnly, ct);
 
         return await DownloadCandidatesAsync(images, $"{game.Id}_icon_candidate", ct);
     }
 
-    public async Task<IReadOnlyList<ArtworkCandidate>> GetWideGridCandidatesAsync(GameEntry game, CancellationToken ct = default)
+    public async Task<IReadOnlyList<ArtworkCandidate>> GetWideGridCandidatesAsync(GameEntry game, bool animatedOnly = false, CancellationToken ct = default)
     {
         if (!HasApiKey) return Array.Empty<ArtworkCandidate>();
 
         var images = game.Source == GameSource.Steam && game.SteamAppId is { } appId
-            ? await _client.GetWideGridCandidatesForSteamAppAsync(appId, ct)
-            : await _client.GetWideGridCandidatesForTitleAsync(game.Title, ct);
+            ? await _client.GetWideGridCandidatesForSteamAppAsync(appId, animatedOnly, ct)
+            : await _client.GetWideGridCandidatesForTitleAsync(game.Title, animatedOnly, ct);
 
         return await DownloadCandidatesAsync(images, $"{game.Id}_widegrid_candidate", ct);
     }
@@ -219,16 +205,8 @@ public sealed class ArtworkService : IArtworkService
     public Task<bool> ApplyWideGridCandidateAsync(GameEntry game, ArtworkCandidate candidate, CancellationToken ct = default)
         => ApplyCandidateAsync(game, candidate, ArtworkSlot.WideGrid);
 
-    /// <summary>Which GameEntry/GameMetadataOverride field ApplyCandidateAsync below writes to — grid/hero/logo/widegrid, matching the 4 picker types.</summary>
     private enum ArtworkSlot { Grid, Hero, Logo, WideGrid, Icon }
 
-    /// <summary>
-    /// Downloads every candidate image to disk (once — a file that's
-    /// already cached from a previous picker open, keyed by SteamGridDB's
-    /// own image Id, is left alone) so the picker UI can bind straight to
-    /// local paths. One bad candidate (network hiccup, bad URL) just gets
-    /// skipped instead of failing the whole picker.
-    /// </summary>
     private async Task<IReadOnlyList<ArtworkCandidate>> DownloadCandidatesAsync(
         IReadOnlyList<SteamGridDbImage> images, string filenamePrefix, CancellationToken ct)
     {
@@ -253,26 +231,6 @@ public sealed class ArtworkService : IArtworkService
         return results;
     }
 
-    /// <summary>
-    /// Candidate's local file (downloaded when the picker opened) already
-    /// IS the real image at full resolution — SteamGridDB doesn't offer a
-    /// separate thumbnail endpoint, and resizing ourselves would need an
-    /// imaging library we don't have. So "applying" a pick is just copying
-    /// that cached file into the game's grid/hero/logo path; no second
-    /// download needed.
-    ///
-    /// Filename includes the candidate's own SteamGridDB image Id (not
-    /// just "{game.Id}_grid") specifically so this NEVER overwrites the
-    /// file that's currently on screen — overwriting it in place risked a
-    /// Windows file-lock conflict with whatever still had that exact file
-    /// open for display, which is the likely cause of a user-reported "the
-    /// first apply silently does nothing, the second one works" bug: a
-    /// failed overwrite was caught and swallowed as a quiet "false", with
-    /// nothing visibly different, until the lock cleared on a later try.
-    /// Old grid/hero/logo files from previous picks are left behind as
-    /// harmless orphans in the same cache folder the README already tells
-    /// the user they can clear anytime.
-    /// </summary>
     private Task<bool> ApplyCandidateAsync(GameEntry game, ArtworkCandidate candidate, ArtworkSlot slot)
     {
         Directory.CreateDirectory(_cacheDir);
@@ -291,10 +249,6 @@ public sealed class ArtworkService : IArtworkService
 
         if (slot == ArtworkSlot.Logo)
         {
-            // Mesmo corte de margem transparente do fluxo automático
-            // (FetchLogoAsync) — sem isso, escolher o LOGO manualmente no
-            // picker (ApplyLogoCandidateAsync) continuaria herdando o
-            // tamanho inconsistente do PNG original da SteamGridDB.
             TrimTransparentPadding(localPath);
         }
 
@@ -345,43 +299,18 @@ public sealed class ArtworkService : IArtworkService
         }
         catch (Exception) when (ct.IsCancellationRequested is false)
         {
-            // Network hiccup / bad URL — skip this one image, don't take
-            // down the whole fetch (or picker) pass.
             return null;
         }
     }
 
-    /// <summary>
-    /// v0.9.6: pedido do usuário ("ajustar a logo dos jogos, uns ficam
-    /// pequenas em cima, outros em tamanho bom"). Causa: o LOGO é um PNG
-    /// transparente da SteamGridDB (wordmark/título do jogo) e cada fonte
-    /// exporta com uma margem transparente diferente em volta do desenho
-    /// real — um logo "gordo" de borda a borda e outro minúsculo cercado
-    /// de ar invisível. GameTileViewModel.CaptionLogoHeight escala todo
-    /// PNG pra uma altura FIXA, então a margem invisível conta como
-    /// "altura do logo" e empurra o desenho de verdade pra um tamanho bem
-    /// menor do que os logos sem margem.
-    ///
-    /// Corrige cortando a imagem pro menor retângulo que ainda contém
-    /// algum pixel não-transparente (bounding box do canal alpha), uma
-    /// vez, no momento do download/aplicação — não em toda renderização.
-    /// Só roda em PNG (o único formato com canal alpha que a SteamGridDB
-    /// usa pra LOGO); best-effort, qualquer erro deixa o arquivo original
-    /// intocado.
-    /// 
-    /// v1.0.0 (Linux prep): Trocado System.Drawing.Common (Windows-only)
-    /// por SkiaSharp (cross-platform). A lógica é idêntica, mas agora
-    /// roda no Linux sem depender de GDI+.
-    /// </summary>
     private static void TrimTransparentPadding(string path)
     {
-        const byte AlphaThreshold = 8; // ignora halo quase-transparente de anti-aliasing nas bordas
+        const byte AlphaThreshold = 8;
 
         if (!string.Equals(Path.GetExtension(path), ".png", StringComparison.OrdinalIgnoreCase)) return;
 
         try
         {
-            // Carrega a imagem como bytes para não travar o arquivo em disco.
             var bytes = File.ReadAllBytes(path);
             using var original = SKBitmap.Decode(bytes);
             if (original is null) return;
@@ -391,7 +320,6 @@ public sealed class ArtworkService : IArtworkService
             var maxX = -1;
             var maxY = -1;
 
-            // Itera pelos pixels para achar o bounding box do alpha.
             for (var y = 0; y < original.Height; y++)
             {
                 for (var x = 0; x < original.Width; x++)
@@ -405,12 +333,9 @@ public sealed class ArtworkService : IArtworkService
                 }
             }
 
-            // Imagem toda transparente (não devia acontecer, mas não é
-            // motivo pra travar) ou já sem nenhuma margem pra cortar.
             if (maxX < minX || maxY < minY) return;
             if (minX == 0 && minY == 0 && maxX == original.Width - 1 && maxY == original.Height - 1) return;
 
-            // Cria um novo bitmap apenas com a área do bounding box.
             var cropRect = new SKRectI(minX, minY, maxX + 1, maxY + 1);
             using var cropped = new SKBitmap(cropRect.Width, cropRect.Height);
             
@@ -419,7 +344,6 @@ public sealed class ArtworkService : IArtworkService
                 canvas.DrawBitmap(original, cropRect, new SKRect(0, 0, cropRect.Width, cropRect.Height));
             }
 
-            // Salva por cima do original.
             using var image = SKImage.FromBitmap(cropped);
             using var data = image.Encode(SKEncodedImageFormat.Png, 100);
             using var stream = File.OpenWrite(path);
@@ -427,25 +351,9 @@ public sealed class ArtworkService : IArtworkService
         }
         catch (Exception)
         {
-            // PNG corrompido, etc. — deixa a imagem original (com a margem)
-            // em vez de travar o fetch.
         }
     }
 
-    /// <summary>
-    /// v0.9.23: era uma cópia CAMPO A CAMPO, e isso já apagou dados do
-    /// usuário três vezes — todo campo novo que alguém esquecesse de
-    /// acrescentar aqui sumia do jogo assim que qualquer busca de capa
-    /// rodasse. Primeiro WideGridImagePath, depois IsFavorite, e por fim
-    /// TitleOverride/IsApplication, este reportado pelo usuário ("eu edito
-    /// o nome, mas mudo a imagem e ele volta pro nome original").
-    ///
-    /// <para>
-    /// Agora é Clone() (MemberwiseClone), que copia tudo — inclusive campo
-    /// que ainda nem existe. A lista de campos sumiu junto com a chance de
-    /// esquecer algum. Ver GameMetadataOverride.Clone.
-    /// </para>
-    /// </summary>
     private GameMetadataOverride GetOrCreateOverride(string gameId)
     {
         var overrides = _store.LoadOverrides();
