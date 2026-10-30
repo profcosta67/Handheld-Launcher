@@ -48,6 +48,7 @@ public partial class MainWindow : Window
     private DispatcherTimer? _topmostEnforcerTimer;
     private DispatcherTimer? _batteryTimer;
     private bool _hotkeyRegistered;
+    private bool _topmostTemporarilyLowered;
 
     // --- Tema de LAYOUT (v0.9.20) ---
     //
@@ -116,6 +117,26 @@ public partial class MainWindow : Window
         // whether this is a kiosk install. See StartTopmostEnforcer below
         // for why a one-time Topmost=true isn't enough on the real
         // hardware.
+        // In kiosk mode the launcher starts Topmost so it can replace the
+        // handheld shell. Once the user deliberately switches to another
+        // app (for example Snipping Tool), temporarily leave the Topmost
+        // band so normal windows and capture overlays can appear above us.
+        // Restore Topmost only when the user returns to the launcher.
+        Deactivated += (_, _) =>
+        {
+            if (!Topmost) return;
+            Topmost = false;
+            _topmostTemporarilyLowered = true;
+            DebugLog.Write("MainWindow: focus lost; temporarily lowering Topmost.");
+        };
+        Activated += (_, _) =>
+        {
+            if (!_topmostTemporarilyLowered) return;
+            _topmostTemporarilyLowered = false;
+            Topmost = true;
+            DebugLog.Write("MainWindow: focus returned; restoring Topmost.");
+        };
+
         Opened += (_, _) =>
         {
             if (Topmost) StartTopmostEnforcer();
@@ -188,7 +209,10 @@ public partial class MainWindow : Window
             //   window shouldn't bring it back on screen the way Activate()
             //   did, but there's nothing to "reassert in the z-order"
             //   while hidden anyway — skip it either way.
-            if (!Topmost || !IsVisible) return;
+            // Never reassert the Topmost band while the user is working
+            // in another application. Doing so can bury owned dialogs and
+            // capture tools even without explicitly stealing keyboard focus.
+            if (!Topmost || !IsVisible || !IsActive) return;
             Topmost = false;
             Topmost = true;
         };
@@ -444,86 +468,83 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// `shutdown /r /t 0` — immediate restart. No in-app confirmation step
-    /// before this fires (see chat/README for that open question — a
-    /// stray tap on "Power" then this item currently restarts right
-    /// away, which could lose game progress).
-    /// </summary>
-    private static void RestartDevice() => RunShutdownExe("/r /t 0");
+    /// <summary>Request an immediate restart without force-closing user applications.</summary>
+    private static void RestartDevice() => _ = RunShutdownExeAsync("/r");
 
-    /// <summary>`shutdown /s /t 0` — immediate shutdown, same no-confirmation caveat as RestartDevice.</summary>
-    private static void ShutdownDevice() => RunShutdownExe("/s /t 0");
+    /// <summary>Request an immediate shutdown without force-closing user applications.</summary>
+    private static void ShutdownDevice() => _ = RunShutdownExeAsync("/s");
 
     /// <summary>
-    /// BUG REPORTADO v0.9.21: "os botões reiniciar e desligar aparelho
-    /// ainda não estão funcionando". O caminho até aqui (menu → confirmação
-    /// → evento) foi revisado linha por linha e está correto, então o
-    /// problema está nesta chamada — e a versão anterior deste método
-    /// ENGOLIA a exceção sem registrar nada, que é justamente por que
-    /// nunca houve informação nenhuma sobre a falha.
-    ///
-    /// <para>
-    /// Três mudanças, todas pensadas pra esse caso:
-    /// </para>
-    /// <list type="bullet">
-    /// <item><b>Caminho completo</b> (%SystemRoot%\System32\shutdown.exe)
-    /// em vez de depender do PATH. Um PATH diferente no contexto da
-    /// instalação (ou de uma abertura pelo Agendador de Tarefas) explicaria
-    /// exatamente o sintoma: nada acontece, sem erro visível.</item>
-    /// <item><b>Registra tudo no debug.log</b> — o que foi chamado, o
-    /// código de saída e a saída de erro do shutdown.exe. Se ainda falhar,
-    /// o log diz o motivo em vez de a gente adivinhar de novo.</item>
-    /// <item><b>Plano B com UseShellExecute=true</b> se a chamada direta
-    /// falhar.</item>
-    /// </list>
+    /// Starts the Windows shutdown utility without blocking Avalonia's UI
+    /// thread. The previous implementation synchronously read redirected
+    /// streams before applying its timeout; that could stall the UI and
+    /// made failures difficult to distinguish from an unresponsive menu.
     /// </summary>
-    private static void RunShutdownExe(string arguments)
+    private static async Task RunShutdownExeAsync(string action)
     {
         var systemRoot = Environment.GetFolderPath(Environment.SpecialFolder.System);
         var fullPath = Path.Combine(systemRoot, "shutdown.exe");
         var exe = File.Exists(fullPath) ? fullPath : "shutdown.exe";
 
-        DebugLog.Write($"RunShutdownExe: '{exe}' {arguments}");
+        DebugLog.Write($"RunShutdownExeAsync: requested action='{action}', executable='{exe}'.");
 
         try
         {
-            var psi = new System.Diagnostics.ProcessStartInfo(exe, arguments)
+            var startInfo = new System.Diagnostics.ProcessStartInfo(exe)
             {
                 CreateNoWindow = true,
                 UseShellExecute = false,
-                RedirectStandardError = true,
-                RedirectStandardOutput = true,
             };
+            startInfo.ArgumentList.Add(action);
+            startInfo.ArgumentList.Add("/t");
+            startInfo.ArgumentList.Add("0");
 
-            using var process = System.Diagnostics.Process.Start(psi);
+            using var process = System.Diagnostics.Process.Start(startInfo);
             if (process is null)
             {
-                DebugLog.Write("RunShutdownExe: Process.Start devolveu null.");
+                DebugLog.Write("RunShutdownExeAsync: Process.Start returned null.");
                 return;
             }
 
-            var stderr = process.StandardError.ReadToEnd();
-            var stdout = process.StandardOutput.ReadToEnd();
-            process.WaitForExit(5000);
-
-            DebugLog.Write($"RunShutdownExe: exit={process.ExitCode} stdout='{stdout.Trim()}' stderr='{stderr.Trim()}'");
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            try
+            {
+                await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
+                DebugLog.Write($"RunShutdownExeAsync: action='{action}', exitCode={process.ExitCode}.");
+            }
+            catch (OperationCanceledException)
+            {
+                // Do not kill the process: Windows may still be processing
+                // the shutdown request even if the utility takes longer
+                // than expected to exit.
+                DebugLog.Write($"RunShutdownExeAsync: action='{action}' did not exit within 5 seconds; leaving it running.");
+            }
         }
         catch (Exception ex)
         {
-            DebugLog.Write($"RunShutdownExe EXCEPTION ({exe}): {ex.Message} — tentando via shell.");
+            DebugLog.Write($"RunShutdownExeAsync: direct launch failed for '{exe}': {ex}");
 
+            // Shell execution is a fallback for unusual installation
+            // contexts. It remains non-blocking and uses ArgumentList to
+            // avoid command-line quoting issues.
             try
             {
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe, arguments)
+                var fallback = new System.Diagnostics.ProcessStartInfo(exe)
                 {
-                    UseShellExecute = true,
                     CreateNoWindow = true,
-                });
+                    UseShellExecute = true,
+                };
+                fallback.ArgumentList.Add(action);
+                fallback.ArgumentList.Add("/t");
+                fallback.ArgumentList.Add("0");
+                using var process = System.Diagnostics.Process.Start(fallback);
+                DebugLog.Write(process is null
+                    ? $"RunShutdownExeAsync: shell fallback returned null for '{action}'."
+                    : $"RunShutdownExeAsync: shell fallback started for '{action}'.");
             }
-            catch (Exception shellEx)
+            catch (Exception fallbackEx)
             {
-                DebugLog.Write($"RunShutdownExe FALHOU também via shell: {shellEx.Message}");
+                DebugLog.Write($"RunShutdownExeAsync: shell fallback also failed for '{action}': {fallbackEx}");
             }
         }
     }
