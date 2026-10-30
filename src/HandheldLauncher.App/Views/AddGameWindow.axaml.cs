@@ -21,6 +21,9 @@ public partial class AddGameWindow : Window
     {
         InitializeComponent();
         ViewModel.IsApplication = isApplication;
+        // No fluxo "Adicionar programa", o tipo é obrigatório: não permitir
+        // que o usuário desmarque e cadastre o executável como jogo.
+        ApplicationCheckBox.IsVisible = !isApplication;
         HandheldLauncher.App.Platform.ThemeManager.ApplyFont(this, HandheldLauncher.Core.Services.AppSettingsStore.Load().UiFont);
         DataContext = ViewModel;
     }
