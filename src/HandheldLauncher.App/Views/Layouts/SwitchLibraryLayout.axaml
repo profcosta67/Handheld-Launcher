@@ -139,6 +139,7 @@
                       VerticalAlignment="Center"
                       Background="Transparent"
                       BorderThickness="0"
+                      HorizontalContentAlignment="Center"
                       HorizontalScrollBarVisibility="Hidden"
                       VerticalScrollBarVisibility="Disabled">
           <ScrollViewer.Transitions>
