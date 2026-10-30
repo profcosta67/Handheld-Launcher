@@ -161,7 +161,7 @@
                      as artes, pra ficar menos ícones na tela". Com o zoom
                      maior da capa em foco, o espaço também evita que ela
                      cubra as vizinhas ao crescer. -->
-                <StackPanel Orientation="Horizontal" Spacing="120" VerticalAlignment="Center" />
+                <StackPanel Orientation="Horizontal" Spacing="120" Margin="900,0,900,0" VerticalAlignment="Center" />
               </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
 
