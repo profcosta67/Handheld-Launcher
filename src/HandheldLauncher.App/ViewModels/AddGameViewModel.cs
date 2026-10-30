@@ -49,6 +49,13 @@ public sealed class AddGameViewModel : ViewModelBase
     /// não existe scanner do Xbox app ainda, então esse checkbox é a única
     /// forma de um jogo cair na aba de filtro "Xbox" pedida pelo usuário.
     /// </summary>
+    private bool _isApplication;
+    public bool IsApplication
+    {
+        get => _isApplication;
+        set => SetField(ref _isApplication, value);
+    }
+
     private bool _isXboxSource;
     public bool IsXboxSource
     {
@@ -63,6 +70,7 @@ public sealed class AddGameViewModel : ViewModelBase
     {
         Id = Guid.NewGuid().ToString("N"),
         Title = Title.Trim(),
+        IsApplication = IsApplication,
         Source = IsXboxSource ? GameSource.XboxApp : GameSource.Manual,
         ExecutablePath = ExecutablePath.Trim(),
         LaunchArguments = string.IsNullOrWhiteSpace(LaunchArguments) ? null : LaunchArguments.Trim(),
