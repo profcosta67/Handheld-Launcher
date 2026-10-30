@@ -46,6 +46,8 @@ public partial class SwitchLibraryLayout : UserControl, ILibraryLayout
     // Mesmos repasses do ClassicLibraryLayout — ver comentário lá.
     private MainWindow? Owner => TopLevel.GetTopLevel(this) as MainWindow;
 
+    private void OnAddProgramClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => Owner?.HandleAddProgramClick();
+
     private void OnTilePointerPressed(object? sender, PointerPressedEventArgs e) => Owner?.HandleTilePointerPressed(sender, e);
 
     private void OnTileDoubleTapped(object? sender, TappedEventArgs e) => Owner?.HandleTileDoubleTapped(sender, e);
