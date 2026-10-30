@@ -42,25 +42,25 @@
          A ativa precisa INVERTER: se todas ficassem brancas com borda
          vermelha, não daria pra ver qual está selecionada. -->
     <Style Selector="Button.switchTab">
-      <Setter Property="Background" Value="#FFFFFF" />
-      <Setter Property="Foreground" Value="#111111" />
-      <Setter Property="BorderBrush" Value="#E4000F" />
-      <Setter Property="BorderThickness" Value="2" />
-      <Setter Property="CornerRadius" Value="18" />
-      <Setter Property="Padding" Value="8,11" />
+      <Setter Property="Background" Value="#252A36" />
+      <Setter Property="Foreground" Value="#E9ECF4" />
+      <Setter Property="BorderBrush" Value="#424A5D" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="Padding" Value="10,9" />
       <Setter Property="FontSize" Value="12" />
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="HorizontalAlignment" Value="Stretch" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
     </Style>
     <Style Selector="Button.switchTab /template/ ContentPresenter">
-      <Setter Property="Background" Value="#FFFFFF" />
-      <Setter Property="Foreground" Value="#111111" />
-      <Setter Property="BorderBrush" Value="#E4000F" />
-      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="Background" Value="#252A36" />
+      <Setter Property="Foreground" Value="#E9ECF4" />
+      <Setter Property="BorderBrush" Value="#424A5D" />
+      <Setter Property="BorderThickness" Value="1" />
     </Style>
     <Style Selector="Button.switchTab.active /template/ ContentPresenter">
-      <Setter Property="Background" Value="#E4000F" />
+      <Setter Property="Background" Value="#6579E8" />
       <Setter Property="Foreground" Value="#FFFFFF" />
     </Style>
   </UserControl.Styles>
@@ -90,14 +90,14 @@
     <!-- Véu branco: 35% na v0.9.23 (era 55%, e 91% na v0.9.21) — "o branco
          de fundo ainda está muito forte, coloca mais transparência". Agora
          a arte do jogo domina e o branco só lava. -->
-    <Border Background="#59FFFFFF" IsHitTestVisible="False" />
+    <Border Background="#A6101219" IsHitTestVisible="False" />
 
-    <Grid RowDefinitions="*,Auto" Margin="24,12,24,12">
+    <Grid RowDefinitions="*,Auto" Margin="28,16,28,16">
 
       <!-- Logo/nome + roleta juntos num bloco centralizado: é o que coloca
            o nome exatamente EM CIMA da arte selecionada, que fica sempre no
            meio da tela. -->
-      <StackPanel Grid.Row="0" VerticalAlignment="Center" Spacing="10">
+      <StackPanel Grid.Row="0" VerticalAlignment="Center" Spacing="16">
 
         <!-- Mesmo sistema do layout Clássico, a pedido: quando o jogo já
              tem logo baixado, ela aparece NO LUGAR do nome; só cai pro
@@ -115,15 +115,17 @@
           <!-- Sem logo: nome em pílula branca. A pílula existe porque o
                fundo agora tem a cor da arte do jogo — texto solto some num
                banner claro ou num escuro, dependendo do jogo. -->
-          <Border Background="#D9FFFFFF"
-                  CornerRadius="{DynamicResource BarCornerRadius}"
+          <Border Background="#D91A1F2B"
+                  BorderBrush="#6579E8"
+                  BorderThickness="1"
+                  CornerRadius="14"
                   Padding="20,8"
                   HorizontalAlignment="Center"
                   VerticalAlignment="Center"
                   MaxWidth="900"
                   IsVisible="{Binding SelectedTile.ShowNameCaption}">
             <TextBlock Text="{Binding SelectedTile.Title}"
-                       Foreground="#1A1A1A"
+                       Foreground="#FFFFFF"
                        FontSize="26"
                        FontWeight="SemiBold"
                        TextWrapping="NoWrap"
@@ -148,7 +150,7 @@
                      as artes, pra ficar menos ícones na tela". Com o zoom
                      maior da capa em foco, o espaço também evita que ela
                      cubra as vizinhas ao crescer. -->
-                <StackPanel Orientation="Horizontal" Spacing="56" VerticalAlignment="Top" />
+                <StackPanel Orientation="Horizontal" Spacing="42" VerticalAlignment="Top" />
               </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
 
@@ -239,13 +241,13 @@
                   <!-- Anéis de seleção: dois, porque um só sumiria numa capa
                        da mesma cor dele — e capa pode ser de qualquer cor.
                        Sem fundo, só contorno, pra não cobrir a arte. -->
-                  <Border BorderBrush="White"
-                          BorderThickness="4"
+                  <Border BorderBrush="#FFFFFF"
+                          BorderThickness="5"
                           IsHitTestVisible="False"
                           IsVisible="{Binding IsFocused}" />
-                  <Border BorderBrush="#E4000F"
-                          BorderThickness="2"
-                          Margin="4"
+                  <Border BorderBrush="#6579E8"
+                          BorderThickness="3"
+                          Margin="5"
                           IsHitTestVisible="False"
                           IsVisible="{Binding IsFocused}" />
                 </Grid>
@@ -253,6 +255,30 @@
             </ItemsControl.ItemTemplate>
           </ItemsControl>
         </ScrollViewer>
+
+        <!-- Identificação persistente do item em foco: não depende de a capa
+             ter logo, nem da cor/contraste da arte. -->
+        <Border Background="#E61A1F2B"
+                BorderBrush="#52607D"
+                BorderThickness="1"
+                CornerRadius="12"
+                Padding="18,9"
+                HorizontalAlignment="Center"
+                MaxWidth="760"
+                IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
+          <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+            <Border Background="#6579E8" CornerRadius="5" Padding="7,3" VerticalAlignment="Center">
+              <TextBlock Text="SELECIONADO" Foreground="White" FontSize="9" FontWeight="Bold" />
+            </Border>
+            <TextBlock Text="{Binding SelectedTile.Title}"
+                       Foreground="White"
+                       FontSize="16"
+                       FontWeight="SemiBold"
+                       VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis"
+                       MaxWidth="560" />
+          </StackPanel>
+        </Border>
       </StackPanel>
 
       <TextBlock Grid.Row="0"
@@ -265,24 +291,16 @@
                  Margin="24"
                  IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
 
-      <!-- ===== MENU EMBAIXO: duas linhas INTERCALADAS ===== -->
-      <!-- Pedido do usuário, desenhado por ele assim:
-             Favoritos......  ......todos...........computador....
-             ......Emuladores......programas.........não instalados
-           ou seja, cada aba de baixo cai no VÃO entre duas de cima.
-           Conseguido com 7 colunas iguais: a linha de cima ocupa 0-1, 2-3,
-           4-5 (sobra a 6), e a de baixo ocupa 1-2, 3-4, 5-6 (sobra a 0).
-           As duas linhas enchem a largura e ficam deslocadas meia coluna
-           uma da outra, que é exatamente o padrão do desenho. -->
-      <StackPanel Grid.Row="1" Spacing="8" Margin="0,14,0,0">
-        <Grid ColumnDefinitions="*,*,*,*,*,*,*" RowDefinitions="Auto,Auto">
-          <Button Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Classes="switchTab" Classes.active="{Binding IsFilterFavoritesActive}" Content="Favoritos" Command="{Binding SetFilterFavoritesCommand}" Margin="4" />
-          <Button Grid.Row="0" Grid.Column="2" Grid.ColumnSpan="2" Classes="switchTab" Classes.active="{Binding IsFilterAllActive}" Content="Todos" Command="{Binding SetFilterAllCommand}" Margin="4" />
-          <Button Grid.Row="0" Grid.Column="4" Grid.ColumnSpan="2" Classes="switchTab" Classes.active="{Binding IsFilterComputerActive}" Content="Computador" Command="{Binding SetFilterComputerCommand}" Margin="4" />
-
-          <Button Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Classes="switchTab" Classes.active="{Binding IsFilterEmulatorsActive}" Content="Emuladores" Command="{Binding SetFilterEmulatorsCommand}" Margin="4" />
-          <Button Grid.Row="1" Grid.Column="3" Grid.ColumnSpan="2" Classes="switchTab" Classes.active="{Binding IsFilterApplicationsActive}" Content="Programas" Command="{Binding SetFilterApplicationsCommand}" Margin="4" />
-          <Button Grid.Row="1" Grid.Column="5" Grid.ColumnSpan="2" Classes="switchTab" Classes.active="{Binding IsFilterNotInstalledActive}" Content="Não instalados" Command="{Binding SetFilterNotInstalledCommand}" Margin="4" />
+      <!-- Barra de filtros compacta: uma única linha para liberar área útil
+           para a biblioteca. Mantém os seis filtros e seus comandos originais. -->
+      <StackPanel Grid.Row="1" Spacing="8" Margin="0,16,0,0">
+        <Grid ColumnDefinitions="*,*,*,*,*,*">
+          <Button Grid.Column="0" Classes="switchTab" Classes.active="{Binding IsFilterFavoritesActive}" Content="Favoritos" Command="{Binding SetFilterFavoritesCommand}" Margin="4" />
+          <Button Grid.Column="1" Classes="switchTab" Classes.active="{Binding IsFilterAllActive}" Content="Todos" Command="{Binding SetFilterAllCommand}" Margin="4" />
+          <Button Grid.Column="2" Classes="switchTab" Classes.active="{Binding IsFilterComputerActive}" Content="Computador" Command="{Binding SetFilterComputerCommand}" Margin="4" />
+          <Button Grid.Column="3" Classes="switchTab" Classes.active="{Binding IsFilterEmulatorsActive}" Content="Emuladores" Command="{Binding SetFilterEmulatorsCommand}" Margin="4" />
+          <Button Grid.Column="4" Classes="switchTab" Classes.active="{Binding IsFilterApplicationsActive}" Content="Programas" Command="{Binding SetFilterApplicationsCommand}" Margin="4" />
+          <Button Grid.Column="5" Classes="switchTab" Classes.active="{Binding IsFilterNotInstalledActive}" Content="Não instalados" Command="{Binding SetFilterNotInstalledCommand}" Margin="4" />
         </Grid>
 
         <!-- Subfiltros seguem com a cor de cada plataforma (pedido anterior
