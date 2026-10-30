@@ -44,7 +44,7 @@
       <TextBlock Text="Pasta de trabalho (opcional)" Classes="subtle" Margin="0,8,0,0" />
       <TextBox Text="{Binding WorkingDirectory}" Watermark="Em branco = pasta do executável" />
 
-      <CheckBox Content="Adicionar na aba Programas (não como jogo)" IsChecked="{Binding IsApplication}" Margin="0,8,0,0" />
+      <CheckBox x:Name="ApplicationCheckBox" Content="Adicionar na aba Programas (não como jogo)" IsChecked="{Binding IsApplication}" Margin="0,8,0,0" />
       <CheckBox Content="É um jogo do Xbox app / Game Pass"
                 IsChecked="{Binding IsXboxSource}"
                 Margin="0,8,0,0" />
