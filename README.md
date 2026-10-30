@@ -261,6 +261,27 @@ mais sentido de risco crescente):
      lançar o tema propriamente dito." Fica pra quando o resto desta fila
      estiver fechado, como um projeto dedicado.
 
+     **v0.9.24 — bug dos botões de energia, causa provável encontrada**:
+     `shutdown.exe` era chamado SEM `/f`. Sem ele o Windows manda
+     WM_QUERYENDSESSION pra cada app aberto e **um único app que recuse
+     cancela o desligamento inteiro**, em silêncio e com exit code 0 — que
+     é exatamente o sintoma relatado ("não funciona, sem erro"). Num
+     handheld isso é o caso comum (Legion Space, Xbox app, Steam, jogo
+     aberto). Agora usa `/r /f /t 0` e `/s /f /t 0`. Custo assumido: jogo
+     aberto perde progresso não salvo — aceitável porque são três passos
+     deliberados (Energia → ação → confirmar "Sim"). **Ainda não
+     confirmado pelo usuário**; se persistir, o debug.log da v0.9.21 tem
+     a resposta.
+
+     **v0.9.24 — auditoria do padrão "cópia campo a campo"** (o que causou
+     o bug do nome editado, e antes dele `WideGridImagePath` e
+     `IsFavorite`): varrido o resto do projeto, **nenhum outro caso**. Os
+     saves de `AppSettings` (MainViewModel.CycleOverlayPreset/
+     SetOverlayPreset, App.axaml.cs) usam Load → mutar um campo → Save, que
+     é seguro; os `new GameEntry` dos scanners criam do zero a partir do
+     disco, não copiam. A regra pro futuro fica registrada: **copiar
+     objeto de estado persistido só via `Clone()`**, nunca listando campos.
+
      **QUARTA ETAPA, v0.9.23** — retorno do teste da v0.9.22:
      - **BUG REPORTADO, e reincidente**: "eu edito o nome, mas mudo a
        imagem e ele volta pro nome original". Causa:

@@ -450,10 +450,33 @@ public partial class MainWindow : Window
     /// stray tap on "Power" then this item currently restarts right
     /// away, which could lose game progress).
     /// </summary>
-    private static void RestartDevice() => RunShutdownExe("/r /t 0");
+    /// <summary>
+    /// v0.9.24: entrou o <c>/f</c> — e é a explicação mais provável pro bug
+    /// que o usuário reportou ("os botões reiniciar e desligar aparelho não
+    /// estão funcionando", sem erro nenhum).
+    ///
+    /// <para>
+    /// Sem <c>/f</c>, o Windows PERGUNTA a cada aplicativo aberto se pode
+    /// encerrar (WM_QUERYENDSESSION), e <b>basta um recusar pra cancelar o
+    /// desligamento inteiro</b> — silenciosamente, com o próprio
+    /// shutdown.exe saindo com código 0, como se tivesse dado certo. Num
+    /// handheld isso é o caso COMUM, não a exceção: Legion Space, app do
+    /// Xbox, Steam e um jogo aberto, qualquer um deles basta.
+    /// </para>
+    /// <para>
+    /// Com <c>/f</c>, os aplicativos são fechados à força. O custo é real e
+    /// assumido: um jogo aberto perde o que não tiver salvo. Aceitável aqui
+    /// porque este caminho só roda depois de o usuário escolher "Energia" →
+    /// "Reiniciar/Desligar o aparelho" → e ainda confirmar "Sim, ..." numa
+    /// segunda tela (ver MainViewModel.RequestPowerConfirm) — três passos
+    /// deliberados, não um toque acidental. Um botão de desligar que não
+    /// desliga é pior que um que desliga de verdade.
+    /// </para>
+    /// </summary>
+    private static void RestartDevice() => RunShutdownExe("/r /f /t 0");
 
-    /// <summary>`shutdown /s /t 0` — immediate shutdown, same no-confirmation caveat as RestartDevice.</summary>
-    private static void ShutdownDevice() => RunShutdownExe("/s /t 0");
+    /// <summary>Desliga. Mesmo raciocínio do <c>/f</c> explicado em RestartDevice acima.</summary>
+    private static void ShutdownDevice() => RunShutdownExe("/s /f /t 0");
 
     /// <summary>
     /// BUG REPORTADO v0.9.21: "os botões reiniciar e desligar aparelho
