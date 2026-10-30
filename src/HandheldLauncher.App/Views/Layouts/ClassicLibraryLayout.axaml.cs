@@ -45,6 +45,8 @@ public partial class ClassicLibraryLayout : UserControl, ILibraryLayout
     // evento chegar durante o desmonte.
     private MainWindow? Owner => TopLevel.GetTopLevel(this) as MainWindow;
 
+    private void OnAddProgramClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => Owner?.HandleAddProgramClick();
+
     private void OnTilePointerPressed(object? sender, PointerPressedEventArgs e) => Owner?.HandleTilePointerPressed(sender, e);
 
     private void OnTileDoubleTapped(object? sender, TappedEventArgs e) => Owner?.HandleTileDoubleTapped(sender, e);

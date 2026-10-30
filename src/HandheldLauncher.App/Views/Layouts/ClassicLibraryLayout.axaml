@@ -168,6 +168,14 @@
           <Button Grid.Column="5" Classes="pill filterTab" Classes.active="{Binding IsFilterNotInstalledActive}" Content="Não instalados" Command="{Binding SetFilterNotInstalledCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,0,0" FontSize="13" />
         </Grid>
 
+        <!-- Ação de adicionar programa, disponível também no layout Clássico. -->
+        <Button Content="＋  Adicionar programa"
+                HorizontalAlignment="Center"
+                MinWidth="220"
+                Margin="4,2,4,0"
+                IsVisible="{Binding IsFilterApplicationsActive}"
+                Click="OnAddProgramClick" />
+
         <!-- Subfiltros da aba ativa (multi-seleção: marca/desmarca, vale a
              união das marcadas, nenhuma marcada = mostra tudo). A fileira
              inteira desaparece nas abas sem subfiltro. Clicar marca direto;
