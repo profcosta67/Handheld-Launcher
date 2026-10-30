@@ -135,6 +135,10 @@
 
         <!-- ===== ROLETA ===== -->
         <ScrollViewer x:Name="GameRowScrollViewer"
+                      Height="430"
+                      VerticalAlignment="Center"
+                      Background="Transparent"
+                      BorderThickness="0"
                       HorizontalScrollBarVisibility="Hidden"
                       VerticalScrollBarVisibility="Disabled">
           <ScrollViewer.Transitions>
@@ -150,7 +154,7 @@
                      as artes, pra ficar menos ícones na tela". Com o zoom
                      maior da capa em foco, o espaço também evita que ela
                      cubra as vizinhas ao crescer. -->
-                <StackPanel Orientation="Horizontal" Spacing="42" VerticalAlignment="Top" />
+                <StackPanel Orientation="Horizontal" Spacing="120" VerticalAlignment="Center" />
               </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
 
