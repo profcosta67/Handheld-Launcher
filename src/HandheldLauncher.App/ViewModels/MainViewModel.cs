@@ -1392,6 +1392,12 @@ public sealed class MainViewModel : ViewModelBase
         _pendingPowerConfirmLabel = lowercaseLabel;
         _pendingPowerAction = action;
         NavigateGlobalMenu(GlobalMenuPage.ConfirmPower);
+
+        // Pointer/gamepad activation closes non-navigation menu actions
+        // before invoking them. A power request is different: it must keep
+        // the menu visible while asking for explicit confirmation.
+        IsGlobalMenuOpen = true;
+
     }
 
     // Paralelo a _globalMenuActions: true = o item só troca de página
