@@ -1372,6 +1372,12 @@ public sealed class MainViewModel : ViewModelBase
         _pendingPowerConfirmLabel = lowercaseLabel;
         _pendingPowerAction = action;
         NavigateGlobalMenu(GlobalMenuPage.ConfirmPower);
+
+        // Power requests must keep the global menu visible while asking
+        // for explicit confirmation. Pointer activation closes ordinary
+        // actions before invoking them, so reopen the overlay for this
+        // confirmation page.
+        IsGlobalMenuOpen = true;
     }
 
     // Paralelo a _globalMenuActions: true = o item só troca de página
