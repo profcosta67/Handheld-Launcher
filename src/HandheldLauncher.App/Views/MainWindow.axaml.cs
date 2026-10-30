@@ -494,6 +494,8 @@ public partial class MainWindow : Window
             {
                 CreateNoWindow = true,
                 UseShellExecute = false,
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
             };
             startInfo.ArgumentList.Add(action);
             startInfo.ArgumentList.Add("/t");
@@ -506,11 +508,22 @@ public partial class MainWindow : Window
                 return;
             }
 
+            // Drain both redirected streams asynchronously so a full pipe
+            // can never block the child process or the UI thread.
+            var stdoutTask = process.StandardOutput.ReadToEndAsync();
+            var stderrTask = process.StandardError.ReadToEndAsync();
+
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
             try
             {
                 await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
-                DebugLog.Write($"RunShutdownExeAsync: action='{action}', exitCode={process.ExitCode}.");
+                var stdout = await stdoutTask.ConfigureAwait(false);
+                var stderr = await stderrTask.ConfigureAwait(false);
+                DebugLog.Write($"RunShutdownExeAsync: action='{action}', exitCode={process.ExitCode}, stdout='{stdout.Trim()}', stderr='{stderr.Trim()}'.");
+                if (process.ExitCode != 0)
+                {
+                    DebugLog.Write($"RunShutdownExeAsync: Windows rejected action '{action}'. Check permissions and shutdown policy.");
+                }
             }
             catch (OperationCanceledException)
             {
@@ -564,9 +577,21 @@ public partial class MainWindow : Window
             Close();
         };
         vm.MinimizeRequested += (_, _) => MinimizeToTray();
-        vm.TurnOffScreenRequested += (_, _) => TurnOffScreen();
-        vm.RestartDeviceRequested += (_, _) => RestartDevice();
-        vm.ShutdownDeviceRequested += (_, _) => ShutdownDevice();
+        vm.TurnOffScreenRequested += (_, _) =>
+        {
+            DebugLog.Write("MainWindow: received TurnOffScreenRequested.");
+            TurnOffScreen();
+        };
+        vm.RestartDeviceRequested += (_, _) =>
+        {
+            DebugLog.Write("MainWindow: received RestartDeviceRequested.");
+            RestartDevice();
+        };
+        vm.ShutdownDeviceRequested += (_, _) =>
+        {
+            DebugLog.Write("MainWindow: received ShutdownDeviceRequested.");
+            ShutdownDevice();
+        };
         // v0.9.11, etapa 2 ("tela de informações do jogo"): mesmo padrão
         // dos diálogos acima — MainWindow possui a janela/_activeDialog.
         vm.GameDetailsRequested += (_, game) => _ = OpenGameDetailsDialogAsync(vm, game);
