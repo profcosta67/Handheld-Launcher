@@ -1326,10 +1326,27 @@ public sealed class MainViewModel : ViewModelBase
 
     public void ActivateGlobalMenuItem(ContextMenuItemViewModel item)
     {
+        // Resolve the clicked row and its action once. Do not route a pointer
+        // click through ConfirmGlobalMenuSelection(), which reads the shared
+        // gamepad/keyboard selection index and can change during UI updates.
         var index = GlobalMenuItems.IndexOf(item);
-        DebugLog.Write($"Global menu: pointer activation requested for '{item.Label}' (index={index}, page={_globalMenuPage}).");
-        HighlightGlobalMenuItem(item);
-        if (index >= 0) ConfirmGlobalMenuSelection();
+        if (index < 0 || index >= _globalMenuActions.Count || index >= _globalMenuNavigates.Count)
+        {
+            DebugLog.Write($"Global menu: ignored stale pointer item '{item.Label}' on page {_globalMenuPage}.");
+            return;
+        }
+
+        _globalMenuIndex = index;
+        UpdateGlobalMenuSelection();
+
+        var action = _globalMenuActions[index];
+        var navigates = _globalMenuNavigates[index];
+        DebugLog.Write($"Global menu: pointer activation dispatch label='{item.Label}', index={index}, page={_globalMenuPage}, navigates={navigates}.");
+
+        if (!navigates)
+            CloseGlobalMenu();
+
+        action();
     }
 
     public void ActivateCoverCandidate(ArtworkCandidateViewModel candidate)
@@ -1422,10 +1439,12 @@ public sealed class MainViewModel : ViewModelBase
 
     private void NavigateGlobalMenu(GlobalMenuPage page)
     {
+        var previousPage = _globalMenuPage;
         _globalMenuPage = page;
         BuildGlobalMenu();
         _globalMenuIndex = 0;
         UpdateGlobalMenuSelection();
+        DebugLog.Write($"Global menu: navigated {previousPage} -> {page}; items=[{string.Join(" | ", GlobalMenuItems.Select(item => item.Label))}].");
     }
 
     public void CloseGlobalMenu()
@@ -1587,7 +1606,15 @@ public sealed class MainViewModel : ViewModelBase
                 // Energia) e primeiro da lista — cursor nunca começa em
                 // cima da ação que pode derrubar progresso de jogo.
                 Folder("Cancelar", GlobalMenuPage.Power);
-                Add($"Sim, {_pendingPowerConfirmLabel}", () => _pendingPowerAction?.Invoke(), isDanger: true);
+                Add($"Sim, {_pendingPowerConfirmLabel}", () =>
+                {
+                    var action = _pendingPowerAction;
+                    var label = _pendingPowerConfirmLabel;
+                    _pendingPowerAction = null;
+                    _pendingPowerConfirmLabel = string.Empty;
+                    DebugLog.Write($"Power menu: confirmation accepted for '{label}'; actionPresent={action is not null}.");
+                    action?.Invoke();
+                }, isDanger: true);
                 break;
 
             default:
