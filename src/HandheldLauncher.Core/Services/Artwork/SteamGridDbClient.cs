@@ -12,7 +12,7 @@ namespace HandheldLauncher.Core.Services.Artwork;
 public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
 {
     private const string BaseUrl = "https://www.steamgriddb.com/api/v2";
-    private const int MaxCandidates = 50; // Aumentado para pegar mais animadas
+    private const int MaxCandidates = 50;
 
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
@@ -67,7 +67,8 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
     {
         if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
         var type = animatedOnly ? "animated" : "static,animated";
-        return await FetchGridCandidates($"{BaseUrl}/grids/steam/{steamAppId}?dimensions=600x900&types={type}", ct);
+        // Filtro de proporção: Apenas verticais
+        return await FetchGridCandidates($"{BaseUrl}/grids/steam/{steamAppId}?types={type}", ct, wideOnly: false);
     }
 
     public async Task<IReadOnlyList<SteamGridDbImage>> GetGridCandidatesForTitleAsync(string title, bool animatedOnly = false, CancellationToken ct = default)
@@ -76,14 +77,15 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
         var gameId = await SearchGameId(title, ct);
         if (gameId is null) return Array.Empty<SteamGridDbImage>();
         var type = animatedOnly ? "animated" : "static,animated";
-        return await FetchGridCandidates($"{BaseUrl}/grids/game/{gameId}?dimensions=600x900&types={type}", ct);
+        return await FetchGridCandidates($"{BaseUrl}/grids/game/{gameId}?types={type}", ct, wideOnly: false);
     }
 
     public async Task<IReadOnlyList<SteamGridDbImage>> GetHeroCandidatesForSteamAppAsync(uint steamAppId, bool animatedOnly = false, CancellationToken ct = default)
     {
         if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
         var type = animatedOnly ? "animated" : "static,animated";
-        return await FetchGridCandidates($"{BaseUrl}/heroes/steam/{steamAppId}?types={type}", ct);
+        // Filtro de proporção: Apenas horizontais
+        return await FetchGridCandidates($"{BaseUrl}/heroes/steam/{steamAppId}?types={type}", ct, wideOnly: true);
     }
 
     public async Task<IReadOnlyList<SteamGridDbImage>> GetHeroCandidatesForTitleAsync(string title, bool animatedOnly = false, CancellationToken ct = default)
@@ -92,13 +94,14 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
         var gameId = await SearchGameId(title, ct);
         if (gameId is null) return Array.Empty<SteamGridDbImage>();
         var type = animatedOnly ? "animated" : "static,animated";
-        return await FetchGridCandidates($"{BaseUrl}/heroes/game/{gameId}?types={type}", ct);
+        return await FetchGridCandidates($"{BaseUrl}/heroes/game/{gameId}?types={type}", ct, wideOnly: true);
     }
 
     public async Task<IReadOnlyList<SteamGridDbImage>> GetLogoCandidatesForSteamAppAsync(uint steamAppId, bool animatedOnly = false, CancellationToken ct = default)
     {
         if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
         var type = animatedOnly ? "animated" : "static,animated";
+        // Logos não têm restrição estrita de proporção (podem ser quadrados ou largos)
         return await FetchGridCandidates($"{BaseUrl}/logos/steam/{steamAppId}?types={type}", ct);
     }
 
@@ -131,7 +134,8 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
     {
         if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
         var type = animatedOnly ? "animated" : "static,animated";
-        return await FetchGridCandidates($"{BaseUrl}/grids/steam/{steamAppId}?dimensions=460x215,920x430&types={type}", ct);
+        // Filtro de proporção: Apenas horizontais
+        return await FetchGridCandidates($"{BaseUrl}/grids/steam/{steamAppId}?types={type}", ct, wideOnly: true);
     }
 
     public async Task<IReadOnlyList<SteamGridDbImage>> GetWideGridCandidatesForTitleAsync(string title, bool animatedOnly = false, CancellationToken ct = default)
@@ -140,7 +144,7 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
         var gameId = await SearchGameId(title, ct);
         if (gameId is null) return Array.Empty<SteamGridDbImage>();
         var type = animatedOnly ? "animated" : "static,animated";
-        return await FetchGridCandidates($"{BaseUrl}/grids/game/{gameId}?dimensions=460x215,920x430&types={type}", ct);
+        return await FetchGridCandidates($"{BaseUrl}/grids/game/{gameId}?types={type}", ct, wideOnly: true);
     }
 
     private async Task<int?> SearchGameId(string title, CancellationToken ct)
@@ -152,7 +156,8 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
         return payload?.Data?.FirstOrDefault()?.Id;
     }
 
-    private async Task<IReadOnlyList<SteamGridDbImage>> FetchGridCandidates(string url, CancellationToken ct)
+    // Adicionado o parâmetro 'wideOnly' para forçar o filtro local de proporção
+    private async Task<IReadOnlyList<SteamGridDbImage>> FetchGridCandidates(string url, CancellationToken ct, bool? wideOnly = null)
     {
         using var response = await _http.GetAsync(url, ct);
         if (!response.IsSuccessStatusCode) return Array.Empty<SteamGridDbImage>();
@@ -160,8 +165,20 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
         var payload = await response.Content.ReadFromJsonSafe<GridResponse>(ct);
         if (payload?.Data is null) return Array.Empty<SteamGridDbImage>();
 
-        return payload.Data
-            .Where(g => !g.Nsfw && !g.Humor)
+        var query = payload.Data.Where(g => !g.Nsfw && !g.Humor);
+
+        if (wideOnly == true)
+        {
+            // Só aceita horizontais (Largura > Altura)
+            query = query.Where(g => g.Width > g.Height);
+        }
+        else if (wideOnly == false)
+        {
+            // Só aceita verticais (Altura > Largura)
+            query = query.Where(g => g.Height > g.Width);
+        }
+
+        return query
             .OrderByDescending(g => g.Score)
             .Take(MaxCandidates)
             .Select(g => new SteamGridDbImage { Id = g.Id, Url = g.Url, Width = g.Width, Height = g.Height })

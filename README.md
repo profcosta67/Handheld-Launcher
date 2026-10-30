@@ -1,4 +1,4 @@
-## v0.10.2 - Capas Animadas (Animated Covers) 🎞️
+## v0.10.21 - Capas Animadas (Animated Covers) 🎞️
 
 O Handheld Launcher agora suporta **capas animadas** (GIFs e WebPs) do SteamGridDB!
 
