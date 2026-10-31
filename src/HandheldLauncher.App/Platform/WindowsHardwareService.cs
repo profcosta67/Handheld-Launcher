@@ -93,21 +93,90 @@ public class WindowsHardwareService : IHardwareService
 
     public void SetVolume(double level)
     {
-        DebugLog.Write($"[WINDOWS] Volume não implementado: {level}");
+        if (!OperatingSystem.IsWindows()) return;
+        try
+        {
+            var enumerator = (IMMDeviceEnumerator)new MMDeviceEnumerator();
+            Marshal.ThrowExceptionForHR(enumerator.GetDefaultAudioEndpoint(EDataFlow.Render, ERole.Multimedia, out var device));
+            var iid = typeof(IAudioEndpointVolume).GUID;
+            Marshal.ThrowExceptionForHR(device.Activate(ref iid, CLSCTX.ALL, IntPtr.Zero, out var endpointObject));
+            var endpoint = (IAudioEndpointVolume)endpointObject;
+            Marshal.ThrowExceptionForHR(endpoint.SetMasterVolumeLevelScalar((float)Math.Clamp(level / 100.0, 0, 1), Guid.Empty));
+            DebugLog.Write($"[WINDOWS] Volume ajustado para {level:0}%.");
+            Marshal.ReleaseComObject(endpoint);
+            Marshal.ReleaseComObject(device);
+            Marshal.ReleaseComObject(enumerator);
+        }
+        catch (Exception ex) { DebugLog.Write($"[WINDOWS] Falha ao ajustar volume: {ex.Message}"); }
     }
 
     public void SetBrightness(double level)
     {
-        DebugLog.Write($"[WINDOWS] Brilho não implementado: {level}");
+        if (!OperatingSystem.IsWindows()) return;
+        try
+        {
+            var brightness = (byte)Math.Clamp(Math.Round(level), 0, 100);
+            using var searcher = new System.Management.ManagementObjectSearcher(
+                "root\\WMI", "SELECT * FROM WmiMonitorBrightnessMethods");
+            foreach (System.Management.ManagementObject monitor in searcher.Get())
+            {
+                monitor.InvokeMethod("WmiSetBrightness", new object[] { (uint)1, brightness });
+                monitor.Dispose();
+            }
+            DebugLog.Write($"[WINDOWS] Solicitação de brilho: {brightness}%.");
+        }
+        catch (Exception ex) { DebugLog.Write($"[WINDOWS] Falha ao ajustar brilho (monitor pode não aceitar WMI): {ex.Message}"); }
     }
 
     public void SetColorMode(string mode)
     {
-        DebugLog.Write($"[WINDOWS] Cor não implementado: {mode}");
+        if (!OperatingSystem.IsWindows()) return;
+        var index = mode switch
+        {
+            "Vívido" => 1,
+            "OLED (Alto Contraste)" or "OLED (contraste alto)" => 2,
+            "Noturno (Luz Quente)" => 3,
+            "Confortável" => 4,
+            _ => 0
+        };
+        DisplayColorManager.Apply(index);
+        DebugLog.Write($"[WINDOWS] Modo de cor aplicado: {mode}.");
     }
 
     public void SetPerformanceHudEnabled(bool enabled)
     {
-        DebugLog.Write($"[WINDOWS] HUD não implementado: {enabled}");
+        // O HUD é controlado pelo MainViewModel, que possui a instância real
+        // de PerformanceHud. Mantido na interface por compatibilidade.
+        DebugLog.Write($"[WINDOWS] HUD deve ser controlado pelo MainViewModel: {enabled}.");
+    }
+
+    private enum EDataFlow { Render = 0, Capture = 1, All = 2 }
+    private enum ERole { Console = 0, Multimedia = 1, Communications = 2 }
+    private static class CLSCTX { public const int ALL = 23; }
+
+    [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")]
+    private class MMDeviceEnumerator { }
+
+    [ComImport, Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IMMDeviceEnumerator
+    {
+        int EnumAudioEndpoints(EDataFlow dataFlow, uint stateMask, out IntPtr devices);
+        int GetDefaultAudioEndpoint(EDataFlow dataFlow, ERole role, out IMMDevice endpoint);
+    }
+
+    [ComImport, Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IMMDevice
+    {
+        int Activate(ref Guid iid, int classContext, IntPtr activationParams, [MarshalAs(UnmanagedType.IUnknown)] out object instance);
+    }
+
+    [ComImport, Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IAudioEndpointVolume
+    {
+        int RegisterControlChangeNotify(IntPtr notify);
+        int UnregisterControlChangeNotify(IntPtr notify);
+        int GetChannelCount(out uint channelCount);
+        int SetMasterVolumeLevel(float levelDb, Guid eventContext);
+        int SetMasterVolumeLevelScalar(float level, Guid eventContext);
     }
 }
