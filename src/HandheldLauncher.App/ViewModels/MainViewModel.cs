@@ -307,6 +307,25 @@ public sealed class MainViewModel : ViewModelBase
         }
     }
 
+    public bool IsPerformanceHudEnabled => _hud is not null && _hud.Preset > 0;
+
+    public void SetPerformanceHudEnabled(bool enabled)
+    {
+        if (_hud is null || !OperatingSystem.IsWindows()) return;
+        _hud.Preset = enabled ? Math.Max(1, _hud.Preset) : 0;
+        try
+        {
+            var settings = AppSettingsStore.Load();
+            settings.OverlayPreset = _hud.Preset;
+            AppSettingsStore.Save(settings);
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[HUD] Não foi possível salvar a preferência: {ex.Message}");
+        }
+        OnPropertyChanged(nameof(IsPerformanceHudEnabled));
+    }
+
     private string _batteryStatusText = string.Empty;
     public string BatteryStatusText
     {
