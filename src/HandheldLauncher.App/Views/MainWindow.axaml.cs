@@ -394,7 +394,7 @@ public partial class MainWindow : Window
                 {
                     _overlayWindow = new OverlayWindow(vm);
 
-                    // 🟢 Para o Topmost do launcher enquanto o overlay estiver aberto
+                    // Para o Topmost do launcher enquanto o overlay estiver aberto
                     _overlayWindow.PropertyChanged += (_, args) =>
                     {
                         if (args.Property == Visual.IsVisibleProperty)
@@ -548,7 +548,7 @@ public partial class MainWindow : Window
         Closed += (_, _) => _batteryTimer?.Stop();
     }
 
-       private void OnGamepadTick(object? sender, EventArgs e)
+    private void OnGamepadTick(object? sender, EventArgs e)
     {
         if (DataContext is not MainViewModel vm) return;
 
@@ -571,7 +571,7 @@ public partial class MainWindow : Window
 
         foreach (var action in actions)
         {
-            // 🟢 O atalho do Overlay fica AQUI, antes de verificar o foco do jogo!
+            // 🟢 O atalho do Overlay funciona SEMPRE, mesmo no jogo
             if (action == GamepadAction.ToggleQuickSettings)
             {
                 UiSounds.PlayForAction(action);
@@ -581,7 +581,7 @@ public partial class MainWindow : Window
                 }
                 else
                 {
-                vm.RequestOpenOverlay();
+                    vm.RequestOpenOverlay();
                 }
                 continue;
             }
@@ -595,8 +595,6 @@ public partial class MainWindow : Window
                 }
                 continue;
             }
-
-            // 🟢 APAGAMOS O CYCLEOVERLAY ANTIGO DAQUI! 🟢
 
             if (vm.RunningGame is not null && !IsOurWindowInForeground())
             {
@@ -771,6 +769,7 @@ public partial class MainWindow : Window
             }
         }
     }
+
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
         if (DataContext is not MainViewModel vm) return;
