@@ -21,6 +21,8 @@ jobs:
     env:
       VPK_VERSION: 1.2.161
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      WINDOWS_SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
+      WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -103,6 +105,37 @@ jobs:
           test -f publish/InstallTask.ps1
           test -f publish/Tools/ffmpeg.exe
 
+      - name: Assinar binários Windows (quando o certificado estiver configurado)
+        if: steps.exists.outputs.skip != 'true' && env.WINDOWS_SIGNING_CERTIFICATE_BASE64 != ''
+        shell: pwsh
+        env:
+          WINDOWS_SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
+          WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
+        run: |
+          if (-not $env:WINDOWS_SIGNING_CERTIFICATE_PASSWORD) {
+            throw "O segredo WINDOWS_SIGNING_CERTIFICATE_PASSWORD não foi configurado."
+          }
+          $pfxPath = Join-Path $env:RUNNER_TEMP "handheld-codesign.pfx"
+          [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:WINDOWS_SIGNING_CERTIFICATE_BASE64))
+          $password = ConvertTo-SecureString $env:WINDOWS_SIGNING_CERTIFICATE_PASSWORD -AsPlainText -Force
+          $cert = Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\CurrentUser\My -Password $password
+          if (-not $cert -or -not $cert.HasPrivateKey) { throw "O PFX não contém um certificado com chave privada." }
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter signtool.exe -Recurse |
+            Where-Object { $_.FullName -match "\\x64\\signtool.exe$" } |
+            Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $signtool) { throw "SignTool.exe não foi encontrado no runner." }
+          $binaries = Get-ChildItem publish -Recurse -File | Where-Object { $_.Extension -in @(".exe", ".dll") }
+          foreach ($file in $binaries) {
+            & $signtool.FullName sign /sha1 $cert.Thumbprint /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 $file.FullName
+            if ($LASTEXITCODE -ne 0) { throw "Falha ao assinar $($file.FullName)." }
+          }
+          Remove-Item $pfxPath -Force
+
+      - name: Avisar quando a assinatura não estiver configurada
+        if: steps.exists.outputs.skip != 'true' && env.WINDOWS_SIGNING_CERTIFICATE_BASE64 == ''
+        shell: pwsh
+        run: Write-Warning "Publicação sem assinatura Authenticode. O Smart App Control pode bloquear o instalador. Configure os segredos WINDOWS_SIGNING_CERTIFICATE_BASE64 e WINDOWS_SIGNING_CERTIFICATE_PASSWORD."
+
       - name: Instalar vpk (Velopack)
         if: steps.exists.outputs.skip != 'true'
         run: dotnet tool install -g vpk --version ${{ env.VPK_VERSION }}
@@ -139,6 +172,30 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             throw "Velopack falhou ao empacotar o instalador (exit code $LASTEXITCODE)."
           }
+
+      - name: Assinar instalador Velopack
+        if: steps.exists.outputs.skip != 'true' && env.WINDOWS_SIGNING_CERTIFICATE_BASE64 != ''
+        shell: pwsh
+        env:
+          WINDOWS_SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
+          WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
+        run: |
+          $pfxPath = Join-Path $env:RUNNER_TEMP "handheld-codesign.pfx"
+          [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:WINDOWS_SIGNING_CERTIFICATE_BASE64))
+          $password = ConvertTo-SecureString $env:WINDOWS_SIGNING_CERTIFICATE_PASSWORD -AsPlainText -Force
+          $cert = Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\CurrentUser\My -Password $password
+          if (-not $cert -or -not $cert.HasPrivateKey) { throw "O PFX não contém um certificado com chave privada." }
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter signtool.exe -Recurse |
+            Where-Object { $_.FullName -match "\\x64\\signtool.exe$" } |
+            Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $signtool) { throw "SignTool.exe não foi encontrado." }
+          Get-ChildItem Releases -Filter "*Setup.exe" -File | ForEach-Object {
+            & $signtool.FullName sign /sha1 $cert.Thumbprint /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 $_.FullName
+            if ($LASTEXITCODE -ne 0) { throw "Falha ao assinar o instalador $($_.Name)." }
+            & $signtool.FullName verify /pa /v $_.FullName
+            if ($LASTEXITCODE -ne 0) { throw "A verificação da assinatura falhou: $($_.Name)." }
+          }
+          Remove-Item $pfxPath -Force
 
       - name: Publicar (self-contained linux-x64)
         if: steps.exists.outputs.skip != 'true'
