@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using HandheldLauncher.Core.Services;
 using HandheldLauncher.App.Diagnostics;
 
