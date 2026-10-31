@@ -1,42 +1,70 @@
+👨‍💻 Autor
+Marcelo Costa (profcosta67)
+
+GitHub: @profcosta67
+
 # 🎮 Handheld Launcher
 
-Um launcher moderno e multiplataforma para Handhelds (Legion Go, ROG Ally, Steam Deck), focado em desempenho, design limpo e jogabilidade com controle.
+Um launcher completo, moderno e focado em performance para Handhelds (Legion Go, ROG Ally, Steam Deck e PCs portáteis).
 
-## 🚀 Funcionalidades Principais
-- **Interface Otimizada para Controles:** Navegação fluida com analógicos e botões.
-- **Suporte a Múltiplas Plataformas:** Steam, Xbox, Epic, GOG, emuladores e atalhos manuais.
-- **Capas Animadas:** Suporte a GIF e WebP para capas de jogos.
-- **Shell Mode:** Substituição do `explorer.exe` no Windows (Kiosk Mode).
-- **Idle Detector:** Bloqueio de tela automático para economia de bateria.
-- **Quick Settings Overlay (NOVO!):** Menu lateral flutuante acessível durante o jogo.
-  - Controle de Volume e Brilho nativo (Windows e Linux).
-  - Interface preparada para controle de TDP, Modo de Cor e HUD (Fase 3).
+O projeto foi desenhado para ser o seu **centro de controle (Hub)**, reunindo biblioteca de jogos, ajustes de hardware (TDP), monitoramento em tempo real e atalhos de sistema em uma interface única e amigável para controle.
 
-## 🎮 Como usar o Overlay (Quick Settings)
-Com um jogo aberto ou no launcher:
-- **Pelo Controle:** Aperte o botão `Xbox/Guide` ou `L3 + R3`.
-- **Pelo Teclado:** Aperte `Ctrl + Alt + O` (Windows).
-- **Pelo Menu:** Vá em `Configurações > Abrir Quick Settings`.
-- **Para Fechar:** Aperte `B / Voltar` no controle ou o botão `Fechar Menu` na tela.
+## ✨ Funcionalidades
 
-## 🛠️ Arquitetura de Hardware
-O launcher foi construído com uma camada de abstração de hardware (`IHardwareService`).
-- **No Windows:** Usa WMI e PowerShell para controle de sistema.
-- **No Linux:** Usa comandos nativos como `amixer` e `brightnessctl`.
-- **No macOS (Dev):** Usa um serviço Mock para testes de interface.
+### 📚 Biblioteca de Jogos
+- Escaneamento automático de bibliotecas: **Steam, Epic Games, GOG, Xbox App, Ubisoft, EA** e emuladores (Eden/Switch).
+- Capas automáticas e suporte a **capas animadas** (GIF/WebP).
+- Filtros rápidos por plataforma, favoritos e status de instalação.
 
-## 🔧 Como Compilar e Rodar
-...
+### ⚡ Quick Settings (Overlay)
+Aperte **L3 + R3** (ou o atalho `Ctrl + Alt + O`) durante o jogo para abrir o painel de controle rápido:
+- **TDP:** Modos Eco (8W), Normal (15W), Desempenho (25W) e Boost (30W) com proteção térmica de 90°C.
+- **Tela:** Alterne a resolução (720p, 1080p, 2K) e a taxa de atualização (60Hz, 120Hz, 144Hz, 240Hz) sem sair do jogo.
+- **Modo de Cor:** Padrão, Vívido, OLED e Noturno.
+- **HUD de Desempenho:** Ative o monitor de FPS, temperatura (CPU/SoC), RAM e bateria no topo da tela.
+- **Sistema:** Controle de Volume e Brilho em tempo real.
+- **Captura:** Atalhos para tirar print (salva em `Imagens/Screenshots`) e gravar tela.
 
+### 🛡️ Segurança e Performance
+- **Shell Mode (Windows):** Substitui o `explorer.exe` no boot, transformando o dispositivo em um console dedicado.
+- **Idle Detector:** Desliga a tela automaticamente para economizar bateria quando nenhum jogo está rodando.
+- **Driver de TDP:** Arquitetura preparada para o **PawnIO** (driver seguro assinado pela Microsoft) com *fallback* automático para o RyzenAdj.
 
-# Handheld Launcher
+---
 
-**Status Atual: v0.11.0 — A Experiência de Console Definitiva** 🎮
+## 🛠️ Tecnologias Utilizadas
 
-O Handheld Launcher evoluiu para se tornar um verdadeiro sistema de entretenimento para handhelds. A versão 0.11.0 traz o **Modo Shell**, que permite que o Windows inicie diretamente no launcher, ignorando a área de trabalho e evitando que apps concorrentes (como Legion Space e Xbox app) roubem o foco.
+- **C# / .NET 8**
+- **Avalonia UI** (Interface multiplataforma)
+- **Velopack** (Instalador e sistema de atualização automática)
+- **LibreHardwareMonitor** (Leitura de sensores)
+- **FFmpeg** (Gravação de tela)
+- **RyzenAdj / PawnIO** (Controle de TDP da APU)
 
-Além disso, a tão esperada atualização de **Capas Animadas** chegou! O launcher agora exibe GIFs e WebPs do SteamGridDB de forma nativa e fluida, com um seletor dedicado que permite filtrar apenas por animações. O visual também foi refinado com gradientes suavizados no banner principal e otimização de performance para garantir que a interface rode lisa mesmo com as animações ativas.
+---
 
-O motor do launcher também está 100% preparado para o Linux (Steam Deck e Desktop), com execução nativa de jogos e leitura de sensores de hardware.
+## 🚀 Como Executar
 
-> **Aviso:** O Modo Shell é uma opção ativada durante a instalação (via PowerShell `-SetAsShell`). Se você desejar voltar ao Windows normal, basta usar a opção "Sair para o Windows" no menu de Energia do próprio launcher.
+### Pré-requisitos
+- .NET 8 SDK
+- Windows 10/11 (recomendado para todos os recursos) ou macOS/Linux (modo de desenvolvimento/teste).
+
+### Rodando o projeto
+```bash
+# Clone o repositório
+git clone https://github.com/profcosta67/Handheld-Launcher.git
+
+# Entre na pasta
+cd Handheld-Launcher
+
+# Restaure as dependências
+dotnet restore
+
+# Compile e rode
+dotnet run --project src/HandheldLauncher.App
+
+📦 Instalação e Atualizações
+O projeto utiliza o Velopack. O instalador oficial (HandheldLauncher-win-Setup.exe) pode ser baixado na aba Releases. O aplicativo verifica automaticamente por atualizações e notifica o usuário quando uma nova versão estiver disponível.
+
+📜 Licença
+Este projeto está sob a licença GPL-3.0. Veja o arquivo LICENSE para mais detalhes.
