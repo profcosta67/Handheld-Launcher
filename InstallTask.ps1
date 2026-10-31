@@ -15,10 +15,10 @@ if (-not (Test-Path $exePath)) {
 if (-not (Test-Path $exePath)) {
     Write-Host "AVISO: Executavel nao encontrado. A Tarefa Agendada nao foi criada."
 } else {
-    $action = New-ScheduledTaskAction -Execute $exePath
+    $action = New-ScheduledTaskAction -Execute $exePath -Argument '--watchdog' -WorkingDirectory (Split-Path -Parent $exePath)
     $trigger = New-ScheduledTaskTrigger -AtLogOn
     $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Highest
-    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+    $settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
     Register-ScheduledTask -Action $action -Trigger $trigger -Principal $principal -Settings $settings -TaskName "HandheldLauncher_Startup" -Description "Inicia o Handheld Launcher em Modo Console." -Force
     Write-Host "OK: Tarefa Agendada criada com sucesso."
 }
@@ -42,6 +42,7 @@ if (Test-Path $settingsFile) {
 
 # Ativa o modo console
 $settings["KioskMode"] = $true
+$settings["AutoRestart"] = $true
 $settings["ModeChosen"] = $true
 
 $settings | ConvertTo-Json -Depth 10 | Set-Content $settingsFile -Encoding UTF8

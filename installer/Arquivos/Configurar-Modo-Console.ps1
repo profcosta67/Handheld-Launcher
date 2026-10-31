@@ -167,6 +167,7 @@ if ($null -eq $settings) {
 }
 else {
     $settings | Add-Member -NotePropertyName KioskMode -NotePropertyValue $true -Force
+    $settings | Add-Member -NotePropertyName AutoRestart -NotePropertyValue $true -Force
 }
 
 # Chave padrao opcional: se ainda nao ha chave do SteamGridDB e existir um
