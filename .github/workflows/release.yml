@@ -197,9 +197,14 @@ jobs:
             }
           }
 
-          $files = @(Get-ChildItem Releases -File | ForEach-Object { $_.FullName }) + @((Resolve-Path Modo-Console.zip).Path) + @((Resolve-Path HandheldLauncher-linux-x64.zip).Path)
-          gh release upload $tag @files -R $env:GITHUB_REPOSITORY --clobber
-          if ($LASTEXITCODE -ne 0) { throw "Falha ao enviar os arquivos da Release." }
+          # O Velopack lê assets.win.json e envia somente os artefatos
+          # gerados pelo pack atual, mantendo o feed de atualização consistente.
+          vpk upload github --repoUrl "${{ github.server_url }}/${{ github.repository }}" --token "${{ secrets.GITHUB_TOKEN }}" --tag $tag --releaseName "Handheld Launcher ${{ steps.ver.outputs.version }}" --outputDir Releases --merge --publish
+          if ($LASTEXITCODE -ne 0) { throw "Falha ao publicar os artefatos Velopack." }
+
+          # Arquivos complementares não gerenciados pelo Velopack.
+          gh release upload $tag (Resolve-Path Modo-Console.zip).Path (Resolve-Path HandheldLauncher-linux-x64.zip).Path -R $env:GITHUB_REPOSITORY --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Falha ao enviar os arquivos complementares da Release." }
 
       - name: Limpar versões antigas
         if: steps.exists.outputs.skip != 'true'
