@@ -29,44 +29,59 @@
 
             <ScrollViewer Grid.Row="1">
                 <StackPanel Spacing="20">
-                    <StackPanel Spacing="8">
-                        <TextBlock Text="⚡ Desempenho (TDP)" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
-                        <Grid ColumnDefinitions="*,*,*">
-                            <Button x:Name="BtnEco" Grid.Column="0" Content="Eco" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="10" Margin="0,0,4,0" />
-                            <Button x:Name="BtnEquilibrado" Grid.Column="1" Content="Equilibrado" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="10" Margin="4,0,4,0" />
-                            <Button x:Name="BtnTurbo" Grid.Column="2" Content="Turbo" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="10" Margin="4,0,0,0" />
-                        </Grid>
-                    </StackPanel>
+                    
+                    <!-- TDP -->
+                    <Border x:Name="TdpSection" CornerRadius="8" BorderThickness="2" BorderBrush="Transparent" Padding="4">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="⚡ Desempenho (TDP)" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
+                            <Grid ColumnDefinitions="*,*,*">
+                                <Button x:Name="BtnEco" Grid.Column="0" Content="Eco" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="10" Margin="0,0,4,0" />
+                                <Button x:Name="BtnEquilibrado" Grid.Column="1" Content="Equilibrado" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="10" Margin="4,0,4,0" />
+                                <Button x:Name="BtnTurbo" Grid.Column="2" Content="Turbo" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="10" Margin="4,0,0,0" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
 
-                    <StackPanel Spacing="8">
-                        <TextBlock Text="🎨 Modo de Cor" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
-                        <ComboBox x:Name="ColorModeCombo" SelectionChanged="OnColorModeChanged" HorizontalAlignment="Stretch" Background="#252A36">
-                            <ComboBoxItem>Padrão</ComboBoxItem>
-                            <ComboBoxItem>Vívido</ComboBoxItem>
-                            <ComboBoxItem>OLED (Alto Contraste)</ComboBoxItem>
-                            <ComboBoxItem>Noturno (Luz Quente)</ComboBoxItem>
-                        </ComboBox>
-                    </StackPanel>
+                    <!-- Cor -->
+                    <Border x:Name="ColorSection" CornerRadius="8" BorderThickness="2" BorderBrush="Transparent" Padding="4">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="🎨 Modo de Cor" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
+                            <ComboBox x:Name="ColorModeCombo" SelectionChanged="OnColorModeChanged" HorizontalAlignment="Stretch" Background="#252A36">
+                                <ComboBoxItem>Padrão</ComboBoxItem>
+                                <ComboBoxItem>Vívido</ComboBoxItem>
+                                <ComboBoxItem>OLED (Alto Contraste)</ComboBoxItem>
+                                <ComboBoxItem>Noturno (Luz Quente)</ComboBoxItem>
+                            </ComboBox>
+                        </StackPanel>
+                    </Border>
 
-                    <StackPanel Spacing="8">
-                        <TextBlock Text="🎮 HUD de Desempenho" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="Mostrar FPS (RTSS)" Foreground="White" VerticalAlignment="Center" />
-                            <ToggleSwitch x:Name="HudToggle" IsCheckedChanged="OnHudToggled" Grid.Column="1" IsChecked="True" />
-                        </Grid>
-                    </StackPanel>
+                    <!-- HUD -->
+                    <Border x:Name="HudSection" CornerRadius="8" BorderThickness="2" BorderBrush="Transparent" Padding="4">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="🎮 HUD de Desempenho" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="Mostrar FPS (RTSS)" Foreground="White" VerticalAlignment="Center" />
+                                <ToggleSwitch x:Name="HudToggle" IsCheckedChanged="OnHudToggled" Grid.Column="1" IsChecked="True" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
 
-                    <StackPanel Spacing="12">
-                        <TextBlock Text="🔊 Sistema" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
+                    <!-- Volume -->
+                    <Border x:Name="VolumeSection" CornerRadius="8" BorderThickness="2" BorderBrush="Transparent" Padding="4">
                         <StackPanel Spacing="4">
-                            <TextBlock Text="Volume" Foreground="White" FontSize="12" />
+                            <TextBlock Text="Volume" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
                             <Slider x:Name="VolumeSlider" ValueChanged="OnVolumeChanged" Minimum="0" Maximum="100" />
                         </StackPanel>
+                    </Border>
+
+                    <!-- Brilho -->
+                    <Border x:Name="BrightnessSection" CornerRadius="8" BorderThickness="2" BorderBrush="Transparent" Padding="4">
                         <StackPanel Spacing="4">
-                            <TextBlock Text="Brilho" Foreground="White" FontSize="12" />
+                            <TextBlock Text="Brilho" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
                             <Slider x:Name="BrightnessSlider" ValueChanged="OnBrightnessChanged" Minimum="0" Maximum="100" />
                         </StackPanel>
-                    </StackPanel>
+                    </Border>
+
                 </StackPanel>
             </ScrollViewer>
 

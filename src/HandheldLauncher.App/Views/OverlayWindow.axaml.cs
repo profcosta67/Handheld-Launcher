@@ -16,12 +16,21 @@ public partial class OverlayWindow : Window
     private readonly IHardwareService _hardwareService;
     private readonly IBrush _activeColor = new SolidColorBrush(Color.FromRgb(124, 92, 252));
     private readonly IBrush _inactiveColor = new SolidColorBrush(Color.FromRgb(37, 42, 54));
+    private readonly IBrush _focusBorderColor = new SolidColorBrush(Color.FromRgb(124, 92, 252));
+    
     private bool _isInitializing = true;
+    private int _focusIndex = 0;
+    private readonly Border[] _sections;
+
+    // Estado interno do TDP (mais confiável que o Tag do ComboBox)
+    private string _currentTdp = "Equilibrado";
 
     public OverlayWindow()
     {
         DebugLog.Write("[OVERLAY] Construtor iniciado.");
         InitializeComponent(); 
+
+        _sections = new[] { TdpSection, ColorSection, HudSection, VolumeSection, BrightnessSection };
 
         if (OperatingSystem.IsWindows())
             _hardwareService = new WindowsHardwareService();
@@ -37,12 +46,10 @@ public partial class OverlayWindow : Window
             if (VolumeSlider != null) VolumeSlider.Value = 70;
             if (BrightnessSlider != null) BrightnessSlider.Value = 80;
         }
-        catch (Exception ex)
-        {
-            DebugLog.Write($"[OVERLAY] Aviso: {ex.Message}");
-        }
+        catch (Exception ex) { DebugLog.Write($"[OVERLAY] Aviso: {ex.Message}"); }
         
         _isInitializing = false;
+        UpdateFocusVisual();
         DebugLog.Write("[OVERLAY] Construtor concluído.");
     }
 
@@ -68,12 +75,107 @@ public partial class OverlayWindow : Window
         base.OnClosing(e);
     }
 
+    // ==========================================
+    // LÓGICA DE NAVEGAÇÃO COM O CONTROLE
+    // ==========================================
     public void HandleGamepadAction(GamepadAction action)
     {
-        if (action == GamepadAction.Back || action == GamepadAction.GlobalMenu)
-            Hide();
+        DebugLog.Write($"[OVERLAY] Controle: {action} | Foco atual: {_focusIndex}");
+
+        switch (action)
+        {
+            case GamepadAction.Back:
+            case GamepadAction.GlobalMenu:
+                Hide();
+                break;
+
+            case GamepadAction.MoveUp:
+                _focusIndex = Math.Max(0, _focusIndex - 1);
+                UpdateFocusVisual();
+                break;
+
+            case GamepadAction.MoveDown:
+                _focusIndex = Math.Min(_sections.Length - 1, _focusIndex + 1);
+                UpdateFocusVisual();
+                break;
+
+            case GamepadAction.MoveLeft:
+                HandleHorizontalInput(-1);
+                break;
+
+            case GamepadAction.MoveRight:
+                HandleHorizontalInput(1);
+                break;
+
+            case GamepadAction.Confirm:
+                HandleConfirm();
+                break;
+        }
     }
 
+    private void UpdateFocusVisual()
+    {
+        for (int i = 0; i < _sections.Length; i++)
+        {
+            _sections[i].BorderBrush = (i == _focusIndex) ? _focusBorderColor : Brushes.Transparent;
+        }
+    }
+
+    private void HandleHorizontalInput(int direction)
+    {
+        switch (_focusIndex)
+        {
+            case 0: // TDP (corrigido: navega passo a passo)
+                string newTdp = _currentTdp;
+                if (direction < 0) // Esquerda
+                {
+                    if (_currentTdp == "Turbo") newTdp = "Equilibrado";
+                    else if (_currentTdp == "Equilibrado") newTdp = "Eco";
+                }
+                else if (direction > 0) // Direita
+                {
+                    if (_currentTdp == "Eco") newTdp = "Equilibrado";
+                    else if (_currentTdp == "Equilibrado") newTdp = "Turbo";
+                }
+
+                if (newTdp != _currentTdp)
+                {
+                    SetTdpButtonVisual(newTdp);
+                    _hardwareService?.SetTdpMode(newTdp);
+                }
+                break;
+
+            case 1: // Cor
+                if (ColorModeCombo != null)
+                {
+                    var newIndex = Math.Clamp(ColorModeCombo.SelectedIndex + direction, 0, ColorModeCombo.ItemCount - 1);
+                    ColorModeCombo.SelectedIndex = newIndex;
+                }
+                break;
+
+            case 3: // Volume
+                if (VolumeSlider != null)
+                    VolumeSlider.Value = Math.Clamp(VolumeSlider.Value + (direction * 5), 0, 100);
+                break;
+
+            case 4: // Brilho
+                if (BrightnessSlider != null)
+                    BrightnessSlider.Value = Math.Clamp(BrightnessSlider.Value + (direction * 5), 0, 100);
+                break;
+        }
+    }
+
+    private void HandleConfirm()
+    {
+        if (_focusIndex == 2 && HudToggle != null) // HUD
+        {
+            HudToggle.IsChecked = !HudToggle.IsChecked;
+        }
+    }
+
+    // ==========================================
+    // MÉTODOS DA UI
+    // ==========================================
     private void OnTdpClick(object? sender, RoutedEventArgs e)
     {
         if (sender is not Button clickedButton) return;
@@ -87,6 +189,8 @@ public partial class OverlayWindow : Window
         if (BtnEco != null) BtnEco.Background = activeMode == "Eco" ? _activeColor : _inactiveColor;
         if (BtnEquilibrado != null) BtnEquilibrado.Background = activeMode == "Equilibrado" ? _activeColor : _inactiveColor;
         if (BtnTurbo != null) BtnTurbo.Background = activeMode == "Turbo" ? _activeColor : _inactiveColor;
+        
+        _currentTdp = activeMode;
     }
 
     private void OnColorModeChanged(object? sender, SelectionChangedEventArgs e)

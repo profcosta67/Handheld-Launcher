@@ -7,8 +7,33 @@ namespace HandheldLauncher.App.Platform;
 
 public class WindowsHardwareService : IHardwareService
 {
-    public void SetTdpMode(string mode) => DebugLog.Write($"[WINDOWS] TDP: {mode}");
-    public void SetColorMode(string mode) => DebugLog.Write($"[WINDOWS] Cor: {mode}");
+    public void SetTdpMode(string mode)
+    {
+        DebugLog.Write($"[WINDOWS] TDP solicitado: {mode}. (Aguardando integração RyzenAdj)");
+    }
+
+    public void SetColorMode(string mode)
+    {
+        DebugLog.Write($"[WINDOWS] Aplicando cor: {mode}");
+        try 
+        {
+            // Converte a string do Overlay para o índice que o DisplayColorManager espera
+            int colorIndex = mode switch
+            {
+                "Padrão" => 0,
+                "Vívido" => 1,
+                "OLED (Alto Contraste)" => 2,
+                "Noturno (Luz Quente)" => 3,
+                _ => 0
+            };
+
+            DisplayColorManager.Apply(colorIndex);
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[WINDOWS] Erro ao aplicar cor: {ex.Message}");
+        }
+    }
 
     public void SetVolume(double level)
     {

@@ -89,7 +89,7 @@ public partial class MainWindow : Window
 
     private void StartTopmostEnforcer()
     {
-        if (_topmostEnforcerTimer != null) return; // Evita criar múltiplos
+        if (_topmostEnforcerTimer != null) return;
 
         _topmostEnforcerTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         _topmostEnforcerTimer.Tick += (_, _) =>
@@ -105,7 +105,7 @@ public partial class MainWindow : Window
     {
         _topmostEnforcerTimer?.Stop();
         _topmostEnforcerTimer = null;
-        Topmost = false; // Libera o topo para o Overlay
+        Topmost = false;
     }
 
     private void RegisterRestoreHotkey()
@@ -282,13 +282,16 @@ public partial class MainWindow : Window
         vm.RestoreShellRequested += (_, _) => RestoreWindowsShell();
         vm.GameDetailsRequested += (_, game) => _ = OpenGameDetailsDialogAsync(vm, game);
 
-        // A PONTE DO OVERLAY ATUALIZADA COM CONTROLE DE TOPMOST
+        // ==========================================
+        // PONTE DO OVERLAY (SINGLETON + CONTROLE TOPMOST)
+        // ==========================================
         vm.OpenOverlayRequested += (_, _) =>
         {
             try
             {
                 if (_overlayWindow == null) 
                 {
+                    DebugLog.Write("[MAIN] Criando OverlayWindow pela primeira vez.");
                     _overlayWindow = new OverlayWindow();
                     
                     // Escuta quando a janela some da tela (Hide), para o launcher voltar ao topo
@@ -296,6 +299,7 @@ public partial class MainWindow : Window
                     {
                         if (args.Property == Visual.IsVisibleProperty && !_overlayWindow.IsVisible)
                         {
+                            DebugLog.Write("[MAIN] Overlay escondeu. Restaurando Topmost do Launcher.");
                             StartTopmostEnforcer();
                             Activate();
                         }
@@ -305,12 +309,13 @@ public partial class MainWindow : Window
                 // Se o overlay já está visível, apenas o esconde (toggle)
                 if (_overlayWindow.IsVisible)
                 {
+                    DebugLog.Write("[MAIN] Overlay já visível. Escondendo (toggle).");
                     _overlayWindow.Hide();
                     StartTopmostEnforcer();
                     return;
                 }
 
-                // Para o launcher roubar o topo de volta quando o overlay abrir
+                DebugLog.Write("[MAIN] Abrindo Overlay. Parando Topmost do Launcher.");
                 StopTopmostEnforcer();
                 
                 _overlayWindow.Show();
@@ -356,7 +361,15 @@ public partial class MainWindow : Window
         catch (Exception ex) { DebugLog.Write($"RestoreWindowsShell: EXCEPTION {ex.Message}"); }
     }
 
-    private void OnUpdateBadgeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => (DataContext as MainViewModel)?.CheckForUpdatesWithResultAsync().Wait();
+    // CORRIGIDO: trocado .Wait() por async void para não travar a UI
+    private async void OnUpdateBadgeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm)
+        {
+            await vm.CheckForUpdatesWithResultAsync();
+        }
+    }
+
     private DispatcherTimer? _downloadsRefreshTimer;
 
     private void StartDownloadsRefreshTimer(MainViewModel vm)
@@ -391,7 +404,7 @@ public partial class MainWindow : Window
 
         var actions = _gamepad.Poll();
 
-        // REDIRECIONAMENTO PARA O OVERLAY
+        // REDIRECIONAMENTO PARA O OVERLAY (quando ele está aberto)
         if (_overlayWindow != null && _overlayWindow.IsVisible)
         {
             foreach (var action in actions)
@@ -416,7 +429,7 @@ public partial class MainWindow : Window
                 continue;
             }
 
-            // BOTÃO PARA ABRIR/FECHAR O OVERLAY (Apenas CycleOverlay)
+            // BOTÃO PARA ABRIR/FECHAR O OVERLAY
             if (action == GamepadAction.CycleOverlay)
             {
                 UiSounds.PlayForAction(action);
