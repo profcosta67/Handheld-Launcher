@@ -20,7 +20,7 @@
         <Grid>
           <Grid IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
             
-            <!-- Fundo desfocado do Hero (cobre as bordas vazias) -->
+            <!-- Fundo desfocado do Hero -->
             <Image Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
                    Stretch="UniformToFill"
                    Opacity="0.3"
@@ -30,7 +30,7 @@
               </Image.Effect>
             </Image>
 
-            <!-- Imagem principal nítida (Animada) - Uniform para não dar zoom -->
+            <!-- Imagem principal nítida (Animada) -->
             <Image x:Name="HeroBackImage" Stretch="Uniform" IsHitTestVisible="False" />
             <Image x:Name="HeroImage"
                    anim:ImageBehavior.AnimatedSource="{Binding SelectedTile.BannerImagePath}"
@@ -57,11 +57,18 @@
                        Margin="20"
                        IsVisible="{Binding SelectedTile.BannerImagePath, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
 
-            <Image Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
-                   Height="64" Stretch="Uniform"
-                   HorizontalAlignment="Left" VerticalAlignment="Top"
-                   Margin="24"
-                   IsVisible="{Binding SelectedTile.ShowCurrentLogo}" />
+            <!-- MELHORIA 3: Logo com fundo escuro para dar contraste -->
+            <Border Background="#80000000" 
+                    CornerRadius="12" 
+                    Padding="16,8" 
+                    HorizontalAlignment="Left" 
+                    VerticalAlignment="Top" 
+                    Margin="24"
+                    IsVisible="{Binding SelectedTile.ShowCurrentLogo}">
+              <Image Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                     Height="64" Stretch="Uniform" />
+            </Border>
+            
           </Grid>
 
           <TextBlock Text="Nenhum jogo encontrado ainda.&#10;Adicione um jogo manualmente para começar."
@@ -76,14 +83,15 @@
       </Border>
 
       <!-- Abas de filtro -->
-      <StackPanel Grid.Row="1" Spacing="8" Margin="0,0,0,20">
+      <StackPanel Grid.Row="1" Spacing="16" Margin="0,0,0,20">
         <Grid ColumnDefinitions="*,*,*,*,*,*">
-          <Button Grid.Column="0" Classes="pill filterTab" Classes.active="{Binding IsFilterFavoritesActive}" Content="Favoritos" Command="{Binding SetFilterFavoritesCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,5,0" FontSize="13" />
-          <Button Grid.Column="1" Classes="pill filterTab" Classes.active="{Binding IsFilterAllActive}" Content="Todos" Command="{Binding SetFilterAllCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" FontSize="13" />
-          <Button Grid.Column="2" Classes="pill filterTab" Classes.active="{Binding IsFilterComputerActive}" Content="Computador" Command="{Binding SetFilterComputerCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" FontSize="13" />
-          <Button Grid.Column="3" Classes="pill filterTab" Classes.active="{Binding IsFilterEmulatorsActive}" Content="Emuladores" Command="{Binding SetFilterEmulatorsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" FontSize="13" />
-          <Button Grid.Column="4" Classes="pill filterTab" Classes.active="{Binding IsFilterApplicationsActive}" Content="Programas" Command="{Binding SetFilterApplicationsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" FontSize="13" />
-          <Button Grid.Column="5" Classes="pill filterTab" Classes.active="{Binding IsFilterNotInstalledActive}" Content="Não instalados" Command="{Binding SetFilterNotInstalledCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,0,0" FontSize="13" />
+          <!-- MELHORIA 4: Adicionado CornerRadius="12" em todas as abas -->
+          <Button Grid.Column="0" CornerRadius="12" Classes="pill filterTab" Classes.active="{Binding IsFilterFavoritesActive}" Content="Favoritos" Command="{Binding SetFilterFavoritesCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,5,0" FontSize="13" />
+          <Button Grid.Column="1" CornerRadius="12" Classes="pill filterTab" Classes.active="{Binding IsFilterAllActive}" Content="Todos" Command="{Binding SetFilterAllCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" FontSize="13" />
+          <Button Grid.Column="2" CornerRadius="12" Classes="pill filterTab" Classes.active="{Binding IsFilterComputerActive}" Content="Computador" Command="{Binding SetFilterComputerCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" FontSize="13" />
+          <Button Grid.Column="3" CornerRadius="12" Classes="pill filterTab" Classes.active="{Binding IsFilterEmulatorsActive}" Content="Emuladores" Command="{Binding SetFilterEmulatorsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" FontSize="13" />
+          <Button Grid.Column="4" CornerRadius="12" Classes="pill filterTab" Classes.active="{Binding IsFilterApplicationsActive}" Content="Programas" Command="{Binding SetFilterApplicationsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" FontSize="13" />
+          <Button Grid.Column="5" CornerRadius="12" Classes="pill filterTab" Classes.active="{Binding IsFilterNotInstalledActive}" Content="Não instalados" Command="{Binding SetFilterNotInstalledCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,0,0" FontSize="13" />
         </Grid>
 
         <Button Content="＋  Adicionar programa"
@@ -126,7 +134,8 @@
         <ItemsControl x:Name="GamesItemsControl" ItemsSource="{Binding Games}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
-              <StackPanel Orientation="Horizontal" Spacing="18" />
+              <!-- MELHORIA 1: Spacing aumentado de 18 para 28 -->
+              <StackPanel Orientation="Horizontal" Spacing="28" />
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
 

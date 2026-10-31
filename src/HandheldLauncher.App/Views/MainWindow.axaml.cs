@@ -108,6 +108,8 @@ public partial class MainWindow : Window
 
     private void RegisterRestoreHotkey()
     {
+        if (!OperatingSystem.IsWindows()) return; // Trava para Mac/Linux
+
         if (TryGetPlatformHandle() is not { } handle) return;
 
         Win32Properties.AddWndProcHookCallback(this, OnNativeWndProcHook);
@@ -117,6 +119,8 @@ public partial class MainWindow : Window
 
     private void UnregisterRestoreHotkeyIfNeeded()
     {
+        if (!OperatingSystem.IsWindows()) return; // Trava para Mac/Linux
+
         if (_hotkeyRegistered && TryGetPlatformHandle() is { } handle)
         {
             UnregisterHotKey(handle.Handle, RestoreHotkeyId);
@@ -261,6 +265,8 @@ public partial class MainWindow : Window
 
     private static void TurnOffScreen()
     {
+        if (!OperatingSystem.IsWindows()) return; // Trava para Mac/Linux
+
         try
         {
             PostMessage(HwndBroadcast, WmSysCommand, (IntPtr)ScMonitorPower, (IntPtr)2);
@@ -268,8 +274,17 @@ public partial class MainWindow : Window
         catch { }
     }
 
-    private static void RestartDevice() => RunShutdownExe("/r /f /t 0");
-    private static void ShutdownDevice() => RunShutdownExe("/s /f /t 0");
+    private static void RestartDevice()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        RunShutdownExe("/r /f /t 0");
+    }
+    
+    private static void ShutdownDevice()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        RunShutdownExe("/s /f /t 0");
+    }
 
     private static void RunShutdownExe(string arguments)
     {
@@ -369,7 +384,7 @@ public partial class MainWindow : Window
 
     private void RestoreWindowsShell()
     {
-        if (!OperatingSystem.IsWindows()) return;
+        if (!OperatingSystem.IsWindows()) return; // Trava para Mac/Linux
 
         try
         {
@@ -985,7 +1000,11 @@ public partial class MainWindow : Window
             UiSounds.Enabled = settings.SoundEffects;
             UiSounds.Pack = settings.SoundTheme;
             UiSounds.Volume = settings.SoundVolume;
-            DisplayColorManager.Apply(settings.ColorMode);
+            
+            if (OperatingSystem.IsWindows())
+            {
+                DisplayColorManager.Apply(settings.ColorMode);
+            }
 
             var scale = GameTileViewModel.ScaleForSetting(settings.TileSize);
             var scaleChanged = Math.Abs(scale - GameTileViewModel.SizeScale) > 0.001;
@@ -1271,6 +1290,8 @@ public partial class MainWindow : Window
 
     private bool IsOurWindowInForeground()
     {
+        if (!OperatingSystem.IsWindows()) return true; // No Mac, assume que está em foco
+
         try
         {
             var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;

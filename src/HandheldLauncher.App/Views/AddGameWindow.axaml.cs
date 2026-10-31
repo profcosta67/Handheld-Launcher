@@ -34,16 +34,23 @@ public partial class AddGameWindow : Window
 
     private async void OnBrowseClick(object? sender, RoutedEventArgs e)
     {
-        // This Window IS a TopLevel already (Window -> WindowBase -> TopLevel),
-        // so StorageProvider is available directly — no need to look one up
-        // via TopLevel.GetTopLevel() like you would from a plain UserControl.
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Selecione o executável do jogo",
+            Title = "Selecione o executável ou aplicativo",
             AllowMultiple = false,
             FileTypeFilter = new[]
             {
-                new FilePickerFileType("Executável (*.exe)") { Patterns = new[] { "*.exe" } },
+                // Opção padrão para Windows
+                new FilePickerFileType("Executável Windows (*.exe)") { Patterns = new[] { "*.exe" } },
+                
+                // Opção para Mac (embora .app seja tecnicamente uma pasta, o Avalonia consegue selecionar)
+                new FilePickerFileType("Aplicativo Mac (*.app)") { Patterns = new[] { "*.app" } },
+                
+                // Opção para Linux
+                new FilePickerFileType("Executável Linux (*.sh, *.*)") { Patterns = new[] { "*.sh", "*" } },
+                
+                // O "Ver todos os arquivos" para não travar o usuário
+                new FilePickerFileType("Todos os arquivos") { Patterns = new[] { "*" } },
             },
         });
 
@@ -66,7 +73,7 @@ public partial class AddGameWindow : Window
     [SupportedOSPlatform("windows")]
     private void OnSearchInstalledClick(object? sender, RoutedEventArgs e)
     {
-        if (!OperatingSystem.IsWindows()) return; // Trava de segurança para o Linux
+        if (!OperatingSystem.IsWindows()) return; // Trava de segurança para Mac/Linux
 
         try
         {

@@ -1,4 +1,6 @@
+using System;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 
 namespace HandheldLauncher.App.Platform;
 
@@ -11,37 +13,23 @@ namespace HandheldLauncher.App.Platform;
 /// far as constructing a second MainWindow at all — it just asks the
 /// instance that's already running to come to the front, then exits
 /// immediately.
-///
-/// Deliberately NOT relying on Task Scheduler's own MultipleInstances=
-/// IgnoreNew policy (set in Install-Launcher.ps1's watchdog task) to be the
-/// only thing preventing this — that only ever sees launches it itself
-/// started, so a manual double-click (or anything else that starts the exe
-/// outside the scheduled task) would slip right past it. A Mutex inside the
-/// process itself catches every path at once.
-///
-/// "Restore" signaling uses RegisterWindowMessage + a broadcast PostMessage
-/// instead of, say, a named pipe or FindWindow+PostMessage by title —
-/// RegisterWindowMessage guarantees the same numeric message Id across
-/// every process that registers the same string, which is exactly the
-/// "both sides agree on one Id without either one hardcoding a guess" this
-/// needs, and broadcasting removes any dependency on window titles/classes
-/// matching exactly. MainWindow's existing native WndProc hook (see
-/// RegisterRestoreHotkey/OnNativeWndProcHook) is where the first instance
-/// actually listens for it.
+/// 
+/// v1.0.0 (macOS/Linux prep): Adicionado suporte cross-platform. O Mutex
+/// funciona nativamente no .NET. As chamadas de user32.dll (PostMessage)
+/// só são executadas no Windows.
 /// </summary>
 internal static class SingleInstance
 {
+    [SupportedOSPlatform("windows")]
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern uint RegisterWindowMessage(string lpString);
 
+    [SupportedOSPlatform("windows")]
     [DllImport("user32.dll")]
     private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
     private static readonly IntPtr HwndBroadcast = new(0xffff);
 
-    // Suffixed with a random-looking tag so this never collides with some
-    // unrelated app's own "HandheldLauncher"-ish mutex/message name on the
-    // same machine.
     private const string MutexName = "HandheldLauncher_SingleInstance_7f3a9c2e";
     private const string RestoreMessageName = "HandheldLauncher_RestoreRequest_7f3a9c2e";
 
@@ -50,21 +38,14 @@ internal static class SingleInstance
     /// both the instance that owns the Mutex (listening, via MainWindow's
     /// WndProc hook) and a later instance that lost the Mutex (sending)
     /// agree on the exact same numeric Id without either one guessing it.
+    /// Retorna 0 se não for Windows, para evitar carregar user32.dll.
     /// </summary>
-    public static readonly uint RestoreMessageId = RegisterWindowMessage(RestoreMessageName);
+    public static readonly uint RestoreMessageId = OperatingSystem.IsWindows()
+        ? RegisterWindowMessage(RestoreMessageName)
+        : 0;
 
-    // Kept alive for the whole process lifetime in this field — a local
-    // variable would be eligible for GC (and therefore for the Mutex being
-    // released) the moment TryAcquire returns, which would defeat the
-    // entire point.
     private static Mutex? _mutex;
 
-    /// <summary>
-    /// True if THIS process is the first/only instance (and now owns the
-    /// Mutex for as long as it keeps running) — false if another instance
-    /// already holds it, in which case this process should call
-    /// NotifyExistingInstance() and exit without doing anything else.
-    /// </summary>
     public static bool TryAcquire()
     {
         _mutex = new Mutex(initiallyOwned: true, name: MutexName, out var isNewInstance);
@@ -78,6 +59,8 @@ internal static class SingleInstance
     /// </summary>
     public static void NotifyExistingInstance()
     {
+        if (!OperatingSystem.IsWindows()) return; // Só existe no Windows
+
         try
         {
             PostMessage(HwndBroadcast, RestoreMessageId, IntPtr.Zero, IntPtr.Zero);

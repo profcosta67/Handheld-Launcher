@@ -16,13 +16,6 @@
         Focusable="True"
         >
 
-  <!--
-    Normal resizable window by default (easy to iterate on during dev).
-    Modo kiosk (fullscreen/borderless) is applied from App.axaml.cs right
-    after construction, driven by AppSettings.KioskMode — see that file
-    and installer/Install-Launcher.ps1 for where that flag gets set.
-  -->
-
   <Window.Resources>
     <conv:FileToBitmapConverter x:Key="FileToBitmapConverter" />
     <conv:HexColorToBrushConverter x:Key="HexColorToBrushConverter" />
@@ -58,12 +51,7 @@
 
   <Panel>
 
-    <!-- Full-window backdrop: the focused game's art, blurred and
-         stretched to fill the whole window, so there's no flat dark void
-         wherever the actual content doesn't reach (below the tile row,
-         around the hero banner). A dimming layer on top keeps text and
-         controls legible over whatever art lands there. Sits behind
-         everything else since it's the first child of the Panel. -->
+    <!-- Full-window backdrop -->
     <Panel>
       <Image Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
              Stretch="UniformToFill"
@@ -81,22 +69,11 @@
     <Border Grid.Row="0" Classes="topBar" Margin="24,20,24,0" Padding="20,12">
       <Grid ColumnDefinitions="*,Auto">
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
-          <!-- Ícone do app (novo nesta leva, pedido do usuário: "adicionar
-               nosso icone no canto superior esquerdo antes do nome") —
-               mesmo arquivo já usado no ícone da janela/bandeja
-               (Assets/app-icon.ico). -->
           <Image Source="avares://HandheldLauncher/Assets/app-icon.ico" Width="22" Height="22" VerticalAlignment="Center" />
           <Ellipse Width="10" Height="10" Fill="{StaticResource AccentBrush}" VerticalAlignment="Center" />
           <TextBlock Text="Handheld Launcher" Classes="gameTitle" VerticalAlignment="Center" />
         </StackPanel>
-        <!-- Espaçamento 16 → 28 nesta leva (pedido do usuário: "da um
-             espaçamento maior entre eles") — downloads/bateria/relógio
-             ficavam colados demais um no outro. -->
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="28">
-          <!-- Aviso de atualização do launcher (Velopack): "Verificando…",
-               "⬆ v1.2.4 pronta — toque pra reiniciar" etc. Só aparece com
-               algo a dizer (HasUpdateStatus); tocar aplica a atualização
-               já baixada (no controle: item no topo do menu View/Back). -->
           <Button Classes="iconGhost"
                   VerticalAlignment="Center"
                   Content="{Binding UpdateStatusText}"
@@ -104,20 +81,6 @@
                   Foreground="{StaticResource AccentBrush}"
                   IsVisible="{Binding HasUpdateStatus}"
                   Click="OnUpdateBadgeClick" />
-          <!-- Atalho de Downloads na barra de cima (novo numa leva
-               posterior, pedido do usuário: "colocar um atalho lá em cima
-               igual a Steam") — abre o mesmo painel que o item
-               "Downloads" do menu geral (OnDownloadsShortcutClick só
-               chama vm.ToggleDownloads(), não é um painel separado). O
-               pontinho no canto só aparece com algo baixando agora de
-               verdade (HasActiveDownloads), pra dar uma pista visual sem
-               precisar abrir o painel pra checar. -->
-          <!-- Leva seguinte: + "Y" do lado (o controle abre isso pelo Y —
-               GamepadAction.Downloads, pedido do usuário: "não consigo
-               acessar... pelo controle") e, com algo baixando, o % e uma
-               mini barra de progresso (pedido: "algo que indica visual o
-               percentual do download"). Atualiza sozinho mesmo com o
-               painel fechado — ver MainWindow.StartDownloadsRefreshTimer. -->
           <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
                       ToolTip.Tip="{Binding TopBarDownloadToolTip}">
             <Grid VerticalAlignment="Center">
@@ -146,8 +109,6 @@
                            Foreground="{StaticResource AccentBrush}" />
             </StackPanel>
 
-            <!-- Dica do botão do controle — discreta, só pra quem joga só
-                 no controle descobrir que existe. -->
             <Border BorderBrush="{StaticResource AccentBrush}"
                     BorderThickness="1"
                     CornerRadius="9"
@@ -159,67 +120,17 @@
                          HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Border>
           </StackPanel>
-          <!-- Ordem reorganizada nesta leva (pedido do usuário: "ícone de
-               download, depois vir o ícone de energia e bateria e ícone de
-               relógio") — downloads (acima) → bateria → relógio, nessa
-               ordem, da esquerda pra direita dentro deste grupo. -->
-          <!-- Bateria real desde outra leva (ver MainViewModel.
-               BatteryStatusText/MainWindow.StartBatteryMonitor), corrigindo
-               o bug reportado de ficar cravada em 100%. O ícone de
-               tomada/pilha vem de Platform.BatteryStatus — corrigido nesta
-               leva (v0.9.8) pra mostrar 🔌 sempre que estiver na tomada,
-               mesmo com a bateria já cheia (antes só mostrava 🔌 durante o
-               "carregando" de verdade, caindo pra ⚡ como se estivesse na
-               bateria — bug reportado: "faltou...um icone de ligado na
-               tomada ou não"). Texto vazio (nada aparece) em PC sem
-               bateria nenhuma. -->
           <TextBlock Text="{Binding BatteryStatusText}" Classes="subtle" VerticalAlignment="Center" />
-          <!-- Relógio (v0.9.8, pedido do usuário: "faltou um relógio no
-               nosso home perto da bateria") — tirou o lugar do antigo
-               placeholder de wifi "●●●" (nunca foi real, só um texto fixo;
-               wifi de verdade fica pra outra leva). Empurrado de fora pelo
-               mesmo timer da bateria (ver MainViewModel.ClockText/
-               MainWindow.StartBatteryMonitor). -->
           <TextBlock Text="{Binding ClockText}" Classes="subtle" VerticalAlignment="Center" />
         </StackPanel>
       </Grid>
     </Border>
 
-    <!-- Main content: o banner hero retangular no topo (SEM blur, crua a
-         arte do jogo focado) VOLTOU nesta leva — tinha sido removido numa
-         leva anterior, mas o usuário pediu de volta ("vamos voltar aquele
-         quadrado em cima sem blur"). A arte hero continua TAMBÉM
-         alimentando o fundo desfocado da janela inteira (Panel lá em cima)
-         — as duas coisas usam a mesma arte, uma com blur, outra sem,
-         exatamente como antes da remoção. -->
-    <!-- v0.9.20: o layout da biblioteca (hero + abas + grade) saiu daqui
-         pra Views/Layouts/*.axaml, pra poder ser trocado por tema de
-         layout. Quem decide qual entra: MainWindow.ApplyLayoutTheme, a
-         partir de AppSettings.LayoutTheme. Toda a INFRAESTRUTURA (menus,
-         dialogos, controle, atalhos, bandeja, overlays abaixo) continua
-         aqui e e compartilhada entre os layouts de proposito — um layout
-         com defeito nunca consegue prender o usuario sem acesso as
-         Configuracoes pra voltar. -->
     <ContentControl x:Name="LibraryLayoutHost" Grid.Row="1" />
 
-    <!-- Bottom bar — deliberadamente minimalista a pedido do usuário:
-         Buscar capas/Adicionar jogo/Atualizar/Sair saíram de aqui e foram
-         pro menu geral (View/Back, ou o ícone de engrenagem aqui mesmo na
-         barra de baixo — ver bullet abaixo), restando só o que faz
-         sentido como ação rápida de mouse/touch na barra. Grid.Column="0"
-         era um TextBlock com a dica de controles ("← → navega · A/Enter
-         joga · ..."); removido a pedido do usuário (poluía o canto
-         inferior esquerdo da tela). A coluna "*" fica sem conteúdo de
-         propósito, só empurrando os botões pra direita como antes.
-         Reorganizado nesta leva (pedido do usuário: "muito desorganizado,
-         vamos por partes") — a engrenagem SAIU do canto superior direito
-         (ver Top bar acima) e entrou aqui, e "Minimizar" trocou de texto
-         pra ícone: canto inferior direito agora é sempre Minimizar(ícone)
-         → Engrenagem → Power, nessa ordem. -->
+    <!-- Bottom bar -->
     <Border Grid.Row="2" Classes="bottomBar" Margin="24,0,24,20" Padding="18,10">
       <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" VerticalAlignment="Center">
-        <!-- Versão atual no rodapé (pedido do usuário: "nota de rodapé com
-             a versão atual" — pra conferir se a atualização pegou). -->
         <TextBlock Grid.Column="0"
                    Text="{Binding AppVersionText}"
                    Classes="subtle"
@@ -232,19 +143,12 @@
                 Click="OnCloseGameClick"
                 IsVisible="{Binding RunningGame, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}"
                 Margin="0,0,10,0" />
-        <!-- Ações rápidas com área de toque uniforme e ícones legíveis. -->
         <Button Grid.Column="2"
                 Classes="switchAction"
                 Content="—"
                 Click="OnMinimizeClick"
                 ToolTip.Tip="Minimizar — envia para a bandeja do Windows. Reabra pelo ícone da bandeja ou Ctrl+Alt+H."
                 Margin="0,0,8,0" />
-        <!-- Engrenagem — movida do topo pra aqui nesta leva. Abre o mesmo
-             menu geral do botão View/Back (OnGearMenuClick só chama
-             vm.ToggleGlobalMenu(), nada de menu separado) — assim
-             mouse/touch e controle sempre acessam exatamente as mesmas
-             opções (Atualizar Biblioteca/Atualizar Capas Automático/
-             Adicionar jogo/Downloads/Overlay FPS). -->
         <Button Grid.Column="3"
                 Classes="switchAction"
                 Content="⚙"
@@ -261,31 +165,11 @@
 
   </Grid>
 
-    <!-- Start-button context menu: dim backdrop + centered card. Sits as
-         the LAST child of the outer Panel so it paints over absolutely
-         everything else, bottom bar included.
-
-         v0.9.11: SEM PointerEntered aqui de propósito — bug reportado
-         pelo usuário ("os botões de energia tem bugão às vezes, tanto no
-         desktop quanto no handheld"). Causa: PointerEntered (hover) do
-         mouse/touch escrevia no MESMO índice que ↑↓ do controle/teclado
-         usa (ver MainViewModel.HighlightContextMenuItem/
-         HighlightGlobalMenuItem) — só o cursor do mouse PARADO em cima de
-         outro item (ou um dedo encostando de raspão na tela num
-         handheld, segurando o aparelho enquanto navega pelo D-pad) já
-         trocava silenciosamente qual item seria executado no próximo A/
-         Enter, sem o usuário escolher isso. Clique/toque (PointerPressed,
-         ver OnContextMenuItemPressed/ActivateContextMenuItem) já
-         identifica e confirma o item certo por conta própria — não
-         depende desse índice compartilhado — então tirar o hover não
-         quebra mouse/touch, só tira o destaque ao passar por cima sem
-         clicar. -->
+    <!-- Start-button context menu -->
     <Panel Classes="fadeIn" IsVisible="{Binding IsContextMenuOpen}">
       <Border Classes="contextMenuOverlay" PointerPressed="OnMenuOverlayPressed" />
       <Border Classes="contextMenuCard" Width="420" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel Spacing="16">
-          <!-- v0.7.0: nome do jogo centralizado numa moldura de destaque,
-               com o ícone do jogo (SteamGridDB) do lado quando existir. -->
           <Border Classes="menuHeader">
             <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
               <Image Source="{Binding ContextMenuTarget.IconImagePath, Converter={StaticResource FileToBitmapConverter}}"
@@ -309,27 +193,7 @@
       </Border>
     </Panel>
 
-    <!-- Global menu (View/Back button) — same visual pattern as the
-         per-tile menu above, but for the bottom bar's actions, so they're
-         reachable without a mouse. No "target" title since it's not about
-         a specific game. "Energia" (botão ⏻ da barra de baixo) abre aqui
-         também, na página GlobalMenuPage.Power — ver
-         MainViewModel.TogglePowerMenu/BuildGlobalMenu. Não tem painel
-         próprio: um painel "Power" separado existiu antes (IsPowerMenuOpen/
-         PowerMenuItems) mas nunca era aberto por nada de verdade — era
-         puro código morto, removido na v0.9.11 (ver auditoria do bug do
-         hover abaixo) junto com o resto dessa implementação paralela.
-
-         v0.9.11: SEM PointerEntered aqui também, mesmo motivo do menu de
-         contexto acima — hover do mouse/touch sobrescrevia o índice que
-         ↑↓ do controle usa, então segurar o aparelho com o dedo
-         encostando de raspão na tela (ou só deixar o cursor do mouse
-         parado em cima de outro item, no desktop) podia trocar qual ação
-         de Energia executava no próximo A/Enter sem o usuário notar —
-         bug reportado: "os botões de energia tem bugão às vezes, tanto no
-         desktop quanto no handheld". Clique/toque continua funcionando
-         normal (ver OnGlobalMenuItemPressed/ActivateGlobalMenuItem, que
-         não depende desse índice). -->
+    <!-- Global menu -->
     <Panel Classes="fadeIn" IsVisible="{Binding IsGlobalMenuOpen}">
       <Border Classes="contextMenuOverlay" PointerPressed="OnMenuOverlayPressed" />
       <Border Classes="contextMenuCard" Width="380" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -353,13 +217,7 @@
       </Border>
     </Panel>
 
-    <!-- Painel de Downloads (item "Downloads" do menu global) — pedido do
-         usuário como "gerenciador de download". Duas seções: "baixando
-         agora" (Steam, lido do .acf — ver ScanActiveDownloads) e "na sua
-         conta, não instalado" (Steam Web API). Ver MainViewModel.
-         IsDownloadsOpen pras decisões de escopo da v1 (só Steam; lista
-         "Instalar" é mouse/touch-only, por isso o botão ✕ aqui em vez de
-         depender só do controle pra fechar). -->
+    <!-- Painel de Downloads -->
     <Panel Classes="fadeIn" IsVisible="{Binding IsDownloadsOpen}">
       <Border Classes="contextMenuOverlay" PointerPressed="OnMenuOverlayPressed" />
       <Border Classes="contextMenuCard" Width="560" MaxHeight="620" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -386,8 +244,6 @@
             </StackPanel>
           </ScrollViewer>
 
-          <!-- A Steam não deixa outro programa pausar/retomar download —
-               este botão leva pra tela de downloads dela, onde dá. -->
           <Button Grid.Row="2"
                   Classes="pill"
                   Content="Abrir downloads na Steam (pausar/retomar)"
@@ -400,58 +256,39 @@
       </Border>
     </Panel>
 
-    <!-- Cover/banner picker — opened from the per-tile menu's "Escolher
-         capa"/"Escolher banner". Grid of SteamGridDB candidates (static
-         images only, see README's "Seletor de capas" section for the
-         animated-GIF follow-up); ← → ↑ ↓ all move the highlight by one
-         (flat list, no row-aware jump yet), A/Enter applies the highlighted
-         one, B/Esc/Start/View cancels without changing anything. -->
+    <!-- MELHORIA 2: Cover/banner picker (Fundo escuro e bordas arredondadas) -->
     <Panel Classes="fadeIn" IsVisible="{Binding IsCoverPickerOpen}">
       <Border Classes="contextMenuOverlay" PointerPressed="OnMenuOverlayPressed" />
-      <Border Classes="contextMenuCard" Width="880" MaxHeight="620" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+      
+      <!-- Fundo escuro (#1E1E2E) para combinar com o tema, em vez do fundo claro padrão -->
+      <Border Classes="contextMenuCard" Width="880" MaxHeight="620" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center" Background="#1E1E2E">
         <Grid RowDefinitions="Auto,*,Auto">
-                              <!-- Cabeçalho do Seletor com Filtro -->
+          
           <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,16">
-            <TextBlock Grid.Column="0" Text="{Binding CoverPickerTitle}" Classes="heroTitle" TextWrapping="Wrap" VerticalAlignment="Center" />
+            <!-- Título em cor clara para contrastar com o fundo escuro -->
+            <TextBlock Grid.Column="0" Text="{Binding CoverPickerTitle}" Classes="heroTitle" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center" />
             
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-              <TextBlock Text="Só animadas" Classes="subtle" VerticalAlignment="Center" FontSize="12" />
-              <ToggleSwitch IsChecked="{Binding FilterAnimatedOnly}" 
-                            OnContent="" OffContent="" 
-                            HorizontalAlignment="Right" />
+              <TextBlock Text="Só animadas" Foreground="LightGray" VerticalAlignment="Center" FontSize="12" />
+              <ToggleSwitch IsChecked="{Binding FilterAnimatedOnly}" OnContent="" OffContent="" HorizontalAlignment="Right" />
             </StackPanel>
           </Grid>
 
-          <TextBlock Grid.Row="1"
-                     Text="Buscando opções no SteamGridDB..."
-                     Classes="subtle"
+          <TextBlock Grid.Row="1" Text="Buscando opções no SteamGridDB..." Foreground="LightGray"
                      HorizontalAlignment="Center" VerticalAlignment="Center"
                      IsVisible="{Binding IsCoverPickerLoading}" />
 
-          <TextBlock Grid.Row="1"
-                     Text="Nenhuma opção estática encontrada para esse jogo."
-                     Classes="subtle"
+          <TextBlock Grid.Row="1" Text="Nenhuma opção estática encontrada para esse jogo." Foreground="LightGray"
                      HorizontalAlignment="Center" VerticalAlignment="Center"
                      IsVisible="{Binding CoverPickerIsEmpty}" />
 
-          <TextBlock Grid.Row="1"
-                     Text="{Binding CoverPickerErrorMessage}"
-                     Classes="subtle"
-                     TextWrapping="Wrap"
-                     TextAlignment="Center"
-                     HorizontalAlignment="Center" VerticalAlignment="Center"
-                     Margin="20"
+          <TextBlock Grid.Row="1" Text="{Binding CoverPickerErrorMessage}" Foreground="LightGray"
+                     TextWrapping="Wrap" TextAlignment="Center"
+                     HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20"
                      IsVisible="{Binding CoverPickerHasError}" />
 
           <ScrollViewer x:Name="CoverPickerScrollViewer" Grid.Row="1" MaxHeight="460" IsVisible="{Binding CoverPickerHasResults}">
-            <!-- UniformGrid with a FIXED column count (not WrapPanel) so
-                 ↑↓ can jump by exactly "CoverPickerColumns" in the
-                 ViewModel and land in the right cell every time — a
-                 WrapPanel's column count depends on pixel widths at
-                 render time, which the ViewModel can't reliably mirror,
-                 and that mismatch is exactly why ↑↓ used to behave like
-                 ←→ (MainViewModel had no row concept at all yet). -->
-             <ItemsControl ItemsSource="{Binding CoverPickerCandidates}">
+            <ItemsControl ItemsSource="{Binding CoverPickerCandidates}">
               <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
                   <UniformGrid Columns="5" />
@@ -459,10 +296,12 @@
               </ItemsControl.ItemsPanel>
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:ArtworkCandidateViewModel">
+                  <!-- MELHORIA 2: CornerRadius="8" e ClipToBounds="True" para arredondar as miniaturas -->
                   <Border Classes="coverCandidate" Classes.selected="{Binding IsSelected}"
                           Cursor="Hand"
                           PointerPressed="OnCoverCandidatePressed"
                           Width="150" Height="170" Margin="6"
+                          CornerRadius="8" ClipToBounds="True"
                           HorizontalAlignment="Center" VerticalAlignment="Center">
                     <Image Source="{Binding LocalThumbnailPath, Converter={StaticResource FileToBitmapConverter}}" Stretch="Uniform" />
                   </Border>
@@ -470,14 +309,11 @@
               </ItemsControl.ItemTemplate>
             </ItemsControl>
           </ScrollViewer>
-
-
         </Grid>
       </Border>
     </Panel>
 
-    <!-- "Sobre" (Configurações → Sobre, v0.7.0) — bem simples, pedido do
-         usuário. Fecha com B/A/View/Esc ou clique. -->
+    <!-- "Sobre" -->
     <Panel Classes="fadeIn" IsVisible="{Binding IsAboutOpen}">
       <Border Classes="contextMenuOverlay" PointerPressed="OnAboutOverlayPressed" />
       <Border Classes="contextMenuCard" Width="480" Padding="32" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -511,30 +347,16 @@
       </Border>
     </Panel>
 
-    <!-- Overlay "Iniciando <jogo>..." — feedback visual pedido pelo
-         usuário ("feedback visual pra já kkk") pra cobrir o intervalo
-         entre apertar confirmar e o jogo de fato aparecer na tela, que
-         sem isso parecia que não tinha acontecido nada por alguns
-         segundos. Some sozinho depois de um tempo fixo (ver
-         MainViewModel.LaunchFeedbackMilliseconds) — não tem como saber
-         com certeza quando o processo externo terminou de carregar.
-         Último filho do Panel, então pinta por cima de tudo (inclusive os
-         outros menus, embora não devam estar abertos ao mesmo tempo). -->
+    <!-- Overlay "Iniciando <jogo>..." -->
     <Panel Classes="fadeIn" IsVisible="{Binding IsLaunching}">
       <Border Classes="contextMenuOverlay" PointerPressed="OnMenuOverlayPressed" />
       <Border Classes="contextMenuCard" Width="420" Padding="32" HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel Spacing="18" HorizontalAlignment="Center">
-          <!-- Ícone do jogo (SteamGridDB, seção Icons) — some quando o
-               jogo ainda não tem ícone baixado. -->
           <Image Source="{Binding LaunchingGameIconPath, Converter={StaticResource FileToBitmapConverter}}"
                  IsVisible="{Binding LaunchingGameIconPath, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}"
-                 Width="96" Height="96"
-                 Stretch="Uniform"
-                 HorizontalAlignment="Center" />
+                 Width="96" Height="96" Stretch="Uniform" HorizontalAlignment="Center" />
           <TextBlock Text="{Binding LaunchingGameTitle, StringFormat='Iniciando {0}...'}"
-                     Classes="heroTitle"
-                     TextWrapping="Wrap"
-                     TextAlignment="Center" />
+                     Classes="heroTitle" TextWrapping="Wrap" TextAlignment="Center" />
           <ProgressBar IsIndeterminate="True" Width="240" />
         </StackPanel>
       </Border>
