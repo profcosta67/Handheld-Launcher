@@ -1,15 +1,4 @@
 # Publica uma nova versão do launcher — 100% automático.
-#
-# Como lançar uma versão: mude o número no arquivo VERSION (raiz do repo,
-# ex: 0.3.1 -> 0.3.2) e envie pro GitHub. Este workflow então:
-#   1. apaga Releases quebradas (sem nenhum arquivo anexado);
-#   2. compila, empacota com o Velopack (Windows) e gera o ZIP portátil (Linux);
-#   3. cria a tag vX.Y.Z + a Release e anexa:
-#      - HandheldLauncher-win-Setup.exe  (instalador Windows)
-#      - os pacotes de atualização delta do Velopack
-#      - HandheldLauncher-linux-x64.zip  (pacote portátil Linux)
-#      - Modo-Console.zip (scripts opcionais)
-# Se a versão do VERSION já tiver uma Release completa, não faz nada.
 name: Release
 
 on:
@@ -86,6 +75,26 @@ jobs:
           --self-contained true
           -p:Version=${{ steps.ver.outputs.version }}
           -o publish
+
+      # 🟢 NOVA ETAPA: Baixar e empacotar FFmpeg
+      - name: Baixar e empacotar FFmpeg
+        if: steps.exists.outputs.skip != 'true'
+        shell: pwsh
+        run: |
+          Write-Host "Baixando FFmpeg..."
+          Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile "ffmpeg.zip"
+          
+          Write-Host "Extraindo FFmpeg..."
+          Expand-Archive -Path "ffmpeg.zip" -DestinationPath "ffmpeg_temp" -Force
+          
+          Write-Host "Copiando ffmpeg.exe para a pasta Tools..."
+          $exe = Get-ChildItem -Path "ffmpeg_temp" -Filter "ffmpeg.exe" -Recurse | Select-Object -First 1
+          New-Item -ItemType Directory -Path "publish/Tools" -Force | Out-Null
+          Copy-Item $exe.FullName -Destination "publish/Tools/ffmpeg.exe" -Force
+          
+          Write-Host "Limpando arquivos temporários..."
+          Remove-Item "ffmpeg.zip" -Force
+          Remove-Item "ffmpeg_temp" -Recurse -Force
 
       - name: Conferir que nenhum segredo entrou no pacote (Windows)
         if: steps.exists.outputs.skip != 'true'
