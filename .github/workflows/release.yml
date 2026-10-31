@@ -131,10 +131,11 @@ jobs:
             --mainExe HandheldLauncher.exe `
             --icon src/HandheldLauncher.App/Assets/app-icon.ico `
             --splashProgressColor "#7C5CFC" `
+            --requireAdmin `   # 🟢 NOVO: Força o instalador a pedir Admin
             @extra
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
-      # --- BUILD LINUX ---
+            # --- BUILD LINUX ---
       - name: Publicar (self-contained linux-x64)
         if: steps.exists.outputs.skip != 'true'
         run: >
