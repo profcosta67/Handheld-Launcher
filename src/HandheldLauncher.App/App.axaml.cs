@@ -77,7 +77,7 @@ public partial class App : Application
             if (OperatingSystem.IsWindows())
             {
                 performanceHud = new PerformanceHud(appSettings.OverlayPreset);
-                desktop.Exit += (_, _) => performanceHud.Dispose();
+                desktop.Exit += (_, _) => performanceHud?.Dispose();
             }
 
             LegacyInstallCleanup.RunInBackground();
