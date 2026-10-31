@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="HandheldLauncher.App.Views.OverlayWindow"
         Title="Quick Settings"
-        Width="380" Height="700"
+        Width="380" Height="680"
         SystemDecorations="None"
         Background="Transparent"
         TransparencyLevelHint="Transparent"
@@ -10,6 +10,18 @@
         ShowInTaskbar="False"
         WindowStartupLocation="Manual"
         CanResize="False">
+
+    <!-- 🟢 ESTILO PARA O BOTÃO FECHAR NÃO FICAR CINZA NO HOVER -->
+    <Window.Styles>
+        <Style Selector="Button#BtnClose">
+            <Setter Property="Background" Value="#33FFFFFF"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <Style Selector="Button#BtnClose:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#55FFFFFF"/> <!-- Um pouco mais claro no hover, mas não cinza -->
+            <Setter Property="CornerRadius" Value="20"/>
+        </Style>
+    </Window.Styles>
 
     <Border Background="#E6121212" 
             CornerRadius="24,0,0,24" 
@@ -20,88 +32,106 @@
         <Grid RowDefinitions="Auto,*,Auto">
             
             <!-- Cabeçalho -->
-            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,20">
+            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,15">
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock Text="⚙️ Quick Settings" Foreground="White" FontSize="22" FontWeight="Bold" />
-                    <TextBlock Text="Controle Rápido" Foreground="Gray" FontSize="12" />
                 </StackPanel>
-                <Button Grid.Column="1" 
-                        Content="✕" 
-                        Width="40" Height="40" 
-                        CornerRadius="20" 
-                        Background="#33FFFFFF" 
-                        Foreground="White" 
-                        Click="OnCloseClick" 
-                        Padding="0" 
-                        HorizontalContentAlignment="Center" 
-                        VerticalContentAlignment="Center"
-                        FontSize="16" 
-                        FontWeight="Bold" />
+                <!-- 🟢 Adicionado o x:Name="BtnClose" -->
+                <Button x:Name="BtnClose" Grid.Column="1" Content="✕" Width="40" Height="40" CornerRadius="20" Background="#33FFFFFF" Foreground="White" Click="OnCloseClick" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="16" FontWeight="Bold" />
             </Grid>
 
-            <ScrollViewer Grid.Row="1">
-                <StackPanel Spacing="16">
-                    
-                    <!-- Seção: TDP -->
-                    <Border x:Name="TdpSection" CornerRadius="12" BorderThickness="2" BorderBrush="Transparent" Padding="12" Background="#1AFFFFFF">
-                        <StackPanel Spacing="10">
-                            <TextBlock Text="⚡ Desempenho (TDP)" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
-                            <Grid ColumnDefinitions="*,*,*,*">
-                                <Button x:Name="BtnEco" Grid.Column="0" Content="🍃" ToolTip.Tip="Eco (8W)" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="10" Margin="0,0,4,0" FontSize="18" />
-                                <Button x:Name="BtnNormal" Grid.Column="1" Content="🎯" ToolTip.Tip="Normal (15W)" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="10" Margin="4,0,4,0" FontSize="18" />
-                                <Button x:Name="BtnDesempenho" Grid.Column="2" Content="🚀" ToolTip.Tip="Desempenho (25W)" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="10" Margin="4,0,4,0" FontSize="18" />
-                                <Button x:Name="BtnBoost" Grid.Column="3" Content="🔥" ToolTip.Tip="Boost (30W)" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="10" Margin="4,0,0,0" FontSize="18" />
-                            </Grid>
-                        </StackPanel>
-                    </Border>
+            <!-- Conteúdo Principal -->
+            <StackPanel Grid.Row="1" Spacing="12">
+                
+                <!-- Seção: TDP -->
+                <Border x:Name="TdpSection" CornerRadius="12" BorderThickness="2" BorderBrush="Transparent" Padding="10" Background="#1AFFFFFF">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="⚡ Desempenho (TDP)" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
+                        <Grid ColumnDefinitions="*,*,*,*">
+                            <Button x:Name="BtnEco" Grid.Column="0" Tag="Eco" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="0,0,4,0" Padding="5">
+                                <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock Text="🍃" FontSize="14" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Eco" FontSize="11" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="BtnNormal" Grid.Column="1" Tag="Normal" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="4,0,4,0" Padding="5">
+                                <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock Text="🎯" FontSize="14" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Norm" FontSize="11" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="BtnDesempenho" Grid.Column="2" Tag="Desempenho" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="4,0,4,0" Padding="5">
+                                <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock Text="🚀" FontSize="14" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Desemp" FontSize="10" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="BtnBoost" Grid.Column="3" Tag="Boost" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="4,0,0,0" Padding="5">
+                                <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock Text="🔥" FontSize="14" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Boost" FontSize="11" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+                </Border>
 
-                    <!-- Seção: Cor -->
-                    <Border x:Name="ColorSection" CornerRadius="12" BorderThickness="2" BorderBrush="Transparent" Padding="12" Background="#1AFFFFFF">
-                        <StackPanel Spacing="10">
-                            <TextBlock Text="🎨 Modo de Cor" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
-                            <ComboBox x:Name="ColorModeCombo" SelectionChanged="OnColorModeChanged" HorizontalAlignment="Stretch" Background="#252A36">
-                                <ComboBoxItem>Padrão</ComboBoxItem>
-                                <ComboBoxItem>Vívido</ComboBoxItem>
-                                <ComboBoxItem>OLED (Alto Contraste)</ComboBoxItem>
-                                <ComboBoxItem>Noturno (Luz Quente)</ComboBoxItem>
-                            </ComboBox>
-                        </StackPanel>
-                    </Border>
+                <!-- Seção: Cor (Agora com Botões) -->
+                <Border x:Name="ColorSection" CornerRadius="12" BorderThickness="2" BorderBrush="Transparent" Padding="10" Background="#1AFFFFFF">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="🎨 Modo de Cor" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
+                        <Grid ColumnDefinitions="*,*,*,*">
+                            <Button x:Name="BtnColorDefault" Grid.Column="0" Tag="0" Content="Padrão" Click="OnColorClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="0,0,4,0" FontSize="11"/>
+                            <Button x:Name="BtnColorVivid" Grid.Column="1" Tag="1" Content="Vívido" Click="OnColorClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="4,0,4,0" FontSize="11"/>
+                            <Button x:Name="BtnColorOled" Grid.Column="2" Tag="2" Content="OLED" Click="OnColorClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="4,0,4,0" FontSize="11"/>
+                            <Button x:Name="BtnColorNight" Grid.Column="3" Tag="3" Content="Noturno" Click="OnColorClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="4,0,0,0" FontSize="11"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
 
-                    <!-- Seção: HUD -->
-                    <Border x:Name="HudSection" CornerRadius="12" BorderThickness="2" BorderBrush="Transparent" Padding="12" Background="#1AFFFFFF">
-                        <StackPanel Spacing="10">
-                            <TextBlock Text="📊 HUD de Desempenho" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
-                            <Grid ColumnDefinitions="*,*,*,*">
-                                <Button x:Name="BtnHudOff" Grid.Column="0" Content="🚫" ToolTip.Tip="Desligado" Click="OnHudClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="8" Margin="0,0,4,0" FontSize="16" />
-                                <Button x:Name="BtnHudMin" Grid.Column="1" Content="📉" ToolTip.Tip="Resumido" Click="OnHudClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="8" Margin="4,0,4,0" FontSize="16" />
-                                <Button x:Name="BtnHudMed" Grid.Column="2" Content="📈" ToolTip.Tip="Médio" Click="OnHudClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="8" Margin="4,0,4,0" FontSize="16" />
-                                <Button x:Name="BtnHudFull" Grid.Column="3" Content="📊" ToolTip.Tip="Completo" Click="OnHudClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="8" Margin="4,0,0,0" FontSize="16" />
-                            </Grid>
-                        </StackPanel>
-                    </Border>
+                <!-- Seção: HUD -->
+                <Border x:Name="HudSection" CornerRadius="12" BorderThickness="2" BorderBrush="Transparent" Padding="10" Background="#1AFFFFFF">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="📊 HUD de Desempenho" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
+                        <Grid ColumnDefinitions="*,*,*,*">
+                            <Button x:Name="BtnHudOff" Grid.Column="0" Tag="0" Content="Off" Click="OnHudClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="8" Margin="0,0,4,0" FontSize="12"/>
+                            <Button x:Name="BtnHudMin" Grid.Column="1" Tag="1" Content="Min" Click="OnHudClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="8" Margin="4,0,4,0" FontSize="12"/>
+                            <Button x:Name="BtnHudMed" Grid.Column="2" Tag="2" Content="Méd" Click="OnHudClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="8" Margin="4,0,4,0" FontSize="12"/>
+                            <Button x:Name="BtnHudFull" Grid.Column="3" Tag="3" Content="Full" Click="OnHudClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="8" Margin="4,0,0,0" FontSize="12"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
 
-                    <!-- Seção: Volume -->
-                    <Border x:Name="VolumeSection" CornerRadius="12" BorderThickness="2" BorderBrush="Transparent" Padding="12" Background="#1AFFFFFF">
-                        <StackPanel Spacing="8">
-                            <TextBlock Text="🔊 Volume" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
-                            <Slider x:Name="VolumeSlider" ValueChanged="OnVolumeChanged" Minimum="0" Maximum="100" />
-                        </StackPanel>
-                    </Border>
+                <!-- Seção: Volume e Brilho -->
+                <Border x:Name="VolumeSection" CornerRadius="12" BorderThickness="2" BorderBrush="Transparent" Padding="10" Background="#1AFFFFFF">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="🔊 Sistema" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
+                        <Grid ColumnDefinitions="Auto,*" VerticalAlignment="Center">
+                            <TextBlock Text="Volume" Foreground="White" FontSize="12" Margin="0,0,10,0"/>
+                            <Slider x:Name="VolumeSlider" Grid.Column="1" ValueChanged="OnVolumeChanged" Minimum="0" Maximum="100" />
+                        </Grid>
+                        <Grid ColumnDefinitions="Auto,*" VerticalAlignment="Center">
+                            <TextBlock Text="Brilho" Foreground="White" FontSize="12" Margin="0,0,10,0"/>
+                            <Slider x:Name="BrightnessSlider" Grid.Column="1" ValueChanged="OnBrightnessChanged" Minimum="0" Maximum="100" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
 
-                    <!-- Seção: Brilho -->
-                    <Border x:Name="BrightnessSection" CornerRadius="12" BorderThickness="2" BorderBrush="Transparent" Padding="12" Background="#1AFFFFFF">
-                        <StackPanel Spacing="8">
-                            <TextBlock Text="☀️ Brilho" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
-                            <Slider x:Name="BrightnessSlider" ValueChanged="OnBrightnessChanged" Minimum="0" Maximum="100" />
-                        </StackPanel>
-                    </Border>
+                <!-- Seção: Captura e Gravação -->
+                <Border x:Name="CaptureSection" CornerRadius="12" BorderThickness="2" BorderBrush="Transparent" Padding="10" Background="#1AFFFFFF">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="📸 Captura" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
+                        <Grid ColumnDefinitions="*,*">
+                            <Button x:Name="BtnScreenshot" Grid.Column="0" Content="Tirar Print" Click="OnScreenshotClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="8" Margin="0,0,4,0" FontSize="12" />
+                            <Button x:Name="BtnRecord" Grid.Column="1" Content="Gravar Tela" Click="OnRecordClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="8" Margin="4,0,0,0" FontSize="12" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
 
-                </StackPanel>
-            </ScrollViewer>
+            </StackPanel>
 
             <!-- Rodapé -->
-            <Button Grid.Row="2" Content="Fechar Menu" Click="OnCloseClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,20,0,0" Background="#7C5CFC" Foreground="White" CornerRadius="12" Padding="14" FontWeight="Bold" />
+            <Button Grid.Row="2" Content="Fechar Menu" Click="OnCloseClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,25,0,0" Background="#7C5CFC" Foreground="White" CornerRadius="12" Padding="12" FontWeight="Bold" />
         </Grid>
     </Border>
 </Window>
