@@ -76,4 +76,35 @@ public class WindowsHardwareService : IHardwareService
         // Lógica para iniciar o RTSS ou similar
         DebugLog.Write($"[WINDOWS] HUD: {enabled}");
     }
+        public void RegisterAutoStartTask()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        try
+        {
+            string exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName ?? string.Empty;
+            if (string.IsNullOrEmpty(exePath) || !System.IO.File.Exists(exePath)) return;
+
+            string taskName = "HandheldLauncher_Startup";
+            
+            // Cria a tarefa para rodar no logon, com privilégios máximos (sem UAC)
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "schtasks.exe",
+                Arguments = $"/Create /TN \"{taskName}\" /TR \"\\\"{exePath}\\\"\" /SC ONLOGON /RL HIGHEST /F",
+                CreateNoWindow = true,
+                UseShellExecute = false
+            };
+
+            using var proc = System.Diagnostics.Process.Start(psi);
+            proc?.WaitForExit();
+            
+            DebugLog.Write($"[AUTOSTART] Tarefa criada com código {proc?.ExitCode}");
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[AUTOSTART] Erro: {ex.Message}");
+        }
+    }
+    
 }

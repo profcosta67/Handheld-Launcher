@@ -1,6 +1,5 @@
 namespace HandheldLauncher.App.Input;
 
-// O Enum fica aqui no topo
 public enum GamepadAction
 {
     MoveLeft,
@@ -14,9 +13,8 @@ public enum GamepadAction
     PreviousFilter,
     NextFilter,
     Downloads,
-    CycleOverlay,        // L3 + R3
     GameDetails,
-    ToggleQuickSettings, // Back + Start (Select + Start)
+    ToggleQuickSettings, // L3 + R3
 }
 
 public sealed class GamepadPoller
@@ -51,17 +49,17 @@ public sealed class GamepadPoller
         IsConnected = true;
         var buttons = (XInput.Buttons)state.Gamepad.wButtons;
 
-        // 🟢 LÓGICA DO CHORD: Back + Start (Select + Start)
-        var isBackStartPressed = buttons.HasFlag(XInput.Buttons.Back) && buttons.HasFlag(XInput.Buttons.Start);
-        var wasBackStartPressed = _previousButtons.HasFlag(XInput.Buttons.Back) && _previousButtons.HasFlag(XInput.Buttons.Start);
+        // 🟢 L3 + R3 para abrir o Overlay
+        var isL3R3Pressed = buttons.HasFlag(XInput.Buttons.LeftThumb) && buttons.HasFlag(XInput.Buttons.RightThumb);
+        var wasL3R3Pressed = _previousButtons.HasFlag(XInput.Buttons.LeftThumb) && _previousButtons.HasFlag(XInput.Buttons.RightThumb);
 
-        if (isBackStartPressed && !wasBackStartPressed)
+        if (isL3R3Pressed && !wasL3R3Pressed)
         {
             actions.Add(GamepadAction.ToggleQuickSettings);
         }
         else
         {
-            // Se não for o chord, processa os botões normalmente
+            // Botões normais
             if (WasJustPressed(buttons, XInput.Buttons.Start)) actions.Add(GamepadAction.Menu);
             if (WasJustPressed(buttons, XInput.Buttons.Back)) actions.Add(GamepadAction.GlobalMenu);
         }
@@ -72,14 +70,6 @@ public sealed class GamepadPoller
         if (WasJustPressed(buttons, XInput.Buttons.RightShoulder)) actions.Add(GamepadAction.NextFilter);
         if (WasJustPressed(buttons, XInput.Buttons.Y)) actions.Add(GamepadAction.Downloads);
         if (WasJustPressed(buttons, XInput.Buttons.X)) actions.Add(GamepadAction.GameDetails);
-
-        // L3+R3 (abrir/fechar o HUD no jogo)
-        var isL3R3Pressed = buttons.HasFlag(XInput.Buttons.LeftThumb) && buttons.HasFlag(XInput.Buttons.RightThumb);
-        var wasL3R3Pressed = _previousButtons.HasFlag(XInput.Buttons.LeftThumb) && _previousButtons.HasFlag(XInput.Buttons.RightThumb);
-        if (isL3R3Pressed && !wasL3R3Pressed)
-        {
-            actions.Add(GamepadAction.CycleOverlay);
-        }
 
         var isLeftHeld = buttons.HasFlag(XInput.Buttons.DPadLeft) || state.Gamepad.sThumbLX < -StickDeadzone;
         var isRightHeld = buttons.HasFlag(XInput.Buttons.DPadRight) || state.Gamepad.sThumbLX > StickDeadzone;

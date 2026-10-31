@@ -571,22 +571,30 @@ public partial class MainWindow : Window
 
         foreach (var action in actions)
         {
-            if (vm.IsAboutOpen)
+            // 🟢 CORREÇÃO: O atalho funciona MESMO com o jogo aberto
+            if (action == GamepadAction.ToggleQuickSettings)
             {
-                if (action is GamepadAction.Back or GamepadAction.Confirm or GamepadAction.GlobalMenu or GamepadAction.Menu)
+                UiSounds.PlayForAction(action);
+                if (_overlayWindow != null && _overlayWindow.IsVisible)
                 {
-                    UiSounds.PlayBack();
-                    vm.CloseAbout();
+                    _overlayWindow.Hide();
+                }
+                else
+                {
+                    vm.OpenOverlayRequested?.Invoke(vm, EventArgs.Empty);
                 }
                 continue;
             }
 
-            if (action == GamepadAction.CycleOverlay)
+            if (vm.IsAboutOpen) { ... }
+            
+            // (Apague aquele bloco "if (action == GamepadAction.CycleOverlay)" antigo)
+            
+            if (vm.RunningGame is not null && !IsOurWindowInForeground())
             {
-                UiSounds.PlayForAction(action);
-                vm.CycleOverlayPreset();
                 continue;
             }
+
 
             // 🟢 AQUI ESTÁ O LUGAR CORRETO DO NOVO ATALHO 🟢
             if (action == GamepadAction.ToggleQuickSettings)

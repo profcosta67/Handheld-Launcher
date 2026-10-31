@@ -59,21 +59,30 @@ public partial class OverlayWindow : Window
         UpdateFocusVisual();
         DebugLog.Write("[OVERLAY] Construtor concluído.");
     }
-
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
         DebugLog.Write("[OVERLAY] OnOpened disparado.");
-        var screen = Screens.Primary;
+        
+        // 🟢 CORREÇÃO: Pega a tela primária ou a primeira tela da lista
+        var screen = Screens.Primary ?? Screens.All.FirstOrDefault();
+        
         if (screen != null)
         {
             var workingArea = screen.WorkingArea;
+            // Posiciona na direita, centralizado verticalmente
             var rightEdge = workingArea.X + workingArea.Width;
             var centerY = workingArea.Y + (workingArea.Height - (int)Height) / 2;
+            
             Position = new PixelPoint(rightEdge - (int)Width - 20, centerY);
+            DebugLog.Write($"[OVERLAY] Posicionado em X={Position.X}, Y={Position.Y}");
+        }
+        else
+        {
+            DebugLog.Write("[OVERLAY] ERRO: Não foi possível encontrar nenhuma tela.");
         }
     }
-
+    
     protected override void OnClosing(WindowClosingEventArgs e)
     {
         DebugLog.Write($"[OVERLAY] OnClosing disparado. IsAppClosing={IsAppClosing}");
