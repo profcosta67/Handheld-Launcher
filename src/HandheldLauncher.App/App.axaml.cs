@@ -101,7 +101,6 @@ public partial class App : Application
 
             if (OperatingSystem.IsWindows())
             {
-                PowerThrottling.DisableForThisProcess();
                 var overlayHotkeys = new HandheldLauncher.App.Input.OverlayHotkeyWatcher(mainViewModel.CycleOverlayPreset);
                 desktop.Exit += (_, _) => overlayHotkeys.Dispose();
 

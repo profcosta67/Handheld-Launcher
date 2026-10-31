@@ -54,7 +54,7 @@ public partial class MainWindow : Window
 
     private ILibraryLayout _libraryLayout = null!;
 
-    public MainWindow()
+        public MainWindow()
     {
         InitializeComponent();
 
@@ -80,6 +80,9 @@ public partial class MainWindow : Window
             RegisterRestoreHotkey();
         };
         Closed += (_, _) => UnregisterRestoreHotkeyIfNeeded();
+
+        // NOVO: Quando a janela ganha foco, garante que o controle volte a funcionar
+        Activated += (_, _) => { if (OperatingSystem.IsWindows()) PowerThrottling.DisableForThisProcess(); };
     }
 
     private static readonly TimeSpan TopmostEnforcerGracePeriod = TimeSpan.FromSeconds(120);
@@ -475,9 +478,16 @@ public partial class MainWindow : Window
         Closed += (_, _) => _batteryTimer?.Stop();
     }
 
-    private void OnGamepadTick(object? sender, EventArgs e)
+       private void OnGamepadTick(object? sender, EventArgs e)
     {
         if (DataContext is not MainViewModel vm) return;
+
+        // NOVO: Se não tem jogo rodando e a janela NÃO está ativa (você saiu pro desktop ou a tela bloqueou),
+        // pausa a leitura do controle. Isso libera o Windows para bloquear a tela e economizar bateria.
+        if (vm.RunningGame is null && !IsActive)
+        {
+            return;
+        }
 
         var actions = _gamepad.Poll();
 
