@@ -3,6 +3,8 @@ using System.Management;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 
+#pragma warning disable CA1416 // Este arquivo lida com APIs exclusivas do Windows (PerformanceCounter, WMI) de forma segura em tempo de execução.
+
 namespace HandheldLauncher.App.Platform;
 
 /// <summary>Uma leitura de sensores. Null = indisponível nesta máquina.</summary>
@@ -55,7 +57,12 @@ internal sealed class SystemMetrics : IDisposable
     {
         var (ramUsed, ramTotal) = ReadRam();
         var battery = ReadBattery();
-        var watts = ReadBatteryWatts();
+        
+        double? watts = null;
+        if (OperatingSystem.IsWindows())
+        {
+            watts = ReadBatteryWatts();
+        }
 
         // Muitos aparelhos devolvem "desconhecido" no tempo restante.
         var remaining = battery.Remaining;
@@ -63,6 +70,7 @@ internal sealed class SystemMetrics : IDisposable
         {
             remaining = TimeSpan.FromHours(_remainingMilliwattHours.Value / (watts.Value * 1000.0));
         }
+
         return new MetricsSnapshot(
             CpuPercent: OperatingSystem.IsWindows() ? ReadCpuPercent() : null,
             CpuMhz: OperatingSystem.IsWindows() ? ReadCpuMhz() : null,
@@ -72,17 +80,14 @@ internal sealed class SystemMetrics : IDisposable
             RamTotalGb: ramTotal,
             BatteryPercent: battery.Percent,
             OnAcPower: battery.OnAc,
-            BatteryWatts: OperatingSystem.IsWindows() ? ReadBatteryWatts() : null,
+            BatteryWatts: watts,
             BatteryRemaining: remaining);
     }
 
     // --- CPU ---------------------------------------------------------------
 
-    [SupportedOSPlatform("windows")]
     private double? ReadCpuPercent()
     {
-        if (!OperatingSystem.IsWindows()) return null;
-        
         try
         {
             return _cpuUtility is null ? null : Math.Clamp(_cpuUtility.NextValue(), 0, 100);
@@ -93,11 +98,8 @@ internal sealed class SystemMetrics : IDisposable
         }
     }
 
-    [SupportedOSPlatform("windows")]
     private double? ReadCpuMhz()
     {
-        if (!OperatingSystem.IsWindows()) return null;
-
         try
         {
             if (_cpuPerformance is null || _cpuFrequency is null) return null;
@@ -114,10 +116,8 @@ internal sealed class SystemMetrics : IDisposable
 
     // --- GPU ---------------------------------------------------------------
 
-    [SupportedOSPlatform("windows")]
     private double? ReadGpuPercent()
     {
-        if (!OperatingSystem.IsWindows()) return null;
         if (_gpuBroken) return null;
 
         try
@@ -153,10 +153,8 @@ internal sealed class SystemMetrics : IDisposable
         }
     }
 
-    [SupportedOSPlatform("windows")]
     private double? ReadVramGb()
     {
-        if (!OperatingSystem.IsWindows()) return null;
         if (_vramBroken) return null;
 
         try
@@ -183,7 +181,6 @@ internal sealed class SystemMetrics : IDisposable
 
     // --- RAM ---------------------------------------------------------------
 
-    [SupportedOSPlatform("windows")]
     [StructLayout(LayoutKind.Sequential)]
     private struct MemoryStatusEx
     {
@@ -198,7 +195,6 @@ internal sealed class SystemMetrics : IDisposable
         public ulong ullAvailExtendedVirtual;
     }
 
-    [SupportedOSPlatform("windows")]
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool GlobalMemoryStatusEx(ref MemoryStatusEx buffer);
 
@@ -239,7 +235,6 @@ internal sealed class SystemMetrics : IDisposable
 
     // --- Bateria -----------------------------------------------------------
 
-    [SupportedOSPlatform("windows")]
     [StructLayout(LayoutKind.Sequential)]
     private struct SystemPowerStatus
     {
@@ -251,7 +246,6 @@ internal sealed class SystemMetrics : IDisposable
         public int BatteryFullLifeTime;
     }
 
-    [SupportedOSPlatform("windows")]
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool GetSystemPowerStatus(out SystemPowerStatus status);
 
@@ -298,10 +292,8 @@ internal sealed class SystemMetrics : IDisposable
         return (null, true, null);
     }
 
-    [SupportedOSPlatform("windows")]
     private double? ReadBatteryWatts()
     {
-        if (!OperatingSystem.IsWindows()) return null;
         if (_wmiBroken) return null;
         if (DateTime.UtcNow - _lastWattsRead < TimeSpan.FromSeconds(3)) return _batteryWatts;
         _lastWattsRead = DateTime.UtcNow;
@@ -337,11 +329,8 @@ internal sealed class SystemMetrics : IDisposable
 
     // --- util --------------------------------------------------------------
 
-    [SupportedOSPlatform("windows")]
     private static PerformanceCounter? TryCounter(string category, string counter, string instance)
     {
-        if (!OperatingSystem.IsWindows()) return null;
-
         try
         {
             return new PerformanceCounter(category, counter, instance, readOnly: true);
@@ -352,11 +341,14 @@ internal sealed class SystemMetrics : IDisposable
         }
     }
 
-    [SupportedOSPlatform("windows")]
     public void Dispose()
     {
+        if (!OperatingSystem.IsWindows()) return;
+        
         _cpuUtility?.Dispose();
         _cpuPerformance?.Dispose();
         _cpuFrequency?.Dispose();
     }
 }
+
+#pragma warning restore CA1416

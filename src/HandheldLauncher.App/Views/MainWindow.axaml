@@ -451,7 +451,7 @@
                  render time, which the ViewModel can't reliably mirror,
                  and that mismatch is exactly why ↑↓ used to behave like
                  ←→ (MainViewModel had no row concept at all yet). -->
-            <ItemsControl ItemsSource="{Binding CoverPickerCandidates}">
+             <ItemsControl ItemsSource="{Binding CoverPickerCandidates}">
               <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
                   <UniformGrid Columns="5" />
@@ -464,7 +464,7 @@
                           PointerPressed="OnCoverCandidatePressed"
                           Width="150" Height="170" Margin="6"
                           HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <Image anim:ImageBehavior.AnimatedSource="{Binding LocalThumbnailPath}" Stretch="UniformToFill" />
+                    <Image Source="{Binding LocalThumbnailPath, Converter={StaticResource FileToBitmapConverter}}" Stretch="Uniform" />
                   </Border>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>

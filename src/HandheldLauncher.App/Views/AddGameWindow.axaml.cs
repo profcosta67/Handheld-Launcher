@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Microsoft.Win32;
+using System.Runtime.Versioning;
 using HandheldLauncher.App.ViewModels;
 using HandheldLauncher.Core.Models;
 
@@ -27,6 +28,9 @@ public partial class AddGameWindow : Window
         HandheldLauncher.App.Platform.ThemeManager.ApplyFont(this, HandheldLauncher.Core.Services.AppSettingsStore.Load().UiFont);
         DataContext = ViewModel;
     }
+
+    // Construtor vazio para o Avalonia conseguir instanciar via XAML (resolve o warning AVLN3001)
+    public AddGameWindow() : this(isApplication: false) { }
 
     private async void OnBrowseClick(object? sender, RoutedEventArgs e)
     {
@@ -59,10 +63,11 @@ public partial class AddGameWindow : Window
         }
     }
 
-
-        [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    [SupportedOSPlatform("windows")]
     private void OnSearchInstalledClick(object? sender, RoutedEventArgs e)
     {
+        if (!OperatingSystem.IsWindows()) return; // Trava de segurança para o Linux
+
         try
         {
             var found = new Dictionary<string, InstalledProgramOption>(StringComparer.OrdinalIgnoreCase);
@@ -75,7 +80,6 @@ public partial class AddGameWindow : Window
             {
                 InstalledProgramsList.ItemsSource = new[] { new InstalledProgramOption("Nenhum programa com executável identificado no registro do Windows.", string.Empty) };
             }
-       
         }
         catch (Exception ex)
         {
@@ -85,6 +89,7 @@ public partial class AddGameWindow : Window
         }
     }
 
+    [SupportedOSPlatform("windows")]
     private static void ScanUninstallRegistry(RegistryHive hive, RegistryView view, IDictionary<string, InstalledProgramOption> found)
     {
         using var baseKey = RegistryKey.OpenBaseKey(hive, view);

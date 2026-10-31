@@ -487,6 +487,7 @@ public sealed class MainViewModel : ViewModelBase
     public event EventHandler? TurnOffScreenRequested;
     public event EventHandler? RestartDeviceRequested;
     public event EventHandler? ShutdownDeviceRequested;
+    public event EventHandler? RestoreShellRequested; // NOVO EVENTO AQUI
 
     public void ApplyEntryEdits(GameEntry game, string? title, bool isApplication)
     {
@@ -1039,6 +1040,8 @@ public sealed class MainViewModel : ViewModelBase
                 Add("Desligar tela", () => TurnOffScreenRequested?.Invoke(this, EventArgs.Empty));
                 Add("Reiniciar o aparelho", () => RequestPowerConfirm("reiniciar o aparelho", () => RestartDeviceRequested?.Invoke(this, EventArgs.Empty)));
                 Add("Desligar o aparelho", () => RequestPowerConfirm("desligar o aparelho", () => ShutdownDeviceRequested?.Invoke(this, EventArgs.Empty)));
+                // NOVO ITEM: RESTAURAR SHELL DO WINDOWS
+                Add("Sair para o Windows", () => RestoreShellRequested?.Invoke(this, EventArgs.Empty));
                 Add("Sair", () => QuitRequested?.Invoke(this, EventArgs.Empty));
                 break;
 

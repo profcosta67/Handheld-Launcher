@@ -91,27 +91,30 @@ public partial class App : Application
             // nunca lança nem bloqueia a abertura do launcher se não
             // estiver instalado ou der qualquer erro (ver PerformanceOverlayService).
             var performanceOverlay = new PerformanceOverlayService();
-            try
+            if (OperatingSystem.IsWindows())
             {
-                performanceOverlay.EnsureRunning();
-
-                // v0.9.4: liga EnableOSD/desliga EnableStat no perfil global
-                // do RTSS sozinho — antes pedíamos pro usuário fazer isso na
-                // mão (ver dica na tela de Configurações). Ver
-                // Platform/RtssProfileConfig — chama a API oficial de
-                // perfis do RTSS, nunca escreve em Program Files. Melhor
-                // esforço: se o RTSS não estiver instalado ou algo falhar,
-                // só continua pedindo pro usuário configurar na mão, igual
-                // antes.
-                var rtssExePath = performanceOverlay.FindInstalledExecutable();
-                if (rtssExePath is not null && Path.GetDirectoryName(rtssExePath) is { } rtssDir)
+                try
                 {
-                    RtssProfileConfig.TryConfigureGlobalOsd(rtssDir);
+                    performanceOverlay.EnsureRunning();
+
+                    // v0.9.4: liga EnableOSD/desliga EnableStat no perfil global
+                    // do RTSS sozinho — antes pedíamos pro usuário fazer isso na
+                    // mão (ver dica na tela de Configurações). Ver
+                    // Platform/RtssProfileConfig — chama a API oficial de
+                    // perfis do RTSS, nunca escreve em Program Files. Melhor
+                    // esforço: se o RTSS não estiver instalado ou algo falhar,
+                    // só continua pedindo pro usuário configurar na mão, igual
+                    // antes.
+                    var rtssExePath = performanceOverlay.FindInstalledExecutable();
+                    if (rtssExePath is not null && Path.GetDirectoryName(rtssExePath) is { } rtssDir)
+                    {
+                        RtssProfileConfig.TryConfigureGlobalOsd(rtssDir);
+                    }
                 }
-            }
-            catch
-            {
-                // Melhor esforço.
+                catch
+                {
+                    // Melhor esforço.
+                }
             }
 
             // Atualização automática (Velopack/GitHub Releases). Fora de uma
@@ -120,8 +123,12 @@ public partial class App : Application
 
             // HUD de desempenho estilo MangoHud (texto colorido desenhado
             // pelo RTSS por cima do jogo) — ver Platform/PerformanceHud.
-            var performanceHud = new PerformanceHud(appSettings.OverlayPreset);
-            desktop.Exit += (_, _) => performanceHud.Dispose();
+            PerformanceHud? performanceHud = null;
+            if (OperatingSystem.IsWindows())
+            {
+                performanceHud = new PerformanceHud(appSettings.OverlayPreset);
+                desktop.Exit += (_, _) => performanceHud.Dispose();
+            }
 
             // Instalação antiga (Install-Launcher.ps1) ainda no aparelho?
             // Redireciona a tarefa, migra o backup e apaga a pasta velha.

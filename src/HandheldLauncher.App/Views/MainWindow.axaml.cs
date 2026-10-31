@@ -20,8 +20,6 @@ namespace HandheldLauncher.App.Views;
 
 public partial class MainWindow : Window
 {
-    // --- Win32 interop: global restore hotkey + forced screen-off. See
-    // RegisterRestoreHotkey/TurnOffScreen below for why each one exists. ---
     [DllImport("user32.dll")]
     private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
 
@@ -31,13 +29,13 @@ public partial class MainWindow : Window
     [DllImport("user32.dll")]
     private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
-    private const int RestoreHotkeyId = 0xB00; // arbitrary, only needs to be unique within our own process
+    private const int RestoreHotkeyId = 0xB00;
     private const uint ModControl = 0x0002;
     private const uint ModAlt = 0x0001;
-    private const uint ModNoRepeat = 0x4000; // don't refire while the keys are held down
-    private const uint VkH = 0x48; // 'H' - as in "Handheld"/"Home"
+    private const uint ModNoRepeat = 0x4000;
+    private const uint VkH = 0x48;
     private const int OverlayHotkeyId = 0xB01;
-    private const uint VkO = 0x4F; // 'O' - Ctrl+Alt+O troca o HUD (dá pra mapear num botão traseiro do Legion/Ally)
+    private const uint VkO = 0x4F;
     private const uint WmHotkey = 0x0312;
     private const uint WmSysCommand = 0x0112;
     private const int ScMonitorPower = 0xF170;
@@ -49,73 +47,33 @@ public partial class MainWindow : Window
     private DispatcherTimer? _batteryTimer;
     private bool _hotkeyRegistered;
 
-    // --- Tema de LAYOUT (v0.9.20) ---
-    //
-    // Estes quatro campos têm EXATAMENTE os nomes que o Avalonia gerava
-    // sozinho quando os controles moravam no XAML desta janela. Agora eles
-    // vivem dentro do layout escolhido (Views/Layouts/*.axaml) e são
-    // preenchidos por ApplyLayoutTheme, logo no começo do construtor.
-    // Manter os nomes foi deliberado: as ~34 chamadas espalhadas pelo
-    // scroll, pela navegação por controle e pela transição do banner
-    // seguiram compilando sem UMA linha de alteração — o que num refactor
-    // que não dá pra compilar aqui é a diferença entre revisar 4 pontos e
-    // revisar 34.
-    //
-    // `null!` em vez de nullable de propósito: se ApplyLayoutTheme falhar,
-    // o certo é explodir alto no boot (e aparecer no debug.log) em vez de
-    // o launcher abrir pela metade, com scroll e controle mortos e sem
-    // ninguém entender por quê.
     private ItemsControl GamesItemsControl = null!;
     private ScrollViewer GameRowScrollViewer = null!;
     private Image HeroImage = null!;
     private Image HeroBackImage = null!;
 
-    /// <summary>O layout em uso — ver ILibraryLayout.</summary>
     private ILibraryLayout _libraryLayout = null!;
 
     public MainWindow()
     {
         InitializeComponent();
 
-        // ANTES de qualquer coisa que toque nos controles da biblioteca:
-        // é isto que preenche os quatro campos acima.
         ApplyLayoutTheme();
 
-        // Espaço entre as capas na grade vertical (a fileira horizontal usa
-        // o Spacing do StackPanel do XAML).
         GamesItemsControl.ContainerPrepared += (_, e) => e.Container.Margin = ContainerMargin();
 
-        // v0.8.0: troca suave do banner (ver HeroBackImage no XAML).
         HeroImage.PropertyChanged += OnHeroImageChanged;
 
-        // v0.9.2: teclado em modo TÚNEL (antes de qualquer botão focado).
-        // Bug: "quando cliquei em configurações pelo PC ou botão sair com
-        // Enter ele não respondeu" — depois de clicar num botão da barra
-        // com o mouse, ele ficava com o foco e "comia" Enter/setas antes do
-        // launcher ver. Aqui o launcher sempre vê a tecla primeiro.
         AddHandler(KeyDownEvent, OnWindowKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
 
-        // 20Hz is plenty for menu navigation and cheap enough to just leave
-        // running the whole time the launcher is open.
         _gamepadTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
         _gamepadTimer.Tick += OnGamepadTick;
         _gamepadTimer.Start();
 
         Closed += (_, _) => _gamepadTimer.Stop();
 
-        // DataContext is assigned by the composition root (App.axaml.cs)
-        // AFTER this constructor runs, so the ViewModel isn't available yet
-        // here — wire its view-level requests (opening a dialog, closing
-        // the window) once it actually shows up.
         DataContextChanged += OnDataContextChanged;
 
-        // App.axaml.cs sets Topmost=true BEFORE Show() happens (it's a
-        // property set right after `new MainWindow { ... }`, before
-        // desktop.MainWindow assignment triggers the actual window show),
-        // so by the time Opened fires here, Topmost already reflects
-        // whether this is a kiosk install. See StartTopmostEnforcer below
-        // for why a one-time Topmost=true isn't enough on the real
-        // hardware.
         Opened += (_, _) =>
         {
             if (Topmost) StartTopmostEnforcer();
@@ -124,55 +82,6 @@ public partial class MainWindow : Window
         Closed += (_, _) => UnregisterRestoreHotkeyIfNeeded();
     }
 
-    /// <summary>
-    /// Reported on the Legion Go 2, specifically in Windows "Modo Xbox" /
-    /// full-screen-experience boot (not in a normal desktop boot, where
-    /// the one-time Topmost=true from App.axaml.cs is enough on its own):
-    /// Legion Space still ends up in front of us even though our window is
-    /// Topmost. Likely explanation: Windows only guarantees "most recently
-    /// asserted" ordering among several Topmost windows, not a fixed
-    /// winner — and Legion Space, being the FSE "home app" being replaced,
-    /// apparently keeps re-asserting its own foreground/topmost status
-    /// after boot settles, which pushes us back regardless of our own
-    /// one-time Topmost flag.
-    ///
-    /// This toggles Topmost off/on (which re-inserts the window at the
-    /// front of that band) every couple seconds, so even if Legion Space
-    /// "wins" a round, we win the next one shortly after. It's a
-    /// mitigation, not a guaranteed fix — if Modo Xbox's shell runs its
-    /// own composited layer above ordinary Win32 topmost windows entirely,
-    /// no amount of toggling from our side will beat it, and the real fix
-    /// would have to come from OmniConsole's side instead. Only starts
-    /// when Topmost is already on (kiosk installs) — never runs on a
-    /// plain `dotnet run` dev window.
-    ///
-    /// Deliberately does NOT call Activate() anymore (it used to, every
-    /// 2 seconds). Reported bug: with Activate() in the loop, this ended
-    /// up stealing keyboard focus back from whatever the user had just
-    /// switched to on purpose — Alt+Tab to another app, or the Snipping
-    /// Tool's capture overlay — since Activate() forces OUR window to the
-    /// foreground/focused window, not just to the top of the Topmost
-    /// z-order band. Toggling Topmost off/on alone still re-asserts our
-    /// place in that band (which is what actually beats Legion Space
-    /// re-covering us) without also grabbing input focus away from
-    /// whatever the user is doing. If this turns out not to be enough to
-    /// beat Legion Space in Modo Xbox on its own, the next step would be
-    /// re-adding Activate() but ONLY right after boot (a short window),
-    /// not forever.
-    ///
-    /// REGRESSÃO REPORTADA PELO USUÁRIO nesta leva ("modo desktop ele
-    /// fica abrindo toda vez o app"): mesmo sem Activate() (então sem
-    /// roubar o FOCO), o toggle off/on ainda empurra a janela pro topo do
-    /// Z-ORDER a cada 2s — em "Modo Xbox"/kiosk isso nunca incomoda (não
-    /// tem outra janela competindo pra começo), mas num desktop normal do
-    /// Windows (com o usuário navegando em outros apps) isso aparece como
-    /// a janela do launcher pulando pra cima de tudo repetidamente, pra
-    /// sempre, mesmo muito depois do boot. O cenário que isso resolve
-    /// (Legion Space brigando pelo topmost) só acontece nos primeiros
-    /// segundos depois do boot — então agora isso só roda por um período
-    /// curto (TopmostEnforcerGracePeriod) a partir da abertura da janela,
-    /// em vez de pra sempre enquanto o app estiver aberto.
-    /// </summary>
     private static readonly TimeSpan TopmostEnforcerGracePeriod = TimeSpan.FromSeconds(120);
 
     private void StartTopmostEnforcer()
@@ -180,14 +89,6 @@ public partial class MainWindow : Window
         _topmostEnforcerTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         _topmostEnforcerTimer.Tick += (_, _) =>
         {
-            // Two reasons to bail without touching anything:
-            // - Topmost off on purpose: something else (not us) turned it
-            //   off, so stop fighting it.
-            // - !IsVisible: the window is hidden via "Minimizar"
-            //   (MinimizeToTray/Hide()). Toggling Topmost on a hidden
-            //   window shouldn't bring it back on screen the way Activate()
-            //   did, but there's nothing to "reassert in the z-order"
-            //   while hidden anyway — skip it either way.
             if (!Topmost || !IsVisible) return;
             Topmost = false;
             Topmost = true;
@@ -195,10 +96,6 @@ public partial class MainWindow : Window
         _topmostEnforcerTimer.Start();
         Closed += (_, _) => _topmostEnforcerTimer?.Stop();
 
-        // Timer separado, de disparo único, só pra desligar o de cima
-        // depois do período de graça — mantém o Tick acima simples (sem
-        // precisar contar ticks) e deixa a decisão "até quando lutar"
-        // isolada num lugar só.
         var graceTimer = new DispatcherTimer { Interval = TopmostEnforcerGracePeriod };
         graceTimer.Tick += (_, _) =>
         {
@@ -209,18 +106,6 @@ public partial class MainWindow : Window
         Closed += (_, _) => graceTimer.Stop();
     }
 
-    /// <summary>
-    /// Registers Ctrl+Alt+H as a global hotkey — unlike a normal KeyDown
-    /// handler, RegisterHotKey keeps working even while this window is
-    /// hidden (via "Minimizar") or not focused, which is the whole point:
-    /// it's how you get the launcher back after minimizing it. Needs the
-    /// real native HWND, which only exists once the window has actually
-    /// been shown once — hooked off Opened like StartTopmostEnforcer
-    /// above, same reason. MOD_NOREPEAT so holding the keys down doesn't
-    /// fire RestoreFromTray() over and over. Always on (not gated to
-    /// kiosk/Topmost like the enforcer) since "Minimizar" itself is a
-    /// normal bottom-bar button in every mode, not just kiosk.
-    /// </summary>
     private void RegisterRestoreHotkey()
     {
         if (TryGetPlatformHandle() is not { } handle) return;
@@ -241,14 +126,6 @@ public partial class MainWindow : Window
         _hotkeyRegistered = false;
     }
 
-    /// <summary>
-    /// Raw Win32 message hook (see RegisterRestoreHotkey) — handles our own
-    /// WM_HOTKEY, plus SingleInstance's broadcast restore message: a second
-    /// launch attempt that lost the Mutex check in Program.Main sends this
-    /// instead of opening its own window, so this is where THIS (the real)
-    /// instance reacts to "someone just tried to open me again" the same
-    /// way it already reacts to Ctrl+Alt+H or the tray icon.
-    /// </summary>
     private IntPtr OnNativeWndProcHook(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         if (msg == WmHotkey && wParam.ToInt32() == RestoreHotkeyId)
@@ -270,32 +147,13 @@ public partial class MainWindow : Window
         return IntPtr.Zero;
     }
 
-    /// <summary>
-    /// Hides the window instead of closing it — the process keeps
-    /// running, so the watchdog's "is it running?" check (see
-    /// installer/Install-Launcher.ps1) never has a reason to relaunch it.
-    /// This is the fix for "fica abrindo toda hora, principalmente no
-    /// modo desktop": Alt+F4/crash is for when you want the watchdog to
-    /// kick back in; this is for when you just want it out of the way for
-    /// a while without fighting the watchdog over it. Bound to the
-    /// bottom-bar "Minimizar" button (OnMinimizeClick).
-    /// </summary>
     private void MinimizeToTray()
     {
         Hide();
     }
 
-    // ------------------------------------------------------------------
-    // Transições (v0.8.0, Lote B1)
-    // ------------------------------------------------------------------
-
     private bool AnimationsEnabled => !Classes.Contains("noAnim");
 
-    /// <summary>
-    /// Faz o controle aparecer do transparente pro opaco. Zera a opacidade
-    /// SEM transição (senão ele animaria até sumir), e só no próximo ciclo
-    /// liga a transição e manda pra 1.
-    /// </summary>
     private void FadeIn(Control control, int milliseconds)
     {
         if (!AnimationsEnabled)
@@ -322,11 +180,6 @@ public partial class MainWindow : Window
         }, DispatcherPriority.Background);
     }
 
-    /// <summary>
-    /// Banner trocou de imagem: a anterior fica por baixo (HeroBackImage) e a
-    /// nova aparece por cima com fade — crossfade sem escurecer no meio. Sem
-    /// imagem anterior/nova, ou com animações desligadas, troca direto.
-    /// </summary>
     private void OnHeroImageChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
         if (e.Property != Image.SourceProperty) return;
@@ -342,18 +195,6 @@ public partial class MainWindow : Window
         HeroBackImage.Source = e.OldValue as Avalonia.Media.IImage;
         FadeIn(HeroImage, 260);
     }
-
-    // --- mouse nos menus (v0.9.2) -----------------------------------------
-    //
-    // v0.9.11: sem handler de PointerEntered (hover) aqui de propósito —
-    // ver o comentário em MainWindow.axaml acima dos dois Panel de menu.
-    // Resumo: hover escrevia no mesmo índice que ↑↓ do controle/teclado
-    // usa, e o toque incidental numa tela de handheld (ou o cursor do
-    // mouse só parado em cima de outro item) podia trocar qual ação ia
-    // disparar no próximo A/Enter sem o usuário escolher isso — bug
-    // reportado como "os botões de energia tem bugão às vezes". Clique/
-    // toque (Pressed) não precisa de hover: ele já identifica e confirma
-    // o item certo direto pelo DataContext, independente desse índice.
 
     private void OnContextMenuItemPressed(object? sender, PointerPressedEventArgs e)
     {
@@ -382,7 +223,6 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>Clique no fundo escurecido, fora do cartão: fecha o que estiver aberto.</summary>
     private void OnMenuOverlayPressed(object? sender, PointerPressedEventArgs e)
     {
         if (DataContext is not MainViewModel vm) return;
@@ -403,104 +243,34 @@ public partial class MainWindow : Window
         (DataContext as MainViewModel)?.OpenSteamDownloads();
     }
 
-    /// <summary>Called by the tray icon's "Sair" menu item (App.axaml.cs) — same deliberate-quit behavior as the gear/global menu's own "Sair".</summary>
     public void QuitFromTray()
     {
         WatchdogGate.MarkDeliberateQuit();
         Close();
     }
 
-    /// <summary>Called by the tray icon's click/"Abrir" menu item (App.axaml.cs) and by the Ctrl+Alt+H hotkey above.</summary>
     public void RestoreFromTray()
     {
         Show();
         if (Topmost)
         {
-            // Hide()/Show() shouldn't normally lose WindowState, but this
-            // costs nothing and removes any doubt for the one case that
-            // actually matters (kiosk installs).
             WindowState = WindowState.FullScreen;
         }
         Activate();
     }
 
-    /// <summary>
-    /// SC_MONITORPOWER via a broadcast WM_SYSCOMMAND — the standard Win32
-    /// trick to force the display off without touching sleep/hibernate.
-    /// lParam=2 means "off" (1=low power, -1=on). A real key press, mouse
-    /// move, or controller button on the Legion Go wakes it back up
-    /// through Windows' own normal input handling — nothing else needed
-    /// on our side for that.
-    /// </summary>
     private static void TurnOffScreen()
     {
         try
         {
             PostMessage(HwndBroadcast, WmSysCommand, (IntPtr)ScMonitorPower, (IntPtr)2);
         }
-        catch
-        {
-            // Best-effort — never let this crash the app.
-        }
+        catch { }
     }
 
-    /// <summary>
-    /// `shutdown /r /t 0` — immediate restart. No in-app confirmation step
-    /// before this fires (see chat/README for that open question — a
-    /// stray tap on "Power" then this item currently restarts right
-    /// away, which could lose game progress).
-    /// </summary>
-    /// <summary>
-    /// v0.9.24: entrou o <c>/f</c> — e é a explicação mais provável pro bug
-    /// que o usuário reportou ("os botões reiniciar e desligar aparelho não
-    /// estão funcionando", sem erro nenhum).
-    ///
-    /// <para>
-    /// Sem <c>/f</c>, o Windows PERGUNTA a cada aplicativo aberto se pode
-    /// encerrar (WM_QUERYENDSESSION), e <b>basta um recusar pra cancelar o
-    /// desligamento inteiro</b> — silenciosamente, com o próprio
-    /// shutdown.exe saindo com código 0, como se tivesse dado certo. Num
-    /// handheld isso é o caso COMUM, não a exceção: Legion Space, app do
-    /// Xbox, Steam e um jogo aberto, qualquer um deles basta.
-    /// </para>
-    /// <para>
-    /// Com <c>/f</c>, os aplicativos são fechados à força. O custo é real e
-    /// assumido: um jogo aberto perde o que não tiver salvo. Aceitável aqui
-    /// porque este caminho só roda depois de o usuário escolher "Energia" →
-    /// "Reiniciar/Desligar o aparelho" → e ainda confirmar "Sim, ..." numa
-    /// segunda tela (ver MainViewModel.RequestPowerConfirm) — três passos
-    /// deliberados, não um toque acidental. Um botão de desligar que não
-    /// desliga é pior que um que desliga de verdade.
-    /// </para>
-    /// </summary>
     private static void RestartDevice() => RunShutdownExe("/r /f /t 0");
-
-    /// <summary>Desliga. Mesmo raciocínio do <c>/f</c> explicado em RestartDevice acima.</summary>
     private static void ShutdownDevice() => RunShutdownExe("/s /f /t 0");
 
-    /// <summary>
-    /// BUG REPORTADO v0.9.21: "os botões reiniciar e desligar aparelho
-    /// ainda não estão funcionando". O caminho até aqui (menu → confirmação
-    /// → evento) foi revisado linha por linha e está correto, então o
-    /// problema está nesta chamada — e a versão anterior deste método
-    /// ENGOLIA a exceção sem registrar nada, que é justamente por que
-    /// nunca houve informação nenhuma sobre a falha.
-    ///
-    /// <para>
-    /// Três mudanças, todas pensadas pra esse caso:
-    /// </para>
-    /// <list type="bullet">
-    /// <item><b>Caminho completo</b> (%SystemRoot%\System32\shutdown.exe)
-    /// em vez de depender do PATH. Um PATH diferente no contexto da
-    /// instalação (ou de uma abertura pelo Agendador de Tarefas) explicaria
-    /// exatamente o sintoma: nada acontece, sem erro visível.</item>
-    /// <item><b>Registra tudo no debug.log</b> — o que foi chamado, o
-    /// código de saída e a saída de erro do shutdown.exe. Se ainda falhar,
-    /// o log diz o motivo em vez de a gente adivinhar de novo.</item>
-    /// <item><b>Plano B com UseShellExecute=true</b> se a chamada direta
-    /// falhar.</item>
-    /// </list>
-    /// </summary>
     private static void RunShutdownExe(string arguments)
     {
         var systemRoot = Environment.GetFolderPath(Environment.SpecialFolder.System);
@@ -568,14 +338,12 @@ public partial class MainWindow : Window
         vm.TurnOffScreenRequested += (_, _) => TurnOffScreen();
         vm.RestartDeviceRequested += (_, _) => RestartDevice();
         vm.ShutdownDeviceRequested += (_, _) => ShutdownDevice();
-        // v0.9.11, etapa 2 ("tela de informações do jogo"): mesmo padrão
-        // dos diálogos acima — MainWindow possui a janela/_activeDialog.
+        vm.RestoreShellRequested += (_, _) => RestoreWindowsShell();
         vm.GameDetailsRequested += (_, game) => _ = OpenGameDetailsDialogAsync(vm, game);
 
         StartBatteryMonitor(vm);
         StartDownloadsRefreshTimer(vm);
 
-        // v0.8.0: ao trocar de aba, a fileira de jogos entra com fade.
         vm.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(MainViewModel.IsFilterAllActive))
@@ -584,16 +352,10 @@ public partial class MainWindow : Window
             }
         };
 
-        // Aparência salva (tema, tamanho das capas, layout, animações).
         ApplyAppearance(vm, AppSettingsStore.Load());
 
-        // Verificação de atualização em segundo plano (espera ~20s e
-        // repete a cada 6h; no-op fora de uma instalação via Setup.exe).
         _ = vm.RunUpdateLoopAsync();
 
-        // Primeira vez no launcher instalado: pergunta o modo (Desktop ou
-        // Handheld) abrindo as Configurações. Quem já está em modo
-        // Handheld (KioskMode ligado) não é incomodado.
         try
         {
             var settings = AppSettingsStore.Load();
@@ -602,19 +364,35 @@ public partial class MainWindow : Window
                 Dispatcher.UIThread.Post(() => _ = OpenSettingsDialogAsync(vm), DispatcherPriority.Background);
             }
         }
-        catch
+        catch { }
+    }
+
+    private void RestoreWindowsShell()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        try
         {
-            // Melhor esforço.
+            var regPath = @"HKEY_CURRENT_USER\Software\Microsoft\Windows NT\CurrentVersion\Winlogon";
+            var originalShell = Microsoft.Win32.Registry.GetValue(regPath, "OriginalShell", "explorer.exe")?.ToString() ?? "explorer.exe";
+            
+            Microsoft.Win32.Registry.SetValue(regPath, "Shell", originalShell);
+            DebugLog.Write($"RestoreWindowsShell: Restaurando shell para {originalShell}");
+
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = originalShell,
+                UseShellExecute = true
+            });
+            
+            Close(); 
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"RestoreWindowsShell: EXCEPTION {ex.Message}");
         }
     }
 
-    /// <summary>
-    /// Toque no aviso "⬆ vX pronta" da barra de cima. v0.9.6, pedido do
-    /// usuário ("ajuste fino do update, uma telinha mais bonita e de
-    /// acordo com o tema"): antes aplicava e reiniciava NA HORA do toque;
-    /// agora abre a UpdateWindow (versão + "o que há de novo" +
-    /// Atualizar/Agora não), que é quem de fato chama vm.ApplyUpdate().
-    /// </summary>
     private void OnUpdateBadgeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (DataContext is MainViewModel vm) _ = OpenUpdateDialogAsync(vm);
@@ -622,7 +400,7 @@ public partial class MainWindow : Window
 
     private async Task OpenUpdateDialogAsync(MainViewModel vm)
     {
-        if (!vm.IsUpdateReady) return; // nada pronto pra instalar — não deveria nem estar clicável (ver HasUpdateStatus), mas evita abrir uma telinha vazia
+        if (!vm.IsUpdateReady) return;
 
         var dialog = new UpdateWindow(vm);
         _activeDialog = dialog;
@@ -636,32 +414,10 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// Enquanto o painel de Downloads estiver aberto, reconsulta "baixando
-    /// agora" periodicamente — diferente de IsCoverPickerOpen/etc, essa
-    /// tela mostra progresso que muda sozinho (a Steam continua baixando
-    /// com o painel aberto na tela), então um refresh só no momento de
-    /// abrir ficaria parado/desatualizado. 2s é frequente o bastante pra
-    /// parecer "ao vivo" sem reler o .acf de cada jogo toda hora; não
-    /// reconsulta "na conta, não instalado" aqui (RefreshOwnedGames é só
-    /// na abertura) — isso é uma chamada de rede de verdade (Steam Web
-    /// API), não um arquivo local, então refazer a cada 2s seria
-    /// desperdício sem benefício real (a lista de jogos não instalados não
-    /// muda a cada segundo).
-    /// </summary>
     private DispatcherTimer? _downloadsRefreshTimer;
 
     private void StartDownloadsRefreshTimer(MainViewModel vm)
     {
-        // Ampliado numa leva posterior: o indicador de % na barra de cima
-        // (pedido do usuário: "incluir algo que indica visual o percentual
-        // do download") precisa de "baixando agora" atualizado MESMO com o
-        // painel fechado. Então: painel aberto → a cada 2s (igual antes);
-        // painel fechado → a cada 6s (3 ticks), só pra barra de cima — e
-        // PAUSADO enquanto um jogo estiver rodando (RunningGame != null),
-        // pra não ficar relendo .acf no disco no meio da jogatina num
-        // handheld (é pouca coisa, mas zero é melhor que pouco). Volta
-        // sozinho quando o jogo fecha.
         var ticksSinceBackgroundRefresh = 0;
 
         _downloadsRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
@@ -686,33 +442,14 @@ public partial class MainWindow : Window
         _downloadsRefreshTimer.Start();
         Closed += (_, _) => _downloadsRefreshTimer?.Stop();
 
-        // Primeira leitura já na abertura, pra barra de cima não ficar sem
-        // indicador nos primeiros segundos se algo já estiver baixando.
         vm.RefreshActiveDownloads();
     }
 
-    /// <summary>
-    /// Pushes the real battery % (Platform.BatteryStatus, a Win32
-    /// GetSystemPowerStatus call) into the ViewModel's BatteryStatusText —
-    /// fixes the reported "a bateria não está acompanhando o real, ela está
-    /// cravada a 100%" bug (that text used to be a literal hardcoded string
-    /// in MainWindow.axaml, never wired to anything real). Refreshes every
-    /// 30s — battery % doesn't change fast enough to need anything quicker,
-    /// and this is a plain OS call on every tick, cheap either way. Reads
-    /// once immediately too, so the top bar doesn't sit blank until the
-    /// first tick 30s later.
-    /// </summary>
     private void StartBatteryMonitor(MainViewModel vm)
     {
         vm.BatteryStatusText = BatteryStatus.GetDisplayText();
         vm.ClockText = DateTime.Now.ToString("HH:mm");
 
-        // v0.9.8: relógio junto da bateria na barra de cima (pedido do
-        // usuário: "faltou um relógio no nosso home perto da bateria").
-        // Intervalo trocado de 30s pra 15s — a bateria continua lenta de
-        // sobra nesse intervalo, mas o relógio só em "HH:mm" (sem
-        // segundos) já precisa de no máximo 1 minuto de atraso pra nunca
-        // ficar visivelmente parado quando o usuário olhar pra tela.
         _batteryTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
         _batteryTimer.Tick += (_, _) =>
         {
@@ -729,8 +466,6 @@ public partial class MainWindow : Window
 
         var actions = _gamepad.Poll();
 
-        // Diálogo aberto (Configurações / Adicionar jogo): o controle passa
-        // a navegar DENTRO dele, nunca na biblioteca por trás.
         if (_activeDialog is { } dialog)
         {
             foreach (var dialogAction in actions)
@@ -743,7 +478,6 @@ public partial class MainWindow : Window
 
         foreach (var action in actions)
         {
-            // "Sobre" aberto: qualquer botão de voltar/confirmar fecha.
             if (vm.IsAboutOpen)
             {
                 if (action is GamepadAction.Back or GamepadAction.Confirm or GamepadAction.GlobalMenu or GamepadAction.Menu)
@@ -754,8 +488,6 @@ public partial class MainWindow : Window
                 continue;
             }
 
-            // L3+R3 troca o HUD de desempenho — de propósito ANTES da trava
-            // abaixo, pra funcionar com o jogo em primeiro plano.
             if (action == GamepadAction.CycleOverlay)
             {
                 UiSounds.PlayForAction(action);
@@ -763,33 +495,15 @@ public partial class MainWindow : Window
                 continue;
             }
 
-            // Jogo aberto e o launcher NÃO está em primeiro plano: o
-            // controle é do jogo. Sem isto, o XInput (lido mesmo em segundo
-            // plano) fazia B "fechar jogo" e A "abrir jogo" no launcher
-            // escondido enquanto você jogava.
             if (vm.RunningGame is not null && !IsOurWindowInForeground())
             {
                 continue;
             }
 
-            // Temporary diagnostic (see Diagnostics/DebugLog.cs) — logs
-            // every action AND the exact overlay state at the moment it's
-            // dispatched, so a "nothing happens" report can be checked
-            // against what actually fired instead of guessed at blind.
             DebugLog.Write($"action={action} pickerOpen={vm.IsCoverPickerOpen} ctxOpen={vm.IsContextMenuOpen} globalOpen={vm.IsGlobalMenuOpen} downloadsOpen={vm.IsDownloadsOpen}");
 
-            // v0.9.10: ponto único de som pra todo o resto (biblioteca,
-            // seletor de capa, menus de contexto/global/energia, painel de
-            // Downloads) — todos esses estados caem no switch abaixo, então
-            // um som aqui já cobre todos eles sem precisar espalhar chamada
-            // em cada case (ver Platform/UiSounds.PlayForAction).
             UiSounds.PlayForAction(action);
 
-            // Cover/banner picker takes over input first — it can be opened
-            // from inside the per-tile context menu (which closes itself
-            // before opening the picker), so checking it ahead of
-            // IsContextMenuOpen below is just belt-and-suspenders; only one
-            // of the three overlay bools is ever true at once in practice.
             if (vm.IsCoverPickerOpen)
             {
                 switch (action)
@@ -822,10 +536,6 @@ public partial class MainWindow : Window
                 continue;
             }
 
-            // While the Start-button context menu is open, every action
-            // means something different (navigate/confirm/close THAT menu)
-            // instead of the normal tile navigation — swallow it here so
-            // e.g. Confirm doesn't also launch a game behind the menu.
             if (vm.IsContextMenuOpen)
             {
                 switch (action)
@@ -847,13 +557,6 @@ public partial class MainWindow : Window
                 continue;
             }
 
-            // Same idea for the global menu (View/Back button, or the
-            // gear icon in the top bar for mouse/touch — see
-            // OnGearMenuClick) — this is what reaches "Atualizar
-            // Biblioteca"/"Atualizar Capas Automático"/"Adicionar
-            // jogo"/"Sair" without a mouse. Only reachable from the
-            // plain-navigation branch below, so the menus below can never
-            // both be open from gamepad input alone.
             if (vm.IsGlobalMenuOpen)
             {
                 switch (action)
@@ -868,7 +571,7 @@ public partial class MainWindow : Window
                         vm.ConfirmGlobalMenuSelection();
                         break;
                     case GamepadAction.Back:
-                        vm.GlobalMenuBack(); // subpasta → volta pra raiz
+                        vm.GlobalMenuBack();
                         break;
                     case GamepadAction.GlobalMenu:
                         vm.CloseGlobalMenu();
@@ -877,16 +580,6 @@ public partial class MainWindow : Window
                 continue;
             }
 
-            // Painel de Downloads — DECISÃO DE ESCOPO (v1): a lista em si
-            // (downloads em andamento, jogos "na conta não instalado" e o
-            // botão "Instalar" de cada um) é mouse/touch-only, diferente do
-            // resto do app. Motivo: não é uma tela de jogo com grade fixa
-            // como o CoverPicker, é uma lista de tamanho variável com
-            // controles por item (botão "Instalar"), e isso pediria um
-            // modelo de foco novo só pra essa tela. Por enquanto o gamepad
-            // só fecha o painel (Back/Menu/GlobalMenu) — igual os outros
-            // overlays — pra nunca deixar quem só tem controle PRESO aqui
-            // sem conseguir sair. Revisitar se o recurso pegar.
             if (vm.IsDownloadsOpen)
             {
                 switch (action)
@@ -894,23 +587,16 @@ public partial class MainWindow : Window
                     case GamepadAction.Back:
                     case GamepadAction.Menu:
                     case GamepadAction.GlobalMenu:
-                    case GamepadAction.Downloads: // Y abre E fecha (toggle)
+                    case GamepadAction.Downloads:
                         vm.CloseDownloads();
                         break;
-                    case GamepadAction.Confirm: // A = "Abrir downloads na Steam"
+                    case GamepadAction.Confirm:
                         vm.OpenSteamDownloads();
                         break;
                 }
                 continue;
             }
 
-            // v0.9.18: fileira de subfiltros focada (abas Computador/
-            // Emuladores) — o controle navega ELA, não a grade. De
-            // propósito ANTES do switch da biblioteca, e não dentro dele,
-            // pra não ter que repetir cada direção com um "if focado" no
-            // meio. Só LB/RB escapam daqui (trocar de aba de cima funciona
-            // de qualquer lugar, igual antes) — e trocar de aba já desfoca
-            // a fileira sozinho, via RebuildSubFilters.
             if (vm.IsSubFilterRowFocused)
             {
                 switch (action)
@@ -929,13 +615,12 @@ public partial class MainWindow : Window
                         vm.LeaveSubFilterRow();
                         continue;
                     case GamepadAction.MoveUp:
-                        // Já está no topo — não tem pra onde subir.
                         continue;
                     case GamepadAction.PreviousFilter:
                     case GamepadAction.NextFilter:
-                        break; // cai no switch de baixo (troca de aba)
+                        break;
                     default:
-                        continue; // Start/Back-global/Y/X não agem na fileira
+                        continue;
                 }
             }
 
@@ -953,10 +638,6 @@ public partial class MainWindow : Window
                     ScrollGameRowSelectionIntoView(vm);
                     break;
                 case GamepadAction.MoveUp:
-                    // Grade sem mais pra onde subir (ou layout de fileira,
-                    // onde ↑ nunca movia nada) = entra nos subfiltros, se a
-                    // aba atual tiver. Sem subfiltro, FocusSubFilterRow é
-                    // no-op e ↑ continua não fazendo nada, como antes.
                     if (!MoveSelectionVertical(vm, -1)) vm.FocusSubFilterRow();
                     break;
                 case GamepadAction.MoveDown:
@@ -964,10 +645,6 @@ public partial class MainWindow : Window
                     break;
                 case GamepadAction.Confirm:
                     vm.LaunchSelected();
-                    // LaunchSelected reorders the row (the game just
-                    // launched becomes the wide tile 0) and resets
-                    // SelectedIndex to 0 — if the row was scrolled right
-                    // before this, keep that new tile actually on screen.
                     ScrollGameRowSelectionIntoView(vm);
                     break;
                 case GamepadAction.Back:
@@ -992,10 +669,6 @@ public partial class MainWindow : Window
         }
     }
 
-    // Keyboard nav stays as a fallback for dev-time testing on desktop —
-    // the gamepad poller above is what actually matters on the handheld.
-    // Space stands in for Start (per-tile menu), Tab stands in for
-    // View/Back (global menu) — neither has a literal keyboard equivalent.
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
         if (DataContext is not MainViewModel vm) return;
@@ -1099,15 +772,13 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Mesma decisão de escopo do OnGamepadTick: painel de Downloads é
-        // mouse/touch-only para a lista em si, teclado/gamepad só fecha.
         if (vm.IsDownloadsOpen)
         {
             switch (e.Key)
             {
                 case Key.Escape:
                 case Key.Tab:
-                case Key.D: // fallback de teclado do Y (toggle)
+                case Key.D:
                     vm.CloseDownloads();
                     e.Handled = true;
                     break;
@@ -1119,11 +790,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        // v0.9.18: mesma ideia do OnGamepadTick — com a fileira de
-        // subfiltros focada, as setas/Enter agem NELA. Teclado e controle
-        // compartilham os mesmos métodos da ViewModel de propósito, pra não
-        // existir "funciona no controle mas não no teclado" (ou o
-        // contrário) como já aconteceu antes com as abas de filtro.
         if (vm.IsSubFilterRowFocused)
         {
             switch (e.Key)
@@ -1150,8 +816,6 @@ public partial class MainWindow : Window
                     e.Handled = true;
                     return;
             }
-            // Qualquer outra tecla (Q/E pra trocar aba, D pra Downloads...)
-            // segue pro switch normal abaixo.
         }
 
         switch (e.Key)
@@ -1179,9 +843,6 @@ public partial class MainWindow : Window
                 ScrollGameRowSelectionIntoView(vm);
                 e.Handled = true;
                 break;
-            // v0.9.2 (modo desktop): Esc/M/Tab abrem o menu principal — antes
-            // Esc "fechava o jogo" e o menu só abria com Tab, que ninguém
-            // descobria. Fechar jogo agora é Ctrl+W (ou pelo menu).
             case Key.Escape:
             case Key.M:
             case Key.Tab:
@@ -1192,15 +853,11 @@ public partial class MainWindow : Window
                 vm.CloseRunningGame();
                 e.Handled = true;
                 break;
-            // Menu do jogo: Espaço, tecla de menu de contexto do teclado, ou
-            // botão direito do mouse na capa.
             case Key.Space:
             case Key.Apps:
                 vm.ToggleContextMenu();
                 e.Handled = true;
                 break;
-            // Q/E = fallback de teclado pra LB/RB (ciclar abas de filtro) —
-            // dev-time, já que teclado não tem botões de ombro de verdade.
             case Key.Q:
                 vm.CyclePreviousFilter();
                 e.Handled = true;
@@ -1209,7 +866,6 @@ public partial class MainWindow : Window
                 vm.CycleNextFilter();
                 e.Handled = true;
                 break;
-            // D = fallback de teclado pro Y do controle (abrir Downloads).
             case Key.D:
                 vm.ToggleDownloads();
                 e.Handled = true;
@@ -1217,22 +873,11 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// The cover/banner picker is a plain ItemsControl with hand-rolled
-    /// IsSelected flags (not a ListBox), so there's no built-in "scroll
-    /// selected item into view" tied to selection changes — has to be done
-    /// by hand here after every move. Deliberately uses the well-known
-    /// ScrollViewer.Offset/.Viewport properties rather than
-    /// ItemsControl.ContainerFromIndex/Control.BringIntoView(), since this
-    /// project can't be compiled here to verify a less-certain API choice.
-    /// </summary>
     private void ScrollCoverPickerSelectionIntoView(MainViewModel vm)
     {
         if (CoverPickerScrollViewer is null) return;
         if (!vm.IsCoverPickerOpen || vm.CoverPickerCandidates.Count == 0) return;
 
-        // Must match MainWindow.axaml's coverCandidate cell: Border
-        // Height="170" plus Margin="6" on each side (top+bottom = 12).
         const double itemHeight = 170 + 12;
         var row = vm.CoverPickerIndex / MainViewModel.CoverPickerColumns;
         var itemTop = row * itemHeight;
@@ -1251,36 +896,11 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// Same bug/fix shape as ScrollCoverPickerSelectionIntoView above, for
-    /// the main horizontal game row: a plain ItemsControl/StackPanel has no
-    /// built-in "scroll the selected item into view" either, so moving
-    /// left/right past whatever's currently visible did nothing (the
-    /// reported "o scroll da tela de jogos está parado" bug). Horizontal
-    /// instead of vertical, and the per-item width isn't fixed like the
-    /// picker's grid cells — the "último jogo aberto" tile is wider
-    /// (Border.gameTile.lastPlayed in Theme.axaml) and it's always
-    /// whichever tile has IsLastPlayed=true, not necessarily index 0 (it
-    /// usually is, since ReorderLastPlayedFirst moves it there, but this
-    /// walks the actual flags rather than assuming that to stay correct
-    /// either way). Tile widths/spacing below must match
-    /// Theme.axaml's Border.gameTile (220) / .lastPlayed (580) and
-    /// MainWindow.axaml's StackPanel Spacing="18" exactly.
-    /// </summary>
     private void ScrollGameRowSelectionIntoView(MainViewModel vm)
     {
-        // Depois do próximo passe de layout: depois de reordenar/recriar as
-        // tiles (abrir jogo, trocar tamanho/layout) as posições só ficam
-        // certas depois que o Avalonia mede de novo.
         Dispatcher.UIThread.Post(() => ScrollSelectionIntoViewNow(vm), DispatcherPriority.Background);
     }
 
-    /// <summary>
-    /// Traz o jogo selecionado pra dentro da área visível — pelo retângulo
-    /// REAL da tile na tela, o que serve pros dois layouts (fileira
-    /// horizontal e grade vertical) e pra qualquer tamanho de capa. Se a
-    /// tile ainda não existir, cai na conta antiga por larguras fixas.
-    /// </summary>
     private void ScrollSelectionIntoViewNow(MainViewModel vm)
     {
         if (GameRowScrollViewer is null) return;
@@ -1302,13 +922,6 @@ public partial class MainWindow : Window
             }
             else if (_libraryLayout.CentersSelection)
             {
-                // v0.9.21, roleta do tema Switch: a capa em foco fica SEMPRE
-                // no centro da tela, e é a fileira que corre por baixo dela
-                // — é isso que dá a sensação de roleta. Diferente do
-                // Clássico abaixo, que só traz pra dentro da área visível
-                // com o movimento mínimo (lá a capa em foco pode estar em
-                // qualquer ponto da fileira, e empurrar a fileira a cada
-                // passo seria inquieto).
                 var target = p.X + container.Bounds.Width / 2 - viewport.Width / 2;
                 var maxOffset = Math.Max(0, GameRowScrollViewer.Extent.Width - viewport.Width);
                 GameRowScrollViewer.Offset = new Vector(Math.Clamp(target, 0, maxOffset), offset.Y);
@@ -1325,7 +938,6 @@ public partial class MainWindow : Window
 
         if (_verticalLayout) return;
 
-        // Plano B (fileira horizontal, tile ainda não criada): larguras fixas × escala.
         var scale = GameTileViewModel.SizeScale;
         var normalWidth = 220 * scale;
         var lastPlayedWidth = 580 * scale;
@@ -1351,10 +963,6 @@ public partial class MainWindow : Window
         }
     }
 
-    // ------------------------------------------------------------------
-    // Aparência (v0.6.0): tema, tamanho das capas, layout, animações
-    // ------------------------------------------------------------------
-
     private bool _verticalLayout;
     private bool _layoutInitialized;
     private ITemplate<Panel?>? _horizontalPanelTemplate;
@@ -1362,7 +970,6 @@ public partial class MainWindow : Window
 
     private Thickness ContainerMargin() => _verticalLayout ? new Thickness(0, 0, 18, 24) : default;
 
-    /// <summary>Aplica tudo da seção Aparência das Configurações, na hora.</summary>
     private void ApplyAppearance(MainViewModel vm, AppSettings settings)
     {
         try
@@ -1375,19 +982,9 @@ public partial class MainWindow : Window
             _rowScrollTransitions ??= GameRowScrollViewer.Transitions;
             GameRowScrollViewer.Transitions = settings.Animations ? _rowScrollTransitions : null;
 
-            // v0.9.10: "Sons de interação" — mesmo padrão de Animações
-            // acima, aplicado na hora (startup e toda vez que Configurações
-            // salva), sem precisar reiniciar.
             UiSounds.Enabled = settings.SoundEffects;
-            // v0.9.11: "Estilo do som" (Clássico/Suave/Retro) — mesma ideia.
             UiSounds.Pack = settings.SoundTheme;
-            // v0.9.13: "Volume dos sons" — mesma ideia (ver UiSounds.Volume
-            // pro porquê de reescalar as amostras em vez de um parâmetro
-            // de volume, que PlaySound não tem).
             UiSounds.Volume = settings.SoundVolume;
-            // v0.9.13: "Modo de imagem/cor" — mesma ideia, mas essa também
-            // já roda uma vez no startup (App.axaml.cs) antes da primeira
-            // janela desenhar; aqui só cobre a troca feita nas Configurações.
             DisplayColorManager.Apply(settings.ColorMode);
 
             var scale = GameTileViewModel.ScaleForSetting(settings.TileSize);
@@ -1410,29 +1007,6 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// Fileira horizontal (StackPanel do XAML, rola pros lados) ou grade
-    /// vertical (WrapPanel, rola pra cima/baixo) — pedido do usuário: "os
-    /// jogos aparecer e correr ou horizontal ou vertical". Mesmo
-    /// ItemsControl e mesmo template de tile nos dois; só troca o painel.
-    /// </summary>
-    /// <summary>
-    /// v0.9.20: monta a área da biblioteca a partir de
-    /// AppSettings.LayoutTheme e publica os quatro controles que o resto
-    /// desta janela usa (ver os campos lá em cima e ILibraryLayout).
-    ///
-    /// <para>
-    /// Lido UMA vez, na abertura — trocar de layout exige reiniciar o
-    /// launcher, combinado com o usuário ("pode pedir pra reiniciar"). Isso
-    /// evita ter que desmontar/remontar a área da biblioteca com jogo
-    /// rodando, scroll no meio e foco em algum lugar.
-    /// </para>
-    /// <para>
-    /// Índice desconhecido cai no Clássico de propósito: settings.json
-    /// editado à mão (ou de uma versão mais nova) nunca deixa o launcher
-    /// abrir sem biblioteca.
-    /// </para>
-    /// </summary>
     private void ApplyLayoutTheme()
     {
         UserControl layout;
@@ -1445,8 +1019,6 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            // Não conseguir LER as configurações não pode impedir a
-            // biblioteca de existir.
             DebugLog.Write($"ApplyLayoutTheme: falhou ao ler settings, usando Clássico. {ex}");
             layout = new Layouts.ClassicLibraryLayout();
         }
@@ -1462,12 +1034,6 @@ public partial class MainWindow : Window
 
     private void SetLayout(bool vertical)
     {
-        // v0.9.20: o layout Switch é fileira horizontal por natureza (ver
-        // SupportsVerticalGrid) — ignora o pedido de grade vertical em vez
-        // de trocar o ItemsPanel dele por um WrapPanel, o que desmancharia
-        // a identidade do tema. _verticalLayout fica false, então a
-        // navegação ↑/↓ também segue o caminho de fileira (e ↑ entra nos
-        // subfiltros, que é o comportamento certo ali).
         if (vertical && !_libraryLayout.SupportsVerticalGrid) return;
 
         _verticalLayout = vertical;
@@ -1487,21 +1053,6 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// ↑/↓ na grade vertical: vai pra tile da linha de cima/baixo mais
-    /// alinhada com a atual (pelas posições reais — a capa larga do "último
-    /// jogo aberto" ocupa mais de uma coluna). Na fileira horizontal não faz
-    /// nada (como antes).
-    ///
-    /// <para>
-    /// v0.9.18: passou a devolver bool — "conseguiu mover?". Quem chama usa
-    /// isso pra saber que a grade acabou e, subindo, entrar na fileira de
-    /// subfiltros (ver MainViewModel.FocusSubFilterRow). No layout de
-    /// FILEIRA horizontal ↑/↓ nunca moveram nada, então ali o false é
-    /// imediato e ↑ sempre vai pros subfiltros — que é exatamente o
-    /// comportamento desejado, sem caso especial nenhum.
-    /// </para>
-    /// </summary>
     private bool MoveSelectionVertical(MainViewModel vm, int direction)
     {
         if (!_verticalLayout || vm.SelectedIndex < 0) return false;
@@ -1543,16 +1094,6 @@ public partial class MainWindow : Window
         return true;
     }
 
-    /// <summary>
-    /// v0.9.18: clique do mouse numa caixinha de subfiltro. Mesmo padrão
-    /// de SettingsWindow.OnCategoryTabClick (Click + DataContext do botão)
-    /// em vez de um Command com parâmetro, que exigiria um
-    /// RelayCommand&lt;T&gt; que o projeto não tem. O A do controle NÃO
-    /// passa por aqui (vai por ToggleFocusedSubFilter, que usa o cursor da
-    /// fileira), mas os dois terminam no mesmo
-    /// MainViewModel.ToggleSubFilter.
-    /// </summary>
-    /// <summary>Repassado pelos layouts — ver HandleTilePointerPressed acima.</summary>
     public void HandleSubFilterClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (DataContext is not MainViewModel vm) return;
@@ -1562,15 +1103,6 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// v0.9.20: era <c>OnTilePointerPressed</c>, handler ligado direto no
-    /// XAML desta janela. As tiles moraram pra dentro dos layouts
-    /// (Views/Layouts/*.axaml), e handler de XAML tem que existir na classe
-    /// do próprio arquivo — então o handler agora vive em cada layout e só
-    /// REPASSA pra cá. A lógica continua num lugar só, e de propósito aqui:
-    /// o <c>e.GetCurrentPoint(this)</c> abaixo precisa da janela como
-    /// referência, não do controle do layout.
-    /// </summary>
     public void HandleTilePointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (DataContext is not MainViewModel vm) return;
@@ -1579,8 +1111,6 @@ public partial class MainWindow : Window
         var index = vm.Games.IndexOf(tile);
         if (index >= 0) vm.SelectedIndex = index;
 
-        // v0.9.2: botão direito do mouse abre o menu do jogo (igual Start
-        // no controle / Espaço no teclado).
         if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed && !vm.IsContextMenuOpen)
         {
             vm.ToggleContextMenu();
@@ -1588,7 +1118,6 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>Repassado pelos layouts — ver HandleTilePointerPressed acima.</summary>
     public void HandleTileDoubleTapped(object? sender, TappedEventArgs e)
     {
         if (DataContext is not MainViewModel vm) return;
@@ -1596,22 +1125,11 @@ public partial class MainWindow : Window
         ScrollGameRowSelectionIntoView(vm);
     }
 
-    /// <summary>
-    /// Gear icon in the top bar — opens the exact same menu as View/Back
-    /// on the controller (vm.ToggleGlobalMenu()), not a second separate
-    /// menu, so mouse/touch and controller always see the same options.
-    /// </summary>
     private void OnGearMenuClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         (DataContext as MainViewModel)?.ToggleGlobalMenu();
     }
 
-    /// <summary>
-    /// Atalho de Downloads na barra de cima (novo numa leva posterior,
-    /// pedido do usuário: "colocar um atalho lá em cima igual a Steam") —
-    /// mesmo painel/toggle do item "Downloads" do menu geral, só um
-    /// caminho mais rápido pra mouse/touch chegar lá.
-    /// </summary>
     private void OnDownloadsShortcutClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         (DataContext as MainViewModel)?.ToggleDownloads();
@@ -1632,19 +1150,11 @@ public partial class MainWindow : Window
         (DataContext as MainViewModel)?.CloseRunningGame();
     }
 
-    /// <summary>Botão ✕ do painel de Downloads (mouse/touch — ver MainViewModel.IsDownloadsOpen).</summary>
     private void OnCloseDownloadsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         (DataContext as MainViewModel)?.CloseDownloads();
     }
 
-    /// <summary>
-    /// Botão "Instalar" de um item de OwnedNotInstalledGames — o item
-    /// dentro do ItemsControl não tem Command parametrizável (projeto não
-    /// usa RelayCommand&lt;T&gt;, só o parameterless), então pega o
-    /// OwnedSteamGame direto do DataContext do Button (que, dentro do
-    /// DataTemplate, é o próprio item da lista) em vez disso.
-    /// </summary>
     private void OnInstallOwnedGameClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (sender is Button { DataContext: OwnedSteamGame game } && DataContext is MainViewModel vm)
@@ -1653,8 +1163,6 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>Called by the global menu's "Adicionar jogo" entry (vm.AddGameRequested, wired in OnDataContextChanged).</summary>
-    /// <summary>Diálogo modal aberto agora (recebe o controle — ver DialogGamepadNavigator), ou null.</summary>
     private Window? _activeDialog;
 
     public void HandleAddProgramClick()
@@ -1692,21 +1200,6 @@ public partial class MainWindow : Window
         vm.AddManualGame(result);
     }
 
-    /// <summary>
-    /// v0.9.22: "Layout da tela" (menu geral → Configurações). Aberta pela
-    /// MainWindow, e não mais de dentro das Preferências: lá era diálogo DE
-    /// OUTRO diálogo, e o usuário reportou "no clássico ele esconde atrás
-    /// do menu, não consegui voltar pro Switch". Aqui é o mesmo caminho de
-    /// "Adicionar jogo"/"Editar" — um nível só, dono é a janela principal,
-    /// e o controle navega a janelinha porque ela entra em _activeDialog.
-    ///
-    /// <para>
-    /// Lê e grava settings.json aqui mesmo (AppSettingsStore), sem passar
-    /// pela SettingsViewModel: é UM campo, e envolver a tela de
-    /// Preferências de novo só traria de volta o problema de janela sobre
-    /// janela.
-    /// </para>
-    /// </summary>
     private async Task OpenLayoutPickerAsync()
     {
         AppSettings settings;
@@ -1745,8 +1238,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Só fecha se a instância nova tiver REALMENTE começado — senão o
-        // usuário ficaria na área de trabalho sem launcher nenhum.
         if (LauncherRestart.TryStartReplacement())
         {
             (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown();
@@ -1757,12 +1248,6 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// v0.9.19: "Editar" do menu de contexto — renomear a entrada e marcar
-    /// se é programa. Mesmo padrão do OpenAddGameDialogAsync acima
-    /// (_activeDialog registrado enquanto aberto, pra o controle navegar o
-    /// diálogo em vez da biblioteca por trás).
-    /// </summary>
     private async Task OpenEditGameDialogAsync(MainViewModel vm, GameEntry game)
     {
         var dialog = new EditGameWindow(game.TitleOverride ?? game.Title, game.IsApplication);
@@ -1781,20 +1266,9 @@ public partial class MainWindow : Window
         vm.ApplyEntryEdits(game, dialog.EditedTitle, dialog.IsApplication);
     }
 
-    /// <summary>
-    /// Called by the global menu's "Configurações" entry
-    /// (vm.SettingsRequested, wired in OnDataContextChanged). Mesmo padrão
-    /// do OpenAddGameDialogAsync acima — diálogo modal separado em vez de
-    /// overlay da MainWindow (ver AddGameWindow.axaml, que já deixava essa
-    /// intenção registrada em comentário: "eventual tela de
-    /// configurações territory"). O próprio SettingsWindow lê/grava
-    /// settings.json via AppSettingsStore — a ViewModel fica burra, só
-    /// com os campos de texto.
-    /// </summary>
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
 
-    /// <summary>A janela em primeiro plano é a nossa? (trava do controle com jogo aberto)</summary>
     private bool IsOurWindowInForeground()
     {
         try
@@ -1804,7 +1278,6 @@ public partial class MainWindow : Window
         }
         catch
         {
-            // Na dúvida, não bloqueia o controle.
             return true;
         }
     }
@@ -1825,23 +1298,9 @@ public partial class MainWindow : Window
             _activeDialog = null;
         }
 
-        // Aparência vale na hora (chaves e modo de uso ainda pedem reinício).
-        // v0.9.14: não recarrega mais o preset do HUD aqui — o ComboBox
-        // "Overlay de desempenho" que exigia isso saiu da tela de
-        // Configurações (era repetido com o Menu Global → HUD, pedido do
-        // usuário); o preset de verdade só muda por lá (SetOverlayPreset),
-        // que já persiste e aplica no mesmo instante, sem precisar desta tela.
         ApplyAppearance(vm, AppSettingsStore.Load());
     }
 
-    /// <summary>
-    /// v0.9.11, etapa 2 ("tela de informações do jogo") — chamado por
-    /// vm.GameDetailsRequested (botão X ou "Detalhes do jogo" no menu de
-    /// contexto, ver OnDataContextChanged). Mesmo padrão modal de
-    /// OpenSettingsDialogAsync acima: MainWindow possui a janela,
-    /// MainViewModel monta a ViewModel (com os clients Steam que só ela
-    /// tem — ver MainViewModel.CreateGameDetailsViewModel).
-    /// </summary>
     private async Task OpenGameDetailsDialogAsync(MainViewModel vm, GameEntry game)
     {
         var dialog = new GameDetailsWindow

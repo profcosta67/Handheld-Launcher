@@ -19,20 +19,35 @@
       <Border Grid.Row="0" Classes="heroBanner" Height="380" Margin="0,0,0,20">
         <Grid>
           <Grid IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
-            <!-- Fundo desfocado do Hero (MANTIDO COMO IMAGE) -->
+            
+            <!-- Fundo desfocado do Hero (MUITO mais leve para não travar a animação) -->
             <Image Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
                    Stretch="UniformToFill"
+                   Opacity="0.3"
                    IsHitTestVisible="False">
               <Image.Effect>
-                <media:BlurEffect Radius="40" />
+                <media:BlurEffect Radius="10" />
               </Image.Effect>
             </Image>
 
-            <Image x:Name="HeroBackImage" Stretch="Uniform" IsHitTestVisible="False" />
+            <!-- Imagem principal nítida (Animada) - UniformToFill preenche o quadro -->
+            <Image x:Name="HeroBackImage" Stretch="UniformToFill" IsHitTestVisible="False" />
             <Image x:Name="HeroImage"
-                   Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
-                   Stretch="Uniform" />
+                   anim:ImageBehavior.AnimatedSource="{Binding SelectedTile.BannerImagePath}"
+                   Stretch="UniformToFill" />
 
+            <!-- MÁGICA VISUAL: Gradiente que funde as bordas da imagem com o fundo -->
+            <Border IsHitTestVisible="False">
+              <Border.Background>
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+                  <GradientStop Color="#1A1A1A" Offset="0.0" />
+                  <GradientStop Color="Transparent" Offset="0.10" />
+                  <GradientStop Color="Transparent" Offset="0.90" />
+                  <GradientStop Color="#1A1A1A" Offset="1.0" />
+                </LinearGradientBrush>
+              </Border.Background>
+            </Border>
+           
             <TextBlock Text="{Binding SelectedTile.Title}"
                        Classes="heroTitle"
                        TextWrapping="Wrap"
