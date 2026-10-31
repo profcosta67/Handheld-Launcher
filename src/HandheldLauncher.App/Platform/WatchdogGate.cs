@@ -38,8 +38,9 @@ internal static class WatchdogGate
     {
         try
         {
-            var isAutomatic = args.Any(a => string.Equals(a, "--watchdog", StringComparison.OrdinalIgnoreCase))
-                              || IsLaunchedByTaskScheduler();
+            // Identificação explícita evita classificar incorretamente processos
+            // iniciados por svchost como tarefas agendadas.
+            var isAutomatic = args.Any(a => string.Equals(a, "--watchdog", StringComparison.OrdinalIgnoreCase));
 
             if (!isAutomatic)
             {
