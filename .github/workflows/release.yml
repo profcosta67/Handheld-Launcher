@@ -66,7 +66,6 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      # --- BUILD WINDOWS ---
       - name: Publicar (self-contained win-x64)
         if: steps.exists.outputs.skip != 'true'
         run: >
@@ -75,7 +74,6 @@ jobs:
           -p:Version=${{ steps.ver.outputs.version }}
           -o publish
 
-      # 🟢 NOVA ETAPA: Copiar o InstallTask.ps1 para o pacote
       - name: Copiar InstallTask.ps1 para o pacote
         if: steps.exists.outputs.skip != 'true'
         run: Copy-Item "InstallTask.ps1" -Destination "publish/InstallTask.ps1"
@@ -87,6 +85,7 @@ jobs:
           Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile "ffmpeg.zip"
           Expand-Archive -Path "ffmpeg.zip" -DestinationPath "ffmpeg_temp" -Force
           $exe = Get-ChildItem -Path "ffmpeg_temp" -Filter "ffmpeg.exe" -Recurse | Select-Object -First 1
+          if (-not $exe) { throw "FFmpeg não foi encontrado no pacote baixado." }
           New-Item -ItemType Directory -Path "publish/Tools" -Force | Out-Null
           Copy-Item $exe.FullName -Destination "publish/Tools/ffmpeg.exe" -Force
           Remove-Item "ffmpeg.zip" -Force
@@ -97,8 +96,12 @@ jobs:
         shell: bash
         run: |
           if find publish \( -iname '*api-key*' -o -iname 'settings.json' -o -iname '*.pfx' \) | grep -q .; then
+            echo "Arquivo potencialmente sensível encontrado no pacote."
             exit 1
           fi
+          test -f publish/HandheldLauncher.exe
+          test -f publish/InstallTask.ps1
+          test -f publish/Tools/ffmpeg.exe
 
       - name: Instalar vpk (Velopack)
         if: steps.exists.outputs.skip != 'true'
@@ -112,24 +115,31 @@ jobs:
           --repoUrl ${{ github.server_url }}/${{ github.repository }}
           --token ${{ secrets.GITHUB_TOKEN }}
 
-      # 🟢 ETAPA CORRIGIDA: Sem --installHook
       - name: Empacotar (Windows Velopack)
         if: steps.exists.outputs.skip != 'true'
         shell: pwsh
         run: |
           $notesFile = "release-notes/${{ steps.ver.outputs.version }}.md"
-          $notesArg = ""
+          $packArgs = @(
+            "pack",
+            "--packId", "HandheldLauncher",
+            "--packTitle", "Handheld Launcher",
+            "--packVersion", "${{ steps.ver.outputs.version }}",
+            "--packDir", "publish",
+            "--mainExe", "HandheldLauncher.exe",
+            "--icon", "src/HandheldLauncher.App/Assets/app-icon.ico",
+            "--splashProgressColor", "#7C5CFC"
+          )
           if (Test-Path $notesFile) {
-            $notesArg = "--releaseNotes `"$notesFile`""
+            $packArgs += @("--releaseNotes", $notesFile)
           }
 
-          $cmd = "vpk pack --packId HandheldLauncher --packTitle `"Handheld Launcher`" --packVersion ${{ steps.ver.outputs.version }} --packDir publish --mainExe HandheldLauncher.exe --icon src/HandheldLauncher.App/Assets/app-icon.ico --splashProgressColor `"#7C5CFC`" --requireAdmin $notesArg"
-          
-          Write-Host "Executando: $cmd"
-          Invoke-Expression $cmd
-          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Write-Host "Executando: vpk $($packArgs -join ' ')"
+          & vpk @packArgs
+          if ($LASTEXITCODE -ne 0) {
+            throw "Velopack falhou ao empacotar o instalador (exit code $LASTEXITCODE)."
+          }
 
-      # --- BUILD LINUX ---
       - name: Publicar (self-contained linux-x64)
         if: steps.exists.outputs.skip != 'true'
         run: >
@@ -143,7 +153,6 @@ jobs:
         shell: pwsh
         run: Compress-Archive -Path publish-linux/* -DestinationPath HandheldLauncher-linux-x64.zip -Force
 
-      # --- CONSOLE MODE & RELEASE ---
       - name: Montar Modo-Console.zip
         if: steps.exists.outputs.skip != 'true'
         shell: pwsh
@@ -154,6 +163,16 @@ jobs:
           Copy-Item installer/Arquivos/Configurar-Modo-Console.ps1 stage/Modo-Console/Arquivos/
           Copy-Item installer/Arquivos/Uninstall-Launcher.ps1 stage/Modo-Console/Arquivos/
           Compress-Archive -Path stage/Modo-Console -DestinationPath Modo-Console.zip -Force
+
+      # A tag v0.13.5 existia apontando para um commit de uma tentativa quebrada.
+      # Reposiciona a tag para exatamente o commit que acabou de ser empacotado.
+      # A tag v0.13.6 também foi uma tentativa sem Release funcional e é removida.
+      - name: Corrigir tags das versões com publicação quebrada
+        if: steps.exists.outputs.skip != 'true' && steps.ver.outputs.tag == 'v0.13.5'
+        shell: bash
+        run: |
+          git push --force origin "$GITHUB_SHA:refs/tags/v0.13.5"
+          git push origin :refs/tags/v0.13.6
 
       - name: Publicar Release
         if: steps.exists.outputs.skip != 'true'
@@ -169,10 +188,10 @@ jobs:
               gh release create $tag -R $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Handheld Launcher ${{ steps.ver.outputs.version }}" --notes "Handheld Launcher ${{ steps.ver.outputs.version }}"
             }
           }
-          
+
           $files = @(Get-ChildItem Releases -File | ForEach-Object { $_.FullName }) + @((Resolve-Path Modo-Console.zip).Path) + @((Resolve-Path HandheldLauncher-linux-x64.zip).Path)
           gh release upload $tag @files -R $env:GITHUB_REPOSITORY --clobber
-          if ($LASTEXITCODE -ne 0) { exit 1 }
+          if ($LASTEXITCODE -ne 0) { throw "Falha ao enviar os arquivos da Release." }
 
       - name: Limpar versões antigas
         if: steps.exists.outputs.skip != 'true'
