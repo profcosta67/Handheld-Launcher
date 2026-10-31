@@ -491,6 +491,12 @@ public sealed class MainViewModel : ViewModelBase
     public event EventHandler? RestoreShellRequested;
     public event EventHandler? OpenOverlayRequested; // AQUI ESTÁ A CAMPANHA DO OVERLAY
 
+    // NOVO MÉTODO PÚBLICO PARA DISPARAR O EVENTO
+    public void RequestOpenOverlay()
+    {
+        OpenOverlayRequested?.Invoke(this, EventArgs.Empty);
+    }
+
     public void ApplyEntryEdits(GameEntry game, string? title, bool isApplication)
     {
         _library.SaveEntryEdits(game.Id, title, isApplication);

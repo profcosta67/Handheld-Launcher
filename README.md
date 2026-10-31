@@ -1,3 +1,34 @@
+# 🎮 Handheld Launcher
+
+Um launcher moderno e multiplataforma para Handhelds (Legion Go, ROG Ally, Steam Deck), focado em desempenho, design limpo e jogabilidade com controle.
+
+## 🚀 Funcionalidades Principais
+- **Interface Otimizada para Controles:** Navegação fluida com analógicos e botões.
+- **Suporte a Múltiplas Plataformas:** Steam, Xbox, Epic, GOG, emuladores e atalhos manuais.
+- **Capas Animadas:** Suporte a GIF e WebP para capas de jogos.
+- **Shell Mode:** Substituição do `explorer.exe` no Windows (Kiosk Mode).
+- **Idle Detector:** Bloqueio de tela automático para economia de bateria.
+- **Quick Settings Overlay (NOVO!):** Menu lateral flutuante acessível durante o jogo.
+  - Controle de Volume e Brilho nativo (Windows e Linux).
+  - Interface preparada para controle de TDP, Modo de Cor e HUD (Fase 3).
+
+## 🎮 Como usar o Overlay (Quick Settings)
+Com um jogo aberto ou no launcher:
+- **Pelo Controle:** Aperte o botão `Xbox/Guide` ou `L3 + R3`.
+- **Pelo Teclado:** Aperte `Ctrl + Alt + O` (Windows).
+- **Pelo Menu:** Vá em `Configurações > Abrir Quick Settings`.
+- **Para Fechar:** Aperte `B / Voltar` no controle ou o botão `Fechar Menu` na tela.
+
+## 🛠️ Arquitetura de Hardware
+O launcher foi construído com uma camada de abstração de hardware (`IHardwareService`).
+- **No Windows:** Usa WMI e PowerShell para controle de sistema.
+- **No Linux:** Usa comandos nativos como `amixer` e `brightnessctl`.
+- **No macOS (Dev):** Usa um serviço Mock para testes de interface.
+
+## 🔧 Como Compilar e Rodar
+...
+
+
 # Handheld Launcher
 
 **Status Atual: v0.11.0 — A Experiência de Console Definitiva** 🎮

@@ -19,7 +19,6 @@
             Padding="20">
         <Grid RowDefinitions="Auto,*,Auto">
             
-            <!-- Cabeçalho -->
             <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,20">
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock Text="Quick Settings" Foreground="White" FontSize="22" FontWeight="Bold" />
@@ -28,24 +27,20 @@
                 <Button Grid.Column="1" Content="✕" Width="40" Height="40" CornerRadius="20" Background="#33FFFFFF" Foreground="White" Click="OnCloseClick" />
             </Grid>
 
-            <!-- Conteúdo (Configurações) -->
             <ScrollViewer Grid.Row="1">
                 <StackPanel Spacing="20">
-                    
-                    <!-- Seção: Desempenho (TDP) -->
                     <StackPanel Spacing="8">
                         <TextBlock Text="⚡ Desempenho (TDP)" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
                         <Grid ColumnDefinitions="*,*,*">
-                            <Button Grid.Column="0" Content="Eco" Background="#252A36" Foreground="White" CornerRadius="8" Padding="10" Margin="0,0,4,0" />
-                            <Button Grid.Column="1" Content="Equilibrado" Background="#7C5CFC" Foreground="White" CornerRadius="8" Padding="10" Margin="4,0,4,0" />
-                            <Button Grid.Column="2" Content="Turbo" Background="#252A36" Foreground="White" CornerRadius="8" Padding="10" Margin="4,0,0,0" />
+                            <Button x:Name="BtnEco" Grid.Column="0" Content="Eco" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="10" Margin="0,0,4,0" />
+                            <Button x:Name="BtnEquilibrado" Grid.Column="1" Content="Equilibrado" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="10" Margin="4,0,4,0" />
+                            <Button x:Name="BtnTurbo" Grid.Column="2" Content="Turbo" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="10" Margin="4,0,0,0" />
                         </Grid>
                     </StackPanel>
 
-                    <!-- Seção: Cores -->
                     <StackPanel Spacing="8">
                         <TextBlock Text="🎨 Modo de Cor" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
-                        <ComboBox SelectedIndex="0" HorizontalAlignment="Stretch" Background="#252A36">
+                        <ComboBox x:Name="ColorModeCombo" SelectionChanged="OnColorModeChanged" HorizontalAlignment="Stretch" Background="#252A36">
                             <ComboBoxItem>Padrão</ComboBoxItem>
                             <ComboBoxItem>Vívido</ComboBoxItem>
                             <ComboBoxItem>OLED (Alto Contraste)</ComboBoxItem>
@@ -53,36 +48,29 @@
                         </ComboBox>
                     </StackPanel>
 
-                    <!-- Seção: HUD / RTSS -->
                     <StackPanel Spacing="8">
                         <TextBlock Text="🎮 HUD de Desempenho" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
                         <Grid ColumnDefinitions="*,Auto">
                             <TextBlock Text="Mostrar FPS (RTSS)" Foreground="White" VerticalAlignment="Center" />
-                            <ToggleSwitch Grid.Column="1" IsChecked="True" />
+                            <ToggleSwitch x:Name="HudToggle" IsCheckedChanged="OnHudToggled" Grid.Column="1" IsChecked="True" />
                         </Grid>
                     </StackPanel>
 
-                    <!-- Seção: Volume e Brilho -->
                     <StackPanel Spacing="12">
                         <TextBlock Text="🔊 Sistema" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
-                        
                         <StackPanel Spacing="4">
                             <TextBlock Text="Volume" Foreground="White" FontSize="12" />
-                            <Slider Minimum="0" Maximum="100" Value="70" />
+                            <Slider x:Name="VolumeSlider" ValueChanged="OnVolumeChanged" Minimum="0" Maximum="100" />
                         </StackPanel>
-
                         <StackPanel Spacing="4">
                             <TextBlock Text="Brilho" Foreground="White" FontSize="12" />
-                            <Slider Minimum="0" Maximum="100" Value="80" />
+                            <Slider x:Name="BrightnessSlider" ValueChanged="OnBrightnessChanged" Minimum="0" Maximum="100" />
                         </StackPanel>
                     </StackPanel>
-
                 </StackPanel>
             </ScrollViewer>
 
-            <!-- Rodapé (Sair do Overlay) -->
             <Button Grid.Row="2" Content="Fechar Menu" Click="OnCloseClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,20,0,0" Background="#252A36" Foreground="White" CornerRadius="8" Padding="12" />
-            
         </Grid>
     </Border>
 </Window>
