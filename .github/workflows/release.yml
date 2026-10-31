@@ -164,6 +164,16 @@ jobs:
           Copy-Item installer/Arquivos/Uninstall-Launcher.ps1 stage/Modo-Console/Arquivos/
           Compress-Archive -Path stage/Modo-Console -DestinationPath Modo-Console.zip -Force
 
+      # A tag v0.13.5 existia apontando para um commit de uma tentativa quebrada.
+      # Reposiciona a tag para exatamente o commit que acabou de ser empacotado.
+      # A tag v0.13.6 também foi uma tentativa sem Release funcional e é removida.
+      - name: Corrigir tags das versões com publicação quebrada
+        if: steps.exists.outputs.skip != 'true' && steps.ver.outputs.tag == 'v0.13.5'
+        shell: bash
+        run: |
+          git push --force origin "$GITHUB_SHA:refs/tags/v0.13.5"
+          git push origin :refs/tags/v0.13.6
+
       - name: Publicar Release
         if: steps.exists.outputs.skip != 'true'
         shell: pwsh
