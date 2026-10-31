@@ -19,7 +19,7 @@ jobs:
   release:
     runs-on: windows-latest
     env:
-      VPK_VERSION: 1.2.161 # tem que ser igual ao pacote Velopack do HandheldLauncher.App.csproj
+      VPK_VERSION: 1.2.161
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
@@ -56,7 +56,6 @@ jobs:
         run: |
           N=$(gh release view "${{ steps.ver.outputs.tag }}" -R "$GITHUB_REPOSITORY" --json assets --jq '.assets | length' 2>/dev/null || echo 0)
           if [ "${N:-0}" -gt 0 ]; then
-            echo "Release ${{ steps.ver.outputs.tag }} já existe com $N arquivos — nada a fazer."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
@@ -80,27 +79,19 @@ jobs:
         if: steps.exists.outputs.skip != 'true'
         shell: pwsh
         run: |
-          Write-Host "Baixando FFmpeg..."
           Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile "ffmpeg.zip"
-          
-          Write-Host "Extraindo FFmpeg..."
           Expand-Archive -Path "ffmpeg.zip" -DestinationPath "ffmpeg_temp" -Force
-          
-          Write-Host "Copiando ffmpeg.exe para a pasta Tools..."
           $exe = Get-ChildItem -Path "ffmpeg_temp" -Filter "ffmpeg.exe" -Recurse | Select-Object -First 1
           New-Item -ItemType Directory -Path "publish/Tools" -Force | Out-Null
           Copy-Item $exe.FullName -Destination "publish/Tools/ffmpeg.exe" -Force
-          
-          Write-Host "Limpando arquivos temporários..."
           Remove-Item "ffmpeg.zip" -Force
           Remove-Item "ffmpeg_temp" -Recurse -Force
 
-      - name: Conferir que nenhum segredo entrou no pacote (Windows)
+      - name: Conferir que nenhum segredo entrou no pacote
         if: steps.exists.outputs.skip != 'true'
         shell: bash
         run: |
           if find publish \( -iname '*api-key*' -o -iname 'settings.json' -o -iname '*.pfx' \) | grep -q .; then
-            echo "ERRO: arquivo sensível dentro de publish/ — abortando."
             exit 1
           fi
 
@@ -116,25 +107,21 @@ jobs:
           --repoUrl ${{ github.server_url }}/${{ github.repository }}
           --token ${{ secrets.GITHUB_TOKEN }}
 
+      # 🟢 ETAPA CORRIGIDA: Sem splatting, construindo o comando de forma segura
       - name: Empacotar (Windows Velopack)
         if: steps.exists.outputs.skip != 'true'
         shell: pwsh
         run: |
           $notesFile = "release-notes/${{ steps.ver.outputs.version }}.md"
-          $extra = (Test-Path $notesFile) ? @("--releaseNotes", $notesFile) : @()
-          # 🟢 requireAdmin: Força o instalador a pedir Admin
-          # 🟢 installHook: Executa o InstallTask.ps1 após instalar
-          vpk pack `
-            --packId HandheldLauncher `
-            --packTitle "Handheld Launcher" `
-            --packVersion ${{ steps.ver.outputs.version }} `
-            --packDir publish `
-            --mainExe HandheldLauncher.exe `
-            --icon src/HandheldLauncher.App/Assets/app-icon.ico `
-            --splashProgressColor "#7C5CFC" `
-            --requireAdmin `
-            --installHook "InstallTask.ps1" `
-            @extra
+          $notesArg = ""
+          if (Test-Path $notesFile) {
+            $notesArg = "--releaseNotes `"$notesFile`""
+          }
+
+          $cmd = "vpk pack --packId HandheldLauncher --packTitle `"Handheld Launcher`" --packVersion ${{ steps.ver.outputs.version }} --packDir publish --mainExe HandheldLauncher.exe --icon src/HandheldLauncher.App/Assets/app-icon.ico --splashProgressColor `"#7C5CFC`" --requireAdmin --installHook `"InstallTask.ps1`" $notesArg"
+          
+          Write-Host "Executando: $cmd"
+          Invoke-Expression $cmd
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
       # --- BUILD LINUX ---
@@ -168,7 +155,6 @@ jobs:
         shell: pwsh
         run: |
           $tag = "${{ steps.ver.outputs.tag }}"
-          Get-ChildItem Releases | Format-Table Name, Length
           gh release view $tag -R $env:GITHUB_REPOSITORY 2>$null | Out-Null
           if ($LASTEXITCODE -ne 0) {
             $notesFile = "release-notes/${{ steps.ver.outputs.version }}.md"
@@ -177,12 +163,9 @@ jobs:
             } else {
               gh release create $tag -R $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Handheld Launcher ${{ steps.ver.outputs.version }}" --notes "Handheld Launcher ${{ steps.ver.outputs.version }}"
             }
-            if ($LASTEXITCODE -ne 0) { exit 1 }
           }
           
-          # Anexa os pacotes do Velopack (Windows) + Modo Console + Pacote Linux
           $files = @(Get-ChildItem Releases -File | ForEach-Object { $_.FullName }) + @((Resolve-Path Modo-Console.zip).Path) + @((Resolve-Path HandheldLauncher-linux-x64.zip).Path)
-          
           gh release upload $tag @files -R $env:GITHUB_REPOSITORY --clobber
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
@@ -196,7 +179,6 @@ jobs:
             [ -z "$t" ] && continue
             n=$((n+1))
             if [ "$n" -gt 3 ]; then
-              echo "Apagando versão antiga: $t"
               gh release delete "$t" --cleanup-tag --yes -R "$GITHUB_REPOSITORY" || true
             elif [ -f "release-notes/${t#v}.md" ]; then
               gh release edit "$t" --notes-file "release-notes/${t#v}.md" -R "$GITHUB_REPOSITORY" || true
