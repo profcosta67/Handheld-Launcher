@@ -20,7 +20,7 @@
         <Grid>
           <Grid IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
             
-            <!-- Fundo desfocado do Hero (MUITO mais leve para não travar a animação) -->
+            <!-- Fundo desfocado do Hero (cobre as bordas vazias) -->
             <Image Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
                    Stretch="UniformToFill"
                    Opacity="0.3"
@@ -30,11 +30,11 @@
               </Image.Effect>
             </Image>
 
-            <!-- Imagem principal nítida (Animada) - UniformToFill preenche o quadro -->
-            <Image x:Name="HeroBackImage" Stretch="UniformToFill" IsHitTestVisible="False" />
+            <!-- Imagem principal nítida (Animada) - Uniform para não dar zoom -->
+            <Image x:Name="HeroBackImage" Stretch="Uniform" IsHitTestVisible="False" />
             <Image x:Name="HeroImage"
                    anim:ImageBehavior.AnimatedSource="{Binding SelectedTile.BannerImagePath}"
-                   Stretch="UniformToFill" />
+                   Stretch="Uniform" />
 
             <!-- MÁGICA VISUAL: Gradiente que funde as bordas da imagem com o fundo -->
             <Border IsHitTestVisible="False">
