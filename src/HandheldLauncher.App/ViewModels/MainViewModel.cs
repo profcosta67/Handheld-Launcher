@@ -5,6 +5,8 @@ using HandheldLauncher.App.Platform;
 using HandheldLauncher.Core.Models;
 using HandheldLauncher.Core.Services;
 using HandheldLauncher.Core.Services.Artwork;
+using Avalonia.Threading;
+using HandheldLauncher.App.Services;
 
 namespace HandheldLauncher.App.ViewModels;
 
@@ -18,6 +20,17 @@ public sealed class MainViewModel : ViewModelBase
     private readonly PerformanceHud? _hud;
     private readonly ISteamOwnedGamesClient? _steamOwnedGames;
     private readonly ISteamAchievementsClient? _steamAchievements;
+
+    // Monitor de Temperatura
+    private readonly HardwareMonitorService _monitorService = new();
+    private DispatcherTimer? _hardwareTimer;
+
+    private string _cpuTemperature = "--°C";
+    public string CpuTemperature
+    {
+        get => _cpuTemperature;
+        private set => SetField(ref _cpuTemperature, value);
+    }
 
     public MainViewModel(
         ILibraryService library,
@@ -54,6 +67,26 @@ public sealed class MainViewModel : ViewModelBase
         SetFilterEmulatorsCommand = new RelayCommand(() => SetFilter(LibraryFilter.Emulators));
         SetFilterApplicationsCommand = new RelayCommand(() => SetFilter(LibraryFilter.Applications));
         SetFilterNotInstalledCommand = new RelayCommand(() => SetFilter(LibraryFilter.NotInstalled));
+
+        // 🟢 INICIA O MONITOR DE TEMPERATURA AQUI 🟢
+                _hardwareTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        _hardwareTimer.Tick += (_, _) =>
+        {
+            var temp = _monitorService.GetCpuTemperature();
+            if (temp.HasValue && temp.Value > 0)
+            {
+                CpuTemperature = $"{temp.Value:F0}°C";
+                DebugLog.Write($"[TEMPERATURA] CPU: {CpuTemperature}");
+                
+                // 🟢 ESSA É A LINHA MÁGICA QUE MANDA PRO HUD
+                if (_hud != null)
+                {
+                    _hud.CpuTemperature = CpuTemperature;
+                }
+            }
+        };
+        _hardwareTimer.Start();
+        // 🟢 FIM DO MONITOR DE TEMPERATURA 🟢
 
         RebuildGamesFromLibrary();
     }
@@ -478,7 +511,6 @@ public sealed class MainViewModel : ViewModelBase
     private readonly List<Action> _globalMenuActions = new();
     private int _globalMenuIndex;
 
-    // --- DECLARAÇÃO DOS EVENTOS AQUI ---
     public event EventHandler? AddGameRequested;
     public event EventHandler? SettingsRequested;
     public event EventHandler? QuitRequested;
@@ -489,9 +521,8 @@ public sealed class MainViewModel : ViewModelBase
     public event EventHandler? RestartDeviceRequested;
     public event EventHandler? ShutdownDeviceRequested;
     public event EventHandler? RestoreShellRequested;
-    public event EventHandler? OpenOverlayRequested; // AQUI ESTÁ A CAMPANHA DO OVERLAY
+    public event EventHandler? OpenOverlayRequested;
 
-    // NOVO MÉTODO PÚBLICO PARA DISPARAR O EVENTO
     public void RequestOpenOverlay()
     {
         OpenOverlayRequested?.Invoke(this, EventArgs.Empty);

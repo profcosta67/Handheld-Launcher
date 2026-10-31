@@ -7,54 +7,73 @@ namespace HandheldLauncher.App.Platform;
 
 public class WindowsHardwareService : IHardwareService
 {
+    // Caminho do RyzenAdj (ajustaremos depois se precisar)
+    private readonly string _ryzenAdjPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ryzenadj.exe");
+
     public void SetTdpMode(string mode)
     {
-        DebugLog.Write($"[WINDOWS] TDP solicitado: {mode}. (Aguardando integração RyzenAdj)");
-    }
+        if (!OperatingSystem.IsWindows()) return;
 
-    public void SetColorMode(string mode)
-    {
-        DebugLog.Write($"[WINDOWS] Aplicando cor: {mode}");
-        try 
+        // Define os limites de TDP em miliwatts (mW)
+        // Eco: 8W (8000), Equilibrado: 15W (15000), Turbo: 25W (25000)
+        int tdpLimit = mode switch
         {
-            // Converte a string do Overlay para o índice que o DisplayColorManager espera
-            int colorIndex = mode switch
+            "Eco" => 8000,
+            "Turbo" => 25000,
+            "Equilibrado" => 15000,
+            _ => 15000
+        };
+
+        string arguments = $"--stapm-limit={tdpLimit} --fast-limit={tdpLimit} --slow-limit={tdpLimit}";
+
+        try
+        {
+            DebugLog.Write($"[WINDOWS TDP] Executando RyzenAdj: {arguments}");
+            
+            var psi = new ProcessStartInfo
             {
-                "Padrão" => 0,
-                "Vívido" => 1,
-                "OLED (Alto Contraste)" => 2,
-                "Noturno (Luz Quente)" => 3,
-                _ => 0
+                FileName = _ryzenAdjPath,
+                Arguments = arguments,
+                CreateNoWindow = true,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
             };
 
-            DisplayColorManager.Apply(colorIndex);
+            using var process = Process.Start(psi);
+            if (process != null)
+            {
+                process.WaitForExit(2000); // Espera até 2 segundos
+                string output = process.StandardOutput.ReadToEnd();
+                DebugLog.Write($"[WINDOWS TDP] Resultado: {output}");
+            }
         }
         catch (Exception ex)
         {
-            DebugLog.Write($"[WINDOWS] Erro ao aplicar cor: {ex.Message}");
+            DebugLog.Write($"[WINDOWS TDP] Erro ao chamar RyzenAdj: {ex.Message}");
         }
     }
 
     public void SetVolume(double level)
     {
-        try
-        {
-            int steps = (int)(level / 2);
-            string script = $"$obj = New-Object -ComObject WScript.Shell; 1..100 | ForEach-Object {{ $obj.SendKeys([char]174) }}; 1..{steps} | ForEach-Object {{ $obj.SendKeys([char]175) }}";
-            Process.Start(new ProcessStartInfo { FileName = "powershell", Arguments = $"-NoProfile -WindowStyle Hidden -Command \"{script}\"", CreateNoWindow = true, UseShellExecute = false });
-        }
-        catch (Exception ex) { DebugLog.Write($"[WINDOWS] Erro volume: {ex.Message}"); }
+        // Implementaremos depois usando o CoreAudio API do Windows
+        DebugLog.Write($"[WINDOWS] Volume não implementado ainda: {level}");
     }
 
     public void SetBrightness(double level)
     {
-        try
-        {
-            string script = $"(Get-WmiObject -Namespace root/WMI -Class WmiMonitorBrightnessMethods).WmiSetBrightness(1, {(int)level})";
-            Process.Start(new ProcessStartInfo { FileName = "powershell", Arguments = $"-NoProfile -WindowStyle Hidden -Command \"{script}\"", CreateNoWindow = true, UseShellExecute = false });
-        }
-        catch (Exception ex) { DebugLog.Write($"[WINDOWS] Erro brilho: {ex.Message}"); }
+        // Implementaremos depois usando WMI
+        DebugLog.Write($"[WINDOWS] Brilho não implementado ainda: {level}");
     }
 
-    public void SetPerformanceHudEnabled(bool enabled) => DebugLog.Write($"[WINDOWS] HUD: {enabled}");
+    public void SetColorMode(string mode)
+    {
+        DebugLog.Write($"[WINDOWS] Cor não implementado ainda: {mode}");
+    }
+
+    public void SetPerformanceHudEnabled(bool enabled)
+    {
+        // Lógica para iniciar o RTSS ou similar
+        DebugLog.Write($"[WINDOWS] HUD: {enabled}");
+    }
 }

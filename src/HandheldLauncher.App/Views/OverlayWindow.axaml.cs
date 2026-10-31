@@ -8,6 +8,7 @@ using HandheldLauncher.Core.Services;
 using HandheldLauncher.App.Diagnostics;
 using HandheldLauncher.App.Platform;
 using HandheldLauncher.App.Input;
+using HandheldLauncher.App.ViewModels;
 
 namespace HandheldLauncher.App.Views;
 
@@ -21,12 +22,15 @@ public partial class OverlayWindow : Window
     private bool _isInitializing = true;
     private int _focusIndex = 0;
     private readonly Border[] _sections;
-
-    // Estado interno do TDP (mais confiável que o Tag do ComboBox)
     private string _currentTdp = "Equilibrado";
+    
+    private readonly MainViewModel _viewModel;
+    public bool IsAppClosing { get; set; } = false; 
 
-    public OverlayWindow()
+    public OverlayWindow(MainViewModel viewModel)
     {
+        _viewModel = viewModel;
+        
         DebugLog.Write("[OVERLAY] Construtor iniciado.");
         InitializeComponent(); 
 
@@ -47,6 +51,9 @@ public partial class OverlayWindow : Window
             if (BrightnessSlider != null) BrightnessSlider.Value = 80;
         }
         catch (Exception ex) { DebugLog.Write($"[OVERLAY] Aviso: {ex.Message}"); }
+
+        // 🟢 O LOG DE FOCO AGORA É UM EVENTO, COLOCADO AQUI NO CONSTRUTOR 🟢
+        Deactivated += (_, _) => DebugLog.Write("[OVERLAY] Janela perdeu o foco (Deactivated).");
         
         _isInitializing = false;
         UpdateFocusVisual();
@@ -56,6 +63,7 @@ public partial class OverlayWindow : Window
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
+        DebugLog.Write("[OVERLAY] OnOpened disparado.");
         var screen = Screens.Primary;
         if (screen != null)
         {
@@ -66,18 +74,23 @@ public partial class OverlayWindow : Window
         }
     }
 
-    private void OnCloseClick(object? sender, RoutedEventArgs e) => Hide(); 
-
     protected override void OnClosing(WindowClosingEventArgs e)
     {
-        e.Cancel = true;
-        Hide();
+        DebugLog.Write($"[OVERLAY] OnClosing disparado. IsAppClosing={IsAppClosing}");
+        if (!IsAppClosing)
+        {
+            e.Cancel = true;
+            Hide();
+        }
         base.OnClosing(e);
     }
 
-    // ==========================================
-    // LÓGICA DE NAVEGAÇÃO COM O CONTROLE
-    // ==========================================
+    private void OnCloseClick(object? sender, RoutedEventArgs e)
+    {
+        DebugLog.Write("[OVERLAY] Botão Fechar clicado.");
+        Hide(); 
+    }
+
     public void HandleGamepadAction(GamepadAction action)
     {
         DebugLog.Write($"[OVERLAY] Controle: {action} | Foco atual: {_focusIndex}");
@@ -86,27 +99,23 @@ public partial class OverlayWindow : Window
         {
             case GamepadAction.Back:
             case GamepadAction.GlobalMenu:
+                DebugLog.Write("[OVERLAY] Fechando pelo controle (Back/Menu).");
                 Hide();
                 break;
-
             case GamepadAction.MoveUp:
                 _focusIndex = Math.Max(0, _focusIndex - 1);
                 UpdateFocusVisual();
                 break;
-
             case GamepadAction.MoveDown:
                 _focusIndex = Math.Min(_sections.Length - 1, _focusIndex + 1);
                 UpdateFocusVisual();
                 break;
-
             case GamepadAction.MoveLeft:
                 HandleHorizontalInput(-1);
                 break;
-
             case GamepadAction.MoveRight:
                 HandleHorizontalInput(1);
                 break;
-
             case GamepadAction.Confirm:
                 HandleConfirm();
                 break;
@@ -125,14 +134,14 @@ public partial class OverlayWindow : Window
     {
         switch (_focusIndex)
         {
-            case 0: // TDP (corrigido: navega passo a passo)
+            case 0: // TDP
                 string newTdp = _currentTdp;
-                if (direction < 0) // Esquerda
+                if (direction < 0)
                 {
                     if (_currentTdp == "Turbo") newTdp = "Equilibrado";
                     else if (_currentTdp == "Equilibrado") newTdp = "Eco";
                 }
-                else if (direction > 0) // Direita
+                else if (direction > 0)
                 {
                     if (_currentTdp == "Eco") newTdp = "Equilibrado";
                     else if (_currentTdp == "Equilibrado") newTdp = "Turbo";
@@ -144,7 +153,6 @@ public partial class OverlayWindow : Window
                     _hardwareService?.SetTdpMode(newTdp);
                 }
                 break;
-
             case 1: // Cor
                 if (ColorModeCombo != null)
                 {
@@ -152,12 +160,10 @@ public partial class OverlayWindow : Window
                     ColorModeCombo.SelectedIndex = newIndex;
                 }
                 break;
-
             case 3: // Volume
                 if (VolumeSlider != null)
                     VolumeSlider.Value = Math.Clamp(VolumeSlider.Value + (direction * 5), 0, 100);
                 break;
-
             case 4: // Brilho
                 if (BrightnessSlider != null)
                     BrightnessSlider.Value = Math.Clamp(BrightnessSlider.Value + (direction * 5), 0, 100);
@@ -167,15 +173,12 @@ public partial class OverlayWindow : Window
 
     private void HandleConfirm()
     {
-        if (_focusIndex == 2 && HudToggle != null) // HUD
+        if (_focusIndex == 2 && HudToggle != null)
         {
             HudToggle.IsChecked = !HudToggle.IsChecked;
         }
     }
 
-    // ==========================================
-    // MÉTODOS DA UI
-    // ==========================================
     private void OnTdpClick(object? sender, RoutedEventArgs e)
     {
         if (sender is not Button clickedButton) return;
@@ -189,7 +192,6 @@ public partial class OverlayWindow : Window
         if (BtnEco != null) BtnEco.Background = activeMode == "Eco" ? _activeColor : _inactiveColor;
         if (BtnEquilibrado != null) BtnEquilibrado.Background = activeMode == "Equilibrado" ? _activeColor : _inactiveColor;
         if (BtnTurbo != null) BtnTurbo.Background = activeMode == "Turbo" ? _activeColor : _inactiveColor;
-        
         _currentTdp = activeMode;
     }
 
@@ -204,7 +206,9 @@ public partial class OverlayWindow : Window
     {
         if (_isInitializing) return;
         if (HudToggle?.IsChecked is bool enabled)
+        {
             _hardwareService?.SetPerformanceHudEnabled(enabled);
+        }
     }
 
     private void OnVolumeChanged(object? sender, RangeBaseValueChangedEventArgs e)

@@ -1,20 +1,11 @@
-
 using System.Globalization;
 using System.Runtime.InteropServices;
 using HandheldLauncher.App.Diagnostics;
 
 namespace HandheldLauncher.App.Platform;
 
-/// <summary>
-/// Nosso "MangoHud": a cada 1 s junta FPS (RTSS) + sensores (SystemMetrics),
-/// monta um texto colorido no estilo do MangoHud e manda pro RTSS desenhar
-/// por cima do jogo. Roda numa thread de fundo (nunca trava a interface).
-///
-/// Presets (Configurações, menu do launcher, ou L3+R3 no controle):
-/// 0 Desligado · 1 Resumido · 2 Médio · 3 Completo.
-/// </summary>
-    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
-    public sealed class PerformanceHud : IDisposable
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
+public sealed class PerformanceHud : IDisposable
 {
     public static readonly string[] PresetNames = ["Desligado", "Resumido", "Médio", "Completo"];
 
@@ -26,10 +17,9 @@ namespace HandheldLauncher.App.Platform;
     private bool _isShowing;
     private string? _lastLoggedError;
 
-    // Mini-gráfico de frametime (preset Completo, v0.9.5) — histórico
-    // curto só pra desenhar a tendência; não precisa de lock separado
-    // porque só a própria thread de Tick toca nisso, uma chamada por vez,
-    // nunca duas em paralelo.
+    // NOVO: Propriedade para receber a temperatura do MainViewModel
+    public string CpuTemperature { get; set; } = "--°C";
+
     private const int FrameTimeHistorySize = 20;
     private readonly Queue<double> _frameTimeHistory = new(FrameTimeHistorySize + 1);
 
@@ -37,18 +27,6 @@ namespace HandheldLauncher.App.Platform;
     {
         _preset = Math.Clamp(preset, 0, PresetNames.Length - 1);
 
-        // v0.9.9 — bug reportado como ainda persistindo ("no jogo só
-        // muda quando launcher tá em primeiro plano"): antes disparava
-        // Tick() por um System.Threading.Timer, que agenda a chamada no
-        // ThreadPool. Mesmo com Platform.PowerThrottling desligando o
-        // EcoQoS do PROCESSO inteiro (v0.6.1), o ThreadPool tem seu
-        // próprio algoritmo de injeção de threads ("hill-climbing"), que
-        // pode demorar bem mais pra despachar um callback quando o app
-        // está em segundo plano/ocioso. Trocado pra uma thread dedicada
-        // — mesmo padrão do Input/OverlayHotkeyWatcher, que já resolveu
-        // exatamente esse tipo de atraso pro combo L3+R3 também na
-        // v0.6.1: thread própria, AboveNormal, dormindo 1 s entre
-        // leituras, sem depender do ThreadPool decidir quando rodar.
         _thread = new Thread(Run)
         {
             IsBackground = true,
@@ -60,8 +38,6 @@ namespace HandheldLauncher.App.Platform;
 
     private void Run()
     {
-        // Mesmo atraso inicial de antes — dá tempo do RTSS/jogo
-        // iniciarem antes da primeira leitura.
         Thread.Sleep(TimeSpan.FromSeconds(2));
 
         while (!_stop)
@@ -78,11 +54,8 @@ namespace HandheldLauncher.App.Platform;
     }
 
     public string PresetName => PresetNames[_preset];
-
-    /// <summary>"ativo", "RTSS não está rodando", etc. — pro menu/Configurações.</summary>
     public string Status { get; private set; } = "iniciando";
 
-    /// <summary>Some com o HUD da tela agora (antes de fechar/atualizar o launcher).</summary>
     public void ClearNow()
     {
         try
@@ -90,10 +63,7 @@ namespace HandheldLauncher.App.Platform;
             lock (_rtss) _rtss.ClearOsd();
             _isShowing = false;
         }
-        catch
-        {
-            // Melhor esforço.
-        }
+        catch { }
     }
 
     private void Tick()
@@ -123,12 +93,11 @@ namespace HandheldLauncher.App.Platform;
                 }
                 else
                 {
-                    // Sem jogo em foco agora — esvazia pra não deixar o
-                    // gráfico "congelado" com dados de uma sessão anterior.
                     _frameTimeHistory.Clear();
                 }
 
-                var text = HudFormatter.Format(preset, frames, metrics, _frameTimeHistory);
+                // 🟢 NOVO: Passa a temperatura para o formatador
+                var text = HudFormatter.Format(preset, frames, metrics, _frameTimeHistory, CpuTemperature);
                 written = _rtss.WriteOsd(text);
             }
 
@@ -180,10 +149,6 @@ namespace HandheldLauncher.App.Platform;
 
     public void Dispose()
     {
-        // Só sinaliza — sem Join() (thread em background, dorme até 1s;
-        // esperar ela "notar" aqui só atrasaria o fechamento do launcher
-        // sem necessidade, igual o Timer.Dispose() de antes também não
-        // esperava um Tick em andamento terminar).
         _stop = true;
         ClearNow();
         _rtss.Dispose();
@@ -191,25 +156,8 @@ namespace HandheldLauncher.App.Platform;
     }
 }
 
-/// <summary>
-/// Monta o texto do HUD com as tags de cor do RTSS (&lt;C=RRGGBB&gt; ... &lt;C&gt;).
-///
-/// Ajustado depois do primeiro teste real (v0.4.0, pedidos do usuário):
-/// <list type="bullet">
-/// <item>Tudo numa linha só, com espaço largo entre os grupos
-/// ("GPU 99%    CPU 20%    ...").</item>
-/// <item>Rótulos sempre presentes, inclusive no Resumido.</item>
-/// <item>"Muito colorido": cor só nos rótulos (paleta do MangoHud); valores
-/// em branco e unidades em cinza. Vermelho só no que é crítico de verdade
-/// (bateria baixa).</item>
-/// <item>Bateria com tempo restante e horário atual no fim da linha.</item>
-/// </list>
-/// Tamanho da fonte vem da configuração do próprio RTSS ("On-Screen
-/// Display zoom").
-/// </summary>
 internal static class HudFormatter
 {
-    // Rótulos: paleta padrão do MangoHud.
     private const string GpuColor = "2E9762";
     private const string CpuColor = "2E97CB";
     private const string VramColor = "AD64C1";
@@ -217,30 +165,21 @@ internal static class HudFormatter
     private const string BatteryColor = "FF9078";
     private const string FpsColor = "EB5B5B";
     private const string ClockColor = "CCCCCC";
+    
+    // 🟢 NOVO: Cor para a Temperatura (Laranja)
+    private const string TempColor = "FF9D00"; 
 
     private const string ValueColor = "FFFFFF";
     private const string UnitColor = "B0B0B0";
     private const string Critical = "FF4040";
 
     private const string GroupSeparator = "     ";
-
-    // Mini-gráfico de frametime (v0.9.5, pedido antigo do planejamento) —
-    // RTSS OSD só desenha TEXTO (sem API de gráfico de verdade), então
-    // nunca ia dar pra desenhar um gráfico de linha de verdade. v0.9.5
-    // tentou um sparkline com caracteres de bloco Unicode (▁▂▃▄▅▆▇█) — a
-    // fonte do RTSS não tem esses glyphs, virava "??????" na tela (v0.9.7
-    // trocou por uma rampa ASCII tipo arte de terminal, mas o usuário
-    // achou ilegível do mesmo jeito — "%%@@@---%% não entendi nada",
-    // dúvida justa, símbolo nenhum diz se teve engasgo ou não sem
-    // explicação). v0.9.8: em vez de qualquer "desenho", só os números —
-    // mínimo/média/pico (ms) da janela recente. Não é um gráfico, mas diz
-    // exatamente o que importa (pico bem mais alto que a média = teve
-    // engasgo) sem precisar decifrar nada.
     private const string FrameColor = "F2C14E";
 
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
-    public static string Format(int preset, FrameStats? frames, MetricsSnapshot m, IReadOnlyCollection<double>? frameTimeHistoryMs = null)
+    // 🟢 NOVO: Parâmetro cpuTemp adicionado na assinatura
+    public static string Format(int preset, FrameStats? frames, MetricsSnapshot m, IReadOnlyCollection<double>? frameTimeHistoryMs = null, string? cpuTemp = null)
     {
         var groups = new List<string>();
 
@@ -254,6 +193,9 @@ internal static class HudFormatter
             case 2: // Médio
                 groups.Add(Group("GPU", GpuColor, Percent(m.GpuPercent)));
                 groups.Add(Group("CPU", CpuColor, Percent(m.CpuPercent)));
+                // 🟢 NOVO: Adiciona a temperatura no preset Médio
+                if (!string.IsNullOrEmpty(cpuTemp) && cpuTemp != "--°C")
+                    groups.Add(Group("TEMP", TempColor, Value(cpuTemp.Replace("°C", "")) + Unit("°C")));
                 groups.Add(Group("RAM", RamColor, Value(m.RamUsedGb.ToString("0.0", Inv)) + Unit("GB")));
                 AddBattery(groups, m, withWatts: false);
                 groups.Add(Fps(frames, withFrameTime: true));
@@ -267,6 +209,11 @@ internal static class HudFormatter
                 }
                 groups.Add(Group("CPU", CpuColor,
                     Percent(m.CpuPercent) + (m.CpuMhz is { } mhz ? " " + Value(mhz.ToString("0", Inv)) + Unit("MHz") : string.Empty)));
+                
+                // 🟢 NOVO: Adiciona a temperatura no preset Completo
+                if (!string.IsNullOrEmpty(cpuTemp) && cpuTemp != "--°C")
+                    groups.Add(Group("TEMP", TempColor, Value(cpuTemp.Replace("°C", "")) + Unit("°C")));
+
                 groups.Add(Group("RAM", RamColor,
                     Value(m.RamUsedGb.ToString("0.0", Inv)) + Unit("/" + m.RamTotalGb.ToString("0", Inv) + "GB")));
                 AddBattery(groups, m, withWatts: true);
@@ -315,15 +262,6 @@ internal static class HudFormatter
         groups.Add(Group("BAT", BatteryColor, text));
     }
 
-    /// <summary>
-    /// "8/17/42ms" — mínimo/média/pico (ms) do histórico recente de
-    /// frametime (v0.9.8, trocado do sparkline — ver comentário em
-    /// FrameColor acima). O pico é o número que realmente importa: bem
-    /// mais alto que a média = teve engasgo na janela recente, mesmo que
-    /// o frame ATUAL (no grupo FPS, ao lado) já tenha voltado ao normal.
-    /// string.Empty se não tem histórico ainda (jogo recém-aberto ou
-    /// nenhum jogo em foco).
-    /// </summary>
     private static string FrameTimeRange(IReadOnlyCollection<double>? frameTimeHistoryMs)
     {
         if (frameTimeHistoryMs is null || frameTimeHistoryMs.Count == 0) return string.Empty;
