@@ -21,6 +21,8 @@ jobs:
     env:
       VPK_VERSION: 1.2.161
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      WINDOWS_SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
+      WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -181,11 +183,8 @@ jobs:
           $pfxPath = Join-Path $env:RUNNER_TEMP "handheld-codesign.pfx"
           [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:WINDOWS_SIGNING_CERTIFICATE_BASE64))
           $password = ConvertTo-SecureString $env:WINDOWS_SIGNING_CERTIFICATE_PASSWORD -AsPlainText -Force
-          $cert = Get-ChildItem Cert:\CurrentUser\My | Where-Object { $_.HasPrivateKey } |
-            Sort-Object NotAfter -Descending | Select-Object -First 1
-          if (-not $cert) {
-            $cert = Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\CurrentUser\My -Password $password
-          }
+          $cert = Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\CurrentUser\My -Password $password
+          if (-not $cert -or -not $cert.HasPrivateKey) { throw "O PFX não contém um certificado com chave privada." }
           $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter signtool.exe -Recurse |
             Where-Object { $_.FullName -match "\\x64\\signtool.exe$" } |
             Sort-Object FullName -Descending | Select-Object -First 1
