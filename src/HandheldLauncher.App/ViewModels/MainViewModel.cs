@@ -1092,7 +1092,7 @@ public sealed class MainViewModel : ViewModelBase
             default:
                 GlobalMenuTitle = "Menu";
                 
-                Add("Abrir Quick Settings (Teste)", () => OpenOverlayRequested?.Invoke(this, EventArgs.Empty));
+                Add("Abrir Quick Settings", () => OpenOverlayRequested?.Invoke(this, EventArgs.Empty));
 
                 if (IsUpdateReady)
                 {

@@ -385,7 +385,7 @@ public partial class MainWindow : Window
         vm.RestoreShellRequested += (_, _) => RestoreWindowsShell();
         vm.GameDetailsRequested += (_, game) => _ = OpenGameDetailsDialogAsync(vm, game);
 
-               // A PONTE DO OVERLAY BLINDADA (AIRBAG)
+        // A PONTE DO OVERLAY BLINDADA (AIRBAG)
         vm.OpenOverlayRequested += (_, _) =>
         {
             try
@@ -587,6 +587,22 @@ public partial class MainWindow : Window
                 vm.CycleOverlayPreset();
                 continue;
             }
+
+            // 🟢 AQUI ESTÁ O LUGAR CORRETO DO NOVO ATALHO 🟢
+            if (action == GamepadAction.ToggleQuickSettings)
+            {
+                UiSounds.PlayForAction(action);
+                if (_overlayWindow != null && _overlayWindow.IsVisible)
+                {
+                    _overlayWindow.Hide();
+                }
+                else
+                {
+                    vm.OpenOverlayRequested?.Invoke(vm, EventArgs.Empty);
+                }
+                continue;
+            }
+            // 🟢 FIM DO ATALHO 🟢
 
             if (vm.RunningGame is not null && !IsOurWindowInForeground())
             {
