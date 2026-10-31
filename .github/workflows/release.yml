@@ -75,6 +75,11 @@ jobs:
           -p:Version=${{ steps.ver.outputs.version }}
           -o publish
 
+      # 🟢 NOVA ETAPA: Copiar o InstallTask.ps1 para o pacote
+      - name: Copiar InstallTask.ps1 para o pacote
+        if: steps.exists.outputs.skip != 'true'
+        run: Copy-Item "InstallTask.ps1" -Destination "publish/InstallTask.ps1"
+
       - name: Baixar e empacotar FFmpeg
         if: steps.exists.outputs.skip != 'true'
         shell: pwsh
@@ -107,7 +112,7 @@ jobs:
           --repoUrl ${{ github.server_url }}/${{ github.repository }}
           --token ${{ secrets.GITHUB_TOKEN }}
 
-      # 🟢 ETAPA CORRIGIDA: Sem splatting, construindo o comando de forma segura
+      # 🟢 ETAPA CORRIGIDA: Sem --installHook
       - name: Empacotar (Windows Velopack)
         if: steps.exists.outputs.skip != 'true'
         shell: pwsh
@@ -118,7 +123,7 @@ jobs:
             $notesArg = "--releaseNotes `"$notesFile`""
           }
 
-          $cmd = "vpk pack --packId HandheldLauncher --packTitle `"Handheld Launcher`" --packVersion ${{ steps.ver.outputs.version }} --packDir publish --mainExe HandheldLauncher.exe --icon src/HandheldLauncher.App/Assets/app-icon.ico --splashProgressColor `"#7C5CFC`" --requireAdmin --installHook `"InstallTask.ps1`" $notesArg"
+          $cmd = "vpk pack --packId HandheldLauncher --packTitle `"Handheld Launcher`" --packVersion ${{ steps.ver.outputs.version }} --packDir publish --mainExe HandheldLauncher.exe --icon src/HandheldLauncher.App/Assets/app-icon.ico --splashProgressColor `"#7C5CFC`" --requireAdmin $notesArg"
           
           Write-Host "Executando: $cmd"
           Invoke-Expression $cmd
