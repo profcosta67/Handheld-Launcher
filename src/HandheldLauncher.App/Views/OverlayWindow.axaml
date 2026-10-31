@@ -24,21 +24,32 @@
                     <TextBlock Text="Quick Settings" Foreground="White" FontSize="22" FontWeight="Bold" />
                     <TextBlock Text="Controle Rápido" Foreground="Gray" FontSize="12" />
                 </StackPanel>
-                <Button Grid.Column="1" Content="✕" Width="40" Height="40" CornerRadius="20" Background="#33FFFFFF" Foreground="White" Click="OnCloseClick" />
+                <Button Grid.Column="1" 
+                        Content="✕" 
+                        Width="40" Height="40" 
+                        CornerRadius="20" 
+                        Background="#33FFFFFF" 
+                        Foreground="White" 
+                        Click="OnCloseClick" 
+                        Padding="0" 
+                        HorizontalContentAlignment="Center" 
+                        VerticalContentAlignment="Center"
+                        FontSize="16" 
+                        FontWeight="Bold" />
             </Grid>
 
             <ScrollViewer Grid.Row="1">
                 <StackPanel Spacing="20">
                     
-                                       <!-- TDP -->
+                    <!-- TDP -->
                     <Border x:Name="TdpSection" CornerRadius="8" BorderThickness="2" BorderBrush="Transparent" Padding="4">
                         <StackPanel Spacing="8">
                             <TextBlock Text="⚡ Desempenho (TDP)" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
                             <Grid ColumnDefinitions="*,*,*,*">
-                                <Button x:Name="BtnEco" Grid.Column="0" Content="Eco" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="0,0,2,0" FontSize="12" />
-                                <Button x:Name="BtnNormal" Grid.Column="1" Content="Normal" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="2,0,2,0" FontSize="12" />
-                                <Button x:Name="BtnDesempenho" Grid.Column="2" Content="Desemp." Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="2,0,2,0" FontSize="12" />
-                                <Button x:Name="BtnBoost" Grid.Column="3" Content="Boost" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="2,0,0,0" FontSize="12" />
+                                <Button x:Name="BtnEco" Grid.Column="0" Content="Eco" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="0,0,2,0" FontSize="11" />
+                                <Button x:Name="BtnNormal" Grid.Column="1" Content="Norm" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="2,0,2,0" FontSize="11" />
+                                <Button x:Name="BtnDesempenho" Grid.Column="2" Content="Desemp" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="2,0,2,0" FontSize="10" />
+                                <Button x:Name="BtnBoost" Grid.Column="3" Content="Boost" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="2,0,0,0" FontSize="11" />
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -60,9 +71,11 @@
                     <Border x:Name="HudSection" CornerRadius="8" BorderThickness="2" BorderBrush="Transparent" Padding="4">
                         <StackPanel Spacing="8">
                             <TextBlock Text="🎮 HUD de Desempenho" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
-                            <Grid ColumnDefinitions="*,Auto">
-                                <TextBlock Text="Mostrar FPS (RTSS)" Foreground="White" VerticalAlignment="Center" />
-                                <ToggleSwitch x:Name="HudToggle" IsCheckedChanged="OnHudToggled" Grid.Column="1" IsChecked="True" />
+                            <Grid ColumnDefinitions="*,*,*,*">
+                                <Button x:Name="BtnHudOff" Grid.Column="0" Content="Off" Click="OnHudClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="0,0,2,0" FontSize="11" />
+                                <Button x:Name="BtnHudMin" Grid.Column="1" Content="Min" Click="OnHudClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="2,0,2,0" FontSize="11" />
+                                <Button x:Name="BtnHudMed" Grid.Column="2" Content="Méd" Click="OnHudClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="2,0,2,0" FontSize="11" />
+                                <Button x:Name="BtnHudFull" Grid.Column="3" Content="Full" Click="OnHudClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="2,0,0,0" FontSize="11" />
                             </Grid>
                         </StackPanel>
                     </Border>

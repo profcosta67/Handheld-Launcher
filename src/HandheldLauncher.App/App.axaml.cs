@@ -101,10 +101,16 @@ public partial class App : Application
 
             if (OperatingSystem.IsWindows())
             {
-                var overlayHotkeys = new HandheldLauncher.App.Input.OverlayHotkeyWatcher(mainViewModel.CycleOverlayPreset);
+                var overlayHotkeys = new HandheldLauncher.App.Input.OverlayHotkeyWatcher(() =>
+                {
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() => mainWindow.ToggleOverlay());
+                });
                 desktop.Exit += (_, _) => overlayHotkeys.Dispose();
 
-                HandheldLauncher.App.Input.GameInputHelper.ListenInBackground(mainViewModel.RequestOpenOverlay);
+                HandheldLauncher.App.Input.GameInputHelper.ListenInBackground(() =>
+                {
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() => mainWindow.ToggleOverlay());
+                });
                 HandheldLauncher.App.Input.GameInputHelper.StartHelperProcess();
                 desktop.Exit += (_, _) => HandheldLauncher.App.Input.GameInputHelper.StopHelperProcess();
             }

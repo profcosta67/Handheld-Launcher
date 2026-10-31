@@ -5,6 +5,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using HandheldLauncher.Core.Services;
+using HandheldLauncher.Core.Models;
 using HandheldLauncher.App.Diagnostics;
 using HandheldLauncher.App.Platform;
 using HandheldLauncher.App.Input;
@@ -22,7 +23,7 @@ public partial class OverlayWindow : Window
     private bool _isInitializing = true;
     private int _focusIndex = 0;
     private readonly Border[] _sections;
-    private string _currentTdp = "Normal"; // Padrão inicial
+    private string _currentTdp = "Normal";
     
     private readonly MainViewModel _viewModel;
     public bool IsAppClosing { get; set; } = false; 
@@ -30,7 +31,6 @@ public partial class OverlayWindow : Window
     public OverlayWindow(MainViewModel viewModel)
     {
         _viewModel = viewModel;
-        
         DebugLog.Write("[OVERLAY] Construtor iniciado.");
         InitializeComponent(); 
 
@@ -45,13 +45,22 @@ public partial class OverlayWindow : Window
         
         try 
         {
-            SetTdpButtonVisual("Normal");
-            if (ColorModeCombo != null) ColorModeCombo.SelectedIndex = 0;
-            if (VolumeSlider != null) VolumeSlider.Value = 70;
-            if (BrightnessSlider != null) BrightnessSlider.Value = 80;
-            if (HudToggle != null) HudToggle.IsChecked = _viewModel.IsPerformanceHudEnabled;
+            var settings = AppSettingsStore.Load();
+
+            SetTdpButtonVisual(string.IsNullOrEmpty(settings.TdpMode) ? "Normal" : settings.TdpMode);
+            
+            if (ColorModeCombo != null) 
+                ColorModeCombo.SelectedIndex = Math.Clamp(settings.ColorMode, 0, 3);
+            
+            if (VolumeSlider != null) 
+                VolumeSlider.Value = settings.Volume;
+            
+            if (BrightnessSlider != null) 
+                BrightnessSlider.Value = settings.Brightness;
+            
+            SetHudButtonVisual(settings.OverlayPreset);
         }
-        catch (Exception ex) { DebugLog.Write($"[OVERLAY] Aviso: {ex.Message}"); }
+        catch (Exception ex) { DebugLog.Write($"[OVERLAY] Aviso ao carregar settings: {ex.Message}"); }
 
         Deactivated += (_, _) => DebugLog.Write("[OVERLAY] Janela perdeu o foco (Deactivated).");
         
@@ -63,8 +72,6 @@ public partial class OverlayWindow : Window
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
-        DebugLog.Write("[OVERLAY] OnOpened disparado.");
-        
         var screen = Screens.Primary ?? Screens.All.FirstOrDefault();
         
         if (screen != null)
@@ -74,17 +81,11 @@ public partial class OverlayWindow : Window
             var centerY = workingArea.Y + (workingArea.Height - (int)Height) / 2;
             
             Position = new PixelPoint(rightEdge - (int)Width - 20, centerY);
-            DebugLog.Write($"[OVERLAY] Posicionado em X={Position.X}, Y={Position.Y}");
-        }
-        else
-        {
-            DebugLog.Write("[OVERLAY] ERRO: Não foi possível encontrar nenhuma tela.");
         }
     }
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {
-        DebugLog.Write($"[OVERLAY] OnClosing disparado. IsAppClosing={IsAppClosing}");
         if (!IsAppClosing)
         {
             e.Cancel = true;
@@ -93,21 +94,14 @@ public partial class OverlayWindow : Window
         base.OnClosing(e);
     }
 
-    private void OnCloseClick(object? sender, RoutedEventArgs e)
-    {
-        DebugLog.Write("[OVERLAY] Botão Fechar clicado.");
-        Hide(); 
-    }
+    private void OnCloseClick(object? sender, RoutedEventArgs e) => Hide(); 
 
     public void HandleGamepadAction(GamepadAction action)
     {
-        DebugLog.Write($"[OVERLAY] Controle: {action} | Foco atual: {_focusIndex}");
-
         switch (action)
         {
             case GamepadAction.Back:
             case GamepadAction.GlobalMenu:
-                DebugLog.Write("[OVERLAY] Fechando pelo controle.");
                 Hide();
                 break;
             case GamepadAction.MoveUp:
@@ -142,16 +136,16 @@ public partial class OverlayWindow : Window
     {
         switch (_focusIndex)
         {
-            case 0: // TDP (Navegação entre os 4 modos)
+            case 0: // TDP
                 string newTdp = _currentTdp;
                 
-                if (direction < 0) // Esquerda
+                if (direction < 0)
                 {
                     if (_currentTdp == "Boost") newTdp = "Desempenho";
                     else if (_currentTdp == "Desempenho") newTdp = "Normal";
                     else if (_currentTdp == "Normal") newTdp = "Eco";
                 }
-                else if (direction > 0) // Direita
+                else if (direction > 0)
                 {
                     if (_currentTdp == "Eco") newTdp = "Normal";
                     else if (_currentTdp == "Normal") newTdp = "Desempenho";
@@ -162,6 +156,7 @@ public partial class OverlayWindow : Window
                 {
                     SetTdpButtonVisual(newTdp);
                     _hardwareService?.SetTdpMode(newTdp);
+                    SaveSetting("TdpMode", newTdp);
                 }
                 break;
 
@@ -170,6 +165,16 @@ public partial class OverlayWindow : Window
                 {
                     var newIndex = Math.Clamp(ColorModeCombo.SelectedIndex + direction, 0, ColorModeCombo.ItemCount - 1);
                     ColorModeCombo.SelectedIndex = newIndex;
+                }
+                break;
+
+            case 2: // HUD
+                if (_viewModel.IsPerformanceHudEnabled)
+                {
+                    var newHudIndex = Math.Clamp(_viewModel.CurrentHudPreset + direction, 0, 3);
+                    _viewModel.SetOverlayPreset(newHudIndex);
+                    SaveSetting("OverlayPreset", newHudIndex.ToString());
+                    SetHudButtonVisual(newHudIndex);
                 }
                 break;
 
@@ -187,9 +192,12 @@ public partial class OverlayWindow : Window
 
     private void HandleConfirm()
     {
-        if (_focusIndex == 2 && HudToggle != null) // HUD
+        if (_focusIndex == 2 && _viewModel.IsPerformanceHudEnabled) // HUD
         {
-            HudToggle.IsChecked = !HudToggle.IsChecked;
+            var nextIndex = (_viewModel.CurrentHudPreset + 1) % 4;
+            _viewModel.SetOverlayPreset(nextIndex);
+            SaveSetting("OverlayPreset", nextIndex.ToString());
+            SetHudButtonVisual(nextIndex);
         }
     }
 
@@ -198,11 +206,12 @@ public partial class OverlayWindow : Window
         if (sender is not Button clickedButton) return;
         var mode = clickedButton.Content?.ToString() ?? "Desconhecido";
         
-        // Normaliza os nomes para o que o hardware espera
-        if (mode == "Desemp.") mode = "Desempenho";
+        if (mode == "Norm") mode = "Normal";
+        if (mode == "Desemp") mode = "Desempenho";
         
         _hardwareService?.SetTdpMode(mode);
         SetTdpButtonVisual(mode);
+        SaveSetting("TdpMode", mode);
     }
 
     private void SetTdpButtonVisual(string activeMode)
@@ -215,19 +224,40 @@ public partial class OverlayWindow : Window
         _currentTdp = activeMode;
     }
 
+    private void OnHudClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button clickedButton) return;
+        var mode = clickedButton.Content?.ToString() ?? "Off";
+        
+        int preset = mode switch
+        {
+            "Off" => 0,
+            "Min" => 1,
+            "Méd" => 2,
+            "Full" => 3,
+            _ => 0
+        };
+
+        _viewModel.SetOverlayPreset(preset);
+        SaveSetting("OverlayPreset", preset.ToString());
+        SetHudButtonVisual(preset);
+    }
+
+    private void SetHudButtonVisual(int preset)
+    {
+        if (BtnHudOff != null) BtnHudOff.Background = preset == 0 ? _activeColor : _inactiveColor;
+        if (BtnHudMin != null) BtnHudMin.Background = preset == 1 ? _activeColor : _inactiveColor;
+        if (BtnHudMed != null) BtnHudMed.Background = preset == 2 ? _activeColor : _inactiveColor;
+        if (BtnHudFull != null) BtnHudFull.Background = preset == 3 ? _activeColor : _inactiveColor;
+    }
+
     private void OnColorModeChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (_isInitializing) return; 
-        if (ColorModeCombo?.SelectedItem is ComboBoxItem selectedItem)
-            _hardwareService?.SetColorMode(selectedItem.Content?.ToString() ?? "Padrão");
-    }
-
-    private void OnHudToggled(object? sender, RoutedEventArgs e)
-    {
-        if (_isInitializing) return;
-        if (HudToggle?.IsChecked is bool enabled)
+        if (ColorModeCombo?.SelectedIndex is int index)
         {
-            _viewModel.SetPerformanceHudEnabled(enabled);
+            _hardwareService?.SetColorMode(ColorModeCombo.SelectedItem?.ToString() ?? "Padrão");
+            SaveSetting("ColorMode", index.ToString());
         }
     }
 
@@ -235,11 +265,34 @@ public partial class OverlayWindow : Window
     {
         if (_isInitializing) return;
         _hardwareService?.SetVolume(Math.Round(e.NewValue));
+        SaveSetting("Volume", e.NewValue.ToString("F0"));
     }
 
     private void OnBrightnessChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (_isInitializing) return;
         _hardwareService?.SetBrightness(Math.Round(e.NewValue));
+        SaveSetting("Brightness", e.NewValue.ToString("F0"));
+    }
+
+    private void SaveSetting(string key, string value)
+    {
+        try
+        {
+            var settings = AppSettingsStore.Load();
+            switch (key)
+            {
+                case "TdpMode": settings.TdpMode = value; break;
+                case "ColorMode": settings.ColorMode = int.Parse(value); break;
+                case "OverlayPreset": settings.OverlayPreset = int.Parse(value); break;
+                case "Volume": settings.Volume = (int)double.Parse(value); break;
+                case "Brightness": settings.Brightness = (int)double.Parse(value); break;
+            }
+            AppSettingsStore.Save(settings);
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[OVERLAY] Erro ao salvar setting {key}: {ex.Message}");
+        }
     }
 }

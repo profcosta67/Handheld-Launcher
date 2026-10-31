@@ -307,8 +307,10 @@ public sealed class MainViewModel : ViewModelBase
         }
     }
 
-    public bool IsPerformanceHudEnabled => _hud is not null && _hud.Preset > 0;
-
+        public bool IsPerformanceHudEnabled => _hud is not null && _hud.Preset > 0;
+    
+    // 🟢 NOVO: Para o Overlay saber qual modo está selecionado
+    public int CurrentHudPreset => _hud?.Preset ?? 0; 
     public void SetPerformanceHudEnabled(bool enabled)
     {
         if (_hud is null || !OperatingSystem.IsWindows()) return;

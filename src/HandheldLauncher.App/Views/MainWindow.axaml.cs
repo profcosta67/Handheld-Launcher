@@ -154,7 +154,8 @@ public partial class MainWindow : Window
         }
         else if (msg == WmHotkey && wParam.ToInt32() == OverlayHotkeyId)
         {
-            (DataContext as MainViewModel)?.CycleOverlayPreset();
+            // Atalho do teclado chama a nova função
+            Dispatcher.UIThread.Post(() => ToggleOverlay());
             handled = true;
         }
         else if (msg == SingleInstance.RestoreMessageId)
@@ -164,6 +165,19 @@ public partial class MainWindow : Window
         }
 
         return IntPtr.Zero;
+    }
+
+    // NOVA FUNÇÃO CENTRALIZADA
+    public void ToggleOverlay()
+    {
+        if (_overlayWindow != null && _overlayWindow.IsVisible)
+        {
+            _overlayWindow.Hide();
+        }
+        else
+        {
+            (DataContext as MainViewModel)?.RequestOpenOverlay();
+        }
     }
 
     private void MinimizeToTray()
@@ -552,11 +566,7 @@ public partial class MainWindow : Window
     {
         if (DataContext is not MainViewModel vm) return;
 
-        if (vm.RunningGame is null && !IsActive)
-        {
-            return;
-        }
-
+        // A leitura agora é contínua, independente do foco!
         var actions = _gamepad.Poll();
 
         if (_activeDialog is { } dialog)
@@ -571,18 +581,19 @@ public partial class MainWindow : Window
 
         foreach (var action in actions)
         {
-            // 🟢 O atalho do Overlay funciona SEMPRE, mesmo no jogo
+            // O L3+R3 funciona sempre
             if (action == GamepadAction.ToggleQuickSettings)
             {
                 UiSounds.PlayForAction(action);
-                if (_overlayWindow != null && _overlayWindow.IsVisible)
-                {
-                    _overlayWindow.Hide();
-                }
-                else
-                {
-                    vm.RequestOpenOverlay();
-                }
+                ToggleOverlay(); 
+                continue;
+            }
+
+            // Se o Overlay estiver aberto, os botões vão todos pra ele (incluindo o B)
+            if (_overlayWindow != null && _overlayWindow.IsVisible)
+            {
+                UiSounds.PlayForAction(action);
+                _overlayWindow.HandleGamepadAction(action);
                 continue;
             }
 
