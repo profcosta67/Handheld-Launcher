@@ -22,7 +22,7 @@ public partial class OverlayWindow : Window
     private bool _isInitializing = true;
     private int _focusIndex = 0;
     private readonly Border[] _sections;
-    private string _currentTdp = "Equilibrado";
+    private string _currentTdp = "Normal"; // Padrão inicial
     
     private readonly MainViewModel _viewModel;
     public bool IsAppClosing { get; set; } = false; 
@@ -45,32 +45,30 @@ public partial class OverlayWindow : Window
         
         try 
         {
-            SetTdpButtonVisual("Equilibrado");
+            SetTdpButtonVisual("Normal");
             if (ColorModeCombo != null) ColorModeCombo.SelectedIndex = 0;
             if (VolumeSlider != null) VolumeSlider.Value = 70;
             if (BrightnessSlider != null) BrightnessSlider.Value = 80;
         }
         catch (Exception ex) { DebugLog.Write($"[OVERLAY] Aviso: {ex.Message}"); }
 
-        // 🟢 O LOG DE FOCO AGORA É UM EVENTO, COLOCADO AQUI NO CONSTRUTOR 🟢
         Deactivated += (_, _) => DebugLog.Write("[OVERLAY] Janela perdeu o foco (Deactivated).");
         
         _isInitializing = false;
         UpdateFocusVisual();
         DebugLog.Write("[OVERLAY] Construtor concluído.");
     }
+
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
         DebugLog.Write("[OVERLAY] OnOpened disparado.");
         
-        // 🟢 CORREÇÃO: Pega a tela primária ou a primeira tela da lista
         var screen = Screens.Primary ?? Screens.All.FirstOrDefault();
         
         if (screen != null)
         {
             var workingArea = screen.WorkingArea;
-            // Posiciona na direita, centralizado verticalmente
             var rightEdge = workingArea.X + workingArea.Width;
             var centerY = workingArea.Y + (workingArea.Height - (int)Height) / 2;
             
@@ -82,7 +80,7 @@ public partial class OverlayWindow : Window
             DebugLog.Write("[OVERLAY] ERRO: Não foi possível encontrar nenhuma tela.");
         }
     }
-    
+
     protected override void OnClosing(WindowClosingEventArgs e)
     {
         DebugLog.Write($"[OVERLAY] OnClosing disparado. IsAppClosing={IsAppClosing}");
@@ -108,7 +106,7 @@ public partial class OverlayWindow : Window
         {
             case GamepadAction.Back:
             case GamepadAction.GlobalMenu:
-                DebugLog.Write("[OVERLAY] Fechando pelo controle (Back/Menu).");
+                DebugLog.Write("[OVERLAY] Fechando pelo controle.");
                 Hide();
                 break;
             case GamepadAction.MoveUp:
@@ -143,17 +141,20 @@ public partial class OverlayWindow : Window
     {
         switch (_focusIndex)
         {
-            case 0: // TDP
+            case 0: // TDP (Navegação entre os 4 modos)
                 string newTdp = _currentTdp;
-                if (direction < 0)
+                
+                if (direction < 0) // Esquerda
                 {
-                    if (_currentTdp == "Turbo") newTdp = "Equilibrado";
-                    else if (_currentTdp == "Equilibrado") newTdp = "Eco";
+                    if (_currentTdp == "Boost") newTdp = "Desempenho";
+                    else if (_currentTdp == "Desempenho") newTdp = "Normal";
+                    else if (_currentTdp == "Normal") newTdp = "Eco";
                 }
-                else if (direction > 0)
+                else if (direction > 0) // Direita
                 {
-                    if (_currentTdp == "Eco") newTdp = "Equilibrado";
-                    else if (_currentTdp == "Equilibrado") newTdp = "Turbo";
+                    if (_currentTdp == "Eco") newTdp = "Normal";
+                    else if (_currentTdp == "Normal") newTdp = "Desempenho";
+                    else if (_currentTdp == "Desempenho") newTdp = "Boost";
                 }
 
                 if (newTdp != _currentTdp)
@@ -162,6 +163,7 @@ public partial class OverlayWindow : Window
                     _hardwareService?.SetTdpMode(newTdp);
                 }
                 break;
+
             case 1: // Cor
                 if (ColorModeCombo != null)
                 {
@@ -169,10 +171,12 @@ public partial class OverlayWindow : Window
                     ColorModeCombo.SelectedIndex = newIndex;
                 }
                 break;
+
             case 3: // Volume
                 if (VolumeSlider != null)
                     VolumeSlider.Value = Math.Clamp(VolumeSlider.Value + (direction * 5), 0, 100);
                 break;
+
             case 4: // Brilho
                 if (BrightnessSlider != null)
                     BrightnessSlider.Value = Math.Clamp(BrightnessSlider.Value + (direction * 5), 0, 100);
@@ -182,7 +186,7 @@ public partial class OverlayWindow : Window
 
     private void HandleConfirm()
     {
-        if (_focusIndex == 2 && HudToggle != null)
+        if (_focusIndex == 2 && HudToggle != null) // HUD
         {
             HudToggle.IsChecked = !HudToggle.IsChecked;
         }
@@ -192,6 +196,10 @@ public partial class OverlayWindow : Window
     {
         if (sender is not Button clickedButton) return;
         var mode = clickedButton.Content?.ToString() ?? "Desconhecido";
+        
+        // Normaliza os nomes para o que o hardware espera
+        if (mode == "Desemp.") mode = "Desempenho";
+        
         _hardwareService?.SetTdpMode(mode);
         SetTdpButtonVisual(mode);
     }
@@ -199,8 +207,10 @@ public partial class OverlayWindow : Window
     private void SetTdpButtonVisual(string activeMode)
     {
         if (BtnEco != null) BtnEco.Background = activeMode == "Eco" ? _activeColor : _inactiveColor;
-        if (BtnEquilibrado != null) BtnEquilibrado.Background = activeMode == "Equilibrado" ? _activeColor : _inactiveColor;
-        if (BtnTurbo != null) BtnTurbo.Background = activeMode == "Turbo" ? _activeColor : _inactiveColor;
+        if (BtnNormal != null) BtnNormal.Background = activeMode == "Normal" ? _activeColor : _inactiveColor;
+        if (BtnDesempenho != null) BtnDesempenho.Background = activeMode == "Desempenho" ? _activeColor : _inactiveColor;
+        if (BtnBoost != null) BtnBoost.Background = activeMode == "Boost" ? _activeColor : _inactiveColor;
+        
         _currentTdp = activeMode;
     }
 

@@ -173,7 +173,7 @@ internal static class UiSounds
             case GamepadAction.MoveRight:
             case GamepadAction.PreviousFilter:
             case GamepadAction.NextFilter:
-            case GamepadAction.CycleOverlay:
+            case GamepadAction.ToggleQuickSettings:
                 PlayMove();
                 break;
 

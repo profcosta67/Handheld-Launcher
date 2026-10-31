@@ -10,27 +10,26 @@ public class WindowsHardwareService : IHardwareService
     // Caminho do RyzenAdj (ajustaremos depois se precisar)
     private readonly string _ryzenAdjPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ryzenadj.exe");
 
-    public void SetTdpMode(string mode)
+           public void SetTdpMode(string mode)
     {
         if (!OperatingSystem.IsWindows()) return;
 
-        // Define os limites de TDP em miliwatts (mW)
-        // Eco: 8W (8000), Equilibrado: 15W (15000), Turbo: 25W (25000)
         int tdpLimit = mode switch
         {
             "Eco" => 8000,
-            "Turbo" => 25000,
-            "Equilibrado" => 15000,
+            "Normal" => 15000,
+            "Desempenho" => 25000,
+            "Boost" => 30000,
             _ => 15000
         };
 
-        string arguments = $"--stapm-limit={tdpLimit} --fast-limit={tdpLimit} --slow-limit={tdpLimit}";
+        // 🟢 A trava de segurança para 90 graus!
+        string arguments = $"--stapm-limit={tdpLimit} --fast-limit={tdpLimit} --slow-limit={tdpLimit} --tctl-temp=90";
 
         try
         {
             DebugLog.Write($"[WINDOWS TDP] Executando RyzenAdj: {arguments}");
-            
-            var psi = new ProcessStartInfo
+            var psi = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = _ryzenAdjPath,
                 Arguments = arguments,
@@ -40,17 +39,16 @@ public class WindowsHardwareService : IHardwareService
                 RedirectStandardError = true
             };
 
-            using var process = Process.Start(psi);
+            using var process = System.Diagnostics.Process.Start(psi);
             if (process != null)
             {
-                process.WaitForExit(2000); // Espera até 2 segundos
-                string output = process.StandardOutput.ReadToEnd();
-                DebugLog.Write($"[WINDOWS TDP] Resultado: {output}");
+                process.WaitForExit(2000);
+                DebugLog.Write($"[WINDOWS TDP] Resultado: {process.StandardOutput.ReadToEnd()}");
             }
         }
         catch (Exception ex)
         {
-            DebugLog.Write($"[WINDOWS TDP] Erro ao chamar RyzenAdj: {ex.Message}");
+            DebugLog.Write($"[WINDOWS TDP] Erro: {ex.Message}");
         }
     }
 

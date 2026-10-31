@@ -548,7 +548,7 @@ public partial class MainWindow : Window
         Closed += (_, _) => _batteryTimer?.Stop();
     }
 
-    private void OnGamepadTick(object? sender, EventArgs e)
+       private void OnGamepadTick(object? sender, EventArgs e)
     {
         if (DataContext is not MainViewModel vm) return;
 
@@ -571,7 +571,7 @@ public partial class MainWindow : Window
 
         foreach (var action in actions)
         {
-            // 🟢 CORREÇÃO: O atalho funciona MESMO com o jogo aberto
+            // 🟢 O atalho do Overlay fica AQUI, antes de verificar o foco do jogo!
             if (action == GamepadAction.ToggleQuickSettings)
             {
                 UiSounds.PlayForAction(action);
@@ -581,36 +581,22 @@ public partial class MainWindow : Window
                 }
                 else
                 {
-                    vm.OpenOverlayRequested?.Invoke(vm, EventArgs.Empty);
+                vm.RequestOpenOverlay();
                 }
                 continue;
             }
 
-            if (vm.IsAboutOpen) { ... }
-            
-            // (Apague aquele bloco "if (action == GamepadAction.CycleOverlay)" antigo)
-            
-            if (vm.RunningGame is not null && !IsOurWindowInForeground())
+            if (vm.IsAboutOpen)
             {
-                continue;
-            }
-
-
-            // 🟢 AQUI ESTÁ O LUGAR CORRETO DO NOVO ATALHO 🟢
-            if (action == GamepadAction.ToggleQuickSettings)
-            {
-                UiSounds.PlayForAction(action);
-                if (_overlayWindow != null && _overlayWindow.IsVisible)
+                if (action is GamepadAction.Back or GamepadAction.Confirm or GamepadAction.GlobalMenu or GamepadAction.Menu)
                 {
-                    _overlayWindow.Hide();
-                }
-                else
-                {
-                    vm.OpenOverlayRequested?.Invoke(vm, EventArgs.Empty);
+                    UiSounds.PlayBack();
+                    vm.CloseAbout();
                 }
                 continue;
             }
-            // 🟢 FIM DO ATALHO 🟢
+
+            // 🟢 APAGAMOS O CYCLEOVERLAY ANTIGO DAQUI! 🟢
 
             if (vm.RunningGame is not null && !IsOurWindowInForeground())
             {
@@ -785,7 +771,6 @@ public partial class MainWindow : Window
             }
         }
     }
-
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
         if (DataContext is not MainViewModel vm) return;

@@ -30,14 +30,15 @@
             <ScrollViewer Grid.Row="1">
                 <StackPanel Spacing="20">
                     
-                    <!-- TDP -->
+                                       <!-- TDP -->
                     <Border x:Name="TdpSection" CornerRadius="8" BorderThickness="2" BorderBrush="Transparent" Padding="4">
                         <StackPanel Spacing="8">
                             <TextBlock Text="⚡ Desempenho (TDP)" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
-                            <Grid ColumnDefinitions="*,*,*">
-                                <Button x:Name="BtnEco" Grid.Column="0" Content="Eco" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="10" Margin="0,0,4,0" />
-                                <Button x:Name="BtnEquilibrado" Grid.Column="1" Content="Equilibrado" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="10" Margin="4,0,4,0" />
-                                <Button x:Name="BtnTurbo" Grid.Column="2" Content="Turbo" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="10" Margin="4,0,0,0" />
+                            <Grid ColumnDefinitions="*,*,*,*">
+                                <Button x:Name="BtnEco" Grid.Column="0" Content="Eco" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="0,0,2,0" FontSize="12" />
+                                <Button x:Name="BtnNormal" Grid.Column="1" Content="Normal" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="2,0,2,0" FontSize="12" />
+                                <Button x:Name="BtnDesempenho" Grid.Column="2" Content="Desemp." Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="2,0,2,0" FontSize="12" />
+                                <Button x:Name="BtnBoost" Grid.Column="3" Content="Boost" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="2,0,0,0" FontSize="12" />
                             </Grid>
                         </StackPanel>
                     </Border>
