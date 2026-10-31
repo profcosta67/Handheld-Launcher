@@ -53,19 +53,14 @@ public partial class MainWindow : Window
     private Image HeroBackImage = null!;
 
     private ILibraryLayout _libraryLayout = null!;
-
     private OverlayWindow? _overlayWindow;
 
     public MainWindow()
     {
         InitializeComponent();
-
         ApplyLayoutTheme();
-
         GamesItemsControl.ContainerPrepared += (_, e) => e.Container.Margin = ContainerMargin();
-
         HeroImage.PropertyChanged += OnHeroImageChanged;
-
         AddHandler(KeyDownEvent, OnWindowKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
 
         _gamepadTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
@@ -94,6 +89,8 @@ public partial class MainWindow : Window
 
     private void StartTopmostEnforcer()
     {
+        if (_topmostEnforcerTimer != null) return; // Evita criar múltiplos
+
         _topmostEnforcerTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         _topmostEnforcerTimer.Tick += (_, _) =>
         {
@@ -102,22 +99,18 @@ public partial class MainWindow : Window
             Topmost = true;
         };
         _topmostEnforcerTimer.Start();
-        Closed += (_, _) => _topmostEnforcerTimer?.Stop();
+    }
 
-        var graceTimer = new DispatcherTimer { Interval = TopmostEnforcerGracePeriod };
-        graceTimer.Tick += (_, _) =>
-        {
-            _topmostEnforcerTimer?.Stop();
-            graceTimer.Stop();
-        };
-        graceTimer.Start();
-        Closed += (_, _) => graceTimer.Stop();
+    private void StopTopmostEnforcer()
+    {
+        _topmostEnforcerTimer?.Stop();
+        _topmostEnforcerTimer = null;
+        Topmost = false; // Libera o topo para o Overlay
     }
 
     private void RegisterRestoreHotkey()
     {
         if (!OperatingSystem.IsWindows()) return;
-
         if (TryGetPlatformHandle() is not { } handle) return;
 
         Win32Properties.AddWndProcHookCallback(this, OnNativeWndProcHook);
@@ -128,7 +121,6 @@ public partial class MainWindow : Window
     private void UnregisterRestoreHotkeyIfNeeded()
     {
         if (!OperatingSystem.IsWindows()) return;
-
         if (_hotkeyRegistered && TryGetPlatformHandle() is { } handle)
         {
             UnregisterHotKey(handle.Handle, RestoreHotkeyId);
@@ -147,7 +139,6 @@ public partial class MainWindow : Window
         }
         else if (msg == WmHotkey && wParam.ToInt32() == OverlayHotkeyId)
         {
-            // CORREÇÃO: Chamar o método público em vez de Invoke
             (DataContext as MainViewModel)?.RequestOpenOverlay();
             handled = true;
         }
@@ -156,35 +147,22 @@ public partial class MainWindow : Window
             RestoreFromTray();
             handled = true;
         }
-
         return IntPtr.Zero;
     }
 
     private void MinimizeToTray() => Hide();
-
     private bool AnimationsEnabled => !Classes.Contains("noAnim");
 
     private void FadeIn(Control control, int milliseconds)
     {
-        if (!AnimationsEnabled)
-        {
-            control.Transitions = null;
-            control.Opacity = 1;
-            return;
-        }
-
+        if (!AnimationsEnabled) { control.Transitions = null; control.Opacity = 1; return; }
         control.Transitions = null;
         control.Opacity = 0;
         Dispatcher.UIThread.Post(() =>
         {
             control.Transitions = new Transitions
             {
-                new DoubleTransition
-                {
-                    Property = Visual.OpacityProperty,
-                    Duration = TimeSpan.FromMilliseconds(milliseconds),
-                    Easing = new Avalonia.Animation.Easings.CubicEaseOut(),
-                },
+                new DoubleTransition { Property = Visual.OpacityProperty, Duration = TimeSpan.FromMilliseconds(milliseconds), Easing = new Avalonia.Animation.Easings.CubicEaseOut() },
             };
             control.Opacity = 1;
         }, DispatcherPriority.Background);
@@ -193,7 +171,6 @@ public partial class MainWindow : Window
     private void OnHeroImageChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
         if (e.Property != Image.SourceProperty) return;
-
         if (!AnimationsEnabled || e.OldValue is null || e.NewValue is null)
         {
             HeroBackImage.Source = null;
@@ -201,7 +178,6 @@ public partial class MainWindow : Window
             HeroImage.Opacity = 1;
             return;
         }
-
         HeroBackImage.Source = e.OldValue as Avalonia.Media.IImage;
         FadeIn(HeroImage, 260);
     }
@@ -246,11 +222,7 @@ public partial class MainWindow : Window
     private void OnAboutOverlayPressed(object? sender, PointerPressedEventArgs e) => (DataContext as MainViewModel)?.CloseAbout();
     private void OnOpenSteamDownloadsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => (DataContext as MainViewModel)?.OpenSteamDownloads();
 
-    public void QuitFromTray()
-    {
-        WatchdogGate.MarkDeliberateQuit();
-        Close();
-    }
+    public void QuitFromTray() { WatchdogGate.MarkDeliberateQuit(); Close(); }
 
     public void RestoreFromTray()
     {
@@ -274,8 +246,6 @@ public partial class MainWindow : Window
         var fullPath = Path.Combine(systemRoot, "shutdown.exe");
         var exe = File.Exists(fullPath) ? fullPath : "shutdown.exe";
 
-        DebugLog.Write($"RunShutdownExe: '{exe}' {arguments}");
-
         try
         {
             var psi = new System.Diagnostics.ProcessStartInfo(exe, arguments)
@@ -293,7 +263,7 @@ public partial class MainWindow : Window
         {
             DebugLog.Write($"RunShutdownExe EXCEPTION ({exe}): {ex.Message}");
             try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe, arguments) { UseShellExecute = true, CreateNoWindow = true }); }
-            catch (Exception shellEx) { DebugLog.Write($"RunShutdownExe FALHOU via shell: {shellEx.Message}"); }
+            catch { }
         }
     }
 
@@ -312,12 +282,38 @@ public partial class MainWindow : Window
         vm.RestoreShellRequested += (_, _) => RestoreWindowsShell();
         vm.GameDetailsRequested += (_, game) => _ = OpenGameDetailsDialogAsync(vm, game);
 
+        // A PONTE DO OVERLAY ATUALIZADA COM CONTROLE DE TOPMOST
         vm.OpenOverlayRequested += (_, _) =>
         {
             try
             {
-                if (_overlayWindow == null) _overlayWindow = new OverlayWindow();
-                if (!_overlayWindow.IsVisible) _overlayWindow.Show();
+                if (_overlayWindow == null) 
+                {
+                    _overlayWindow = new OverlayWindow();
+                    
+                    // Escuta quando a janela some da tela (Hide), para o launcher voltar ao topo
+                    _overlayWindow.PropertyChanged += (s, args) =>
+                    {
+                        if (args.Property == Visual.IsVisibleProperty && !_overlayWindow.IsVisible)
+                        {
+                            StartTopmostEnforcer();
+                            Activate();
+                        }
+                    };
+                }
+                
+                // Se o overlay já está visível, apenas o esconde (toggle)
+                if (_overlayWindow.IsVisible)
+                {
+                    _overlayWindow.Hide();
+                    StartTopmostEnforcer();
+                    return;
+                }
+
+                // Para o launcher roubar o topo de volta quando o overlay abrir
+                StopTopmostEnforcer();
+                
+                _overlayWindow.Show();
                 _overlayWindow.Activate();
             }
             catch (Exception ex)
@@ -395,6 +391,7 @@ public partial class MainWindow : Window
 
         var actions = _gamepad.Poll();
 
+        // REDIRECIONAMENTO PARA O OVERLAY
         if (_overlayWindow != null && _overlayWindow.IsVisible)
         {
             foreach (var action in actions)
@@ -419,10 +416,10 @@ public partial class MainWindow : Window
                 continue;
             }
 
-            if (action == GamepadAction.CycleOverlay || action == GamepadAction.GlobalMenu)
+            // BOTÃO PARA ABRIR/FECHAR O OVERLAY (Apenas CycleOverlay)
+            if (action == GamepadAction.CycleOverlay)
             {
                 UiSounds.PlayForAction(action);
-                // CORREÇÃO: Chamar o método público em vez de Invoke
                 vm.RequestOpenOverlay();
                 continue;
             }
@@ -797,13 +794,13 @@ public partial class MainWindow : Window
     private async Task OpenLayoutPickerAsync()
     {
         AppSettings settings;
-        try { settings = AppSettingsStore.Load(); } catch (Exception ex) { DebugLog.Write($"OpenLayoutPicker: falhou: {ex.Message}"); return; }
+        try { settings = AppSettingsStore.Load(); } catch (Exception) { return; }
         var dialog = new LayoutPickerWindow(settings.LayoutTheme); _activeDialog = dialog;
         bool apply;
         try { apply = await dialog.ShowDialog<bool>(this); } finally { _activeDialog = null; }
         if (!apply || dialog.SelectedLayout == settings.LayoutTheme) return;
         settings.LayoutTheme = dialog.SelectedLayout;
-        try { AppSettingsStore.Save(settings); } catch (Exception ex) { DebugLog.Write($"OpenLayoutPicker: falhou: {ex.Message}"); return; }
+        try { AppSettingsStore.Save(settings); } catch (Exception) { return; }
         if (LauncherRestart.TryStartReplacement()) (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown();
     }
 
