@@ -54,7 +54,7 @@ public partial class MainWindow : Window
 
     private ILibraryLayout _libraryLayout = null!;
 
-        public MainWindow()
+    public MainWindow()
     {
         InitializeComponent();
 
@@ -111,7 +111,7 @@ public partial class MainWindow : Window
 
     private void RegisterRestoreHotkey()
     {
-        if (!OperatingSystem.IsWindows()) return; // Trava para Mac/Linux
+        if (!OperatingSystem.IsWindows()) return;
 
         if (TryGetPlatformHandle() is not { } handle) return;
 
@@ -122,7 +122,7 @@ public partial class MainWindow : Window
 
     private void UnregisterRestoreHotkeyIfNeeded()
     {
-        if (!OperatingSystem.IsWindows()) return; // Trava para Mac/Linux
+        if (!OperatingSystem.IsWindows()) return;
 
         if (_hotkeyRegistered && TryGetPlatformHandle() is { } handle)
         {
@@ -268,7 +268,7 @@ public partial class MainWindow : Window
 
     private static void TurnOffScreen()
     {
-        if (!OperatingSystem.IsWindows()) return; // Trava para Mac/Linux
+        if (!OperatingSystem.IsWindows()) return;
 
         try
         {
@@ -359,6 +359,13 @@ public partial class MainWindow : Window
         vm.RestoreShellRequested += (_, _) => RestoreWindowsShell();
         vm.GameDetailsRequested += (_, game) => _ = OpenGameDetailsDialogAsync(vm, game);
 
+        // A PONTE DO OVERLAY ESTÁ AQUI AGORA!
+        vm.OpenOverlayRequested += (_, _) =>
+        {
+            var overlay = new OverlayWindow();
+            overlay.Show(this);
+        };
+
         StartBatteryMonitor(vm);
         StartDownloadsRefreshTimer(vm);
 
@@ -387,7 +394,7 @@ public partial class MainWindow : Window
 
     private void RestoreWindowsShell()
     {
-        if (!OperatingSystem.IsWindows()) return; // Trava para Mac/Linux
+        if (!OperatingSystem.IsWindows()) return;
 
         try
         {
@@ -478,12 +485,10 @@ public partial class MainWindow : Window
         Closed += (_, _) => _batteryTimer?.Stop();
     }
 
-       private void OnGamepadTick(object? sender, EventArgs e)
+    private void OnGamepadTick(object? sender, EventArgs e)
     {
         if (DataContext is not MainViewModel vm) return;
 
-        // NOVO: Se não tem jogo rodando e a janela NÃO está ativa (você saiu pro desktop ou a tela bloqueou),
-        // pausa a leitura do controle. Isso libera o Windows para bloquear a tela e economizar bateria.
         if (vm.RunningGame is null && !IsActive)
         {
             return;
@@ -1300,7 +1305,7 @@ public partial class MainWindow : Window
 
     private bool IsOurWindowInForeground()
     {
-        if (!OperatingSystem.IsWindows()) return true; // No Mac, assume que está em foco
+        if (!OperatingSystem.IsWindows()) return true;
 
         try
         {

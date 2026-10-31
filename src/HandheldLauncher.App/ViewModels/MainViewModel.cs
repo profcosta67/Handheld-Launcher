@@ -478,6 +478,7 @@ public sealed class MainViewModel : ViewModelBase
     private readonly List<Action> _globalMenuActions = new();
     private int _globalMenuIndex;
 
+    // --- DECLARAÇÃO DOS EVENTOS AQUI ---
     public event EventHandler? AddGameRequested;
     public event EventHandler? SettingsRequested;
     public event EventHandler? QuitRequested;
@@ -487,7 +488,8 @@ public sealed class MainViewModel : ViewModelBase
     public event EventHandler? TurnOffScreenRequested;
     public event EventHandler? RestartDeviceRequested;
     public event EventHandler? ShutdownDeviceRequested;
-    public event EventHandler? RestoreShellRequested; // NOVO EVENTO AQUI
+    public event EventHandler? RestoreShellRequested;
+    public event EventHandler? OpenOverlayRequested; // AQUI ESTÁ A CAMPANHA DO OVERLAY
 
     public void ApplyEntryEdits(GameEntry game, string? title, bool isApplication)
     {
@@ -1040,7 +1042,6 @@ public sealed class MainViewModel : ViewModelBase
                 Add("Desligar tela", () => TurnOffScreenRequested?.Invoke(this, EventArgs.Empty));
                 Add("Reiniciar o aparelho", () => RequestPowerConfirm("reiniciar o aparelho", () => RestartDeviceRequested?.Invoke(this, EventArgs.Empty)));
                 Add("Desligar o aparelho", () => RequestPowerConfirm("desligar o aparelho", () => ShutdownDeviceRequested?.Invoke(this, EventArgs.Empty)));
-                // NOVO ITEM: RESTAURAR SHELL DO WINDOWS
                 Add("Sair para o Windows", () => RestoreShellRequested?.Invoke(this, EventArgs.Empty));
                 Add("Sair", () => QuitRequested?.Invoke(this, EventArgs.Empty));
                 break;
@@ -1053,6 +1054,9 @@ public sealed class MainViewModel : ViewModelBase
 
             default:
                 GlobalMenuTitle = "Menu";
+                
+                Add("Abrir Quick Settings (Teste)", () => OpenOverlayRequested?.Invoke(this, EventArgs.Empty));
+
                 if (IsUpdateReady)
                 {
                     Add(RunningGame is null ? $"Reiniciar pra atualizar (v{PendingUpdateVersion})" : $"Atualização v{PendingUpdateVersion} pronta — feche o jogo pra aplicar", ApplyUpdate);
