@@ -76,7 +76,6 @@ jobs:
           -p:Version=${{ steps.ver.outputs.version }}
           -o publish
 
-      # 🟢 NOVA ETAPA: Baixar e empacotar FFmpeg
       - name: Baixar e empacotar FFmpeg
         if: steps.exists.outputs.skip != 'true'
         shell: pwsh
@@ -123,6 +122,8 @@ jobs:
         run: |
           $notesFile = "release-notes/${{ steps.ver.outputs.version }}.md"
           $extra = (Test-Path $notesFile) ? @("--releaseNotes", $notesFile) : @()
+          # 🟢 requireAdmin: Força o instalador a pedir Admin
+          # 🟢 installHook: Executa o InstallTask.ps1 após instalar
           vpk pack `
             --packId HandheldLauncher `
             --packTitle "Handheld Launcher" `
@@ -131,11 +132,12 @@ jobs:
             --mainExe HandheldLauncher.exe `
             --icon src/HandheldLauncher.App/Assets/app-icon.ico `
             --splashProgressColor "#7C5CFC" `
-            --requireAdmin `   # 🟢 NOVO: Força o instalador a pedir Admin
+            --requireAdmin `
+            --installHook "InstallTask.ps1" `
             @extra
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
-            # --- BUILD LINUX ---
+      # --- BUILD LINUX ---
       - name: Publicar (self-contained linux-x64)
         if: steps.exists.outputs.skip != 'true'
         run: >

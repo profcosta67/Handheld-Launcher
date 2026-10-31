@@ -90,6 +90,8 @@ public partial class MainWindow : Window
         {
             if (Topmost) StartTopmostEnforcer();
             RegisterRestoreHotkey();
+            // 🟢 NOVO: Cria a Tarefa Agendada no Windows para iniciar no boot sem UAC
+            StartupTaskService.EnsureStartupTask();
         };
         Closed += (_, _) => UnregisterRestoreHotkeyIfNeeded();
 
