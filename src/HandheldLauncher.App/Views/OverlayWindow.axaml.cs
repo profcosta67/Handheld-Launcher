@@ -49,6 +49,7 @@ public partial class OverlayWindow : Window
             if (ColorModeCombo != null) ColorModeCombo.SelectedIndex = 0;
             if (VolumeSlider != null) VolumeSlider.Value = 70;
             if (BrightnessSlider != null) BrightnessSlider.Value = 80;
+            if (HudToggle != null) HudToggle.IsChecked = _viewModel.IsPerformanceHudEnabled;
         }
         catch (Exception ex) { DebugLog.Write($"[OVERLAY] Aviso: {ex.Message}"); }
 
@@ -226,7 +227,7 @@ public partial class OverlayWindow : Window
         if (_isInitializing) return;
         if (HudToggle?.IsChecked is bool enabled)
         {
-            _hardwareService?.SetPerformanceHudEnabled(enabled);
+            _viewModel.SetPerformanceHudEnabled(enabled);
         }
     }
 

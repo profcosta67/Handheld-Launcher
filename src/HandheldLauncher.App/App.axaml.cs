@@ -104,7 +104,7 @@ public partial class App : Application
                 var overlayHotkeys = new HandheldLauncher.App.Input.OverlayHotkeyWatcher(mainViewModel.CycleOverlayPreset);
                 desktop.Exit += (_, _) => overlayHotkeys.Dispose();
 
-                HandheldLauncher.App.Input.GameInputHelper.ListenInBackground(mainViewModel.CycleOverlayPreset);
+                HandheldLauncher.App.Input.GameInputHelper.ListenInBackground(mainViewModel.RequestOpenOverlay);
                 HandheldLauncher.App.Input.GameInputHelper.StartHelperProcess();
                 desktop.Exit += (_, _) => HandheldLauncher.App.Input.GameInputHelper.StopHelperProcess();
             }
