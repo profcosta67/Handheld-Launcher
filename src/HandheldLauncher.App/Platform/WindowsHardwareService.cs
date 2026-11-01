@@ -24,16 +24,41 @@ public class WindowsHardwareService : IHardwareService
     // ==========================================
     private bool InitializePawnIo()
     {
-        if (_smu != null) return true;
+        if (_smu?.IsInitialized == true) return true;
+
+        _smu?.Dispose();
+        _smu = null;
+
+        if (!RyzenSmuService.IsSupportedCpu())
+            return false;
+
         try
         {
             var modulePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Tools", "RyzenSMU.bin");
-            if (!File.Exists(modulePath)) return false;
+            if (!File.Exists(modulePath))
+            {
+                DebugLog.Write("[PawnIO] RyzenSMU.bin não encontrado; provider PawnIO indisponível.");
+                return false;
+            }
+
             _smuModule = File.ReadAllBytes(modulePath);
-            _smu = new RyzenSmuService();
-            return _smu.Initialize(_smuModule);
+            var service = new RyzenSmuService();
+            if (!service.Initialize(_smuModule))
+            {
+                service.Dispose();
+                return false;
+            }
+
+            _smu = service;
+            return true;
         }
-        catch (Exception ex) { DebugLog.Write($"[PawnIO] Falha ao inicializar: {ex.Message}"); return false; }
+        catch (Exception ex)
+        {
+            _smu?.Dispose();
+            _smu = null;
+            DebugLog.Write($"[PawnIO] Falha ao inicializar: {ex.Message}");
+            return false;
+        }
     }
 
     public void SetTdpMode(string mode)
