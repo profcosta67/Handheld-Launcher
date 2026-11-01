@@ -25,6 +25,8 @@ public partial class OverlayWindow : Window
     private int _focusIndex = 0;
     private readonly Border[] _sections;
     private string _currentTdp = "Normal";
+    private readonly LenovoFanCurveService? _fanCurveService;
+    private string _currentFanMode = "Automático";
     private int _currentColor = 0;
 
     private enum SubMenuMode { None, Resolution, RefreshRate }
@@ -70,9 +72,8 @@ public partial class OverlayWindow : Window
 
         _sections = new[] { 
             ResolutionSection, RefreshSection, 
-            TdpSection, ColorSection, HudSection, 
-            VolumeSection, BrightnessSection, 
-            CaptureSection 
+            TdpSection, FanSection, ColorSection, HudSection,
+            VolumeSection, BrightnessSection, CaptureSection 
         };
 
         _resolutionButtons = new[] { BtnRes720, BtnRes900, BtnRes1080, BtnRes1200, BtnRes2K, BtnResGo };
@@ -89,6 +90,36 @@ public partial class OverlayWindow : Window
         {
             var settings = AppSettingsStore.Load();
             SetTdpButtonVisual(string.IsNullOrEmpty(settings.TdpMode) ? "Normal" : settings.TdpMode);
+            if (OperatingSystem.IsWindows())
+            {
+                _fanCurveService = new LenovoFanCurveService();
+                if (_fanCurveService.TryRead(out _, out var fanReadMessage))
+                {
+                    _currentFanMode = string.IsNullOrWhiteSpace(settings.FanMode) ? "Automático" : settings.FanMode;
+                    if (_currentFanMode != "Automático")
+                    {
+                        if (_fanCurveService.TryApplyPreset(_currentFanMode, out var startupFanMessage))
+                            TxtFanStatus.Text = startupFanMessage;
+                        else
+                        {
+                            _currentFanMode = "Automático";
+                            TxtFanStatus.Text = startupFanMessage + " Controle automático mantido.";
+                        }
+                    }
+                    else TxtFanStatus.Text = fanReadMessage + " Controle automático do firmware ativo.";
+                }
+                else
+                {
+                    _currentFanMode = "Automático";
+                    TxtFanStatus.Text = fanReadMessage + " Controle original mantido.";
+                }
+                SetFanButtonVisual(_currentFanMode);
+            }
+            else
+            {
+                TxtFanStatus.Text = "Controle de curva disponível no Windows para o Legion Go 2 (8AHP2).";
+                SetFanButtonVisual("Automático");
+            }
             SetColorButtonVisual(settings.ColorMode);
             if (VolumeSlider != null) VolumeSlider.Value = settings.Volume;
             if (BrightnessSlider != null) BrightnessSlider.Value = settings.Brightness;
@@ -115,6 +146,7 @@ public partial class OverlayWindow : Window
         }
         catch (Exception ex) { DebugLog.Write($"[OVERLAY] Aviso: {ex.Message}"); }
 
+        Closed += (_, _) => _fanCurveService?.Dispose();
         _isInitializing = false;
         UpdateFocusVisual();
     }
@@ -272,7 +304,10 @@ public partial class OverlayWindow : Window
                     }
                 }
                 break;
-            case 3: // Cor
+            case 3: // Ventoinhas
+                HandleFanHorizontalInput(direction);
+                break;
+            case 4: // Cor
                 var newColorIndex = Math.Clamp(_currentColor + direction, 0, 3);
                 string mode = newColorIndex switch { 1 => "Vívido", 2 => "OLED (Alto Contraste)", 3 => "Noturno (Luz Quente)", _ => "Padrão" };
                 if (_hardwareService.SetColorMode(mode)) {
@@ -282,7 +317,7 @@ public partial class OverlayWindow : Window
                     DebugLog.Write($"[OVERLAY] O modo de cor {mode} não foi aplicado; seleção anterior mantida.");
                 }
                 break;
-            case 4: // HUD
+            case 5: // HUD
                 if (_viewModel.IsPerformanceHudEnabled) {
                     var newHudIndex = Math.Clamp(_viewModel.CurrentHudPreset + direction, 0, 3);
                     _viewModel.SetOverlayPreset(newHudIndex);
@@ -290,13 +325,13 @@ public partial class OverlayWindow : Window
                     SaveSetting("OverlayPreset", newHudIndex.ToString());
                 }
                 break;
-            case 5: // Volume
+            case 6: // Volume
                 if (VolumeSlider != null) VolumeSlider.Value = Math.Clamp(VolumeSlider.Value + (direction * 5), 0, 100);
                 break;
-            case 6: // Brilho
+            case 7: // Brilho
                 if (BrightnessSlider != null) BrightnessSlider.Value = Math.Clamp(BrightnessSlider.Value + (direction * 5), 0, 100);
                 break;
-            case 7: // Captura
+            case 8: // Captura
                 if (direction < 0) OnScreenshotClick(null, new RoutedEventArgs());
                 else if (direction > 0) OnRecordClick(null, new RoutedEventArgs());
                 break;
@@ -305,13 +340,13 @@ public partial class OverlayWindow : Window
 
     private void HandleConfirm()
     {
-        if (_focusIndex == 4) {
+        if (_focusIndex == 5) {
             var nextIndex = (_viewModel.CurrentHudPreset + 1) % 4;
             _viewModel.SetOverlayPreset(nextIndex);
             SetHudButtonVisual(nextIndex);
             SaveSetting("OverlayPreset", nextIndex.ToString());
         }
-        else if (_focusIndex == 7)
+        else if (_focusIndex == 8)
             OnScreenshotClick(null, new RoutedEventArgs());
     }
 
@@ -384,6 +419,15 @@ public partial class OverlayWindow : Window
         {
             SetTdpButtonVisual(mode);
             SaveSetting("TdpMode", mode);
+            var linkedFanMode = mode switch
+            {
+                "UltraEco" or "Eco" => "Silencioso",
+                "Normal" => "Normal",
+                "Desempenho" => "Desempenho",
+                "Boost" => "Boost",
+                _ => "Automático"
+            };
+            ApplyFanMode(linkedFanMode);
         }
         else
         {
@@ -399,6 +443,63 @@ public partial class OverlayWindow : Window
         if (BtnDesempenho != null) BtnDesempenho.Background = activeMode == "Desempenho" ? _activeColor : _inactiveColor;
         if (BtnBoost != null) BtnBoost.Background = activeMode == "Boost" ? _activeColor : _inactiveColor;
         _currentTdp = activeMode;
+    }
+
+    private void HandleFanHorizontalInput(int direction)
+    {
+        string[] modes = { "Automático", "Silencioso", "Normal", "Desempenho", "Boost" };
+        int index = Array.IndexOf(modes, _currentFanMode);
+        if (index < 0) index = 0;
+        ApplyFanMode(modes[Math.Clamp(index + Math.Sign(direction), 0, modes.Length - 1)]);
+    }
+
+    private void OnFanClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button button)
+            ApplyFanMode(button.Tag?.ToString() ?? "Automático");
+    }
+
+    private void ApplyFanMode(string mode)
+    {
+        if (mode == "Automático")
+        {
+            _fanCurveService?.RestoreOriginal();
+            _currentFanMode = mode;
+            SetFanButtonVisual(mode);
+            TxtFanStatus.Text = "Curva original restaurada; firmware voltou ao controle automático.";
+            SaveSetting("FanMode", mode);
+            return;
+        }
+
+        if (_fanCurveService is null)
+        {
+            TxtFanStatus.Text = "Controle manual indisponível nesta plataforma.";
+            return;
+        }
+
+        if (_fanCurveService.TryApplyPreset(mode, out var message))
+        {
+            _currentFanMode = mode;
+            SetFanButtonVisual(mode);
+            TxtFanStatus.Text = message;
+            SaveSetting("FanMode", mode);
+        }
+        else
+        {
+            TxtFanStatus.Text = message + " Curva anterior preservada.";
+            DebugLog.Write($"[FAN] Perfil {mode} não aplicado: {message}");
+        }
+    }
+
+    private void SetFanButtonVisual(string mode)
+    {
+        if (BtnFanAuto == null) return;
+        BtnFanAuto.Background = mode == "Automático" ? _activeColor : _inactiveColor;
+        BtnFanSilent.Background = mode == "Silencioso" ? _activeColor : _inactiveColor;
+        BtnFanNormal.Background = mode == "Normal" ? _activeColor : _inactiveColor;
+        BtnFanPerformance.Background = mode == "Desempenho" ? _activeColor : _inactiveColor;
+        BtnFanBoost.Background = mode == "Boost" ? _activeColor : _inactiveColor;
+        _currentFanMode = mode;
     }
 
     private void OnColorClick(object? sender, RoutedEventArgs e)
@@ -507,6 +608,7 @@ public partial class OverlayWindow : Window
             var settings = AppSettingsStore.Load();
             switch (key) {
                 case "TdpMode": settings.TdpMode = value; break;
+                case "FanMode": settings.FanMode = value; break;
                 case "ColorMode": settings.ColorMode = int.Parse(value); break;
                 case "OverlayPreset": settings.OverlayPreset = int.Parse(value); break;
                 case "Volume": settings.Volume = (int)double.Parse(value); break;
