@@ -16,6 +16,7 @@ public sealed class LenovoFanCurveService : IDisposable
     private static readonly int[] Temperatures = [10,20,30,40,50,60,70,80,90,100];
     private readonly object _sync = new();
     private int[]? _original;
+    private bool _hasWrittenCurve;
     private bool _disposed;
 
     public bool IsSupportedModel
@@ -109,6 +110,7 @@ public sealed class LenovoFanCurveService : IDisposable
                     DebugLog.Write("[FAN] Readback divergente; curva anterior restaurada.");
                     return false;
                 }
+                _hasWrittenCurve = true;
                 message = $"Curva {mode} aplicada e confirmada pelo firmware.";
                 DebugLog.Write($"[FAN] Perfil {mode} aplicado; pontos: {string.Join(",", verify)}.");
                 return true;
@@ -126,7 +128,7 @@ public sealed class LenovoFanCurveService : IDisposable
     {
         lock (_sync)
         {
-            if (_disposed || _original is null || !IsSupportedModel) return;
+            if (_disposed || !_hasWrittenCurve || _original is null || !IsSupportedModel) return;
             try
             {
                 var current = InvokeGet();
@@ -134,6 +136,7 @@ public sealed class LenovoFanCurveService : IDisposable
                 if (current.SequenceEqual(_original))
                 {
                     _original = null;
+                    _hasWrittenCurve = false;
                     return;
                 }
                 if (InvokeSet(_original))
@@ -143,6 +146,7 @@ public sealed class LenovoFanCurveService : IDisposable
                     {
                         DebugLog.Write("[FAN] Curva original restaurada e confirmada.");
                         _original = null;
+                        _hasWrittenCurve = false;
                     }
                     else DebugLog.Write("[FAN] Restauração solicitada, mas leitura de confirmação divergiu; backup mantido.");
                 }
