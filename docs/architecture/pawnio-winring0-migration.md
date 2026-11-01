@@ -10,7 +10,7 @@ Eliminar a dependência do driver vulnerável WinRing0/WinRing0x64.sys (CVE-2020
 - Essa pasta contém `WinRing0x64.sys`, `WinRing0x64.dll`, `inpoutx64.dll`, `libryzenadj.dll`, `ryzenadj.exe` e scripts antigos de instalação/serviço RyzenAdj.
 - Portanto, os artefatos WinRing0 estão versionados e são copiados para o output do aplicativo, mesmo que nem todos sejam usados pelo fluxo C# atual.
 - `WindowsHardwareService.SetTdpMode` tenta PawnIO e, se falhar, executa RyzenAdj. Logo, retirar apenas o arquivo .sys não elimina a dependência: o fallback também precisa ser removido ou substituído após validação.
-- O caminho atual de RyzenAdj aponta para a raiz do diretório do aplicativo, enquanto o conteúdo da pasta Tools é copiado para o subdiretório `Tools`. Esse caminho precisa ser corrigido/validado durante a migração.
+- O runtime PawnIO ainda não é instalado pelo launcher. O usuário precisa instalar o driver oficial separadamente; o Launcher informa a ausência e não instala drivers silenciosamente.
 - `RyzenSmuService` contém endereços ilustrativos (0x14, 0x15 e 0x16) e não implementa corretamente a assinatura do comando `ioctl_send_smu_command` do módulo oficial RyzenSMU.
 - `PawnIOWrapper` implementa os IOCTLs documentados pelo próprio PawnIO. A implementação foi conferida contra `PawnIO/include/pawnio_um.h` e `PawnIOLib.cpp`: device type 41394, códigos 0x821/0x841, nome de função de 32 bytes e buffers de entrada/saída em `ULONG64`.
 - O projeto não contém atualmente um fluxo de instalação/detecção do runtime PawnIO nem um módulo RyzenSMU validado incluído no pacote.
@@ -34,14 +34,14 @@ Referência de implementação para estudo (licença e atribuição devem ser pr
 - `PawnIOWrapper`: corrigida a transferência de propriedade do handle após `LoadModule`, evitando fechamento duplo; corrigidos os buffers de entrada/saída e a validação do número de bytes retornados. Os IOCTLs foram conferidos com os headers oficiais do PawnIO.
 - `RyzenSmuService`: removidos os argumentos fictícios de endereço SMU; agora usa o contrato oficial `ioctl_send_smu_command` (7 entradas e 6 saídas), comandos MP1 Hawk Point `0x14`, `0x15`, `0x16`, e valida CPUID 19h/7Ch antes de qualquer operação.
 - Sincronização: a implementação tenta adquirir o mutex nomeado `Global\\Access_PCI`, conforme o aviso do módulo oficial, e falha de forma segura se ele não estiver disponível.
-- `WindowsHardwareService`: chama o método agregado de TDP e corrige o caminho do RyzenAdj para `Tools\\ryzenadj.exe`.
+- `WindowsHardwareService`: usa exclusivamente PawnIO para TDP; o fallback RyzenAdj foi removido após `ryzenadj.exe` encerrar com `0xC0000005` no Legion Go 8AHP2. Os perfis foram ajustados para 15/20/25/30 W, dentro da faixa cTDP publicada pela Lenovo. Corrigida a assinatura COM do Core Audio e o namespace WMI de brilho.
 
-## Pendências que impedem remover WinRing0 agora
+## Estado atual e pendências de validação
 
 - O módulo oficial não deve ser compilado localmente para uso com a edição oficial assinada do driver: o driver valida a assinatura do blob. A branch agora prepara `RyzenSMU.bin` diretamente do release oficial `PawnIO.Modules 0.2.11`, por meio de `scripts/Prepare-PawnIO.ps1`, e valida o SHA-256 do ZIP antes de extrair o arquivo. O digest fixado é `43608cb89bc84247fef1368a139013f7d043e17db6d6c8dfc9b46bf0905a81f4`. Os workflows de CI e release executam o script após o publish Windows; o módulo é colocado em `Tools/RyzenSMU.bin` no pacote Windows, sem ser incluído no pacote Linux. A origem é o release oficial: https://github.com/namazso/PawnIO.Modules/releases/tag/0.2.11.
 - O runtime PawnIO ainda não é instalado pelo launcher. O usuário precisa instalar o driver oficial separadamente; uma futura integração deve detectar ausência, explicar o motivo, abrir a página oficial e solicitar consentimento/elevation antes de qualquer instalação. Nunca instalar driver de kernel silenciosamente. A documentação oficial recomenda obter o runtime em https://pawnio.eu/.
 - A comunicação SMU ainda precisa ser validada em hardware real; sucesso do DeviceIoControl não substitui a confirmação de que os limites foram aplicados e persistiram.
-- Enquanto o módulo oficial não estiver incluído e testado, o fallback RyzenAdj/WinRing0 permanece no código para não quebrar o TDP da versão atual. A etapa de remoção só poderá ser feita depois de teste no Legion Go 2 Ryzen Z2.
+- O fallback RyzenAdj/WinRing0 e os binários/scripts legados foram removidos desta branch. Se PawnIO estiver ausente ou a CPU não estiver na matriz validada, TDP fica indisponível com diagnóstico explícito; volume, brilho e demais funções continuam independentes.
 
 ## Regras para a migração
 
