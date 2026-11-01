@@ -83,7 +83,14 @@ public sealed class RyzenSmuService : IDisposable
         var connect = _io.Connect();
         if (connect != PawnIOWrapper.ConnectResult.OK)
         {
-            DebugLog.Write($"[PawnIO] Driver indisponível: {connect}.");
+            DebugLog.Write(connect switch
+            {
+                PawnIOWrapper.ConnectResult.NotInstalled =>
+                    "[PawnIO] Driver não encontrado. Instale o runtime oficial em https://pawnio.eu/ e reinicie o Windows; o Launcher não instala drivers silenciosamente.",
+                PawnIOWrapper.ConnectResult.AccessDenied =>
+                    "[PawnIO] Acesso negado ao driver. Abra o Launcher com elevação e confira a instalação oficial do PawnIO.",
+                _ => "[PawnIO] Não foi possível abrir o dispositivo do driver: " + connect + "."
+            });
             return false;
         }
 
