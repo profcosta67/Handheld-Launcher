@@ -198,18 +198,38 @@ public sealed class RyzenSmuService : IDisposable
             if (!stapmCommand || !fastCommand || !slowCommand)
                 return false;
 
-            if (!TryReadPowerLimits(out float stapmRead, out float fastRead, out float slowRead))
+            float targetWatts = limitMilliwatts / 1000f;
+            float stapmRead = 0f, fastRead = 0f, slowRead = 0f;
+            bool confirmed = false;
+
+            // A PM Table pode publicar STAPM um ciclo depois dos limites Fast/Slow.
+            // Os comandos MP1 são enviados apenas uma vez; repetimos somente a leitura
+            // enquanto o firmware atualiza a tabela, sem duplicar gravações na SMU.
+            const int maxReadAttempts = 6;
+            for (int attempt = 1; attempt <= maxReadAttempts; attempt++)
             {
-                DebugLog.Write("[PawnIO] Os comandos foram aceitos, mas não foi possível ler os limites de volta pela PM Table.");
-                return false;
+                if (TryReadPowerLimits(out stapmRead, out fastRead, out slowRead))
+                {
+                    confirmed = Math.Abs(stapmRead - targetWatts) <= 1.0f
+                        && Math.Abs(fastRead - targetWatts) <= 1.0f
+                        && Math.Abs(slowRead - targetWatts) <= 1.0f;
+
+                    DebugLog.Write($"[PawnIO] Read-back tentativa {attempt}/{maxReadAttempts}: STAPM={stapmRead:F1}W, FastPPT={fastRead:F1}W, SlowPPT={slowRead:F1}W; alvo={targetWatts:F1}W; confirmado={confirmed}.");
+                    if (confirmed)
+                        break;
+                }
+                else
+                {
+                    DebugLog.Write($"[PawnIO] PM Table indisponível na tentativa de leitura {attempt}/{maxReadAttempts}.");
+                }
+
+                if (attempt < maxReadAttempts)
+                    Thread.Sleep(250);
             }
 
-            float targetWatts = limitMilliwatts / 1000f;
-            bool confirmed = Math.Abs(stapmRead - targetWatts) <= 1.0f
-                && Math.Abs(fastRead - targetWatts) <= 1.0f
-                && Math.Abs(slowRead - targetWatts) <= 1.0f;
+            if (!confirmed)
+                DebugLog.Write("[PawnIO] Limites não convergiram para o alvo após aguardar a atualização da PM Table.");
 
-            DebugLog.Write($"[PawnIO] Read-back PM Table: STAPM={stapmRead:F1}W, FastPPT={fastRead:F1}W, SlowPPT={slowRead:F1}W; alvo={targetWatts:F1}W; confirmado={confirmed}.");
             return confirmed;
         }
         catch (WaitHandleCannotBeOpenedException)
