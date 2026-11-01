@@ -229,7 +229,11 @@ public sealed class LenovoFanCurveService : IDisposable
             _ => throw new ArgumentException("O modo Automático não grava uma curva.", nameof(mode))
         };
         // Never return a less aggressive curve than the current firmware's safety curve.
-        for (int i = 0; i < PointCount; i++) values[i] = Math.Max(values[i], current[i]);
+        for (int i = 0; i < PointCount; i++)
+        {
+            values[i] = Math.Max(values[i], current[i]);
+            if (i > 0) values[i] = Math.Max(values[i], values[i - 1]);
+        }
         return values;
     }
 
