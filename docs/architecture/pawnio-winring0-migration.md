@@ -32,7 +32,7 @@ Referência de implementação para estudo (licença e atribuição devem ser pr
 ## Alterações já feitas nesta branch
 
 - `PawnIOWrapper`: corrigida a transferência de propriedade do handle após `LoadModule`, evitando fechamento duplo; corrigidos os buffers de entrada/saída e a validação do número de bytes retornados. Os IOCTLs foram conferidos com os headers oficiais do PawnIO.
-- `RyzenSmuService`: usa o contrato oficial `ioctl_send_smu_command` (7 entradas e 6 saídas), os comandos MP1 `0x14`, `0x15`, `0x16` da tabela FT6/FP7/FP8, e valida CPUID 19h/75h (codename Phoenix) ou 19h/7Ch (codename Hawk Point), conferindo também o codename retornado pelo módulo.
+- `RyzenSmuService`: para os limites de potência Phoenix/Hawk Point, envia os comandos MP1 `0x14`, `0x15`, `0x16` usando os IOCTLs oficiais `ioctl_write_smu_register` e `ioctl_read_smu_register` nos endereços MP1 da família Mobile (`CMD=0x3B10528`, `RSP=0x3B10578`, `ARG0=0x3B10998`). Não usar `ioctl_send_smu_command` nesse caminho: o mailbox genérico selecionado pelo módulo para esse codename não é o mailbox MP1 usado por esses comandos. A validação exige status SMU `0x01` e read-back da PM Table. A CPU continua validada por CPUID 19h/75h (Phoenix) ou 19h/7Ch (Hawk Point), com codename conferido pelo módulo.
 - Sincronização: a implementação tenta adquirir o mutex nomeado `Global\\Access_PCI`, conforme o aviso do módulo oficial, e falha de forma segura se ele não estiver disponível.
 - `WindowsHardwareService`: usa exclusivamente PawnIO para TDP; o fallback RyzenAdj foi removido após `ryzenadj.exe` encerrar com `0xC0000005` no Legion Go 8AHP2. Os perfis foram ajustados para 15/20/25/30 W, dentro da faixa cTDP publicada pela Lenovo. Corrigida a assinatura COM do Core Audio e o namespace WMI de brilho.
 
@@ -41,13 +41,13 @@ Referência de implementação para estudo (licença e atribuição devem ser pr
 - O log do equipamento reporta CPUID model 75h. O PawnIO.Modules 0.2.11 reconhece esse identificador como `CPU_Phoenix` (codename enum 23), não como `CPU_HawkPoint`.
 - O CPUID model 7Ch continua reconhecido como `CPU_HawkPoint` (codename enum 30).
 - A allowlist agora aceita somente esses dois modelos dentro da family 19h e exige o codename exato retornado pelo módulo para cada um.
-- Os IDs de comando continuam `0x14` (STAPM), `0x15` (Fast PPT) e `0x16` (Slow PPT). Não usar `0x1A`, `0x1B` e `0x1C` neste caminho: esses IDs aparecem na tabela FT5/FP5/AM4, enquanto Phoenix/Hawk Point usam a tabela FT6/FP7/FP8.
+- Os IDs de comando continuam `0x14` (STAPM), `0x15` (Fast PPT) e `0x16` (Slow PPT), enviados pelo mailbox MP1 Mobile (`0x3B10528/0x3B10578/0x3B10998`). O mailbox genérico usado por `ioctl_send_smu_command` não deve ser confundido com MP1. Não usar `0x1A`, `0x1B` e `0x1C` neste caminho: esses IDs pertencem a outra tabela de plataformas.
 
 ## Estado atual e pendências de validação
 
 - O módulo oficial não deve ser compilado localmente para uso com a edição oficial assinada do driver: o driver valida a assinatura do blob. A branch agora prepara `RyzenSMU.bin` diretamente do release oficial `PawnIO.Modules 0.2.11`, por meio de `scripts/Prepare-PawnIO.ps1`, e valida o SHA-256 do ZIP antes de extrair o arquivo. O digest fixado é `43608cb89bc84247fef1368a139013f7d043e17db6d6c8dfc9b46bf0905a81f4`. Os workflows de CI e release executam o script após o publish Windows; o módulo é colocado em `Tools/RyzenSMU.bin` no pacote Windows, sem ser incluído no pacote Linux. A origem é o release oficial: https://github.com/namazso/PawnIO.Modules/releases/tag/0.2.11.
 - O runtime PawnIO ainda não é instalado pelo launcher. O usuário precisa instalar o driver oficial separadamente; uma futura integração deve detectar ausência, explicar o motivo, abrir a página oficial e solicitar consentimento/elevation antes de qualquer instalação. Nunca instalar driver de kernel silenciosamente. A documentação oficial recomenda obter o runtime em https://pawnio.eu/.
-- A comunicação SMU exige validação em hardware real. O código agora consulta a PM Table após os três comandos e só reporta sucesso quando STAPM/Fast/Slow retornam dentro de 1 W do alvo; isso ainda precisa ser confirmado no Legion Go 8AHP2.
+- A comunicação SMU exige validação em hardware real. Os comandos de potência são enviados pelo mailbox MP1, com polling explícito do status SMU, e o código consulta a PM Table após os três comandos. Só reporta sucesso quando STAPM/Fast/Slow retornam dentro de 1 W do alvo; isso ainda precisa ser confirmado no Legion Go 8AHP2.
 - O fallback RyzenAdj/WinRing0 e os binários/scripts legados foram removidos desta branch. Se PawnIO estiver ausente ou a CPU não estiver na matriz validada, TDP fica indisponível com diagnóstico explícito; volume, brilho e demais funções continuam independentes.
 
 ## Regras para a migração
