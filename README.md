@@ -18,7 +18,7 @@ O projeto foi desenhado para ser o seu **centro de controle (Hub)**, reunindo bi
 
 ### ⚡ Quick Settings (Overlay)
 Aperte **L3 + R3** (ou o atalho `Ctrl + Alt + O`) durante o jogo para abrir o painel de controle rápido:
-- **TDP:** Modos Eco (8W), Normal (15W), Desempenho (25W) e Boost (30W) com proteção térmica de 90°C.
+- **TDP:** Modos UltraEco (8W), Eco (15W), Normal (20W), Desempenho (25W) e Boost (30W) com proteção térmica de 90°C.
 - **Tela:** Alterne a resolução (720p, 1080p, 2K) e a taxa de atualização (60Hz, 120Hz, 144Hz, 240Hz) sem sair do jogo.
 - **Modo de Cor:** Padrão, Vívido, OLED e Noturno.
 - **HUD de Desempenho:** Ative o monitor de FPS, temperatura (CPU/SoC), RAM e bateria no topo da tela.
