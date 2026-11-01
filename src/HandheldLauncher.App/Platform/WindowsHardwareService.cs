@@ -10,7 +10,7 @@ namespace HandheldLauncher.App.Platform;
 
 public class WindowsHardwareService : IHardwareService
 {
-    private readonly string _ryzenAdjPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ryzenadj.exe");
+    private readonly string _ryzenAdjPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Tools", "ryzenadj.exe");
     private readonly string _ffmpegPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Tools", "ffmpeg.exe");
 
     private RyzenSmuService? _smu;
@@ -43,10 +43,13 @@ public class WindowsHardwareService : IHardwareService
 
         if (InitializePawnIo())
         {
-            bool stapmOk = _smu!.SendSmuCommand("stapm-limit", (uint)tdpLimit);
-            bool fastOk = _smu.SendSmuCommand("fast-limit", (uint)tdpLimit);
-            bool slowOk = _smu.SendSmuCommand("slow-limit", (uint)tdpLimit);
-            if (stapmOk && fastOk && slowOk) { DebugLog.Write($"[PawnIO] TDP alterado para {tdpLimit}mW."); return; }
+            if (_smu!.SetPowerLimits((uint)tdpLimit))
+            {
+                DebugLog.Write($"[PawnIO] TDP alterado para {tdpLimit}mW.");
+                return;
+            }
+
+            DebugLog.Write("[PawnIO] Não foi possível aplicar todos os limites; tentando o fallback RyzenAdj.");
         }
 
         try
