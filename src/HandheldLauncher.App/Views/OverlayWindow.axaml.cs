@@ -269,17 +269,23 @@ public partial class OverlayWindow : Window
                     else if (_currentTdp == "Desempenho") newTdp = "Boost";
                 }
                 if (newTdp != _currentTdp) {
-                    _hardwareService?.SetTdpMode(newTdp);
-                    SetTdpButtonVisual(newTdp);
-                    SaveSetting("TdpMode", newTdp);
+                    if (_hardwareService.SetTdpMode(newTdp)) {
+                        SetTdpButtonVisual(newTdp);
+                        SaveSetting("TdpMode", newTdp);
+                    } else {
+                        DebugLog.Write($"[OVERLAY] O perfil TDP {newTdp} não foi aplicado; seleção anterior mantida.");
+                    }
                 }
                 break;
             case 3: // Cor
                 var newColorIndex = Math.Clamp(_currentColor + direction, 0, 3);
                 string mode = newColorIndex switch { 1 => "Vívido", 2 => "OLED (Alto Contraste)", 3 => "Noturno (Luz Quente)", _ => "Padrão" };
-                _hardwareService?.SetColorMode(mode);
-                SetColorButtonVisual(newColorIndex);
-                SaveSetting("ColorMode", newColorIndex.ToString());
+                if (_hardwareService.SetColorMode(mode)) {
+                    SetColorButtonVisual(newColorIndex);
+                    SaveSetting("ColorMode", newColorIndex.ToString());
+                } else {
+                    DebugLog.Write($"[OVERLAY] O modo de cor {mode} não foi aplicado; seleção anterior mantida.");
+                }
                 break;
             case 4: // HUD
                 if (_viewModel.IsPerformanceHudEnabled) {
@@ -379,9 +385,15 @@ public partial class OverlayWindow : Window
     {
         if (sender is not Button clickedButton) return;
         var mode = clickedButton.Tag?.ToString() ?? "Normal";
-        _hardwareService?.SetTdpMode(mode);
-        SetTdpButtonVisual(mode);
-        SaveSetting("TdpMode", mode);
+        if (_hardwareService.SetTdpMode(mode))
+        {
+            SetTdpButtonVisual(mode);
+            SaveSetting("TdpMode", mode);
+        }
+        else
+        {
+            DebugLog.Write($"[OVERLAY] Falha ao aplicar o perfil TDP {mode}; estado visual não foi alterado.");
+        }
     }
 
     private void SetTdpButtonVisual(string activeMode)
@@ -398,9 +410,15 @@ public partial class OverlayWindow : Window
         if (sender is not Button clickedButton) return;
         if (int.TryParse(clickedButton.Tag?.ToString(), out int index)) {
             string mode = index switch { 1 => "Vívido", 2 => "OLED (Alto Contraste)", 3 => "Noturno (Luz Quente)", _ => "Padrão" };
-            _hardwareService?.SetColorMode(mode);
-            SetColorButtonVisual(index);
-            SaveSetting("ColorMode", index.ToString());
+            if (_hardwareService.SetColorMode(mode))
+            {
+                SetColorButtonVisual(index);
+                SaveSetting("ColorMode", index.ToString());
+            }
+            else
+            {
+                DebugLog.Write($"[OVERLAY] Falha ao aplicar modo de cor {mode}; estado visual não foi alterado.");
+            }
         }
     }
 
