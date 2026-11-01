@@ -11,7 +11,7 @@ Eliminar a dependência do driver vulnerável WinRing0/WinRing0x64.sys (CVE-2020
 - Portanto, os artefatos WinRing0 estão versionados e são copiados para o output do aplicativo, mesmo que nem todos sejam usados pelo fluxo C# atual.
 - `WindowsHardwareService.SetTdpMode` tenta PawnIO e, se falhar, executa RyzenAdj. Logo, retirar apenas o arquivo .sys não elimina a dependência: o fallback também precisa ser removido ou substituído após validação.
 - O runtime PawnIO ainda não é instalado pelo launcher. O usuário precisa instalar o driver oficial separadamente; o Launcher informa a ausência e não instala drivers silenciosamente.
-- `RyzenSmuService` contém endereços ilustrativos (0x14, 0x15 e 0x16) e não implementa corretamente a assinatura do comando `ioctl_send_smu_command` do módulo oficial RyzenSMU.
+- `RyzenSmuService` precisava alinhar a allowlist e a validação do codename com o CPUID realmente registrado no Legion Go. Os IDs de comando `0x14`, `0x15` e `0x16` são os usados pela tabela FT6/FP7/FP8 para Phoenix/Hawk Point; não são endereços de registradores.
 - `PawnIOWrapper` implementa os IOCTLs documentados pelo próprio PawnIO. A implementação foi conferida contra `PawnIO/include/pawnio_um.h` e `PawnIOLib.cpp`: device type 41394, códigos 0x821/0x841, nome de função de 32 bytes e buffers de entrada/saída em `ULONG64`.
 - O projeto não contém atualmente um fluxo de instalação/detecção do runtime PawnIO nem um módulo RyzenSMU validado incluído no pacote.
 
@@ -25,16 +25,23 @@ A implementação pública atual do G-Helper em `app/Pawn/RyzenSmu.cs` identific
 
 O módulo oficial `RyzenSMU.p` expõe `ioctl_send_smu_command` com exatamente 7 entradas (ID do comando + seis argumentos) e 6 saídas. A rotina de alto nível deve preparar os endereços de mailbox MP1, aguardar o mailbox ficar livre, enviar os argumentos e verificar o status retornado. Não é correto passar `0x14`, `0x15` e `0x16` como se fossem endereços de registradores nem enviar apenas dois valores.
 
-A AMD/Notebookcheck identificam o Ryzen Z2 não Extreme (8C/16T, Zen 4, Radeon 780M) como Hawk Point. O módulo oficial PawnIO identifica Hawk Point pelo CPUID family/model 19h/7Ch. A implementação desta branch agora faz essa checagem diretamente via CPUID e recusa executar SMU em qualquer outra família/modelo. Referências: https://www.notebookcheck.net/AMD-Ryzen-Z2-Processor-Benchmarks-and-Specs.949802.0.html e https://github.com/namazso/PawnIO.Modules/blob/main/RyzenSMU.p.
+O log real do Legion Go 8AHP2 reportou CPUID family 19h/model 75h (EAX 0x00A70F52). No release fixado PawnIO.Modules 0.2.11, o arquivo RyzenSMU.p mapeia CPUID 0x1974/0x1975 para CPU_Phoenix (enum 23) e CPUID 0x197C para CPU_HawkPoint (enum 30). Portanto, o codename interno retornado pelo módulo para o processador do teste é Phoenix, mesmo que a nomenclatura comercial/segmentação de mercado possa usar Hawk Point-U. O mesmo release atribui Phoenix e Hawk Point ao mesmo índice de mailbox (k_addridx 2) e à mesma família de operações da PM Table. A allowlist foi ampliada somente para family 19h/model 75h e 7Ch, com validação do codename específico esperado para cada CPUID. Referência primária: https://github.com/namazso/PawnIO.Modules/blob/0.2.11/RyzenSMU.p.
 
 Referência de implementação para estudo (licença e atribuição devem ser preservadas): https://github.com/seerge/g-helper/blob/main/app/Pawn/RyzenSmu.cs
 
 ## Alterações já feitas nesta branch
 
 - `PawnIOWrapper`: corrigida a transferência de propriedade do handle após `LoadModule`, evitando fechamento duplo; corrigidos os buffers de entrada/saída e a validação do número de bytes retornados. Os IOCTLs foram conferidos com os headers oficiais do PawnIO.
-- `RyzenSmuService`: removidos os argumentos fictícios de endereço SMU; agora usa o contrato oficial `ioctl_send_smu_command` (7 entradas e 6 saídas), comandos MP1 Hawk Point `0x14`, `0x15`, `0x16`, e valida CPUID 19h/7Ch antes de qualquer operação.
+- `RyzenSmuService`: usa o contrato oficial `ioctl_send_smu_command` (7 entradas e 6 saídas), os comandos MP1 `0x14`, `0x15`, `0x16` da tabela FT6/FP7/FP8, e valida CPUID 19h/75h (codename Phoenix) ou 19h/7Ch (codename Hawk Point), conferindo também o codename retornado pelo módulo.
 - Sincronização: a implementação tenta adquirir o mutex nomeado `Global\\Access_PCI`, conforme o aviso do módulo oficial, e falha de forma segura se ele não estiver disponível.
 - `WindowsHardwareService`: usa exclusivamente PawnIO para TDP; o fallback RyzenAdj foi removido após `ryzenadj.exe` encerrar com `0xC0000005` no Legion Go 8AHP2. Os perfis foram ajustados para 15/20/25/30 W, dentro da faixa cTDP publicada pela Lenovo. Corrigida a assinatura COM do Core Audio e o namespace WMI de brilho.
+
+## Correção aplicada para CPUID 19h/75h
+
+- O log do equipamento reporta CPUID model 75h. O PawnIO.Modules 0.2.11 reconhece esse identificador como `CPU_Phoenix` (codename enum 23), não como `CPU_HawkPoint`.
+- O CPUID model 7Ch continua reconhecido como `CPU_HawkPoint` (codename enum 30).
+- A allowlist agora aceita somente esses dois modelos dentro da family 19h e exige o codename exato retornado pelo módulo para cada um.
+- Os IDs de comando continuam `0x14` (STAPM), `0x15` (Fast PPT) e `0x16` (Slow PPT). Não usar `0x1A`, `0x1B` e `0x1C` neste caminho: esses IDs aparecem na tabela FT5/FP5/AM4, enquanto Phoenix/Hawk Point usam a tabela FT6/FP7/FP8.
 
 ## Estado atual e pendências de validação
 
@@ -62,7 +69,7 @@ Referência de implementação para estudo (licença e atribuição devem ser pr
 - APU não suportada não recebe comandos SMU.
 - Aplicar cada perfil exige sucesso dos três IOCTLs e read-back da PM Table dentro de 1 W do alvo; falha parcial ou ausência de leitura não é reportada como sucesso.
 - Compilação Windows Release e testes automatizados passam.
-- TDP é validado em Legion Go 2 Ryzen Z2 e, depois, em outros modelos AMD suportados.
+- TDP é validado no Legion Go 8AHP2 Ryzen Z2 (CPUID 19h/75h) e, depois, em outros modelos AMD suportados.
 - Dispositivos sem suporte a PawnIO continuam abrindo e usando as demais funções do launcher.
 
 ## Referências técnicas
