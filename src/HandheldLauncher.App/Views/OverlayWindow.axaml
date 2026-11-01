@@ -116,7 +116,20 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- Seção: HUD -->
+<!-- Seção: Cor -->
+                    <Border x:Name="ColorSection" CornerRadius="12" BorderThickness="2" BorderBrush="Transparent" Padding="10" Background="#1AFFFFFF">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="🎨 Modo de Cor" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
+                            <Grid ColumnDefinitions="*,*,*,*">
+                                <Button x:Name="BtnColorDefault" Grid.Column="0" Tag="0" Content="Padrão" Click="OnColorClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="0,0,4,0" FontSize="11"/>
+                                <Button x:Name="BtnColorVivid" Grid.Column="1" Tag="1" Content="Vívido" Click="OnColorClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="4,0,4,0" FontSize="11"/>
+                                <Button x:Name="BtnColorOled" Grid.Column="2" Tag="2" Content="OLED" Click="OnColorClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="4,0,4,0" FontSize="11"/>
+                                <Button x:Name="BtnColorNight" Grid.Column="3" Tag="3" Content="Noturno" Click="OnColorClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="4,0,0,0" FontSize="11"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                                        <!-- Seção: HUD -->
                     <Border x:Name="HudSection" CornerRadius="12" BorderThickness="2" BorderBrush="Transparent" Padding="10" Background="#1AFFFFFF">
                         <StackPanel Spacing="8">
                             <TextBlock Text="📊 HUD de Desempenho" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
