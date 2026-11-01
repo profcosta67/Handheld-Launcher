@@ -16,7 +16,7 @@ public sealed class RyzenSmuService : IDisposable
     private const string PciMutexName = @"Global\Access_PCI";
 
     // RyzenSMU.p uses MP1 commands for Hawk Point / Mobile family.
-    private const ulong SetStapmCommand = 0x14;
+    private const ulong HawkPointCodeName = 30; // CPU_HawkPoint in the official RyzenSMU.p enum\n    private const ulong SetStapmCommand = 0x14;
     private const ulong SetFastPptCommand = 0x15;
     private const ulong SetSlowPptCommand = 0x16;
 
@@ -85,8 +85,17 @@ public sealed class RyzenSmuService : IDisposable
             return false;
         }
 
+        // The official module performs its own CPU/PCI validation during load.
+        // Query its codename as a second guard before enabling any write command.
+        ulong[] codeName = new ulong[1];
+        if (!_io.Execute("ioctl_get_code_name", null, codeName) || codeName[0] != HawkPointCodeName)
+        {
+            DebugLog.Write($"[PawnIO] Codename retornado pelo módulo não é Hawk Point (valor={codeName[0]}). TDP desabilitado.");
+            return false;
+        }
+
         _initialized = true;
-        DebugLog.Write("[PawnIO] Módulo RyzenSMU carregado para AMD Hawk Point.");
+        DebugLog.Write("[PawnIO] Módulo RyzenSMU carregado e confirmou CPU_HawkPoint (código 30).");
         return true;
     }
 
