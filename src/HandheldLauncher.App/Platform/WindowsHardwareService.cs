@@ -451,7 +451,7 @@ internal static class VolumeMixer
         [PreserveSig] int RegisterControlChangeNotify(IntPtr pNotify);
         [PreserveSig] int UnregisterControlChangeNotify(IntPtr pNotify);
         [PreserveSig] int GetChannelCount(out uint channelCount);
-        [PreserveSig] int SetMasterVolumeLevel(float levelDb, ref ref Guid eventContext);
+        [PreserveSig] int SetMasterVolumeLevel(float levelDb, ref Guid eventContext);
         [PreserveSig] int SetMasterVolumeLevelScalar(float level, ref Guid eventContext);
         [PreserveSig] int GetMasterVolumeLevel(out float levelDb);
         [PreserveSig] int GetMasterVolumeLevelScalar(out float level);
