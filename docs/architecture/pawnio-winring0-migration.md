@@ -25,9 +25,23 @@ A implementação pública atual do G-Helper em `app/Pawn/RyzenSmu.cs` identific
 
 O módulo oficial `RyzenSMU.p` expõe `ioctl_send_smu_command` com exatamente 7 entradas (ID do comando + seis argumentos) e 6 saídas. A rotina de alto nível deve preparar os endereços de mailbox MP1, aguardar o mailbox ficar livre, enviar os argumentos e verificar o status retornado. Não é correto passar `0x14`, `0x15` e `0x16` como se fossem endereços de registradores nem enviar apenas dois valores.
 
-A correspondência do Ryzen Z2 não Extreme com Hawk Point precisa ser confirmada por CPUID/codename no próprio aparelho antes de habilitar esses comandos. O nome comercial Ryzen Z2, sozinho, não é critério suficiente.
+A AMD/Notebookcheck identificam o Ryzen Z2 não Extreme (8C/16T, Zen 4, Radeon 780M) como Hawk Point. O módulo oficial PawnIO identifica Hawk Point pelo CPUID family/model 19h/7Ch. A implementação desta branch agora faz essa checagem diretamente via CPUID e recusa executar SMU em qualquer outra família/modelo. Referências: https://www.notebookcheck.net/AMD-Ryzen-Z2-Processor-Benchmarks-and-Specs.949802.0.html e https://github.com/namazso/PawnIO.Modules/blob/main/RyzenSMU.p.
 
 Referência de implementação para estudo (licença e atribuição devem ser preservadas): https://github.com/seerge/g-helper/blob/main/app/Pawn/RyzenSmu.cs
+
+## Alterações já feitas nesta branch
+
+- `PawnIOWrapper`: corrigida a transferência de propriedade do handle após `LoadModule`, evitando fechamento duplo; corrigidos os buffers de entrada/saída e a validação do número de bytes retornados.
+- `RyzenSmuService`: removidos os argumentos fictícios de endereço SMU; agora usa o contrato oficial `ioctl_send_smu_command` (7 entradas e 6 saídas), comandos MP1 Hawk Point `0x14`, `0x15`, `0x16`, e valida CPUID 19h/7Ch antes de qualquer operação.
+- Sincronização: a implementação tenta adquirir o mutex nomeado `Global\\Access_PCI`, conforme o aviso do módulo oficial, e falha de forma segura se ele não estiver disponível.
+- `WindowsHardwareService`: chama o método agregado de TDP e corrige o caminho do RyzenAdj para `Tools\\ryzenadj.exe`.
+
+## Pendências que impedem remover WinRing0 agora
+
+- O repositório não contém `Tools/RyzenSMU.bin`; apenas existe a referência de caminho no código. O módulo oficial é distribuído como fonte Pawn (`RyzenSMU.p`) e precisa ser compilado com a ferramenta oficial, com versão/hash/licença registrados. Não devemos baixar um binário aleatório nem extrair/reempacotar binários de outro aplicativo.
+- O runtime PawnIO ainda não está instalado automaticamente pelo launcher. A integração precisa detectar ausência, pedir consentimento/elevation e usar o instalador oficial do PawnIO; não deve instalar driver de kernel silenciosamente.
+- A comunicação SMU ainda precisa ser validada em hardware real; sucesso do DeviceIoControl não substitui a confirmação de que os limites foram aplicados e persistiram.
+- Enquanto o módulo oficial não estiver incluído e testado, o fallback RyzenAdj/WinRing0 permanece no código para não quebrar o TDP da versão atual. A etapa de remoção só poderá ser feita depois de teste no Legion Go 2 Ryzen Z2.
 
 ## Regras para a migração
 
