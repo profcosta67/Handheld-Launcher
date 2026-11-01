@@ -46,8 +46,15 @@ public sealed class RyzenSmuService : IDisposable
                 ? (extendedModel << 4) | baseModel
                 : baseModel;
 
-            // Ryzen Z2 (non-Extreme) is Hawk Point: family 19h, model 7Ch.
-            return family == 0x19 && model == 0x7C;
+            DebugLog.Write($"[PawnIO] CPUID leaf 1: EAX=0x{signature:X8}; family=0x{family:X}; model=0x{model:X}.");
+
+            // Only Hawk Point (family 19h, model 7Ch) has a validated
+            // command mapping in the bundled official PawnIO module.
+            bool supported = family == 0x19 && model == 0x7C;
+            DebugLog.Write(supported
+                ? "[PawnIO] CPU identificado como Hawk Point; provider habilitado."
+                : "[PawnIO] CPU fora da matriz validada Hawk Point; provider bloqueado.");
+            return supported;
         }
         catch
         {
