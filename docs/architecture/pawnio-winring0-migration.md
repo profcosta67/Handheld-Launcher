@@ -15,6 +15,20 @@ Eliminar a dependência do driver vulnerável WinRing0/WinRing0x64.sys (CVE-2020
 - `PawnIOWrapper` implementa IOCTLs diretamente e não verifica o tamanho de retorno; a interface oficial PawnIOLib deve ser preferida ou a implementação direta deve ser validada contra os headers oficiais.
 - O projeto não contém atualmente um fluxo de instalação/detecção do runtime PawnIO nem um módulo RyzenSMU validado incluído no pacote.
 
+## Evidência adicional: comandos SMU para AMD Zen 4 mobile
+
+A implementação pública atual do G-Helper em `app/Pawn/RyzenSmu.cs` identifica Hawk Point como parte da família Mobile e utiliza, para essa família, os comandos MP1 abaixo, em milliwatts:
+
+- STAPM: comando SMU `0x14`
+- Fast PPT: comando SMU `0x15`
+- Slow PPT: comando SMU `0x16`
+
+O módulo oficial `RyzenSMU.p` expõe `ioctl_send_smu_command` com exatamente 7 entradas (ID do comando + seis argumentos) e 6 saídas. A rotina de alto nível deve preparar os endereços de mailbox MP1, aguardar o mailbox ficar livre, enviar os argumentos e verificar o status retornado. Não é correto passar `0x14`, `0x15` e `0x16` como se fossem endereços de registradores nem enviar apenas dois valores.
+
+A correspondência do Ryzen Z2 não Extreme com Hawk Point precisa ser confirmada por CPUID/codename no próprio aparelho antes de habilitar esses comandos. O nome comercial Ryzen Z2, sozinho, não é critério suficiente.
+
+Referência de implementação para estudo (licença e atribuição devem ser preservadas): https://github.com/seerge/g-helper/blob/main/app/Pawn/RyzenSmu.cs
+
 ## Regras para a migração
 
 1. Não chamar `ioctl_send_smu_command` com nomes de limites ou endereços inventados. O módulo oficial define uma chamada com 7 valores de entrada (ID do comando + seis argumentos) e seis valores de saída.
