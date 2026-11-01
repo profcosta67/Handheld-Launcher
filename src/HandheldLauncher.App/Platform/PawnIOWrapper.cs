@@ -5,112 +5,137 @@ using Microsoft.Win32.SafeHandles;
 
 namespace HandheldLauncher.App.Platform;
 
+/// <summary>
+/// Minimal managed bridge to the documented PawnIO device interface.
+/// Handle ownership is transferred exactly once after a successful module load.
+/// </summary>
 public sealed class PawnIOWrapper : IDisposable
 {
-    private const int FN_LEN = 32;
-    private const uint DEV_TYPE = 41394u << 16; // 0xA1B20000
+    private const int FunctionNameLength = 32;
+    private const uint DeviceType = 41394u << 16; // 0xA1B20000
 
-    private enum Ctl : uint
+    private enum Ioctl : uint
     {
-        Load = DEV_TYPE | (0x821 << 2),
-        Execute = DEV_TYPE | (0x841 << 2),
+        Load = DeviceType | (0x821u << 2),    // 0xA1B22084
+        Execute = DeviceType | (0x841u << 2)  // 0xA1B22104
     }
 
     [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    static extern IntPtr CreateFile(string n, uint acc, uint share, IntPtr sec, uint disp, uint fl, IntPtr tmpl);
+    private static extern IntPtr CreateFile(string name, uint access, uint share,
+        IntPtr security, uint creation, uint flags, IntPtr template);
 
     [DllImport("kernel32.dll", SetLastError = true)]
-    static extern bool CloseHandle(IntPtr h);
+    private static extern bool CloseHandle(IntPtr handle);
 
-    // 🟢 Assinatura correta para SafeFileHandle e buffers de bytes
     [DllImport("kernel32.dll", SetLastError = true)]
-    static extern bool DeviceIoControl(SafeFileHandle hDevice, uint dwIoControlCode, byte[] lpInBuffer, uint nInBufferSize, byte[] lpOutBuffer, uint nOutBufferSize, out uint lpBytesReturned, IntPtr lpOverlapped);
+    private static extern bool DeviceIoControl(IntPtr device, Ioctl code,
+        byte[] input, uint inputSize, byte[]? output, uint outputSize,
+        out uint bytesReturned, IntPtr overlapped);
 
-    private IntPtr _raw = IntPtr.Zero;
-    private SafeFileHandle? _safe;
-    private bool _loaded, _disposed;
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool DeviceIoControl(SafeFileHandle device, Ioctl code,
+        [In] byte[] input, uint inputSize, [Out] byte[]? output, uint outputSize,
+        out uint bytesReturned, IntPtr overlapped);
 
-    public bool IsConnected => _raw != IntPtr.Zero && _raw.ToInt64() != -1;
-    public bool IsModuleLoaded => _loaded && _safe != null && !_safe.IsInvalid;
+    private IntPtr _rawHandle = IntPtr.Zero;
+    private SafeFileHandle? _moduleHandle;
+    private bool _moduleLoaded;
+    private bool _disposed;
+
+    public bool IsConnected => _rawHandle != IntPtr.Zero && _rawHandle != new IntPtr(-1);
+    public bool IsModuleLoaded => _moduleLoaded && _moduleHandle is { IsInvalid: false, IsClosed: false };
 
     public enum ConnectResult { OK, NotInstalled, AccessDenied, OtherError }
 
     public ConnectResult Connect()
     {
-        if (IsConnected) return ConnectResult.OK;
-        const string path = @"\\?\GLOBALROOT\Device\PawnIO";
-        _raw = CreateFile(path, 0xC0000000u, 0x3, IntPtr.Zero, 3, 0, IntPtr.Zero);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (IsConnected || IsModuleLoaded) return ConnectResult.OK;
 
-        if (_raw == IntPtr.Zero || _raw.ToInt64() == -1)
+        const string devicePath = @"\\?\GLOBALROOT\Device\PawnIO";
+        _rawHandle = CreateFile(devicePath, 0xC0000000u, 0x3u,
+            IntPtr.Zero, 3u, 0u, IntPtr.Zero);
+
+        if (_rawHandle == IntPtr.Zero || _rawHandle == new IntPtr(-1))
         {
-            int err = Marshal.GetLastWin32Error();
-            _raw = IntPtr.Zero;
-            return err switch
+            int error = Marshal.GetLastWin32Error();
+            _rawHandle = IntPtr.Zero;
+            return error switch
             {
                 2 or 3 => ConnectResult.NotInstalled,
                 5 => ConnectResult.AccessDenied,
-                _ => ConnectResult.OtherError,
+                _ => ConnectResult.OtherError
             };
         }
+
         return ConnectResult.OK;
     }
 
     public bool LoadModule(byte[] data)
     {
-        if (!IsConnected || data == null || data.Length == 0) return false;
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!IsConnected || data is null || data.Length == 0 || IsModuleLoaded)
+            return false;
 
-        // Usa o handle raw por enquanto
-        byte[]? outBuffer = null;
-        uint ret = 0;
-        bool ok = DeviceIoControl(new SafeFileHandle(_raw, false), (uint)Ctl.Load, data, (uint)data.Length, outBuffer!, 0, out ret, IntPtr.Zero);
-        
-        // Se der certo, tomamos posse do handle
-        if (ok)
-        {
-            _safe = new SafeFileHandle(_raw, ownsHandle: true);
-            _loaded = true;
-        }
-        return ok;
+        if (!DeviceIoControl(_rawHandle, Ioctl.Load, data, (uint)data.Length,
+            null, 0, out _, IntPtr.Zero))
+            return false;
+
+        // Transfer ownership to SafeFileHandle; do not close the same native handle twice.
+        _moduleHandle = new SafeFileHandle(_rawHandle, ownsHandle: true);
+        _rawHandle = IntPtr.Zero;
+        _moduleLoaded = true;
+        return true;
     }
 
     public bool Execute(string functionName, ulong[]? input, ulong[]? output)
     {
-        if (!IsModuleLoaded) return false;
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!IsModuleLoaded || string.IsNullOrWhiteSpace(functionName) ||
+            Encoding.ASCII.GetByteCount(functionName) >= FunctionNameLength)
+            return false;
 
-        byte[] nameBytes = Encoding.ASCII.GetBytes(functionName);
         int inputCount = input?.Length ?? 0;
-        byte[] buffer = new byte[FN_LEN + inputCount * 8];
-        Buffer.BlockCopy(nameBytes, 0, buffer, 0, Math.Min(nameBytes.Length, FN_LEN - 1));
+        byte[] inputBuffer = new byte[FunctionNameLength + inputCount * sizeof(ulong)];
+        byte[] nameBytes = Encoding.ASCII.GetBytes(functionName);
+        Buffer.BlockCopy(nameBytes, 0, inputBuffer, 0, nameBytes.Length);
 
-        if (input != null && inputCount > 0)
+        if (inputCount > 0)
         {
-            byte[] inputBytes = new byte[inputCount * 8];
-            Buffer.BlockCopy(input, 0, inputBytes, 0, inputBytes.Length);
-            Buffer.BlockCopy(inputBytes, 0, buffer, FN_LEN, inputBytes.Length);
+            byte[] values = new byte[inputCount * sizeof(ulong)];
+            Buffer.BlockCopy(input!, 0, values, 0, values.Length);
+            Buffer.BlockCopy(values, 0, inputBuffer, FunctionNameLength, values.Length);
         }
 
-        // 🟢 Prepara o buffer de saída como byte[]
         int outputCount = output?.Length ?? 0;
-        byte[] outBytes = new byte[outputCount * 8];
-        uint outSize = (uint)outBytes.Length;
+        byte[]? outputBuffer = outputCount > 0 ? new byte[outputCount * sizeof(ulong)] : null;
+        bool ok = DeviceIoControl(_moduleHandle!, Ioctl.Execute, inputBuffer,
+            (uint)inputBuffer.Length, outputBuffer, (uint)(outputBuffer?.Length ?? 0),
+            out uint bytesReturned, IntPtr.Zero);
 
-        bool ok = DeviceIoControl(_safe!, (uint)Ctl.Execute, buffer, (uint)buffer.Length, outBytes, outSize, out _, IntPtr.Zero);
-
-        // 🟢 Se deu certo, copia o resultado de volta para o ulong[]
-        if (ok && output != null && outputCount > 0)
+        if (!ok) return false;
+        if (output is not null)
         {
-            Buffer.BlockCopy(outBytes, 0, output, 0, outBytes.Length);
+            int expectedBytes = output.Length * sizeof(ulong);
+            if (bytesReturned < expectedBytes) return false;
+            Buffer.BlockCopy(outputBuffer!, 0, output, 0, expectedBytes);
         }
 
-        return ok;
+        return true;
     }
 
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
-        if (_safe != null) _safe.Dispose();
-        else if (IsConnected) CloseHandle(_raw);
-        _raw = IntPtr.Zero;
+        _moduleLoaded = false;
+        _moduleHandle?.Dispose();
+        _moduleHandle = null;
+
+        if (IsConnected)
+            CloseHandle(_rawHandle);
+
+        _rawHandle = IntPtr.Zero;
+        GC.SuppressFinalize(this);
     }
 }
