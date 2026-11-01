@@ -21,7 +21,6 @@ public sealed class RyzenSmuService : IDisposable
     private const ulong SetSlowPptCommand = 0x16;
 
     private readonly PawnIOWrapper _io = new();
-    private readonly Mutex _smuMutex = new();
     private bool _initialized;
     private bool _disposed;
 
@@ -101,11 +100,12 @@ public sealed class RyzenSmuService : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (!_initialized) return false;
 
+        Mutex? pciMutex = null;
         bool acquired = false;
         try
         {
             // RyzenSMU.p explicitly requires the shared Access_PCI mutant.
-            using var pciMutex = Mutex.OpenExisting(PciMutexName);
+            pciMutex = Mutex.OpenExisting(PciMutexName);
             acquired = pciMutex.WaitOne(TimeSpan.FromSeconds(5));
             if (!acquired)
             {
@@ -139,8 +139,12 @@ public sealed class RyzenSmuService : IDisposable
         }
         finally
         {
-            // The named mutex handle is disposed in the try scope. If acquired, release
-            // is performed by the local SafeWaitHandle owner before leaving that scope.
+            if (acquired)
+            {
+                try { pciMutex?.ReleaseMutex(); }
+                catch (ApplicationException) { }
+            }
+            pciMutex?.Dispose();
         }
     }
 
@@ -158,7 +162,6 @@ public sealed class RyzenSmuService : IDisposable
         _disposed = true;
         _initialized = false;
         _io.Dispose();
-        _smuMutex.Dispose();
         GC.SuppressFinalize(this);
     }
 }
