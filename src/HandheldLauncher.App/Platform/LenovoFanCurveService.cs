@@ -171,21 +171,37 @@ public sealed class LenovoFanCurveService : IDisposable
                 input["FanID"] = (byte)1;
                 input["SensorID"] = (byte)1;
                 using var output = item.InvokeMethod("Fan_Get_Table", input, null);
-                if (output?["FanTable"] is not uint[] data || data.Length < 22)
-                    throw new InvalidDataException("Resposta Fan_Get_Table inválida (esperados 22 DWORDs).");
-                int speedCount = checked((int)data[0]);
-                int tempCount = checked((int)data[11]);
+                if (output is null)
+                    throw new InvalidDataException("Fan_Get_Table não retornou objeto de saída.");
+
+                // O contrato WMI define duas tabelas independentes:
+                // FanTable/FanTableSize e SensorTable/SensorTableSize.
+                // FanTable contém somente os valores de controle; SensorTable contém temperaturas.
+                if (output["FanTableSize"] is null || output["SensorTableSize"] is null)
+                    throw new InvalidDataException("Fan_Get_Table não retornou FanTableSize e SensorTableSize.");
+
+                int speedCount = Convert.ToInt32(output["FanTableSize"]);
+                int tempCount = Convert.ToInt32(output["SensorTableSize"]);
                 if (speedCount != PointCount || tempCount != PointCount)
-                    throw new InvalidDataException($"Tabela inesperada: {speedCount} pontos de velocidade e {tempCount} temperaturas.");
+                    throw new InvalidDataException($"Tabela inesperada: {speedCount} pontos de velocidade e {tempCount} temperaturas; esperados {PointCount} de cada.");
+
+                if (output["FanTable"] is not uint[] speedData)
+                    throw new InvalidDataException($"FanTable possui tipo inesperado: {output["FanTable"]?.GetType().FullName ?? "null"}.");
+                if (output["SensorTable"] is not uint[] temperatureData)
+                    throw new InvalidDataException($"SensorTable possui tipo inesperado: {output["SensorTable"]?.GetType().FullName ?? "null"}.");
+                if (speedData.Length < speedCount || temperatureData.Length < tempCount)
+                    throw new InvalidDataException($"Tabelas WMI truncadas: FanTable={speedData.Length}/{speedCount}, SensorTable={temperatureData.Length}/{tempCount}.");
+
                 var speeds = new int[PointCount];
                 for (int i = 0; i < PointCount; i++)
                 {
-                    if (data[1 + i] > 115)
-                        throw new InvalidDataException($"Valor de controle fora da faixa validada no Legion Go: {data[1+i]}.");
-                    if (data[12 + i] != Temperatures[i])
-                        throw new InvalidDataException("A tabela de temperaturas não corresponde aos dez pontos conhecidos.");
-                    speeds[i] = (int)data[1 + i];
+                    if (speedData[i] > 115)
+                        throw new InvalidDataException($"Valor de controle fora da faixa validada no Legion Go: {speedData[i]}.");
+                    if (temperatureData[i] != Temperatures[i])
+                        throw new InvalidDataException($"Temperatura inesperada no ponto {i + 1}: {temperatureData[i]}°C; esperado {Temperatures[i]}°C.");
+                    speeds[i] = (int)speedData[i];
                 }
+                DebugLog.Write($"[FAN] Fan_Get_Table lido: FanTableSize={speedCount}, SensorTableSize={tempCount}; controles={string.Join(",", speeds)}.");
                 return speeds;
             }
         }
