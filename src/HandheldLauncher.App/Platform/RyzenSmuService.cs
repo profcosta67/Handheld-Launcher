@@ -98,8 +98,7 @@ public sealed class RyzenSmuService : IDisposable
                 string manufacturer = Convert.ToString(system["Manufacturer"])?.Trim() ?? string.Empty;
                 string model = Convert.ToString(system["Model"])?.Trim() ?? string.Empty;
                 bool isLenovo = manufacturer.Contains("LENOVO", StringComparison.OrdinalIgnoreCase);
-                bool isValidatedLegionGo2 = model.Contains("8AHP2", StringComparison.OrdinalIgnoreCase)
-                    || model.Contains("LEGION GO 2", StringComparison.OrdinalIgnoreCase);
+                bool isValidatedLegionGo2 = model.Contains("8AHP2", StringComparison.OrdinalIgnoreCase);
 
                 bool supported = isLenovo && isValidatedLegionGo2;
                 DebugLog.Write($"[PawnIO] Plataforma DMI: fabricante='{manufacturer}', modelo='{model}'; allowlist Legion Go 2 8AHP2={(supported ? "permitida" : "bloqueada")}.");
