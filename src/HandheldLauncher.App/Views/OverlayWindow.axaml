@@ -118,14 +118,51 @@
 
                     <!-- Seção: Curva das ventoinhas -->
                     <Border x:Name="FanSection" CornerRadius="12" BorderThickness="2" BorderBrush="Transparent" Padding="10" Background="#1AFFFFFF">
-                        <StackPanel Spacing="8">
+                        <StackPanel Spacing="9">
                             <TextBlock Text="❄️ Refrigeração (ventoinhas)" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
-                            <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto">
-                                <Button x:Name="BtnFanAuto" Grid.Row="0" Grid.Column="0" Tag="Automático" Content="Automático" Click="OnFanClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="0,0,3,4" FontSize="10"/>
-                                <Button x:Name="BtnFanSilent" Grid.Row="0" Grid.Column="1" Tag="Silencioso" Content="Silencioso" Click="OnFanClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="3,0,3,4" FontSize="10"/>
-                                <Button x:Name="BtnFanNormal" Grid.Row="0" Grid.Column="2" Tag="Normal" Content="Normal" Click="OnFanClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="3,0,0,4" FontSize="10"/>
-                                <Button x:Name="BtnFanPerformance" Grid.Row="1" Grid.Column="0" Tag="Desempenho" Content="Desempenho" Click="OnFanClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="0,0,3,0" FontSize="10"/>
-                                <Button x:Name="BtnFanBoost" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Tag="Boost" Content="Boost" Click="OnFanClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="3,0,0,0" FontSize="10"/>
+                            <Grid ColumnDefinitions="*,*,*,*,*" ColumnSpacing="5">
+                                <Button x:Name="BtnFanAuto" Grid.Column="0" Tag="Automático" Click="OnFanClick" Background="#252A36" Foreground="White" CornerRadius="9" Padding="3" Height="62" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="Automático">
+                                    <StackPanel Spacing="3" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <TextBlock Text="🤖" FontSize="19" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Auto" FontSize="9" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="BtnFanSilent" Grid.Column="1" Tag="Silencioso" Click="OnFanClick" Background="#252A36" Foreground="White" CornerRadius="9" Padding="3" Height="62" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="Silencioso">
+                                    <StackPanel Spacing="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <TextBlock Text="✣" FontSize="19" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Silenc." FontSize="9" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="BtnFanNormal" Grid.Column="2" Tag="Normal" Click="OnFanClick" Background="#252A36" Foreground="White" CornerRadius="9" Padding="3" Height="62" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="Normal">
+                                    <StackPanel Spacing="0" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Grid RowDefinitions="10,10">
+                                            <TextBlock Grid.Row="0" Text="✣" FontSize="13" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Row="1" Text="✣" FontSize="13" HorizontalAlignment="Center"/>
+                                        </Grid>
+                                        <TextBlock Text="Normal" FontSize="9" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="BtnFanPerformance" Grid.Column="3" Tag="Desempenho" Click="OnFanClick" Background="#252A36" Foreground="White" CornerRadius="9" Padding="3" Height="62" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="Desempenho">
+                                    <StackPanel Spacing="0" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Grid RowDefinitions="9,9,9">
+                                            <TextBlock Grid.Row="0" Text="✣" FontSize="12" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Row="1" Text="✣" FontSize="12" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Row="2" Text="✣" FontSize="12" HorizontalAlignment="Center"/>
+                                        </Grid>
+                                        <TextBlock Text="Desemp." FontSize="9" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="BtnFanBoost" Grid.Column="4" Tag="Boost" Click="OnFanClick" Background="#252A36" Foreground="White" CornerRadius="9" Padding="3" Height="62" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="Boost">
+                                    <StackPanel Spacing="0" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Grid RowDefinitions="8,8,8,8">
+                                            <TextBlock Grid.Row="0" Text="✣" FontSize="11" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Row="1" Text="✣" FontSize="11" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Row="2" Text="✣" FontSize="11" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Row="3" Text="✣" FontSize="11" HorizontalAlignment="Center"/>
+                                        </Grid>
+                                        <TextBlock Text="Boost" FontSize="9" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
                             </Grid>
                             <TextBlock x:Name="TxtFanStatus" Text="Lendo tabela original do firmware..." Foreground="#B8C0D4" FontSize="10" TextWrapping="Wrap"/>
                         </StackPanel>
