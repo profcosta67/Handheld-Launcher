@@ -2,6 +2,8 @@ using System;
 using System.Runtime.Intrinsics.X86;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using HandheldLauncher.App.Diagnostics;
 
 namespace HandheldLauncher.App.Platform;
@@ -15,15 +17,13 @@ namespace HandheldLauncher.App.Platform;
 public sealed class RyzenSmuService : IDisposable
 {
     private const string SmuFunction = "ioctl_send_smu_command";
-    private const string PciMutexName = "Access_PCI";
+    // PawnIO documents the kernel mutant as \BaseNamedObjects\Access_PCI.
+    // On Windows/.NET, the corresponding cross-session name is Global\Access_PCI.
+    private const string PciMutexName = @"Global\Access_PCI";
 
-    // CodeName enum values from the pinned PawnIO.Modules 0.2.11 RyzenSMU.p:
-    // CPU_Phoenix = 23, CPU_HawkPoint = 30.
     private const ulong PhoenixCodeName = 23;
     private const ulong HawkPointCodeName = 30;
 
-    // MP1 commands for the FT6/FP7/FP8 mobile path used by Phoenix and Hawk Point.
-    // Do NOT substitute 0x1A/0x1B/0x1C: those belong to the FT5/FP5/AM4 command table.
     private const ulong SetStapmCommand = 0x14;
     private const ulong SetFastPptCommand = 0x15;
     private const ulong SetSlowPptCommand = 0x16;
@@ -54,8 +54,6 @@ public sealed class RyzenSmuService : IDisposable
                 ? (extendedModel << 4) | baseModel
                 : baseModel;
 
-            // The pinned PawnIO.Modules 0.2.11 RyzenSMU.p maps:
-            // 0x1974/0x1975 -> CPU_Phoenix; 0x197C -> CPU_HawkPoint.
             bool supported = family == 0x19 && (model == 0x75 || model == 0x7C);
             string platform = model switch
             {
@@ -84,7 +82,6 @@ public sealed class RyzenSmuService : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (_initialized) return true;
 
-        // Never load or execute SMU commands on an unverified CPU family/model.
         if (!TryGetSupportedCpuModel(out uint cpuModel))
         {
             DebugLog.Write("[PawnIO] CPU fora da matriz Phoenix/Hawk Point (19h/75h ou 19h/7Ch); TDP PawnIO desabilitado.");
@@ -124,9 +121,6 @@ public sealed class RyzenSmuService : IDisposable
             return false;
         }
 
-        // The official module performs its own CPU/PCI validation during load.
-        // CPUID 19h/75h is CPU_Phoenix (23) in PawnIO.Modules 0.2.11;
-        // CPUID 19h/7Ch is CPU_HawkPoint (30). Do not silently reinterpret 75h.
         ulong[] codeName = new ulong[1];
         if (!_io.Execute("ioctl_get_code_name", null, codeName))
         {
@@ -150,11 +144,28 @@ public sealed class RyzenSmuService : IDisposable
         return true;
     }
 
-    /// <summary>
-    /// Applies STAPM, Fast PPT and Slow PPT in milliwatts.
-    /// The official module contract is 7 input values and 6 output values:
-    /// [commandId, arg0..arg5] -> [result0..result5].
-    /// </summary>
+    private static Mutex OpenOrCreatePciMutex()
+    {
+        // Match LibreHardwareMonitor's shared PCI lock convention: Global namespace
+        // and an ACL that permits hardware-monitoring tools to coordinate with us.
+        var worldRule = new MutexAccessRule(
+            new SecurityIdentifier(WellKnownSidType.WorldSid, null),
+            MutexRights.FullControl,
+            AccessControlType.Allow);
+        var security = new MutexSecurity();
+        security.AddAccessRule(worldRule);
+
+        try
+        {
+            return MutexAcl.Create(false, PciMutexName, out _, security);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // An existing mutex may have a stricter ACL; open it with current rights.
+            return Mutex.OpenExisting(PciMutexName);
+        }
+    }
+
     public bool SetPowerLimits(uint limitMilliwatts)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -169,19 +180,14 @@ public sealed class RyzenSmuService : IDisposable
         bool acquired = false;
         try
         {
-            // RyzenSMU.p explicitly requires the shared Access_PCI mutant.
-            pciMutex = Mutex.OpenExisting(PciMutexName);
+            pciMutex = OpenOrCreatePciMutex();
             acquired = pciMutex.WaitOne(TimeSpan.FromSeconds(5));
             if (!acquired)
             {
-                DebugLog.Write("[PawnIO] Timeout aguardando mutex Access_PCI.");
+                DebugLog.Write("[PawnIO] Timeout aguardando mutex Global\\Access_PCI.");
                 return false;
             }
 
-            // Phoenix/Hawk Point power-limit commands are MP1 commands. The
-            // generic ioctl_send_smu_command in RyzenSMU.p routes through the
-            // module's generic mailbox (PSMU for this codename), not MP1.
-            // Use the documented register IOCTLs and the Mobile MP1 mailbox.
             bool stapmCommand = SendMp1Command(SetStapmCommand, limitMilliwatts);
             bool fastCommand = SendMp1Command(SetFastPptCommand, limitMilliwatts);
             bool slowCommand = SendMp1Command(SetSlowPptCommand, limitMilliwatts);
@@ -206,16 +212,13 @@ public sealed class RyzenSmuService : IDisposable
         }
         catch (WaitHandleCannotBeOpenedException)
         {
-            // Some PawnIO module/driver builds do not expose the named mutant to user mode.
-            // Do not issue unsynchronized PCI/SMU writes in that case.
-            DebugLog.Write("[PawnIO] Mutex Access_PCI não encontrado; comandos SMU cancelados por segurança.");
+            DebugLog.Write("[PawnIO] Não foi possível abrir/criar o mutex Global\\Access_PCI; comandos SMU cancelados por segurança.");
             return false;
         }
         catch (AbandonedMutexException)
         {
-            // WaitOne grants ownership even when it reports an abandoned mutex.
             acquired = true;
-            DebugLog.Write("[PawnIO] Mutex Access_PCI abandonado; comandos SMU cancelados nesta tentativa.");
+            DebugLog.Write("[PawnIO] Mutex Global\\Access_PCI abandonado; propriedade recuperada, mas comandos cancelados nesta tentativa.");
             return false;
         }
         catch (Exception ex)
@@ -234,8 +237,6 @@ public sealed class RyzenSmuService : IDisposable
         }
     }
 
-    // Called while Access_PCI is held. PM Table values are reported in watts;
-    // STAPM/Fast/Slow are float entries 0, 2 and 4 in the 64-QWORD table window.
     private bool TryReadPowerLimits(out float stapmWatts, out float fastWatts, out float slowWatts)
     {
         stapmWatts = fastWatts = slowWatts = 0f;
@@ -246,8 +247,6 @@ public sealed class RyzenSmuService : IDisposable
         uint tableVersion = (uint)resolved[0];
         DebugLog.Write($"[PawnIO] PM Table: versão=0x{tableVersion:X6}, base=0x{resolved[1]:X}.");
 
-        // First update may return DEVICE_BUSY while the SMU finishes a previous
-        // transfer. This follows the official G-Helper/PawnIO retry sequence.
         _io.Execute("ioctl_update_pm_table", null, null);
         Thread.Sleep(100);
         if (!_io.Execute("ioctl_update_pm_table", null, null))
@@ -262,14 +261,9 @@ public sealed class RyzenSmuService : IDisposable
         if (values.Length < 5)
             return false;
 
-        // Phoenix PM Table layout (stable offsets in G-Helper/RyzenAdj):
-        // STAPM limit @ 0x00, Fast PPT limit @ 0x08, Slow PPT limit @ 0x10.
         stapmWatts = values[0];
         fastWatts = values[2];
         slowWatts = values[4];
-        // Dump the first eight DWORD-backed floats so the next hardware log
-        // can reveal whether this firmware exposes the expected Phoenix/Hawk Point
-        // limit fields at 0x00, 0x08 and 0x10, without guessing alternate offsets.
         DebugLog.Write(
             $"[PawnIO] PM Table dump (float indexes): [0]={values[0]:F2}, [1]={values[1]:F2}, " +
             $"[2]={values[2]:F2}, [3]={values[3]:F2}, [4]={values[4]:F2}, [5]={values[5]:F2}, " +
@@ -288,9 +282,6 @@ public sealed class RyzenSmuService : IDisposable
 
     private bool SendMp1Command(ulong commandId, uint valueMilliwatts)
     {
-        // MP1 mailbox addresses for Mobile Phoenix/Hawk Point, matching the
-        // maintained G-Helper implementation and the FT6/FP7/FP8 routing:
-        // CMD=0x3B10528, RSP=0x3B10578, ARG0=0x3B10998.
         const ulong commandAddress = 0x03B10528;
         const ulong responseAddress = 0x03B10578;
         const ulong argumentAddress = 0x03B10998;
