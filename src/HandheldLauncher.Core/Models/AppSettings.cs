@@ -26,6 +26,7 @@ public class AppSettings
 
     // 🟢 AS 3 PROPRIEDADES NOVAS (com os tipos corretos):
     public string TdpMode { get; set; } = "Normal";
+    public string FanMode { get; set; } = "Automático";
     public int Volume { get; set; } = 70;
     public int Brightness { get; set; } = 80;
 }

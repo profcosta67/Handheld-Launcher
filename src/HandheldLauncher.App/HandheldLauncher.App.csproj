@@ -11,7 +11,7 @@
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <RootNamespace>HandheldLauncher.App</RootNamespace>
     <AssemblyName>HandheldLauncher</AssemblyName>
-    <Version>0.13.6</Version>
+    <Version>0.13.7</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
@@ -29,7 +29,6 @@
     <PackageReference Include="System.Management" Version="10.0.2" />
   </ItemGroup>
 
-  <!-- Ferramentas externas (ex: RyzenAdj para controlar TDP no Windows) -->
   <ItemGroup>
     <Content Include="Tools\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Management;
+using System.Threading;
 using System.Runtime.InteropServices;
 using HandheldLauncher.Core.Services;
 using HandheldLauncher.App.Diagnostics;
@@ -10,7 +11,6 @@ namespace HandheldLauncher.App.Platform;
 
 public class WindowsHardwareService : IHardwareService
 {
-    private readonly string _ryzenAdjPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ryzenadj.exe");
     private readonly string _ffmpegPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Tools", "ffmpeg.exe");
 
     private RyzenSmuService? _smu;
@@ -24,50 +24,283 @@ public class WindowsHardwareService : IHardwareService
     // ==========================================
     private bool InitializePawnIo()
     {
-        if (_smu != null) return true;
+        if (_smu?.IsInitialized == true) return true;
+
+        _smu?.Dispose();
+        _smu = null;
+
+        if (!RyzenSmuService.IsSupportedCpu())
+        {
+            DebugLog.Write("[PawnIO] Este processador ainda não possui mapeamento SMU validado. Nenhum comando TDP será enviado.");
+            return false;
+        }
+
         try
         {
             var modulePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Tools", "RyzenSMU.bin");
-            if (!File.Exists(modulePath)) return false;
+            if (!File.Exists(modulePath))
+            {
+                DebugLog.Write("[PawnIO] RyzenSMU.bin não encontrado; provider PawnIO indisponível.");
+                return false;
+            }
+
             _smuModule = File.ReadAllBytes(modulePath);
-            _smu = new RyzenSmuService();
-            return _smu.Initialize(_smuModule);
+            var service = new RyzenSmuService();
+            if (!service.Initialize(_smuModule))
+            {
+                service.Dispose();
+                return false;
+            }
+
+            _smu = service;
+            return true;
         }
-        catch (Exception ex) { DebugLog.Write($"[PawnIO] Falha ao inicializar: {ex.Message}"); return false; }
+        catch (Exception ex)
+        {
+            _smu?.Dispose();
+            _smu = null;
+            DebugLog.Write($"[PawnIO] Falha ao inicializar: {ex.Message}");
+            return false;
+        }
     }
 
-    public void SetTdpMode(string mode)
+    public bool SetTdpMode(string mode)
     {
-        if (!OperatingSystem.IsWindows()) return;
-        int tdpLimit = mode switch { "Eco" => 8000, "Normal" => 15000, "Desempenho" => 25000, "Boost" => 30000, _ => 15000 };
+        if (!OperatingSystem.IsWindows()) return false;
 
-        if (InitializePawnIo())
+        // O Lenovo Legion Go 8AHP2 / Ryzen Z2 é especificado para cTDP de 15–30 W.
+        int tdpLimit = mode switch
         {
-            bool stapmOk = _smu!.SendSmuCommand("stapm-limit", (uint)tdpLimit);
-            bool fastOk = _smu.SendSmuCommand("fast-limit", (uint)tdpLimit);
-            bool slowOk = _smu.SendSmuCommand("slow-limit", (uint)tdpLimit);
-            if (stapmOk && fastOk && slowOk) { DebugLog.Write($"[PawnIO] TDP alterado para {tdpLimit}mW."); return; }
+            "UltraEco" => 8000,
+            "Eco" => 15000,
+            "Normal" => 20000,
+            "Desempenho" => 25000,
+            "Boost" => 30000,
+            _ => 20000
+        };
+
+        DebugLog.Write("[TDP] Solicitação do perfil " + mode + ": " + tdpLimit + "mW. Provider permitido: PawnIO.");
+        // O RyzenAdj legado causou ACCESS_VIOLATION (0xC0000005) no preview
+        // e depende da pilha WinRing0 que esta migração está removendo.
+        if (!InitializePawnIo())
+        {
+            DebugLog.Write("[TDP] PawnIO não inicializado. Perfil não aplicado; nenhum fallback WinRing0/RyzenAdj será executado.");
+            return false;
         }
 
         try
         {
-            string arguments = $"--stapm-limit={tdpLimit} --fast-limit={tdpLimit} --slow-limit={tdpLimit} --tctl-temp=90";
-            DebugLog.Write($"[RyzenAdj] Fallback: {arguments}");
-            var psi = new ProcessStartInfo { FileName = _ryzenAdjPath, Arguments = arguments, CreateNoWindow = true, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };
-            using var process = Process.Start(psi);
-            process?.WaitForExit(2000);
-            DebugLog.Write($"[RyzenAdj] TDP definido para {tdpLimit}mW (fallback)");
+            bool applied = _smu!.SetPowerLimits((uint)tdpLimit);
+            DebugLog.Write(applied
+                ? "[TDP] PawnIO aceitou os três comandos para " + tdpLimit + "mW. Confirme os limites efetivos pelos sensores do hardware."
+                : "[TDP] PawnIO não confirmou todos os comandos para " + tdpLimit + "mW.");
+            return applied;
         }
-        catch (Exception ex) { DebugLog.Write($"[RyzenAdj] Erro: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            DebugLog.Write("[TDP] Falha ao aplicar perfil " + mode + " via PawnIO: " + ex);
+            return false;
+        }
+    }
+    // ==========================================
+    // VOLUME, BRILHO E COR
+    // ==========================================
+    public void SetVolume(double level)
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        float normalized = (float)(Math.Clamp(level, 0, 100) / 100.0);
+        DebugLog.Write("[VOLUME] Solicitação do slider: " + normalized.ToString("P0") + ".");
+        bool success = VolumeMixer.SetMasterVolume(normalized);
+        DebugLog.Write(success
+            ? $"[VOLUME] Volume principal ajustado para {normalized:P0}."
+            : "[VOLUME] Não foi possível ajustar o dispositivo de áudio padrão.");
     }
 
-    // ==========================================
-    // VOLUME, BRILHO, COR
-    // ==========================================
-    public void SetVolume(double level) { /* código existente */ }
-    public void SetBrightness(double level) { /* código existente */ }
-    public void SetColorMode(string mode) { /* código existente */ }
-    public void SetPerformanceHudEnabled(bool enabled) { /* código existente */ }
+    public void SetBrightness(double level)
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        byte brightness = (byte)Math.Clamp(Math.Round(level), 0, 100);
+        DebugLog.Write("[BRILHO] Solicitação do slider: " + brightness + "%.");
+        try
+        {
+            using var searcher = new ManagementObjectSearcher(
+                @"root\WMI",
+                "SELECT * FROM WmiMonitorBrightnessMethods");
+
+            var methods = searcher.Get();
+            bool applied = false;
+            foreach (ManagementObject monitor in methods)
+            {
+                try
+                {
+                    monitor.InvokeMethod("WmiSetBrightness", new object[] { (uint)1, brightness });
+                    applied = true;
+                }
+                finally
+                {
+                    monitor.Dispose();
+                }
+            }
+
+            DebugLog.Write(applied
+                ? $"[BRILHO] Brilho solicitado em {brightness}%."
+                : "[BRILHO] O monitor não expõe WmiMonitorBrightnessMethods; nenhum ajuste aplicado.");
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[BRILHO] Falha ao ajustar brilho: {ex.Message}");
+        }
+    }
+
+    private static readonly object GammaLock = new();
+    private static GammaRamp? _originalGammaRamp;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct GammaRamp
+    {
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 256)] public ushort[] Red;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 256)] public ushort[] Green;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 256)] public ushort[] Blue;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetDC(IntPtr hwnd);
+
+    [DllImport("user32.dll")]
+    private static extern int ReleaseDC(IntPtr hwnd, IntPtr hdc);
+
+    [DllImport("gdi32.dll", EntryPoint = "GetDeviceGammaRamp", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetDeviceGammaRamp(IntPtr hdc, ref GammaRamp ramp);
+
+    [DllImport("gdi32.dll", EntryPoint = "SetDeviceGammaRamp", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetDeviceGammaRamp(IntPtr hdc, ref GammaRamp ramp);
+
+    public bool SetColorMode(string mode)
+    {
+        if (!OperatingSystem.IsWindows()) return false;
+
+        lock (GammaLock)
+        {
+            IntPtr hdc = IntPtr.Zero;
+            try
+            {
+                hdc = GetDC(IntPtr.Zero);
+                if (hdc == IntPtr.Zero)
+                {
+                    DebugLog.Write("[COR] Não foi possível obter o contexto de vídeo.");
+                    return false;
+                }
+
+                if (_originalGammaRamp is null)
+                {
+                    var original = CreateIdentityGammaRamp();
+                    if (!GetDeviceGammaRamp(hdc, ref original))
+                    {
+                        DebugLog.Write("[COR] O driver de vídeo não permite ler a curva de calibração.");
+                        return false;
+                    }
+                    _originalGammaRamp = original;
+                }
+
+                if (string.Equals(mode, "Padrão", StringComparison.OrdinalIgnoreCase))
+                {
+                    var restore = CloneGammaRamp(_originalGammaRamp.Value);
+                    bool restored = SetDeviceGammaRamp(hdc, ref restore);
+                    DebugLog.Write(restored ? "[COR] Calibração original restaurada." : "[COR] Falha ao restaurar a calibração original.");
+                    return restored;
+                }
+
+                double contrast = mode switch
+                {
+                    "Vívido" => 1.10,
+                    "OLED (Alto Contraste)" => 1.18,
+                    "Noturno (Luz Quente)" => 1.00,
+                    _ => 1.00
+                };
+
+                double redGain = mode == "Vívido" ? 1.025 : 1.0;
+                double greenGain = mode == "Vívido" ? 1.01 : mode == "Noturno (Luz Quente)" ? 0.94 : 1.0;
+                double blueGain = mode == "Vívido" ? 1.025 : mode == "Noturno (Luz Quente)" ? 0.72 : 1.0;
+
+                var ramp = BuildGammaRamp(_originalGammaRamp.Value, contrast, redGain, greenGain, blueGain);
+                bool applied = SetDeviceGammaRamp(hdc, ref ramp);
+                DebugLog.Write(applied
+                    ? $"[COR] Perfil {mode} aplicado via calibração de gama do Windows."
+                    : $"[COR] O driver de vídeo recusou o perfil {mode}.");
+                return applied;
+            }
+            catch (Exception ex)
+            {
+                DebugLog.Write($"[COR] Erro ao aplicar perfil {mode}: {ex.Message}");
+                return false;
+            }
+            finally
+            {
+                if (hdc != IntPtr.Zero) ReleaseDC(IntPtr.Zero, hdc);
+            }
+        }
+    }
+
+    private static GammaRamp CreateIdentityGammaRamp()
+    {
+        var ramp = new GammaRamp
+        {
+            Red = new ushort[256],
+            Green = new ushort[256],
+            Blue = new ushort[256]
+        };
+
+        for (int i = 0; i < 256; i++)
+        {
+            ushort value = (ushort)(i * 257);
+            ramp.Red[i] = ramp.Green[i] = ramp.Blue[i] = value;
+        }
+
+        return ramp;
+    }
+
+    private static GammaRamp CloneGammaRamp(GammaRamp source) => new()
+    {
+        Red = (ushort[])source.Red.Clone(),
+        Green = (ushort[])source.Green.Clone(),
+        Blue = (ushort[])source.Blue.Clone()
+    };
+
+    private static GammaRamp BuildGammaRamp(GammaRamp source, double contrast, double redGain, double greenGain, double blueGain)
+    {
+        var result = new GammaRamp
+        {
+            Red = new ushort[256],
+            Green = new ushort[256],
+            Blue = new ushort[256]
+        };
+
+        for (int i = 0; i < 256; i++)
+        {
+            result.Red[i] = TransformGammaValue(source.Red[i], contrast, redGain);
+            result.Green[i] = TransformGammaValue(source.Green[i], contrast, greenGain);
+            result.Blue[i] = TransformGammaValue(source.Blue[i], contrast, blueGain);
+        }
+
+        return result;
+    }
+
+    private static ushort TransformGammaValue(ushort original, double contrast, double gain)
+    {
+        double normalized = original / 65535.0;
+        double adjusted = Math.Clamp(((normalized - 0.5) * contrast + 0.5) * gain, 0.0, 1.0);
+        return (ushort)Math.Clamp(Math.Round(adjusted * 65535.0), 0, 65535);
+    }
+
+    public void SetPerformanceHudEnabled(bool enabled)
+    {
+        // O HUD é controlado pelo MainViewModel/PerformanceHud; este método
+        // permanece na interface por compatibilidade com outros providers.
+        DebugLog.Write($"[HUD] Solicitação de estado recebida: {(enabled ? "ativar" : "desativar")}.");
+    }
 
     // ==========================================
     // GRAVAÇÃO
@@ -219,35 +452,64 @@ internal static class VolumeMixer
         [PreserveSig] int RegisterControlChangeNotify(IntPtr pNotify);
         [PreserveSig] int UnregisterControlChangeNotify(IntPtr pNotify);
         [PreserveSig] int GetChannelCount(out uint channelCount);
-        [PreserveSig] int SetMasterVolumeLevel(float levelDb, Guid eventContext);
-        [PreserveSig] int SetMasterVolumeLevelScalar(float level, Guid eventContext);
+        [PreserveSig] int SetMasterVolumeLevel(float levelDb, ref Guid eventContext);
+        [PreserveSig] int SetMasterVolumeLevelScalar(float level, ref Guid eventContext);
         [PreserveSig] int GetMasterVolumeLevel(out float levelDb);
         [PreserveSig] int GetMasterVolumeLevelScalar(out float level);
-        [PreserveSig] int SetChannelVolumeLevel(uint channel, float levelDb, Guid eventContext);
-        [PreserveSig] int SetChannelVolumeLevelScalar(uint channel, float level, Guid eventContext);
+        [PreserveSig] int SetChannelVolumeLevel(uint channel, float levelDb, ref Guid eventContext);
+        [PreserveSig] int SetChannelVolumeLevelScalar(uint channel, float level, ref Guid eventContext);
         [PreserveSig] int GetChannelVolumeLevel(uint channel, out float levelDb);
         [PreserveSig] int GetChannelVolumeLevelScalar(uint channel, out float level);
-        [PreserveSig] int SetMute([MarshalAs(UnmanagedType.Bool)] bool mute, Guid eventContext);
+        [PreserveSig] int SetMute([MarshalAs(UnmanagedType.Bool)] bool mute, ref Guid eventContext);
         [PreserveSig] int GetMute([MarshalAs(UnmanagedType.Bool)] out bool mute);
         [PreserveSig] int GetVolumeStepInfo(out uint step, out uint stepCount);
-        [PreserveSig] int VolumeStepUp(Guid eventContext);
-        [PreserveSig] int VolumeStepDown(Guid eventContext);
+        [PreserveSig] int VolumeStepUp(ref Guid eventContext);
+        [PreserveSig] int VolumeStepDown(ref Guid eventContext);
         [PreserveSig] int QueryHardwareSupport(out uint hardwareSupportMask);
         [PreserveSig] int GetVolumeRange(out float minDb, out float maxDb, out float incrementDb);
     }
 
     public static bool SetMasterVolume(float level)
     {
+        object? enumeratorObject = null;
+        object? deviceObject = null;
+        object? volumeObject = null;
         try
         {
-            var enumerator = (IMMDeviceEnumerator)new MMDeviceEnumeratorComObject();
-            enumerator.GetDefaultAudioEndpoint(0, 1, out var device);
+            enumeratorObject = new MMDeviceEnumeratorComObject();
+            var enumerator = (IMMDeviceEnumerator)enumeratorObject;
+            int hr = enumerator.GetDefaultAudioEndpoint(0, 1, out var device);
+            if (hr < 0) Marshal.ThrowExceptionForHR(hr);
+            deviceObject = device;
+
             var iid = typeof(IAudioEndpointVolume).GUID;
-            device.Activate(ref iid, 23, IntPtr.Zero, out var obj);
-            var volume = (IAudioEndpointVolume)obj;
-            volume.SetMasterVolumeLevelScalar(level, Guid.Empty);
+            hr = device.Activate(ref iid, 23, IntPtr.Zero, out var activated);
+            if (hr < 0) Marshal.ThrowExceptionForHR(hr);
+            volumeObject = activated;
+
+            var volume = (IAudioEndpointVolume)volumeObject;
+            Guid eventContext = Guid.Empty;
+            hr = volume.SetMasterVolumeLevelScalar(Math.Clamp(level, 0f, 1f), ref eventContext);
+            if (hr < 0) Marshal.ThrowExceptionForHR(hr);
             return true;
         }
-        catch { return false; }
+        catch (Exception ex)
+        {
+            DebugLog.Write("[VOLUME] Core Audio falhou: " + ex.GetType().Name + ": " + ex.Message);
+            return false;
+        }
+        finally
+        {
+            ReleaseComObject(volumeObject);
+            ReleaseComObject(deviceObject);
+            ReleaseComObject(enumeratorObject);
+        }
+    }
+
+    private static void ReleaseComObject(object? value)
+    {
+        if (value is null || !Marshal.IsComObject(value)) return;
+        try { Marshal.FinalReleaseComObject(value); }
+        catch (Exception ex) { DebugLog.Write("[VOLUME] Falha ao liberar objeto COM: " + ex.Message); }
     }
 }

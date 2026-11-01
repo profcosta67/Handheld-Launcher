@@ -18,7 +18,7 @@ O projeto foi desenhado para ser o seu **centro de controle (Hub)**, reunindo bi
 
 ### ⚡ Quick Settings (Overlay)
 Aperte **L3 + R3** (ou o atalho `Ctrl + Alt + O`) durante o jogo para abrir o painel de controle rápido:
-- **TDP:** Modos Eco (8W), Normal (15W), Desempenho (25W) e Boost (30W) com proteção térmica de 90°C.
+- **TDP:** Modos UltraEco (8W), Eco (15W), Normal (20W), Desempenho (25W) e Boost (30W) com proteção térmica de 90°C.
 - **Tela:** Alterne a resolução (720p, 1080p, 2K) e a taxa de atualização (60Hz, 120Hz, 144Hz, 240Hz) sem sair do jogo.
 - **Modo de Cor:** Padrão, Vívido, OLED e Noturno.
 - **HUD de Desempenho:** Ative o monitor de FPS, temperatura (CPU/SoC), RAM e bateria no topo da tela.
@@ -68,3 +68,16 @@ O projeto utiliza o Velopack. O instalador oficial (HandheldLauncher-win-Setup.e
 
 📜 Licença
 Este projeto está sob a licença GPL-3.0. Veja o arquivo LICENSE para mais detalhes.
+
+## Diagnóstico de TDP com HWiNFO (opcional)
+
+Para registrar a potência e as temperaturas reais durante os testes dos perfis TDP, o Launcher pode ler os sensores publicados pelo HWiNFO64 via Shared Memory. O HWiNFO é um programa externo e não é incluído no instalador do Launcher.
+
+1. Instale/abra o HWiNFO64 em modo **Sensors-only**.
+2. Abra **Settings** e habilite **Shared Memory Support**.
+3. Deixe o HWiNFO aberto enquanto testa os perfis.
+4. Os registros selecionados são gravados em `%AppData%\\HandheldLauncher\\debug.log`, com o prefixo `[HWiNFO]`.
+
+O registro inclui, quando disponibilizados pelo aparelho/HWiNFO, CPU Package Power, PPT, STAPM, Tctl/Tdie, Effective Clock, GPU Clock e GPU Power. A ausência do HWiNFO ou da opção Shared Memory não interfere no funcionamento normal do Launcher.
+
+**Observação:** a edição gratuita do HWiNFO limita a sessão de Shared Memory a 12 horas; depois desse período, reative a opção ou reinicie o HWiNFO. Consulte a documentação oficial do HWiNFO para detalhes.
