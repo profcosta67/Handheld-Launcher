@@ -101,16 +101,20 @@ public sealed class LenovoFanCurveService : IDisposable
                     message = "O firmware recusou a curva; tabela anterior reenviada.";
                     return false;
                 }
+                _hasWrittenCurve = true;
                 var verify = InvokeGet();
                 if (verify is null || !verify.SequenceEqual(target))
                 {
                     // Revert to the exact table read immediately before this write.
                     InvokeSet(current);
-                    message = "A leitura de confirmação divergiu; curva anterior restaurada.";
+                    var rollback = InvokeGet();
+                    if (rollback is not null && rollback.SequenceEqual(current)
+                        && _original is not null && rollback.SequenceEqual(_original))
+                        _hasWrittenCurve = false;
+                    message = "A leitura de confirmação divergiu; curva anterior reenviada.";
                     DebugLog.Write("[FAN] Readback divergente; curva anterior restaurada.");
                     return false;
                 }
-                _hasWrittenCurve = true;
                 message = $"Curva {mode} aplicada e confirmada pelo firmware.";
                 DebugLog.Write($"[FAN] Perfil {mode} aplicado; pontos: {string.Join(",", verify)}.");
                 return true;
