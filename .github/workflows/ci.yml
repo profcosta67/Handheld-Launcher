@@ -35,6 +35,10 @@ jobs:
           -p:Version=0.9.25-preview
           -o preview-publish
 
+      - name: Preparar módulo PawnIO oficial (hash fixo)
+        shell: pwsh
+        run: ./scripts/Prepare-PawnIO.ps1 -OutputDirectory "preview-publish/Tools"
+
       - name: Compactar pacote de teste
         shell: pwsh
         run: Compress-Archive -Path preview-publish/* -DestinationPath HandheldLauncher-preview-win-x64.zip -Force
