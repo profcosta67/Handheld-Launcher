@@ -74,6 +74,11 @@ jobs:
           -p:Version=${{ steps.ver.outputs.version }}
           -o publish
 
+      - name: Preparar módulo PawnIO oficial (hash fixo)
+        if: steps.exists.outputs.skip != 'true'
+        shell: pwsh
+        run: ./scripts/Prepare-PawnIO.ps1 -OutputDirectory "publish/Tools"
+
       - name: Copiar InstallTask.ps1 para o pacote
         if: steps.exists.outputs.skip != 'true'
         run: Copy-Item "InstallTask.ps1" -Destination "publish/InstallTask.ps1"
