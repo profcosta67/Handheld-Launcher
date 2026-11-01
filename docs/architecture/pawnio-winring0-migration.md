@@ -40,7 +40,7 @@ Referência de implementação para estudo (licença e atribuição devem ser pr
 
 - O módulo oficial não deve ser compilado localmente para uso com a edição oficial assinada do driver: o driver valida a assinatura do blob. A branch agora prepara `RyzenSMU.bin` diretamente do release oficial `PawnIO.Modules 0.2.11`, por meio de `scripts/Prepare-PawnIO.ps1`, e valida o SHA-256 do ZIP antes de extrair o arquivo. O digest fixado é `43608cb89bc84247fef1368a139013f7d043e17db6d6c8dfc9b46bf0905a81f4`. Os workflows de CI e release executam o script após o publish Windows; o módulo é colocado em `Tools/RyzenSMU.bin` no pacote Windows, sem ser incluído no pacote Linux. A origem é o release oficial: https://github.com/namazso/PawnIO.Modules/releases/tag/0.2.11.
 - O runtime PawnIO ainda não é instalado pelo launcher. O usuário precisa instalar o driver oficial separadamente; uma futura integração deve detectar ausência, explicar o motivo, abrir a página oficial e solicitar consentimento/elevation antes de qualquer instalação. Nunca instalar driver de kernel silenciosamente. A documentação oficial recomenda obter o runtime em https://pawnio.eu/.
-- A comunicação SMU ainda precisa ser validada em hardware real; sucesso do DeviceIoControl não substitui a confirmação de que os limites foram aplicados e persistiram.
+- A comunicação SMU exige validação em hardware real. O código agora consulta a PM Table após os três comandos e só reporta sucesso quando STAPM/Fast/Slow retornam dentro de 1 W do alvo; isso ainda precisa ser confirmado no Legion Go 8AHP2.
 - O fallback RyzenAdj/WinRing0 e os binários/scripts legados foram removidos desta branch. Se PawnIO estiver ausente ou a CPU não estiver na matriz validada, TDP fica indisponível com diagnóstico explícito; volume, brilho e demais funções continuam independentes.
 
 ## Regras para a migração
@@ -60,7 +60,7 @@ Referência de implementação para estudo (licença e atribuição devem ser pr
 - O runtime PawnIO oficial é detectado com tratamento claro para ausência, versão incompatível e acesso negado; a instalação é sempre explícita e consentida pelo usuário.
 - O módulo RyzenSMU é obtido do release oficial 0.2.11 com o hash SHA-256 do arquivo ZIP validado, assinatura original preservada e licença LGPL-2.1-or-later informada.
 - APU não suportada não recebe comandos SMU.
-- Aplicar cada perfil confirma sucesso real; falha parcial não é reportada como sucesso.
+- Aplicar cada perfil exige sucesso dos três IOCTLs e read-back da PM Table dentro de 1 W do alvo; falha parcial ou ausência de leitura não é reportada como sucesso.
 - Compilação Windows Release e testes automatizados passam.
 - TDP é validado em Legion Go 2 Ryzen Z2 e, depois, em outros modelos AMD suportados.
 - Dispositivos sem suporte a PawnIO continuam abrindo e usando as demais funções do launcher.
