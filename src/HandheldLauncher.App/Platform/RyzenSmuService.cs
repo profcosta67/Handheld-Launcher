@@ -16,7 +16,8 @@ public sealed class RyzenSmuService : IDisposable
     private const string PciMutexName = @"Global\Access_PCI";
 
     // RyzenSMU.p uses MP1 commands for Hawk Point / Mobile family.
-    private const ulong HawkPointCodeName = 30; // CPU_HawkPoint in the official RyzenSMU.p enum\n    private const ulong SetStapmCommand = 0x14;
+    private const ulong HawkPointCodeName = 30; // CPU_HawkPoint in the official RyzenSMU.p enum
+    private const ulong SetStapmCommand = 0x14;
     private const ulong SetFastPptCommand = 0x15;
     private const ulong SetSlowPptCommand = 0x16;
 
