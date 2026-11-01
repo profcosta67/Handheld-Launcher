@@ -1,10 +1,10 @@
 # Compila a solução a cada envio pro GitHub. Também gera um pacote portátil
-# de teste para PRs, sem criar Release nem atualizar instalações existentes.
+# de teste para PRs e branches de desenvolvimento, sem criar Release nem atualizar instalações existentes.
 name: Build
 
 on:
   push:
-    branches: [master, main, 'design/**']
+    branches: [master, main, 'design/**', 'feature/**']
   pull_request:
 
 permissions:

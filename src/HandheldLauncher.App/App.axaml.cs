@@ -47,7 +47,7 @@ public partial class App : Application
             var steamAchievementsCandidate = new SteamAchievementsClient(appSettings.SteamWebApiKey, appSettings.SteamId64);
             var steamAchievementsClient = steamAchievementsCandidate.HasCredentials ? steamAchievementsCandidate : null;
             var libraryStore = new GameLibraryStore();
-            
+
             var libraryService = new LibraryService(steamScanner, libraryStore, xboxFolderScanner, steamOwnedGamesClient,
                 [new EpicLibraryScanner(), new GogLibraryScanner(), new UbisoftLibraryScanner(), new EaLibraryScanner(),
                  new EdenLibraryScanner(appSettings.EdenExecutablePath, appSettings.EdenRomFolders)]);
@@ -88,6 +88,9 @@ public partial class App : Application
 
             if (OperatingSystem.IsWindows())
             {
+                // Captura a curva do Windows antes de aplicar o modo salvo.
+                // Os próximos presets sempre serão derivados desta mesma base.
+                DisplayColorManager.CaptureOriginal();
                 DisplayColorManager.Apply(appSettings.ColorMode);
                 desktop.Exit += (_, _) => DisplayColorManager.RestoreOriginal();
             }
@@ -118,40 +121,11 @@ public partial class App : Application
             if (appSettings.KioskMode)
             {
                 mainWindow.WindowState = Avalonia.Controls.WindowState.FullScreen;
-                mainWindow.SystemDecorations = Avalonia.Controls.SystemDecorations.None;
-                mainWindow.Topmost = true;
             }
 
             desktop.MainWindow = mainWindow;
-
-            SetupTrayIcon(mainWindow);
         }
 
         base.OnFrameworkInitializationCompleted();
-    }
-
-    private static void SetupTrayIcon(MainWindow mainWindow)
-    {
-        var trayIcon = new TrayIcon
-        {
-            Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://HandheldLauncher/Assets/app-icon.ico"))),
-            ToolTipText = "Handheld Launcher",
-        };
-        trayIcon.Clicked += (_, _) => mainWindow.RestoreFromTray();
-
-        var openItem = new NativeMenuItem("Abrir");
-        openItem.Click += (_, _) => mainWindow.RestoreFromTray();
-
-        var quitItem = new NativeMenuItem("Sair");
-        quitItem.Click += (_, _) => mainWindow.QuitFromTray();
-
-        var menu = new NativeMenu();
-        menu.Items.Add(openItem);
-        menu.Items.Add(quitItem);
-        trayIcon.Menu = menu;
-
-        var icons = new TrayIcons();
-        icons.Add(trayIcon);
-        TrayIcon.SetIcons(Current!, icons);
     }
 }
