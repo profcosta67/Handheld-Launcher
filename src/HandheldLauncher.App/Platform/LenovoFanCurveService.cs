@@ -10,7 +10,7 @@ namespace HandheldLauncher.App.Platform;
 /// </summary>
 public sealed class LenovoFanCurveService : IDisposable
 {
-    private const string Namespace = @"root\\WMI";
+    private const string Namespace = @"root\WMI";
     private const string Query = "SELECT * FROM LENOVO_FAN_METHOD";
     private const int PointCount = 10;
     private static readonly int[] Temperatures = [10,20,30,40,50,60,70,80,90,100];
@@ -26,7 +26,7 @@ public sealed class LenovoFanCurveService : IDisposable
             try
             {
                 using var searcher = new ManagementObjectSearcher(
-                    @"root\\CIMV2", "SELECT Manufacturer FROM Win32_ComputerSystem");
+                    @"root\CIMV2", "SELECT Manufacturer FROM Win32_ComputerSystem");
                 foreach (ManagementObject item in searcher.Get())
                 {
                     using (item)
@@ -48,7 +48,7 @@ public sealed class LenovoFanCurveService : IDisposable
         try
         {
             using var searcher = new ManagementObjectSearcher(
-                @"root\\CIMV2", "SELECT Version FROM Win32_ComputerSystemProduct");
+                @"root\CIMV2", "SELECT Version FROM Win32_ComputerSystemProduct");
             foreach (ManagementObject item in searcher.Get())
             {
                 try { return item["Version"]?.ToString(); }
