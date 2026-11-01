@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Security.AccessControl;
 using System.Security.Principal;
+using System.Management;
 using HandheldLauncher.App.Diagnostics;
 
 namespace HandheldLauncher.App.Platform;
@@ -30,6 +31,7 @@ public sealed class RyzenSmuService : IDisposable
 
     private readonly PawnIOWrapper _io = new();
     private bool _initialized;
+    private uint _initializedCpuModel;
     private bool _disposed;
 
     public bool IsInitialized => _initialized;
@@ -75,12 +77,57 @@ public sealed class RyzenSmuService : IDisposable
         }
     }
 
+    /// <summary>
+    /// Fail-closed platform allowlist. CPUID identifies the silicon family, not
+    /// the device: desktop APUs can share Phoenix/Hawk Point models. Until another
+    /// handheld is explicitly validated, only the tested Legion Go 2 (8AHP2)
+    /// is allowed to issue SMU writes.
+    /// </summary>
+    public static bool IsSupportedPlatform()
+    {
+        if (!OperatingSystem.IsWindows())
+            return false;
+
+        try
+        {
+            using var searcher = new ManagementObjectSearcher(
+                "SELECT Manufacturer, Model FROM Win32_ComputerSystem");
+            using var results = searcher.Get();
+            foreach (ManagementObject system in results)
+            {
+                string manufacturer = Convert.ToString(system["Manufacturer"])?.Trim() ?? string.Empty;
+                string model = Convert.ToString(system["Model"])?.Trim() ?? string.Empty;
+                bool isLenovo = manufacturer.Contains("LENOVO", StringComparison.OrdinalIgnoreCase);
+                bool isValidatedLegionGo2 = model.Contains("8AHP2", StringComparison.OrdinalIgnoreCase)
+                    || model.Contains("LEGION GO 2", StringComparison.OrdinalIgnoreCase);
+
+                bool supported = isLenovo && isValidatedLegionGo2;
+                DebugLog.Write($"[PawnIO] Plataforma DMI: fabricante='{manufacturer}', modelo='{model}'; allowlist Legion Go 2 8AHP2={(supported ? "permitida" : "bloqueada")}.");
+                return supported;
+            }
+
+            DebugLog.Write("[PawnIO] WMI não retornou Win32_ComputerSystem; plataforma não identificada e TDP bloqueado.");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[PawnIO] Falha ao identificar plataforma via WMI: {ex.Message}. TDP bloqueado por segurança.");
+            return false;
+        }
+    }
+
     public static bool IsSupportedCpu() => TryGetSupportedCpuModel(out _);
 
     public bool Initialize(byte[] moduleData)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (_initialized) return true;
+
+        if (!IsSupportedPlatform())
+        {
+            DebugLog.Write("[PawnIO] Plataforma fora da allowlist de hardware validado (Lenovo Legion Go 2 8AHP2); nenhuma escrita SMU será enviada.");
+            return false;
+        }
 
         if (!TryGetSupportedCpuModel(out uint cpuModel))
         {
@@ -137,6 +184,7 @@ public sealed class RyzenSmuService : IDisposable
             return false;
         }
 
+        _initializedCpuModel = cpuModel;
         _initialized = true;
         DebugLog.Write(cpuModel == 0x75
             ? "[PawnIO] Módulo RyzenSMU carregado e confirmou CPU_Phoenix (CPUID 19h/75h, enum 23)."
@@ -171,7 +219,18 @@ public sealed class RyzenSmuService : IDisposable
     public bool SetPowerLimits(uint limitMilliwatts)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        if (!_initialized) return false;
+        if (!_initialized)
+        {
+            DebugLog.Write("[PawnIO] TDP bloqueado: provider não inicializado após as verificações de segurança.");
+            return false;
+        }
+        if (!IsSupportedPlatform()
+            || !TryGetSupportedCpuModel(out uint currentCpuModel)
+            || currentCpuModel != _initializedCpuModel)
+        {
+            DebugLog.Write("[PawnIO] TDP bloqueado: a plataforma ou o CPUID não corresponde mais ao hardware validado na inicialização.");
+            return false;
+        }
         if (limitMilliwatts < 5000 || limitMilliwatts > 30000)
         {
             DebugLog.Write($"[PawnIO] Limite TDP fora da faixa permitida: {limitMilliwatts}mW.");
@@ -379,6 +438,7 @@ public sealed class RyzenSmuService : IDisposable
         if (_disposed) return;
         _disposed = true;
         _initialized = false;
+        _initializedCpuModel = 0;
         _io.Dispose();
         GC.SuppressFinalize(this);
     }
