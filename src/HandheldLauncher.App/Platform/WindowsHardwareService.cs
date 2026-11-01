@@ -79,14 +79,43 @@ public class WindowsHardwareService : IHardwareService
 
         try
         {
+            if (!File.Exists(_ryzenAdjPath))
+            {
+                DebugLog.Write($"[RyzenAdj] Fallback indisponível: executável não encontrado em {_ryzenAdjPath}.");
+                return;
+            }
+
             string arguments = $"--stapm-limit={tdpLimit} --fast-limit={tdpLimit} --slow-limit={tdpLimit} --tctl-temp=90";
             DebugLog.Write($"[RyzenAdj] Fallback: {arguments}");
-            var psi = new ProcessStartInfo { FileName = _ryzenAdjPath, Arguments = arguments, CreateNoWindow = true, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };
+            var psi = new ProcessStartInfo
+            {
+                FileName = _ryzenAdjPath,
+                Arguments = arguments,
+                CreateNoWindow = true,
+                UseShellExecute = false
+            };
+
             using var process = Process.Start(psi);
-            process?.WaitForExit(2000);
-            DebugLog.Write($"[RyzenAdj] TDP definido para {tdpLimit}mW (fallback)");
+            if (process is null)
+            {
+                DebugLog.Write("[RyzenAdj] Não foi possível iniciar o processo; TDP não confirmado.");
+                return;
+            }
+
+            if (!process.WaitForExit(5000))
+            {
+                process.Kill(entireProcessTree: true);
+                process.WaitForExit();
+                DebugLog.Write("[RyzenAdj] Timeout ao aplicar TDP; processo encerrado e sucesso não confirmado.");
+                return;
+            }
+
+            if (process.ExitCode == 0)
+                DebugLog.Write($"[RyzenAdj] Processo concluiu com sucesso ao solicitar {tdpLimit}mW.");
+            else
+                DebugLog.Write($"[RyzenAdj] Processo terminou com código {process.ExitCode}; TDP não confirmado.");
         }
-        catch (Exception ex) { DebugLog.Write($"[RyzenAdj] Erro: {ex.Message}"); }
+        catch (Exception ex) { DebugLog.Write($"[RyzenAdj] Erro ao aplicar TDP: {ex.Message}"); }
     }
 
     // ==========================================
