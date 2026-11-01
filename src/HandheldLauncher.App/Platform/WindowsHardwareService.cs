@@ -246,7 +246,7 @@ public class WindowsHardwareService : IHardwareService
 
                 if (string.Equals(mode, "Padrão", StringComparison.OrdinalIgnoreCase))
                 {
-                    var restore = CloneGammaRamp(_originalGammaRamp);
+                    var restore = CloneGammaRamp(_originalGammaRamp.Value);
                     bool restored = SetDeviceGammaRamp(hdc, ref restore);
                     DebugLog.Write(restored ? "[COR] Calibração original restaurada." : "[COR] Falha ao restaurar a calibração original.");
                     return restored;
@@ -264,7 +264,7 @@ public class WindowsHardwareService : IHardwareService
                 double greenGain = mode == "Vívido" ? 1.01 : mode == "Noturno (Luz Quente)" ? 0.94 : 1.0;
                 double blueGain = mode == "Vívido" ? 1.025 : mode == "Noturno (Luz Quente)" ? 0.72 : 1.0;
 
-                var ramp = BuildGammaRamp(_originalGammaRamp, contrast, redGain, greenGain, blueGain);
+                var ramp = BuildGammaRamp(_originalGammaRamp.Value, contrast, redGain, greenGain, blueGain);
                 bool applied = SetDeviceGammaRamp(hdc, ref ramp);
                 DebugLog.Write(applied
                     ? $"[COR] Perfil {mode} aplicado via calibração de gama do Windows."
