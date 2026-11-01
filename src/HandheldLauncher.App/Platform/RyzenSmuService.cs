@@ -8,16 +8,22 @@ namespace HandheldLauncher.App.Platform;
 
 /// <summary>
 /// TDP access through the official PawnIO RyzenSMU module.
-/// This provider is deliberately limited to AMD Hawk Point (family 19h, model 7Ch)
-/// until other CPU families have separately validated command mappings.
+/// This provider is limited to the two Family 19h models explicitly mapped by
+/// PawnIO.Modules 0.2.11 for the Phoenix/Hawk Point mobile SMU path:
+/// model 75h -> CPU_Phoenix, model 7Ch -> CPU_HawkPoint.
 /// </summary>
 public sealed class RyzenSmuService : IDisposable
 {
     private const string SmuFunction = "ioctl_send_smu_command";
     private const string PciMutexName = @"Global\Access_PCI";
 
-    // RyzenSMU.p uses MP1 commands for Hawk Point / Mobile family.
-    private const ulong HawkPointCodeName = 30; // CPU_HawkPoint in the official RyzenSMU.p enum
+    // CodeName enum values from the pinned PawnIO.Modules 0.2.11 RyzenSMU.p:
+    // CPU_Phoenix = 23, CPU_HawkPoint = 30.
+    private const ulong PhoenixCodeName = 23;
+    private const ulong HawkPointCodeName = 30;
+
+    // MP1 commands for the FT6/FP7/FP8 mobile path used by Phoenix and Hawk Point.
+    // Do NOT substitute 0x1A/0x1B/0x1C: those belong to the FT5/FP5/AM4 command table.
     private const ulong SetStapmCommand = 0x14;
     private const ulong SetFastPptCommand = 0x15;
     private const ulong SetSlowPptCommand = 0x16;
@@ -28,8 +34,9 @@ public sealed class RyzenSmuService : IDisposable
 
     public bool IsInitialized => _initialized;
 
-    public static bool IsSupportedCpu()
+    private static bool TryGetSupportedCpuModel(out uint model)
     {
+        model = 0;
         if (!OperatingSystem.IsWindows() || !X86Base.IsSupported)
             return false;
 
@@ -43,37 +50,53 @@ public sealed class RyzenSmuService : IDisposable
             uint extendedModel = (signature >> 16) & 0xF;
 
             uint family = baseFamily == 0xF ? baseFamily + extendedFamily : baseFamily;
-            uint model = (baseFamily == 0x6 || baseFamily == 0xF)
+            model = (baseFamily == 0x6 || baseFamily == 0xF)
                 ? (extendedModel << 4) | baseModel
                 : baseModel;
 
-            DebugLog.Write($"[PawnIO] CPUID leaf 1: EAX=0x{signature:X8}; family=0x{family:X}; model=0x{model:X}.");
+            // The pinned PawnIO.Modules 0.2.11 RyzenSMU.p maps:
+            // 0x1974/0x1975 -> CPU_Phoenix; 0x197C -> CPU_HawkPoint.
+            bool supported = family == 0x19 && (model == 0x75 || model == 0x7C);
+            string platform = model switch
+            {
+                0x75 => "Phoenix (PawnIO codename; CPUID model 75h)",
+                0x7C => "Hawk Point (PawnIO codename; CPUID model 7Ch)",
+                _ => "não mapeado"
+            };
 
-            // Only Hawk Point (family 19h, model 7Ch) has a validated
-            // command mapping in the bundled official PawnIO module.
-            bool supported = family == 0x19 && model == 0x7C;
+            DebugLog.Write($"[PawnIO] CPUID leaf 1: EAX=0x{signature:X8}; family=0x{family:X}; model=0x{model:X}; plataforma={platform}.");
             DebugLog.Write(supported
-                ? "[PawnIO] CPU identificado como Hawk Point; provider habilitado."
-                : "[PawnIO] CPU fora da matriz validada Hawk Point; provider bloqueado.");
+                ? "[PawnIO] CPU mapeada pelo módulo oficial; provider permitido para validação."
+                : "[PawnIO] CPU fora da matriz Phoenix/Hawk Point validada; provider bloqueado.");
             return supported;
         }
-        catch
+        catch (Exception ex)
         {
+            DebugLog.Write($"[PawnIO] Não foi possível consultar CPUID: {ex.Message}");
             return false;
         }
     }
+
+    public static bool IsSupportedCpu() => TryGetSupportedCpuModel(out _);
 
     public bool Initialize(byte[] moduleData)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (_initialized) return true;
 
-        // Never load or execute SMU commands on an unverified CPU family.
-        if (!IsSupportedCpu())
+        // Never load or execute SMU commands on an unverified CPU family/model.
+        if (!TryGetSupportedCpuModel(out uint cpuModel))
         {
-            DebugLog.Write("[PawnIO] CPU não identificado como AMD Hawk Point (19h/7Ch); TDP PawnIO desabilitado.");
+            DebugLog.Write("[PawnIO] CPU fora da matriz Phoenix/Hawk Point (19h/75h ou 19h/7Ch); TDP PawnIO desabilitado.");
             return false;
         }
+
+        ulong expectedCodeName = cpuModel switch
+        {
+            0x75 => PhoenixCodeName,
+            0x7C => HawkPointCodeName,
+            _ => ulong.MaxValue
+        };
 
         if (moduleData is null || moduleData.Length == 0)
         {
@@ -102,16 +125,19 @@ public sealed class RyzenSmuService : IDisposable
         }
 
         // The official module performs its own CPU/PCI validation during load.
-        // Query its codename as a second guard before enabling any write command.
+        // Query its codename and require the exact value expected for this CPUID.
         ulong[] codeName = new ulong[1];
-        if (!_io.Execute("ioctl_get_code_name", null, codeName) || codeName[0] != HawkPointCodeName)
+        if (!_io.Execute("ioctl_get_code_name", null, codeName) || codeName[0] != expectedCodeName)
         {
-            DebugLog.Write($"[PawnIO] Codename retornado pelo módulo não é Hawk Point (valor={codeName[0]}). TDP desabilitado.");
+            string expectedName = cpuModel == 0x75 ? "CPU_Phoenix (23)" : "CPU_HawkPoint (30)";
+            DebugLog.Write($"[PawnIO] Codename do módulo incompatível: recebido={codeName[0]}, esperado={expectedName}. TDP desabilitado.");
             return false;
         }
 
         _initialized = true;
-        DebugLog.Write("[PawnIO] Módulo RyzenSMU carregado e confirmou CPU_HawkPoint (código 30).");
+        DebugLog.Write(cpuModel == 0x75
+            ? "[PawnIO] Módulo RyzenSMU carregado e confirmou CPU_Phoenix (CPUID 19h/75h, enum 23)."
+            : "[PawnIO] Módulo RyzenSMU carregado e confirmou CPU_HawkPoint (CPUID 19h/7Ch, enum 30).");
         return true;
     }
 
