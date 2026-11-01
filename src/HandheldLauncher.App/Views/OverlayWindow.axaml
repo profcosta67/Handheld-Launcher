@@ -77,29 +77,35 @@
                     <Border x:Name="TdpSection" CornerRadius="12" BorderThickness="2" BorderBrush="Transparent" Padding="10" Background="#1AFFFFFF">
                         <StackPanel Spacing="8">
                             <TextBlock Text="⚡ Desempenho (TDP)" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
-                            <Grid ColumnDefinitions="*,*,*,*">
-                                <Button x:Name="BtnEco" Grid.Column="0" Tag="Eco" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="0,0,4,0" Padding="5">
-                                    <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Grid ColumnDefinitions="*,*,*,*,*">
+                                <Button x:Name="BtnUltraEco" Grid.Column="0" Tag="UltraEco" ToolTip.Tip="UltraEco • 8 W" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="0,0,3,0" Padding="3">
+                                    <StackPanel Orientation="Vertical" Spacing="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <TextBlock Text="🪫" FontSize="14" VerticalAlignment="Center"/>
+                                        <TextBlock Text="U.Eco" FontSize="9" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="BtnEco" Grid.Column="1" Tag="Eco" ToolTip.Tip="Eco • 15 W" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="3,0" Padding="3">
+                                    <StackPanel Orientation="Vertical" Spacing="1" HorizontalAlignment="Center" VerticalAlignment="Center">
                                         <TextBlock Text="🍃" FontSize="14" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Eco" FontSize="11" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Eco" FontSize="9" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
-                                <Button x:Name="BtnNormal" Grid.Column="1" Tag="Normal" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="4,0,4,0" Padding="5">
-                                    <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Button x:Name="BtnNormal" Grid.Column="2" Tag="Normal" ToolTip.Tip="Normal • 20 W" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="3,0" Padding="3">
+                                    <StackPanel Orientation="Vertical" Spacing="1" HorizontalAlignment="Center" VerticalAlignment="Center">
                                         <TextBlock Text="🎯" FontSize="14" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Norm" FontSize="11" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Norm" FontSize="9" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
-                                <Button x:Name="BtnDesempenho" Grid.Column="2" Tag="Desempenho" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="4,0,4,0" Padding="5">
-                                    <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Button x:Name="BtnDesempenho" Grid.Column="3" Tag="Desempenho" ToolTip.Tip="Desempenho • 25 W" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="3,0" Padding="3">
+                                    <StackPanel Orientation="Vertical" Spacing="1" HorizontalAlignment="Center" VerticalAlignment="Center">
                                         <TextBlock Text="🚀" FontSize="14" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Desemp" FontSize="10" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Desemp" FontSize="9" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
-                                <Button x:Name="BtnBoost" Grid.Column="3" Tag="Boost" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="4,0,0,0" Padding="5">
-                                    <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Button x:Name="BtnBoost" Grid.Column="4" Tag="Boost" ToolTip.Tip="Boost • 30 W" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="3,0,0,0" Padding="3">
+                                    <StackPanel Orientation="Vertical" Spacing="1" HorizontalAlignment="Center" VerticalAlignment="Center">
                                         <TextBlock Text="🔥" FontSize="14" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Boost" FontSize="11" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Boost" FontSize="9" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                             </Grid>
