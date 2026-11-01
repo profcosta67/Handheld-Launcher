@@ -452,6 +452,7 @@ public partial class OverlayWindow : Window
     private void OnVolumeChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (_isInitializing) return;
+        DebugLog.Write($"[OVERLAY] Evento do slider de volume: {e.NewValue:F0}%.");
         _hardwareService?.SetVolume(Math.Round(e.NewValue));
         SaveSetting("Volume", e.NewValue.ToString("F0"));
     }
@@ -459,6 +460,7 @@ public partial class OverlayWindow : Window
     private void OnBrightnessChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (_isInitializing) return;
+        DebugLog.Write($"[OVERLAY] Evento do slider de brilho: {e.NewValue:F0}%.");
         _hardwareService?.SetBrightness(Math.Round(e.NewValue));
         SaveSetting("Brightness", e.NewValue.ToString("F0"));
     }
