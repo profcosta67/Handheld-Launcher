@@ -71,6 +71,7 @@ public class WindowsHardwareService : IHardwareService
         // O Lenovo Legion Go 8AHP2 / Ryzen Z2 é especificado para cTDP de 15–30 W.
         int tdpLimit = mode switch
         {
+            "UltraEco" => 8000,
             "Eco" => 15000,
             "Normal" => 20000,
             "Desempenho" => 25000,
