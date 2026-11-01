@@ -97,6 +97,7 @@ public partial class App : Application
 
             var mainViewModel = new MainViewModel(libraryService, gameLauncher, artworkService, performanceOverlay, updateService, performanceHud,
                 steamOwnedGamesClient, steamAchievementsClient);
+            desktop.Exit += (_, _) => mainViewModel.Dispose();
             var mainWindow = new MainWindow
             {
                 DataContext = mainViewModel,
