@@ -129,6 +129,8 @@ public sealed class RyzenSmuService : IDisposable
         }
         catch (AbandonedMutexException)
         {
+            // WaitOne grants ownership even when it reports an abandoned mutex.
+            acquired = true;
             DebugLog.Write("[PawnIO] Mutex Access_PCI abandonado; comandos SMU cancelados nesta tentativa.");
             return false;
         }
