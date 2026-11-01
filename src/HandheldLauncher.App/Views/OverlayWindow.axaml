@@ -116,6 +116,21 @@
                         </StackPanel>
                     </Border>
 
+                    <!-- Seção: Curva das ventoinhas -->
+                    <Border x:Name="FanSection" CornerRadius="12" BorderThickness="2" BorderBrush="Transparent" Padding="10" Background="#1AFFFFFF">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="❄️ Refrigeração (ventoinhas)" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
+                            <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto">
+                                <Button x:Name="BtnFanAuto" Grid.Row="0" Grid.Column="0" Tag="Automático" Content="Automático" Click="OnFanClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="0,0,3,4" FontSize="10"/>
+                                <Button x:Name="BtnFanSilent" Grid.Row="0" Grid.Column="1" Tag="Silencioso" Content="Silencioso" Click="OnFanClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="3,0,3,4" FontSize="10"/>
+                                <Button x:Name="BtnFanNormal" Grid.Row="0" Grid.Column="2" Tag="Normal" Content="Normal" Click="OnFanClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="3,0,0,4" FontSize="10"/>
+                                <Button x:Name="BtnFanPerformance" Grid.Row="1" Grid.Column="0" Tag="Desempenho" Content="Desempenho" Click="OnFanClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="0,0,3,0" FontSize="10"/>
+                                <Button x:Name="BtnFanBoost" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Tag="Boost" Content="Boost" Click="OnFanClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="3,0,0,0" FontSize="10"/>
+                            </Grid>
+                            <TextBlock x:Name="TxtFanStatus" Text="Lendo tabela original do firmware..." Foreground="#B8C0D4" FontSize="10" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+
 <!-- Seção: Cor -->
                     <Border x:Name="ColorSection" CornerRadius="12" BorderThickness="2" BorderBrush="Transparent" Padding="10" Background="#1AFFFFFF">
                         <StackPanel Spacing="8">
