@@ -229,11 +229,14 @@ public sealed class LenovoFanCurveService : IDisposable
                 payload[51] = 0x5a;
                 WriteUInt16(payload, 53, 100);
                 input["FanTable"] = payload;
+                // Fan_Set_Table é declarado no MOF da Lenovo como método void,
+                // sem parâmetros de saída. Portanto, output == null não significa
+                // rejeição: a confirmação real é feita relendo a curva em TryApplyPreset.
                 using var output = item.InvokeMethod("Fan_Set_Table", input, null);
-                if (output is null) return false;
-                if (output.Properties["ReturnValue"]?.Value is not null
+                if (output?.Properties["ReturnValue"]?.Value is not null
                     && Convert.ToUInt32(output["ReturnValue"]) != 0)
                     throw new InvalidOperationException($"Fan_Set_Table retornou código {output["ReturnValue"]}.");
+                DebugLog.Write($"[FAN] Fan_Set_Table enviado; objeto de saída={(output is null ? "ausente (esperado para método void)" : "presente")}. Aguardando leitura de confirmação.");
                 return true;
             }
         }
