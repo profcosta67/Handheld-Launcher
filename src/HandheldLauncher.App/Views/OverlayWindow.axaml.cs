@@ -299,6 +299,15 @@ public partial class OverlayWindow : Window
                     if (_hardwareService.SetTdpMode(newTdp)) {
                         SetTdpButtonVisual(newTdp);
                         SaveSetting("TdpMode", newTdp);
+                        var linkedFanMode = newTdp switch
+                        {
+                            "UltraEco" or "Eco" => "Silencioso",
+                            "Normal" => "Normal",
+                            "Desempenho" => "Desempenho",
+                            "Boost" => "Boost",
+                            _ => "Automático"
+                        };
+                        ApplyFanMode(linkedFanMode);
                     } else {
                         DebugLog.Write($"[OVERLAY] O perfil TDP {newTdp} não foi aplicado; seleção anterior mantida.");
                     }
