@@ -21,10 +21,7 @@ public sealed class LenovoFanCurveService : IDisposable
 
     public bool IsSupportedModel =>
         OperatingSystem.IsWindows()
-        && Environment.GetEnvironmentVariable("HANDHELD_LAUNCHER_FAN_FORCE") == "1"
-        || (OperatingSystem.IsWindows()
-            && (Environment.GetEnvironmentVariable("HANDHELD_LAUNCHER_FAN_FORCE") == "1"
-                || (GetProductVersion()?.Equals("Legion Go 8AHP2", StringComparison.OrdinalIgnoreCase) == true)));
+        && GetProductVersion()?.Equals("Legion Go 8AHP2", StringComparison.OrdinalIgnoreCase) == true;
 
     public static string? GetProductVersion()
     {
@@ -32,7 +29,7 @@ public sealed class LenovoFanCurveService : IDisposable
         try
         {
             using var searcher = new ManagementObjectSearcher(
-                @"root\\CIMV2", "SELECT ProductVersion FROM Win32_ComputerSystem");
+                @"root\\CIMV2", "SELECT Version FROM Win32_ComputerSystemProduct");
             foreach (ManagementObject item in searcher.Get())
             {
                 try { return item["ProductVersion"]?.ToString(); }
