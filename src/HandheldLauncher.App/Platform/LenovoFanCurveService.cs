@@ -19,9 +19,29 @@ public sealed class LenovoFanCurveService : IDisposable
     private int[]? _original;
     private bool _disposed;
 
-    public bool IsSupportedModel =>
-        OperatingSystem.IsWindows()
-        && GetProductVersion()?.Equals("Legion Go 8AHP2", StringComparison.OrdinalIgnoreCase) == true;
+    public bool IsSupportedModel
+    {
+        get
+        {
+            if (!OperatingSystem.IsWindows()) return false;
+            try
+            {
+                using var searcher = new ManagementObjectSearcher(
+                    @"root\\CIMV2", "SELECT Manufacturer FROM Win32_ComputerSystem");
+                foreach (ManagementObject item in searcher.Get())
+                {
+                    using (item)
+                    {
+                        var manufacturer = item["Manufacturer"]?.ToString() ?? string.Empty;
+                        return manufacturer.Contains("Lenovo", StringComparison.OrdinalIgnoreCase)
+                            && GetProductVersion()?.Equals("Legion Go 8AHP2", StringComparison.OrdinalIgnoreCase) == true;
+                    }
+                }
+            }
+            catch (Exception ex) { DebugLog.Write($"[FAN] Falha ao validar DMI: {ex.Message}"); }
+            return false;
+        }
+    }
 
     public static string? GetProductVersion()
     {
@@ -173,7 +193,11 @@ public sealed class LenovoFanCurveService : IDisposable
                 WriteUInt16(payload, 53, 100);
                 input["FanTable"] = payload;
                 using var output = item.InvokeMethod("Fan_Set_Table", input, null);
-                return output is not null;
+                if (output is null) return false;
+                if (output.Properties["ReturnValue"]?.Value is not null
+                    && Convert.ToUInt32(output["ReturnValue"]) != 0)
+                    throw new InvalidOperationException($"Fan_Set_Table retornou código {output["ReturnValue"]}.");
+                return true;
             }
         }
         return false;
