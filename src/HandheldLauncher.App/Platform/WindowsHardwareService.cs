@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Management;
+using System.Threading;
 using System.Runtime.InteropServices;
 using HandheldLauncher.Core.Services;
 using HandheldLauncher.App.Diagnostics;
@@ -61,70 +62,284 @@ public class WindowsHardwareService : IHardwareService
         }
     }
 
-    public void SetTdpMode(string mode)
+    public bool SetTdpMode(string mode)
     {
-        if (!OperatingSystem.IsWindows()) return;
-        int tdpLimit = mode switch { "Eco" => 8000, "Normal" => 15000, "Desempenho" => 25000, "Boost" => 30000, _ => 15000 };
+        if (!OperatingSystem.IsWindows()) return false;
 
+        int tdpLimit = mode switch
+        {
+            "Eco" => 8000,
+            "Normal" => 15000,
+            "Desempenho" => 25000,
+            "Boost" => 30000,
+            _ => 15000
+        };
+
+        DebugLog.Write($"[TDP] Solicitação do perfil {mode}: {tdpLimit}mW.");
+
+        // PawnIO é preferencial apenas nos processadores que o provider suporta.
         if (InitializePawnIo())
         {
             if (_smu!.SetPowerLimits((uint)tdpLimit))
             {
-                DebugLog.Write($"[PawnIO] TDP alterado para {tdpLimit}mW.");
-                return;
+                DebugLog.Write($"[PawnIO] Comandos de limite enviados para {tdpLimit}mW.");
+                return true;
             }
 
-            DebugLog.Write("[PawnIO] Não foi possível aplicar todos os limites; tentando o fallback RyzenAdj.");
+            DebugLog.Write("[PawnIO] Falha ao enviar os limites; tentando RyzenAdj.");
         }
 
+        // RyzenAdj permanece como fallback para APUs que não são suportadas
+        // pelo provider PawnIO atual. Não removê-lo até validar outros handhelds.
         try
         {
             if (!File.Exists(_ryzenAdjPath))
             {
-                DebugLog.Write($"[RyzenAdj] Fallback indisponível: executável não encontrado em {_ryzenAdjPath}.");
-                return;
+                DebugLog.Write($"[RyzenAdj] Executável não encontrado: {_ryzenAdjPath}. TDP não alterado.");
+                return false;
             }
 
             string arguments = $"--stapm-limit={tdpLimit} --fast-limit={tdpLimit} --slow-limit={tdpLimit} --tctl-temp=90";
-            DebugLog.Write($"[RyzenAdj] Fallback: {arguments}");
             var psi = new ProcessStartInfo
             {
                 FileName = _ryzenAdjPath,
                 Arguments = arguments,
                 CreateNoWindow = true,
-                UseShellExecute = false
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
             };
 
             using var process = Process.Start(psi);
             if (process is null)
             {
-                DebugLog.Write("[RyzenAdj] Não foi possível iniciar o processo; TDP não confirmado.");
-                return;
+                DebugLog.Write("[RyzenAdj] Não foi possível iniciar o processo.");
+                return false;
             }
 
             if (!process.WaitForExit(5000))
             {
                 process.Kill(entireProcessTree: true);
                 process.WaitForExit();
-                DebugLog.Write("[RyzenAdj] Timeout ao aplicar TDP; processo encerrado e sucesso não confirmado.");
-                return;
+                DebugLog.Write("[RyzenAdj] Tempo limite excedido; TDP não confirmado.");
+                return false;
             }
 
-            if (process.ExitCode == 0)
-                DebugLog.Write($"[RyzenAdj] Processo concluiu com sucesso ao solicitar {tdpLimit}mW.");
-            else
-                DebugLog.Write($"[RyzenAdj] Processo terminou com código {process.ExitCode}; TDP não confirmado.");
+            string output = process.StandardOutput.ReadToEnd();
+            string error = process.StandardError.ReadToEnd();
+            if (process.ExitCode != 0)
+            {
+                DebugLog.Write($"[RyzenAdj] Código {process.ExitCode}. {error} {output}".Trim());
+                return false;
+            }
+
+            DebugLog.Write($"[RyzenAdj] Comando concluído sem erro para {tdpLimit}mW. A leitura do hardware ainda precisa ser validada.");
+            return true;
         }
-        catch (Exception ex) { DebugLog.Write($"[RyzenAdj] Erro ao aplicar TDP: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[TDP] Erro ao aplicar perfil {mode}: {ex.Message}");
+            return false;
+        }
     }
 
     // ==========================================
-    // VOLUME, BRILHO, COR
+    // VOLUME, BRILHO E COR
     // ==========================================
-    public void SetVolume(double level) { /* código existente */ }
-    public void SetBrightness(double level) { /* código existente */ }
-    public void SetColorMode(string mode) { /* código existente */ }
-    public void SetPerformanceHudEnabled(bool enabled) { /* código existente */ }
+    public void SetVolume(double level)
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        float normalized = (float)(Math.Clamp(level, 0, 100) / 100.0);
+        bool success = VolumeMixer.SetMasterVolume(normalized);
+        DebugLog.Write(success
+            ? $"[VOLUME] Volume principal ajustado para {normalized:P0}."
+            : "[VOLUME] Não foi possível ajustar o dispositivo de áudio padrão.");
+    }
+
+    public void SetBrightness(double level)
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        byte brightness = (byte)Math.Clamp(Math.Round(level), 0, 100);
+        try
+        {
+            using var searcher = new ManagementObjectSearcher(
+                @"root\\WMI",
+                "SELECT * FROM WmiMonitorBrightnessMethods");
+
+            var methods = searcher.Get();
+            bool applied = false;
+            foreach (ManagementObject monitor in methods)
+            {
+                try
+                {
+                    monitor.InvokeMethod("WmiSetBrightness", new object[] { (uint)1, brightness });
+                    applied = true;
+                }
+                finally
+                {
+                    monitor.Dispose();
+                }
+            }
+
+            DebugLog.Write(applied
+                ? $"[BRILHO] Brilho solicitado em {brightness}%."
+                : "[BRILHO] O monitor não expõe WmiMonitorBrightnessMethods; nenhum ajuste aplicado.");
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[BRILHO] Falha ao ajustar brilho: {ex.Message}");
+        }
+    }
+
+    private static readonly object GammaLock = new();
+    private static GammaRamp? _originalGammaRamp;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct GammaRamp
+    {
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 256)] public ushort[] Red;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 256)] public ushort[] Green;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 256)] public ushort[] Blue;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetDC(IntPtr hwnd);
+
+    [DllImport("user32.dll")]
+    private static extern int ReleaseDC(IntPtr hwnd, IntPtr hdc);
+
+    [DllImport("gdi32.dll", EntryPoint = "GetDeviceGammaRamp", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetDeviceGammaRamp(IntPtr hdc, ref GammaRamp ramp);
+
+    [DllImport("gdi32.dll", EntryPoint = "SetDeviceGammaRamp", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetDeviceGammaRamp(IntPtr hdc, ref GammaRamp ramp);
+
+    public bool SetColorMode(string mode)
+    {
+        if (!OperatingSystem.IsWindows()) return false;
+
+        lock (GammaLock)
+        {
+            IntPtr hdc = IntPtr.Zero;
+            try
+            {
+                hdc = GetDC(IntPtr.Zero);
+                if (hdc == IntPtr.Zero)
+                {
+                    DebugLog.Write("[COR] Não foi possível obter o contexto de vídeo.");
+                    return false;
+                }
+
+                if (_originalGammaRamp is null)
+                {
+                    var original = CreateIdentityGammaRamp();
+                    if (!GetDeviceGammaRamp(hdc, ref original))
+                    {
+                        DebugLog.Write("[COR] O driver de vídeo não permite ler a curva de calibração.");
+                        return false;
+                    }
+                    _originalGammaRamp = original;
+                }
+
+                if (string.Equals(mode, "Padrão", StringComparison.OrdinalIgnoreCase))
+                {
+                    var restore = CloneGammaRamp(_originalGammaRamp);
+                    bool restored = SetDeviceGammaRamp(hdc, ref restore);
+                    DebugLog.Write(restored ? "[COR] Calibração original restaurada." : "[COR] Falha ao restaurar a calibração original.");
+                    return restored;
+                }
+
+                double contrast = mode switch
+                {
+                    "Vívido" => 1.10,
+                    "OLED (Alto Contraste)" => 1.18,
+                    "Noturno (Luz Quente)" => 1.00,
+                    _ => 1.00
+                };
+
+                double redGain = mode == "Vívido" ? 1.025 : 1.0;
+                double greenGain = mode == "Vívido" ? 1.01 : mode == "Noturno (Luz Quente)" ? 0.94 : 1.0;
+                double blueGain = mode == "Vívido" ? 1.025 : mode == "Noturno (Luz Quente)" ? 0.72 : 1.0;
+
+                var ramp = BuildGammaRamp(_originalGammaRamp, contrast, redGain, greenGain, blueGain);
+                bool applied = SetDeviceGammaRamp(hdc, ref ramp);
+                DebugLog.Write(applied
+                    ? $"[COR] Perfil {mode} aplicado via calibração de gama do Windows."
+                    : $"[COR] O driver de vídeo recusou o perfil {mode}.");
+                return applied;
+            }
+            catch (Exception ex)
+            {
+                DebugLog.Write($"[COR] Erro ao aplicar perfil {mode}: {ex.Message}");
+                return false;
+            }
+            finally
+            {
+                if (hdc != IntPtr.Zero) ReleaseDC(IntPtr.Zero, hdc);
+            }
+        }
+    }
+
+    private static GammaRamp CreateIdentityGammaRamp()
+    {
+        var ramp = new GammaRamp
+        {
+            Red = new ushort[256],
+            Green = new ushort[256],
+            Blue = new ushort[256]
+        };
+
+        for (int i = 0; i < 256; i++)
+        {
+            ushort value = (ushort)(i * 257);
+            ramp.Red[i] = ramp.Green[i] = ramp.Blue[i] = value;
+        }
+
+        return ramp;
+    }
+
+    private static GammaRamp CloneGammaRamp(GammaRamp source) => new()
+    {
+        Red = (ushort[])source.Red.Clone(),
+        Green = (ushort[])source.Green.Clone(),
+        Blue = (ushort[])source.Blue.Clone()
+    };
+
+    private static GammaRamp BuildGammaRamp(GammaRamp source, double contrast, double redGain, double greenGain, double blueGain)
+    {
+        var result = new GammaRamp
+        {
+            Red = new ushort[256],
+            Green = new ushort[256],
+            Blue = new ushort[256]
+        };
+
+        for (int i = 0; i < 256; i++)
+        {
+            result.Red[i] = TransformGammaValue(source.Red[i], contrast, redGain);
+            result.Green[i] = TransformGammaValue(source.Green[i], contrast, greenGain);
+            result.Blue[i] = TransformGammaValue(source.Blue[i], contrast, blueGain);
+        }
+
+        return result;
+    }
+
+    private static ushort TransformGammaValue(ushort original, double contrast, double gain)
+    {
+        double normalized = original / 65535.0;
+        double adjusted = Math.Clamp(((normalized - 0.5) * contrast + 0.5) * gain, 0.0, 1.0);
+        return (ushort)Math.Clamp(Math.Round(adjusted * 65535.0), 0, 65535);
+    }
+
+    public void SetPerformanceHudEnabled(bool enabled)
+    {
+        // O HUD é controlado pelo MainViewModel/PerformanceHud; este método
+        // permanece na interface por compatibilidade com outros providers.
+        DebugLog.Write($"[HUD] Solicitação de estado recebida: {(enabled ? "ativar" : "desativar")}.");
+    }
 
     // ==========================================
     // GRAVAÇÃO
