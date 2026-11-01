@@ -142,12 +142,27 @@ public sealed class RyzenSmuService : IDisposable
                 return false;
             }
 
-            bool stapm = SendCommand(SetStapmCommand, limitMilliwatts);
-            bool fast = SendCommand(SetFastPptCommand, limitMilliwatts);
-            bool slow = SendCommand(SetSlowPptCommand, limitMilliwatts);
+            bool stapmCommand = SendCommand(SetStapmCommand, limitMilliwatts);
+            bool fastCommand = SendCommand(SetFastPptCommand, limitMilliwatts);
+            bool slowCommand = SendCommand(SetSlowPptCommand, limitMilliwatts);
 
-            DebugLog.Write($"[PawnIO] Limites SMU: STAPM={stapm}, FastPPT={fast}, SlowPPT={slow}, valor={limitMilliwatts}mW.");
-            return stapm && fast && slow;
+            DebugLog.Write($"[PawnIO] Comandos SMU: STAPM={stapmCommand}, FastPPT={fastCommand}, SlowPPT={slowCommand}, alvo={limitMilliwatts}mW.");
+            if (!stapmCommand || !fastCommand || !slowCommand)
+                return false;
+
+            if (!TryReadPowerLimits(out float stapmRead, out float fastRead, out float slowRead))
+            {
+                DebugLog.Write("[PawnIO] Os comandos foram aceitos, mas não foi possível ler os limites de volta pela PM Table.");
+                return false;
+            }
+
+            float targetWatts = limitMilliwatts / 1000f;
+            bool confirmed = Math.Abs(stapmRead - targetWatts) <= 1.0f
+                && Math.Abs(fastRead - targetWatts) <= 1.0f
+                && Math.Abs(slowRead - targetWatts) <= 1.0f;
+
+            DebugLog.Write($"[PawnIO] Read-back PM Table: STAPM={stapmRead:F1}W, FastPPT={fastRead:F1}W, SlowPPT={slowRead:F1}W; alvo={targetWatts:F1}W; confirmado={confirmed}.");
+            return confirmed;
         }
         catch (WaitHandleCannotBeOpenedException)
         {
@@ -177,6 +192,41 @@ public sealed class RyzenSmuService : IDisposable
             }
             pciMutex?.Dispose();
         }
+    }
+
+    // Called while Access_PCI is held. PM Table values are reported in watts;
+    // STAPM/Fast/Slow are float entries 0, 2 and 4 in the 64-QWORD table window.
+    private bool TryReadPowerLimits(out float stapmWatts, out float fastWatts, out float slowWatts)
+    {
+        stapmWatts = fastWatts = slowWatts = 0f;
+
+        ulong[] resolved = new ulong[2];
+        if (!_io.Execute("ioctl_resolve_pm_table", null, resolved))
+            return false;
+
+        // First update may return DEVICE_BUSY while the SMU finishes a previous
+        // transfer. This follows the official G-Helper/PawnIO retry sequence.
+        _io.Execute("ioctl_update_pm_table", null, null);
+        Thread.Sleep(100);
+        if (!_io.Execute("ioctl_update_pm_table", null, null))
+            return false;
+        Thread.Sleep(200);
+
+        ulong[] words = new ulong[64];
+        if (!_io.Execute("ioctl_read_pm_table", null, words))
+            return false;
+
+        Span<float> values = MemoryMarshal.Cast<ulong, float>(words);
+        if (values.Length < 5)
+            return false;
+
+        stapmWatts = values[0];
+        fastWatts = values[2];
+        slowWatts = values[4];
+
+        return float.IsFinite(stapmWatts) && float.IsFinite(fastWatts)
+            && float.IsFinite(slowWatts) && stapmWatts > 0f
+            && fastWatts > 0f && slowWatts > 0f;
     }
 
     private bool SendCommand(ulong commandId, uint valueMilliwatts)
