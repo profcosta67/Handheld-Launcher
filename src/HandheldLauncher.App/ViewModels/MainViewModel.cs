@@ -86,6 +86,7 @@ public sealed class MainViewModel : ViewModelBase
                 {
                     _hud.CpuTemperature = CpuTemperature;
                 }
+            }
 
             // Coleta telemetria publicada pelo HWiNFO, quando estiver aberto
             // com "Shared Memory Support" habilitado. A ausência do HWiNFO
