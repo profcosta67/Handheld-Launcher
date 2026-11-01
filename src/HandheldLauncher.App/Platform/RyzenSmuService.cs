@@ -1,70 +1,164 @@
 using System;
+using System.Runtime.Intrinsics.X86;
 using System.Threading;
 using HandheldLauncher.App.Diagnostics;
 
 namespace HandheldLauncher.App.Platform;
 
+/// <summary>
+/// TDP access through the official PawnIO RyzenSMU module.
+/// This provider is deliberately limited to AMD Hawk Point (family 19h, model 7Ch)
+/// until other CPU families have separately validated command mappings.
+/// </summary>
 public sealed class RyzenSmuService : IDisposable
 {
-    private readonly PawnIOWrapper _io = new();
-    private bool _init, _disposed;
-    private readonly Mutex _smuMutex = new Mutex();
+    private const string SmuFunction = "ioctl_send_smu_command";
+    private const string PciMutexName = @"Global\Access_PCI";
 
-    public bool IsInitialized => _init;
+    // RyzenSMU.p uses MP1 commands for Hawk Point / Mobile family.
+    private const ulong SetStapmCommand = 0x14;
+    private const ulong SetFastPptCommand = 0x15;
+    private const ulong SetSlowPptCommand = 0x16;
+
+    private readonly PawnIOWrapper _io = new();
+    private readonly Mutex _smuMutex = new();
+    private bool _initialized;
+    private bool _disposed;
+
+    public bool IsInitialized => _initialized;
+
+    public static bool IsSupportedCpu()
+    {
+        if (!OperatingSystem.IsWindows() || !X86Base.IsSupported)
+            return false;
+
+        try
+        {
+            var (eax, _, _, _) = X86Base.CpuId(1, 0);
+            uint signature = unchecked((uint)eax);
+            uint baseFamily = (signature >> 8) & 0xF;
+            uint extendedFamily = (signature >> 20) & 0xFF;
+            uint baseModel = (signature >> 4) & 0xF;
+            uint extendedModel = (signature >> 16) & 0xF;
+
+            uint family = baseFamily == 0xF ? baseFamily + extendedFamily : baseFamily;
+            uint model = (baseFamily == 0x6 || baseFamily == 0xF)
+                ? (extendedModel << 4) | baseModel
+                : baseModel;
+
+            // Ryzen Z2 (non-Extreme) is Hawk Point: family 19h, model 7Ch.
+            return family == 0x19 && model == 0x7C;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     public bool Initialize(byte[] moduleData)
     {
-        if (_init) return true;
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_initialized) return true;
 
-        if (_io.Connect() != PawnIOWrapper.ConnectResult.OK || !_io.LoadModule(moduleData))
+        // Never load or execute SMU commands on an unverified CPU family.
+        if (!IsSupportedCpu())
+        {
+            DebugLog.Write("[PawnIO] CPU não identificado como AMD Hawk Point (19h/7Ch); TDP PawnIO desabilitado.");
             return false;
+        }
 
-        _init = true;
+        if (moduleData is null || moduleData.Length == 0)
+        {
+            DebugLog.Write("[PawnIO] Módulo RyzenSMU.bin ausente ou vazio.");
+            return false;
+        }
+
+        var connect = _io.Connect();
+        if (connect != PawnIOWrapper.ConnectResult.OK)
+        {
+            DebugLog.Write($"[PawnIO] Driver indisponível: {connect}.");
+            return false;
+        }
+
+        if (!_io.LoadModule(moduleData))
+        {
+            DebugLog.Write("[PawnIO] O driver recusou o módulo RyzenSMU.");
+            return false;
+        }
+
+        _initialized = true;
+        DebugLog.Write("[PawnIO] Módulo RyzenSMU carregado para AMD Hawk Point.");
         return true;
     }
 
-    // Envia um comando SMU. Para TDP, usamos "stapm-limit", "fast-limit", "slow-limit".
-    public bool SendSmuCommand(string commandName, uint value)
+    /// <summary>
+    /// Applies STAPM, Fast PPT and Slow PPT in milliwatts.
+    /// The official module contract is 7 input values and 6 output values:
+    /// [commandId, arg0..arg5] -> [result0..result5].
+    /// </summary>
+    public bool SetPowerLimits(uint limitMilliwatts)
     {
-        if (!_init) return false;
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!_initialized) return false;
 
-        _smuMutex.WaitOne();
+        bool acquired = false;
         try
         {
-            // O PawnIO espera um array de ulongs com o comando.
-            // O comando é: [endereço_SMU, valor_a_escrever]
-            // Os endereços são específicos de cada família (Zen 2, 3, 4, etc.).
-            // Aqui usamos um exemplo para Zen 4 (Phoenix/Strix Point). 
-            // Para o seu Ryzen Z2 (Strix Point), os endereços estão na tabela do G-Helper.
-            ulong smuAddress = commandName switch
+            // RyzenSMU.p explicitly requires the shared Access_PCI mutant.
+            using var pciMutex = Mutex.OpenExisting(PciMutexName);
+            acquired = pciMutex.WaitOne(TimeSpan.FromSeconds(5));
+            if (!acquired)
             {
-                "stapm-limit" => 0x14, // Exemplo: precisa ser confirmado para o Z2
-                "fast-limit" => 0x15,
-                "slow-limit" => 0x16,
-                _ => 0xFFFF
-            };
+                DebugLog.Write("[PawnIO] Timeout aguardando mutex Access_PCI.");
+                return false;
+            }
 
-            if (smuAddress == 0xFFFF) return false;
+            bool stapm = SendCommand(SetStapmCommand, limitMilliwatts);
+            bool fast = SendCommand(SetFastPptCommand, limitMilliwatts);
+            bool slow = SendCommand(SetSlowPptCommand, limitMilliwatts);
 
-            var input = new ulong[] { smuAddress, value };
-            return _io.Execute("ioctl_send_smu_command", input, null);
+            DebugLog.Write($"[PawnIO] Limites SMU: STAPM={stapm}, FastPPT={fast}, SlowPPT={slow}, valor={limitMilliwatts}mW.");
+            return stapm && fast && slow;
+        }
+        catch (WaitHandleCannotBeOpenedException)
+        {
+            // Some PawnIO module/driver builds do not expose the named mutant to user mode.
+            // Do not issue unsynchronized PCI/SMU writes in that case.
+            DebugLog.Write("[PawnIO] Mutex Access_PCI não encontrado; comandos SMU cancelados por segurança.");
+            return false;
+        }
+        catch (AbandonedMutexException)
+        {
+            DebugLog.Write("[PawnIO] Mutex Access_PCI abandonado; comandos SMU cancelados nesta tentativa.");
+            return false;
         }
         catch (Exception ex)
         {
-            DebugLog.Write($"[PawnIO] Erro ao enviar comando SMU '{commandName}': {ex.Message}");
+            DebugLog.Write($"[PawnIO] Falha ao aplicar TDP: {ex.Message}");
             return false;
         }
         finally
         {
-            _smuMutex.ReleaseMutex();
+            // The named mutex handle is disposed in the try scope. If acquired, release
+            // is performed by the local SafeWaitHandle owner before leaving that scope.
         }
+    }
+
+    private bool SendCommand(ulong commandId, uint valueMilliwatts)
+    {
+        // ioctl_send_smu_command is defined with exactly 7 inputs and 6 outputs.
+        ulong[] input = { commandId, valueMilliwatts, 0, 0, 0, 0, 0 };
+        ulong[] output = new ulong[6];
+        return _io.Execute(SmuFunction, input, output);
     }
 
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
-        _init = false;
+        _initialized = false;
         _io.Dispose();
+        _smuMutex.Dispose();
+        GC.SuppressFinalize(this);
     }
 }
