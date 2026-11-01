@@ -201,34 +201,42 @@ public sealed class RyzenSmuService : IDisposable
             float targetWatts = limitMilliwatts / 1000f;
             float stapmRead = 0f, fastRead = 0f, slowRead = 0f;
             bool confirmed = false;
+            int consecutiveMatches = 0;
 
-            // A PM Table pode publicar STAPM um ciclo depois dos limites Fast/Slow.
-            // Os comandos MP1 são enviados apenas uma vez; repetimos somente a leitura
-            // enquanto o firmware atualiza a tabela, sem duplicar gravações na SMU.
-            const int maxReadAttempts = 6;
+            // O firmware pode atualizar STAPM com atraso em relação aos comandos MP1.
+            // Damos uma janela maior para a PM Table convergir e exigimos duas leituras
+            // consecutivas dentro da tolerância, evitando confirmar um valor transitório.
+            const int maxReadAttempts = 12;
+            const int requiredConsecutiveMatches = 2;
+            const float readbackToleranceWatts = 1.0f;
+
             for (int attempt = 1; attempt <= maxReadAttempts; attempt++)
             {
                 if (TryReadPowerLimits(out stapmRead, out fastRead, out slowRead))
                 {
-                    confirmed = Math.Abs(stapmRead - targetWatts) <= 1.0f
-                        && Math.Abs(fastRead - targetWatts) <= 1.0f
-                        && Math.Abs(slowRead - targetWatts) <= 1.0f;
+                    bool matchesTarget = Math.Abs(stapmRead - targetWatts) <= readbackToleranceWatts
+                        && Math.Abs(fastRead - targetWatts) <= readbackToleranceWatts
+                        && Math.Abs(slowRead - targetWatts) <= readbackToleranceWatts;
 
-                    DebugLog.Write($"[PawnIO] Read-back tentativa {attempt}/{maxReadAttempts}: STAPM={stapmRead:F1}W, FastPPT={fastRead:F1}W, SlowPPT={slowRead:F1}W; alvo={targetWatts:F1}W; confirmado={confirmed}.");
+                    consecutiveMatches = matchesTarget ? consecutiveMatches + 1 : 0;
+                    confirmed = consecutiveMatches >= requiredConsecutiveMatches;
+
+                    DebugLog.Write($"[PawnIO] Read-back tentativa {attempt}/{maxReadAttempts}: STAPM={stapmRead:F2}W, FastPPT={fastRead:F2}W, SlowPPT={slowRead:F2}W; alvo={targetWatts:F1}W; sequência válida={consecutiveMatches}/{requiredConsecutiveMatches}; confirmado={confirmed}.");
                     if (confirmed)
                         break;
                 }
                 else
                 {
+                    consecutiveMatches = 0;
                     DebugLog.Write($"[PawnIO] PM Table indisponível na tentativa de leitura {attempt}/{maxReadAttempts}.");
                 }
 
                 if (attempt < maxReadAttempts)
-                    Thread.Sleep(250);
+                    Thread.Sleep(500);
             }
 
             if (!confirmed)
-                DebugLog.Write("[PawnIO] Limites não convergiram para o alvo após aguardar a atualização da PM Table.");
+                DebugLog.Write($"[PawnIO] Limites não convergiram de forma estável para {targetWatts:F1}W após {maxReadAttempts} leituras; último read-back: STAPM={stapmRead:F2}W, FastPPT={fastRead:F2}W, SlowPPT={slowRead:F2}W.");
 
             return confirmed;
         }
