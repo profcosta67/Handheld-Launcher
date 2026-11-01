@@ -99,6 +99,11 @@ public sealed class RyzenSmuService : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (!_initialized) return false;
+        if (limitMilliwatts < 5000 || limitMilliwatts > 30000)
+        {
+            DebugLog.Write($"[PawnIO] Limite TDP fora da faixa permitida: {limitMilliwatts}mW.");
+            return false;
+        }
 
         Mutex? pciMutex = null;
         bool acquired = false;
