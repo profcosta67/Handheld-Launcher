@@ -94,7 +94,12 @@ public sealed class LenovoFanCurveService : IDisposable
                 if (current is null) { message = "Fan Method indisponível."; return false; }
                 _original ??= (int[])current.Clone();
                 var target = BuildPreset(mode, current);
-                if (!InvokeSet(target)) { message = "O firmware recusou a curva."; return false; }
+                if (!InvokeSet(target))
+                {
+                    try { InvokeSet(current); } catch { }
+                    message = "O firmware recusou a curva; tabela anterior reenviada.";
+                    return false;
+                }
                 var verify = InvokeGet();
                 if (verify is null || !verify.SequenceEqual(target))
                 {
@@ -125,16 +130,25 @@ public sealed class LenovoFanCurveService : IDisposable
             try
             {
                 var current = InvokeGet();
-                if (current is not null && !current.SequenceEqual(_original))
+                if (current is null) return;
+                if (current.SequenceEqual(_original))
                 {
-                    if (InvokeSet(_original))
-                        DebugLog.Write("[FAN] Curva original restaurada ao encerrar.");
-                    else
-                        DebugLog.Write("[FAN] Firmware recusou a restauração da curva original.");
+                    _original = null;
+                    return;
                 }
+                if (InvokeSet(_original))
+                {
+                    var verify = InvokeGet();
+                    if (verify is not null && verify.SequenceEqual(_original))
+                    {
+                        DebugLog.Write("[FAN] Curva original restaurada e confirmada.");
+                        _original = null;
+                    }
+                    else DebugLog.Write("[FAN] Restauração solicitada, mas leitura de confirmação divergiu; backup mantido.");
+                }
+                else DebugLog.Write("[FAN] Firmware recusou a restauração da curva original; backup mantido.");
             }
-            catch (Exception ex) { DebugLog.Write($"[FAN] Falha ao restaurar curva original: {ex.GetBaseException().Message}"); }
-            finally { _original = null; }
+            catch (Exception ex) { DebugLog.Write($"[FAN] Falha ao restaurar curva original: {ex.GetBaseException().Message}; backup mantido."); }
         }
     }
 
