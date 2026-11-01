@@ -15,7 +15,7 @@ namespace HandheldLauncher.App.Platform;
 public sealed class RyzenSmuService : IDisposable
 {
     private const string SmuFunction = "ioctl_send_smu_command";
-    private const string PciMutexName = @"Global\Access_PCI";
+    private const string PciMutexName = "Access_PCI";
 
     // CodeName enum values from the pinned PawnIO.Modules 0.2.11 RyzenSMU.p:
     // CPU_Phoenix = 23, CPU_HawkPoint = 30.
@@ -169,11 +169,15 @@ public sealed class RyzenSmuService : IDisposable
                 return false;
             }
 
-            bool stapmCommand = SendCommand(SetStapmCommand, limitMilliwatts);
-            bool fastCommand = SendCommand(SetFastPptCommand, limitMilliwatts);
-            bool slowCommand = SendCommand(SetSlowPptCommand, limitMilliwatts);
+            // Phoenix/Hawk Point power-limit commands are MP1 commands. The
+            // generic ioctl_send_smu_command in RyzenSMU.p routes through the
+            // module's generic mailbox (PSMU for this codename), not MP1.
+            // Use the documented register IOCTLs and the Mobile MP1 mailbox.
+            bool stapmCommand = SendMp1Command(SetStapmCommand, limitMilliwatts);
+            bool fastCommand = SendMp1Command(SetFastPptCommand, limitMilliwatts);
+            bool slowCommand = SendMp1Command(SetSlowPptCommand, limitMilliwatts);
 
-            DebugLog.Write($"[PawnIO] Comandos SMU: STAPM={stapmCommand}, FastPPT={fastCommand}, SlowPPT={slowCommand}, alvo={limitMilliwatts}mW.");
+            DebugLog.Write($"[PawnIO] MP1 commands: STAPM={stapmCommand}, FastPPT={fastCommand}, SlowPPT={slowCommand}, alvo={limitMilliwatts}mW.");
             if (!stapmCommand || !fastCommand || !slowCommand)
                 return false;
 
@@ -228,8 +232,10 @@ public sealed class RyzenSmuService : IDisposable
         stapmWatts = fastWatts = slowWatts = 0f;
 
         ulong[] resolved = new ulong[2];
-        if (!_io.Execute("ioctl_resolve_pm_table", null, resolved))
+        if (!_io.Execute("ioctl_resolve_pm_table", null, resolved) || resolved[1] == 0)
             return false;
+        uint tableVersion = (uint)resolved[0];
+        DebugLog.Write($"[PawnIO] PM Table: versão=0x{tableVersion:X6}, base=0x{resolved[1]:X}.");
 
         // First update may return DEVICE_BUSY while the SMU finishes a previous
         // transfer. This follows the official G-Helper/PawnIO retry sequence.
@@ -247,21 +253,83 @@ public sealed class RyzenSmuService : IDisposable
         if (values.Length < 5)
             return false;
 
+        // Phoenix PM Table layout (stable offsets in G-Helper/RyzenAdj):
+        // STAPM limit @ 0x00, Fast PPT limit @ 0x08, Slow PPT limit @ 0x10.
         stapmWatts = values[0];
         fastWatts = values[2];
         slowWatts = values[4];
+        DebugLog.Write($"[PawnIO] PM Table limits: [0]={values[0]:F2}, [2]={values[2]:F2}, [4]={values[4]:F2}, [6]={values[6]:F2}.");
 
         return float.IsFinite(stapmWatts) && float.IsFinite(fastWatts)
             && float.IsFinite(slowWatts) && stapmWatts > 0f
             && fastWatts > 0f && slowWatts > 0f;
     }
 
-    private bool SendCommand(ulong commandId, uint valueMilliwatts)
+    private bool SendMp1Command(ulong commandId, uint valueMilliwatts)
     {
-        // ioctl_send_smu_command is defined with exactly 7 inputs and 6 outputs.
-        ulong[] input = { commandId, valueMilliwatts, 0, 0, 0, 0, 0 };
-        ulong[] output = new ulong[6];
-        return _io.Execute(SmuFunction, input, output);
+        // MP1 mailbox addresses for Mobile Phoenix/Hawk Point, matching the
+        // maintained G-Helper implementation and the FT6/FP7/FP8 routing:
+        // CMD=0x3B10528, RSP=0x3B10578, ARG0=0x3B10998.
+        const ulong commandAddress = 0x03B10528;
+        const ulong responseAddress = 0x03B10578;
+        const ulong argumentAddress = 0x03B10998;
+
+        if (!WaitForMp1Mailbox(responseAddress))
+        {
+            DebugLog.Write($"[PawnIO] MP1 mailbox ocupado antes do comando 0x{commandId:X2}.");
+            return false;
+        }
+
+        if (!_io.Execute("ioctl_write_smu_register", new[] { responseAddress, 0UL }, null))
+            return false;
+
+        for (int i = 0; i < 6; i++)
+        {
+            ulong value = i == 0 ? valueMilliwatts : 0UL;
+            if (!_io.Execute("ioctl_write_smu_register",
+                new[] { argumentAddress + (ulong)(i * 4), value }, null))
+                return false;
+        }
+
+        if (!_io.Execute("ioctl_write_smu_register",
+            new[] { commandAddress, commandId }, null))
+            return false;
+
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+        ulong status = 0;
+        while (timer.ElapsedMilliseconds < 200)
+        {
+            ulong[] result = new ulong[1];
+            if (!_io.Execute("ioctl_read_smu_register", new[] { responseAddress }, result))
+                return false;
+            status = result[0] & 0xFF;
+            if (status != 0)
+                break;
+            Thread.Sleep(1);
+        }
+
+        if (status != 0x01)
+        {
+            DebugLog.Write($"[PawnIO] MP1 comando 0x{commandId:X2} retornou status 0x{status:X2}.");
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool WaitForMp1Mailbox(ulong responseAddress)
+    {
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+        while (timer.ElapsedMilliseconds < 200)
+        {
+            ulong[] result = new ulong[1];
+            if (!_io.Execute("ioctl_read_smu_register", new[] { responseAddress }, result))
+                return false;
+            if ((result[0] & 0xFF) != 0)
+                return true;
+            Thread.Sleep(1);
+        }
+        return false;
     }
 
     public void Dispose()
