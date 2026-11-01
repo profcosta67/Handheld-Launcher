@@ -120,7 +120,7 @@ public class WindowsHardwareService : IHardwareService
         if (!OperatingSystem.IsWindows()) return;
 
         byte brightness = (byte)Math.Clamp(Math.Round(level), 0, 100);
-        DebugLog.Write("[BRILHO] Solicitação do slider: " + brightness + "%。");
+        DebugLog.Write("[BRILHO] Solicitação do slider: " + brightness + "%.");
         try
         {
             using var searcher = new ManagementObjectSearcher(
@@ -451,19 +451,19 @@ internal static class VolumeMixer
         [PreserveSig] int RegisterControlChangeNotify(IntPtr pNotify);
         [PreserveSig] int UnregisterControlChangeNotify(IntPtr pNotify);
         [PreserveSig] int GetChannelCount(out uint channelCount);
-        [PreserveSig] int SetMasterVolumeLevel(float levelDb, ref Guid eventContext);
-        [PreserveSig] int SetMasterVolumeLevelScalar(float level, Guid eventContext);
+        [PreserveSig] int SetMasterVolumeLevel(float levelDb, ref ref Guid eventContext);
+        [PreserveSig] int SetMasterVolumeLevelScalar(float level, ref Guid eventContext);
         [PreserveSig] int GetMasterVolumeLevel(out float levelDb);
         [PreserveSig] int GetMasterVolumeLevelScalar(out float level);
-        [PreserveSig] int SetChannelVolumeLevel(uint channel, float levelDb, Guid eventContext);
-        [PreserveSig] int SetChannelVolumeLevelScalar(uint channel, float level, Guid eventContext);
+        [PreserveSig] int SetChannelVolumeLevel(uint channel, float levelDb, ref Guid eventContext);
+        [PreserveSig] int SetChannelVolumeLevelScalar(uint channel, float level, ref Guid eventContext);
         [PreserveSig] int GetChannelVolumeLevel(uint channel, out float levelDb);
         [PreserveSig] int GetChannelVolumeLevelScalar(uint channel, out float level);
-        [PreserveSig] int SetMute([MarshalAs(UnmanagedType.Bool)] bool mute, Guid eventContext);
+        [PreserveSig] int SetMute([MarshalAs(UnmanagedType.Bool)] bool mute, ref Guid eventContext);
         [PreserveSig] int GetMute([MarshalAs(UnmanagedType.Bool)] out bool mute);
         [PreserveSig] int GetVolumeStepInfo(out uint step, out uint stepCount);
-        [PreserveSig] int VolumeStepUp(Guid eventContext);
-        [PreserveSig] int VolumeStepDown(Guid eventContext);
+        [PreserveSig] int VolumeStepUp(ref Guid eventContext);
+        [PreserveSig] int VolumeStepDown(ref Guid eventContext);
         [PreserveSig] int QueryHardwareSupport(out uint hardwareSupportMask);
         [PreserveSig] int GetVolumeRange(out float minDb, out float maxDb, out float incrementDb);
     }
