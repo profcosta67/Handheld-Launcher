@@ -25,6 +25,7 @@ public partial class OverlayWindow : Window
     private int _focusIndex = 0;
     private readonly Border[] _sections;
     private string _currentTdp = "Normal";
+    private bool _tdpHardwareSupported;
     private readonly LenovoFanCurveService? _fanCurveService;
     private string _currentFanMode = "Automático";
     private int _currentColor = 0;
@@ -68,7 +69,22 @@ public partial class OverlayWindow : Window
     public OverlayWindow(MainViewModel viewModel)
     {
         _viewModel = viewModel;
-        InitializeComponent(); 
+        InitializeComponent();
+
+        // Keep unsupported desktops from presenting active TDP controls.
+        // The RyzenSmuService repeats these checks before every SMU write.
+        _tdpHardwareSupported = OperatingSystem.IsWindows()
+            && RyzenSmuService.IsSupportedPlatform()
+            && RyzenSmuService.IsSupportedCpu();
+        if (!_tdpHardwareSupported)
+        {
+            BtnUltraEco.IsEnabled = false;
+            BtnEco.IsEnabled = false;
+            BtnNormal.IsEnabled = false;
+            BtnDesempenho.IsEnabled = false;
+            BtnBoost.IsEnabled = false;
+            DebugLog.Write("[OVERLAY] Controles TDP desabilitados: este equipamento não está na matriz de hardware validado.");
+        }
 
         _sections = new[] { 
             ResolutionSection, RefreshSection, 
@@ -290,6 +306,7 @@ public partial class OverlayWindow : Window
         switch (_focusIndex)
         {
             case 2: // TDP
+                if (!_tdpHardwareSupported) break;
                 string[] tdpModes = { "UltraEco", "Eco", "Normal", "Desempenho", "Boost" };
                 int currentIndex = Array.IndexOf(tdpModes, _currentTdp);
                 if (currentIndex < 0) currentIndex = 2;
@@ -422,6 +439,11 @@ public partial class OverlayWindow : Window
 
     private void OnTdpClick(object? sender, RoutedEventArgs e)
     {
+        if (!_tdpHardwareSupported)
+        {
+            DebugLog.Write("[OVERLAY] Perfil TDP ignorado: hardware não validado.");
+            return;
+        }
         if (sender is not Button clickedButton) return;
         var mode = clickedButton.Tag?.ToString() ?? "Normal";
         if (_hardwareService.SetTdpMode(mode))
