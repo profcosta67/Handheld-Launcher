@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.Intrinsics.X86;
+using System.Runtime.InteropServices;
 using System.Threading;
 using HandheldLauncher.App.Diagnostics;
 
