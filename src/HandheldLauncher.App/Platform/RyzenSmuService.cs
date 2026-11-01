@@ -157,7 +157,9 @@ public sealed class RyzenSmuService : IDisposable
 
         try
         {
-            return MutexAcl.Create(false, PciMutexName, out _, security);
+            var mutex = MutexAcl.Create(false, PciMutexName, out bool createdNew, security);
+            DebugLog.Write($"[PawnIO] Mutex {PciMutexName}: {(createdNew ? "criado" : "aberto")} com ACL compartilhada.");
+            return mutex;
         }
         catch (UnauthorizedAccessException)
         {
