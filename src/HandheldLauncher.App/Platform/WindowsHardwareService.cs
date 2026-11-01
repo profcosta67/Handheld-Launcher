@@ -11,7 +11,6 @@ namespace HandheldLauncher.App.Platform;
 
 public class WindowsHardwareService : IHardwareService
 {
-    private readonly string _ryzenAdjPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Tools", "ryzenadj.exe");
     private readonly string _ffmpegPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Tools", "ffmpeg.exe");
 
     private RyzenSmuService? _smu;
@@ -31,7 +30,10 @@ public class WindowsHardwareService : IHardwareService
         _smu = null;
 
         if (!RyzenSmuService.IsSupportedCpu())
+        {
+            DebugLog.Write("[PawnIO] Este processador ainda não possui mapeamento SMU validado. Nenhum comando TDP será enviado.");
             return false;
+        }
 
         try
         {
@@ -66,83 +68,39 @@ public class WindowsHardwareService : IHardwareService
     {
         if (!OperatingSystem.IsWindows()) return false;
 
+        // O Lenovo Legion Go 8AHP2 / Ryzen Z2 é especificado para cTDP de 15–30 W.
         int tdpLimit = mode switch
         {
-            "Eco" => 8000,
-            "Normal" => 15000,
+            "Eco" => 15000,
+            "Normal" => 20000,
             "Desempenho" => 25000,
             "Boost" => 30000,
-            _ => 15000
+            _ => 20000
         };
 
-        DebugLog.Write($"[TDP] Solicitação do perfil {mode}: {tdpLimit}mW.");
-
-        // PawnIO é preferencial apenas nos processadores que o provider suporta.
-        if (InitializePawnIo())
+        DebugLog.Write("[TDP] Solicitação do perfil " + mode + ": " + tdpLimit + "mW. Provider permitido: PawnIO.");
+        // O RyzenAdj legado causou ACCESS_VIOLATION (0xC0000005) no preview
+        // e depende da pilha WinRing0 que esta migração está removendo.
+        if (!InitializePawnIo())
         {
-            if (_smu!.SetPowerLimits((uint)tdpLimit))
-            {
-                DebugLog.Write($"[PawnIO] Comandos de limite enviados para {tdpLimit}mW.");
-                return true;
-            }
-
-            DebugLog.Write("[PawnIO] Falha ao enviar os limites; tentando RyzenAdj.");
+            DebugLog.Write("[TDP] PawnIO não inicializado. Perfil não aplicado; nenhum fallback WinRing0/RyzenAdj será executado.");
+            return false;
         }
 
-        // RyzenAdj permanece como fallback para APUs que não são suportadas
-        // pelo provider PawnIO atual. Não removê-lo até validar outros handhelds.
         try
         {
-            if (!File.Exists(_ryzenAdjPath))
-            {
-                DebugLog.Write($"[RyzenAdj] Executável não encontrado: {_ryzenAdjPath}. TDP não alterado.");
-                return false;
-            }
-
-            string arguments = $"--stapm-limit={tdpLimit} --fast-limit={tdpLimit} --slow-limit={tdpLimit} --tctl-temp=90";
-            var psi = new ProcessStartInfo
-            {
-                FileName = _ryzenAdjPath,
-                Arguments = arguments,
-                CreateNoWindow = true,
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
-            };
-
-            using var process = Process.Start(psi);
-            if (process is null)
-            {
-                DebugLog.Write("[RyzenAdj] Não foi possível iniciar o processo.");
-                return false;
-            }
-
-            if (!process.WaitForExit(5000))
-            {
-                process.Kill(entireProcessTree: true);
-                process.WaitForExit();
-                DebugLog.Write("[RyzenAdj] Tempo limite excedido; TDP não confirmado.");
-                return false;
-            }
-
-            string output = process.StandardOutput.ReadToEnd();
-            string error = process.StandardError.ReadToEnd();
-            if (process.ExitCode != 0)
-            {
-                DebugLog.Write($"[RyzenAdj] Código {process.ExitCode}. {error} {output}".Trim());
-                return false;
-            }
-
-            DebugLog.Write($"[RyzenAdj] Comando concluído sem erro para {tdpLimit}mW. A leitura do hardware ainda precisa ser validada.");
-            return true;
+            bool applied = _smu!.SetPowerLimits((uint)tdpLimit);
+            DebugLog.Write(applied
+                ? "[TDP] PawnIO aceitou os três comandos para " + tdpLimit + "mW. Confirme os limites efetivos pelos sensores do hardware."
+                : "[TDP] PawnIO não confirmou todos os comandos para " + tdpLimit + "mW.");
+            return applied;
         }
         catch (Exception ex)
         {
-            DebugLog.Write($"[TDP] Erro ao aplicar perfil {mode}: {ex.Message}");
+            DebugLog.Write("[TDP] Falha ao aplicar perfil " + mode + " via PawnIO: " + ex);
             return false;
         }
     }
-
     // ==========================================
     // VOLUME, BRILHO E COR
     // ==========================================
@@ -150,6 +108,7 @@ public class WindowsHardwareService : IHardwareService
     {
         if (!OperatingSystem.IsWindows()) return;
         float normalized = (float)(Math.Clamp(level, 0, 100) / 100.0);
+        DebugLog.Write("[VOLUME] Solicitação do slider: " + normalized.ToString("P0") + ".");
         bool success = VolumeMixer.SetMasterVolume(normalized);
         DebugLog.Write(success
             ? $"[VOLUME] Volume principal ajustado para {normalized:P0}."
@@ -161,10 +120,11 @@ public class WindowsHardwareService : IHardwareService
         if (!OperatingSystem.IsWindows()) return;
 
         byte brightness = (byte)Math.Clamp(Math.Round(level), 0, 100);
+        DebugLog.Write("[BRILHO] Solicitação do slider: " + brightness + "%。");
         try
         {
             using var searcher = new ManagementObjectSearcher(
-                @"root\\WMI",
+                @"root\WMI",
                 "SELECT * FROM WmiMonitorBrightnessMethods");
 
             var methods = searcher.Get();
@@ -491,7 +451,7 @@ internal static class VolumeMixer
         [PreserveSig] int RegisterControlChangeNotify(IntPtr pNotify);
         [PreserveSig] int UnregisterControlChangeNotify(IntPtr pNotify);
         [PreserveSig] int GetChannelCount(out uint channelCount);
-        [PreserveSig] int SetMasterVolumeLevel(float levelDb, Guid eventContext);
+        [PreserveSig] int SetMasterVolumeLevel(float levelDb, ref Guid eventContext);
         [PreserveSig] int SetMasterVolumeLevelScalar(float level, Guid eventContext);
         [PreserveSig] int GetMasterVolumeLevel(out float levelDb);
         [PreserveSig] int GetMasterVolumeLevelScalar(out float level);
@@ -510,16 +470,45 @@ internal static class VolumeMixer
 
     public static bool SetMasterVolume(float level)
     {
+        object? enumeratorObject = null;
+        object? deviceObject = null;
+        object? volumeObject = null;
         try
         {
-            var enumerator = (IMMDeviceEnumerator)new MMDeviceEnumeratorComObject();
-            enumerator.GetDefaultAudioEndpoint(0, 1, out var device);
+            enumeratorObject = new MMDeviceEnumeratorComObject();
+            var enumerator = (IMMDeviceEnumerator)enumeratorObject;
+            int hr = enumerator.GetDefaultAudioEndpoint(0, 1, out var device);
+            if (hr < 0) Marshal.ThrowExceptionForHR(hr);
+            deviceObject = device;
+
             var iid = typeof(IAudioEndpointVolume).GUID;
-            device.Activate(ref iid, 23, IntPtr.Zero, out var obj);
-            var volume = (IAudioEndpointVolume)obj;
-            volume.SetMasterVolumeLevelScalar(level, Guid.Empty);
+            hr = device.Activate(ref iid, 23, IntPtr.Zero, out var activated);
+            if (hr < 0) Marshal.ThrowExceptionForHR(hr);
+            volumeObject = activated;
+
+            var volume = (IAudioEndpointVolume)volumeObject;
+            Guid eventContext = Guid.Empty;
+            hr = volume.SetMasterVolumeLevelScalar(Math.Clamp(level, 0f, 1f), ref eventContext);
+            if (hr < 0) Marshal.ThrowExceptionForHR(hr);
             return true;
         }
-        catch { return false; }
+        catch (Exception ex)
+        {
+            DebugLog.Write("[VOLUME] Core Audio falhou: " + ex.GetType().Name + ": " + ex.Message);
+            return false;
+        }
+        finally
+        {
+            ReleaseComObject(volumeObject);
+            ReleaseComObject(deviceObject);
+            ReleaseComObject(enumeratorObject);
+        }
+    }
+
+    private static void ReleaseComObject(object? value)
+    {
+        if (value is null || !Marshal.IsComObject(value)) return;
+        try { Marshal.FinalReleaseComObject(value); }
+        catch (Exception ex) { DebugLog.Write("[VOLUME] Falha ao liberar objeto COM: " + ex.Message); }
     }
 }
