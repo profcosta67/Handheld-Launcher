@@ -258,16 +258,11 @@ public partial class OverlayWindow : Window
         switch (_focusIndex)
         {
             case 2: // TDP
-                string newTdp = _currentTdp;
-                if (direction < 0) {
-                    if (_currentTdp == "Boost") newTdp = "Desempenho";
-                    else if (_currentTdp == "Desempenho") newTdp = "Normal";
-                    else if (_currentTdp == "Normal") newTdp = "Eco";
-                } else if (direction > 0) {
-                    if (_currentTdp == "Eco") newTdp = "Normal";
-                    else if (_currentTdp == "Normal") newTdp = "Desempenho";
-                    else if (_currentTdp == "Desempenho") newTdp = "Boost";
-                }
+                string[] tdpModes = { "UltraEco", "Eco", "Normal", "Desempenho", "Boost" };
+                int currentIndex = Array.IndexOf(tdpModes, _currentTdp);
+                if (currentIndex < 0) currentIndex = 2;
+                int nextIndex = Math.Clamp(currentIndex + Math.Sign(direction), 0, tdpModes.Length - 1);
+                string newTdp = tdpModes[nextIndex];
                 if (newTdp != _currentTdp) {
                     if (_hardwareService.SetTdpMode(newTdp)) {
                         SetTdpButtonVisual(newTdp);
@@ -398,6 +393,7 @@ public partial class OverlayWindow : Window
 
     private void SetTdpButtonVisual(string activeMode)
     {
+        if (BtnUltraEco != null) BtnUltraEco.Background = activeMode == "UltraEco" ? _activeColor : _inactiveColor;
         if (BtnEco != null) BtnEco.Background = activeMode == "Eco" ? _activeColor : _inactiveColor;
         if (BtnNormal != null) BtnNormal.Background = activeMode == "Normal" ? _activeColor : _inactiveColor;
         if (BtnDesempenho != null) BtnDesempenho.Background = activeMode == "Desempenho" ? _activeColor : _inactiveColor;
