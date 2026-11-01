@@ -125,12 +125,21 @@ public sealed class RyzenSmuService : IDisposable
         }
 
         // The official module performs its own CPU/PCI validation during load.
-        // Query its codename and require the exact value expected for this CPUID.
+        // CPUID 19h/75h is CPU_Phoenix (23) in PawnIO.Modules 0.2.11;
+        // CPUID 19h/7Ch is CPU_HawkPoint (30). Do not silently reinterpret 75h.
         ulong[] codeName = new ulong[1];
-        if (!_io.Execute("ioctl_get_code_name", null, codeName) || codeName[0] != expectedCodeName)
+        if (!_io.Execute("ioctl_get_code_name", null, codeName))
         {
-            string expectedName = cpuModel == 0x75 ? "CPU_Phoenix (23)" : "CPU_HawkPoint (30)";
-            DebugLog.Write($"[PawnIO] Codename do módulo incompatível: recebido={codeName[0]}, esperado={expectedName}. TDP desabilitado.");
+            DebugLog.Write("[PawnIO] Falha ao consultar o codename retornado pelo módulo RyzenSMU.");
+            return false;
+        }
+
+        string expectedName = cpuModel == 0x75 ? "CPU_Phoenix (23)" : "CPU_HawkPoint (30)";
+        DebugLog.Write($"[PawnIO] Identificação validada: CPUID model=0x{cpuModel:X}; codename módulo={codeName[0]}; esperado={expectedName}.");
+
+        if (codeName[0] != expectedCodeName)
+        {
+            DebugLog.Write($"[PawnIO] Codename incompatível: recebido={codeName[0]}, esperado={expectedCodeName}. TDP desabilitado.");
             return false;
         }
 
@@ -258,7 +267,19 @@ public sealed class RyzenSmuService : IDisposable
         stapmWatts = values[0];
         fastWatts = values[2];
         slowWatts = values[4];
-        DebugLog.Write($"[PawnIO] PM Table limits: [0]={values[0]:F2}, [2]={values[2]:F2}, [4]={values[4]:F2}, [6]={values[6]:F2}.");
+        // Dump the first eight DWORD-backed floats so the next hardware log
+        // can reveal whether this firmware exposes the expected Phoenix/Hawk Point
+        // limit fields at 0x00, 0x08 and 0x10, without guessing alternate offsets.
+        DebugLog.Write(
+            $"[PawnIO] PM Table dump (float indexes): [0]={values[0]:F2}, [1]={values[1]:F2}, " +
+            $"[2]={values[2]:F2}, [3]={values[3]:F2}, [4]={values[4]:F2}, [5]={values[5]:F2}, " +
+            $"[6]={values[6]:F2}, [7]={values[7]:F2}, [8]={values[8]:F2}, [9]={values[9]:F2}, " +
+            $"[10]={values[10]:F2}, [11]={values[11]:F2}, [12]={values[12]:F2}, [13]={values[13]:F2}, " +
+            $"[14]={values[14]:F2}, [15]={values[15]:F2}.");
+        DebugLog.Write(
+            $"[PawnIO] PM Table limites interpretados: STAPM@0x00={stapmWatts:F2}W, " +
+            $"FastPPT@0x08={fastWatts:F2}W, SlowPPT@0x10={slowWatts:F2}W; " +
+            $"tableVersion=0x{tableVersion:X6}, tableBase=0x{resolved[1]:X}.");
 
         return float.IsFinite(stapmWatts) && float.IsFinite(fastWatts)
             && float.IsFinite(slowWatts) && stapmWatts > 0f
