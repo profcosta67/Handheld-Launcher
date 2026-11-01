@@ -27,7 +27,6 @@
     <PackageReference Include="Velopack" Version="1.2.161" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="8.0.0" />
     <PackageReference Include="System.Management" Version="10.0.2" />
-    <PackageReference Include="System.Threading.AccessControl" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>
