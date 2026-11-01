@@ -15,7 +15,6 @@ public sealed class LenovoFanCurveService : IDisposable
     private const int PointCount = 10;
     private static readonly int[] Temperatures = [10,20,30,40,50,60,70,80,90,100];
     private readonly object _sync = new();
-    private ManagementObject? _provider;
     private int[]? _original;
     private bool _disposed;
 
@@ -52,7 +51,7 @@ public sealed class LenovoFanCurveService : IDisposable
                 @"root\\CIMV2", "SELECT Version FROM Win32_ComputerSystemProduct");
             foreach (ManagementObject item in searcher.Get())
             {
-                try { return item["ProductVersion"]?.ToString(); }
+                try { return item["Version"]?.ToString(); }
                 finally { item.Dispose(); }
             }
         }
@@ -236,6 +235,5 @@ public sealed class LenovoFanCurveService : IDisposable
         if (_disposed) return;
         RestoreOriginal();
         _disposed = true;
-        _provider?.Dispose();
     }
 }
