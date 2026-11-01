@@ -23,6 +23,9 @@ public sealed class MainViewModel : ViewModelBase
 
     // Monitor de Temperatura
     private readonly HardwareMonitorService _monitorService = new();
+    private readonly HWiNFOSharedMemoryService _hwInfoService = new();
+    private DateTime _lastHwInfoPollTime = DateTime.MinValue;
+    private bool _hwInfoWasAvailable;
     private DispatcherTimer? _hardwareTimer;
 
     private string _cpuTemperature = "--°C";
@@ -83,12 +86,50 @@ public sealed class MainViewModel : ViewModelBase
                 {
                     _hud.CpuTemperature = CpuTemperature;
                 }
+
+            // Coleta telemetria publicada pelo HWiNFO, quando estiver aberto
+            // com "Shared Memory Support" habilitado. A ausência do HWiNFO
+            // não afeta os controles nem o funcionamento do Launcher.
+            if (_hwInfoService.TryRead(out var hwInfo) && hwInfo is not null)
+            {
+                _hwInfoWasAvailable = true;
+                if (hwInfo.PollTime != _lastHwInfoPollTime)
+                {
+                    _lastHwInfoPollTime = hwInfo.PollTime;
+                    foreach (var reading in hwInfo.Readings)
+                    {
+                        var label = reading.Name;
+                        var relevant = label.Contains("Package Power", StringComparison.OrdinalIgnoreCase)
+                            || label.Contains("PPT", StringComparison.OrdinalIgnoreCase)
+                            || label.Contains("STAPM", StringComparison.OrdinalIgnoreCase)
+                            || label.Contains("Tctl", StringComparison.OrdinalIgnoreCase)
+                            || label.Contains("Tdie", StringComparison.OrdinalIgnoreCase)
+                            || label.Contains("Effective Clock", StringComparison.OrdinalIgnoreCase)
+                            || label.Contains("GPU Clock", StringComparison.OrdinalIgnoreCase)
+                            || label.Contains("GPU Power", StringComparison.OrdinalIgnoreCase)
+                            || label.Contains("CPU (Tctl", StringComparison.OrdinalIgnoreCase);
+                        if (relevant)
+                            DebugLog.Write($"[HWiNFO] {reading.SensorName} | {reading.Name}: {reading.Value:0.##} {reading.Unit} (min {reading.Min:0.##}, max {reading.Max:0.##}, média {reading.Average:0.##})");
+                    }
+                }
+            }
+            else if (_hwInfoWasAvailable)
+            {
+                _hwInfoWasAvailable = false;
+                DebugLog.Write("[HWiNFO] Shared Memory deixou de fornecer dados.");
             }
         };
         _hardwareTimer.Start();
         // 🟢 FIM DO MONITOR DE TEMPERATURA 🟢
 
         RebuildGamesFromLibrary();
+    }
+
+    public void Dispose()
+    {
+        _hardwareTimer?.Stop();
+        _monitorService.Dispose();
+        _hwInfoService.Dispose();
     }
 
     public ObservableCollection<GameTileViewModel> Games { get; }
