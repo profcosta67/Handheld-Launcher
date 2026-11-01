@@ -73,14 +73,23 @@ public partial class MainWindow : Window
         _gamepadTimer.Tick += OnGamepadTick;
         _gamepadTimer.Start();
 
-        Closed += (_, _) => 
+        // Qualquer fechamento explícito (incluindo Alt+F4 no modo Console)
+        // grava o marcador deste boot. O WatchdogGate usa esse marcador para
+        // não reabrir o launcher em loop após o usuário escolher sair.
+        Closing += (_, _) =>
+        {
+            WatchdogGate.MarkDeliberateQuit();
+            DebugLog.Write("[STARTUP] Fechamento solicitado; watchdog bloqueado até o próximo boot.");
+        };
+
+        Closed += (_, _) =>
         {
             _gamepadTimer.Stop();
             // Avisa a overlay que o app está fechando de verdade
             if (_overlayWindow != null)
             {
                 _overlayWindow.IsAppClosing = true;
-                _overlayWindow.Close(); 
+                _overlayWindow.Close();
             }
         };
 
@@ -90,7 +99,8 @@ public partial class MainWindow : Window
         {
             if (Topmost) StartTopmostEnforcer();
             RegisterRestoreHotkey();
-            // 🟢 NOVO: Cria a Tarefa Agendada no Windows para iniciar no boot sem UAC
+            // A tarefa de inicialização não é criada no evento Opened.
+            // O início automático é gerenciado separadamente pelo modo Handheld.
         };
         Closed += (_, _) => UnregisterRestoreHotkeyIfNeeded();
 
