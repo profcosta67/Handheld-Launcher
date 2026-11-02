@@ -349,6 +349,7 @@
       </Border>
     </Panel>
 
+    
     <!-- Overlay "Iniciando <jogo>..." -->
     <Panel Classes="fadeIn" IsVisible="{Binding IsLaunching}">
       <Border Classes="contextMenuOverlay" PointerPressed="OnMenuOverlayPressed" />

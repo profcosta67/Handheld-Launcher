@@ -13,7 +13,6 @@ internal static class Program
     public static void Main(string[] args)
     {
         // O Velopack precisa processar primeiro install/update/uninstall.
-        // A proteção de instância única só deve valer para a execução normal.
         VelopackApp.Build()
             .OnAfterInstallFastCallback((version) =>
             {
@@ -52,6 +51,11 @@ internal static class Program
                 }
             })
             .Run();
+
+        // 🟢 CORREÇÃO BUG 1: Se estamos reiniciando (layout picker), espera o
+        // processo antigo morrer ANTES de disputar o mutex. Sem isso, o novo
+        // processo perde o mutex e sai, deixando o usuário sem launcher.
+        LauncherRestart.WaitForPreviousInstance(args);
 
         // Uma tarefa automática que já esteja em execução não deve abrir
         // uma segunda janela nem disputar o foco com a instância existente.

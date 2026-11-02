@@ -5,30 +5,18 @@ param([switch]$SkipReboot)
 
 $ErrorActionPreference = "Stop"
 
-# 1. Cria a Tarefa Agendada para iniciar no boot com Admin (sem UAC) e com Delay
-$exePath = Join-Path $env:LOCALAPPDATA "HandheldLauncher\current\HandheldLauncher.exe"
+# ============================================================
+# v0.14.2 — Fim da duplicação de tarefas.
+# O script NÃO cria mais a tarefa "HandheldLauncher_Startup".
+# Quem cria/remove tarefa de boot agora é o WatchdogTask.cs (chamado
+# quando o usuário salva Desktop/Handheld nas Configurações), que usa
+# LogonTrigger com Delay + RestartOnFailure limitado. Isso elimina
+# o loop de "abrir 2 janelas no boot" e "reabrir a cada 1 minuto".
+# ============================================================
 
-if (-not (Test-Path $exePath)) {
-    $exePath = Join-Path $env:LOCALAPPDATA "HandheldLauncher\HandheldLauncher.exe"
-}
+Write-Host "InstallTask.ps1 v0.14.2: configurando modo console..."
 
-if (-not (Test-Path $exePath)) {
-    Write-Host "AVISO: Executavel nao encontrado. A Tarefa Agendada nao foi criada."
-} else {
-    $action = New-ScheduledTaskAction -Execute $exePath -Argument '--watchdog' -WorkingDirectory (Split-Path -Parent $exePath)
-    
-    # 🟢 CORREÇÃO: Delay reduzido para 20 segundos (evita abrir muito depois do Legion Space)
-    $trigger = New-ScheduledTaskTrigger -AtLogOn
-    $trigger.Delay = "PT20S" # PT20S é o formato ISO 8601 para 20 segundos
-    
-    $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Highest
-    $settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
-    
-    Register-ScheduledTask -Action $action -Trigger $trigger -Principal $principal -Settings $settings -TaskName "HandheldLauncher_Startup" -Description "Inicia o Handheld Launcher em Modo Console (com delay de 20s)." -Force
-    Write-Host "OK: Tarefa Agendada criada com sucesso (Delay de 20s aplicado)."
-}
-
-# 2. Ativa o KioskMode no arquivo de configuracoes
+# 1. Ativa o KioskMode no settings.json
 $settingsDir = Join-Path $env:APPDATA "HandheldLauncher"
 $settingsFile = Join-Path $settingsDir "settings.json"
 
@@ -53,7 +41,23 @@ $settings["ModeChosen"] = $true
 $settings | ConvertTo-Json -Depth 10 | Set-Content $settingsFile -Encoding UTF8
 Write-Host "OK: Modo Console (KioskMode) ativado."
 
-# 3. Agenda o reboot (a menos que o usuario passe -SkipReboot)
+# ============================================================
+# v0.14.2 — Remove tarefa duplicada que o script antigo criava.
+# Se a "HandheldLauncher_Startup" (versão antiga) existir, apaga
+# para não conflitar com a "HandheldLauncherWatchdog" gerenciada
+# pelo WatchdogTask.cs.
+# ============================================================
+try {
+    $existing = schtasks /Query /TN "HandheldLauncher_Startup" 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        schtasks /Delete /TN "HandheldLauncher_Startup" /F | Out-Null
+        Write-Host "OK: Tarefa antiga 'HandheldLauncher_Startup' removida (duplicava o watchdog)."
+    }
+} catch {
+    # Best effort
+}
+
+# 2. Agenda o reboot (a menos que o usuario passe -SkipReboot)
 if (-not $SkipReboot) {
     Write-Host ""
     Write-Host "=================================================" -ForegroundColor Yellow

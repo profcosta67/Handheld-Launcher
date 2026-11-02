@@ -7,18 +7,26 @@ using HandheldLauncher.App.Diagnostics;
 namespace HandheldLauncher.App.Platform;
 
 /// <summary>
-/// Cria/remove a Tarefa Agendada "HandheldLauncherWatchdog" direto do
-/// launcher. Usada pelo seletor Desktop/Handheld nas Configurações:
-/// - Handheld: tarefa com gatilho "ao fazer login" + repetição a cada 1 min,
-///   rodando também na bateria (handheld!), sem limite de tempo, sem
-///   instâncias duplicadas, argumento --watchdog (ver WatchdogGate).
-/// - Desktop: tarefa removida.
-/// Via XML porque o `schtasks /Create` simples não consegue desligar o
-/// "não iniciar/parar na bateria" nem combinar login + repetição.
-/// 
-/// v1.0.0 (Linux prep): Adicionado suporte para Linux. No Linux, essa
-/// funcionalidade é ignorada por enquanto (retorna false/true sem fazer nada),
-/// pois o systemd seria o equivalente ao schtasks e exigiria configuração extra.
+/// Cria/remove a Tarefa Agendada "HandheldLauncherWatchdog" direto do launcher.
+/// Usada pelo seletor Desktop/Handheld nas Configurações.
+///
+/// <para>v0.14.2 — Fim do loop de boot. A versão anterior tinha um
+/// <c>TimeTrigger</c> com <c>Repetition=PT1M</c> que abria o launcher a
+/// cada 1 minuto PARA SEMPRE. Combinado com um LogonTrigger disparando ao
+/// mesmo tempo, causava o "loop infinito de abertura" que o usuário
+/// relatou. A correção: substituir o TimeTrigger por <c>RestartOnFailure</c>
+/// com <b>count limitado</b> (só reabre se o app crashar, não se fechar
+/// normalmente), e adicionar um <c>Delay</c> de 20s no LogonTrigger (espera
+/// o Legion Space e o Xbox app carregarem antes de abrir).</para>
+///
+/// <para>Resultado prático:
+/// <list type="bullet">
+/// <item>Boot normal → 1 abertura (delay 20s).</item>
+/// <item>App crasha sozinho → reabre até 3x, 30s entre cada; depois desiste (evita loop).</item>
+/// <item>Usuário fecha pelo menu Power → não reabre (exit 0, RestartOnFailure não dispara).</item>
+/// <item>Usuário fecha por crash → reabre até 3x.</item>
+/// </list>
+/// </para>
 /// </summary>
 internal static class WatchdogTask
 {
@@ -48,18 +56,21 @@ internal static class WatchdogTask
             }
 
             var user = WindowsIdentity.GetCurrent().Name;
+            // 🟢 CORREÇÃO: StartBoundary no passado é OK, mas a LogonTrigger tem
+            // <Delay>PT20S</Delay> que faz o "espera 20s" corretamente. Sem
+            // TimeTrigger, não há repetição infinita.
             var start = DateTime.Now.AddMinutes(-1).ToString("yyyy-MM-dd'T'HH:mm:ss");
+
             var xml = $"""
                 <?xml version="1.0" encoding="UTF-16"?>
                 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
-                  <RegistrationInfo><Description>Mantém o Handheld Launcher aberto (modo Handheld).</Description></RegistrationInfo>
+                  <RegistrationInfo><Description>Handheld Launcher — modo Handheld (abre no login, reabre se crashar até 3x).</Description></RegistrationInfo>
                   <Triggers>
-                    <LogonTrigger><Enabled>true</Enabled><UserId>{Escape(user)}</UserId></LogonTrigger>
-                    <TimeTrigger>
-                      <StartBoundary>{start}</StartBoundary>
+                    <LogonTrigger>
                       <Enabled>true</Enabled>
-                      <Repetition><Interval>PT1M</Interval></Repetition>
-                    </TimeTrigger>
+                      <UserId>{Escape(user)}</UserId>
+                      <Delay>PT20S</Delay>
+                    </LogonTrigger>
                   </Triggers>
                   <Principals>
                     <Principal id="Author"><UserId>{Escape(user)}</UserId><LogonType>InteractiveToken</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal>
@@ -71,6 +82,10 @@ internal static class WatchdogTask
                     <StartWhenAvailable>true</StartWhenAvailable>
                     <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
                     <Enabled>true</Enabled>
+                    <RestartOnFailure>
+                      <Interval>PT30S</Interval>
+                      <Count>3</Count>
+                    </RestartOnFailure>
                   </Settings>
                   <Actions Context="Author">
                     <Exec>

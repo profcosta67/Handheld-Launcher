@@ -75,10 +75,13 @@ public partial class MainWindow : Window
         _gamepadTimer.Tick += OnGamepadTick;
         _gamepadTimer.Start();
 
+        // 🟢 v0.14.2 — Só marca "saída deliberada" quando o usuário realmente
+        // pediu pra sair (menu Power → Sair, ver OnDataContextChanged). Aqui só
+        // logamos. Isso permite que o RestartOnFailure da tarefa agendada
+        // diferencie "crash" (reabre) de "Sair" (não reabre).
         Closing += (_, _) =>
         {
-            WatchdogGate.MarkDeliberateQuit();
-            DebugLog.Write("[STARTUP] Fechamento solicitado; watchdog bloqueado até o próximo boot.");
+            DebugLog.Write("[STARTUP] Fechamento detectado.");
         };
 
         Closed += (_, _) =>
@@ -281,6 +284,7 @@ public partial class MainWindow : Window
 
         vm.QuitRequested += (_, _) =>
         {
+            // Sair intencional → marca flag pra tarefa agendada NÃO reabrir.
             WatchdogGate.MarkDeliberateQuit();
             vm.ClearOverlayNow();
             if (_overlayWindow != null) { _overlayWindow.IsAppClosing = true; _overlayWindow.Close(); }
@@ -417,117 +421,117 @@ public partial class MainWindow : Window
     }
 
     private void OnGamepadTick(object? sender, EventArgs e)
-{
-    try
     {
-        if (DataContext is not MainViewModel vm) return;
-        var actions = _gamepad.Poll();
-
-        if (_activeDialog is { } dialog)
+        try
         {
-            foreach (var dialogAction in actions) { UiSounds.PlayForAction(dialogAction); DialogGamepadNavigator.Handle(dialog, dialogAction); }
-            return;
+            if (DataContext is not MainViewModel vm) return;
+            var actions = _gamepad.Poll();
+
+            if (_activeDialog is { } dialog)
+            {
+                foreach (var dialogAction in actions) { UiSounds.PlayForAction(dialogAction); DialogGamepadNavigator.Handle(dialog, dialogAction); }
+                return;
+            }
+
+            foreach (var action in actions)
+            {
+                if (action == GamepadAction.ToggleQuickSettings) { UiSounds.PlayForAction(action); ToggleOverlay(); continue; }
+                if (_overlayWindow != null && _overlayWindow.IsVisible) { UiSounds.PlayForAction(action); _overlayWindow.HandleGamepadAction(action); continue; }
+
+                if (vm.IsAboutOpen)
+                {
+                    if (action is GamepadAction.Back or GamepadAction.Confirm or GamepadAction.GlobalMenu or GamepadAction.Menu) { UiSounds.PlayBack(); vm.CloseAbout(); }
+                    continue;
+                }
+
+                if (vm.RunningGame is not null && !IsOurWindowInForeground()) continue;
+                UiSounds.PlayForAction(action);
+
+                if (vm.IsCoverPickerOpen)
+                {
+                    switch (action)
+                    {
+                        case GamepadAction.MoveLeft: vm.MoveCoverPickerSelection(-1); ScrollCoverPickerSelectionIntoView(vm); break;
+                        case GamepadAction.MoveRight: vm.MoveCoverPickerSelection(1); ScrollCoverPickerSelectionIntoView(vm); break;
+                        case GamepadAction.MoveUp: vm.MoveCoverPickerSelectionVertical(-1); ScrollCoverPickerSelectionIntoView(vm); break;
+                        case GamepadAction.MoveDown: vm.MoveCoverPickerSelectionVertical(1); ScrollCoverPickerSelectionIntoView(vm); break;
+                        case GamepadAction.Confirm: vm.ConfirmCoverPickerSelection(); break;
+                        case GamepadAction.Back: case GamepadAction.Menu: case GamepadAction.GlobalMenu: vm.CloseCoverPicker(); break;
+                    }
+                    continue;
+                }
+
+                if (vm.IsContextMenuOpen)
+                {
+                    switch (action)
+                    {
+                        case GamepadAction.MoveUp: vm.MoveContextMenuSelection(-1); break;
+                        case GamepadAction.MoveDown: vm.MoveContextMenuSelection(1); break;
+                        case GamepadAction.Confirm: vm.ConfirmContextMenuSelection(); break;
+                        case GamepadAction.Back: case GamepadAction.Menu: vm.CloseContextMenu(); break;
+                    }
+                    continue;
+                }
+
+                if (vm.IsGlobalMenuOpen)
+                {
+                    switch (action)
+                    {
+                        case GamepadAction.MoveUp: vm.MoveGlobalMenuSelection(-1); break;
+                        case GamepadAction.MoveDown: vm.MoveGlobalMenuSelection(1); break;
+                        case GamepadAction.Confirm: vm.ConfirmGlobalMenuSelection(); break;
+                        case GamepadAction.Back: vm.GlobalMenuBack(); break;
+                        case GamepadAction.GlobalMenu: vm.CloseGlobalMenu(); break;
+                    }
+                    continue;
+                }
+
+                if (vm.IsDownloadsOpen)
+                {
+                    switch (action)
+                    {
+                        case GamepadAction.Back: case GamepadAction.Menu: case GamepadAction.GlobalMenu: case GamepadAction.Downloads: vm.CloseDownloads(); break;
+                        case GamepadAction.Confirm: vm.OpenSteamDownloads(); break;
+                    }
+                    continue;
+                }
+
+                if (vm.IsSubFilterRowFocused)
+                {
+                    switch (action)
+                    {
+                        case GamepadAction.MoveLeft: vm.MoveSubFilterCursor(-1); continue;
+                        case GamepadAction.MoveRight: vm.MoveSubFilterCursor(1); continue;
+                        case GamepadAction.Confirm: vm.ToggleFocusedSubFilter(); continue;
+                        case GamepadAction.MoveDown: case GamepadAction.Back: vm.LeaveSubFilterRow(); continue;
+                        case GamepadAction.MoveUp: continue;
+                        case GamepadAction.PreviousFilter: case GamepadAction.NextFilter: break;
+                        default: continue;
+                    }
+                }
+
+                switch (action)
+                {
+                    case GamepadAction.Downloads: vm.ToggleDownloads(); break;
+                    case GamepadAction.MoveLeft: vm.MovePrevious(); ScrollGameRowSelectionIntoView(vm); break;
+                    case GamepadAction.MoveRight: vm.MoveNext(); ScrollGameRowSelectionIntoView(vm); break;
+                    case GamepadAction.MoveUp: if (!MoveSelectionVertical(vm, -1)) vm.FocusSubFilterRow(); break;
+                    case GamepadAction.MoveDown: MoveSelectionVertical(vm, 1); break;
+                    case GamepadAction.Confirm: vm.LaunchSelected(); ScrollGameRowSelectionIntoView(vm); break;
+                    case GamepadAction.Back: vm.CloseRunningGame(); break;
+                    case GamepadAction.Menu: vm.ToggleContextMenu(); break;
+                    case GamepadAction.GlobalMenu: vm.ToggleGlobalMenu(); break;
+                    case GamepadAction.PreviousFilter: vm.CyclePreviousFilter(); break;
+                    case GamepadAction.NextFilter: vm.CycleNextFilter(); break;
+                    case GamepadAction.GameDetails: vm.OpenGameDetailsForSelected(); break;
+                }
+            }
         }
-
-        foreach (var action in actions)
+        catch (Exception ex)
         {
-            if (action == GamepadAction.ToggleQuickSettings) { UiSounds.PlayForAction(action); ToggleOverlay(); continue; }
-            if (_overlayWindow != null && _overlayWindow.IsVisible) { UiSounds.PlayForAction(action); _overlayWindow.HandleGamepadAction(action); continue; }
-
-            if (vm.IsAboutOpen)
-            {
-                if (action is GamepadAction.Back or GamepadAction.Confirm or GamepadAction.GlobalMenu or GamepadAction.Menu) { UiSounds.PlayBack(); vm.CloseAbout(); }
-                continue;
-            }
-
-            if (vm.RunningGame is not null && !IsOurWindowInForeground()) continue;
-            UiSounds.PlayForAction(action);
-
-            if (vm.IsCoverPickerOpen)
-            {
-                switch (action)
-                {
-                    case GamepadAction.MoveLeft: vm.MoveCoverPickerSelection(-1); ScrollCoverPickerSelectionIntoView(vm); break;
-                    case GamepadAction.MoveRight: vm.MoveCoverPickerSelection(1); ScrollCoverPickerSelectionIntoView(vm); break;
-                    case GamepadAction.MoveUp: vm.MoveCoverPickerSelectionVertical(-1); ScrollCoverPickerSelectionIntoView(vm); break;
-                    case GamepadAction.MoveDown: vm.MoveCoverPickerSelectionVertical(1); ScrollCoverPickerSelectionIntoView(vm); break;
-                    case GamepadAction.Confirm: vm.ConfirmCoverPickerSelection(); break;
-                    case GamepadAction.Back: case GamepadAction.Menu: case GamepadAction.GlobalMenu: vm.CloseCoverPicker(); break;
-                }
-                continue;
-            }
-
-            if (vm.IsContextMenuOpen)
-            {
-                switch (action)
-                {
-                    case GamepadAction.MoveUp: vm.MoveContextMenuSelection(-1); break;
-                    case GamepadAction.MoveDown: vm.MoveContextMenuSelection(1); break;
-                    case GamepadAction.Confirm: vm.ConfirmContextMenuSelection(); break;
-                    case GamepadAction.Back: case GamepadAction.Menu: vm.CloseContextMenu(); break;
-                }
-                continue;
-            }
-
-            if (vm.IsGlobalMenuOpen)
-            {
-                switch (action)
-                {
-                    case GamepadAction.MoveUp: vm.MoveGlobalMenuSelection(-1); break;
-                    case GamepadAction.MoveDown: vm.MoveGlobalMenuSelection(1); break;
-                    case GamepadAction.Confirm: vm.ConfirmGlobalMenuSelection(); break;
-                    case GamepadAction.Back: vm.GlobalMenuBack(); break;
-                    case GamepadAction.GlobalMenu: vm.CloseGlobalMenu(); break;
-                }
-                continue;
-            }
-
-            if (vm.IsDownloadsOpen)
-            {
-                switch (action)
-                {
-                    case GamepadAction.Back: case GamepadAction.Menu: case GamepadAction.GlobalMenu: case GamepadAction.Downloads: vm.CloseDownloads(); break;
-                    case GamepadAction.Confirm: vm.OpenSteamDownloads(); break;
-                }
-                continue;
-            }
-
-            if (vm.IsSubFilterRowFocused)
-            {
-                switch (action)
-                {
-                    case GamepadAction.MoveLeft: vm.MoveSubFilterCursor(-1); continue;
-                    case GamepadAction.MoveRight: vm.MoveSubFilterCursor(1); continue;
-                    case GamepadAction.Confirm: vm.ToggleFocusedSubFilter(); continue;
-                    case GamepadAction.MoveDown: case GamepadAction.Back: vm.LeaveSubFilterRow(); continue;
-                    case GamepadAction.MoveUp: continue;
-                    case GamepadAction.PreviousFilter: case GamepadAction.NextFilter: break;
-                    default: continue;
-                }
-            }
-
-            switch (action)
-            {
-                case GamepadAction.Downloads: vm.ToggleDownloads(); break;
-                case GamepadAction.MoveLeft: vm.MovePrevious(); ScrollGameRowSelectionIntoView(vm); break;
-                case GamepadAction.MoveRight: vm.MoveNext(); ScrollGameRowSelectionIntoView(vm); break;
-                case GamepadAction.MoveUp: if (!MoveSelectionVertical(vm, -1)) vm.FocusSubFilterRow(); break;
-                case GamepadAction.MoveDown: MoveSelectionVertical(vm, 1); break;
-                case GamepadAction.Confirm: vm.LaunchSelected(); ScrollGameRowSelectionIntoView(vm); break;
-                case GamepadAction.Back: vm.CloseRunningGame(); break;
-                case GamepadAction.Menu: vm.ToggleContextMenu(); break;
-                case GamepadAction.GlobalMenu: vm.ToggleGlobalMenu(); break;
-                case GamepadAction.PreviousFilter: vm.CyclePreviousFilter(); break;
-                case GamepadAction.NextFilter: vm.CycleNextFilter(); break;
-                case GamepadAction.GameDetails: vm.OpenGameDetailsForSelected(); break;
-            }
+            DebugLog.Write($"[Tick] EXCEPTION no handler do gamepad: {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}");
         }
     }
-    catch (Exception ex)
-    {
-        DebugLog.Write($"[Tick] EXCEPTION no handler do gamepad: {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}");
-    }
-}
 
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
