@@ -17,15 +17,15 @@ if (-not (Test-Path $exePath)) {
 } else {
     $action = New-ScheduledTaskAction -Execute $exePath -Argument '--watchdog' -WorkingDirectory (Split-Path -Parent $exePath)
     
-    # 🟢 AQUI ESTÁ A MÁGICA: Adiciona um delay de 60 segundos para o Launcher abrir por último
+    # 🟢 CORREÇÃO: Delay reduzido para 20 segundos (evita abrir muito depois do Legion Space)
     $trigger = New-ScheduledTaskTrigger -AtLogOn
-    $trigger.Delay = "PT60S" # PT60S é o formato ISO 8601 para 60 segundos
+    $trigger.Delay = "PT20S" # PT20S é o formato ISO 8601 para 20 segundos
     
     $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Highest
     $settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
     
-    Register-ScheduledTask -Action $action -Trigger $trigger -Principal $principal -Settings $settings -TaskName "HandheldLauncher_Startup" -Description "Inicia o Handheld Launcher em Modo Console (com delay de 30s)." -Force
-    Write-Host "OK: Tarefa Agendada criada com sucesso (Delay de 30s aplicado)."
+    Register-ScheduledTask -Action $action -Trigger $trigger -Principal $principal -Settings $settings -TaskName "HandheldLauncher_Startup" -Description "Inicia o Handheld Launcher em Modo Console (com delay de 20s)." -Force
+    Write-Host "OK: Tarefa Agendada criada com sucesso (Delay de 20s aplicado)."
 }
 
 # 2. Ativa o KioskMode no arquivo de configuracoes

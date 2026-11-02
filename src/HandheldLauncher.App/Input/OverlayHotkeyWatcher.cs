@@ -4,18 +4,8 @@ namespace HandheldLauncher.App.Input;
 
 /// <summary>
 /// L3+R3 (os dois analógicos juntos) troca o preset do HUD — numa THREAD
-/// PRÓPRIA, não no timer da interface.
-///
-/// Bug reportado na v0.6.0: "o botão pra mudar entre as opções de HUD
-/// parou de funcionar, funcionou de primeira mas agora não vai mais". O
-/// combo era lido pelo mesmo timer de 50 ms da janela (DispatcherTimer). Com
-/// o jogo na frente e o launcher em segundo plano/escondido na bandeja, o
-/// Windows 11 pode desacelerar os timers de interface de um app em segundo
-/// plano (modo de eficiência / "EcoQoS") — um toque rápido de L3+R3 cai
-/// entre duas leituras e se perde. Aqui: thread dedicada lendo os 4 slots do
-/// XInput a cada ~40 ms (o controle pode não estar no slot 0 depois de
-/// reconectar), e o launcher pede ao Windows pra não ser desacelerado (ver
-/// Platform/PowerThrottling).
+/// PRÓPRIA, não no timer da interface. Lê os 4 slots do XInput a cada ~40 ms
+/// (o controle pode não estar no slot 0 depois de reconectar).
 /// </summary>
 internal sealed class OverlayHotkeyWatcher : IDisposable
 {
@@ -26,6 +16,7 @@ internal sealed class OverlayHotkeyWatcher : IDisposable
     private readonly Thread _thread;
     private volatile bool _stop;
     private readonly bool[] _wasDown = new bool[4];
+    private readonly bool[] _wasSeen = new bool[4];
 
     public OverlayHotkeyWatcher(Action onCombo)
     {
@@ -49,18 +40,28 @@ internal sealed class OverlayHotkeyWatcher : IDisposable
                 {
                     if (!XInput.TryGetState(slot, out var state))
                     {
+                        if (_wasSeen[slot])
+                        {
+                            _wasSeen[slot] = false;
+                            DebugLog.Write($"[OverlayHotkeyWatcher] Controle desconectado do slot {slot}");
+                        }
                         _wasDown[slot] = false;
                         continue;
+                    }
+
+                    // 🟢 Log de descoberta: só uma vez por conexão, sem floodar.
+                    if (!_wasSeen[slot])
+                    {
+                        _wasSeen[slot] = true;
+                        DebugLog.Write($"[OverlayHotkeyWatcher] Controle detectado no slot {slot}");
                     }
 
                     var buttons = state.Gamepad.wButtons;
                     var isDown = (buttons & LeftThumb) != 0 && (buttons & RightThumb) != 0;
 
-                    // Dispara uma vez por aperto (borda de subida), não a
-                    // cada leitura enquanto os dois continuam afundados.
                     if (isDown && !_wasDown[slot])
                     {
-                        DebugLog.Write($"OverlayHotkeyWatcher: L3+R3 no controle {slot}");
+                        DebugLog.Write($"[OverlayHotkeyWatcher] L3+R3 no controle {slot}");
                         _onCombo();
                     }
 

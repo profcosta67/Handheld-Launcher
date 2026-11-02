@@ -1,13 +1,9 @@
 using System.Runtime.InteropServices;
 using HandheldLauncher.App.Diagnostics;
+using System.Text.Json;
 
 namespace HandheldLauncher.App.Platform;
 
-/// <summary>
-/// Modos de otimização de imagem/cor. Cada preset é calculado sempre sobre
-/// a curva original capturada do Windows, nunca sobre o último preset aplicado.
-/// Isso evita acumular OLED + Noturno + outros efeitos ao trocar de modo.
-/// </summary>
 internal static class DisplayColorManager
 {
     public static readonly string[] ModeNames =
@@ -21,17 +17,10 @@ internal static class DisplayColorManager
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 256)] public ushort[] Blue;
     }
 
-    [DllImport("user32.dll")]
-    private static extern IntPtr GetDC(IntPtr hWnd);
-
-    [DllImport("user32.dll")]
-    private static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
-
-    [DllImport("gdi32.dll", SetLastError = true)]
-    private static extern bool GetDeviceGammaRamp(IntPtr hdc, ref Ramp lpRamp);
-
-    [DllImport("gdi32.dll", SetLastError = true)]
-    private static extern bool SetDeviceGammaRamp(IntPtr hdc, ref Ramp lpRamp);
+    [DllImport("user32.dll")] private static extern IntPtr GetDC(IntPtr hWnd);
+    [DllImport("user32.dll")] private static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
+    [DllImport("gdi32.dll", SetLastError = true)] private static extern bool GetDeviceGammaRamp(IntPtr hdc, ref Ramp lpRamp);
+    [DllImport("gdi32.dll", SetLastError = true)] private static extern bool SetDeviceGammaRamp(IntPtr hdc, ref Ramp lpRamp);
 
     private readonly record struct ChannelCurve(double Gamma, double Contrast, double Scale);
     private readonly record struct ModePreset(ChannelCurve R, ChannelCurve G, ChannelCurve B);
@@ -51,6 +40,10 @@ internal static class DisplayColorManager
     private static int _currentMode = -1;
     private static bool _hooksRegistered;
 
+    private static readonly string BackupPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "HandheldLauncher", "gamma_backup.bin");
+
     private static void EnsureExitHooksRegistered()
     {
         if (_hooksRegistered) return;
@@ -59,54 +52,80 @@ internal static class DisplayColorManager
         AppDomain.CurrentDomain.UnhandledException += (_, _) => RestoreOriginal();
     }
 
-    /// <summary>
-    /// Captura a curva original uma única vez, antes de aplicar qualquer preset.
-    /// Só marca a captura como concluída se GetDeviceGammaRamp realmente funcionar.
-    /// </summary>
     public static void CaptureOriginal()
     {
-        lock (Sync)
+        lock (Sync) { CaptureOriginalLocked(); }
+    }
+
+    private static void CaptureOriginalLocked()
+    {
+        if (_captured) return;
+        EnsureExitHooksRegistered();
+
+        try
         {
-            if (_captured) return;
-            EnsureExitHooksRegistered();
+            // 🟢 Tenta carregar do backup primeiro (evita acumular filtros em caso de crash)
+            if (File.Exists(BackupPath))
+            {
+                var json = File.ReadAllText(BackupPath);
+                var backup = JsonSerializer.Deserialize<RampBackup>(json);
+                if (backup != null && backup.Red.Length == 256 && backup.Green.Length == 256 && backup.Blue.Length == 256)
+                {
+                    _original = new Ramp { Red = backup.Red, Green = backup.Green, Blue = backup.Blue };
+                    _captured = true;
+                    _currentMode = 0;
+                    DebugLog.Write("[DisplayColor] Curva original carregada do backup em disco.");
+                    return;
+                }
+            }
 
             IntPtr hdc = IntPtr.Zero;
             try
             {
                 hdc = GetDC(IntPtr.Zero);
-                if (hdc == IntPtr.Zero)
-                {
-                    DebugLog.Write("[DisplayColor] CaptureOriginal: GetDC falhou; tentará novamente na próxima aplicação.");
-                    return;
-                }
+                if (hdc == IntPtr.Zero) return;
 
                 var ramp = NewRamp();
                 if (!GetDeviceGammaRamp(hdc, ref ramp))
                 {
-                    DebugLog.Write($"[DisplayColor] CaptureOriginal: GetDeviceGammaRamp falhou (Win32={Marshal.GetLastWin32Error()}); tentará novamente.");
+                    DebugLog.Write($"[DisplayColor] GetDeviceGammaRamp falhou (Win32={Marshal.GetLastWin32Error()}).");
                     return;
                 }
 
                 _original = CloneRamp(ramp);
                 _captured = true;
                 _currentMode = 0;
-                DebugLog.Write("[DisplayColor] Curva original do Windows capturada com sucesso.");
-            }
-            catch (Exception ex)
-            {
-                DebugLog.Write($"[DisplayColor] CaptureOriginal EXCEPTION {ex}");
+
+                // 🟢 Salva o backup em disco
+                try
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(BackupPath)!);
+                    
+                    // 🟢 CORREÇÃO: extrai o valor nulo-verificado uma única vez
+                    var original = _original!.Value;
+                    var backup = new RampBackup
+                    {
+                        Red = original.Red,
+                        Green = original.Green,
+                        Blue = original.Blue
+                    };
+                    File.WriteAllText(BackupPath, JsonSerializer.Serialize(backup));
+                }
+                catch { /* Melhor esforço */ }
+
+                DebugLog.Write("[DisplayColor] Curva original do Windows capturada e salva.");
             }
             finally
             {
                 if (hdc != IntPtr.Zero) ReleaseDC(IntPtr.Zero, hdc);
             }
         }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[DisplayColor] CaptureOriginal EXCEPTION {ex}");
+        }
     }
 
-    /// <summary>
-    /// Aplica um preset transformando a curva original capturada. Nunca lê a
-    /// curva atualmente modificada para gerar o próximo preset.
-    /// </summary>
     public static void Apply(int modeIndex)
     {
         lock (Sync)
@@ -115,11 +134,7 @@ internal static class DisplayColorManager
             {
                 modeIndex = Math.Clamp(modeIndex, 0, Presets.Length - 1);
                 CaptureOriginalLocked();
-                if (!_captured || _original is not { } original)
-                {
-                    DebugLog.Write("[DisplayColor] Preset não aplicado: curva original indisponível.");
-                    return;
-                }
+                if (!_captured || _original is not { } original) return;
 
                 if (modeIndex == _currentMode) return;
 
@@ -144,51 +159,13 @@ internal static class DisplayColorManager
                 if (SetRamp(ramp))
                 {
                     _currentMode = modeIndex;
-                    DebugLog.Write($"[DisplayColor] Modo {ModeNames[modeIndex]} aplicado sobre a curva original (sem acumular presets).");
-                }
-                else
-                {
-                    DebugLog.Write($"[DisplayColor] SetDeviceGammaRamp falhou ao aplicar {ModeNames[modeIndex]} (Win32={Marshal.GetLastWin32Error()}).");
+                    DebugLog.Write($"[DisplayColor] Modo {ModeNames[modeIndex]} aplicado sobre a curva original.");
                 }
             }
             catch (Exception ex)
             {
                 DebugLog.Write($"DisplayColorManager.Apply EXCEPTION {ex}");
             }
-        }
-    }
-
-    // Caller already holds Sync. Kept separate so Apply can retry a failed capture.
-    private static void CaptureOriginalLocked()
-    {
-        if (_captured) return;
-        EnsureExitHooksRegistered();
-
-        IntPtr hdc = IntPtr.Zero;
-        try
-        {
-            hdc = GetDC(IntPtr.Zero);
-            if (hdc == IntPtr.Zero) return;
-
-            var ramp = NewRamp();
-            if (!GetDeviceGammaRamp(hdc, ref ramp))
-            {
-                DebugLog.Write($"[DisplayColor] GetDeviceGammaRamp falhou (Win32={Marshal.GetLastWin32Error()}).");
-                return;
-            }
-
-            _original = CloneRamp(ramp);
-            _captured = true;
-            _currentMode = 0;
-            DebugLog.Write("[DisplayColor] Curva original do Windows capturada com sucesso.");
-        }
-        catch (Exception ex)
-        {
-            DebugLog.Write($"[DisplayColor] CaptureOriginal EXCEPTION {ex}");
-        }
-        finally
-        {
-            if (hdc != IntPtr.Zero) ReleaseDC(IntPtr.Zero, hdc);
         }
     }
 
@@ -215,23 +192,11 @@ internal static class DisplayColorManager
     {
         IntPtr hdc = GetDC(IntPtr.Zero);
         if (hdc == IntPtr.Zero) return false;
-        try
-        {
-            return SetDeviceGammaRamp(hdc, ref ramp);
-        }
-        finally
-        {
-            ReleaseDC(IntPtr.Zero, hdc);
-        }
+        try { return SetDeviceGammaRamp(hdc, ref ramp); }
+        finally { ReleaseDC(IntPtr.Zero, hdc); }
     }
 
-    private static Ramp NewRamp() => new()
-    {
-        Red = new ushort[256],
-        Green = new ushort[256],
-        Blue = new ushort[256],
-    };
-
+    private static Ramp NewRamp() => new() { Red = new ushort[256], Green = new ushort[256], Blue = new ushort[256] };
     private static Ramp CloneRamp(Ramp source) => new()
     {
         Red = (ushort[])source.Red.Clone(),
@@ -244,7 +209,6 @@ internal static class DisplayColorManager
         var values = new ushort[256];
         for (var i = 0; i < 256; i++)
         {
-            // Usa a amostra original capturada, não o valor deixado pelo modo anterior.
             var x = originalChannel[i] / 65535.0;
             var contrasted = Math.Clamp(0.5 + (x - 0.5) * curve.Contrast, 0.0, 1.0);
             var gamma = Math.Pow(contrasted, curve.Gamma);
@@ -252,5 +216,12 @@ internal static class DisplayColorManager
             values[i] = (ushort)Math.Round(final * 65535.0);
         }
         return values;
+    }
+
+    private sealed class RampBackup
+    {
+        public ushort[] Red { get; set; } = new ushort[256];
+        public ushort[] Green { get; set; } = new ushort[256];
+        public ushort[] Blue { get; set; } = new ushort[256];
     }
 }
