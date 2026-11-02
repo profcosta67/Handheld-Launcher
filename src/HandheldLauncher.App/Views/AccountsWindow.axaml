@@ -21,6 +21,11 @@
     pedida — com um botão 👁 por campo pra revelar só quando precisar
     (colar/confirmar a chave), sem precisar de nenhum estado na ViewModel
     (é só UI, resolvido no code-behind).
+
+    v0.14: entrou o bloco RAWG API key (metadados de jogos que NÃO são da
+    Steam — Xbox, emuladores, atalhos). Fica depois do SteamID64 de
+    propósito: os 3 blocos Steam ficam agrupados, e a RAWG é um serviço
+    separado, então fecha a lista antes do aviso final.
   -->
 
   <Grid RowDefinitions="*,Auto" Margin="24">
@@ -49,6 +54,13 @@
         </Grid>
         <TextBlock Text="{Binding SteamAccountText}" Classes="subtle" FontSize="12" TextWrapping="Wrap" />
         <Button Classes="pill" Content="Usar conta da Steam deste PC" Click="OnUseSteamAccountClick" HorizontalAlignment="Left" />
+
+        <TextBlock Text="RAWG API key (descrições e metadados de jogos que não são da Steam)" Classes="subtle" Margin="0,8,0,0" />
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBox x:Name="RawgKeyBox" Grid.Column="0" Text="{Binding RawgApiKey}" PasswordChar="•" Watermark="Cole aqui a chave da RAWG (rawg.io/apidocs)" />
+          <Button Grid.Column="1" Classes="pill" Content="👁" Padding="12,6" Margin="6,0,0,0" Click="OnToggleRawgVisibilityClick" ToolTip.Tip="Mostrar/ocultar" />
+        </Grid>
+        <Button Classes="pill" Content="Obter chave da RAWG (abre o site oficial)" Click="OnGetRawgKeyClick" HorizontalAlignment="Left" />
 
         <TextBlock Text="O launcher nunca pede nem guarda a senha da Steam. As chaves ficam criptografadas neste PC (só o seu usuário do Windows consegue ler)."
                    Classes="subtle" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0" />

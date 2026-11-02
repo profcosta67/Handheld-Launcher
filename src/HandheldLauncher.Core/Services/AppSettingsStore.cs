@@ -35,10 +35,15 @@ public static class AppSettingsStore
             var json = File.ReadAllText(path);
             var settings = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
 
-            var hadPlainSecret = IsPlain(settings.SteamGridDbApiKey) || IsPlain(settings.SteamWebApiKey);
+            // v0.14: RawgApiKey também entra na proteção DPAPI, igual
+            // SteamGridDbApiKey e SteamWebApiKey.
+            var hadPlainSecret = IsPlain(settings.SteamGridDbApiKey)
+                || IsPlain(settings.SteamWebApiKey)
+                || IsPlain(settings.RawgApiKey);
 
             settings.SteamGridDbApiKey = Unprotect(settings.SteamGridDbApiKey);
             settings.SteamWebApiKey = Unprotect(settings.SteamWebApiKey);
+            settings.RawgApiKey = Unprotect(settings.RawgApiKey) ?? string.Empty;
 
             if (hadPlainSecret && OperatingSystem.IsWindows())
             {
@@ -124,7 +129,8 @@ public static class AppSettingsStore
 
         node[nameof(AppSettings.SteamGridDbApiKey)] = Protect(settings.SteamGridDbApiKey);
         node[nameof(AppSettings.SteamWebApiKey)] = Protect(settings.SteamWebApiKey);
-        
+        node[nameof(AppSettings.RawgApiKey)] = Protect(settings.RawgApiKey);
+
         File.WriteAllText(path, node.ToJsonString(JsonOptions));
 
         // NOVO: No Linux, restringe a permissão do arquivo para 0600 (apenas o dono lê/escreve).

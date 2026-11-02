@@ -265,6 +265,13 @@
             <TextBlock FontSize="12">
               <Run Text="Conta Steam (SteamID64): " /><Run Text="{Binding SteamIdStatusText}" />
             </TextBlock>
+            <!-- v0.14: status da RAWG (metadados de jogos que não são da
+                 Steam — Xbox, emuladores, atalhos). Mesmo padrão dos três
+                 acima: só "configurado ✓" / "não configurado", nunca a
+                 chave em si (edição/máscara ficam em AccountsWindow). -->
+            <TextBlock FontSize="12">
+              <Run Text="RAWG API (metadados extras): " /><Run Text="{Binding RawgApiStatusText}" />
+            </TextBlock>
           </StackPanel>
           <Button Classes="pill" Content="🔒 Gerenciar contas e chaves de API" Click="OnManageAccountsClick" HorizontalAlignment="Left" />
           <TextBlock Text="O launcher nunca pede nem guarda a senha da Steam. As chaves ficam criptografadas neste PC (só o seu usuário do Windows consegue ler)."

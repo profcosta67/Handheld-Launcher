@@ -577,18 +577,19 @@ public sealed class MainViewModel : ViewModelBase
     public event EventHandler? ShutdownDeviceRequested;
     public event EventHandler? RestoreShellRequested;
     public event EventHandler? OpenOverlayRequested;
+    public event EventHandler? SystemUpdateRequested;
+    public event EventHandler? DriverUpdateRequested;
 
     public void RequestOpenOverlay()
     {
         OpenOverlayRequested?.Invoke(this, EventArgs.Empty);
     }
 
-    // 🟢 NOVO MÉTODO AQUI
     public void RefreshArtworkState()
     {
         _artwork.ReloadSettings();
         OnPropertyChanged(nameof(CanFetchArtwork));
-        if (IsGlobalMenuOpen) BuildGlobalMenu(); // Atualiza o menu se estiver aberto
+        if (IsGlobalMenuOpen) BuildGlobalMenu();
     }
 
     public void ApplyEntryEdits(GameEntry game, string? title, bool isApplication)
@@ -597,7 +598,12 @@ public sealed class MainViewModel : ViewModelBase
         RebuildGamesFromLibrary();
     }
 
-    private static bool HasGameDetails(GameEntry game) => game.Source == GameSource.Steam && game.SteamAppId is not null;
+    // v0.14: libera Detalhes pra QUALQUER jogo (o GameDetailsViewModel decide
+    // se busca na Steam ou na RAWG). Só continua fora pra "não instalado"
+    // (que tem "Instalar" no lugar) e pra programas/aplicativos (que não
+    // têm descrição de "jogo" em lugar nenhum).
+    private static bool HasGameDetails(GameEntry game)
+        => !game.IsOwnedNotInstalled && !game.IsApplication;
 
     private void OpenGameDetails(GameEntry game)
     {
@@ -782,29 +788,29 @@ public sealed class MainViewModel : ViewModelBase
 
         if (game.IsOwnedNotInstalled)
         {
-            Add("Instalar", () => OpenGameFromMenu(game));
+            Add("📥 Instalar", () => OpenGameFromMenu(game));
             return;
         }
 
-        Add("Abrir jogo", () => OpenGameFromMenu(game));
-        if (HasGameDetails(game)) Add("Detalhes do jogo", () => OpenGameDetails(game));
-        Add(game.IsFavorite ? "Desfavoritar" : "Favoritar", () => ToggleFavorite(game));
-        Add("Editar", () => EditGameRequested?.Invoke(this, game));
+        Add("▶ Abrir jogo", () => OpenGameFromMenu(game));
+        if (HasGameDetails(game)) Add("ℹ Detalhes do jogo", () => OpenGameDetails(game));
+        Add(game.IsFavorite ? "💔 Desfavoritar" : "⭐ Favoritar", () => ToggleFavorite(game));
+        Add("✏ Editar", () => EditGameRequested?.Invoke(this, game));
 
         if (game.Source == GameSource.Steam)
         {
-            if (game.SteamAppId is { } appId) Add("Excluir jogo", () => RequestDeleteSteamGame(game, appId));
+            if (game.SteamAppId is { } appId) Add("🗑 Excluir jogo", () => RequestDeleteSteamGame(game, appId));
         }
         else if (game.Id.StartsWith("xboxfolder_", StringComparison.Ordinal))
         {
-            Add("Excluir jogo", () => RequestDeleteXboxGame(game));
+            Add("🗑 Excluir jogo", () => RequestDeleteXboxGame(game));
         }
         else
         {
-            Add("Excluir atalho", () => RequestDeleteShortcut(game));
+            Add("🗑 Excluir atalho", () => RequestDeleteShortcut(game));
         }
 
-        Add("Personalizar", () => OpenPersonalizeMenu(game));
+        Add("🎨 Personalizar", () => OpenPersonalizeMenu(game));
     }
 
     private void OpenPersonalizeMenu(GameEntry game)
@@ -821,12 +827,12 @@ public sealed class MainViewModel : ViewModelBase
             _contextMenuActions.Add(action);
         }
 
-        Add("Capa", () => OpenCoverPicker(game, ArtworkPickerKind.Grid));
-        Add("Capa larga", () => OpenCoverPicker(game, ArtworkPickerKind.WideGrid));
-        Add("Banner", () => OpenCoverPicker(game, ArtworkPickerKind.Hero));
-        Add("Logo", () => OpenCoverPicker(game, ArtworkPickerKind.Logo));
-        Add("Ícone", () => OpenCoverPicker(game, ArtworkPickerKind.Icon));
-        Add("Voltar", () => ReopenContextMenu(tile));
+        Add("🖼 Capa", () => OpenCoverPicker(game, ArtworkPickerKind.Grid));
+        Add("🖼 Capa larga", () => OpenCoverPicker(game, ArtworkPickerKind.WideGrid));
+        Add("🖼 Banner", () => OpenCoverPicker(game, ArtworkPickerKind.Hero));
+        Add("🖼 Logo", () => OpenCoverPicker(game, ArtworkPickerKind.Logo));
+        Add("🖼 Ícone", () => OpenCoverPicker(game, ArtworkPickerKind.Icon));
+        Add("↩ Voltar", () => ReopenContextMenu(tile));
 
         _contextMenuIndex = 0;
         UpdateContextMenuSelection();
@@ -868,7 +874,7 @@ public sealed class MainViewModel : ViewModelBase
             _contextMenuActions.Add(action);
         }
 
-        Add("Cancelar", () => { });
+        Add("❌ Cancelar", () => { });
         Add(confirmLabel, onConfirm, isDanger: true);
 
         _contextMenuIndex = 0;
@@ -878,7 +884,7 @@ public sealed class MainViewModel : ViewModelBase
 
     private void RequestDeleteShortcut(GameEntry game)
     {
-        OpenConfirmMenu(game, "Sim, excluir atalho", () =>
+        OpenConfirmMenu(game, "🗑 Sim, excluir atalho", () =>
         {
             _library.RemoveManualGame(game.Id);
             Refresh();
@@ -887,13 +893,13 @@ public sealed class MainViewModel : ViewModelBase
 
     private void RequestDeleteSteamGame(GameEntry game, uint appId)
     {
-        OpenConfirmMenu(game, "Sim, abrir desinstalador da Steam", () => _launcher.OpenSteamUninstaller(appId));
+        OpenConfirmMenu(game, "🗑 Sim, abrir desinstalador da Steam", () => _launcher.OpenSteamUninstaller(appId));
     }
 
     private void RequestDeleteXboxGame(GameEntry game)
     {
         if (!OperatingSystem.IsWindows()) return;
-        OpenConfirmMenu(game, "Sim, abrir desinstalador do Windows", () => _launcher.OpenWindowsAppUninstaller(game.InstallDirectory));
+        OpenConfirmMenu(game, "🗑 Sim, abrir desinstalador do Windows", () => _launcher.OpenWindowsAppUninstaller(game.InstallDirectory));
     }
 
     public void CloseContextMenu()
@@ -1096,23 +1102,23 @@ public sealed class MainViewModel : ViewModelBase
         {
             case GlobalMenuPage.Library:
                 GlobalMenuTitle = "Biblioteca";
-                Add("Atualizar Biblioteca", Refresh);
+                Add("🔄 Atualizar Biblioteca", Refresh);
                 
                 if (IsFetchingArtwork)
                 {
-                    Add("Baixando capas... (Aguarde)", () => { });
+                    Add("⏳ Baixando capas... (Aguarde)", () => { });
                 }
                 else if (!_artwork.HasApiKey)
                 {
-                    Add("Atualizar Capas (Configurar API Key)", () => SettingsRequested?.Invoke(this, EventArgs.Empty));
+                    Add("🖼 Atualizar Capas (Configurar API Key)", () => SettingsRequested?.Invoke(this, EventArgs.Empty));
                 }
                 else
                 {
-                    Add("Atualizar Capas Automático", FetchMissingArtwork);
+                    Add("🖼 Atualizar Capas Automático", FetchMissingArtwork);
                 }
                 
-                Add("Adicionar jogo", () => AddGameRequested?.Invoke(this, EventArgs.Empty));
-                Add("Downloads", ToggleDownloads);
+                Add("➕ Adicionar jogo", () => AddGameRequested?.Invoke(this, EventArgs.Empty));
+                Add("⬇ Downloads", ToggleDownloads);
                 break;
 
             case GlobalMenuPage.Hud:
@@ -1128,7 +1134,7 @@ public sealed class MainViewModel : ViewModelBase
                 }
                 if (_performanceOverlay.IsInstalled)
                 {
-                    Add(_performanceOverlay.IsRunning ? "RTSS: rodando" : "RTSS: iniciar",
+                    Add(_performanceOverlay.IsRunning ? "⚙ RTSS: rodando" : "⚙ RTSS: iniciar",
                         () =>
                         {
                             if (!_performanceOverlay.IsRunning) _performanceOverlay.EnsureRunning();
@@ -1136,50 +1142,54 @@ public sealed class MainViewModel : ViewModelBase
                 }
                 else
                 {
-                    Add("RTSS: baixar (necessário pro HUD)", _performanceOverlay.OpenDownloadPage);
+                    Add("⬇ RTSS: baixar (necessário pro HUD)", _performanceOverlay.OpenDownloadPage);
                 }
                 break;
 
             case GlobalMenuPage.Settings:
                 GlobalMenuTitle = "Configurações";
-                Add("Preferências", () => SettingsRequested?.Invoke(this, EventArgs.Empty));
-                Add("Layout da tela", () => LayoutPickerRequested?.Invoke(this, EventArgs.Empty));
+                Add("⚙ Preferências", () => SettingsRequested?.Invoke(this, EventArgs.Empty));
+                Add("📐 Layout da tela", () => LayoutPickerRequested?.Invoke(this, EventArgs.Empty));
+                
+                Add("🔄 Atualizações (Windows + Drivers)", () => SystemUpdateRequested?.Invoke(this, EventArgs.Empty));
+                Add("🛠 Instalar Driver Manual (.inf)", () => DriverUpdateRequested?.Invoke(this, EventArgs.Empty));
+                
                 if (_updates is { IsInstalled: true } && !IsUpdateReady)
                 {
-                    Add($"Verificar atualizações (v{_updates.CurrentVersionText})", () => _ = CheckForUpdatesAsync(userInitiated: true));
+                    Add($"🔄 Verificar atualizações (v{_updates.CurrentVersionText})", () => _ = CheckForUpdatesAsync(userInitiated: true));
                 }
                 break;
 
             case GlobalMenuPage.Power:
                 GlobalMenuTitle = "Energia";
-                Add("Desligar tela", () => TurnOffScreenRequested?.Invoke(this, EventArgs.Empty));
-                Add("Reiniciar o aparelho", () => RequestPowerConfirm("reiniciar o aparelho", () => RestartDeviceRequested?.Invoke(this, EventArgs.Empty)));
-                Add("Desligar o aparelho", () => RequestPowerConfirm("desligar o aparelho", () => ShutdownDeviceRequested?.Invoke(this, EventArgs.Empty)));
-                Add("Sair para o Windows", () => RestoreShellRequested?.Invoke(this, EventArgs.Empty));
-                Add("Sair", () => QuitRequested?.Invoke(this, EventArgs.Empty));
+                Add("🌙 Desligar tela", () => TurnOffScreenRequested?.Invoke(this, EventArgs.Empty));
+                Add("🔄 Reiniciar o aparelho", () => RequestPowerConfirm("reiniciar o aparelho", () => RestartDeviceRequested?.Invoke(this, EventArgs.Empty)));
+                Add("⏻ Desligar o aparelho", () => RequestPowerConfirm("desligar o aparelho", () => ShutdownDeviceRequested?.Invoke(this, EventArgs.Empty)));
+                Add("🖥 Restaurar Desktop (Sair do Modo Console)", () => RestoreShellRequested?.Invoke(this, EventArgs.Empty));
+                Add("🚪 Fechar Launcher", () => QuitRequested?.Invoke(this, EventArgs.Empty));
                 break;
 
             case GlobalMenuPage.ConfirmPower:
                 GlobalMenuTitle = "Confirmar?";
-                Folder("Cancelar", GlobalMenuPage.Power);
-                Add($"Sim, {_pendingPowerConfirmLabel}", () => _pendingPowerAction?.Invoke(), isDanger: true);
+                Folder("❌ Cancelar", GlobalMenuPage.Power);
+                Add($"⚠ Sim, {_pendingPowerConfirmLabel}", () => _pendingPowerAction?.Invoke(), isDanger: true);
                 break;
 
             default:
                 GlobalMenuTitle = "Menu";
                 
-                Add("Abrir Quick Settings", () => OpenOverlayRequested?.Invoke(this, EventArgs.Empty));
+                Add("🎮 Abrir Quick Settings", () => OpenOverlayRequested?.Invoke(this, EventArgs.Empty));
 
                 if (IsUpdateReady)
                 {
-                    Add(RunningGame is null ? $"Reiniciar pra atualizar (v{PendingUpdateVersion})" : $"Atualização v{PendingUpdateVersion} pronta — feche o jogo pra aplicar", ApplyUpdate);
+                    Add(RunningGame is null ? $"⬆ Reiniciar pra atualizar (v{PendingUpdateVersion})" : $"⬆ Atualização v{PendingUpdateVersion} pronta — feche o jogo", ApplyUpdate);
                 }
-                if (RunningGame is not null) Add($"Fechar: {RunningGame.Title}", CloseRunningGame);
-                Folder("Biblioteca", GlobalMenuPage.Library);
-                Folder("HUD", GlobalMenuPage.Hud);
-                Folder("Configurações", GlobalMenuPage.Settings);
-                Folder("Energia", GlobalMenuPage.Power);
-                Add("Sobre", OpenAbout);
+                if (RunningGame is not null) Add($"⏹ Fechar: {RunningGame.Title}", CloseRunningGame);
+                Folder("📚 Biblioteca", GlobalMenuPage.Library);
+                Folder("📊 HUD", GlobalMenuPage.Hud);
+                Folder("⚙ Configurações", GlobalMenuPage.Settings);
+                Folder("⚡ Energia", GlobalMenuPage.Power);
+                Add("ℹ Sobre", OpenAbout);
                 break;
         }
 

@@ -32,6 +32,9 @@ public partial class AccountsWindow : Window
 
     private void OnGetGridDbKeyClick(object? sender, RoutedEventArgs e) => OpenUrl("https://www.steamgriddb.com/profile/preferences/api");
 
+    // v0.14: botão "Obter chave" do bloco RAWG — aponta pra doc oficial.
+    private void OnGetRawgKeyClick(object? sender, RoutedEventArgs e) => OpenUrl("https://rawg.io/apidocs");
+
     private static void OpenUrl(string url)
     {
         try
@@ -54,6 +57,9 @@ public partial class AccountsWindow : Window
     private void OnToggleSteamWebVisibilityClick(object? sender, RoutedEventArgs e) => ToggleMask(SteamWebKeyBox);
 
     private void OnToggleSteamIdVisibilityClick(object? sender, RoutedEventArgs e) => ToggleMask(SteamIdBox);
+
+    // v0.14: máscara do campo RAWG.
+    private void OnToggleRawgVisibilityClick(object? sender, RoutedEventArgs e) => ToggleMask(RawgKeyBox);
 
     private void OnCloseClick(object? sender, RoutedEventArgs e) => Close();
 }

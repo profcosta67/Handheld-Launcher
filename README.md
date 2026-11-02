@@ -81,3 +81,76 @@ Para registrar a potência e as temperaturas reais durante os testes dos perfis 
 O registro inclui, quando disponibilizados pelo aparelho/HWiNFO, CPU Package Power, PPT, STAPM, Tctl/Tdie, Effective Clock, GPU Clock e GPU Power. A ausência do HWiNFO ou da opção Shared Memory não interfere no funcionamento normal do Launcher.
 
 **Observação:** a edição gratuita do HWiNFO limita a sessão de Shared Memory a 12 horas; depois desse período, reative a opção ou reinicie o HWiNFO. Consulte a documentação oficial do HWiNFO para detalhes.
+
+# 🎮 Handheld Launcher
+
+![Version](https://img.shields.io/badge/version-v0.14.0-blue)
+![License](https://img.shields.io/badge/license-GPL--3.0-green)
+![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
+
+Um launcher completo, moderno e focado em performance para Handhelds (Legion Go, ROG Ally, Steam Deck e PCs portáteis). 
+
+O projeto foi desenhado para ser o seu **centro de controle (Hub)**, reunindo biblioteca de jogos, ajustes de hardware (TDP), monitoramento em tempo real e atalhos de sistema em uma interface única e amigável para controle.
+
+<!-- 📸 ESPAÇO PARA SCREENSHOTS (Recomendo colocar 2 ou 3 fotos da UI aqui) -->
+![Biblioteca do Launcher](link-para-sua-imagem-aqui.png)
+![Overlay de Desempenho](link-para-sua-imagem-aqui.png)
+
+---
+
+## ✨ Funcionalidades
+
+### 📚 Biblioteca de Jogos
+- Escaneamento automático de bibliotecas: **Steam, Epic Games, GOG, Xbox App, Ubisoft, EA** e emuladores (Eden/Switch).
+- Capas automáticas via SteamGridDB (incluindo capas animadas GIF/WebP).
+- Filtros rápidos por plataforma, favoritos, aplicativos e status de instalação.
+- **Tela de Detalhes Integrada:** Puxa descrições e metadados da Steam Store e **RAWG API** (para jogos não-Steam, como emuladores e atalhos).
+- **Conquistas Steam:** Exibe o progresso, ícones e datas de desbloqueio das conquistas direto na tela do jogo.
+
+### ⚡ Quick Settings (Overlay)
+Aperte **L3 + R3** (ou o atalho `Ctrl + Alt + O`) durante o jogo para abrir o painel de controle rápido:
+- **TDP:** Modos UltraEco (8W), Eco (15W), Normal (20W), Desempenho (25W) e Boost (30W) com proteção térmica de 90°C.
+- **Tela:** Alterne a resolução (720p, 1080p, 2K) e a taxa de atualização (60Hz, 120Hz, 144Hz, 240Hz) sem sair do jogo.
+- **Modo de Cor:** Padrão, Vívido, OLED e Noturno.
+- **HUD de Desempenho:** Ative o monitor de FPS, temperatura (CPU/SoC), RAM, resolução, Hz e bateria no topo da tela.
+- **Sistema:** Controle de Volume e Brilho em tempo real.
+- **Captura:** Atalhos para tirar print (salva em `Imagens/Screenshots`) e gravar tela.
+
+### 🛡️ Segurança e Performance
+- **Shell Mode (Windows):** Substitui o `explorer.exe` no boot, transformando o dispositivo em um console dedicado.
+- **Idle Detector:** Desliga a tela automaticamente para economizar bateria quando nenhum jogo está rodando.
+- **Driver de TDP:** Arquitetura preparada para o **PawnIO** (driver seguro assinado pela Microsoft) com *fallback* automático para o RyzenAdj.
+
+---
+
+## 🛠️ Tecnologias Utilizadas
+
+- **C# / .NET 8**
+- **Avalonia UI** (Interface multiplataforma)
+- **Velopack** (Instalador e sistema de atualização automática)
+- **LibreHardwareMonitor** (Leitura de sensores)
+- **FFmpeg** (Gravação de tela)
+- **RyzenAdj / PawnIO** (Controle de TDP da APU)
+- **RAWG API / Steam Web API** (Metadados e Conquistas)
+
+---
+
+## 🚀 Como Executar (Para Desenvolvedores)
+
+### Pré-requisitos
+- .NET 8 SDK
+- Windows 10/11 (recomendado para todos os recursos) ou macOS/Linux (modo de desenvolvimento/teste).
+
+### Rodando o projeto
+```bash
+# Clone o repositório
+git clone https://github.com/profcosta67/Handheld-Launcher.git
+
+# Entre na pasta
+cd Handheld-Launcher
+
+# Restaure as dependências
+dotnet restore
+
+# Compile e rode
+dotnet run --project src/HandheldLauncher.App

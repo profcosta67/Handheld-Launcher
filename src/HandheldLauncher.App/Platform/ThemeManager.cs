@@ -18,15 +18,6 @@ public static class ThemeManager
     /// opção separada desde a v0.9.19 (AppSettings.LayoutTheme, ver
     /// LayoutThemeNames). As duas são independentes de propósito: dá pra
     /// usar o layout Switch com qualquer paleta.
-    /// <para>
-    /// v0.9.19: o índice 10 chamava-se "Switch" e foi renomeado pra
-    /// "Grafite" — era só paleta de cor (cinza-grafite + vermelho), nunca
-    /// imitou a interface do aparelho, e o nome estava reservando
-    /// indevidamente o nome do tema de LAYOUT de verdade. Combinado com o
-    /// usuário. Renomear não desloca índice nenhum, então
-    /// AppSettings.Theme já salvo continua apontando pra mesma paleta —
-    /// sem migração.
-    /// </para>
     /// </summary>
     public static readonly string[] ThemeNames =
         ["Escuro", "Claro", "Azul", "Vermelho", "Verde", "Laranja", "Rosa", "Ciano", "Preto (OLED)", "Dourado", "Grafite"];
@@ -34,22 +25,15 @@ public static class ThemeManager
     /// <summary>
     /// Temas de LAYOUT (v0.9.19) — o esqueleto da tela, não a cor. Índice
     /// salvo em AppSettings.LayoutTheme.
-    /// <para>
-    /// Diferente da paleta, trocar isto exige REINICIAR o launcher
-    /// (combinado com o usuário: "pode pedir pra reiniciar"): a área de
-    /// conteúdo da MainWindow é montada uma vez na abertura, a partir
-    /// deste valor — ver MainWindow.ApplyLayoutTheme.
-    /// </para>
     /// </summary>
     public static readonly string[] LayoutThemeNames = ["Clássico", "Switch"];
 
     /// <summary>
-    /// Fontes da interface — todas já vêm instaladas no Windows 10/11 (nada
-    /// pra empacotar). Índice salvo em AppSettings.UiFont.
+    /// Fontes da interface — todas já vêm instaladas no Windows 10/11.
     /// </summary>
     public static readonly (string Name, string? Family)[] Fonts =
     [
-        ("Moderna (Segoe UI)", null), // null = a padrão do Theme.axaml
+        ("Moderna (Segoe UI)", null),
         ("Divertida (Comic Sans)", "Comic Sans MS"),
         ("Formal (Georgia)", "Georgia"),
         ("Gamer (Bahnschrift)", "Bahnschrift"),
@@ -64,24 +48,41 @@ public static class ThemeManager
 
     /// <summary>
     /// Tamanho do texto (v0.7.1): reescala os tamanhos-base do Theme.axaml.
-    /// Os estilos usam DynamicResource, e Application.Resources tem
-    /// prioridade sobre os recursos do Theme.axaml — então gravar aqui muda
-    /// a tela inteira na hora.
+    /// v0.14: também sobrescreve os recursos do tema Fluent
+    /// (ControlContentThemeFontSize, BodyFontSize) para afetar ComboBox,
+    /// TextBox, CheckBox e Buttons dos diálogos de Configurações — antes só
+    /// o XAML do launcher era afetado, deixando o texto dos dropdowns
+    /// minúsculo mesmo em "Grande".
     /// </summary>
     public static void ApplyFontSize(int fontSizeIndex)
     {
         var app = Application.Current;
         if (app is null) return;
 
-        var scale = fontSizeIndex switch { 0 => 0.88, 2 => 1.18, _ => 1.0 };
+        // Escalas mais agressivas: "Grande" agora é 1.30x, não 1.18x.
+        var scale = fontSizeIndex switch { 0 => 0.85, 2 => 1.30, _ => 1.0 };
         try
         {
-            app.Resources["FontSizeBase"] = Math.Round(14 * scale);
-            app.Resources["FontSizeBody"] = Math.Round(15 * scale);
-            app.Resources["FontSizeTitle"] = Math.Round(30 * scale);
-            app.Resources["FontSizeSubtle"] = Math.Round(14 * scale);
-            app.Resources["FontSizeCaption"] = Math.Round(11 * scale);
-            app.Resources["FontSizeMenuHeader"] = Math.Round(22 * scale);
+            var baseSize = Math.Round(16 * scale);
+            var bodySize = Math.Round(17 * scale);
+            var titleSize = Math.Round(32 * scale);
+            var subtleSize = Math.Round(15 * scale);
+            var captionSize = Math.Round(12 * scale);
+            var menuHeaderSize = Math.Round(24 * scale);
+
+            // Tamanhos que o launcher já usa
+            app.Resources["FontSizeBase"] = baseSize;
+            app.Resources["FontSizeBody"] = bodySize;
+            app.Resources["FontSizeTitle"] = titleSize;
+            app.Resources["FontSizeSubtle"] = subtleSize;
+            app.Resources["FontSizeCaption"] = captionSize;
+            app.Resources["FontSizeMenuHeader"] = menuHeaderSize;
+
+            // Sobrescrever o tamanho padrão do TEMA FLUENT
+            // Isso afeta ComboBox, TextBox, Button, CheckBox etc.
+            app.Resources["ControlContentThemeFontSize"] = bodySize;
+            app.Resources["BodyFontSize"] = bodySize;
+            app.Resources["FontSizeNormal"] = baseSize;
         }
         catch
         {
@@ -90,13 +91,7 @@ public static class ThemeManager
     }
 
     /// <summary>
-    /// TileRadius/BarRadius (v0.9.13): até aqui, o arredondamento das tiles
-    /// e das barras era um recurso GLOBAL (TileCornerRadius/BarCornerRadius
-    /// em Theme.axaml), igual pra qualquer tema. O tema Switch pediu algo
-    /// mais "quadrado"/minimalista (ver roteiro: "só a disposição limpa/
-    /// minimalista dos itens"), então os dois ganharam um valor por tema
-    /// aqui — os 10 temas antigos usam o default (16/18, exatamente o que
-    /// já era fixo em Theme.axaml antes), só o Switch passa um valor menor.
+    /// TileRadius/BarRadius (v0.9.13).
     /// </summary>
     private sealed record Palette(
         string Background, string Surface, string SurfaceRaised,
@@ -121,23 +116,14 @@ public static class ThemeManager
         new("#140A12", "#21101D", "#2D1728", "#FF4FA3", "#B33574", "#FFF0F8", "#B596A9", false),
         // Ciano
         new("#061214", "#0C1E21", "#13292D", "#22D3EE", "#1590A3", "#ECFDFF", "#8DADB2", false),
-        // Preto (OLED) — fundo preto de verdade (economiza bateria em tela OLED)
+        // Preto (OLED)
         new("#000000", "#0A0A0A", "#161616", "#FFFFFF", "#4A4A4A", "#FFFFFF", "#8C8C8C", false),
         // Dourado
         new("#0E0C08", "#1A160E", "#262015", "#E5B33E", "#9C7A27", "#FFF8E6", "#B3A584", false),
-        // Grafite (chamava-se "Switch" até a v0.9.18) — cinza-grafite
-        // neutro + vermelho vibrante de destaque, cantos bem menos
-        // arredondados que os outros temas (10/10 em vez de 16/18).
-        // Renomeado porque é só paleta de cor: o tema de LAYOUT Switch é
-        // outra coisa, numa opção separada (ver LayoutThemeNames).
+        // Grafite
         new("#1A1A1A", "#242424", "#2E2E2E", "#E4423F", "#A32E2C", "#FFFFFF", "#ACACAC", false, TileRadius: 10, BarRadius: 10),
     ];
 
-    /// <summary>
-    /// Fonte da interface: 0 = Moderna (Segoe UI, a do próprio Windows — vem
-    /// do Theme.axaml), 1 = Divertida (Comic Sans, a fonte original do
-    /// projeto). Aplicada como valor local na janela, que vence o estilo.
-    /// </summary>
     public static void ApplyFont(Avalonia.Controls.Window window, int uiFont)
     {
         try
@@ -176,10 +162,6 @@ public static class ThemeManager
         SetBrush(app, "TextPrimaryBrush", palette.TextPrimary);
         SetBrush(app, "TextSecondaryBrush", palette.TextSecondary);
 
-        // v0.9.13: arredondamento por tema (ver Palette.TileRadius/BarRadius
-        // acima) — precisa ser DynamicResource em Theme.axaml (não
-        // StaticResource) pra essa troca em runtime valer sem reiniciar,
-        // mesma ideia já usada pelo FontSizeBase etc.
         try
         {
             app.Resources["TileCornerRadius"] = new CornerRadius(palette.TileRadius);
@@ -190,20 +172,12 @@ public static class ThemeManager
             // Melhor esforço.
         }
 
-        // Semitransparentes: mesma cor da superfície/fundo do tema com ~80% de opacidade.
-        // Preto (OLED): barras e véu do fundo 100% opacos — senão o fundo
-        // borrado da arte do jogo aparece por baixo e o "preto" vira cinza
-        // (bug reportado na v0.7.1). Nos outros temas, ~80% como antes.
         var isOled = palette.Background.Equals("#000000", StringComparison.OrdinalIgnoreCase);
         var alpha = isOled ? "#FF" : "#CC";
         SetBrush(app, "BarBrush", alpha + palette.Surface.TrimStart('#'));
         SetBrush(app, "AccentTranslucentBrush", "#40" + palette.Accent.TrimStart('#'));
         SetBrush(app, "BackdropDimBrush", alpha + palette.Background.TrimStart('#'));
 
-        // Texto em cima da cor de destaque (aba de filtro ativa): branco em
-        // destaques escuros, quase preto em destaques claros (OLED é branco,
-        // Ciano/Dourado são claros) — antes era sempre a cor do texto normal
-        // e no OLED ficava branco em cima de branco.
         SetBrush(app, "OnAccentBrush", IsLightColor(palette.Accent) ? "#111111" : "#FFFFFF");
     }
 

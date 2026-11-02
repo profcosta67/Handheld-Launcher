@@ -22,6 +22,7 @@
   </Window.Resources>
 
   <Window.Styles>
+    <!-- Botões de ação da barra inferior (⚙, ⏻, —) -->
     <Style Selector="Button.switchAction">
       <Setter Property="Width" Value="46" />
       <Setter Property="Height" Value="42" />
@@ -35,7 +36,7 @@
       <Setter Property="CornerRadius" Value="12" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
-      <Setter Property="FontSize" Value="20" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSizeMenuHeader}" />
     </Style>
     <Style Selector="Button.switchAction:pointerover">
       <Setter Property="Background" Value="#343C50" />
@@ -71,13 +72,13 @@
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
           <Image Source="avares://HandheldLauncher/Assets/app-icon.ico" Width="22" Height="22" VerticalAlignment="Center" />
           <Ellipse Width="10" Height="10" Fill="{StaticResource AccentBrush}" VerticalAlignment="Center" />
-          <TextBlock Text="Handheld Launcher" Classes="gameTitle" VerticalAlignment="Center" />
+          <TextBlock Text="Handheld Launcher" Classes="gameTitle" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="28">
           <Button Classes="iconGhost"
                   VerticalAlignment="Center"
                   Content="{Binding UpdateStatusText}"
-                  FontSize="12"
+                  FontSize="{DynamicResource FontSizeCaption}"
                   Foreground="{StaticResource AccentBrush}"
                   IsVisible="{Binding HasUpdateStatus}"
                   Click="OnUpdateBadgeClick" />
@@ -86,7 +87,7 @@
             <Grid VerticalAlignment="Center">
               <Button Classes="iconGhost"
                       Content="⇩"
-                      FontSize="16"
+                      FontSize="{DynamicResource FontSizeBody}"
                       Click="OnDownloadsShortcutClick" />
               <Ellipse Width="8" Height="8"
                        Fill="{StaticResource AccentBrush}"
@@ -101,7 +102,7 @@
                         IsVisible="{Binding HasActiveDownloads}">
               <TextBlock Text="{Binding TopBarDownloadPercentText}"
                          Classes="subtle"
-                         FontSize="11"
+                         FontSize="{DynamicResource FontSizeCaption}"
                          HorizontalAlignment="Center" />
               <ProgressBar Minimum="0" Maximum="100"
                            Value="{Binding TopBarDownloadPercent}"
@@ -115,13 +116,13 @@
                     Width="18" Height="18"
                     VerticalAlignment="Center"
                     IsHitTestVisible="False">
-              <TextBlock Text="Y" FontSize="10" FontWeight="Bold"
+              <TextBlock Text="Y" FontSize="{DynamicResource FontSizeCaption}" FontWeight="Bold"
                          Foreground="{StaticResource AccentBrush}"
                          HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Border>
           </StackPanel>
-          <TextBlock Text="{Binding BatteryStatusText}" Classes="subtle" VerticalAlignment="Center" />
-          <TextBlock Text="{Binding ClockText}" Classes="subtle" VerticalAlignment="Center" />
+          <TextBlock Text="{Binding BatteryStatusText}" Classes="subtle" FontSize="{DynamicResource FontSizeCaption}" VerticalAlignment="Center" />
+          <TextBlock Text="{Binding ClockText}" Classes="subtle" FontSize="{DynamicResource FontSizeCaption}" VerticalAlignment="Center" />
         </StackPanel>
       </Grid>
     </Border>
@@ -134,7 +135,7 @@
         <TextBlock Grid.Column="0"
                    Text="{Binding AppVersionText}"
                    Classes="subtle"
-                   FontSize="11"
+                   FontSize="{DynamicResource FontSizeCaption}"
                    Opacity="0.7"
                    VerticalAlignment="Center" />
         <Button Grid.Column="1"
@@ -168,23 +169,23 @@
     <!-- Start-button context menu -->
     <Panel Classes="fadeIn" IsVisible="{Binding IsContextMenuOpen}">
       <Border Classes="contextMenuOverlay" PointerPressed="OnMenuOverlayPressed" />
-      <Border Classes="contextMenuCard" Width="420" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+      <Border Classes="contextMenuCard" Width="460" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel Spacing="16">
           <Border Classes="menuHeader">
             <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
               <Image Source="{Binding ContextMenuTarget.IconImagePath, Converter={StaticResource FileToBitmapConverter}}"
                      IsVisible="{Binding ContextMenuTarget.IconImagePath, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}"
                      Width="36" Height="36" Stretch="Uniform" VerticalAlignment="Center" />
-              <TextBlock Text="{Binding ContextMenuTarget.Title}" Classes="menuHeaderTitle" TextWrapping="Wrap" MaxWidth="300" />
+              <TextBlock Text="{Binding ContextMenuTarget.Title}" Classes="menuHeaderTitle" FontSize="{DynamicResource FontSizeMenuHeader}" TextWrapping="Wrap" MaxWidth="340" />
             </StackPanel>
           </Border>
           <ItemsControl ItemsSource="{Binding ContextMenuItems}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:ContextMenuItemViewModel">
-                <Border Classes="menuItem" Classes.selected="{Binding IsSelected}" Classes.danger="{Binding IsDanger}" Padding="14,10"
+                <Border Classes="menuItem" Classes.selected="{Binding IsSelected}" Classes.danger="{Binding IsDanger}" Padding="16,12"
                         Cursor="Hand"
                         PointerPressed="OnContextMenuItemPressed">
-                  <TextBlock Text="{Binding Label}" Classes="gameTitle" />
+                  <TextBlock Text="{Binding Label}" Classes="gameTitle" FontSize="{DynamicResource FontSizeBody}" />
                 </Border>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
@@ -196,23 +197,23 @@
     <!-- Global menu -->
     <Panel Classes="fadeIn" IsVisible="{Binding IsGlobalMenuOpen}">
       <Border Classes="contextMenuOverlay" PointerPressed="OnMenuOverlayPressed" />
-      <Border Classes="contextMenuCard" Width="380" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+      <Border Classes="contextMenuCard" Width="420" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel Spacing="16">
           <Border Classes="menuHeader">
-            <TextBlock Text="{Binding GlobalMenuTitle}" Classes="menuHeaderTitle" HorizontalAlignment="Center" />
+            <TextBlock Text="{Binding GlobalMenuTitle}" Classes="menuHeaderTitle" FontSize="{DynamicResource FontSizeMenuHeader}" HorizontalAlignment="Center" />
           </Border>
           <ItemsControl ItemsSource="{Binding GlobalMenuItems}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:ContextMenuItemViewModel">
-                <Border Classes="menuItem" Classes.selected="{Binding IsSelected}" Classes.danger="{Binding IsDanger}" Padding="14,10"
+                <Border Classes="menuItem" Classes.selected="{Binding IsSelected}" Classes.danger="{Binding IsDanger}" Padding="16,12"
                         Cursor="Hand"
                         PointerPressed="OnGlobalMenuItemPressed">
-                  <TextBlock Text="{Binding Label}" Classes="gameTitle" />
+                  <TextBlock Text="{Binding Label}" Classes="gameTitle" FontSize="{DynamicResource FontSizeBody}" />
                 </Border>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
-          <TextBlock Text="{Binding GlobalMenuHint}" Classes="subtle" FontSize="12" TextWrapping="Wrap" TextAlignment="Center" IsVisible="{Binding HasGlobalMenuHint}" />
+          <TextBlock Text="{Binding GlobalMenuHint}" Classes="subtle" FontSize="{DynamicResource FontSizeCaption}" TextWrapping="Wrap" TextAlignment="Center" IsVisible="{Binding HasGlobalMenuHint}" />
         </StackPanel>
       </Border>
     </Panel>
@@ -223,20 +224,20 @@
       <Border Classes="contextMenuCard" Width="560" MaxHeight="620" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
         <Grid RowDefinitions="Auto,*,Auto,Auto">
           <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
-            <TextBlock Grid.Column="0" Text="Downloads (Steam)" Classes="heroTitle" />
+            <TextBlock Grid.Column="0" Text="Downloads (Steam)" Classes="heroTitle" FontSize="{DynamicResource FontSizeTitle}" />
             <Button Grid.Column="1" Classes="pill" Content="✕" Padding="10,4" Click="OnCloseDownloadsClick" ToolTip.Tip="Fechar" />
           </Grid>
 
           <ScrollViewer Grid.Row="1" MaxHeight="380" Margin="0,16,0,0">
             <StackPanel Spacing="10">
-              <TextBlock Text="Nada baixando no momento." Classes="subtle" IsVisible="{Binding NoActiveDownloads}" />
+              <TextBlock Text="Nada baixando no momento." Classes="subtle" FontSize="{DynamicResource FontSizeBody}" IsVisible="{Binding NoActiveDownloads}" />
               <ItemsControl ItemsSource="{Binding ActiveDownloads}" IsVisible="{Binding HasActiveDownloads}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="models:DownloadProgressInfo">
                     <StackPanel Spacing="4" Margin="0,0,0,12">
-                      <TextBlock Text="{Binding Title}" Classes="gameTitle" />
+                      <TextBlock Text="{Binding Title}" Classes="gameTitle" FontSize="{DynamicResource FontSizeBody}" />
                       <ProgressBar Minimum="0" Maximum="100" Value="{Binding PercentComplete}" />
-                      <TextBlock Text="{Binding DetailText}" Classes="subtle" />
+                      <TextBlock Text="{Binding DetailText}" Classes="subtle" FontSize="{DynamicResource FontSizeCaption}" />
                     </StackPanel>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
@@ -251,38 +252,39 @@
                   Margin="0,12,0,0"
                   Click="OnOpenSteamDownloadsClick" />
 
-          <TextBlock Grid.Row="3" Text="A abre os downloads na Steam · Y/B fecha · jogos da conta ficam na aba Não instalados" Classes="subtle" TextWrapping="Wrap" Margin="0,12,0,0" />
+          <TextBlock Grid.Row="3" Text="A abre os downloads na Steam · Y/B fecha · jogos da conta ficam na aba Não instalados" Classes="subtle" FontSize="{DynamicResource FontSizeCaption}" TextWrapping="Wrap" Margin="0,12,0,0" />
         </Grid>
       </Border>
     </Panel>
 
-    <!-- MELHORIA 2: Cover/banner picker (Fundo escuro e bordas arredondadas) -->
+    <!-- Cover/banner picker -->
     <Panel Classes="fadeIn" IsVisible="{Binding IsCoverPickerOpen}">
       <Border Classes="contextMenuOverlay" PointerPressed="OnMenuOverlayPressed" />
       
-      <!-- Fundo escuro (#1E1E2E) para combinar com o tema, em vez do fundo claro padrão -->
       <Border Classes="contextMenuCard" Width="880" MaxHeight="620" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center" Background="#1E1E2E">
         <Grid RowDefinitions="Auto,*,Auto">
           
           <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,16">
-            <!-- Título em cor clara para contrastar com o fundo escuro -->
-            <TextBlock Grid.Column="0" Text="{Binding CoverPickerTitle}" Classes="heroTitle" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="0" Text="{Binding CoverPickerTitle}" Classes="heroTitle" Foreground="White" FontSize="{DynamicResource FontSizeTitle}" TextWrapping="Wrap" VerticalAlignment="Center" />
             
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-              <TextBlock Text="Só animadas" Foreground="LightGray" VerticalAlignment="Center" FontSize="12" />
+              <TextBlock Text="Só animadas" Foreground="LightGray" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeCaption}" />
               <ToggleSwitch IsChecked="{Binding FilterAnimatedOnly}" OnContent="" OffContent="" HorizontalAlignment="Right" />
             </StackPanel>
           </Grid>
 
           <TextBlock Grid.Row="1" Text="Buscando opções no SteamGridDB..." Foreground="LightGray"
+                     FontSize="{DynamicResource FontSizeBody}"
                      HorizontalAlignment="Center" VerticalAlignment="Center"
                      IsVisible="{Binding IsCoverPickerLoading}" />
 
           <TextBlock Grid.Row="1" Text="Nenhuma opção estática encontrada para esse jogo." Foreground="LightGray"
+                     FontSize="{DynamicResource FontSizeBody}"
                      HorizontalAlignment="Center" VerticalAlignment="Center"
                      IsVisible="{Binding CoverPickerIsEmpty}" />
 
           <TextBlock Grid.Row="1" Text="{Binding CoverPickerErrorMessage}" Foreground="LightGray"
+                     FontSize="{DynamicResource FontSizeBody}"
                      TextWrapping="Wrap" TextAlignment="Center"
                      HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20"
                      IsVisible="{Binding CoverPickerHasError}" />
@@ -296,7 +298,6 @@
               </ItemsControl.ItemsPanel>
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:ArtworkCandidateViewModel">
-                  <!-- MELHORIA 2: CornerRadius="8" e ClipToBounds="True" para arredondar as miniaturas -->
                   <Border Classes="coverCandidate" Classes.selected="{Binding IsSelected}"
                           Cursor="Hand"
                           PointerPressed="OnCoverCandidatePressed"
@@ -319,28 +320,29 @@
       <Border Classes="contextMenuCard" Width="480" Padding="32" HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel Spacing="14" HorizontalAlignment="Center">
           <Image Source="avares://HandheldLauncher/Assets/app-icon.ico" Width="56" Height="56" HorizontalAlignment="Center" />
-          <TextBlock Text="Handheld Launcher" Classes="menuHeaderTitle" FontSize="26" />
-          <TextBlock Text="{Binding AboutVersionText}" Classes="subtle" HorizontalAlignment="Center" />
+          <TextBlock Text="Handheld Launcher" Classes="menuHeaderTitle" FontSize="{DynamicResource FontSizeTitle}" />
+          <TextBlock Text="{Binding AboutVersionText}" Classes="subtle" FontSize="{DynamicResource FontSizeBody}" HorizontalAlignment="Center" />
           <TextBlock Text="Um launcher em tela cheia para PCs portáteis como o Legion Go e o ROG Ally. Reúne seus jogos da Steam, do Xbox e outros num só lugar, com capas do SteamGridDB, HUD de desempenho e atualização automática."
                      Classes="gameTitle"
+                     FontSize="{DynamicResource FontSizeBody}"
                      TextWrapping="Wrap"
                      TextAlignment="Center"
                      FontWeight="Normal" />
           <Border Classes="menuHeader" Padding="12,8">
             <StackPanel Spacing="2" HorizontalAlignment="Center">
-              <TextBlock Text="Criado por profcosta67" Classes="gameTitle" HorizontalAlignment="Center" FontWeight="SemiBold" />
-              <TextBlock Text="Desenvolvido com Claude (Anthropic)" Classes="subtle" HorizontalAlignment="Center" />
+              <TextBlock Text="Criado por profcosta67" Classes="gameTitle" FontSize="{DynamicResource FontSizeBody}" HorizontalAlignment="Center" FontWeight="SemiBold" />
+              <TextBlock Text="Desenvolvido com Claude (Anthropic)" Classes="subtle" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center" />
             </StackPanel>
           </Border>
-          <TextBlock Text="github.com/profcosta67/Handheld-Launcher" Classes="subtle" HorizontalAlignment="Center" />
+          <TextBlock Text="github.com/profcosta67/Handheld-Launcher" Classes="subtle" FontSize="{DynamicResource FontSizeBody}" HorizontalAlignment="Center" />
           <TextBlock Text="Projeto independente, sem vínculo com Valve, Epic, Microsoft, Lenovo ou ASUS. Marcas pertencem aos seus donos. Fornecido como está, sem garantias. Não coleta dados: tudo fica neste PC."
                      Classes="subtle"
-                     FontSize="11"
+                     FontSize="{DynamicResource FontSizeCaption}"
                      TextWrapping="Wrap"
                      TextAlignment="Center" />
           <TextBlock Text="Feito com Avalonia · Capas: SteamGridDB · HUD: RTSS · Atualizações: Velopack"
                      Classes="subtle"
-                     FontSize="11"
+                     FontSize="{DynamicResource FontSizeCaption}"
                      TextWrapping="Wrap"
                      TextAlignment="Center" />
         </StackPanel>
@@ -356,7 +358,7 @@
                  IsVisible="{Binding LaunchingGameIconPath, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}"
                  Width="96" Height="96" Stretch="Uniform" HorizontalAlignment="Center" />
           <TextBlock Text="{Binding LaunchingGameTitle, StringFormat='Iniciando {0}...'}"
-                     Classes="heroTitle" TextWrapping="Wrap" TextAlignment="Center" />
+                     Classes="heroTitle" FontSize="{DynamicResource FontSizeTitle}" TextWrapping="Wrap" TextAlignment="Center" />
           <ProgressBar IsIndeterminate="True" Width="240" />
         </StackPanel>
       </Border>

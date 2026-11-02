@@ -1,0 +1,46 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:HandheldLauncher.App.ViewModels"
+        x:Class="HandheldLauncher.App.Views.SystemUpdateWindow"
+        x:DataType="vm:SystemUpdateViewModel"
+        Title="Atualizações do Sistema"
+        Width="700" Height="500"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        Background="#1E1E2E">
+
+    <Grid RowDefinitions="Auto,*,Auto" Margin="20">
+        
+        <!-- Cabeçalho -->
+        <StackPanel Grid.Row="0" Spacing="10" Margin="0,0,0,15">
+            <TextBlock Text="Atualizações do Windows" FontSize="24" FontWeight="Bold" Foreground="White"/>
+            <TextBlock Text="{Binding StatusMessage}" Foreground="LightGray"/>
+            <ProgressBar IsVisible="{Binding IsBusy}" Minimum="0" Maximum="100" Value="{Binding Progress}" Foreground="#7C5CFC" Height="6"/>
+        </StackPanel>
+
+        <!-- Lista de Updates -->
+        <Border Grid.Row="1" Background="#252A36" CornerRadius="8" Padding="10">
+            <ScrollViewer>
+                <ItemsControl ItemsSource="{Binding Updates}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border BorderBrush="#424A5D" BorderThickness="0,0,0,1" Padding="10">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="{Binding Title}" Foreground="White" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                    <TextBlock Text="{Binding Description}" Foreground="Gray" FontSize="12" TextWrapping="Wrap" MaxHeight="40" TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Border>
+
+        <!-- Botões -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" Margin="0,15,0,0">
+            <Button Content="Buscar Atualizações" Click="OnSearchClick" IsEnabled="{Binding !IsBusy}" Background="#424A5D" Foreground="White" CornerRadius="8" Padding="15,10"/>
+            <Button Content="Instalar Todas" Click="OnInstallClick" IsEnabled="{Binding !IsBusy}" Background="#7C5CFC" Foreground="White" CornerRadius="8" Padding="15,10" FontWeight="Bold"/>
+            <Button Content="Fechar" Click="OnCloseClick" Background="#FF4040" Foreground="White" CornerRadius="8" Padding="15,10"/>
+        </StackPanel>
+    </Grid>
+</Window>

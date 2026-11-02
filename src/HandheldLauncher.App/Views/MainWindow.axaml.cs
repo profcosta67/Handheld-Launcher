@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Animation;
@@ -31,6 +32,13 @@ public partial class MainWindow : Window
 
     [DllImport("user32.dll")]
     private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+
+    private const byte VK_LWIN = 0x5B;
+    private const byte VK_D = 0x44;
+    private const uint KEYEVENTF_KEYUP = 0x0002;
 
     private const int RestoreHotkeyId = 0xB00;
     private const uint ModControl = 0x0002;
@@ -98,6 +106,16 @@ public partial class MainWindow : Window
         {
             if (Topmost) StartTopmostEnforcer();
             RegisterRestoreHotkey();
+            
+            if (OperatingSystem.IsWindows())
+            {
+                try
+                {
+                    var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+                    if (handle != IntPtr.Zero) SetForegroundWindow(handle);
+                }
+                catch { }
+            }
         };
         Closed += (_, _) => UnregisterRestoreHotkeyIfNeeded();
 
@@ -401,6 +419,10 @@ public partial class MainWindow : Window
         vm.EditGameRequested += (_, game) => _ = OpenEditGameDialogAsync(vm, game);
         vm.LayoutPickerRequested += (_, _) => _ = OpenLayoutPickerAsync();
         vm.SettingsRequested += (_, _) => _ = OpenSettingsDialogAsync(vm);
+        
+        vm.SystemUpdateRequested += (_, _) => _ = OpenSystemUpdateDialogAsync(); 
+        vm.DriverUpdateRequested += (_, _) => _ = OpenDriverUpdateDialogAsync(); 
+
         vm.QuitRequested += (_, _) =>
         {
             WatchdogGate.MarkDeliberateQuit();
@@ -512,19 +534,38 @@ public partial class MainWindow : Window
 
         try
         {
-            var regPath = @"HKEY_CURRENT_USER\Software\Microsoft\Windows NT\CurrentVersion\Winlogon";
-            var originalShell = Microsoft.Win32.Registry.GetValue(regPath, "OriginalShell", "explorer.exe")?.ToString() ?? "explorer.exe";
-            
-            Microsoft.Win32.Registry.SetValue(regPath, "Shell", originalShell);
-            DebugLog.Write($"RestoreWindowsShell: Restaurando shell para {originalShell}");
+            // 1. Desativa o Kiosk Mode nas configurações
+            var settings = AppSettingsStore.Load();
+            settings.KioskMode = false;
+            settings.ModeChosen = true;
+            AppSettingsStore.Save(settings);
 
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            DebugLog.Write("RestoreWindowsShell: Kiosk Mode desativado.");
+
+            // 2. Garante que o explorer.exe está rodando
+            var explorerPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
+            bool explorerRunning = Process.GetProcessesByName("explorer").Length > 0;
+
+            if (!explorerRunning && File.Exists(explorerPath))
             {
-                FileName = originalShell,
-                UseShellExecute = true
-            });
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = explorerPath,
+                    UseShellExecute = true
+                });
+                DebugLog.Write("RestoreWindowsShell: explorer.exe iniciado.");
+            }
+
+            // 3. Simula o atalho Win + D (Mostrar Área de Trabalho / Modo Desktop)
+            keybd_event(VK_LWIN, 0, 0, UIntPtr.Zero);
+            keybd_event(VK_D, 0, 0, UIntPtr.Zero);
+            keybd_event(VK_D, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+            keybd_event(VK_LWIN, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
             
-            Close(); 
+            DebugLog.Write("RestoreWindowsShell: Atalho Win+D enviado para ir ao desktop.");
+
+            // 4. Fecha o launcher
+            Close();
         }
         catch (Exception ex)
         {
@@ -1189,7 +1230,6 @@ public partial class MainWindow : Window
 
         ApplyAppearance(vm, AppSettingsStore.Load());
         
-        // 🟢 AQUI: Recarrega a API Key e atualiza a UI do menu
         vm.RefreshArtworkState();
     }
 
@@ -1199,6 +1239,39 @@ public partial class MainWindow : Window
         {
             DataContext = vm.CreateGameDetailsViewModel(game),
         };
+        
+        // 🟢 CORREÇÃO DA FONTE: Aplica a mesma fonte configurada no launcher
+        var settings = AppSettingsStore.Load();
+        ThemeManager.ApplyFont(dialog, settings.UiFont);
+
+        _activeDialog = dialog;
+        try
+        {
+            await dialog.ShowDialog(this);
+        }
+        finally
+        {
+            _activeDialog = null;
+        }
+    }
+
+    private async Task OpenSystemUpdateDialogAsync()
+    {
+        var dialog = new SystemUpdateWindow();
+        _activeDialog = dialog;
+        try
+        {
+            await dialog.ShowDialog(this);
+        }
+        finally
+        {
+            _activeDialog = null;
+        }
+    }
+
+    private async Task OpenDriverUpdateDialogAsync()
+    {
+        var dialog = new DriverUpdateWindow();
         _activeDialog = dialog;
         try
         {

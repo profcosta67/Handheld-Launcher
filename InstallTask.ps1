@@ -17,9 +17,9 @@ if (-not (Test-Path $exePath)) {
 } else {
     $action = New-ScheduledTaskAction -Execute $exePath -Argument '--watchdog' -WorkingDirectory (Split-Path -Parent $exePath)
     
-    # 🟢 AQUI ESTÁ A MÁGICA: Adiciona um delay de 30 segundos para o Launcher abrir por último
+    # 🟢 AQUI ESTÁ A MÁGICA: Adiciona um delay de 60 segundos para o Launcher abrir por último
     $trigger = New-ScheduledTaskTrigger -AtLogOn
-    $trigger.Delay = "PT30S" # PT30S é o formato ISO 8601 para 30 segundos
+    $trigger.Delay = "PT60S" # PT60S é o formato ISO 8601 para 60 segundos
     
     $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Highest
     $settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries

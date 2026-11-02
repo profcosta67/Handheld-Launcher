@@ -70,6 +70,31 @@ public sealed class SettingsViewModel : ViewModelBase
 
     public string SteamWebApiStatusText => HasSteamWebApiKey ? "configurado ✓" : "não configurado";
 
+    // ─────────────────────────────────────────────────────────────────
+    // RAWG API (v0.14) — mesma trinca que SteamGridDb/SteamWeb acima:
+    // campo mascarado em AccountsWindow, status na tela principal.
+    // Habilita a busca de descrição/metadados para jogos que NÃO são da
+    // Steam (Xbox, emuladores, atalhos) — ver RawgMetadataService.
+    // ─────────────────────────────────────────────────────────────────
+
+    private string _rawgApiKey = string.Empty;
+    public string RawgApiKey
+    {
+        get => _rawgApiKey;
+        set
+        {
+            if (SetField(ref _rawgApiKey, value))
+            {
+                OnPropertyChanged(nameof(HasRawgApiKey));
+                OnPropertyChanged(nameof(RawgApiStatusText));
+            }
+        }
+    }
+
+    public bool HasRawgApiKey => !string.IsNullOrWhiteSpace(_rawgApiKey);
+
+    public string RawgApiStatusText => HasRawgApiKey ? "configurado ✓" : "não configurado";
+
     private string _steamId64 = string.Empty;
     public string SteamId64
     {
@@ -455,6 +480,7 @@ public sealed class SettingsViewModel : ViewModelBase
     {
         SteamGridDbApiKey = settings.SteamGridDbApiKey ?? string.Empty;
         SteamWebApiKey = settings.SteamWebApiKey ?? string.Empty;
+        RawgApiKey = settings.RawgApiKey ?? string.Empty;
 
         // Detecta ANTES de preencher SteamId64, pra SteamIdStatusText (tela
         // principal) já nascer com o apelido certo em vez de "configurado
@@ -495,6 +521,7 @@ public sealed class SettingsViewModel : ViewModelBase
     {
         settings.SteamGridDbApiKey = string.IsNullOrWhiteSpace(SteamGridDbApiKey) ? null : SteamGridDbApiKey.Trim();
         settings.SteamWebApiKey = string.IsNullOrWhiteSpace(SteamWebApiKey) ? null : SteamWebApiKey.Trim();
+        settings.RawgApiKey = string.IsNullOrWhiteSpace(RawgApiKey) ? string.Empty : RawgApiKey.Trim();
         settings.SteamId64 = string.IsNullOrWhiteSpace(SteamId64) ? null : SteamId64.Trim();
         settings.XboxScanFolders = XboxScanFoldersText
             .Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)

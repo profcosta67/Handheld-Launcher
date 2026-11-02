@@ -2,6 +2,7 @@ namespace HandheldLauncher.Core.Models;
 
 public class AppSettings
 {
+    public string RawgApiKey { get; set; } = string.Empty;
     public int Theme { get; set; } = 0;
     public int LayoutTheme { get; set; } = 0;
     public int UiFont { get; set; } = 0;

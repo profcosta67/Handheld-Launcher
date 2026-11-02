@@ -68,6 +68,14 @@ public sealed class SteamAchievementsClient : ISteamAchievementsClient, IDisposa
             .Select(schema =>
             {
                 progress.TryGetValue(schema.ApiName, out var p);
+
+                // 🟢 CORREÇÃO AQUI: p pode ser null se o jogador não desbloqueou a conquista.
+                // Sem isso, o p.Achieved lançava NullReferenceException e quebrava a tela.
+                var achieved = p?.Achieved ?? false;
+                var unlockedAt = (p is not null && p.Achieved && p.UnlockTimeUnix > 0)
+                    ? DateTimeOffset.FromUnixTimeSeconds(p.UnlockTimeUnix)
+                    : (DateTimeOffset?)null;
+
                 return new SteamAchievementInfo
                 {
                     ApiName = schema.ApiName,
@@ -75,10 +83,8 @@ public sealed class SteamAchievementsClient : ISteamAchievementsClient, IDisposa
                     Description = schema.Description,
                     IconUrl = schema.IconUrl,
                     IconGrayUrl = schema.IconGrayUrl,
-                    Achieved = p.Achieved,
-                    UnlockedAtUtc = p.Achieved && p.UnlockTimeUnix > 0
-                        ? DateTimeOffset.FromUnixTimeSeconds(p.UnlockTimeUnix)
-                        : null,
+                    Achieved = achieved,
+                    UnlockedAtUtc = unlockedAt,
                 };
             })
             .ToList();

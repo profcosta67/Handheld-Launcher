@@ -1,0 +1,29 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="HandheldLauncher.App.Views.DriverUpdateWindow"
+        Title="Atualização de Drivers"
+        Width="600" Height="400"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        Background="#1E1E2E">
+
+    <Grid RowDefinitions="Auto,*,Auto" Margin="20">
+        
+        <StackPanel Grid.Row="0" Spacing="10" Margin="0,0,0,15">
+            <TextBlock Text="Instalação de Drivers" FontSize="24" FontWeight="Bold" Foreground="White"/>
+            <TextBlock Text="Selecione o arquivo .inf do driver que deseja instalar." Foreground="LightGray"/>
+        </StackPanel>
+
+        <Border Grid.Row="1" Background="#252A36" CornerRadius="8" Padding="20" VerticalAlignment="Center">
+            <StackPanel Spacing="15" HorizontalAlignment="Center">
+                <TextBlock x:Name="TxtFilePath" Text="Nenhum arquivo selecionado." Foreground="Gray" TextWrapping="Wrap" TextAlignment="Center"/>
+                <Button Content="Selecionar Arquivo .inf" Click="OnSelectFileClick" Background="#424A5D" Foreground="White" CornerRadius="8" Padding="20,10"/>
+            </StackPanel>
+        </Border>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" Margin="0,15,0,0">
+            <Button x:Name="BtnInstall" Content="Instalar Driver" Click="OnInstallClick" IsEnabled="False" Background="#7C5CFC" Foreground="White" CornerRadius="8" Padding="15,10" FontWeight="Bold"/>
+            <Button Content="Fechar" Click="OnCloseClick" Background="#FF4040" Foreground="White" CornerRadius="8" Padding="15,10"/>
+        </StackPanel>
+    </Grid>
+</Window>
