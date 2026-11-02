@@ -46,22 +46,13 @@
           "Contas e Chaves" pra "Contas" porque 5 colunas em 560px de
           janela não cabiam o nome inteiro sem cortar.
         -->
-        <Grid ColumnDefinitions="*,*,*,*,*" Margin="0,0,0,4">
-          <Button Grid.Column="0" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAppearanceActive}"
-                  Content="Aparência" Tag="0" Click="OnCategoryTabClick"
-                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,4,0" Padding="4,8" FontSize="11" />
-          <Button Grid.Column="1" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryFoldersActive}"
-                  Content="Diretórios" Tag="1" Click="OnCategoryTabClick"
-                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0,4,0" Padding="4,8" FontSize="11" />
-          <Button Grid.Column="2" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryEmulatorsActive}"
-                  Content="Emuladores" Tag="2" Click="OnCategoryTabClick"
-                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0,4,0" Padding="4,8" FontSize="11" />
-          <Button Grid.Column="3" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryModeActive}"
-                  Content="Modo de uso" Tag="3" Click="OnCategoryTabClick"
-                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0,4,0" Padding="4,8" FontSize="11" />
-          <Button Grid.Column="4" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAccountsActive}"
-                  Content="Contas" Tag="4" Click="OnCategoryTabClick"
-                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="4,0,0,0" Padding="4,8" FontSize="11" />
+                        <Grid ColumnDefinitions="*,*,*,*,*,*" Margin="0,0,0,4">
+          <Button Grid.Column="0" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAppearanceActive}" Content="Aparência" Tag="0" Click="OnCategoryTabClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,3,0" Padding="2,8" FontSize="10" />
+          <Button Grid.Column="1" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryFoldersActive}" Content="Diretórios" Tag="1" Click="OnCategoryTabClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="3,0,3,0" Padding="2,8" FontSize="10" />
+          <Button Grid.Column="2" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryEmulatorsActive}" Content="Emuladores" Tag="2" Click="OnCategoryTabClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="3,0,3,0" Padding="2,8" FontSize="10" />
+          <Button Grid.Column="3" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryModeActive}" Content="Modo de uso" Tag="3" Click="OnCategoryTabClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="3,0,3,0" Padding="2,8" FontSize="10" />
+          <Button Grid.Column="4" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAccountsActive}" Content="Contas" Tag="4" Click="OnCategoryTabClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="3,0,3,0" Padding="2,8" FontSize="10" />
+          <Button Grid.Column="5" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryShortcutsActive}" Content="Teclas" Tag="5" Click="OnCategoryTabClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="3,0,0,0" Padding="2,8" FontSize="10" />
         </Grid>
 
         <!-- ===== Aparência ===== -->
@@ -276,6 +267,45 @@
           <Button Classes="pill" Content="🔒 Gerenciar contas e chaves de API" Click="OnManageAccountsClick" HorizontalAlignment="Left" />
           <TextBlock Text="O launcher nunca pede nem guarda a senha da Steam. As chaves ficam criptografadas neste PC (só o seu usuário do Windows consegue ler)."
                      Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+        </StackPanel>
+                        <!-- ===== Atalhos de Teclado ===== -->
+        <StackPanel Spacing="12" IsVisible="{Binding IsCategoryShortcutsActive}">
+          <TextBlock Text="Atalhos de Teclado (teclado físico)" FontSize="13" FontWeight="SemiBold" />
+
+          <Grid ColumnDefinitions="*, 200">
+            <TextBlock Text="Filtro Anterior" VerticalAlignment="Center" />
+            <TextBox Grid.Column="1" Text="{Binding KeyPrevFilter}" Watermark="Ex: Q" />
+          </Grid>
+          <Grid ColumnDefinitions="*, 200">
+            <TextBlock Text="Próximo Filtro" VerticalAlignment="Center" />
+            <TextBox Grid.Column="1" Text="{Binding KeyNextFilter}" Watermark="Ex: E" />
+          </Grid>
+          <Grid ColumnDefinitions="*, 200">
+            <TextBlock Text="Downloads" VerticalAlignment="Center" />
+            <TextBox Grid.Column="1" Text="{Binding KeyDownloads}" Watermark="Ex: D" />
+          </Grid>
+          <Grid ColumnDefinitions="*, 200">
+            <TextBlock Text="Menu de Contexto (Opções do Jogo)" VerticalAlignment="Center" />
+            <TextBox Grid.Column="1" Text="{Binding KeyContextMenu}" Watermark="Ex: Space" />
+          </Grid>
+          <Grid ColumnDefinitions="*, 200">
+            <TextBlock Text="Menu Global (Sistema)" VerticalAlignment="Center" />
+            <TextBox Grid.Column="1" Text="{Binding KeyGlobalMenu}" Watermark="Ex: Escape" />
+          </Grid>
+          <Grid ColumnDefinitions="*, 200">
+            <TextBlock Text="Fechar Jogo" VerticalAlignment="Center" />
+            <TextBox Grid.Column="1" Text="{Binding KeyCloseGame}" Watermark="Ex: Ctrl+W" />
+          </Grid>
+          <Grid ColumnDefinitions="*, 200">
+            <TextBlock Text="Abrir Jogo Selecionado" VerticalAlignment="Center" />
+            <TextBox Grid.Column="1" Text="{Binding KeyLaunchGame}" Watermark="Ex: Enter" />
+          </Grid>
+
+          <TextBlock Text="Aceita combinações como 'Ctrl+W', 'Alt+F4', 'Escape', 'Space', 'F1'. Setas e navegação ficam fixas. Deixe em branco para restaurar o padrão ao salvar."
+                     Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+
+          <TextBlock Text="💡 Dica: pressione F1 no launcher a qualquer momento para ver esta lista formatada."
+                     Classes="subtle" FontSize="11" TextWrapping="Wrap" FontStyle="Italic" />
         </StackPanel>
 
       </StackPanel>

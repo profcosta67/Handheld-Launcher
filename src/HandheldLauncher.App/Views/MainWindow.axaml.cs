@@ -75,10 +75,6 @@ public partial class MainWindow : Window
         _gamepadTimer.Tick += OnGamepadTick;
         _gamepadTimer.Start();
 
-        // 🟢 v0.14.2 — Só marca "saída deliberada" quando o usuário realmente
-        // pediu pra sair (menu Power → Sair, ver OnDataContextChanged). Aqui só
-        // logamos. Isso permite que o RestartOnFailure da tarefa agendada
-        // diferencie "crash" (reabre) de "Sair" (não reabre).
         Closing += (_, _) =>
         {
             DebugLog.Write("[STARTUP] Fechamento detectado.");
@@ -246,6 +242,9 @@ public partial class MainWindow : Window
 
     private void OnAboutOverlayPressed(object? sender, PointerPressedEventArgs e) => (DataContext as MainViewModel)?.CloseAbout();
     private void OnOpenSteamDownloadsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => (DataContext as MainViewModel)?.OpenSteamDownloads();
+    private void OnShortcutsHelpClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => (DataContext as MainViewModel)?.OpenShortcutsHelp();
+    private void OnShortcutsOverlayPressed(object? sender, PointerPressedEventArgs e) => (DataContext as MainViewModel)?.CloseShortcutsHelp();
+    private void OnShortcutsCloseClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => (DataContext as MainViewModel)?.CloseShortcutsHelp();
 
     public void QuitFromTray() { WatchdogGate.MarkDeliberateQuit(); Close(); }
     public void RestoreFromTray() { Show(); if (Topmost) WindowState = WindowState.FullScreen; Activate(); }
@@ -284,7 +283,6 @@ public partial class MainWindow : Window
 
         vm.QuitRequested += (_, _) =>
         {
-            // Sair intencional → marca flag pra tarefa agendada NÃO reabrir.
             WatchdogGate.MarkDeliberateQuit();
             vm.ClearOverlayNow();
             if (_overlayWindow != null) { _overlayWindow.IsAppClosing = true; _overlayWindow.Close(); }
@@ -444,6 +442,12 @@ public partial class MainWindow : Window
                     continue;
                 }
 
+                if (vm.IsShortcutsHelpOpen)
+                {
+                    if (action is GamepadAction.Back or GamepadAction.Confirm or GamepadAction.GlobalMenu or GamepadAction.Menu) { UiSounds.PlayBack(); vm.CloseShortcutsHelp(); }
+                    continue;
+                }
+
                 if (vm.RunningGame is not null && !IsOurWindowInForeground()) continue;
                 UiSounds.PlayForAction(action);
 
@@ -537,6 +541,22 @@ public partial class MainWindow : Window
     {
         if (DataContext is not MainViewModel vm) return;
 
+        // F1 abre/fecha o painel de atalhos (sempre funciona, em qualquer estado)
+        if (e.Key == Key.F1)
+        {
+            vm.ToggleShortcutsHelp();
+            e.Handled = true;
+            return;
+        }
+
+        // Se o painel de ajuda estiver aberto, qualquer tecla o fecha
+        if (vm.IsShortcutsHelpOpen)
+        {
+            vm.CloseShortcutsHelp();
+            e.Handled = true;
+            return;
+        }
+
         if (vm.IsCoverPickerOpen)
         {
             switch (e.Key)
@@ -600,19 +620,36 @@ public partial class MainWindow : Window
             }
         }
 
+        var settings = AppSettingsStore.Load();
+
+        if (TryMatch(settings.KeyLaunchGame, e)) { vm.LaunchSelected(); ScrollGameRowSelectionIntoView(vm); e.Handled = true; return; }
+        if (TryMatch(settings.KeyGlobalMenu, e)) { vm.ToggleGlobalMenu(); e.Handled = true; return; }
+        if (TryMatch(settings.KeyCloseGame, e)) { vm.CloseRunningGame(); e.Handled = true; return; }
+        if (TryMatch(settings.KeyContextMenu, e)) { vm.ToggleContextMenu(); e.Handled = true; return; }
+        if (TryMatch(settings.KeyPrevFilter, e)) { vm.CyclePreviousFilter(); e.Handled = true; return; }
+        if (TryMatch(settings.KeyNextFilter, e)) { vm.CycleNextFilter(); e.Handled = true; return; }
+        if (TryMatch(settings.KeyDownloads, e)) { vm.ToggleDownloads(); e.Handled = true; return; }
+
         switch (e.Key)
         {
             case Key.Left: vm.MovePrevious(); ScrollGameRowSelectionIntoView(vm); e.Handled = true; break;
             case Key.Right: vm.MoveNext(); ScrollGameRowSelectionIntoView(vm); e.Handled = true; break;
             case Key.Up: if (!MoveSelectionVertical(vm, -1)) vm.FocusSubFilterRow(); e.Handled = true; break;
             case Key.Down: MoveSelectionVertical(vm, 1); e.Handled = true; break;
-            case Key.Enter: vm.LaunchSelected(); ScrollGameRowSelectionIntoView(vm); e.Handled = true; break;
-            case Key.Escape: case Key.M: case Key.Tab: vm.ToggleGlobalMenu(); e.Handled = true; break;
-            case Key.W when e.KeyModifiers.HasFlag(KeyModifiers.Control): vm.CloseRunningGame(); e.Handled = true; break;
-            case Key.Space: case Key.Apps: vm.ToggleContextMenu(); e.Handled = true; break;
-            case Key.Q: vm.CyclePreviousFilter(); e.Handled = true; break;
-            case Key.E: vm.CycleNextFilter(); e.Handled = true; break;
-            case Key.D: vm.ToggleDownloads(); e.Handled = true; break;
+        }
+    }
+
+    private bool TryMatch(string gestureString, KeyEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(gestureString)) return false;
+        try
+        {
+            var gesture = KeyGesture.Parse(gestureString);
+            return gesture.Matches(e);
+        }
+        catch 
+        { 
+            return false; 
         }
     }
 

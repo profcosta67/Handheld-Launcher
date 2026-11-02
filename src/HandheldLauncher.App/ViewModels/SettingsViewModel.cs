@@ -4,35 +4,8 @@ using HandheldLauncher.Core.Services;
 
 namespace HandheldLauncher.App.ViewModels;
 
-/// <summary>
-/// Backs the "Configurações" dialog (SettingsWindow) — pedido do usuário
-/// depois de se perder tentando achar onde colar a Steam Web API key
-/// ("seria possível criar uma tela de configuração pelo próprio Launcher?
-/// Acho que ficaria mais fácil"). Deliberadamente burra, igual
-/// AddGameViewModel: só campos de texto + CanSave/SavedMessage — toda a
-/// leitura/escrita de AppSettingsStore e o Close() do diálogo ficam no
-/// code-behind da Window, não aqui.
-///
-/// Edita os mesmos campos que até agora só existiam como hand-edit do
-/// settings.json (SteamGridDbApiKey, SteamWebApiKey, SteamId64,
-/// XboxScanFolders). IMPORTANTE: salvar aqui NÃO reconfigura os serviços
-/// já construídos nesta execução (LibraryService, SteamOwnedGamesClient,
-/// ArtworkService etc. recebem os valores por CÓPIA no App.axaml.cs, uma
-/// vez só, na abertura do app) — precisa reiniciar o launcher pra valer.
-/// Não tentei fazer hot-reload disso porque ir além (destruir/reconstruir
-/// os serviços em runtime) é bem mais arriscado de acertar sem conseguir
-/// compilar/testar aqui, pra um ganho pequeno (economizar um reinício).
-/// </summary>
 public sealed class SettingsViewModel : ViewModelBase
 {
-    // v0.9.5: a tela principal de Configurações não mostra mais as caixas
-    // de chave/ID direto (pedido do usuário: "gravar a tela de
-    // configuração mostrando o que tem pra configurar mas não queria
-    // exibir os códigos") — só o status (Has*KeyText abaixo). As caixas de
-    // verdade (ainda mascaradas, ver AccountsWindow) ficam atrás do botão
-    // "Gerenciar contas e chaves de API". Por isso os três setters agora
-    // também notificam o Has* correspondente.
-
     private string _steamGridDbApiKey = string.Empty;
     public string SteamGridDbApiKey
     {
@@ -48,8 +21,6 @@ public sealed class SettingsViewModel : ViewModelBase
     }
 
     public bool HasSteamGridDbKey => !string.IsNullOrWhiteSpace(_steamGridDbApiKey);
-
-    /// <summary>"configurado ✓"/"não configurado" — pra tela principal mostrar status sem o valor da chave.</summary>
     public string SteamGridDbStatusText => HasSteamGridDbKey ? "configurado ✓" : "não configurado";
 
     private string _steamWebApiKey = string.Empty;
@@ -67,15 +38,7 @@ public sealed class SettingsViewModel : ViewModelBase
     }
 
     public bool HasSteamWebApiKey => !string.IsNullOrWhiteSpace(_steamWebApiKey);
-
     public string SteamWebApiStatusText => HasSteamWebApiKey ? "configurado ✓" : "não configurado";
-
-    // ─────────────────────────────────────────────────────────────────
-    // RAWG API (v0.14) — mesma trinca que SteamGridDb/SteamWeb acima:
-    // campo mascarado em AccountsWindow, status na tela principal.
-    // Habilita a busca de descrição/metadados para jogos que NÃO são da
-    // Steam (Xbox, emuladores, atalhos) — ver RawgMetadataService.
-    // ─────────────────────────────────────────────────────────────────
 
     private string _rawgApiKey = string.Empty;
     public string RawgApiKey
@@ -92,7 +55,6 @@ public sealed class SettingsViewModel : ViewModelBase
     }
 
     public bool HasRawgApiKey => !string.IsNullOrWhiteSpace(_rawgApiKey);
-
     public string RawgApiStatusText => HasRawgApiKey ? "configurado ✓" : "não configurado";
 
     private string _steamId64 = string.Empty;
@@ -112,13 +74,6 @@ public sealed class SettingsViewModel : ViewModelBase
     public bool HasSteamId64 => !string.IsNullOrWhiteSpace(_steamId64);
 
     private string? _steamPersonaName;
-
-    /// <summary>
-    /// Status pra tela PRINCIPAL de Configurações: mostra o apelido da
-    /// conta detectada (não é segredo) mas NUNCA o número do SteamID64 —
-    /// "esconder o número" foi pedido explícito do usuário. O número de
-    /// verdade só aparece dentro de AccountsWindow (e mesmo lá, mascarado).
-    /// </summary>
     public string SteamIdStatusText => !HasSteamId64
         ? "não configurado"
         : string.IsNullOrWhiteSpace(_steamPersonaName)
@@ -126,8 +81,6 @@ public sealed class SettingsViewModel : ViewModelBase
             : $"{_steamPersonaName} (configurado ✓)";
 
     private string _xboxScanFoldersText = string.Empty;
-
-    /// <summary>Uma pasta por linha na caixa de texto — convertido de/pra AppSettings.XboxScanFolders (List&lt;string&gt;) ao carregar/salvar.</summary>
     public string XboxScanFoldersText
     {
         get => _xboxScanFoldersText;
@@ -135,13 +88,6 @@ public sealed class SettingsViewModel : ViewModelBase
     }
 
     private string _edenExecutablePath = string.Empty;
-
-    /// <summary>
-    /// v0.9.16, aba "Emuladores": caminho do `eden.exe`. Nasce preenchido
-    /// quando a detecção automática achou (ver EdenInstallationDetector,
-    /// que roda em App.axaml.cs e já grava em settings.json) — o botão
-    /// "Procurar eden.exe…" da tela escreve aqui também.
-    /// </summary>
     public string EdenExecutablePath
     {
         get => _edenExecutablePath;
@@ -154,41 +100,20 @@ public sealed class SettingsViewModel : ViewModelBase
         }
     }
 
-    /// <summary>
-    /// Texto de status abaixo do campo — serve de retorno visual tanto pra
-    /// detecção automática ("achei aqui") quanto pra um caminho digitado
-    /// errado (que senão só falharia silenciosamente na hora de escanear,
-    /// sem o usuário entender por que nenhum jogo apareceu).
-    /// </summary>
     public string EdenStatusText
     {
         get
         {
-            if (string.IsNullOrWhiteSpace(_edenExecutablePath))
-            {
-                return "Não configurado — nenhum jogo do Eden vai aparecer na biblioteca.";
-            }
-
+            if (string.IsNullOrWhiteSpace(_edenExecutablePath)) return "Não configurado — nenhum jogo do Eden vai aparecer na biblioteca.";
             try
             {
-                return File.Exists(_edenExecutablePath)
-                    ? "Encontrado ✓"
-                    : "Esse arquivo não existe — confira o caminho.";
+                return File.Exists(_edenExecutablePath) ? "Encontrado ✓" : "Esse arquivo não existe — confira o caminho.";
             }
-            catch
-            {
-                return "Caminho inválido — confira.";
-            }
+            catch { return "Caminho inválido — confira."; }
         }
     }
 
     private string _edenRomFoldersText = string.Empty;
-
-    /// <summary>
-    /// Uma pasta por linha — convertido de/pra AppSettings.EdenRomFolders
-    /// ao carregar/salvar, igual XboxScanFoldersText acima. Escaneadas
-    /// recursivamente (ver EdenLibraryScanner).
-    /// </summary>
     public string EdenRomFoldersText
     {
         get => _edenRomFoldersText;
@@ -196,14 +121,6 @@ public sealed class SettingsViewModel : ViewModelBase
     }
 
     private string _edenScanResultText = string.Empty;
-
-    /// <summary>
-    /// v0.9.17: resultado do botão "Testar agora" (ver
-    /// SettingsWindow.OnTestEdenScanClick). Existe porque, na v0.9.16, a
-    /// única forma de saber se a pasta configurada tinha funcionado era
-    /// salvar, reiniciar e olhar a biblioteca — e quando o resultado veio
-    /// errado (1 jogo de 18 arquivos), não havia nenhuma pista do porquê.
-    /// </summary>
     public string EdenScanResultText
     {
         get => _edenScanResultText;
@@ -219,13 +136,6 @@ public sealed class SettingsViewModel : ViewModelBase
     public bool HasEdenScanResult => !string.IsNullOrWhiteSpace(_edenScanResultText);
 
     private bool _isHandheldMode;
-
-    /// <summary>
-    /// true = modo Handheld (tela cheia, abre sozinho no login, reabre se
-    /// fechar); false = modo Desktop (janela normal, nada automático, "Sair"
-    /// fecha de verdade). Substitui as caixinhas separadas de KioskMode/
-    /// AutoRestart — as duas sempre andam juntas.
-    /// </summary>
     public bool IsHandheldMode
     {
         get => _isHandheldMode;
@@ -245,25 +155,12 @@ public sealed class SettingsViewModel : ViewModelBase
     }
 
     private string _versionText = string.Empty;
-
-    /// <summary>"Handheld Launcher v0.3.5", preenchido pelo MainWindow ao abrir.</summary>
-    public string VersionText
-    {
-        get => _versionText;
-        set => SetField(ref _versionText, value);
-    }
+    public string VersionText { get => _versionText; set => SetField(ref _versionText, value); }
 
     private bool _updatesAvailable;
-
-    /// <summary>Instalado pelo Setup.exe — só então "Verificar atualizações" faz sentido.</summary>
-    public bool UpdatesAvailable
-    {
-        get => _updatesAvailable;
-        set => SetField(ref _updatesAvailable, value);
-    }
+    public bool UpdatesAvailable { get => _updatesAvailable; set => SetField(ref _updatesAvailable, value); }
 
     private string _updateResultText = string.Empty;
-
     public string UpdateResultText
     {
         get => _updateResultText;
@@ -278,42 +175,7 @@ public sealed class SettingsViewModel : ViewModelBase
 
     public bool HasUpdateResult => !string.IsNullOrEmpty(_updateResultText);
 
-    // v0.9.14: OverlayPresetIndex/OverlayStatusText (ComboBox "Overlay de
-    // desempenho") saíram daqui — pedido do usuário: esse ComboBox era
-    // repetido com a seleção de preset que já existe no Menu Global → HUD
-    // do próprio launcher (marcador ●/○ + status do RTSS, ver
-    // MainViewModel.BuildGlobalMenu/GlobalMenuPage.Hud), então "retirar
-    // esse do preferências". Nada de persistência se perde: aquele menu já
-    // grava em AppSettings.OverlayPreset por conta própria.
-
     private int _categoryIndex;
-
-    /// <summary>
-    /// v0.9.14: aba ativa desta tela — pedido do usuário pra separar em
-    /// tópicos porque a tela única "encheu". Mesmo padrão visual das abas
-    /// de filtro da biblioteca (Button.pill.filterTab + Classes.active, ver
-    /// MainWindow.axaml) em vez de um TabControl de verdade do Avalonia —
-    /// assim reaproveita o mesmo estilo/cor do resto do app sem precisar de
-    /// nenhum estilo novo pro chrome padrão do FluentTheme. Resetada pra 0
-    /// a cada abertura da tela (ver LoadFrom).
-    /// <para>
-    /// v0.9.15, pedido do usuário ("Aparencias / Diretorios / Modo de Uso /
-    /// Contas (deixa por ultimo)"): ordem trocada (era 0 Contas/1 Diretórios/
-    /// 2 Modo/3 Aparência até a v0.9.14). Só a ORDEM/posição mudou — os
-    /// nomes das propriedades Is*Active abaixo continuam pelos nomes das
-    /// categorias, não pelo índice, de propósito (pra não confundir quem
-    /// ler o .axaml).
-    /// </para>
-    /// <para>
-    /// v0.9.16, pedido do usuário ("criar uma aba com nome 'Emuladores'
-    /// para possiveis integrações futuras"): entrou uma 5ª aba, entre
-    /// Diretórios e Modo de uso — as duas abas "onde as coisas estão" ficam
-    /// juntas, e Contas segue sendo a última (pedido explícito da v0.9.15).
-    /// Ordem atual: 0 Aparência, 1 Diretórios, 2 Emuladores, 3 Modo de uso,
-    /// 4 Contas. O rótulo da última virou só "Contas" (era "Contas e
-    /// Chaves") pra caber 5 abas na largura da janela.
-    /// </para>
-    /// </summary>
     public int CategoryIndex
     {
         get => _categoryIndex;
@@ -326,6 +188,7 @@ public sealed class SettingsViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsCategoryEmulatorsActive));
                 OnPropertyChanged(nameof(IsCategoryModeActive));
                 OnPropertyChanged(nameof(IsCategoryAccountsActive));
+                OnPropertyChanged(nameof(IsCategoryShortcutsActive));
             }
         }
     }
@@ -335,22 +198,14 @@ public sealed class SettingsViewModel : ViewModelBase
     public bool IsCategoryEmulatorsActive => _categoryIndex == 2;
     public bool IsCategoryModeActive => _categoryIndex == 3;
     public bool IsCategoryAccountsActive => _categoryIndex == 4;
+    public bool IsCategoryShortcutsActive => _categoryIndex == 5;
 
     private int _fontIndex;
-
-    /// <summary>0 Moderna (Segoe UI), 1 Divertida (Comic Sans).</summary>
     public int FontIndex { get => _fontIndex; set => SetField(ref _fontIndex, value); }
 
     private string _steamAccountText = string.Empty;
+    public string SteamAccountText { get => _steamAccountText; set => SetField(ref _steamAccountText, value); }
 
-    /// <summary>"Conta Steam deste PC: Fulano (7656...)" ou aviso de não encontrada.</summary>
-    public string SteamAccountText
-    {
-        get => _steamAccountText;
-        set => SetField(ref _steamAccountText, value);
-    }
-
-    /// <summary>Botão "Usar conta da Steam deste PC" (dentro de AccountsWindow) — preenche o SteamID64.</summary>
     public void UseDetectedSteamAccount()
     {
         var account = SteamAccountDetector.FindMostRecent();
@@ -370,22 +225,9 @@ public sealed class SettingsViewModel : ViewModelBase
     public int FontSizeIndex { get => _fontSizeIndex; set => SetField(ref _fontSizeIndex, value); }
 
     private int _themeIndex;
-
-    /// <summary>Paleta de COR (ThemeManager.ThemeNames) — só cor, não o esqueleto da tela. Ver LayoutThemeIndex.</summary>
     public int ThemeIndex { get => _themeIndex; set => SetField(ref _themeIndex, value); }
 
     private int _layoutThemeIndex;
-
-    /// <summary>
-    /// Tema de LAYOUT (ThemeManager.LayoutThemeNames): 0 Clássico,
-    /// 1 Switch. v0.9.19.
-    /// <para>
-    /// CUIDADO com o nome parecido: <see cref="LayoutIndex"/> (abaixo) é
-    /// outra coisa — é fileira horizontal vs. grade vertical DENTRO do
-    /// layout clássico, que já existia muito antes. Este aqui escolhe o
-    /// esqueleto da tela inteiro.
-    /// </para>
-    /// </summary>
     public int LayoutThemeIndex
     {
         get => _layoutThemeIndex;
@@ -398,11 +240,6 @@ public sealed class SettingsViewModel : ViewModelBase
         }
     }
 
-    /// <summary>
-    /// Texto do botão que abre o seletor de layout (v0.9.21) — mostra o que
-    /// está ativo AGORA, pra a tela de Configurações responder a pergunta
-    /// "qual layout estou usando?" sem precisar abrir a telinha.
-    /// </summary>
     public string LayoutThemeButtonText
     {
         get
@@ -417,37 +254,44 @@ public sealed class SettingsViewModel : ViewModelBase
     public int TileSizeIndex { get => _tileSizeIndex; set => SetField(ref _tileSizeIndex, value); }
 
     private int _layoutIndex;
-
-    /// <summary>0 = fileira horizontal, 1 = grade vertical.</summary>
     public int LayoutIndex { get => _layoutIndex; set => SetField(ref _layoutIndex, value); }
 
     private bool _animations = true;
     public bool Animations { get => _animations; set => SetField(ref _animations, value); }
 
     private bool _soundEffects = true;
-
-    /// <summary>"Sons de interação" (v0.9.10) — Platform.UiSounds.Enabled espelha isto ao vivo (ver SettingsWindow.axaml.cs).</summary>
     public bool SoundEffects { get => _soundEffects; set => SetField(ref _soundEffects, value); }
 
     private int _soundThemeIndex;
-
-    /// <summary>"Estilo de som" (v0.9.11) — índice em Platform.UiSounds.PackNames.</summary>
     public int SoundThemeIndex { get => _soundThemeIndex; set => SetField(ref _soundThemeIndex, value); }
 
     private double _soundVolume = 70;
-
-    /// <summary>
-    /// "Volume dos sons" (v0.9.13, 0-100) — espelha Platform.UiSounds.Volume
-    /// (lá é int; aqui é double de propósito, pra bater exatamente com o
-    /// tipo de Slider.Value e não depender de conversão implícita no
-    /// binding, que não dá pra confirmar sem compilar).
-    /// </summary>
     public double SoundVolume { get => _soundVolume; set => SetField(ref _soundVolume, value); }
 
     private int _colorModeIndex;
-
-    /// <summary>"Modo de imagem/cor" (v0.9.13) — índice em Platform.DisplayColorManager.ModeNames.</summary>
     public int ColorModeIndex { get => _colorModeIndex; set => SetField(ref _colorModeIndex, value); }
+
+    // ===== Atalhos de Teclado =====
+    private string _keyPrevFilter = "Q";
+    public string KeyPrevFilter { get => _keyPrevFilter; set => SetField(ref _keyPrevFilter, value); }
+
+    private string _keyNextFilter = "E";
+    public string KeyNextFilter { get => _keyNextFilter; set => SetField(ref _keyNextFilter, value); }
+
+    private string _keyDownloads = "D";
+    public string KeyDownloads { get => _keyDownloads; set => SetField(ref _keyDownloads, value); }
+
+    private string _keyContextMenu = "Space";
+    public string KeyContextMenu { get => _keyContextMenu; set => SetField(ref _keyContextMenu, value); }
+
+    private string _keyGlobalMenu = "Escape";
+    public string KeyGlobalMenu { get => _keyGlobalMenu; set => SetField(ref _keyGlobalMenu, value); }
+
+    private string _keyCloseGame = "Ctrl+W";
+    public string KeyCloseGame { get => _keyCloseGame; set => SetField(ref _keyCloseGame, value); }
+
+    private string _keyLaunchGame = "Enter";
+    public string KeyLaunchGame { get => _keyLaunchGame; set => SetField(ref _keyLaunchGame, value); }
 
     private string? _savedMessage;
     public string? SavedMessage
@@ -464,27 +308,14 @@ public sealed class SettingsViewModel : ViewModelBase
     }
 
     public bool HasSavedMessage => !string.IsNullOrEmpty(SavedMessage);
-
-    /// <summary>
-    /// Desabilita o formulário por trás enquanto a telinha "Configurações
-    /// salvas" está aberta (v0.9.7) — sem isso, ↑/↓ pelo controle ainda
-    /// conseguiam mover o foco pra um campo escondido atrás do overlay
-    /// (DialogGamepadNavigator não sabe nada sobre "tem overlay aberto",
-    /// só sobre foco/visibilidade — desabilitar os controles de verdade é
-    /// o jeito do próprio Avalonia tirá-los da navegação).
-    /// </summary>
     public bool FormEnabled => !HasSavedMessage;
 
-    /// <summary>Carrega os campos a partir de settings.json (via AppSettingsStore.Load), chamado quando a Window abre.</summary>
     public void LoadFrom(AppSettings settings)
     {
         SteamGridDbApiKey = settings.SteamGridDbApiKey ?? string.Empty;
         SteamWebApiKey = settings.SteamWebApiKey ?? string.Empty;
         RawgApiKey = settings.RawgApiKey ?? string.Empty;
 
-        // Detecta ANTES de preencher SteamId64, pra SteamIdStatusText (tela
-        // principal) já nascer com o apelido certo em vez de "configurado
-        // ✓" genérico — ver comentário da propriedade.
         var detected = SteamAccountDetector.FindMostRecent();
         _steamPersonaName = detected?.PersonaName;
         SteamId64 = settings.SteamId64 ?? string.Empty;
@@ -507,16 +338,18 @@ public sealed class SettingsViewModel : ViewModelBase
         SoundThemeIndex = Math.Clamp(settings.SoundTheme, 0, HandheldLauncher.App.Platform.UiSounds.PackNames.Length - 1);
         SoundVolume = Math.Clamp(settings.SoundVolume, 0, 100);
         ColorModeIndex = Math.Clamp(settings.ColorMode, 0, HandheldLauncher.App.Platform.DisplayColorManager.ModeNames.Length - 1);
+
+        KeyPrevFilter = settings.KeyPrevFilter;
+        KeyNextFilter = settings.KeyNextFilter;
+        KeyDownloads = settings.KeyDownloads;
+        KeyContextMenu = settings.KeyContextMenu;
+        KeyGlobalMenu = settings.KeyGlobalMenu;
+        KeyCloseGame = settings.KeyCloseGame;
+        KeyLaunchGame = settings.KeyLaunchGame;
+
         SavedMessage = null;
     }
 
-    /// <summary>
-    /// Botão "Salvar" — grava de volta em AppSettings e persiste via
-    /// AppSettingsStore.Save (mesmo arquivo/caminho que o hand-edit sempre
-    /// usou, %AppData%\HandheldLauncher\settings.json). Não fecha a tela
-    /// sozinho — deixa a mensagem de confirmação visível pro usuário ler
-    /// o aviso de "precisa reiniciar" antes de fechar.
-    /// </summary>
     public void SaveTo(AppSettings settings)
     {
         settings.SteamGridDbApiKey = string.IsNullOrWhiteSpace(SteamGridDbApiKey) ? null : SteamGridDbApiKey.Trim();
@@ -545,16 +378,21 @@ public sealed class SettingsViewModel : ViewModelBase
         settings.SoundVolume = Math.Clamp((int)Math.Round(SoundVolume), 0, 100);
         settings.ColorMode = Math.Clamp(ColorModeIndex, 0, HandheldLauncher.App.Platform.DisplayColorManager.ModeNames.Length - 1);
 
+        settings.KeyPrevFilter = string.IsNullOrWhiteSpace(KeyPrevFilter) ? "Q" : KeyPrevFilter.Trim();
+        settings.KeyNextFilter = string.IsNullOrWhiteSpace(KeyNextFilter) ? "E" : KeyNextFilter.Trim();
+        settings.KeyDownloads = string.IsNullOrWhiteSpace(KeyDownloads) ? "D" : KeyDownloads.Trim();
+        settings.KeyContextMenu = string.IsNullOrWhiteSpace(KeyContextMenu) ? "Space" : KeyContextMenu.Trim();
+        settings.KeyGlobalMenu = string.IsNullOrWhiteSpace(KeyGlobalMenu) ? "Escape" : KeyGlobalMenu.Trim();
+        settings.KeyCloseGame = string.IsNullOrWhiteSpace(KeyCloseGame) ? "Ctrl+W" : KeyCloseGame.Trim();
+        settings.KeyLaunchGame = string.IsNullOrWhiteSpace(KeyLaunchGame) ? "Enter" : KeyLaunchGame.Trim();
+
         AppSettingsStore.Save(settings);
 
-        // Handheld: cria a tarefa que abre no login e reabre se fechar.
-        // Desktop: remove. (Melhor esforço — ver WatchdogTask.)
         var taskOk = WatchdogTask.Apply(IsHandheldMode);
 
         SavedMessage = "Salvo! Aparência já vale ao fechar esta tela; chaves e modo de uso pedem reiniciar o launcher (fechar de vez e abrir de novo)."
             + (taskOk ? string.Empty : " Aviso: não consegui ajustar a abertura automática do Windows (veja debug.log).");
     }
 
-    /// <summary>Fecha a telinha de confirmação "Configurações salvas" (botão OK, v0.9.7) — ver SettingsWindow.axaml.cs.OnSavedOkClick.</summary>
     public void DismissSavedMessage() => SavedMessage = null;
 }

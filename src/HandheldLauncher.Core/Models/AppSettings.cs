@@ -25,9 +25,18 @@ public class AppSettings
     public int ColorMode { get; set; } = 0;
     public int OverlayPreset { get; set; } = 0;
 
-    // 🟢 AS 3 PROPRIEDADES NOVAS (com os tipos corretos):
+    // v0.14.4: Propriedades do TDP, Fan, Volume, etc.
     public string TdpMode { get; set; } = "Normal";
     public string FanMode { get; set; } = "Automático";
     public int Volume { get; set; } = 70;
     public int Brightness { get; set; } = 80;
+
+    // 🟢 NOVO: Atalhos de Teclado (podem ser simples como "Q" ou combinações como "Ctrl+W")
+    public string KeyPrevFilter { get; set; } = "Q";
+    public string KeyNextFilter { get; set; } = "E";
+    public string KeyDownloads { get; set; } = "D";
+    public string KeyContextMenu { get; set; } = "Space";
+    public string KeyGlobalMenu { get; set; } = "Escape";
+    public string KeyCloseGame { get; set; } = "Ctrl+W";
+    public string KeyLaunchGame { get; set; } = "Enter";
 }

@@ -37,14 +37,70 @@ public sealed class MainViewModel : ViewModelBase
 
     private int _targetTdpWatts = 20;
     private int _realTimeTdpWatts = 0;
-    
-    // O Top Bar sempre mostra o ALVO configurado
+
     public string TopBarTdpText => _targetTdpWatts > 0 ? $"{_targetTdpWatts} W" : "-- W";
-    
-    // O Consumo Real vai pro ToolTip
-    public string TopBarTdpToolTip => _realTimeTdpWatts > 0 
-        ? $"Alvo: {_targetTdpWatts} W | Consumo Real: {_realTimeTdpWatts} W" 
+    public string TopBarTdpToolTip => _realTimeTdpWatts > 0
+        ? $"Alvo: {_targetTdpWatts} W | Consumo Real: {_realTimeTdpWatts} W"
         : $"TDP Configurado: {_targetTdpWatts} W";
+
+    // ===== Painel de Atalhos (F1) =====
+    private bool _isShortcutsHelpOpen;
+    public bool IsShortcutsHelpOpen
+    {
+        get => _isShortcutsHelpOpen;
+        private set => SetField(ref _isShortcutsHelpOpen, value);
+    }
+
+    public ObservableCollection<ShortcutItem> GamepadShortcuts { get; } = new();
+    public ObservableCollection<ShortcutItem> KeyboardShortcuts { get; } = new();
+
+    public record ShortcutItem(string Label, string Key);
+
+    public void OpenShortcutsHelp()
+    {
+        RefreshShortcuts();
+        IsShortcutsHelpOpen = true;
+    }
+
+    public void CloseShortcutsHelp() => IsShortcutsHelpOpen = false;
+
+    public void ToggleShortcutsHelp()
+    {
+        if (IsShortcutsHelpOpen) CloseShortcutsHelp();
+        else OpenShortcutsHelp();
+    }
+
+    private void RefreshShortcuts()
+    {
+        GamepadShortcuts.Clear();
+        KeyboardShortcuts.Clear();
+        try
+        {
+            GamepadShortcuts.Add(new ShortcutItem("Navegar na biblioteca", "D-Pad"));
+            GamepadShortcuts.Add(new ShortcutItem("Confirmar / Abrir jogo", "A"));
+            GamepadShortcuts.Add(new ShortcutItem("Voltar / Fechar", "B"));
+            GamepadShortcuts.Add(new ShortcutItem("Opções do jogo", "Select"));
+            GamepadShortcuts.Add(new ShortcutItem("Menu global (sistema)", "Start"));
+            GamepadShortcuts.Add(new ShortcutItem("Filtro anterior", "LB"));
+            GamepadShortcuts.Add(new ShortcutItem("Próximo filtro", "RB"));
+            GamepadShortcuts.Add(new ShortcutItem("Downloads", "Y"));
+            GamepadShortcuts.Add(new ShortcutItem("Detalhes do jogo", "X"));
+            GamepadShortcuts.Add(new ShortcutItem("Quick Settings (HUD)", "L3 + R3"));
+
+            var s = AppSettingsStore.Load();
+            KeyboardShortcuts.Add(new ShortcutItem("Navegar na biblioteca", "← → ↑ ↓"));
+            KeyboardShortcuts.Add(new ShortcutItem("Abrir jogo selecionado", s.KeyLaunchGame));
+            KeyboardShortcuts.Add(new ShortcutItem("Filtro anterior", s.KeyPrevFilter));
+            KeyboardShortcuts.Add(new ShortcutItem("Próximo filtro", s.KeyNextFilter));
+            KeyboardShortcuts.Add(new ShortcutItem("Downloads", s.KeyDownloads));
+            KeyboardShortcuts.Add(new ShortcutItem("Menu de opções do jogo", s.KeyContextMenu));
+            KeyboardShortcuts.Add(new ShortcutItem("Menu global (sistema)", s.KeyGlobalMenu));
+            KeyboardShortcuts.Add(new ShortcutItem("Fechar jogo em execução", s.KeyCloseGame));
+            KeyboardShortcuts.Add(new ShortcutItem("Este painel de ajuda", "F1"));
+            KeyboardShortcuts.Add(new ShortcutItem("Abrir Quick Settings", "Ctrl+Alt+O"));
+        }
+        catch { }
+    }
 
     public MainViewModel(
         ILibraryService library,
@@ -108,11 +164,7 @@ public sealed class MainViewModel : ViewModelBase
                             label.Contains("CPU Package Power", StringComparison.OrdinalIgnoreCase))
                         {
                             _realTimeTdpWatts = (int)reading.Value;
-                            
-                            // Atualiza o ToolTip do Top Bar
                             OnPropertyChanged(nameof(TopBarTdpToolTip));
-                            
-                            // Atualiza o HUD do RTSS
                             if (_hud != null) _hud.RealTdpText = $"{_realTimeTdpWatts} W";
                         }
                     }
@@ -122,10 +174,8 @@ public sealed class MainViewModel : ViewModelBase
             {
                 _hwInfoWasAvailable = false;
                 _realTimeTdpWatts = 0;
-                
                 OnPropertyChanged(nameof(TopBarTdpToolTip));
                 if (_hud != null) _hud.RealTdpText = "";
-                
                 DebugLog.Write("[HWiNFO] Shared Memory deixou de fornecer dados.");
             }
         };
@@ -262,7 +312,7 @@ public sealed class MainViewModel : ViewModelBase
 
     public bool UpdatesInstalled => _updates is { IsInstalled: true };
     public string UpdateWindowVersionText => $"Versão v{PendingUpdateVersion} pronta pra instalar";
-    
+
     public string PendingUpdateNotesText
     {
         get
@@ -316,7 +366,7 @@ public sealed class MainViewModel : ViewModelBase
     public void ClearOverlayNow() { if (OperatingSystem.IsWindows()) _hud?.ClearNow(); }
 
     public bool IsPerformanceHudEnabled => _hud is not null && _hud.Preset > 0;
-    public int CurrentHudPreset => _hud?.Preset ?? 0; 
+    public int CurrentHudPreset => _hud?.Preset ?? 0;
 
     public void SetPerformanceHudEnabled(bool enabled)
     {
@@ -842,6 +892,7 @@ public sealed class MainViewModel : ViewModelBase
                 if (RunningGame is not null) Add($"⏹ Fechar: {RunningGame.Title}", CloseRunningGame);
                 Folder("📚 Biblioteca", GlobalMenuPage.Library); Folder("📊 HUD", GlobalMenuPage.Hud);
                 Folder("⚙ Configurações", GlobalMenuPage.Settings); Folder("⚡ Energia", GlobalMenuPage.Power);
+                Add("⌨ Atalhos de Teclado", OpenShortcutsHelp);
                 Add("ℹ Sobre", OpenAbout); break;
         }
         GlobalMenuHint = _globalMenuPage == GlobalMenuPage.Hud ? "No jogo: L3+R3 (ou Ctrl+Alt+O) troca o HUD" : string.Empty;
