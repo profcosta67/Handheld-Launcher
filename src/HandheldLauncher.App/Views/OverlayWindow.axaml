@@ -39,10 +39,9 @@
                 <Button x:Name="BtnClose" Grid.Column="1" Content="✕" Width="40" Height="40" CornerRadius="20" Background="#33FFFFFF" Foreground="White" Click="OnCloseClick" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="16" FontWeight="Bold" />
             </Grid>
 
-            <!-- Scroll Principal (Oculto e com largura fixa no conteúdo) -->
+            <!-- Scroll Principal -->
             <ScrollViewer x:Name="MainScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled">
                 
-                <!-- 🟢 AQUI ESTÁ A CORREÇÃO: Width fixo de 380 impede o alargamento/encolhimento -->
                 <StackPanel Spacing="10" Width="380" HorizontalAlignment="Center">
                     
                     <!-- Seção: Resolução -->
@@ -122,7 +121,6 @@
                     <Border x:Name="FanSection" CornerRadius="12" BorderThickness="2" BorderBrush="Transparent" Padding="10" Background="#1AFFFFFF">
                         <StackPanel Spacing="8">
                             <TextBlock Text="❄️ Refrigeração (ventoinhas)" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
-                            
                             <UniformGrid Columns="5" Margin="0,4">
                                 <Button x:Name="BtnFanAuto" Tag="Automático" Click="OnFanClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="2" Padding="2" Height="60" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
                                     <StackPanel Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -155,8 +153,6 @@
                                     </StackPanel>
                                 </Button>
                             </UniformGrid>
-                            
-                            <!-- 🟢 AQUI: Height fixo de 36px impede que o texto mude o layout -->
                             <TextBlock x:Name="TxtFanStatus" Text="Lendo tabela original..." Foreground="White" FontSize="11" TextWrapping="Wrap" TextAlignment="Center" Margin="0,4,0,0" Height="36" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
@@ -200,6 +196,18 @@
                         <StackPanel Spacing="4">
                             <TextBlock Text="☀️ Brilho" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
                             <Slider x:Name="BrightnessSlider" ValueChanged="OnBrightnessChanged" Minimum="0" Maximum="100" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 🦆 NOVO: Seção do Patinho (Lossless Scaling) -->
+                    <Border x:Name="LosslessSection" CornerRadius="12" BorderThickness="2" BorderBrush="Transparent" Padding="10" Background="#1AFFFFFF">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="🦆 Lossless - FrameGen" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
+                            <Grid ColumnDefinitions="*,*">
+                                <Button x:Name="BtnLsfgApply" Grid.Column="0" Content="Aplicar Agora" Click="OnLsfgApplyClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="8" Margin="0,0,4,0" FontSize="12" />
+                                <Button x:Name="BtnLsfgOpen" Grid.Column="1" Content="Abrir App" Click="OnLsfgOpenClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="8" Margin="4,0,0,0" FontSize="12" />
+                            </Grid>
+                            <TextBlock Text="Com o jogo aberto, clique em 'Aplicar Agora' para simular o atalho (Ctrl+Alt+S)." Foreground="#888888" FontSize="11" TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>
 

@@ -33,7 +33,8 @@ public partial class OverlayWindow : Window
     private int _currentColor = 0;
     private bool _tdpAppliedOnOpen = false;
 
-    private enum SubMenuMode { None, Resolution, RefreshRate, Tdp, Fan, Color, Hud, Volume, Brightness, Capture }
+    // [PATCH] Adicionado Lossless ao enum de submenus
+    private enum SubMenuMode { None, Resolution, RefreshRate, Tdp, Fan, Color, Hud, Volume, Brightness, Capture, Lossless }
     private SubMenuMode _activeSubMenu = SubMenuMode.None;
     
     private int _currentResIndex = 0;
@@ -47,6 +48,7 @@ public partial class OverlayWindow : Window
     private int _tempColorIndex = 0; 
     private int _tempHudIndex = 0;
     private int _tempCaptureIndex = 0;
+    private int _tempLosslessIndex = 0;   // [PATCH] novo índice temporário do submenu Lossless
 
     private readonly MainViewModel _viewModel;
     public bool IsAppClosing { get; set; } = false; 
@@ -87,10 +89,10 @@ public partial class OverlayWindow : Window
         }
 
         _sections = new[] { 
-            ResolutionSection, RefreshSection, 
-            TdpSection, FanSection, ColorSection, HudSection,
-            VolumeSection, BrightnessSection, CaptureSection 
-        };
+    ResolutionSection, RefreshSection, 
+    TdpSection, FanSection, ColorSection, HudSection, 
+    VolumeSection, BrightnessSection, LosslessSection, CaptureSection 
+};
 
         _resolutionButtons = new[] { BtnRes720, BtnRes900, BtnRes1080, BtnRes1200, BtnRes2K, BtnResGo };
         _refreshButtons = new[] { BtnHz60, BtnHz120, BtnHz144, BtnHz240 };
@@ -262,11 +264,13 @@ public partial class OverlayWindow : Window
                 case GamepadAction.Confirm:
                     ApplySubMenuChange(); 
                     _activeSubMenu = SubMenuMode.None;
+                    ClearTempHighlights();        // [PATCH] limpa destaques de submenu
                     UpdateFocusVisual();
                     UpdatePersistentVisuals(); 
                     break;
                 case GamepadAction.Back:
                     _activeSubMenu = SubMenuMode.None; 
+                    ClearTempHighlights();        // [PATCH] limpa destaques de submenu
                     UpdateFocusVisual();
                     UpdatePersistentVisuals();
                     break;
@@ -286,6 +290,9 @@ public partial class OverlayWindow : Window
 
     private void EnterSubMenu()
     {
+        // [PATCH] limpa destaques de submenus anteriores ao entrar em um novo
+        ClearTempHighlights();
+
         switch (_focusIndex)
         {
             case 0: _tempResIndex = _currentResIndex; _activeSubMenu = SubMenuMode.Resolution; UpdateTempVisuals(); break;
@@ -303,9 +310,14 @@ public partial class OverlayWindow : Window
                 _activeSubMenu = SubMenuMode.Fan; UpdateTempVisuals(); break;
             case 4: _tempColorIndex = _currentColor; _activeSubMenu = SubMenuMode.Color; UpdateTempVisuals(); break;
             case 5: _tempHudIndex = _currentHudIndex; _activeSubMenu = SubMenuMode.Hud; UpdateTempVisuals(); break;
-            case 6: _activeSubMenu = SubMenuMode.Volume; break;
-            case 7: _activeSubMenu = SubMenuMode.Brightness; break;
-            case 8: _tempCaptureIndex = 0; _activeSubMenu = SubMenuMode.Capture; UpdateTempVisuals(); break;
+            case 6: _activeSubMenu = SubMenuMode.Volume; break;          // ← era 7
+            case 7: _activeSubMenu = SubMenuMode.Brightness; break;      // ← era 8
+            case 8: 
+    _tempLosslessIndex = 0;
+    _activeSubMenu = SubMenuMode.Lossless;
+    UpdateTempVisuals();
+    break;                                                    // ← era 6
+case 9: _tempCaptureIndex = 0; _activeSubMenu = SubMenuMode.Capture; UpdateTempVisuals(); break;
         }
     }
 
@@ -319,26 +331,20 @@ public partial class OverlayWindow : Window
             case SubMenuMode.Fan: _tempFanIndex = Math.Clamp(_tempFanIndex + direction, 0, 4); UpdateTempVisuals(); break;
             case SubMenuMode.Color: _tempColorIndex = Math.Clamp(_tempColorIndex + direction, 0, 3); UpdateTempVisuals(); break;
             case SubMenuMode.Hud: _tempHudIndex = Math.Clamp(_tempHudIndex + direction, 0, 3); UpdateTempVisuals(); break;
+            // [PATCH] navegação entre os 2 botões do Lossless
+            case SubMenuMode.Lossless: _tempLosslessIndex = Math.Clamp(_tempLosslessIndex + direction, 0, 1); UpdateTempVisuals(); break;
             case SubMenuMode.Volume: if (VolumeSlider != null) VolumeSlider.Value = Math.Clamp(VolumeSlider.Value + (direction * 5), 0, 100); break;
             case SubMenuMode.Brightness: if (BrightnessSlider != null) BrightnessSlider.Value = Math.Clamp(BrightnessSlider.Value + (direction * 5), 0, 100); break;
             case SubMenuMode.Capture: _tempCaptureIndex = Math.Clamp(_tempCaptureIndex + direction, 0, 1); UpdateTempVisuals(); break;
         }
     }
 
-            private void ApplySubMenuChange()
+    private void ApplySubMenuChange()
     {
         switch (_activeSubMenu)
         {
-            case SubMenuMode.Resolution:
-                _currentResIndex = _tempResIndex;
-                ApplyDisplayMode();
-                break;
-
-            case SubMenuMode.RefreshRate:
-                _currentHzIndex = _tempHzIndex;
-                ApplyDisplayMode();
-                break;
-
+            case SubMenuMode.Resolution: _currentResIndex = _tempResIndex; ApplyDisplayMode(); break;
+            case SubMenuMode.RefreshRate: _currentHzIndex = _tempHzIndex; ApplyDisplayMode(); break;
             case SubMenuMode.Tdp:
                 string[] tdpModes = { "UltraEco", "Eco", "Normal", "Desempenho", "Boost" };
                 string newTdp = tdpModes[_tempTdpIndex];
@@ -346,18 +352,15 @@ public partial class OverlayWindow : Window
                 {
                     SetTdpButtonVisual(newTdp);
                     SaveSetting("TdpMode", newTdp);
-                    _viewModel.UpdateHudTdpStatus(newTdp); // Atualiza o Top Bar
-                    
+                    _viewModel.UpdateHudTdpStatus(newTdp);
                     var linkedFanMode = newTdp switch { "UltraEco" or "Eco" => "Silencioso", "Normal" => "Normal", "Desempenho" => "Desempenho", "Boost" => "Boost", _ => "Automático" };
                     ApplyFanMode(linkedFanMode);
                 }
                 break;
-
             case SubMenuMode.Fan:
                 string[] fanModes = { "Automático", "Silencioso", "Normal", "Desempenho", "Boost" };
                 ApplyFanMode(fanModes[_tempFanIndex]);
                 break;
-
             case SubMenuMode.Color:
                 string mode = _tempColorIndex switch { 1 => "Vívido", 2 => "OLED", 3 => "Noturno", _ => "Padrão" };
                 if (_hardwareService.SetColorMode(mode))
@@ -367,19 +370,35 @@ public partial class OverlayWindow : Window
                     _viewModel.UpdateHudColorMode(mode);
                 }
                 break;
-
             case SubMenuMode.Hud:
                 _currentHudIndex = _tempHudIndex;
                 _viewModel.SetOverlayPreset(_currentHudIndex);
                 SetHudButtonVisual(_currentHudIndex);
                 SaveSetting("OverlayPreset", _currentHudIndex.ToString());
                 break;
-
+            // [PATCH] executa ação do Lossless (0 = Aplicar Agora, 1 = Abrir App)
+            case SubMenuMode.Lossless:
+                if (_tempLosslessIndex == 0) OnLsfgApplyClick(null, new RoutedEventArgs());
+                else OnLsfgOpenClick(null, new RoutedEventArgs());
+                break;
             case SubMenuMode.Capture:
                 if (_tempCaptureIndex == 0) OnScreenshotClick(null, new RoutedEventArgs());
                 else OnRecordClick(null, new RoutedEventArgs());
                 break;
         }
+    }
+
+    /// <summary>
+    /// [PATCH] Restaura o fundo neutro de todos os botões que podem ser temporariamente
+    /// destacados por um submenu. Chamado ao entrar em qualquer submenu e ao sair
+    /// (Confirm ou Back), para evitar que um destaque "vaze" para fora do submenu.
+    /// </summary>
+    private void ClearTempHighlights()
+    {
+        if (BtnScreenshot != null) BtnScreenshot.Background = _inactiveColor;
+        if (BtnRecord != null) BtnRecord.Background = _inactiveColor;
+        if (BtnLsfgApply != null) BtnLsfgApply.Background = _inactiveColor;
+        if (BtnLsfgOpen != null) BtnLsfgOpen.Background = _inactiveColor;
     }
 
     private void UpdateFocusVisual()
@@ -397,7 +416,6 @@ public partial class OverlayWindow : Window
         {
             try
             {
-                // Se for o último item (Captura), força o scroll para o final absoluto
                 if (_focusIndex == _sections.Length - 1)
                 {
                     MainScrollViewer.Offset = new Vector(MainScrollViewer.Offset.X, MainScrollViewer.Extent.Height - MainScrollViewer.Viewport.Height);
@@ -470,6 +488,12 @@ public partial class OverlayWindow : Window
             BtnHudMed.Background = _tempHudIndex == 2 ? _activeColor : _inactiveColor;
             BtnHudFull.Background = _tempHudIndex == 3 ? _activeColor : _inactiveColor;
         }
+        // [PATCH] destaca visualmente o botão ativo do Lossless
+        else if (_activeSubMenu == SubMenuMode.Lossless)
+        {
+            if (BtnLsfgApply != null) BtnLsfgApply.Background = _tempLosslessIndex == 0 ? _activeColor : _inactiveColor;
+            if (BtnLsfgOpen != null) BtnLsfgOpen.Background = _tempLosslessIndex == 1 ? _activeColor : _inactiveColor;
+        }
         else if (_activeSubMenu == SubMenuMode.Capture)
         {
             BtnScreenshot.Background = _tempCaptureIndex == 0 ? _activeColor : _inactiveColor;
@@ -512,7 +536,7 @@ public partial class OverlayWindow : Window
         }
     }
 
-        private void OnTdpClick(object? sender, RoutedEventArgs e)
+    private void OnTdpClick(object? sender, RoutedEventArgs e)
     {
         if (!_tdpHardwareSupported) return;
         if (sender is not Button clickedButton) return;
@@ -649,6 +673,54 @@ public partial class OverlayWindow : Window
                 BtnRecord.Content = isRecording ? "🎥 Parar" : "🎥 Gravar";
                 BtnRecord.Background = isRecording ? new SolidColorBrush(Color.FromRgb(255, 64, 64)) : _inactiveColor;
             }
+        }
+    }
+
+    private void OnLsfgApplyClick(object? sender, RoutedEventArgs e)
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        bool success = LosslessScalingService.ToggleFrameGen();
+        
+        if (BtnLsfgApply != null)
+        {
+            // [PATCH] não salvamos mais o conteúdo original (podia capturar "Ativado!" de um clique anterior)
+            // e usamos o texto fixo ao restaurar, evitando "grudar" o estado visual.
+            BtnLsfgApply.Content = success ? "Ativado!" : "Falhou";
+            BtnLsfgApply.Background = success
+                ? new SolidColorBrush(Color.FromRgb(46, 151, 98))
+                : new SolidColorBrush(Color.FromRgb(255, 64, 64));
+
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+            timer.Tick += (_, _) =>
+            {
+                BtnLsfgApply.Content = "Aplicar Agora";
+                // Só repõe o fundo neutro se o usuário não estiver mais no submenu Lossless
+                if (_activeSubMenu != SubMenuMode.Lossless)
+                    BtnLsfgApply.Background = _inactiveColor;
+                timer.Stop();
+            };
+            timer.Start();
+        }
+    }
+
+    private void OnLsfgOpenClick(object? sender, RoutedEventArgs e)
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        try
+        {
+            var path = LosslessScalingService.GetExecutablePath();
+            if (!string.IsNullOrEmpty(path))
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = path, UseShellExecute = true });
+            }
+            else
+            {
+                DebugLog.Write("[PATINHO] Caminho do Lossless Scaling não encontrado.");
+            }
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[PATINHO] Erro ao abrir Lossless Scaling: {ex.Message}");
         }
     }
 

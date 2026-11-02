@@ -189,6 +189,7 @@ public sealed class SettingsViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsCategoryModeActive));
                 OnPropertyChanged(nameof(IsCategoryAccountsActive));
                 OnPropertyChanged(nameof(IsCategoryShortcutsActive));
+                OnPropertyChanged(nameof(IsCategoryLosslessActive));
             }
         }
     }
@@ -199,6 +200,7 @@ public sealed class SettingsViewModel : ViewModelBase
     public bool IsCategoryModeActive => _categoryIndex == 3;
     public bool IsCategoryAccountsActive => _categoryIndex == 4;
     public bool IsCategoryShortcutsActive => _categoryIndex == 5;
+    public bool IsCategoryLosslessActive => _categoryIndex == 6;
 
     private int _fontIndex;
     public int FontIndex { get => _fontIndex; set => SetField(ref _fontIndex, value); }
@@ -293,6 +295,14 @@ public sealed class SettingsViewModel : ViewModelBase
     private string _keyLaunchGame = "Enter";
     public string KeyLaunchGame { get => _keyLaunchGame; set => SetField(ref _keyLaunchGame, value); }
 
+    // 🦆 Caminho do Lossless Scaling
+    private string _losslessScalingPath = string.Empty;
+    public string LosslessScalingPath
+    {
+        get => _losslessScalingPath;
+        set => SetField(ref _losslessScalingPath, value);
+    }
+
     private string? _savedMessage;
     public string? SavedMessage
     {
@@ -347,6 +357,8 @@ public sealed class SettingsViewModel : ViewModelBase
         KeyCloseGame = settings.KeyCloseGame;
         KeyLaunchGame = settings.KeyLaunchGame;
 
+        LosslessScalingPath = settings.LosslessScalingPath ?? string.Empty;
+
         SavedMessage = null;
     }
 
@@ -385,6 +397,8 @@ public sealed class SettingsViewModel : ViewModelBase
         settings.KeyGlobalMenu = string.IsNullOrWhiteSpace(KeyGlobalMenu) ? "Escape" : KeyGlobalMenu.Trim();
         settings.KeyCloseGame = string.IsNullOrWhiteSpace(KeyCloseGame) ? "Ctrl+W" : KeyCloseGame.Trim();
         settings.KeyLaunchGame = string.IsNullOrWhiteSpace(KeyLaunchGame) ? "Enter" : KeyLaunchGame.Trim();
+
+        settings.LosslessScalingPath = string.IsNullOrWhiteSpace(LosslessScalingPath) ? null : LosslessScalingPath.Trim();
 
         AppSettingsStore.Save(settings);
 
