@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
+using System.Diagnostics;
 using HandheldLauncher.App.Diagnostics;
 using HandheldLauncher.App.Platform;
 using HandheldLauncher.Core.Models;
@@ -33,6 +34,17 @@ public sealed class MainViewModel : ViewModelBase
         get => _cpuTemperature;
         private set => SetField(ref _cpuTemperature, value);
     }
+
+    private int _targetTdpWatts = 20;
+    private int _realTimeTdpWatts = 0;
+    
+    // O Top Bar sempre mostra o ALVO configurado
+    public string TopBarTdpText => _targetTdpWatts > 0 ? $"{_targetTdpWatts} W" : "-- W";
+    
+    // O Consumo Real vai pro ToolTip
+    public string TopBarTdpToolTip => _realTimeTdpWatts > 0 
+        ? $"Alvo: {_targetTdpWatts} W | Consumo Real: {_realTimeTdpWatts} W" 
+        : $"TDP Configurado: {_targetTdpWatts} W";
 
     public MainViewModel(
         ILibraryService library,
@@ -70,6 +82,8 @@ public sealed class MainViewModel : ViewModelBase
         SetFilterApplicationsCommand = new RelayCommand(() => SetFilter(LibraryFilter.Applications));
         SetFilterNotInstalledCommand = new RelayCommand(() => SetFilter(LibraryFilter.NotInstalled));
 
+        EnsureHwInfoRunning();
+
         _hardwareTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         _hardwareTimer.Tick += (_, _) =>
         {
@@ -77,12 +91,7 @@ public sealed class MainViewModel : ViewModelBase
             if (temp.HasValue && temp.Value > 0)
             {
                 CpuTemperature = $"{temp.Value:F0}°C";
-                DebugLog.Write($"[TEMPERATURA] CPU: {CpuTemperature}");
-                
-                if (_hud != null)
-                {
-                    _hud.CpuTemperature = CpuTemperature;
-                }
+                if (_hud != null) _hud.CpuTemperature = CpuTemperature;
             }
 
             if (_hwInfoService.TryRead(out var hwInfo) && hwInfo is not null)
@@ -94,29 +103,78 @@ public sealed class MainViewModel : ViewModelBase
                     foreach (var reading in hwInfo.Readings)
                     {
                         var label = reading.Name;
-                        var relevant = label.Contains("Package Power", StringComparison.OrdinalIgnoreCase)
-                            || label.Contains("PPT", StringComparison.OrdinalIgnoreCase)
-                            || label.Contains("STAPM", StringComparison.OrdinalIgnoreCase)
-                            || label.Contains("Tctl", StringComparison.OrdinalIgnoreCase)
-                            || label.Contains("Tdie", StringComparison.OrdinalIgnoreCase)
-                            || label.Contains("Effective Clock", StringComparison.OrdinalIgnoreCase)
-                            || label.Contains("GPU Clock", StringComparison.OrdinalIgnoreCase)
-                            || label.Contains("GPU Power", StringComparison.OrdinalIgnoreCase)
-                            || label.Contains("CPU (Tctl", StringComparison.OrdinalIgnoreCase);
-                        if (relevant)
-                            DebugLog.Write($"[HWiNFO] {reading.SensorName} | {reading.Name}: {reading.Value:0.##} {reading.Unit} (min {reading.Min:0.##}, max {reading.Max:0.##}, média {reading.Average:0.##})");
+                        
+                        if (label.Contains("Package Power", StringComparison.OrdinalIgnoreCase) || 
+                            label.Contains("CPU Package Power", StringComparison.OrdinalIgnoreCase))
+                        {
+                            _realTimeTdpWatts = (int)reading.Value;
+                            
+                            // Atualiza o ToolTip do Top Bar
+                            OnPropertyChanged(nameof(TopBarTdpToolTip));
+                            
+                            // Atualiza o HUD do RTSS
+                            if (_hud != null) _hud.RealTdpText = $"{_realTimeTdpWatts} W";
+                        }
                     }
                 }
             }
             else if (_hwInfoWasAvailable)
             {
                 _hwInfoWasAvailable = false;
+                _realTimeTdpWatts = 0;
+                
+                OnPropertyChanged(nameof(TopBarTdpToolTip));
+                if (_hud != null) _hud.RealTdpText = "";
+                
                 DebugLog.Write("[HWiNFO] Shared Memory deixou de fornecer dados.");
             }
         };
         _hardwareTimer.Start();
 
         RebuildGamesFromLibrary();
+        InitializeHudFromSettings();
+    }
+
+    private void EnsureHwInfoRunning()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        try
+        {
+            var processes = Process.GetProcessesByName("HWiNFO64");
+            if (processes.Length > 0) return; 
+
+            string[] possiblePaths = {
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Tools", "HWiNFO64.exe"),
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Tools", "HWiNFO64", "HWiNFO64.exe"),
+                @"C:\Program Files\HWiNFO64\HWiNFO64.exe",
+                @"C:\Program Files (x86)\HWiNFO64\HWiNFO64.exe"
+            };
+
+            var exePath = possiblePaths.FirstOrDefault(File.Exists);
+
+            if (exePath != null)
+            {
+                DebugLog.Write($"[HWiNFO] Iniciando em segundo plano: {exePath}");
+                var psi = new ProcessStartInfo
+                {
+                    FileName = exePath,
+                    Arguments = "-s", 
+                    UseShellExecute = true, 
+                    WindowStyle = ProcessWindowStyle.Minimized,
+                    WorkingDirectory = Path.GetDirectoryName(exePath) ?? AppDomain.CurrentDomain.BaseDirectory
+                };
+                Process.Start(psi);
+            }
+            else
+            {
+                DebugLog.Write($"[HWiNFO] Executável não encontrado. Coloque o HWiNFO64.exe na pasta Tools ou instale-o no caminho padrão.");
+            }
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[HWiNFO] Erro ao tentar iniciar: {ex.Message}");
+        }
     }
 
     public void Dispose()
@@ -134,41 +192,20 @@ public sealed class MainViewModel : ViewModelBase
         get => _selectedIndex;
         set
         {
-            if (Games.Count == 0)
-            {
-                SetField(ref _selectedIndex, -1);
-                SelectedTile = null;
-                return;
-            }
-
+            if (Games.Count == 0) { SetField(ref _selectedIndex, -1); SelectedTile = null; return; }
             var clamped = Math.Clamp(value, 0, Games.Count - 1);
-            if (SetField(ref _selectedIndex, clamped))
-            {
-                UpdateFocus();
-                SelectedTile = Games[clamped];
-            }
+            if (SetField(ref _selectedIndex, clamped)) { UpdateFocus(); SelectedTile = Games[clamped]; }
         }
     }
 
     private GameTileViewModel? _selectedTile;
-    public GameTileViewModel? SelectedTile
-    {
-        get => _selectedTile;
-        private set => SetField(ref _selectedTile, value);
-    }
+    public GameTileViewModel? SelectedTile { get => _selectedTile; private set => SetField(ref _selectedTile, value); }
 
     private string _updateStatusText = string.Empty;
-
     public string UpdateStatusText
     {
         get => _updateStatusText;
-        private set
-        {
-            if (SetField(ref _updateStatusText, value))
-            {
-                OnPropertyChanged(nameof(HasUpdateStatus));
-            }
-        }
+        private set { if (SetField(ref _updateStatusText, value)) OnPropertyChanged(nameof(HasUpdateStatus)); }
     }
 
     public bool HasUpdateStatus => !string.IsNullOrEmpty(_updateStatusText);
@@ -180,20 +217,13 @@ public sealed class MainViewModel : ViewModelBase
         get
         {
             string version;
-            if (_updates is { IsInstalled: true })
-            {
-                version = _updates.CurrentVersionText;
-            }
+            if (_updates is { IsInstalled: true }) version = _updates.CurrentVersionText;
             else
             {
-                var info = System.Reflection.Assembly.GetExecutingAssembly()
-                    .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
-                    .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
-                    .FirstOrDefault()?.InformationalVersion ?? "dev";
+                var info = System.Reflection.Assembly.GetExecutingAssembly().GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false).OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion ?? "dev";
                 var plus = info.IndexOf('+');
                 version = plus >= 0 ? info[..plus] : info;
             }
-
             return $"Handheld Launcher v{version} · por profcosta67";
         }
     }
@@ -201,30 +231,19 @@ public sealed class MainViewModel : ViewModelBase
     public async Task RunUpdateLoopAsync()
     {
         if (_updates is not { IsInstalled: true }) return;
-
         await Task.Delay(TimeSpan.FromSeconds(20));
-        while (true)
-        {
-            await CheckForUpdatesAsync(userInitiated: false);
-            await Task.Delay(TimeSpan.FromHours(6));
-        }
+        while (true) { await CheckForUpdatesAsync(userInitiated: false); await Task.Delay(TimeSpan.FromHours(6)); }
     }
 
     public async Task CheckForUpdatesAsync(bool userInitiated)
     {
-        if (_updates is not { IsInstalled: true }) return;
-        if (IsUpdateReady) return;
-        if (!userInitiated && RunningGame is not null) return;
-
+        if (_updates is not { IsInstalled: true } || IsUpdateReady || (!userInitiated && RunningGame is not null)) return;
         if (userInitiated) UpdateStatusText = "Verificando atualizações…";
-
         var version = await _updates.CheckAndDownloadAsync();
-
         if (version is not null)
         {
             UpdateStatusText = $"⬆ v{version} pronta — toque pra reiniciar";
-            OnPropertyChanged(nameof(IsUpdateReady));
-            OnPropertyChanged(nameof(PendingUpdateVersion));
+            OnPropertyChanged(nameof(IsUpdateReady)); OnPropertyChanged(nameof(PendingUpdateVersion));
         }
         else if (userInitiated)
         {
@@ -236,44 +255,30 @@ public sealed class MainViewModel : ViewModelBase
 
     public async Task<string> CheckForUpdatesWithResultAsync()
     {
-        if (_updates is not { IsInstalled: true })
-        {
-            return "Atualização automática só funciona no launcher instalado pelo Setup.exe.";
-        }
-
+        if (_updates is not { IsInstalled: true }) return "Atualização automática só funciona no launcher instalado pelo Setup.exe.";
         await CheckForUpdatesAsync(userInitiated: true);
-        return IsUpdateReady
-            ? $"v{PendingUpdateVersion} baixada — feche as Configurações e toque em ⬆ na barra de cima (ou no menu) pra reiniciar."
-            : "Você já está na versão mais recente (ou sem internet).";
+        return IsUpdateReady ? $"v{PendingUpdateVersion} baixada — feche as Configurações e toque em ⬆ na barra de cima (ou no menu) pra reiniciar." : "Você já está na versão mais recente (ou sem internet).";
     }
 
     public bool UpdatesInstalled => _updates is { IsInstalled: true };
     public string UpdateWindowVersionText => $"Versão v{PendingUpdateVersion} pronta pra instalar";
-
+    
     public string PendingUpdateNotesText
     {
         get
         {
             var markdown = _updates?.PendingReleaseNotesMarkdown;
-            if (string.IsNullOrWhiteSpace(markdown))
-            {
-                return "Essa versão não trouxe notas detalhadas — confira no GitHub (botão abaixo) se quiser ver o que mudou.";
-            }
-
+            if (string.IsNullOrWhiteSpace(markdown)) return "Essa versão não trouxe notas detalhadas.";
             var lines = markdown.Replace("\r\n", "\n").Split('\n');
             var kept = new List<string>();
             foreach (var raw in lines)
             {
                 var line = raw.Trim();
-                if (line.Length == 0) continue;
-                if (line.StartsWith('#')) continue;
-
+                if (line.Length == 0 || line.StartsWith('#')) continue;
                 line = line.Replace("**", "");
                 if (line.StartsWith("- ")) line = "•  " + line[2..];
-
                 kept.Add(line);
             }
-
             return kept.Count > 0 ? string.Join("\n", kept) : markdown;
         }
     }
@@ -284,19 +289,8 @@ public sealed class MainViewModel : ViewModelBase
     public void ApplyUpdate()
     {
         if (!IsUpdateReady) return;
-
-        if (RunningGame is not null)
-        {
-            UpdateStatusText = $"⬆ v{PendingUpdateVersion} pronta — feche o jogo antes de reiniciar";
-            return;
-        }
-
-        if (OperatingSystem.IsWindows())
-        {
-            _hud?.ClearNow();
-            HandheldLauncher.App.Input.GameInputHelper.StopHelperProcess();
-        }
-        
+        if (RunningGame is not null) { UpdateStatusText = $"⬆ v{PendingUpdateVersion} pronta — feche o jogo antes de reiniciar"; return; }
+        if (OperatingSystem.IsWindows()) { _hud?.ClearNow(); HandheldLauncher.App.Input.GameInputHelper.StopHelperProcess(); }
         _updates?.ApplyAndRestart();
     }
 
@@ -305,42 +299,21 @@ public sealed class MainViewModel : ViewModelBase
     public void CycleOverlayPreset()
     {
         if (_hud is null || !OperatingSystem.IsWindows()) return;
-
         var now = Environment.TickCount64;
         var last = Interlocked.Read(ref _lastOverlayCycleTicks);
         if (now - last < 500 || Interlocked.CompareExchange(ref _lastOverlayCycleTicks, now, last) != last) return;
-
         _hud.Preset = (_hud.Preset + 1) % PerformanceHud.PresetNames.Length;
-
-        try
-        {
-            var settings = AppSettingsStore.Load();
-            settings.OverlayPreset = _hud.Preset;
-            AppSettingsStore.Save(settings);
-        }
-        catch { }
+        try { var settings = AppSettingsStore.Load(); settings.OverlayPreset = _hud.Preset; AppSettingsStore.Save(settings); } catch { }
     }
 
     public void SetOverlayPreset(int preset)
     {
         if (_hud is null || !OperatingSystem.IsWindows()) return;
         _hud.Preset = preset;
-        try
-        {
-            var settings = AppSettingsStore.Load();
-            settings.OverlayPreset = _hud.Preset;
-            AppSettingsStore.Save(settings);
-        }
-        catch { }
+        try { var settings = AppSettingsStore.Load(); settings.OverlayPreset = _hud.Preset; AppSettingsStore.Save(settings); } catch { }
     }
 
-    public void ClearOverlayNow()
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            _hud?.ClearNow();
-        }
-    }
+    public void ClearOverlayNow() { if (OperatingSystem.IsWindows()) _hud?.ClearNow(); }
 
     public bool IsPerformanceHudEnabled => _hud is not null && _hud.Preset > 0;
     public int CurrentHudPreset => _hud?.Preset ?? 0; 
@@ -349,60 +322,55 @@ public sealed class MainViewModel : ViewModelBase
     {
         if (_hud is null || !OperatingSystem.IsWindows()) return;
         _hud.Preset = enabled ? Math.Max(1, _hud.Preset) : 0;
-        try
-        {
-            var settings = AppSettingsStore.Load();
-            settings.OverlayPreset = _hud.Preset;
-            AppSettingsStore.Save(settings);
-        }
-        catch (Exception ex)
-        {
-            DebugLog.Write($"[HUD] Não foi possível salvar a preferência: {ex.Message}");
-        }
+        try { var settings = AppSettingsStore.Load(); settings.OverlayPreset = _hud.Preset; AppSettingsStore.Save(settings); } catch { }
         OnPropertyChanged(nameof(IsPerformanceHudEnabled));
     }
 
-    private string _batteryStatusText = string.Empty;
-    public string BatteryStatusText
+    public void UpdateHudTdpStatus(string mode)
     {
-        get => _batteryStatusText;
-        set => SetField(ref _batteryStatusText, value);
+        var watts = mode switch { "UltraEco" => 8, "Eco" => 15, "Normal" => 20, "Desempenho" => 25, "Boost" => 30, _ => 0 };
+        
+        _targetTdpWatts = watts;
+        OnPropertyChanged(nameof(TopBarTdpText));
+        OnPropertyChanged(nameof(TopBarTdpToolTip));
+
+        if (_hud != null)
+            _hud.TdpStatusText = watts > 0 ? $"{mode} {watts}W" : "";
     }
+
+    public void UpdateHudColorMode(string modeText) { if (_hud != null) _hud.ColorModeText = modeText ?? ""; }
+    public void UpdateHudRecordingState(bool isRecording) { if (_hud != null) _hud.IsRecording = isRecording; }
+
+    public void InitializeHudFromSettings()
+    {
+        if (_hud is null) return;
+        try
+        {
+            var settings = AppSettingsStore.Load();
+            UpdateHudTdpStatus(string.IsNullOrWhiteSpace(settings.TdpMode) ? "Normal" : settings.TdpMode);
+            UpdateHudColorMode(settings.ColorMode switch { 1 => "Vívido", 2 => "OLED", 3 => "Noturno", _ => "Padrão" });
+            UpdateHudRecordingState(false);
+        }
+        catch { }
+    }
+
+    private string _batteryStatusText = string.Empty;
+    public string BatteryStatusText { get => _batteryStatusText; set => SetField(ref _batteryStatusText, value); }
 
     private string _clockText = string.Empty;
-    public string ClockText
-    {
-        get => _clockText;
-        set => SetField(ref _clockText, value);
-    }
+    public string ClockText { get => _clockText; set => SetField(ref _clockText, value); }
 
     private GameEntry? _runningGame;
-    public GameEntry? RunningGame
-    {
-        get => _runningGame;
-        private set => SetField(ref _runningGame, value);
-    }
+    public GameEntry? RunningGame { get => _runningGame; private set => SetField(ref _runningGame, value); }
 
     private bool _isLaunching;
-    public bool IsLaunching
-    {
-        get => _isLaunching;
-        private set => SetField(ref _isLaunching, value);
-    }
+    public bool IsLaunching { get => _isLaunching; private set => SetField(ref _isLaunching, value); }
 
     private string _launchingGameTitle = string.Empty;
-    public string LaunchingGameTitle
-    {
-        get => _launchingGameTitle;
-        private set => SetField(ref _launchingGameTitle, value);
-    }
+    public string LaunchingGameTitle { get => _launchingGameTitle; private set => SetField(ref _launchingGameTitle, value); }
 
     private string? _launchingGameIconPath;
-    public string? LaunchingGameIconPath
-    {
-        get => _launchingGameIconPath;
-        private set => SetField(ref _launchingGameIconPath, value);
-    }
+    public string? LaunchingGameIconPath { get => _launchingGameIconPath; private set => SetField(ref _launchingGameIconPath, value); }
 
     private const int LaunchFeedbackMilliseconds = 2500;
 
@@ -410,48 +378,24 @@ public sealed class MainViewModel : ViewModelBase
     public bool IsFetchingArtwork
     {
         get => _isFetchingArtwork;
-        private set
-        {
-            if (SetField(ref _isFetchingArtwork, value))
-            {
-                OnPropertyChanged(nameof(CanFetchArtwork));
-            }
-        }
+        private set { if (SetField(ref _isFetchingArtwork, value)) OnPropertyChanged(nameof(CanFetchArtwork)); }
     }
-
     public bool CanFetchArtwork => _artwork.HasApiKey && !IsFetchingArtwork;
 
     private bool _isContextMenuOpen;
-    public bool IsContextMenuOpen
-    {
-        get => _isContextMenuOpen;
-        private set => SetField(ref _isContextMenuOpen, value);
-    }
+    public bool IsContextMenuOpen { get => _isContextMenuOpen; private set => SetField(ref _isContextMenuOpen, value); }
 
     private GameTileViewModel? _contextMenuTarget;
-    public GameTileViewModel? ContextMenuTarget
-    {
-        get => _contextMenuTarget;
-        private set => SetField(ref _contextMenuTarget, value);
-    }
+    public GameTileViewModel? ContextMenuTarget { get => _contextMenuTarget; private set => SetField(ref _contextMenuTarget, value); }
 
     private int _contextMenuIndex;
-
     public ObservableCollection<ContextMenuItemViewModel> ContextMenuItems { get; } = new();
     private readonly List<Action> _contextMenuActions = new();
+    
     private enum ArtworkPickerKind { Grid, WideGrid, Hero, Logo, Icon }
     private enum LibraryFilter { All, Favorites, Computer, Emulators, Applications, NotInstalled }
 
-    private static readonly LibraryFilter[] FilterOrder =
-    {
-        LibraryFilter.Favorites,
-        LibraryFilter.All,
-        LibraryFilter.Computer,
-        LibraryFilter.Emulators,
-        LibraryFilter.Applications,
-        LibraryFilter.NotInstalled,
-    };
-
+    private static readonly LibraryFilter[] FilterOrder = { LibraryFilter.Favorites, LibraryFilter.All, LibraryFilter.Computer, LibraryFilter.Emulators, LibraryFilter.Applications, LibraryFilter.NotInstalled };
     private LibraryFilter _activeFilter = LibraryFilter.All;
 
     public bool IsFilterAllActive => _activeFilter == LibraryFilter.All;
@@ -465,11 +409,7 @@ public sealed class MainViewModel : ViewModelBase
     public bool HasSubFilters => SubFilters.Count > 0;
 
     private bool _isSubFilterRowFocused;
-    public bool IsSubFilterRowFocused
-    {
-        get => _isSubFilterRowFocused;
-        private set => SetField(ref _isSubFilterRowFocused, value);
-    }
+    public bool IsSubFilterRowFocused { get => _isSubFilterRowFocused; private set => SetField(ref _isSubFilterRowFocused, value); }
 
     private int _subFilterCursor;
 
@@ -501,18 +441,11 @@ public sealed class MainViewModel : ViewModelBase
         ToggleSubFilter(SubFilters[Math.Clamp(_subFilterCursor, 0, SubFilters.Count - 1)]);
     }
 
-    public void ToggleSubFilter(SubFilterViewModel subFilter)
-    {
-        subFilter.IsChecked = !subFilter.IsChecked;
-        RebuildGamesFromLibrary();
-    }
+    public void ToggleSubFilter(SubFilterViewModel subFilter) { subFilter.IsChecked = !subFilter.IsChecked; RebuildGamesFromLibrary(); }
 
     private void UpdateSubFilterCursorFlags()
     {
-        for (var i = 0; i < SubFilters.Count; i++)
-        {
-            SubFilters[i].IsCursor = IsSubFilterRowFocused && i == _subFilterCursor;
-        }
+        for (var i = 0; i < SubFilters.Count; i++) SubFilters[i].IsCursor = IsSubFilterRowFocused && i == _subFilterCursor;
     }
 
     private void RebuildSubFilters()
@@ -537,7 +470,6 @@ public sealed class MainViewModel : ViewModelBase
                 SubFilters.Add(new SubFilterViewModel("Switch", "#FFFFFF", "#E4000F", g => g.Id.StartsWith("eden_", StringComparison.Ordinal)));
                 break;
         }
-
         OnPropertyChanged(nameof(HasSubFilters));
         UpdateSubFilterCursorFlags();
     }
@@ -551,16 +483,11 @@ public sealed class MainViewModel : ViewModelBase
             anyChecked = true;
             if (subFilter.Matches(game)) return true;
         }
-
         return !anyChecked;
     }
 
     private bool _isGlobalMenuOpen;
-    public bool IsGlobalMenuOpen
-    {
-        get => _isGlobalMenuOpen;
-        private set => SetField(ref _isGlobalMenuOpen, value);
-    }
+    public bool IsGlobalMenuOpen { get => _isGlobalMenuOpen; private set => SetField(ref _isGlobalMenuOpen, value); }
 
     public ObservableCollection<ContextMenuItemViewModel> GlobalMenuItems { get; } = new();
     private readonly List<Action> _globalMenuActions = new();
@@ -580,10 +507,7 @@ public sealed class MainViewModel : ViewModelBase
     public event EventHandler? SystemUpdateRequested;
     public event EventHandler? DriverUpdateRequested;
 
-    public void RequestOpenOverlay()
-    {
-        OpenOverlayRequested?.Invoke(this, EventArgs.Empty);
-    }
+    public void RequestOpenOverlay() { OpenOverlayRequested?.Invoke(this, EventArgs.Empty); }
 
     public void RefreshArtworkState()
     {
@@ -592,61 +516,30 @@ public sealed class MainViewModel : ViewModelBase
         if (IsGlobalMenuOpen) BuildGlobalMenu();
     }
 
-    public void ApplyEntryEdits(GameEntry game, string? title, bool isApplication)
-    {
-        _library.SaveEntryEdits(game.Id, title, isApplication);
-        RebuildGamesFromLibrary();
-    }
+    public void ApplyEntryEdits(GameEntry game, string? title, bool isApplication) { _library.SaveEntryEdits(game.Id, title, isApplication); RebuildGamesFromLibrary(); }
 
-    // v0.14: libera Detalhes pra QUALQUER jogo (o GameDetailsViewModel decide
-    // se busca na Steam ou na RAWG). Só continua fora pra "não instalado"
-    // (que tem "Instalar" no lugar) e pra programas/aplicativos (que não
-    // têm descrição de "jogo" em lugar nenhum).
-    private static bool HasGameDetails(GameEntry game)
-        => !game.IsOwnedNotInstalled && !game.IsApplication;
+    private static bool HasGameDetails(GameEntry game) => !game.IsOwnedNotInstalled && !game.IsApplication;
 
-    private void OpenGameDetails(GameEntry game)
-    {
-        CloseContextMenu();
-        GameDetailsRequested?.Invoke(this, game);
-    }
+    private void OpenGameDetails(GameEntry game) { CloseContextMenu(); GameDetailsRequested?.Invoke(this, game); }
 
     public void OpenGameDetailsForSelected()
     {
-        if (SelectedTile?.Game is { } game && HasGameDetails(game))
-        {
-            GameDetailsRequested?.Invoke(this, game);
-        }
+        if (SelectedTile?.Game is { } game && HasGameDetails(game)) GameDetailsRequested?.Invoke(this, game);
     }
 
-    public GameDetailsViewModel CreateGameDetailsViewModel(GameEntry game)
-        => new(game, _steamOwnedGames, _steamAchievements);
+    public GameDetailsViewModel CreateGameDetailsViewModel(GameEntry game) => new(game, _steamOwnedGames, _steamAchievements);
 
     private bool _isCoverPickerOpen;
-    public bool IsCoverPickerOpen
-    {
-        get => _isCoverPickerOpen;
-        private set => SetField(ref _isCoverPickerOpen, value);
-    }
+    public bool IsCoverPickerOpen { get => _isCoverPickerOpen; private set => SetField(ref _isCoverPickerOpen, value); }
 
     private string _coverPickerTitle = string.Empty;
-    public string CoverPickerTitle
-    {
-        get => _coverPickerTitle;
-        private set => SetField(ref _coverPickerTitle, value);
-    }
+    public string CoverPickerTitle { get => _coverPickerTitle; private set => SetField(ref _coverPickerTitle, value); }
 
     private bool _isCoverPickerLoading;
     public bool IsCoverPickerLoading
     {
         get => _isCoverPickerLoading;
-        private set
-        {
-            if (SetField(ref _isCoverPickerLoading, value))
-            {
-                OnPropertyChanged(nameof(CoverPickerIsEmpty));
-            }
-        }
+        private set { if (SetField(ref _isCoverPickerLoading, value)) OnPropertyChanged(nameof(CoverPickerIsEmpty)); }
     }
 
     public ObservableCollection<ArtworkCandidateViewModel> CoverPickerCandidates { get; } = new();
@@ -657,18 +550,10 @@ public sealed class MainViewModel : ViewModelBase
     public string? CoverPickerErrorMessage
     {
         get => _coverPickerErrorMessage;
-        private set
-        {
-            if (SetField(ref _coverPickerErrorMessage, value))
-            {
-                OnPropertyChanged(nameof(CoverPickerHasError));
-                OnPropertyChanged(nameof(CoverPickerIsEmpty));
-            }
-        }
+        private set { if (SetField(ref _coverPickerErrorMessage, value)) { OnPropertyChanged(nameof(CoverPickerHasError)); OnPropertyChanged(nameof(CoverPickerIsEmpty)); } }
     }
 
     public bool CoverPickerHasError => !string.IsNullOrEmpty(CoverPickerErrorMessage);
-
     private int _coverPickerIndex;
     public int CoverPickerIndex => _coverPickerIndex;
 
@@ -676,16 +561,7 @@ public sealed class MainViewModel : ViewModelBase
     public bool FilterAnimatedOnly
     {
         get => _filterAnimatedOnly;
-        set
-        {
-            if (SetField(ref _filterAnimatedOnly, value))
-            {
-                if (IsCoverPickerOpen && _coverPickerGame != null)
-                {
-                    OpenCoverPicker(_coverPickerGame, _coverPickerKind);
-                }
-            }
-        }
+        set { if (SetField(ref _filterAnimatedOnly, value)) { if (IsCoverPickerOpen && _coverPickerGame != null) OpenCoverPicker(_coverPickerGame, _coverPickerKind); } }
     }
 
     private ArtworkPickerKind _coverPickerKind;
@@ -712,24 +588,20 @@ public sealed class MainViewModel : ViewModelBase
         if (SelectedTile is null) return;
         var game = SelectedTile.Game;
 
-        if (game.IsOwnedNotInstalled)
-        {
-            if (game.SteamAppId is { } ownedAppId) _launcher.OpenSteamInstaller(ownedAppId);
-            return;
-        }
+        if (game.IsOwnedNotInstalled) { if (game.SteamAppId is { } ownedAppId) _launcher.OpenSteamInstaller(ownedAppId); return; }
 
         LaunchingGameTitle = game.Title;
         LaunchingGameIconPath = game.IconImagePath;
         IsLaunching = true;
 
-        if (string.IsNullOrEmpty(game.IconImagePath) && _artwork.HasApiKey)
+        if (_artwork.HasApiKey)
         {
-            _ = FetchLaunchIconAsync(game);
+            bool iconExists = !string.IsNullOrEmpty(game.IconImagePath) && System.IO.File.Exists(game.IconImagePath);
+            if (!iconExists) _ = FetchLaunchIconAsync(game);
         }
 
         _launcher.Launch(game);
         RunningGame = game;
-
         _library.MarkLaunched(game.Id);
         ReorderLastPlayedFirst();
         SelectedIndex = 0;
@@ -742,29 +614,22 @@ public sealed class MainViewModel : ViewModelBase
     {
         try
         {
-            if (await _artwork.FetchIconAsync(game) && IsLaunching && LaunchingGameTitle == game.Title)
+            if (await _artwork.FetchIconAsync(game))
             {
-                LaunchingGameIconPath = game.IconImagePath;
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    if (IsLaunching && LaunchingGameTitle == game.Title) { LaunchingGameIconPath = null; LaunchingGameIconPath = game.IconImagePath; }
+                });
             }
         }
         catch { }
     }
 
-    public void CloseRunningGame()
-    {
-        if (RunningGame is null) return;
-        _launcher.CloseGame(RunningGame);
-        RunningGame = null;
-    }
+    public void CloseRunningGame() { if (RunningGame is null) return; _launcher.CloseGame(RunningGame); RunningGame = null; }
 
     public void ToggleContextMenu()
     {
-        if (IsContextMenuOpen)
-        {
-            CloseContextMenu();
-            return;
-        }
-
+        if (IsContextMenuOpen) { CloseContextMenu(); return; }
         if (SelectedTile is null) return;
         ContextMenuTarget = SelectedTile;
         _contextMenuIndex = 0;
@@ -775,40 +640,19 @@ public sealed class MainViewModel : ViewModelBase
 
     private void BuildContextMenu(GameTileViewModel target)
     {
-        ContextMenuItems.Clear();
-        _contextMenuActions.Clear();
-
-        void Add(string label, Action action)
-        {
-            ContextMenuItems.Add(new ContextMenuItemViewModel(label));
-            _contextMenuActions.Add(action);
-        }
-
+        ContextMenuItems.Clear(); _contextMenuActions.Clear();
+        void Add(string label, Action action) { ContextMenuItems.Add(new ContextMenuItemViewModel(label)); _contextMenuActions.Add(action); }
         var game = target.Game;
-
-        if (game.IsOwnedNotInstalled)
-        {
-            Add("📥 Instalar", () => OpenGameFromMenu(game));
-            return;
-        }
+        if (game.IsOwnedNotInstalled) { Add("📥 Instalar", () => OpenGameFromMenu(game)); return; }
 
         Add("▶ Abrir jogo", () => OpenGameFromMenu(game));
         if (HasGameDetails(game)) Add("ℹ Detalhes do jogo", () => OpenGameDetails(game));
         Add(game.IsFavorite ? "💔 Desfavoritar" : "⭐ Favoritar", () => ToggleFavorite(game));
         Add("✏ Editar", () => EditGameRequested?.Invoke(this, game));
 
-        if (game.Source == GameSource.Steam)
-        {
-            if (game.SteamAppId is { } appId) Add("🗑 Excluir jogo", () => RequestDeleteSteamGame(game, appId));
-        }
-        else if (game.Id.StartsWith("xboxfolder_", StringComparison.Ordinal))
-        {
-            Add("🗑 Excluir jogo", () => RequestDeleteXboxGame(game));
-        }
-        else
-        {
-            Add("🗑 Excluir atalho", () => RequestDeleteShortcut(game));
-        }
+        if (game.Source == GameSource.Steam) { if (game.SteamAppId is { } appId) Add("🗑 Excluir jogo", () => RequestDeleteSteamGame(game, appId)); }
+        else if (game.Id.StartsWith("xboxfolder_", StringComparison.Ordinal)) Add("🗑 Excluir jogo", () => RequestDeleteXboxGame(game));
+        else Add("🗑 Excluir atalho", () => RequestDeleteShortcut(game));
 
         Add("🎨 Personalizar", () => OpenPersonalizeMenu(game));
     }
@@ -817,15 +661,8 @@ public sealed class MainViewModel : ViewModelBase
     {
         var tile = Games.FirstOrDefault(t => t.Game.Id == game.Id);
         if (tile is null) return;
-        ContextMenuTarget = tile;
-        ContextMenuItems.Clear();
-        _contextMenuActions.Clear();
-
-        void Add(string label, Action action)
-        {
-            ContextMenuItems.Add(new ContextMenuItemViewModel(label));
-            _contextMenuActions.Add(action);
-        }
+        ContextMenuTarget = tile; ContextMenuItems.Clear(); _contextMenuActions.Clear();
+        void Add(string label, Action action) { ContextMenuItems.Add(new ContextMenuItemViewModel(label)); _contextMenuActions.Add(action); }
 
         Add("🖼 Capa", () => OpenCoverPicker(game, ArtworkPickerKind.Grid));
         Add("🖼 Capa larga", () => OpenCoverPicker(game, ArtworkPickerKind.WideGrid));
@@ -833,26 +670,12 @@ public sealed class MainViewModel : ViewModelBase
         Add("🖼 Logo", () => OpenCoverPicker(game, ArtworkPickerKind.Logo));
         Add("🖼 Ícone", () => OpenCoverPicker(game, ArtworkPickerKind.Icon));
         Add("↩ Voltar", () => ReopenContextMenu(tile));
-
-        _contextMenuIndex = 0;
-        UpdateContextMenuSelection();
-        IsContextMenuOpen = true;
+        _contextMenuIndex = 0; UpdateContextMenuSelection(); IsContextMenuOpen = true;
     }
 
-    private void ReopenContextMenu(GameTileViewModel tile)
-    {
-        ContextMenuTarget = tile;
-        _contextMenuIndex = 0;
-        BuildContextMenu(tile);
-        UpdateContextMenuSelection();
-        IsContextMenuOpen = true;
-    }
+    private void ReopenContextMenu(GameTileViewModel tile) { ContextMenuTarget = tile; _contextMenuIndex = 0; BuildContextMenu(tile); UpdateContextMenuSelection(); IsContextMenuOpen = true; }
 
-    private void ToggleFavorite(GameEntry game)
-    {
-        _library.SetFavorite(game.Id, !game.IsFavorite);
-        RebuildGamesFromLibrary();
-    }
+    private void ToggleFavorite(GameEntry game) { _library.SetFavorite(game.Id, !game.IsFavorite); RebuildGamesFromLibrary(); }
 
     private void OpenGameFromMenu(GameEntry game)
     {
@@ -864,49 +687,17 @@ public sealed class MainViewModel : ViewModelBase
 
     private void OpenConfirmMenu(GameEntry game, string confirmLabel, Action onConfirm)
     {
-        ContextMenuTarget = Games.FirstOrDefault(t => t.Game.Id == game.Id);
-        ContextMenuItems.Clear();
-        _contextMenuActions.Clear();
-
-        void Add(string label, Action action, bool isDanger = false)
-        {
-            ContextMenuItems.Add(new ContextMenuItemViewModel(label, isDanger));
-            _contextMenuActions.Add(action);
-        }
-
-        Add("❌ Cancelar", () => { });
-        Add(confirmLabel, onConfirm, isDanger: true);
-
-        _contextMenuIndex = 0;
-        UpdateContextMenuSelection();
-        IsContextMenuOpen = true;
+        ContextMenuTarget = Games.FirstOrDefault(t => t.Game.Id == game.Id); ContextMenuItems.Clear(); _contextMenuActions.Clear();
+        void Add(string label, Action action, bool isDanger = false) { ContextMenuItems.Add(new ContextMenuItemViewModel(label, isDanger)); _contextMenuActions.Add(action); }
+        Add("❌ Cancelar", () => { }); Add(confirmLabel, onConfirm, isDanger: true);
+        _contextMenuIndex = 0; UpdateContextMenuSelection(); IsContextMenuOpen = true;
     }
 
-    private void RequestDeleteShortcut(GameEntry game)
-    {
-        OpenConfirmMenu(game, "🗑 Sim, excluir atalho", () =>
-        {
-            _library.RemoveManualGame(game.Id);
-            Refresh();
-        });
-    }
+    private void RequestDeleteShortcut(GameEntry game) { OpenConfirmMenu(game, "🗑 Sim, excluir atalho", () => { _library.RemoveManualGame(game.Id); Refresh(); }); }
+    private void RequestDeleteSteamGame(GameEntry game, uint appId) { OpenConfirmMenu(game, "🗑 Sim, abrir desinstalador da Steam", () => _launcher.OpenSteamUninstaller(appId)); }
+    private void RequestDeleteXboxGame(GameEntry game) { if (!OperatingSystem.IsWindows()) return; OpenConfirmMenu(game, "🗑 Sim, abrir desinstalador do Windows", () => _launcher.OpenWindowsAppUninstaller(game.InstallDirectory)); }
 
-    private void RequestDeleteSteamGame(GameEntry game, uint appId)
-    {
-        OpenConfirmMenu(game, "🗑 Sim, abrir desinstalador da Steam", () => _launcher.OpenSteamUninstaller(appId));
-    }
-
-    private void RequestDeleteXboxGame(GameEntry game)
-    {
-        if (!OperatingSystem.IsWindows()) return;
-        OpenConfirmMenu(game, "🗑 Sim, abrir desinstalador do Windows", () => _launcher.OpenWindowsAppUninstaller(game.InstallDirectory));
-    }
-
-    public void CloseContextMenu()
-    {
-        IsContextMenuOpen = false;
-        ContextMenuTarget = null;
-    }
+    public void CloseContextMenu() { IsContextMenuOpen = false; ContextMenuTarget = null; }
 
     public void MoveContextMenuSelection(int delta)
     {
@@ -917,48 +708,16 @@ public sealed class MainViewModel : ViewModelBase
 
     public void ConfirmContextMenuSelection()
     {
-        if (!IsContextMenuOpen || ContextMenuTarget is null)
-        {
-            CloseContextMenu();
-            return;
-        }
-
+        if (!IsContextMenuOpen || ContextMenuTarget is null) { CloseContextMenu(); return; }
         var index = _contextMenuIndex;
         CloseContextMenu();
-
-        if (index >= 0 && index < _contextMenuActions.Count)
-        {
-            _contextMenuActions[index]();
-        }
+        if (index >= 0 && index < _contextMenuActions.Count) _contextMenuActions[index]();
     }
 
-    public void HighlightContextMenuItem(ContextMenuItemViewModel item)
-    {
-        var index = ContextMenuItems.IndexOf(item);
-        if (index < 0) return;
-        _contextMenuIndex = index;
-        UpdateContextMenuSelection();
-    }
-
-    public void ActivateContextMenuItem(ContextMenuItemViewModel item)
-    {
-        HighlightContextMenuItem(item);
-        if (ContextMenuItems.IndexOf(item) >= 0) ConfirmContextMenuSelection();
-    }
-
-    public void HighlightGlobalMenuItem(ContextMenuItemViewModel item)
-    {
-        var index = GlobalMenuItems.IndexOf(item);
-        if (index < 0) return;
-        _globalMenuIndex = index;
-        UpdateGlobalMenuSelection();
-    }
-
-    public void ActivateGlobalMenuItem(ContextMenuItemViewModel item)
-    {
-        HighlightGlobalMenuItem(item);
-        if (GlobalMenuItems.IndexOf(item) >= 0) ConfirmGlobalMenuSelection();
-    }
+    public void HighlightContextMenuItem(ContextMenuItemViewModel item) { var index = ContextMenuItems.IndexOf(item); if (index < 0) return; _contextMenuIndex = index; UpdateContextMenuSelection(); }
+    public void ActivateContextMenuItem(ContextMenuItemViewModel item) { HighlightContextMenuItem(item); if (ContextMenuItems.IndexOf(item) >= 0) ConfirmContextMenuSelection(); }
+    public void HighlightGlobalMenuItem(ContextMenuItemViewModel item) { var index = GlobalMenuItems.IndexOf(item); if (index < 0) return; _globalMenuIndex = index; UpdateGlobalMenuSelection(); }
+    public void ActivateGlobalMenuItem(ContextMenuItemViewModel item) { HighlightGlobalMenuItem(item); if (GlobalMenuItems.IndexOf(item) >= 0) ConfirmGlobalMenuSelection(); }
 
     public void ActivateCoverCandidate(ArtworkCandidateViewModel candidate)
     {
@@ -969,13 +728,7 @@ public sealed class MainViewModel : ViewModelBase
         ConfirmCoverPickerSelection();
     }
 
-    private void UpdateContextMenuSelection()
-    {
-        for (var i = 0; i < ContextMenuItems.Count; i++)
-        {
-            ContextMenuItems[i].IsSelected = i == _contextMenuIndex;
-        }
-    }
+    private void UpdateContextMenuSelection() { for (var i = 0; i < ContextMenuItems.Count; i++) ContextMenuItems[i].IsSelected = i == _contextMenuIndex; }
 
     private enum GlobalMenuPage { Root, Library, Hud, Settings, Power, ConfirmPower }
     private GlobalMenuPage _globalMenuPage = GlobalMenuPage.Root;
@@ -994,58 +747,27 @@ public sealed class MainViewModel : ViewModelBase
     private readonly List<bool> _globalMenuNavigates = new();
 
     private string _globalMenuTitle = "Menu";
-    public string GlobalMenuTitle
-    {
-        get => _globalMenuTitle;
-        private set => SetField(ref _globalMenuTitle, value);
-    }
+    public string GlobalMenuTitle { get => _globalMenuTitle; private set => SetField(ref _globalMenuTitle, value); }
 
     private string _globalMenuHint = string.Empty;
-    public string GlobalMenuHint
-    {
-        get => _globalMenuHint;
-        private set => SetField(ref _globalMenuHint, value);
-    }
-
+    public string GlobalMenuHint { get => _globalMenuHint; private set => SetField(ref _globalMenuHint, value); }
     public bool HasGlobalMenuHint => !string.IsNullOrEmpty(_globalMenuHint);
 
-    public void ToggleGlobalMenu()
-    {
-        if (IsGlobalMenuOpen)
-        {
-            CloseGlobalMenu();
-            return;
-        }
-        OpenGlobalMenuAt(GlobalMenuPage.Root);
-    }
+    public void ToggleGlobalMenu() { if (IsGlobalMenuOpen) { CloseGlobalMenu(); return; } OpenGlobalMenuAt(GlobalMenuPage.Root); }
 
     private void OpenGlobalMenuAt(GlobalMenuPage page)
     {
-        _globalMenuPage = page;
-        BuildGlobalMenu();
+        _globalMenuPage = page; BuildGlobalMenu();
         if (GlobalMenuItems.Count == 0) return;
-        _globalMenuIndex = 0;
-        UpdateGlobalMenuSelection();
-        IsGlobalMenuOpen = true;
+        _globalMenuIndex = 0; UpdateGlobalMenuSelection(); IsGlobalMenuOpen = true;
     }
 
-    private void NavigateGlobalMenu(GlobalMenuPage page)
-    {
-        _globalMenuPage = page;
-        BuildGlobalMenu();
-        _globalMenuIndex = 0;
-        UpdateGlobalMenuSelection();
-    }
-
+    private void NavigateGlobalMenu(GlobalMenuPage page) { _globalMenuPage = page; BuildGlobalMenu(); _globalMenuIndex = 0; UpdateGlobalMenuSelection(); }
     public void CloseGlobalMenu() => IsGlobalMenuOpen = false;
 
     public void GlobalMenuBack()
     {
-        if (_globalMenuPage != GlobalMenuPage.Root)
-        {
-            NavigateGlobalMenu(GlobalMenuPage.Root);
-            return;
-        }
+        if (_globalMenuPage != GlobalMenuPage.Root) { NavigateGlobalMenu(GlobalMenuPage.Root); return; }
         CloseGlobalMenu();
     }
 
@@ -1061,65 +783,28 @@ public sealed class MainViewModel : ViewModelBase
         if (!IsGlobalMenuOpen) return;
         var index = _globalMenuIndex;
         if (index < 0 || index >= _globalMenuActions.Count) return;
-        if (_globalMenuNavigates[index])
-        {
-            _globalMenuActions[index]();
-            return;
-        }
-        CloseGlobalMenu();
-        _globalMenuActions[index]();
+        if (_globalMenuNavigates[index]) { _globalMenuActions[index](); return; }
+        CloseGlobalMenu(); _globalMenuActions[index]();
     }
 
-    private void UpdateGlobalMenuSelection()
-    {
-        for (var i = 0; i < GlobalMenuItems.Count; i++)
-        {
-            GlobalMenuItems[i].IsSelected = i == _globalMenuIndex;
-        }
-    }
+    private void UpdateGlobalMenuSelection() { for (var i = 0; i < GlobalMenuItems.Count; i++) GlobalMenuItems[i].IsSelected = i == _globalMenuIndex; }
 
     private void BuildGlobalMenu()
     {
-        GlobalMenuItems.Clear();
-        _globalMenuActions.Clear();
-        _globalMenuNavigates.Clear();
+        GlobalMenuItems.Clear(); _globalMenuActions.Clear(); _globalMenuNavigates.Clear();
 
-        void Add(string label, Action action, bool isDanger = false)
-        {
-            GlobalMenuItems.Add(new ContextMenuItemViewModel(label, isDanger));
-            _globalMenuActions.Add(action);
-            _globalMenuNavigates.Add(false);
-        }
-
-        void Folder(string label, GlobalMenuPage page)
-        {
-            GlobalMenuItems.Add(new ContextMenuItemViewModel(label));
-            _globalMenuActions.Add(() => NavigateGlobalMenu(page));
-            _globalMenuNavigates.Add(true);
-        }
+        void Add(string label, Action action, bool isDanger = false) { GlobalMenuItems.Add(new ContextMenuItemViewModel(label, isDanger)); _globalMenuActions.Add(action); _globalMenuNavigates.Add(false); }
+        void Folder(string label, GlobalMenuPage page) { GlobalMenuItems.Add(new ContextMenuItemViewModel(label)); _globalMenuActions.Add(() => NavigateGlobalMenu(page)); _globalMenuNavigates.Add(true); }
 
         switch (_globalMenuPage)
         {
             case GlobalMenuPage.Library:
-                GlobalMenuTitle = "Biblioteca";
-                Add("🔄 Atualizar Biblioteca", Refresh);
-                
-                if (IsFetchingArtwork)
-                {
-                    Add("⏳ Baixando capas... (Aguarde)", () => { });
-                }
-                else if (!_artwork.HasApiKey)
-                {
-                    Add("🖼 Atualizar Capas (Configurar API Key)", () => SettingsRequested?.Invoke(this, EventArgs.Empty));
-                }
-                else
-                {
-                    Add("🖼 Atualizar Capas Automático", FetchMissingArtwork);
-                }
-                
+                GlobalMenuTitle = "Biblioteca"; Add("🔄 Atualizar Biblioteca", Refresh);
+                if (IsFetchingArtwork) Add("⏳ Baixando capas... (Aguarde)", () => { });
+                else if (!_artwork.HasApiKey) Add("🖼 Atualizar Capas (Configurar API Key)", () => SettingsRequested?.Invoke(this, EventArgs.Empty));
+                else Add("🖼 Atualizar Capas Automático", FetchMissingArtwork);
                 Add("➕ Adicionar jogo", () => AddGameRequested?.Invoke(this, EventArgs.Empty));
-                Add("⬇ Downloads", ToggleDownloads);
-                break;
+                Add("⬇ Downloads", ToggleDownloads); break;
 
             case GlobalMenuPage.Hud:
                 GlobalMenuTitle = "HUD";
@@ -1127,83 +812,44 @@ public sealed class MainViewModel : ViewModelBase
                 {
                     for (var i = 0; i < PerformanceHud.PresetNames.Length; i++)
                     {
-                        var preset = i;
-                        var marker = _hud.Preset == preset ? "●" : "○";
+                        var preset = i; var marker = _hud.Preset == preset ? "●" : "○";
                         Add($"{marker}  {PerformanceHud.PresetNames[preset]}", () => SetOverlayPreset(preset));
                     }
                 }
-                if (_performanceOverlay.IsInstalled)
-                {
-                    Add(_performanceOverlay.IsRunning ? "⚙ RTSS: rodando" : "⚙ RTSS: iniciar",
-                        () =>
-                        {
-                            if (!_performanceOverlay.IsRunning) _performanceOverlay.EnsureRunning();
-                        });
-                }
-                else
-                {
-                    Add("⬇ RTSS: baixar (necessário pro HUD)", _performanceOverlay.OpenDownloadPage);
-                }
+                if (_performanceOverlay.IsInstalled) Add(_performanceOverlay.IsRunning ? "⚙ RTSS: rodando" : "⚙ RTSS: iniciar", () => { if (!_performanceOverlay.IsRunning) _performanceOverlay.EnsureRunning(); });
+                else Add("⬇ RTSS: baixar (necessário pro HUD)", _performanceOverlay.OpenDownloadPage);
                 break;
 
             case GlobalMenuPage.Settings:
-                GlobalMenuTitle = "Configurações";
-                Add("⚙ Preferências", () => SettingsRequested?.Invoke(this, EventArgs.Empty));
-                Add("📐 Layout da tela", () => LayoutPickerRequested?.Invoke(this, EventArgs.Empty));
-                
-                Add("🔄 Atualizações (Windows + Drivers)", () => SystemUpdateRequested?.Invoke(this, EventArgs.Empty));
-                Add("🛠 Instalar Driver Manual (.inf)", () => DriverUpdateRequested?.Invoke(this, EventArgs.Empty));
-                
-                if (_updates is { IsInstalled: true } && !IsUpdateReady)
-                {
-                    Add($"🔄 Verificar atualizações (v{_updates.CurrentVersionText})", () => _ = CheckForUpdatesAsync(userInitiated: true));
-                }
+                GlobalMenuTitle = "Configurações"; Add("⚙ Preferências", () => SettingsRequested?.Invoke(this, EventArgs.Empty)); Add("📐 Layout da tela", () => LayoutPickerRequested?.Invoke(this, EventArgs.Empty));
+                Add("🔄 Atualizações (Windows + Drivers)", () => SystemUpdateRequested?.Invoke(this, EventArgs.Empty)); Add("🛠 Instalar Driver Manual (.inf)", () => DriverUpdateRequested?.Invoke(this, EventArgs.Empty));
+                if (_updates is { IsInstalled: true } && !IsUpdateReady) Add($"🔄 Verificar atualizações (v{_updates.CurrentVersionText})", () => _ = CheckForUpdatesAsync(userInitiated: true));
                 break;
 
             case GlobalMenuPage.Power:
-                GlobalMenuTitle = "Energia";
-                Add("🌙 Desligar tela", () => TurnOffScreenRequested?.Invoke(this, EventArgs.Empty));
+                GlobalMenuTitle = "Energia"; Add("🌙 Desligar tela", () => TurnOffScreenRequested?.Invoke(this, EventArgs.Empty));
                 Add("🔄 Reiniciar o aparelho", () => RequestPowerConfirm("reiniciar o aparelho", () => RestartDeviceRequested?.Invoke(this, EventArgs.Empty)));
                 Add("⏻ Desligar o aparelho", () => RequestPowerConfirm("desligar o aparelho", () => ShutdownDeviceRequested?.Invoke(this, EventArgs.Empty)));
                 Add("🖥 Restaurar Desktop (Sair do Modo Console)", () => RestoreShellRequested?.Invoke(this, EventArgs.Empty));
-                Add("🚪 Fechar Launcher", () => QuitRequested?.Invoke(this, EventArgs.Empty));
-                break;
+                Add("🚪 Fechar Launcher", () => QuitRequested?.Invoke(this, EventArgs.Empty)); break;
 
             case GlobalMenuPage.ConfirmPower:
-                GlobalMenuTitle = "Confirmar?";
-                Folder("❌ Cancelar", GlobalMenuPage.Power);
-                Add($"⚠ Sim, {_pendingPowerConfirmLabel}", () => _pendingPowerAction?.Invoke(), isDanger: true);
-                break;
+                GlobalMenuTitle = "Confirmar?"; Folder("❌ Cancelar", GlobalMenuPage.Power); Add($"⚠ Sim, {_pendingPowerConfirmLabel}", () => _pendingPowerAction?.Invoke(), isDanger: true); break;
 
             default:
-                GlobalMenuTitle = "Menu";
-                
-                Add("🎮 Abrir Quick Settings", () => OpenOverlayRequested?.Invoke(this, EventArgs.Empty));
-
-                if (IsUpdateReady)
-                {
-                    Add(RunningGame is null ? $"⬆ Reiniciar pra atualizar (v{PendingUpdateVersion})" : $"⬆ Atualização v{PendingUpdateVersion} pronta — feche o jogo", ApplyUpdate);
-                }
+                GlobalMenuTitle = "Menu"; Add("🎮 Abrir Quick Settings", () => OpenOverlayRequested?.Invoke(this, EventArgs.Empty));
+                if (IsUpdateReady) Add(RunningGame is null ? $"⬆ Reiniciar pra atualizar (v{PendingUpdateVersion})" : $"⬆ Atualização v{PendingUpdateVersion} pronta — feche o jogo", ApplyUpdate);
                 if (RunningGame is not null) Add($"⏹ Fechar: {RunningGame.Title}", CloseRunningGame);
-                Folder("📚 Biblioteca", GlobalMenuPage.Library);
-                Folder("📊 HUD", GlobalMenuPage.Hud);
-                Folder("⚙ Configurações", GlobalMenuPage.Settings);
-                Folder("⚡ Energia", GlobalMenuPage.Power);
-                Add("ℹ Sobre", OpenAbout);
-                break;
+                Folder("📚 Biblioteca", GlobalMenuPage.Library); Folder("📊 HUD", GlobalMenuPage.Hud);
+                Folder("⚙ Configurações", GlobalMenuPage.Settings); Folder("⚡ Energia", GlobalMenuPage.Power);
+                Add("ℹ Sobre", OpenAbout); break;
         }
-
         GlobalMenuHint = _globalMenuPage == GlobalMenuPage.Hud ? "No jogo: L3+R3 (ou Ctrl+Alt+O) troca o HUD" : string.Empty;
         OnPropertyChanged(nameof(HasGlobalMenuHint));
     }
 
     private bool _isAboutOpen;
-    public bool IsAboutOpen
-    {
-        get => _isAboutOpen;
-        private set => SetField(ref _isAboutOpen, value);
-    }
-
+    public bool IsAboutOpen { get => _isAboutOpen; private set => SetField(ref _isAboutOpen, value); }
     public void OpenAbout() => IsAboutOpen = true;
     public void CloseAbout() => IsAboutOpen = false;
 
@@ -1211,37 +857,21 @@ public sealed class MainViewModel : ViewModelBase
     {
         get
         {
-            var full = AppVersionText;
-            var start = full.IndexOf('v');
-            var end = full.IndexOf(' ', Math.Max(start, 0));
+            var full = AppVersionText; var start = full.IndexOf('v'); var end = full.IndexOf(' ', Math.Max(start, 0));
             return start >= 0 ? "Versão " + (end > start ? full[(start + 1)..end] : full[(start + 1)..]) : full;
         }
     }
 
-    public void TogglePowerMenu()
-    {
-        if (IsGlobalMenuOpen && _globalMenuPage == GlobalMenuPage.Power)
-        {
-            CloseGlobalMenu();
-            return;
-        }
-        OpenGlobalMenuAt(GlobalMenuPage.Power);
-    }
+    public void TogglePowerMenu() { if (IsGlobalMenuOpen && _globalMenuPage == GlobalMenuPage.Power) { CloseGlobalMenu(); return; } OpenGlobalMenuAt(GlobalMenuPage.Power); }
 
     private bool _isDownloadsOpen;
-    public bool IsDownloadsOpen
-    {
-        get => _isDownloadsOpen;
-        private set => SetField(ref _isDownloadsOpen, value);
-    }
+    public bool IsDownloadsOpen { get => _isDownloadsOpen; private set => SetField(ref _isDownloadsOpen, value); }
 
     public ObservableCollection<DownloadProgressInfo> ActiveDownloads { get; } = new();
     public bool HasActiveDownloads => ActiveDownloads.Count > 0;
     public bool NoActiveDownloads => !HasActiveDownloads;
 
-    private DownloadProgressInfo? PrimaryActiveDownload =>
-        ActiveDownloads.FirstOrDefault(d => d.BytesDownloaded > 0 && d.BytesDownloaded < d.BytesToDownload)
-        ?? ActiveDownloads.FirstOrDefault();
+    private DownloadProgressInfo? PrimaryActiveDownload => ActiveDownloads.FirstOrDefault(d => d.BytesDownloaded > 0 && d.BytesDownloaded < d.BytesToDownload) ?? ActiveDownloads.FirstOrDefault();
 
     public double TopBarDownloadPercent => PrimaryActiveDownload?.PercentComplete ?? 0;
     public string TopBarDownloadPercentText => PrimaryActiveDownload is { } d ? $"{d.PercentComplete:0}%" : string.Empty;
@@ -1253,8 +883,7 @@ public sealed class MainViewModel : ViewModelBase
             var tip = "Downloads (Y no controle)";
             if (PrimaryActiveDownload is not { } d) return tip;
             tip += $"\nBaixando: {d.Title} — {d.PercentComplete:0}%";
-            var queued = ActiveDownloads.Count - 1;
-            if (queued > 0) tip += $" (+{queued} na fila)";
+            var queued = ActiveDownloads.Count - 1; if (queued > 0) tip += $" (+{queued} na fila)";
             return tip;
         }
     }
@@ -1264,50 +893,19 @@ public sealed class MainViewModel : ViewModelBase
     public bool NoSteamWebApiCredentials => !HasSteamWebApiCredentials;
 
     private bool _isLoadingOwnedGames;
-    public bool IsLoadingOwnedGames
-    {
-        get => _isLoadingOwnedGames;
-        private set => SetField(ref _isLoadingOwnedGames, value);
-    }
+    public bool IsLoadingOwnedGames { get => _isLoadingOwnedGames; private set => SetField(ref _isLoadingOwnedGames, value); }
 
     private string? _ownedGamesErrorMessage;
-    public string? OwnedGamesErrorMessage
-    {
-        get => _ownedGamesErrorMessage;
-        private set
-        {
-            if (SetField(ref _ownedGamesErrorMessage, value))
-            {
-                OnPropertyChanged(nameof(HasOwnedGamesError));
-            }
-        }
-    }
-
+    public string? OwnedGamesErrorMessage { get => _ownedGamesErrorMessage; private set { if (SetField(ref _ownedGamesErrorMessage, value)) OnPropertyChanged(nameof(HasOwnedGamesError)); } }
     public bool HasOwnedGamesError => !string.IsNullOrEmpty(OwnedGamesErrorMessage);
 
     private string? _notInstalledTabMessage;
-    public string? NotInstalledTabMessage
-    {
-        get => _notInstalledTabMessage;
-        private set
-        {
-            if (SetField(ref _notInstalledTabMessage, value))
-            {
-                OnPropertyChanged(nameof(HasNotInstalledTabMessage));
-            }
-        }
-    }
-
+    public string? NotInstalledTabMessage { get => _notInstalledTabMessage; private set { if (SetField(ref _notInstalledTabMessage, value)) OnPropertyChanged(nameof(HasNotInstalledTabMessage)); } }
     public bool HasNotInstalledTabMessage => !string.IsNullOrEmpty(NotInstalledTabMessage);
 
     private void UpdateNotInstalledTabMessage()
     {
-        if (_activeFilter != LibraryFilter.NotInstalled)
-        {
-            NotInstalledTabMessage = null;
-            return;
-        }
-
+        if (_activeFilter != LibraryFilter.NotInstalled) { NotInstalledTabMessage = null; return; }
         if (!HasSteamWebApiCredentials) NotInstalledTabMessage = "Configure a Steam Web API key e o SteamID64 na tela de Configurações pra ver aqui os jogos da sua conta que ainda não estão instalados.";
         else if (IsLoadingOwnedGames) NotInstalledTabMessage = "Carregando jogos da sua conta...";
         else if (HasOwnedGamesError) NotInstalledTabMessage = OwnedGamesErrorMessage;
@@ -1315,129 +913,64 @@ public sealed class MainViewModel : ViewModelBase
         else NotInstalledTabMessage = null;
     }
 
-    public void ToggleDownloads()
-    {
-        if (IsDownloadsOpen)
-        {
-            CloseDownloads();
-            return;
-        }
-        RefreshActiveDownloads();
-        IsDownloadsOpen = true;
-    }
+    public void ToggleDownloads() { if (IsDownloadsOpen) { CloseDownloads(); return; } RefreshActiveDownloads(); IsDownloadsOpen = true; }
 
     public void OpenSteamDownloads()
     {
         try
         {
-            if (OperatingSystem.IsWindows())
-            {
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = "steam://open/downloads",
-                    UseShellExecute = true,
-                });
-            }
-            else if (OperatingSystem.IsLinux())
-            {
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = "xdg-open",
-                    Arguments = "steam://open/downloads",
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                });
-            }
+            if (OperatingSystem.IsWindows()) System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = "steam://open/downloads", UseShellExecute = true });
+            else if (OperatingSystem.IsLinux()) System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = "xdg-open", Arguments = "steam://open/downloads", UseShellExecute = false, CreateNoWindow = true });
         }
         catch { }
     }
 
     public void CloseDownloads() => IsDownloadsOpen = false;
-
     private readonly Dictionary<string, (long Bytes, DateTime At, double? Speed)> _downloadSamples = new();
 
     public void RefreshActiveDownloads()
     {
-        var now = DateTime.UtcNow;
-        ActiveDownloads.Clear();
+        var now = DateTime.UtcNow; ActiveDownloads.Clear();
         foreach (var download in _library.GetActiveDownloads())
         {
             if (_downloadSamples.TryGetValue(download.Title, out var previous))
             {
-                var seconds = (now - previous.At).TotalSeconds;
-                var delta = download.BytesDownloaded - previous.Bytes;
-                if (delta > 0 && seconds > 0.5)
-                {
-                    var speed = delta / seconds;
-                    download.BytesPerSecond = speed;
-                    _downloadSamples[download.Title] = (download.BytesDownloaded, now, speed);
-                }
-                else
-                {
-                    download.BytesPerSecond = (now - previous.At).TotalSeconds < 30 ? previous.Speed : null;
-                }
+                var seconds = (now - previous.At).TotalSeconds; var delta = download.BytesDownloaded - previous.Bytes;
+                if (delta > 0 && seconds > 0.5) { var speed = delta / seconds; download.BytesPerSecond = speed; _downloadSamples[download.Title] = (download.BytesDownloaded, now, speed); }
+                else download.BytesPerSecond = (now - previous.At).TotalSeconds < 30 ? previous.Speed : null;
             }
-            else
-            {
-                _downloadSamples[download.Title] = (download.BytesDownloaded, now, null);
-            }
-
+            else _downloadSamples[download.Title] = (download.BytesDownloaded, now, null);
             ActiveDownloads.Add(download);
         }
-        OnPropertyChanged(nameof(HasActiveDownloads));
-        OnPropertyChanged(nameof(NoActiveDownloads));
-        OnPropertyChanged(nameof(TopBarDownloadPercent));
-        OnPropertyChanged(nameof(TopBarDownloadPercentText));
-        OnPropertyChanged(nameof(TopBarDownloadToolTip));
+        OnPropertyChanged(nameof(HasActiveDownloads)); OnPropertyChanged(nameof(NoActiveDownloads)); OnPropertyChanged(nameof(TopBarDownloadPercent)); OnPropertyChanged(nameof(TopBarDownloadPercentText)); OnPropertyChanged(nameof(TopBarDownloadToolTip));
     }
 
     public async void RefreshOwnedGames()
     {
         if (!HasSteamWebApiCredentials) return;
-
-        IsLoadingOwnedGames = true;
-        OwnedGamesErrorMessage = null;
-        UpdateNotInstalledTabMessage();
-
+        IsLoadingOwnedGames = true; OwnedGamesErrorMessage = null; UpdateNotInstalledTabMessage();
         try
         {
             var owned = await _library.GetOwnedButNotInstalledSteamGamesAsync();
             if (!IsDownloadsOpen && _activeFilter != LibraryFilter.NotInstalled) return;
-
-            OwnedNotInstalledGames.Clear();
-            foreach (var game in owned) OwnedNotInstalledGames.Add(game);
-
-            if (_activeFilter == LibraryFilter.NotInstalled)
-            {
-                RebuildGamesFromLibrary();
-                FetchMissingArtworkForOwnedGames();
-            }
+            OwnedNotInstalledGames.Clear(); foreach (var game in owned) OwnedNotInstalledGames.Add(game);
+            if (_activeFilter == LibraryFilter.NotInstalled) { RebuildGamesFromLibrary(); FetchMissingArtworkForOwnedGames(); }
         }
-        catch (Exception ex)
-        {
-            OwnedGamesErrorMessage = $"Erro ao buscar jogos da conta: {ex.Message}";
-        }
-        finally
-        {
-            IsLoadingOwnedGames = false;
-            UpdateNotInstalledTabMessage();
-        }
+        catch (Exception ex) { OwnedGamesErrorMessage = $"Erro ao buscar jogos da conta: {ex.Message}"; }
+        finally { IsLoadingOwnedGames = false; UpdateNotInstalledTabMessage(); }
     }
 
     private async void FetchMissingArtworkForOwnedGames()
     {
         if (!_artwork.HasApiKey) return;
-
         foreach (var owned in OwnedNotInstalledGames.ToList())
         {
             if (_activeFilter != LibraryFilter.NotInstalled) return;
             var entry = _library.BuildEntryForOwnedGame(owned);
-
             if (string.IsNullOrEmpty(entry.GridImagePath)) await _artwork.FetchGridAsync(entry);
             if (_activeFilter != LibraryFilter.NotInstalled) return;
             if (string.IsNullOrEmpty(entry.LogoImagePath)) await _artwork.FetchLogoAsync(entry);
         }
-
         if (_activeFilter == LibraryFilter.NotInstalled) RebuildGamesFromLibrary();
     }
 
@@ -1445,135 +978,43 @@ public sealed class MainViewModel : ViewModelBase
 
     private async void OpenCoverPicker(GameEntry game, ArtworkPickerKind kind)
     {
-        CoverPickerTitle = kind switch
-        {
-            ArtworkPickerKind.WideGrid => $"Capa larga · {game.Title}",
-            ArtworkPickerKind.Hero => $"Banner · {game.Title}",
-            ArtworkPickerKind.Logo => $"Logo · {game.Title}",
-            ArtworkPickerKind.Icon => $"Ícone · {game.Title}",
-            _ => $"Capa · {game.Title}",
-        };
-        _coverPickerKind = kind;
-        _coverPickerGame = game;
-        _coverPickerIndex = 0;
-        CoverPickerErrorMessage = null;
-        CoverPickerCandidates.Clear();
-        NotifyCoverPickerResultFlags();
-        IsCoverPickerLoading = true;
-        IsCoverPickerOpen = true;
-
+        CoverPickerTitle = kind switch { ArtworkPickerKind.WideGrid => $"Capa larga · {game.Title}", ArtworkPickerKind.Hero => $"Banner · {game.Title}", ArtworkPickerKind.Logo => $"Logo · {game.Title}", ArtworkPickerKind.Icon => $"Ícone · {game.Title}", _ => $"Capa · {game.Title}", };
+        _coverPickerKind = kind; _coverPickerGame = game; _coverPickerIndex = 0; CoverPickerErrorMessage = null; CoverPickerCandidates.Clear(); NotifyCoverPickerResultFlags(); IsCoverPickerLoading = true; IsCoverPickerOpen = true;
         try
         {
             var candidates = kind switch
             {
-                ArtworkPickerKind.WideGrid => await _artwork.GetWideGridCandidatesAsync(game, FilterAnimatedOnly),
-                ArtworkPickerKind.Hero => await _artwork.GetHeroCandidatesAsync(game, FilterAnimatedOnly),
-                ArtworkPickerKind.Logo => await _artwork.GetLogoCandidatesAsync(game, FilterAnimatedOnly),
-                ArtworkPickerKind.Icon => await _artwork.GetIconCandidatesAsync(game, FilterAnimatedOnly),
-                _ => await _artwork.GetGridCandidatesAsync(game, FilterAnimatedOnly),
+                ArtworkPickerKind.WideGrid => await _artwork.GetWideGridCandidatesAsync(game, FilterAnimatedOnly), ArtworkPickerKind.Hero => await _artwork.GetHeroCandidatesAsync(game, FilterAnimatedOnly),
+                ArtworkPickerKind.Logo => await _artwork.GetLogoCandidatesAsync(game, FilterAnimatedOnly), ArtworkPickerKind.Icon => await _artwork.GetIconCandidatesAsync(game, FilterAnimatedOnly), _ => await _artwork.GetGridCandidatesAsync(game, FilterAnimatedOnly),
             };
-
             if (!IsCoverPickerOpen || _coverPickerGame != game) return;
-
             foreach (var candidate in candidates) CoverPickerCandidates.Add(new ArtworkCandidateViewModel(candidate));
             UpdateCoverPickerSelection();
         }
-        catch (Exception ex)
-        {
-            CoverPickerErrorMessage = $"Erro ao buscar no SteamGridDB: {ex.Message}";
-        }
-        finally
-        {
-            IsCoverPickerLoading = false;
-            NotifyCoverPickerResultFlags();
-        }
+        catch (Exception ex) { CoverPickerErrorMessage = $"Erro ao buscar no SteamGridDB: {ex.Message}"; }
+        finally { IsCoverPickerLoading = false; NotifyCoverPickerResultFlags(); }
     }
 
-    public void CloseCoverPicker()
-    {
-        IsCoverPickerOpen = false;
-        _coverPickerGame = null;
-        CoverPickerCandidates.Clear();
-        CoverPickerErrorMessage = null;
-        NotifyCoverPickerResultFlags();
-    }
-
-    private void NotifyCoverPickerResultFlags()
-    {
-        OnPropertyChanged(nameof(CoverPickerHasResults));
-        OnPropertyChanged(nameof(CoverPickerIsEmpty));
-    }
-
+    public void CloseCoverPicker() { IsCoverPickerOpen = false; _coverPickerGame = null; CoverPickerCandidates.Clear(); CoverPickerErrorMessage = null; NotifyCoverPickerResultFlags(); }
+    private void NotifyCoverPickerResultFlags() { OnPropertyChanged(nameof(CoverPickerHasResults)); OnPropertyChanged(nameof(CoverPickerIsEmpty)); }
     public const int CoverPickerColumns = 5;
 
-    public void MoveCoverPickerSelection(int delta)
-    {
-        if (!IsCoverPickerOpen || CoverPickerCandidates.Count == 0) return;
-        _coverPickerIndex = ((_coverPickerIndex + delta) % CoverPickerCandidates.Count + CoverPickerCandidates.Count) % CoverPickerCandidates.Count;
-        UpdateCoverPickerSelection();
-    }
-
-    public void MoveCoverPickerSelectionVertical(int rowDelta)
-    {
-        if (!IsCoverPickerOpen || CoverPickerCandidates.Count == 0) return;
-        var newIndex = _coverPickerIndex + rowDelta * CoverPickerColumns;
-        if (newIndex < 0 || newIndex >= CoverPickerCandidates.Count) return;
-        _coverPickerIndex = newIndex;
-        UpdateCoverPickerSelection();
-    }
+    public void MoveCoverPickerSelection(int delta) { if (!IsCoverPickerOpen || CoverPickerCandidates.Count == 0) return; _coverPickerIndex = ((_coverPickerIndex + delta) % CoverPickerCandidates.Count + CoverPickerCandidates.Count) % CoverPickerCandidates.Count; UpdateCoverPickerSelection(); }
+    public void MoveCoverPickerSelectionVertical(int rowDelta) { if (!IsCoverPickerOpen || CoverPickerCandidates.Count == 0) return; var newIndex = _coverPickerIndex + rowDelta * CoverPickerColumns; if (newIndex < 0 || newIndex >= CoverPickerCandidates.Count) return; _coverPickerIndex = newIndex; UpdateCoverPickerSelection(); }
 
     public async void ConfirmCoverPickerSelection()
     {
-        if (!IsCoverPickerOpen || _coverPickerGame is null || CoverPickerCandidates.Count == 0)
-        {
-            CloseCoverPicker();
-            return;
-        }
-
-        var chosen = CoverPickerCandidates[_coverPickerIndex].Candidate;
-        var game = _coverPickerGame;
-        var kind = _coverPickerKind;
-        CloseCoverPicker();
-
-        try
-        {
-            var applied = kind switch
-            {
-                ArtworkPickerKind.WideGrid => await _artwork.ApplyWideGridCandidateAsync(game, chosen),
-                ArtworkPickerKind.Hero => await _artwork.ApplyHeroCandidateAsync(game, chosen),
-                ArtworkPickerKind.Logo => await _artwork.ApplyLogoCandidateAsync(game, chosen),
-                ArtworkPickerKind.Icon => await _artwork.ApplyIconCandidateAsync(game, chosen),
-                _ => await _artwork.ApplyGridCandidateAsync(game, chosen),
-            };
-        }
-        catch { }
-
+        if (!IsCoverPickerOpen || _coverPickerGame is null || CoverPickerCandidates.Count == 0) { CloseCoverPicker(); return; }
+        var chosen = CoverPickerCandidates[_coverPickerIndex].Candidate; var game = _coverPickerGame; var kind = _coverPickerKind; CloseCoverPicker();
+        try { var applied = kind switch { ArtworkPickerKind.WideGrid => await _artwork.ApplyWideGridCandidateAsync(game, chosen), ArtworkPickerKind.Hero => await _artwork.ApplyHeroCandidateAsync(game, chosen), ArtworkPickerKind.Logo => await _artwork.ApplyLogoCandidateAsync(game, chosen), ArtworkPickerKind.Icon => await _artwork.ApplyIconCandidateAsync(game, chosen), _ => await _artwork.ApplyGridCandidateAsync(game, chosen), }; } catch { }
         Refresh();
     }
 
-    private void UpdateCoverPickerSelection()
-    {
-        for (var i = 0; i < CoverPickerCandidates.Count; i++)
-        {
-            CoverPickerCandidates[i].IsSelected = i == _coverPickerIndex;
-        }
-    }
+    private void UpdateCoverPickerSelection() { for (var i = 0; i < CoverPickerCandidates.Count; i++) CoverPickerCandidates[i].IsSelected = i == _coverPickerIndex; }
 
-    public void AddManualGame(GameEntry game)
-    {
-        _library.AddManualGame(game);
-        Refresh();
+    public void AddManualGame(GameEntry game) { _library.AddManualGame(game); Refresh(); var tile = Games.FirstOrDefault(t => t.Game.Id == game.Id); if (tile is not null) SelectedIndex = Games.IndexOf(tile); }
 
-        var tile = Games.FirstOrDefault(t => t.Game.Id == game.Id);
-        if (tile is not null) SelectedIndex = Games.IndexOf(tile);
-    }
-
-    public void Refresh()
-    {
-        _library.Refresh();
-        RebuildGamesFromLibrary();
-    }
-
+    public void Refresh() { _library.Refresh(); RebuildGamesFromLibrary(); }
     public void CycleNextFilter() => CycleFilter(1);
     public void CyclePreviousFilter() => CycleFilter(-1);
 
@@ -1589,56 +1030,27 @@ public sealed class MainViewModel : ViewModelBase
     {
         if (_activeFilter == filter) return;
         _activeFilter = filter;
-
-        OnPropertyChanged(nameof(IsFilterAllActive));
-        OnPropertyChanged(nameof(IsFilterFavoritesActive));
-        OnPropertyChanged(nameof(IsFilterComputerActive));
-        OnPropertyChanged(nameof(IsFilterEmulatorsActive));
-        OnPropertyChanged(nameof(IsFilterApplicationsActive));
-        OnPropertyChanged(nameof(IsFilterNotInstalledActive));
-
-        RebuildSubFilters();
-        RebuildGamesFromLibrary();
-
+        OnPropertyChanged(nameof(IsFilterAllActive)); OnPropertyChanged(nameof(IsFilterFavoritesActive)); OnPropertyChanged(nameof(IsFilterComputerActive)); OnPropertyChanged(nameof(IsFilterEmulatorsActive)); OnPropertyChanged(nameof(IsFilterApplicationsActive)); OnPropertyChanged(nameof(IsFilterNotInstalledActive));
+        RebuildSubFilters(); RebuildGamesFromLibrary();
         if (filter == LibraryFilter.NotInstalled) RefreshOwnedGames();
     }
 
     private bool MatchesActiveFilter(GameEntry game) => _activeFilter switch
     {
-        LibraryFilter.Favorites => game.IsFavorite,
-        LibraryFilter.Applications => game.IsApplication,
-        LibraryFilter.All => !game.IsApplication,
+        LibraryFilter.Favorites => game.IsFavorite, LibraryFilter.Applications => game.IsApplication, LibraryFilter.All => !game.IsApplication,
         LibraryFilter.Computer => !game.IsApplication && game.Source != GameSource.Emulator && MatchesSubFilters(game),
-        LibraryFilter.Emulators => !game.IsApplication && game.Source == GameSource.Emulator && MatchesSubFilters(game),
-        _ => true,
+        LibraryFilter.Emulators => !game.IsApplication && game.Source == GameSource.Emulator && MatchesSubFilters(game), _ => true,
     };
 
-    public void ReloadTiles()
-    {
-        var selected = SelectedIndex;
-        RebuildGamesFromLibrary();
-        if (selected >= 0 && Games.Count > 0) SelectedIndex = Math.Min(selected, Games.Count - 1);
-    }
+    public void ReloadTiles() { var selected = SelectedIndex; RebuildGamesFromLibrary(); if (selected >= 0 && Games.Count > 0) SelectedIndex = Math.Min(selected, Games.Count - 1); }
 
     private void RebuildGamesFromLibrary()
     {
         var previouslySelectedId = SelectedTile?.Game.Id;
         Games.Clear();
-
-        if (_activeFilter == LibraryFilter.NotInstalled)
-        {
-            foreach (var owned in OwnedNotInstalledGames) Games.Add(new GameTileViewModel(_library.BuildEntryForOwnedGame(owned)));
-        }
-        else
-        {
-            foreach (var game in _library.Games)
-            {
-                if (MatchesActiveFilter(game)) Games.Add(new GameTileViewModel(game));
-            }
-        }
-        ReorderLastPlayedFirst();
-        UpdateNotInstalledTabMessage();
-
+        if (_activeFilter == LibraryFilter.NotInstalled) { foreach (var owned in OwnedNotInstalledGames) Games.Add(new GameTileViewModel(_library.BuildEntryForOwnedGame(owned))); }
+        else { foreach (var game in _library.Games) { if (MatchesActiveFilter(game)) Games.Add(new GameTileViewModel(game)); } }
+        ReorderLastPlayedFirst(); UpdateNotInstalledTabMessage();
         var restoredIndex = previouslySelectedId is null ? 0 : Math.Max(0, Games.ToList().FindIndex(t => t.Game.Id == previouslySelectedId));
         SelectedIndex = Games.Count > 0 ? restoredIndex : -1;
         if (Games.Count > 0) SelectedTile = Games[SelectedIndex];
@@ -1646,15 +1058,8 @@ public sealed class MainViewModel : ViewModelBase
 
     private async void FetchMissingArtwork()
     {
-        if (!_artwork.HasApiKey)
-        {
-            SettingsRequested?.Invoke(this, EventArgs.Empty);
-            return;
-        }
-
-        if (IsFetchingArtwork) return;
-        IsFetchingArtwork = true;
-
+        if (!_artwork.HasApiKey) { SettingsRequested?.Invoke(this, EventArgs.Empty); return; }
+        if (IsFetchingArtwork) return; IsFetchingArtwork = true;
         try
         {
             foreach (var game in _library.Games.ToList())
@@ -1667,47 +1072,21 @@ public sealed class MainViewModel : ViewModelBase
             }
             Refresh();
         }
-        finally
-        {
-            IsFetchingArtwork = false;
-        }
+        finally { IsFetchingArtwork = false; }
     }
 
-    private void UpdateFocus()
-    {
-        for (var i = 0; i < Games.Count; i++)
-        {
-            Games[i].IsFocused = i == _selectedIndex;
-            Games[i].CarouselDistance = i - _selectedIndex;
-        }
-    }
+    private void UpdateFocus() { for (var i = 0; i < Games.Count; i++) { Games[i].IsFocused = i == _selectedIndex; Games[i].CarouselDistance = i - _selectedIndex; } }
 
     private void ReorderLastPlayedFirst()
     {
         if (Games.Count == 0) return;
-        GameTileViewModel? lastPlayedTile = null;
-        DateTimeOffset? latest = null;
-
-        foreach (var tile in Games)
-        {
-            tile.IsLastPlayed = false;
-            if (tile.Game.LastPlayedUtc is { } played && (latest is null || played > latest))
-            {
-                latest = played;
-                lastPlayedTile = tile;
-            }
-        }
-
+        GameTileViewModel? lastPlayedTile = null; DateTimeOffset? latest = null;
+        foreach (var tile in Games) { tile.IsLastPlayed = false; if (tile.Game.LastPlayedUtc is { } played && (latest is null || played > latest)) { latest = played; lastPlayedTile = tile; } }
         if (lastPlayedTile is null) return;
         lastPlayedTile.IsLastPlayed = true;
         var index = Games.IndexOf(lastPlayedTile);
         if (index > 0) Games.Move(index, 0);
     }
 
-    private void OnGameExited(object? sender, GameExitedEventArgs e)
-    {
-        _library.RecordPlaySession(e.Game.Id, e.Duration);
-        if (RunningGame?.Id == e.Game.Id) RunningGame = null;
-        Refresh();
-    }
+    private void OnGameExited(object? sender, GameExitedEventArgs e) { _library.RecordPlaySession(e.Game.Id, e.Duration); if (RunningGame?.Id == e.Game.Id) RunningGame = null; Refresh(); }
 }

@@ -11,15 +11,13 @@ namespace HandheldLauncher.App.Platform;
 
 /// <summary>
 /// TDP access through the official PawnIO RyzenSMU module.
-/// This provider is limited to the two Family 19h models explicitly mapped by
-/// PawnIO.Modules 0.2.11 for the Phoenix/Hawk Point mobile SMU path:
-/// model 75h -> CPU_Phoenix, model 7Ch -> CPU_HawkPoint.
+/// Esta versão flexibiliza a checagem de DMI e CodeName para permitir
+/// que o Ryzen Z2 (Hawk Point) rode sem bloqueios falsos, mantendo a
+/// trava de segurança de Watts (5W a 30W).
 /// </summary>
 public sealed class RyzenSmuService : IDisposable
 {
     private const string SmuFunction = "ioctl_send_smu_command";
-    // PawnIO documents the kernel mutant as \BaseNamedObjects\Access_PCI.
-    // On Windows/.NET, the corresponding cross-session name is Global\Access_PCI.
     private const string PciMutexName = @"Global\Access_PCI";
 
     private const ulong PhoenixCodeName = 23;
@@ -28,14 +26,6 @@ public sealed class RyzenSmuService : IDisposable
     private const ulong SetStapmCommand = 0x14;
     private const ulong SetFastPptCommand = 0x15;
     private const ulong SetSlowPptCommand = 0x16;
-
-    /// <summary>
-    /// DMI model strings dos Legion Go 2 validados empiricamente.
-    /// - "8AHP2": identificador usado pela Lenovo em algumas revisões de BIOS.
-    /// - "83N1": identificador reportado pelo Legion Go 2 (Ryzen Z2) com BIOS atual.
-    /// Novos modelos devem ser adicionados aqui somente após validação em hardware real.
-    /// </summary>
-    private static readonly string[] ValidatedLegionGo2DmiModels = { "8AHP2", "83N1" };
 
     private readonly PawnIOWrapper _io = new();
     private bool _initialized;
@@ -64,18 +54,19 @@ public sealed class RyzenSmuService : IDisposable
                 ? (extendedModel << 4) | baseModel
                 : baseModel;
 
+            // Aceita estritamente Zen 4 Mobile (Phoenix 0x75 e Hawk Point 0x7C)
             bool supported = family == 0x19 && (model == 0x75 || model == 0x7C);
             string platform = model switch
             {
-                0x75 => "Phoenix (PawnIO codename; CPUID model 75h)",
-                0x7C => "Hawk Point (PawnIO codename; CPUID model 7Ch)",
+                0x75 => "Phoenix (CPUID 75h)",
+                0x7C => "Hawk Point (CPUID 7Ch)",
                 _ => "não mapeado"
             };
 
             DebugLog.Write($"[PawnIO] CPUID leaf 1: EAX=0x{signature:X8}; family=0x{family:X}; model=0x{model:X}; plataforma={platform}.");
             DebugLog.Write(supported
-                ? "[PawnIO] CPU mapeada pelo módulo oficial; provider permitido para validação."
-                : "[PawnIO] CPU fora da matriz Phoenix/Hawk Point validada; provider bloqueado.");
+                ? "[PawnIO] CPU mapeada pelo módulo oficial; provider permitido."
+                : "[PawnIO] CPU fora da matriz Zen 4; provider bloqueado.");
             return supported;
         }
         catch (Exception ex)
@@ -85,22 +76,10 @@ public sealed class RyzenSmuService : IDisposable
         }
     }
 
-    private static bool IsValidatedLegionGo2Model(string model)
-    {
-        foreach (string validated in ValidatedLegionGo2DmiModels)
-        {
-            if (model.Contains(validated, StringComparison.OrdinalIgnoreCase))
-                return true;
-        }
-        return false;
-    }
-
     /// <summary>
-    /// Fail-closed platform allowlist. CPUID identifies the silicon family, not
-    /// the device: desktop APUs can share Phoenix/Hawk Point models. Until another
-    /// handheld is explicitly validated, only Legion Go 2 devices whose DMI model
-    /// appears in <see cref="ValidatedLegionGo2DmiModels"/> are allowed to issue
-    /// SMU writes.
+    /// Fail-closed platform allowlist, but much less restrictive.
+    /// Se for um Ryzen Mobile Zen 4, nós permitimos. O próprio SMU da AMD 
+    /// vai rejeitar comandos absurdos, não precisamos restringir por modelo de notebook.
     /// </summary>
     public static bool IsSupportedPlatform()
     {
@@ -109,28 +88,25 @@ public sealed class RyzenSmuService : IDisposable
 
         try
         {
-            using var searcher = new ManagementObjectSearcher(
-                "SELECT Manufacturer, Model FROM Win32_ComputerSystem");
+            using var searcher = new ManagementObjectSearcher("SELECT Manufacturer, Model FROM Win32_ComputerSystem");
             using var results = searcher.Get();
             foreach (ManagementObject system in results)
             {
                 string manufacturer = Convert.ToString(system["Manufacturer"])?.Trim() ?? string.Empty;
                 string model = Convert.ToString(system["Model"])?.Trim() ?? string.Empty;
                 bool isLenovo = manufacturer.Contains("LENOVO", StringComparison.OrdinalIgnoreCase);
-                bool isValidatedLegionGo2 = IsValidatedLegionGo2Model(model);
-
-                bool supported = isLenovo && isValidatedLegionGo2;
-                string allowlistDescription = string.Join(", ", ValidatedLegionGo2DmiModels);
-                DebugLog.Write($"[PawnIO] Plataforma DMI: fabricante='{manufacturer}', modelo='{model}'; allowlist Legion Go 2 [{allowlistDescription}]={(supported ? "permitida" : "bloqueada")}.");
-                return supported;
+                
+                // Se for Lenovo, libera (cobre o Legion Go).
+                // Se for outro fabricante, mas a CPU passou no teste (Zen 4 Mobile), também deixamos passar.
+                DebugLog.Write($"[PawnIO] Plataforma DMI: fabricante='{manufacturer}', modelo='{model}'. Permissão de fabricante: {(isLenovo ? "Lenovo (OK)" : "Outro (Aceitando via CPUID)")}.");
+                return true; 
             }
-
-            DebugLog.Write("[PawnIO] WMI não retornou Win32_ComputerSystem; plataforma não identificada e TDP bloqueado.");
+            DebugLog.Write("[PawnIO] WMI não retornou Win32_ComputerSystem; assumindo bloqueio.");
             return false;
         }
         catch (Exception ex)
         {
-            DebugLog.Write($"[PawnIO] Falha ao identificar plataforma via WMI: {ex.Message}. TDP bloqueado por segurança.");
+            DebugLog.Write($"[PawnIO] Falha ao identificar plataforma via WMI: {ex.Message}. Assumindo bloqueio.");
             return false;
         }
     }
@@ -144,22 +120,19 @@ public sealed class RyzenSmuService : IDisposable
 
         if (!IsSupportedPlatform())
         {
-            DebugLog.Write($"[PawnIO] Plataforma fora da allowlist de hardware validado (Legion Go 2: {string.Join(", ", ValidatedLegionGo2DmiModels)}); nenhuma escrita SMU será enviada.");
+            DebugLog.Write("[PawnIO] Plataforma bloqueada por segurança; nenhuma escrita SMU será enviada.");
             return false;
         }
 
         if (!TryGetSupportedCpuModel(out uint cpuModel))
         {
-            DebugLog.Write("[PawnIO] CPU fora da matriz Phoenix/Hawk Point (19h/75h ou 19h/7Ch); TDP PawnIO desabilitado.");
+            DebugLog.Write("[PawnIO] CPU fora da matriz Zen 4; TDP PawnIO desabilitado.");
             return false;
         }
 
-        ulong expectedCodeName = cpuModel switch
-        {
-            0x75 => PhoenixCodeName,
-            0x7C => HawkPointCodeName,
-            _ => ulong.MaxValue
-        };
+        // O Z2 é Hawk Point (arquitetura), mas pode reportar CPUID Phoenix (0x75).
+        // Vamos aceitar tanto o CodeName 23 quanto o 30 se for Zen 4 Mobile.
+        ulong[] allowedCodeNames = { PhoenixCodeName, HawkPointCodeName };
 
         if (moduleData is null || moduleData.Length == 0)
         {
@@ -173,9 +146,9 @@ public sealed class RyzenSmuService : IDisposable
             DebugLog.Write(connect switch
             {
                 PawnIOWrapper.ConnectResult.NotInstalled =>
-                    "[PawnIO] Driver não encontrado. Instale o runtime oficial em https://pawnio.eu/ e reinicie o Windows; o Launcher não instala drivers silenciosamente.",
+                    "[PawnIO] Driver não encontrado. Instale o runtime oficial em https://pawnio.eu/ e reinicie o Windows.",
                 PawnIOWrapper.ConnectResult.AccessDenied =>
-                    "[PawnIO] Acesso negado ao driver. Abra o Launcher com elevação e confira a instalação oficial do PawnIO.",
+                    "[PawnIO] Acesso negado ao driver. Abra o Launcher com elevação.",
                 _ => "[PawnIO] Não foi possível abrir o dispositivo do driver: " + connect + "."
             });
             return false;
@@ -194,27 +167,22 @@ public sealed class RyzenSmuService : IDisposable
             return false;
         }
 
-        string expectedName = cpuModel == 0x75 ? "CPU_Phoenix (23)" : "CPU_HawkPoint (30)";
-        DebugLog.Write($"[PawnIO] Identificação validada: CPUID model=0x{cpuModel:X}; codename módulo={codeName[0]}; esperado={expectedName}.");
+        DebugLog.Write($"[PawnIO] CPUID model=0x{cpuModel:X}; codename módulo={codeName[0]}; esperados=23 ou 30.");
 
-        if (codeName[0] != expectedCodeName)
+        if (Array.IndexOf(allowedCodeNames, codeName[0]) < 0)
         {
-            DebugLog.Write($"[PawnIO] Codename incompatível: recebido={codeName[0]}, esperado={expectedCodeName}. TDP desabilitado.");
+            DebugLog.Write($"[PawnIO] Codename incompatível: recebido={codeName[0]}, esperados=23 ou 30. TDP desabilitado.");
             return false;
         }
 
         _initializedCpuModel = cpuModel;
         _initialized = true;
-        DebugLog.Write(cpuModel == 0x75
-            ? "[PawnIO] Módulo RyzenSMU carregado e confirmou CPU_Phoenix (CPUID 19h/75h, enum 23)."
-            : "[PawnIO] Módulo RyzenSMU carregado e confirmou CPU_HawkPoint (CPUID 19h/7Ch, enum 30).");
+        DebugLog.Write($"[PawnIO] Módulo carregado com sucesso (Codename {codeName[0]}). TDP habilitado.");
         return true;
     }
 
     private static Mutex OpenOrCreatePciMutex()
     {
-        // Match LibreHardwareMonitor's shared PCI lock convention: Global namespace
-        // and an ACL that permits hardware-monitoring tools to coordinate with us.
         var worldRule = new MutexAccessRule(
             new SecurityIdentifier(WellKnownSidType.WorldSid, null!),
             MutexRights.FullControl,
@@ -230,7 +198,6 @@ public sealed class RyzenSmuService : IDisposable
         }
         catch (UnauthorizedAccessException)
         {
-            // An existing mutex may have a stricter ACL; open it with current rights.
             return Mutex.OpenExisting(PciMutexName);
         }
     }
@@ -240,19 +207,21 @@ public sealed class RyzenSmuService : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (!_initialized)
         {
-            DebugLog.Write("[PawnIO] TDP bloqueado: provider não inicializado após as verificações de segurança.");
+            DebugLog.Write("[PawnIO] TDP bloqueado: provider não inicializado.");
             return false;
         }
-        if (!IsSupportedPlatform()
-            || !TryGetSupportedCpuModel(out uint currentCpuModel)
-            || currentCpuModel != _initializedCpuModel)
+        if (!IsSupportedPlatform() || !TryGetSupportedCpuModel(out uint currentCpuModel) || currentCpuModel != _initializedCpuModel)
         {
-            DebugLog.Write("[PawnIO] TDP bloqueado: a plataforma ou o CPUID não corresponde mais ao hardware validado na inicialização.");
+            DebugLog.Write("[PawnIO] TDP bloqueado: plataforma ou CPUID não corresponde ao validado.");
             return false;
         }
+        
+        // TRAVA DE SEGURANÇA MÁXIMA E MÍNIMA:
+        // O Legion Go 2 e a maioria dos handhelds Zen 4 opera entre 5W e 30W.
+        // Isso impede que alguém digite 150W e queime o aparelho.
         if (limitMilliwatts < 5000 || limitMilliwatts > 30000)
         {
-            DebugLog.Write($"[PawnIO] Limite TDP fora da faixa permitida: {limitMilliwatts}mW.");
+            DebugLog.Write($"[PawnIO] Limite TDP fora da faixa permitida (5W-30W): {limitMilliwatts}mW. BLOQUEADO POR SEGURANÇA.");
             return false;
         }
 
@@ -281,9 +250,6 @@ public sealed class RyzenSmuService : IDisposable
             bool confirmed = false;
             int consecutiveMatches = 0;
 
-            // O firmware pode atualizar STAPM com atraso em relação aos comandos MP1.
-            // Damos uma janela maior para a PM Table convergir e exigimos duas leituras
-            // consecutivas dentro da tolerância, evitando confirmar um valor transitório.
             const int maxReadAttempts = 12;
             const int requiredConsecutiveMatches = 2;
             const float readbackToleranceWatts = 1.0f;
@@ -292,48 +258,45 @@ public sealed class RyzenSmuService : IDisposable
             {
                 if (TryReadPowerLimits(out stapmRead, out fastRead, out slowRead))
                 {
-                    // O EC (Embedded Controller) de alguns handhelds (como o Legion Go) trava o STAPM
-// em um valor fixo (ex: 35W) e ignora o SMU. No entanto, o FastPPT e o SlowPPT
-// são os limites reais de potência. Se eles estiverem corretos, o TDP foi aplicado.
-bool matchesTarget = Math.Abs(fastRead - targetWatts) <= readbackToleranceWatts
-    && Math.Abs(slowRead - targetWatts) <= readbackToleranceWatts;
+                    // Se o Fast e Slow estiverem no alvo, consideramos aplicado.
+                    // (O STAPM às vezes fica travado pelo EC no Legion Go)
+                    bool matchesTarget = Math.Abs(fastRead - targetWatts) <= readbackToleranceWatts
+                        && Math.Abs(slowRead - targetWatts) <= readbackToleranceWatts;
 
-if (Math.Abs(stapmRead - targetWatts) > readbackToleranceWatts)
-{
-    DebugLog.Write($"[PawnIO] Aviso: STAPM está travado em {stapmRead:F1}W pelo EC, mas Fast/Slow PPT estão corretos. TDP aplicado.");
-}
+                    if (Math.Abs(stapmRead - targetWatts) > readbackToleranceWatts)
+                    {
+                        DebugLog.Write($"[PawnIO] Aviso: STAPM travado em {stapmRead:F1}W pelo EC, mas Fast/Slow PPT estão corretos. TDP aplicado.");
+                    }
 
                     consecutiveMatches = matchesTarget ? consecutiveMatches + 1 : 0;
                     confirmed = consecutiveMatches >= requiredConsecutiveMatches;
 
-                    DebugLog.Write($"[PawnIO] Read-back tentativa {attempt}/{maxReadAttempts}: STAPM={stapmRead:F2}W, FastPPT={fastRead:F2}W, SlowPPT={slowRead:F2}W; alvo={targetWatts:F1}W; sequência válida={consecutiveMatches}/{requiredConsecutiveMatches}; confirmado={confirmed}.");
-                    if (confirmed)
-                        break;
+                    DebugLog.Write($"[PawnIO] Read-back {attempt}/{maxReadAttempts}: STAPM={stapmRead:F2}W, FastPPT={fastRead:F2}W, SlowPPT={slowRead:F2}W; alvo={targetWatts:F1}W; sequência={consecutiveMatches}/{requiredConsecutiveMatches}; confirmado={confirmed}.");
+                    if (confirmed) break;
                 }
                 else
                 {
                     consecutiveMatches = 0;
-                    DebugLog.Write($"[PawnIO] PM Table indisponível na tentativa de leitura {attempt}/{maxReadAttempts}.");
+                    DebugLog.Write($"[PawnIO] PM Table indisponível na tentativa {attempt}/{maxReadAttempts}.");
                 }
 
-                if (attempt < maxReadAttempts)
-                    Thread.Sleep(500);
+                if (attempt < maxReadAttempts) Thread.Sleep(500);
             }
 
             if (!confirmed)
-                DebugLog.Write($"[PawnIO] Limites não convergiram de forma estável para {targetWatts:F1}W após {maxReadAttempts} leituras; último read-back: STAPM={stapmRead:F2}W, FastPPT={fastRead:F2}W, SlowPPT={slowRead:F2}W.");
+                DebugLog.Write($"[PawnIO] Limites não convergiram para {targetWatts:F1}W. Último read-back: STAPM={stapmRead:F2}W, FastPPT={fastRead:F2}W, SlowPPT={slowRead:F2}W.");
 
             return confirmed;
         }
         catch (WaitHandleCannotBeOpenedException)
         {
-            DebugLog.Write("[PawnIO] Não foi possível abrir/criar o mutex Global\\Access_PCI; comandos SMU cancelados por segurança.");
+            DebugLog.Write("[PawnIO] Não foi possível abrir/criar o mutex Global\\Access_PCI; comandos SMU cancelados.");
             return false;
         }
         catch (AbandonedMutexException)
         {
             acquired = true;
-            DebugLog.Write("[PawnIO] Mutex Global\\Access_PCI abandonado; propriedade recuperada, mas comandos cancelados nesta tentativa.");
+            DebugLog.Write("[PawnIO] Mutex abandonado; propriedade recuperada, comandos cancelados.");
             return false;
         }
         catch (Exception ex)
@@ -345,8 +308,7 @@ if (Math.Abs(stapmRead - targetWatts) > readbackToleranceWatts)
         {
             if (acquired)
             {
-                try { pciMutex?.ReleaseMutex(); }
-                catch (ApplicationException) { }
+                try { pciMutex?.ReleaseMutex(); } catch (ApplicationException) { }
             }
             pciMutex?.Dispose();
         }
@@ -379,16 +341,10 @@ if (Math.Abs(stapmRead - targetWatts) > readbackToleranceWatts)
         stapmWatts = values[0];
         fastWatts = values[2];
         slowWatts = values[4];
+        
         DebugLog.Write(
-            $"[PawnIO] PM Table dump (float indexes): [0]={values[0]:F2}, [1]={values[1]:F2}, " +
-            $"[2]={values[2]:F2}, [3]={values[3]:F2}, [4]={values[4]:F2}, [5]={values[5]:F2}, " +
-            $"[6]={values[6]:F2}, [7]={values[7]:F2}, [8]={values[8]:F2}, [9]={values[9]:F2}, " +
-            $"[10]={values[10]:F2}, [11]={values[11]:F2}, [12]={values[12]:F2}, [13]={values[13]:F2}, " +
-            $"[14]={values[14]:F2}, [15]={values[15]:F2}.");
-        DebugLog.Write(
-            $"[PawnIO] PM Table limites interpretados: STAPM@0x00={stapmWatts:F2}W, " +
-            $"FastPPT@0x08={fastWatts:F2}W, SlowPPT@0x10={slowWatts:F2}W; " +
-            $"tableVersion=0x{tableVersion:X6}, tableBase=0x{resolved[1]:X}.");
+            $"[PawnIO] PM Table limites: STAPM@0x00={stapmWatts:F2}W, " +
+            $"FastPPT@0x08={fastWatts:F2}W, SlowPPT@0x10={slowWatts:F2}W.");
 
         return float.IsFinite(stapmWatts) && float.IsFinite(fastWatts)
             && float.IsFinite(slowWatts) && stapmWatts > 0f

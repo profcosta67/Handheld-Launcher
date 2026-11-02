@@ -74,7 +74,9 @@
           <Ellipse Width="10" Height="10" Fill="{StaticResource AccentBrush}" VerticalAlignment="Center" />
           <TextBlock Text="Handheld Launcher" Classes="gameTitle" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
         </StackPanel>
-        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="28">
+        
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16">
+          <!-- Botão de Atualização -->
           <Button Classes="iconGhost"
                   VerticalAlignment="Center"
                   Content="{Binding UpdateStatusText}"
@@ -82,47 +84,51 @@
                   Foreground="{StaticResource AccentBrush}"
                   IsVisible="{Binding HasUpdateStatus}"
                   Click="OnUpdateBadgeClick" />
-          <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
-                      ToolTip.Tip="{Binding TopBarDownloadToolTip}">
-            <Grid VerticalAlignment="Center">
-              <Button Classes="iconGhost"
-                      Content="⇩"
-                      FontSize="{DynamicResource FontSizeBody}"
-                      Click="OnDownloadsShortcutClick" />
-              <Ellipse Width="8" Height="8"
-                       Fill="{StaticResource AccentBrush}"
-                       HorizontalAlignment="Right"
-                       VerticalAlignment="Top"
-                       Margin="0,-2,-2,0"
-                       IsHitTestVisible="False"
-                       IsVisible="{Binding HasActiveDownloads}" />
-            </Grid>
 
-            <StackPanel Orientation="Vertical" Spacing="2" VerticalAlignment="Center"
-                        IsVisible="{Binding HasActiveDownloads}">
-              <TextBlock Text="{Binding TopBarDownloadPercentText}"
-                         Classes="subtle"
-                         FontSize="{DynamicResource FontSizeCaption}"
-                         HorizontalAlignment="Center" />
-              <ProgressBar Minimum="0" Maximum="100"
-                           Value="{Binding TopBarDownloadPercent}"
-                           Width="44" Height="3" MinHeight="3"
-                           Foreground="{StaticResource AccentBrush}" />
+          <!-- Pílula de Status (TDP, Downloads, Bateria) -->
+          <Border Background="#1A1F2B" CornerRadius="12" Padding="14,6" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+              
+              <!-- TDP -->
+              <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" ToolTip.Tip="Consumo real (se HWiNFO aberto) ou TDP Alvo">
+                <TextBlock Text="⚡" Foreground="#FFB84D" FontSize="14" VerticalAlignment="Center"/>
+                <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                  <TextBlock Text="{Binding TopBarTdpText}" Foreground="White" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
+                  <TextBlock Text="TDP" Foreground="#888888" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" Margin="2,1,0,0"/>
+                </StackPanel>
+              </StackPanel>
+
+              <!-- Separador -->
+              <Rectangle Width="1" Height="14" Fill="#333A4A" VerticalAlignment="Center" />
+
+              <!-- Downloads -->
+              <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" ToolTip.Tip="{Binding TopBarDownloadToolTip}">
+                <Grid VerticalAlignment="Center">
+                  <Button Classes="iconGhost" Content="⇩" FontSize="16" FontWeight="Bold" Click="OnDownloadsShortcutClick" Padding="0" Foreground="#E0E0E0" />
+                  <Ellipse Width="8" Height="8" Fill="{StaticResource AccentBrush}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,-2,0" IsHitTestVisible="False" IsVisible="{Binding HasActiveDownloads}" />
+                </Grid>
+                <TextBlock Text="{Binding TopBarDownloadPercentText}" Foreground="White" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" IsVisible="{Binding HasActiveDownloads}" />
+              </StackPanel>
+
+              <!-- Separador -->
+              <Rectangle Width="1" Height="14" Fill="#333A4A" VerticalAlignment="Center" />
+
+              <!-- Bateria -->
+              <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="{Binding BatteryStatusText}" Foreground="#E0E0E0" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
+              </StackPanel>
+
+              <!-- Separador -->
+              <Rectangle Width="1" Height="14" Fill="#333A4A" VerticalAlignment="Center" />
+
+              <!-- Relógio -->
+              <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                <TextBlock Text="⏱" FontSize="12" Foreground="#E0E0E0" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding ClockText}" Foreground="#E0E0E0" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
+              </StackPanel>
+
             </StackPanel>
-
-            <Border BorderBrush="{StaticResource AccentBrush}"
-                    BorderThickness="1"
-                    CornerRadius="9"
-                    Width="18" Height="18"
-                    VerticalAlignment="Center"
-                    IsHitTestVisible="False">
-              <TextBlock Text="Y" FontSize="{DynamicResource FontSizeCaption}" FontWeight="Bold"
-                         Foreground="{StaticResource AccentBrush}"
-                         HorizontalAlignment="Center" VerticalAlignment="Center" />
-            </Border>
-          </StackPanel>
-          <TextBlock Text="{Binding BatteryStatusText}" Classes="subtle" FontSize="{DynamicResource FontSizeCaption}" VerticalAlignment="Center" />
-          <TextBlock Text="{Binding ClockText}" Classes="subtle" FontSize="{DynamicResource FontSizeCaption}" VerticalAlignment="Center" />
+          </Border>
         </StackPanel>
       </Grid>
     </Border>
@@ -349,7 +355,6 @@
       </Border>
     </Panel>
 
-    
     <!-- Overlay "Iniciando <jogo>..." -->
     <Panel Classes="fadeIn" IsVisible="{Binding IsLaunching}">
       <Border Classes="contextMenuOverlay" PointerPressed="OnMenuOverlayPressed" />

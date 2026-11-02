@@ -67,7 +67,6 @@ public sealed class GamepadPoller
             var buttons = (XInput.Buttons)state.Gamepad.wButtons;
             var prevButtons = _previousButtons[_activeSlot];
 
-            // 🟢 NOVA LÓGICA: Start = Menu Global (sistema), Back/Select = Opções do Jogo
             if (WasJustPressed(buttons, prevButtons, XInput.Buttons.Start)) actions.Add(GamepadAction.GlobalMenu);
             if (WasJustPressed(buttons, prevButtons, XInput.Buttons.Back)) actions.Add(GamepadAction.Menu);
             if (WasJustPressed(buttons, prevButtons, XInput.Buttons.A)) actions.Add(GamepadAction.Confirm);
@@ -77,7 +76,6 @@ public sealed class GamepadPoller
             if (WasJustPressed(buttons, prevButtons, XInput.Buttons.Y)) actions.Add(GamepadAction.Downloads);
             if (WasJustPressed(buttons, prevButtons, XInput.Buttons.X)) actions.Add(GamepadAction.GameDetails);
 
-            // 🟢 Direções com deadzone (sem Math.Abs — usa comparação dupla)
             var lx = state.Gamepad.sThumbLX;
             var ly = state.Gamepad.sThumbLY;
             var isLeftHeld = buttons.HasFlag(XInput.Buttons.DPadLeft) || lx < -StickDeadzone;
@@ -125,11 +123,18 @@ public sealed class GamepadPoller
             var cur = (XInput.Buttons)s.Gamepad.wButtons;
             var prev = _previousButtons[slot];
 
-            if ((cur & ~prev) != 0)
+            // CORREÇÃO DO BUG: Detecta botão novo OU movimento significativo no analógico
+            bool isButtonPressed = (cur & ~prev) != 0;
+            bool isStickMoving = Math.Abs((int)s.Gamepad.sThumbLX) > StickDeadzone || 
+                                 Math.Abs((int)s.Gamepad.sThumbLY) > StickDeadzone ||
+                                 Math.Abs((int)s.Gamepad.sThumbRX) > StickDeadzone || 
+                                 Math.Abs((int)s.Gamepad.sThumbRY) > StickDeadzone;
+
+            if (isButtonPressed || isStickMoving)
             {
                 if ((int)slot != _activeSlot)
                 {
-                    DebugLog.Write($"[GamepadPoller] Slot → {slot} (botão novo)");
+                    DebugLog.Write($"[GamepadPoller] Slot → {slot} (input detectado)");
                     _activeSlot = (int)slot;
                 }
                 _slotLockedUntil = DateTime.Now.AddSeconds(3);

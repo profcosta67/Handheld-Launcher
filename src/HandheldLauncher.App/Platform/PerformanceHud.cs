@@ -18,8 +18,15 @@ public sealed class PerformanceHud : IDisposable
     private string? _lastLoggedError;
 
     public string CpuTemperature { get; set; } = "--°C";
+    public string TdpStatusText { get; set; } = "";
+    public string ColorModeText { get; set; } = "";
+    public string RealTdpText { get; set; } = ""; // Novo campo para o consumo real (Ex: "22 W")
 
-    // LEITURA DE RESOLUÇÃO E HZ
+    private volatile bool _isRecording;
+    public bool IsRecording { get => _isRecording; set => _isRecording = value; }
+
+    private int _blinkTick;
+
     [DllImport("user32.dll")]
     private static extern bool EnumDisplaySettings(string deviceName, int modeNum, ref DEVMODE devMode);
 
@@ -61,7 +68,7 @@ public sealed class PerformanceHud : IDisposable
             var devMode = new DEVMODE { dmDeviceName = new string(new char[32]) };
             devMode.dmSize = (short)Marshal.SizeOf(devMode);
             if (EnumDisplaySettings(null, -1, ref devMode))
-                _resolutionText = $"{devMode.dmPelsWidth}x{devMode.dmPelsHeight} {devMode.dmDisplayFrequency}Hz";
+                _resolutionText = $"{devMode.dmPelsWidth}x{devMode.dmPelsHeight} @ {devMode.dmDisplayFrequency}Hz";
             _lastResolutionCheck = DateTime.Now;
         }
         catch { }
@@ -103,6 +110,9 @@ public sealed class PerformanceHud : IDisposable
             _metrics ??= new SystemMetrics();
             var metrics = _metrics.Read();
 
+            _blinkTick++;
+            var recIndicator = (IsRecording && (_blinkTick % 2 == 0)) ? "[ REC ]" : "";
+
             bool written;
             lock (_rtss)
             {
@@ -110,8 +120,10 @@ public sealed class PerformanceHud : IDisposable
                 if (frames is { } f) { _frameTimeHistory.Enqueue(f.FrameTimeMs); while (_frameTimeHistory.Count > FrameTimeHistorySize) _frameTimeHistory.Dequeue(); }
                 else _frameTimeHistory.Clear();
 
-                // Passa a resolução para o formatador
-                var text = HudFormatter.Format(preset, frames, metrics, _frameTimeHistory, CpuTemperature, GetResolutionInfo());
+                var text = HudFormatter.Format(
+                    preset, frames, metrics, _frameTimeHistory,
+                    CpuTemperature, GetResolutionInfo(),
+                    TdpStatusText, RealTdpText, recIndicator, ColorModeText);
                 written = _rtss.WriteOsd(text);
             }
 
@@ -143,36 +155,81 @@ public sealed class PerformanceHud : IDisposable
 internal static class HudFormatter
 {
     private const string GpuColor = "2E9762", CpuColor = "2E97CB", VramColor = "AD64C1", RamColor = "C26693", BatteryColor = "FF9078", FpsColor = "EB5B5B", ClockColor = "CCCCCC", TempColor = "FF9D00", ResColor = "CCCCCC";
+    private const string TdpColor = "FFB84D", RecColor = "FF4040";
     private const string ValueColor = "FFFFFF", UnitColor = "B0B0B0", Critical = "FF4040", GroupSeparator = "     ", FrameColor = "F2C14E";
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
-    public static string Format(int preset, FrameStats? frames, MetricsSnapshot m, IReadOnlyCollection<double>? frameTimeHistoryMs = null, string? cpuTemp = null, string? resolution = null)
+    public static string Format(
+        int preset, FrameStats? frames, MetricsSnapshot m,
+        IReadOnlyCollection<double>? frameTimeHistoryMs = null,
+        string? cpuTemp = null, string? resolution = null,
+        string? tdpStatus = null, string? realTdp = null, string? recIndicator = null, string? colorMode = null)
     {
         var groups = new List<string>();
+        
+        // ORDEM: FPS -> TEMP -> BAT -> (Resto) -> RES -> HORA -> REC
         switch (preset)
         {
-            case 1: groups.Add(Fps(frames, false)); AddBattery(groups, m, false); break;
-            case 2:
+            case 1: // Mínimo
+                groups.Add(Fps(frames, false));
+                AddTemp(groups, cpuTemp);
+                AddBattery(groups, m, false);
+                break;
+
+            case 2: // Médio
+                groups.Add(Fps(frames, true));
+                AddTemp(groups, cpuTemp);
+                AddBattery(groups, m, false);
                 groups.Add(Group("GPU", GpuColor, Percent(m.GpuPercent)));
                 groups.Add(Group("CPU", CpuColor, Percent(m.CpuPercent)));
-                if (!string.IsNullOrEmpty(cpuTemp) && cpuTemp != "--°C") groups.Add(Group("TEMP", TempColor, Value(cpuTemp.Replace("°C", "")) + Unit("°C")));
-                if (!string.IsNullOrEmpty(resolution)) groups.Add(Group("RES", ResColor, Value(resolution))); // Exibe RES
-                groups.Add(Group("RAM", RamColor, Value(m.RamUsedGb.ToString("0.0", Inv)) + Unit("GB")));
-                AddBattery(groups, m, false); groups.Add(Fps(frames, true));
+                AddTdpGroup(groups, tdpStatus, realTdp);
+                AddResolutionGroup(groups, resolution, colorMode);
                 break;
-            default:
+
+            default: // Completo
+                groups.Add(Fps(frames, true));
+                AddTemp(groups, cpuTemp);
+                AddBattery(groups, m, true);
                 groups.Add(Group("GPU", GpuColor, Percent(m.GpuPercent)));
-                if (m.VramGb is { } vram) groups.Add(Group("VRAM", VramColor, Value(vram.ToString("0.0", Inv)) + Unit("GB")));
                 groups.Add(Group("CPU", CpuColor, Percent(m.CpuPercent) + (m.CpuMhz is { } mhz ? " " + Value(mhz.ToString("0", Inv)) + Unit("MHz") : string.Empty)));
-                if (!string.IsNullOrEmpty(cpuTemp) && cpuTemp != "--°C") groups.Add(Group("TEMP", TempColor, Value(cpuTemp.Replace("°C", "")) + Unit("°C")));
-                if (!string.IsNullOrEmpty(resolution)) groups.Add(Group("RES", ResColor, Value(resolution))); // Exibe RES
+                if (m.VramGb is { } vram) groups.Add(Group("VRAM", VramColor, Value(vram.ToString("0.0", Inv)) + Unit("GB")));
                 groups.Add(Group("RAM", RamColor, Value(m.RamUsedGb.ToString("0.0", Inv)) + Unit("/" + m.RamTotalGb.ToString("0", Inv) + "GB")));
-                AddBattery(groups, m, true); groups.Add(Fps(frames, true));
+                AddTdpGroup(groups, tdpStatus, realTdp);
                 if (FrameTimeRange(frameTimeHistoryMs) is { Length: > 0 } frameRange) groups.Add(Group("FRAME", FrameColor, frameRange));
+                AddResolutionGroup(groups, resolution, colorMode);
                 break;
         }
+        
         groups.Add(Color(ClockColor, DateTime.Now.ToString("HH:mm", Inv)));
+        if (!string.IsNullOrEmpty(recIndicator)) groups.Add(Color(RecColor, recIndicator));
+
         return string.Join(GroupSeparator, groups);
+    }
+
+    private static void AddTdpGroup(List<string> groups, string? tdpStatus, string? realTdp)
+    {
+        if (string.IsNullOrEmpty(tdpStatus)) return;
+        
+        var text = tdpStatus;
+        if (!string.IsNullOrEmpty(realTdp) && realTdp != "-- W" && realTdp != "0 W")
+        {
+            text += $" ({realTdp})";
+        }
+        groups.Add(Group("TDP", TdpColor, Value(text)));
+    }
+
+    private static void AddTemp(List<string> groups, string? cpuTemp)
+    {
+        if (!string.IsNullOrEmpty(cpuTemp) && cpuTemp != "--°C") 
+            groups.Add(Group("TEMP", TempColor, Value(cpuTemp.Replace("°C", "")) + Unit("°C")));
+    }
+
+    private static void AddResolutionGroup(List<string> groups, string? resolution, string? colorMode)
+    {
+        if (string.IsNullOrEmpty(resolution)) return;
+        var text = resolution;
+        if (!string.IsNullOrEmpty(colorMode)) text += " | Modo: " + colorMode;
+        groups.Add(Group("RES", ResColor, Value(text)));
     }
 
     private static string Fps(FrameStats? frames, bool withFrameTime)

@@ -9,6 +9,8 @@ using HandheldLauncher.App.Diagnostics;
 
 namespace HandheldLauncher.App.Platform;
 
+public enum RecordingState { Stopped, Recording, Error }
+
 public class WindowsHardwareService : IHardwareService
 {
     private readonly string _ffmpegPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Tools", "ffmpeg.exe");
@@ -17,7 +19,19 @@ public class WindowsHardwareService : IHardwareService
     private byte[]? _smuModule;
 
     private Process? _ffmpegProcess;
-    public bool IsRecording => _ffmpegProcess != null && !_ffmpegProcess.HasExited;
+    private string? _lastOutputPath;
+    private RecordingState _recordingState = RecordingState.Stopped;
+
+    public bool IsRecording => _recordingState == RecordingState.Recording;
+    public RecordingState RecordingState => _recordingState;
+    public event Action<RecordingState>? RecordingStateChanged;
+
+    private void SetRecordingState(RecordingState state)
+    {
+        if (_recordingState == state) return;
+        _recordingState = state;
+        try { RecordingStateChanged?.Invoke(state); } catch (Exception ex) { DebugLog.Write("[GRAVADOR] Handler de estado falhou: " + ex.Message); }
+    }
 
     // ==========================================
     // TDP
@@ -68,7 +82,6 @@ public class WindowsHardwareService : IHardwareService
     {
         if (!OperatingSystem.IsWindows()) return false;
 
-        // O Lenovo Legion Go 8AHP2 / Ryzen Z2 é especificado para cTDP de 15–30 W.
         int tdpLimit = mode switch
         {
             "UltraEco" => 8000,
@@ -100,6 +113,7 @@ public class WindowsHardwareService : IHardwareService
             return false;
         }
     }
+
     // ==========================================
     // VOLUME, BRILHO E COR
     // ==========================================
@@ -162,11 +176,8 @@ public class WindowsHardwareService : IHardwareService
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 256)] public ushort[] Blue;
     }
 
-    [DllImport("user32.dll")]
-    private static extern IntPtr GetDC(IntPtr hwnd);
-
-    [DllImport("user32.dll")]
-    private static extern int ReleaseDC(IntPtr hwnd, IntPtr hdc);
+    [DllImport("user32.dll")] private static extern IntPtr GetDC(IntPtr hwnd);
+    [DllImport("user32.dll")] private static extern int ReleaseDC(IntPtr hwnd, IntPtr hdc);
 
     [DllImport("gdi32.dll", EntryPoint = "GetDeviceGammaRamp", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -176,7 +187,7 @@ public class WindowsHardwareService : IHardwareService
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SetDeviceGammaRamp(IntPtr hdc, ref GammaRamp ramp);
 
-    public bool SetColorMode(string mode)
+        public bool SetColorMode(string mode)
     {
         if (!OperatingSystem.IsWindows()) return false;
 
@@ -192,39 +203,42 @@ public class WindowsHardwareService : IHardwareService
                     return false;
                 }
 
-                if (_originalGammaRamp is null)
-                {
-                    var original = CreateIdentityGammaRamp();
-                    if (!GetDeviceGammaRamp(hdc, ref original))
-                    {
-                        DebugLog.Write("[COR] O driver de vídeo não permite ler a curva de calibração.");
-                        return false;
-                    }
-                    _originalGammaRamp = original;
-                }
+                // 1. SEMPRE limpa a tela para o estado neutro (Identidade) antes de tudo.
+                // Isso evita que os efeitos se somem (ex: OLED + Vívido) ou que fiquem presos na tela.
+                var identityRamp = CreateIdentityGammaRamp();
+                SetDeviceGammaRamp(hdc, ref identityRamp);
 
                 if (string.Equals(mode, "Padrão", StringComparison.OrdinalIgnoreCase))
                 {
-                    var restore = CloneGammaRamp(_originalGammaRamp.Value);
-                    bool restored = SetDeviceGammaRamp(hdc, ref restore);
-                    DebugLog.Write(restored ? "[COR] Calibração original restaurada." : "[COR] Falha ao restaurar a calibração original.");
-                    return restored;
+                    // Tenta restaurar a original se existir, senão a identidade já aplicada já resolve.
+                    if (_originalGammaRamp is { } original)
+                    {
+                        var restore = CloneGammaRamp(original);
+                        SetDeviceGammaRamp(hdc, ref restore);
+                    }
+                    DebugLog.Write("[COR] Modo Padrão aplicado (efeitos removidos).");
+                    return true;
                 }
+
+                // Salva a identidade como referência base se ainda não tiver uma
+                _originalGammaRamp ??= CreateIdentityGammaRamp();
 
                 double contrast = mode switch
                 {
                     "Vívido" => 1.10,
-                    "OLED (Alto Contraste)" => 1.18,
-                    "Noturno (Luz Quente)" => 1.00,
+                    "OLED" => 1.18,
+                    "Noturno" => 1.00,
                     _ => 1.00
                 };
 
                 double redGain = mode == "Vívido" ? 1.025 : 1.0;
-                double greenGain = mode == "Vívido" ? 1.01 : mode == "Noturno (Luz Quente)" ? 0.94 : 1.0;
-                double blueGain = mode == "Vívido" ? 1.025 : mode == "Noturno (Luz Quente)" ? 0.72 : 1.0;
+                double greenGain = mode == "Vívido" ? 1.01 : mode == "Noturno" ? 0.94 : 1.0;
+                double blueGain = mode == "Vívido" ? 1.025 : mode == "Noturno" ? 0.72 : 1.0;
 
-                var ramp = BuildGammaRamp(_originalGammaRamp.Value, contrast, redGain, greenGain, blueGain);
+                // 2. Aplica o efeito desejado em cima da rampa identidade
+                var ramp = BuildGammaRamp(identityRamp, contrast, redGain, greenGain, blueGain);
                 bool applied = SetDeviceGammaRamp(hdc, ref ramp);
+                
                 DebugLog.Write(applied
                     ? $"[COR] Perfil {mode} aplicado via calibração de gama do Windows."
                     : $"[COR] O driver de vídeo recusou o perfil {mode}.");
@@ -299,78 +313,161 @@ public class WindowsHardwareService : IHardwareService
     }
 
     // ==========================================
-    // GRAVAÇÃO
+    // GRAVAÇÃO  (v0.14.3 — blindada)
     // ==========================================
     public void ToggleScreenRecording()
     {
         if (!OperatingSystem.IsWindows()) return;
-        if (IsRecording) StopRecording(); else StartRecording();
+        if (_recordingState == RecordingState.Recording) StopRecording();
+        else StartRecording();
+    }
+
+    private static bool IsFfmpegUsable(string path)
+    {
+        try
+        {
+            if (!File.Exists(path)) { DebugLog.Write($"[GRAVADOR] ffmpeg.exe não encontrado em {path}"); return false; }
+            var info = new FileInfo(path);
+            if (info.Length < 1024) { DebugLog.Write($"[GRAVADOR] ffmpeg.exe suspeito (tamanho {info.Length} bytes) em {path}"); return false; }
+            // Abrir para leitura confirma que o arquivo é acessível e não está travado/corrompido
+            using var fs = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+            return fs.Length > 0;
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[GRAVADOR] ffmpeg inválido em {path}: {ex.GetType().Name}: {ex.Message}");
+            return false;
+        }
     }
 
     private void StartRecording()
     {
+        if (_recordingState == RecordingState.Recording)
+        {
+            DebugLog.Write("[GRAVADOR] Já está gravando — ignorando StartRecording.");
+            return;
+        }
+
+        if (!IsFfmpegUsable(_ffmpegPath))
+        {
+            SetRecordingState(RecordingState.Error);
+            DebugLog.Write("[GRAVADOR] Pré-validação do ffmpeg falhou — gravação não iniciada.");
+            return;
+        }
+
         try
         {
-            if (!File.Exists(_ffmpegPath))
-            {
-                DebugLog.Write($"[GRAVADOR] Erro: ffmpeg.exe não encontrado em {_ffmpegPath}");
-                return;
-            }
-
             string videosPath = Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
             string outputPath = Path.Combine(videosPath, $"HandheldLauncher_{DateTime.Now:yyyyMMdd_HHmmss}.mp4");
             string arguments = $"-y -f gdigrab -framerate 60 -i desktop -c:v libx264 -preset ultrafast -crf 23 \"{outputPath}\"";
-            
-            var psi = new ProcessStartInfo 
-            { 
-                FileName = _ffmpegPath, 
-                Arguments = arguments, 
-                CreateNoWindow = true, 
-                UseShellExecute = false, 
-                RedirectStandardInput = true 
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = _ffmpegPath,
+                Arguments = arguments,
+                CreateNoWindow = true,
+                UseShellExecute = false,
+                RedirectStandardInput = true,
+                RedirectStandardError = true,   // v0.14.3: captura logs do ffmpeg pra debug
+                RedirectStandardOutput = true
             };
-            
+
             _ffmpegProcess = Process.Start(psi);
-            DebugLog.Write($"[GRAVADOR] Iniciado. Salvando em: {outputPath}");
+            if (_ffmpegProcess is null)
+            {
+                SetRecordingState(RecordingState.Error);
+                DebugLog.Write("[GRAVADOR] Process.Start retornou null.");
+                return;
+            }
+
+            // Drena stdout/stderr em background pra não travar o pipe do ffmpeg
+            _ffmpegProcess.BeginOutputReadLine();
+            _ffmpegProcess.BeginErrorReadLine();
+
+            _lastOutputPath = outputPath;
+            SetRecordingState(RecordingState.Recording);
+            DebugLog.Write($"[GRAVADOR] Iniciado (PID {_ffmpegProcess.Id}). Salvando em: {outputPath}");
         }
-        catch (Exception ex) 
-        { 
-            DebugLog.Write($"[GRAVADOR] Erro ao iniciar: {ex.Message}"); 
-            _ffmpegProcess = null; 
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[GRAVADOR] Erro ao iniciar: {ex.GetType().Name}: {ex.Message}");
+            _ffmpegProcess = null;
+            _lastOutputPath = null;
+            SetRecordingState(RecordingState.Error);
         }
     }
 
     private void StopRecording()
     {
+        var pathToValidate = _lastOutputPath;
         try
         {
-            if (_ffmpegProcess != null && !_ffmpegProcess.HasExited)
+            if (_ffmpegProcess is null || _ffmpegProcess.HasExited)
             {
-                // Envia o comando "q" para o FFmpeg finalizar o arquivo .mp4 de forma limpa
-                _ffmpegProcess.StandardInput.WriteLine("q");
-                _ffmpegProcess.StandardInput.Flush();
+                DebugLog.Write("[GRAVADOR] StopRecording chamado sem processo ativo.");
+                // Mesmo assim, valida o que tiver no _lastOutputPath
+            }
+            else
+            {
+                try
+                {
+                    _ffmpegProcess.StandardInput.WriteLine("q");
+                    _ffmpegProcess.StandardInput.Flush();
+                }
+                catch (Exception ex)
+                {
+                    DebugLog.Write("[GRAVADOR] Falha ao enviar 'q' pro ffmpeg: " + ex.Message);
+                }
 
-                // Aumentamos para 5 segundos para garantir que arquivos longos não corrompam
                 if (!_ffmpegProcess.WaitForExit(5000))
                 {
-                    DebugLog.Write("[GRAVADOR] FFmpeg não respondeu a tempo. Forçando encerramento (risco de arquivo corrompido).");
-                    _ffmpegProcess.Kill();
+                    DebugLog.Write("[GRAVADOR] FFmpeg não respondeu em 5s. Forçando encerramento (arquivo pode estar corrompido).");
+                    try { _ffmpegProcess.Kill(entireProcessTree: true); } catch { }
+                    try { _ffmpegProcess.WaitForExit(2000); } catch { }
+                    SetRecordingState(RecordingState.Error);
+                    return;
                 }
-                else
-                {
-                    DebugLog.Write("[GRAVADOR] Parado com sucesso e arquivo salvo.");
-                }
+
+                DebugLog.Write($"[GRAVADOR] FFmpeg finalizou com exit code {_ffmpegProcess.ExitCode}.");
             }
         }
-        catch (Exception ex) 
-        { 
-            DebugLog.Write($"[GRAVADOR] Erro ao parar: {ex.Message}"); 
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[GRAVADOR] Erro ao parar: {ex.GetType().Name}: {ex.Message}");
+            SetRecordingState(RecordingState.Error);
+            return;
         }
-        finally 
-        { 
-            _ffmpegProcess?.Dispose();
-            _ffmpegProcess = null; 
+        finally
+        {
+            try { _ffmpegProcess?.Dispose(); } catch { }
+            _ffmpegProcess = null;
         }
+
+        // ── Validação do arquivo gerado ──
+        if (string.IsNullOrEmpty(pathToValidate))
+        {
+            SetRecordingState(RecordingState.Error);
+            DebugLog.Write("[GRAVADOR] Caminho de saída desconhecido — impossível validar.");
+            return;
+        }
+
+        if (!File.Exists(pathToValidate))
+        {
+            SetRecordingState(RecordingState.Error);
+            DebugLog.Write($"[GRAVADOR] Arquivo não encontrado após parada: {pathToValidate}");
+            return;
+        }
+
+        var fi = new FileInfo(pathToValidate);
+        if (fi.Length <= 0)
+        {
+            SetRecordingState(RecordingState.Error);
+            DebugLog.Write($"[GRAVADOR] Arquivo gerado está vazio (0 bytes): {pathToValidate}");
+            return;
+        }
+
+        SetRecordingState(RecordingState.Stopped);
+        DebugLog.Write($"[GRAVADOR] Parado com sucesso: {pathToValidate} ({fi.Length:N0} bytes)");
     }
 
     // ==========================================

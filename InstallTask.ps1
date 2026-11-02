@@ -5,18 +5,26 @@ param([switch]$SkipReboot)
 
 $ErrorActionPreference = "Stop"
 
-# ============================================================
-# v0.14.2 — Fim da duplicação de tarefas.
-# O script NÃO cria mais a tarefa "HandheldLauncher_Startup".
-# Quem cria/remove tarefa de boot agora é o WatchdogTask.cs (chamado
-# quando o usuário salva Desktop/Handheld nas Configurações), que usa
-# LogonTrigger com Delay + RestartOnFailure limitado. Isso elimina
-# o loop de "abrir 2 janelas no boot" e "reabrir a cada 1 minuto".
-# ============================================================
+# 1. Cria a Tarefa Agendada para iniciar no boot com Admin (sem UAC)
+$exePath = Join-Path $env:LOCALAPPDATA "HandheldLauncher\current\HandheldLauncher.exe"
 
-Write-Host "InstallTask.ps1 v0.14.2: configurando modo console..."
+if (-not (Test-Path $exePath)) {
+    $exePath = Join-Path $env:LOCALAPPDATA "HandheldLauncher\HandheldLauncher.exe"
+}
 
-# 1. Ativa o KioskMode no settings.json
+if (-not (Test-Path $exePath)) {
+    Write-Host "AVISO: Executavel nao encontrado. A Tarefa Agendada nao foi criada."
+} else {
+    $action = New-ScheduledTaskAction -Execute $exePath
+    $trigger = New-ScheduledTaskTrigger -AtLogOn
+    $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Highest
+    # 🟢 StartWhenAvailable: inicia assim que possível, sem esperar o atraso do Windows
+    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
+    Register-ScheduledTask -Action $action -Trigger $trigger -Principal $principal -Settings $settings -TaskName "HandheldLauncher_Startup" -Description "Inicia o Handheld Launcher em Modo Console." -Force
+    Write-Host "OK: Tarefa Agendada criada com sucesso."
+}
+
+# 2. Ativa o KioskMode no arquivo de configuracoes
 $settingsDir = Join-Path $env:APPDATA "HandheldLauncher"
 $settingsFile = Join-Path $settingsDir "settings.json"
 
@@ -35,39 +43,26 @@ if (Test-Path $settingsFile) {
 
 # Ativa o modo console
 $settings["KioskMode"] = $true
-$settings["AutoRestart"] = $true
 $settings["ModeChosen"] = $true
 
 $settings | ConvertTo-Json -Depth 10 | Set-Content $settingsFile -Encoding UTF8
 Write-Host "OK: Modo Console (KioskMode) ativado."
 
-# ============================================================
-# v0.14.2 — Remove tarefa duplicada que o script antigo criava.
-# Se a "HandheldLauncher_Startup" (versão antiga) existir, apaga
-# para não conflitar com a "HandheldLauncherWatchdog" gerenciada
-# pelo WatchdogTask.cs.
-# ============================================================
-try {
-    $existing = schtasks /Query /TN "HandheldLauncher_Startup" 2>$null
-    if ($LASTEXITCODE -eq 0) {
-        schtasks /Delete /TN "HandheldLauncher_Startup" /F | Out-Null
-        Write-Host "OK: Tarefa antiga 'HandheldLauncher_Startup' removida (duplicava o watchdog)."
-    }
-} catch {
-    # Best effort
-}
-
-# 2. Agenda o reboot (a menos que o usuario passe -SkipReboot)
+# 3. Agenda o reboot (a menos que o usuario passe -SkipReboot)
 if (-not $SkipReboot) {
     Write-Host ""
     Write-Host "=================================================" -ForegroundColor Yellow
     Write-Host "O sistema sera reiniciado em 30 segundos para" -ForegroundColor Yellow
     Write-Host "entrar no Modo Console." -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "Para CANCELAR: shutdown /a" -ForegroundColor Cyan
+    Write-Host "Para CANCELAR: schtasks /Delete /TN HandheldLauncher_Reboot /F" -ForegroundColor Cyan
     Write-Host "=================================================" -ForegroundColor Yellow
 
-    shutdown /r /t 30 /c "Handheld Launcher: Reiniciando em 30s para entrar no Modo Console. Execute 'shutdown /a' para cancelar."
+    # 🟢 Cria uma tarefa agendada para o reboot, que é mais confiável
+    $rebootAction = New-ScheduledTaskAction -Execute "shutdown.exe" -Argument "/r /t 0 /f"
+    $rebootTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddSeconds(30)
+    $rebootPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+    Register-ScheduledTask -Action $rebootAction -Trigger $rebootTrigger -Principal $rebootPrincipal -TaskName "HandheldLauncher_Reboot" -Description "Reinicia o PC apos a instalacao do Modo Console." -Force
 } else {
     Write-Host "Reboot ignorado (flag -SkipReboot)."
 }
