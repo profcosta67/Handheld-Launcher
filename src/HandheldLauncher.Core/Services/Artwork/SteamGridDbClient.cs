@@ -17,7 +17,7 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     private readonly HttpClient _http;
-    private readonly string? _apiKey;
+    private string? _apiKey;
 
     public SteamGridDbClient(string? apiKey)
     {
@@ -28,6 +28,15 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
         {
             _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
         }
+    }
+
+    // 🟢 NOVO MÉTODO: Permite atualizar a chave sem reiniciar o app
+    public void UpdateApiKey(string? apiKey)
+    {
+        _apiKey = apiKey;
+        _http.DefaultRequestHeaders.Authorization = string.IsNullOrWhiteSpace(apiKey)
+            ? null
+            : new AuthenticationHeaderValue("Bearer", apiKey);
     }
 
     public bool HasApiKey => !string.IsNullOrWhiteSpace(_apiKey);
@@ -67,7 +76,6 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
     {
         if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
         var type = animatedOnly ? "animated" : "static,animated";
-        // Filtro de proporção: Apenas verticais
         return await FetchGridCandidates($"{BaseUrl}/grids/steam/{steamAppId}?types={type}", ct, wideOnly: false);
     }
 
@@ -84,7 +92,6 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
     {
         if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
         var type = animatedOnly ? "animated" : "static,animated";
-        // Filtro de proporção: Apenas horizontais
         return await FetchGridCandidates($"{BaseUrl}/heroes/steam/{steamAppId}?types={type}", ct, wideOnly: true);
     }
 
@@ -101,7 +108,6 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
     {
         if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
         var type = animatedOnly ? "animated" : "static,animated";
-        // Logos não têm restrição estrita de proporção (podem ser quadrados ou largos)
         return await FetchGridCandidates($"{BaseUrl}/logos/steam/{steamAppId}?types={type}", ct);
     }
 
@@ -134,7 +140,6 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
     {
         if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
         var type = animatedOnly ? "animated" : "static,animated";
-        // Filtro de proporção: Apenas horizontais
         return await FetchGridCandidates($"{BaseUrl}/grids/steam/{steamAppId}?types={type}", ct, wideOnly: true);
     }
 
@@ -156,7 +161,6 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
         return payload?.Data?.FirstOrDefault()?.Id;
     }
 
-    // Adicionado o parâmetro 'wideOnly' para forçar o filtro local de proporção
     private async Task<IReadOnlyList<SteamGridDbImage>> FetchGridCandidates(string url, CancellationToken ct, bool? wideOnly = null)
     {
         using var response = await _http.GetAsync(url, ct);
@@ -167,16 +171,8 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
 
         var query = payload.Data.Where(g => !g.Nsfw && !g.Humor);
 
-        if (wideOnly == true)
-        {
-            // Só aceita horizontais (Largura > Altura)
-            query = query.Where(g => g.Width > g.Height);
-        }
-        else if (wideOnly == false)
-        {
-            // Só aceita verticais (Altura > Largura)
-            query = query.Where(g => g.Height > g.Width);
-        }
+        if (wideOnly == true) query = query.Where(g => g.Width > g.Height);
+        else if (wideOnly == false) query = query.Where(g => g.Height > g.Width);
 
         return query
             .OrderByDescending(g => g.Score)

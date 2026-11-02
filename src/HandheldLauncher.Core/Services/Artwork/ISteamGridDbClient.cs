@@ -8,6 +8,9 @@ public interface ISteamGridDbClient
 {
     bool HasApiKey { get; }
 
+    // 🟢 NOVO MÉTODO AQUI
+    void UpdateApiKey(string? apiKey);
+
     Task<SteamGridDbImage?> GetBestGridForSteamAppAsync(uint steamAppId, CancellationToken ct = default);
     Task<SteamGridDbImage?> GetBestGridForTitleAsync(string title, CancellationToken ct = default);
     Task<SteamGridDbImage?> GetBestHeroForSteamAppAsync(uint steamAppId, CancellationToken ct = default);
@@ -19,7 +22,6 @@ public interface ISteamGridDbClient
     Task<SteamGridDbImage?> GetBestWideGridForSteamAppAsync(uint steamAppId, CancellationToken ct = default);
     Task<SteamGridDbImage?> GetBestWideGridForTitleAsync(string title, CancellationToken ct = default);
 
-    // Parâmetro animatedOnly adicionado em todos os métodos de candidatos
     Task<IReadOnlyList<SteamGridDbImage>> GetGridCandidatesForSteamAppAsync(uint steamAppId, bool animatedOnly = false, CancellationToken ct = default);
     Task<IReadOnlyList<SteamGridDbImage>> GetGridCandidatesForTitleAsync(string title, bool animatedOnly = false, CancellationToken ct = default);
     Task<IReadOnlyList<SteamGridDbImage>> GetHeroCandidatesForSteamAppAsync(uint steamAppId, bool animatedOnly = false, CancellationToken ct = default);

@@ -21,7 +21,6 @@ public sealed class MainViewModel : ViewModelBase
     private readonly ISteamOwnedGamesClient? _steamOwnedGames;
     private readonly ISteamAchievementsClient? _steamAchievements;
 
-    // Monitor de Temperatura
     private readonly HardwareMonitorService _monitorService = new();
     private readonly HWiNFOSharedMemoryService _hwInfoService = new();
     private DateTime _lastHwInfoPollTime = DateTime.MinValue;
@@ -71,7 +70,6 @@ public sealed class MainViewModel : ViewModelBase
         SetFilterApplicationsCommand = new RelayCommand(() => SetFilter(LibraryFilter.Applications));
         SetFilterNotInstalledCommand = new RelayCommand(() => SetFilter(LibraryFilter.NotInstalled));
 
-        // 🟢 INICIA O MONITOR DE TEMPERATURA AQUI 🟢
         _hardwareTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         _hardwareTimer.Tick += (_, _) =>
         {
@@ -81,16 +79,12 @@ public sealed class MainViewModel : ViewModelBase
                 CpuTemperature = $"{temp.Value:F0}°C";
                 DebugLog.Write($"[TEMPERATURA] CPU: {CpuTemperature}");
                 
-                // 🟢 ESSA É A LINHA MÁGICA QUE MANDA PRO HUD
                 if (_hud != null)
                 {
                     _hud.CpuTemperature = CpuTemperature;
                 }
             }
 
-            // Coleta telemetria publicada pelo HWiNFO, quando estiver aberto
-            // com "Shared Memory Support" habilitado. A ausência do HWiNFO
-            // não afeta os controles nem o funcionamento do Launcher.
             if (_hwInfoService.TryRead(out var hwInfo) && hwInfo is not null)
             {
                 _hwInfoWasAvailable = true;
@@ -121,7 +115,6 @@ public sealed class MainViewModel : ViewModelBase
             }
         };
         _hardwareTimer.Start();
-        // 🟢 FIM DO MONITOR DE TEMPERATURA 🟢
 
         RebuildGamesFromLibrary();
     }
@@ -350,10 +343,8 @@ public sealed class MainViewModel : ViewModelBase
     }
 
     public bool IsPerformanceHudEnabled => _hud is not null && _hud.Preset > 0;
-    
-    // 🟢 NOVO: Para o Overlay saber qual modo está selecionado
     public int CurrentHudPreset => _hud?.Preset ?? 0; 
-    
+
     public void SetPerformanceHudEnabled(bool enabled)
     {
         if (_hud is null || !OperatingSystem.IsWindows()) return;
@@ -590,6 +581,14 @@ public sealed class MainViewModel : ViewModelBase
     public void RequestOpenOverlay()
     {
         OpenOverlayRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    // 🟢 NOVO MÉTODO AQUI
+    public void RefreshArtworkState()
+    {
+        _artwork.ReloadSettings();
+        OnPropertyChanged(nameof(CanFetchArtwork));
+        if (IsGlobalMenuOpen) BuildGlobalMenu(); // Atualiza o menu se estiver aberto
     }
 
     public void ApplyEntryEdits(GameEntry game, string? title, bool isApplication)
@@ -1099,7 +1098,6 @@ public sealed class MainViewModel : ViewModelBase
                 GlobalMenuTitle = "Biblioteca";
                 Add("Atualizar Biblioteca", Refresh);
                 
-                // 🟢 AQUI ESTÁ A CORREÇÃO: A opção sempre aparece.
                 if (IsFetchingArtwork)
                 {
                     Add("Baixando capas... (Aguarde)", () => { });
@@ -1638,7 +1636,6 @@ public sealed class MainViewModel : ViewModelBase
 
     private async void FetchMissingArtwork()
     {
-        // 🟢 CORREÇÃO: Se não tiver API Key, abre as configurações
         if (!_artwork.HasApiKey)
         {
             SettingsRequested?.Invoke(this, EventArgs.Empty);

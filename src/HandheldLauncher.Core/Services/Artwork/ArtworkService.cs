@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using HandheldLauncher.Core.Models;
 using SkiaSharp;
+using HandheldLauncher.Core.Services; // Necessário para o AppSettingsStore
 
 namespace HandheldLauncher.Core.Services.Artwork;
 
@@ -27,6 +28,14 @@ public sealed class ArtworkService : IArtworkService
     }
 
     public bool HasApiKey => _client.HasApiKey;
+
+    // 🟢 NOVO MÉTODO AQUI
+    public void ReloadSettings()
+    {
+        var settings = AppSettingsStore.Load();
+        // Substitua "SteamGridDbApiKey" pelo nome exato da propriedade no seu AppSettings
+        _client.UpdateApiKey(settings.SteamGridDbApiKey);
+    }
 
     public async Task<bool> FetchGridAsync(GameEntry game, CancellationToken ct = default)
     {

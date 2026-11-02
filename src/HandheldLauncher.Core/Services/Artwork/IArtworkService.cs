@@ -10,6 +10,12 @@ public interface IArtworkService
     bool HasApiKey { get; }
 
     /// <summary>
+    /// Recarrega as configurações do disco (como a API Key) para que o serviço
+    /// reconheça mudanças feitas na tela de Configurações sem precisar reiniciar o app.
+    /// </summary>
+    void ReloadSettings();
+
+    /// <summary>
     /// Fetches and caches a cover for this game, persisting it as an
     /// override so it survives the next library re-scan. Mutates
     /// game.GridImagePath directly on success so the caller can repaint
