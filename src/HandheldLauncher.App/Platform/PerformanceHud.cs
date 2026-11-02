@@ -19,7 +19,7 @@ public sealed class PerformanceHud : IDisposable
 
     public string CpuTemperature { get; set; } = "--°C";
 
-    // 🟢 LEITURA DE RESOLUÇÃO E HZ
+    // LEITURA DE RESOLUÇÃO E HZ
     [DllImport("user32.dll")]
     private static extern bool EnumDisplaySettings(string deviceName, int modeNum, ref DEVMODE devMode);
 
@@ -110,7 +110,7 @@ public sealed class PerformanceHud : IDisposable
                 if (frames is { } f) { _frameTimeHistory.Enqueue(f.FrameTimeMs); while (_frameTimeHistory.Count > FrameTimeHistorySize) _frameTimeHistory.Dequeue(); }
                 else _frameTimeHistory.Clear();
 
-                // 🟢 Passa a resolução para o formatador
+                // Passa a resolução para o formatador
                 var text = HudFormatter.Format(preset, frames, metrics, _frameTimeHistory, CpuTemperature, GetResolutionInfo());
                 written = _rtss.WriteOsd(text);
             }
@@ -156,7 +156,7 @@ internal static class HudFormatter
                 groups.Add(Group("GPU", GpuColor, Percent(m.GpuPercent)));
                 groups.Add(Group("CPU", CpuColor, Percent(m.CpuPercent)));
                 if (!string.IsNullOrEmpty(cpuTemp) && cpuTemp != "--°C") groups.Add(Group("TEMP", TempColor, Value(cpuTemp.Replace("°C", "")) + Unit("°C")));
-                if (!string.IsNullOrEmpty(resolution)) groups.Add(Group("RES", ResColor, Value(resolution)));
+                if (!string.IsNullOrEmpty(resolution)) groups.Add(Group("RES", ResColor, Value(resolution))); // Exibe RES
                 groups.Add(Group("RAM", RamColor, Value(m.RamUsedGb.ToString("0.0", Inv)) + Unit("GB")));
                 AddBattery(groups, m, false); groups.Add(Fps(frames, true));
                 break;
@@ -165,7 +165,7 @@ internal static class HudFormatter
                 if (m.VramGb is { } vram) groups.Add(Group("VRAM", VramColor, Value(vram.ToString("0.0", Inv)) + Unit("GB")));
                 groups.Add(Group("CPU", CpuColor, Percent(m.CpuPercent) + (m.CpuMhz is { } mhz ? " " + Value(mhz.ToString("0", Inv)) + Unit("MHz") : string.Empty)));
                 if (!string.IsNullOrEmpty(cpuTemp) && cpuTemp != "--°C") groups.Add(Group("TEMP", TempColor, Value(cpuTemp.Replace("°C", "")) + Unit("°C")));
-                if (!string.IsNullOrEmpty(resolution)) groups.Add(Group("RES", ResColor, Value(resolution)));
+                if (!string.IsNullOrEmpty(resolution)) groups.Add(Group("RES", ResColor, Value(resolution))); // Exibe RES
                 groups.Add(Group("RAM", RamColor, Value(m.RamUsedGb.ToString("0.0", Inv)) + Unit("/" + m.RamTotalGb.ToString("0", Inv) + "GB")));
                 AddBattery(groups, m, true); groups.Add(Fps(frames, true));
                 if (FrameTimeRange(frameTimeHistoryMs) is { Length: > 0 } frameRange) groups.Add(Group("FRAME", FrameColor, frameRange));

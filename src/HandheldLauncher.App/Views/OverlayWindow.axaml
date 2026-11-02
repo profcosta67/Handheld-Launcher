@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="HandheldLauncher.App.Views.OverlayWindow"
         Title="Quick Settings"
-        Width="380" Height="850"
+        Width="440" Height="850"
         SystemDecorations="None"
         Background="Transparent"
         TransparencyLevelHint="Transparent"
@@ -39,23 +39,25 @@
                 <Button x:Name="BtnClose" Grid.Column="1" Content="✕" Width="40" Height="40" CornerRadius="20" Background="#33FFFFFF" Foreground="White" Click="OnCloseClick" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="16" FontWeight="Bold" />
             </Grid>
 
-            <!-- 🟢 Adicionado x:Name="MainScrollViewer" -->
-            <ScrollViewer x:Name="MainScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                <StackPanel Spacing="10">
+            <!-- Scroll Principal (Oculto e com largura fixa no conteúdo) -->
+            <ScrollViewer x:Name="MainScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled">
+                
+                <!-- 🟢 AQUI ESTÁ A CORREÇÃO: Width fixo de 380 impede o alargamento/encolhimento -->
+                <StackPanel Spacing="10" Width="380" HorizontalAlignment="Center">
                     
                     <!-- Seção: Resolução -->
                     <Border x:Name="ResolutionSection" CornerRadius="12" BorderThickness="2" BorderBrush="Transparent" Padding="10" Background="#1AFFFFFF">
                         <StackPanel Spacing="6">
                             <TextBlock Text="🖥️ Resolução" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
-                            <Grid ColumnDefinitions="*,*,*">
-                                <Button x:Name="BtnRes720" Grid.Column="0" Tag="1280x720" Content="720p" Click="OnResolutionClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="6" Margin="0,0,4,0" FontSize="11"/>
-                                <Button x:Name="BtnRes900" Grid.Column="1" Tag="1600x900" Content="900p" Click="OnResolutionClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="6" Margin="4,0,4,0" FontSize="11"/>
-                                <Button x:Name="BtnRes1080" Grid.Column="2" Tag="1920x1080" Content="1080p" Click="OnResolutionClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="6" Margin="4,0,0,0" FontSize="11"/>
+                            <Grid ColumnDefinitions="*,*,*" Margin="0,0,0,4">
+                                <Button x:Name="BtnRes720" Grid.Column="0" Tag="1280x720" Content="720p" Click="OnResolutionClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="6" Margin="0,0,4,0" FontSize="12"/>
+                                <Button x:Name="BtnRes900" Grid.Column="1" Tag="1600x900" Content="900p" Click="OnResolutionClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="6" Margin="2,0" FontSize="12"/>
+                                <Button x:Name="BtnRes1080" Grid.Column="2" Tag="1920x1080" Content="1080p" Click="OnResolutionClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="6" Margin="4,0,0,0" FontSize="12"/>
                             </Grid>
                             <Grid ColumnDefinitions="*,*,*">
-                                <Button x:Name="BtnRes1200" Grid.Column="0" Tag="1920x1200" Content="1200p" Click="OnResolutionClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="6" Margin="0,0,4,0" FontSize="11"/>
-                                <Button x:Name="BtnRes2K" Grid.Column="1" Tag="2560x1440" Content="2K" Click="OnResolutionClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="6" Margin="4,0,4,0" FontSize="11"/>
-                                <Button x:Name="BtnResGo" Grid.Column="2" Tag="2560x1600" Content="2560" Click="OnResolutionClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="6" Margin="4,0,0,0" FontSize="11"/>
+                                <Button x:Name="BtnRes1200" Grid.Column="0" Tag="1920x1200" Content="1200p" Click="OnResolutionClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="6" Margin="0,0,4,0" FontSize="12"/>
+                                <Button x:Name="BtnRes2K" Grid.Column="1" Tag="2560x1440" Content="2K" Click="OnResolutionClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="6" Margin="2,0" FontSize="12"/>
+                                <Button x:Name="BtnResGo" Grid.Column="2" Tag="2560x1600" Content="2560" Click="OnResolutionClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="6" Margin="4,0,0,0" FontSize="12"/>
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -65,10 +67,10 @@
                         <StackPanel Spacing="6">
                             <TextBlock Text="🔄 Taxa (Hz)" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
                             <Grid ColumnDefinitions="*,*,*,*">
-                                <Button x:Name="BtnHz60" Grid.Column="0" Tag="60" Content="60" Click="OnRefreshClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="6" Margin="0,0,4,0" FontSize="11"/>
-                                <Button x:Name="BtnHz120" Grid.Column="1" Tag="120" Content="120" Click="OnRefreshClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="6" Margin="4,0,4,0" FontSize="11"/>
-                                <Button x:Name="BtnHz144" Grid.Column="2" Tag="144" Content="144" Click="OnRefreshClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="6" Margin="4,0,4,0" FontSize="11"/>
-                                <Button x:Name="BtnHz240" Grid.Column="3" Tag="240" Content="240" Click="OnRefreshClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="6" Margin="4,0,0,0" FontSize="11"/>
+                                <Button x:Name="BtnHz60" Grid.Column="0" Tag="60" Content="60" Click="OnRefreshClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="6" Margin="0,0,4,0" FontSize="12"/>
+                                <Button x:Name="BtnHz120" Grid.Column="1" Tag="120" Content="120" Click="OnRefreshClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="6" Margin="2,0" FontSize="12"/>
+                                <Button x:Name="BtnHz144" Grid.Column="2" Tag="144" Content="144" Click="OnRefreshClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="6" Margin="2,0" FontSize="12"/>
+                                <Button x:Name="BtnHz240" Grid.Column="3" Tag="240" Content="240" Click="OnRefreshClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="6" Margin="4,0,0,0" FontSize="12"/>
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -78,37 +80,37 @@
                         <StackPanel Spacing="8">
                             <TextBlock Text="⚡ Desempenho (TDP)" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
                             <Grid RowDefinitions="Auto,Auto">
-                                <Grid Grid.Row="0" ColumnDefinitions="*,*,*" Margin="0,0,0,5">
-                                    <Button x:Name="BtnUltraEco" Grid.Column="0" Tag="UltraEco" ToolTip.Tip="UltraEco • 8 W" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="0,0,3,0" Padding="4" Height="42" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
-                                        <StackPanel Orientation="Vertical" Spacing="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Grid Grid.Row="0" ColumnDefinitions="*,*,*" Margin="0,0,0,6">
+                                    <Button x:Name="BtnUltraEco" Grid.Column="0" Tag="UltraEco" ToolTip.Tip="UltraEco • 8 W" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="0,0,4,0" Padding="4" Height="46" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                                        <StackPanel Orientation="Vertical" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
                                             <TextBlock Text="🪫" FontSize="16" HorizontalAlignment="Center"/>
-                                            <TextBlock Text="U.Eco" FontSize="9" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="U.Eco" FontSize="10" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
-                                    <Button x:Name="BtnEco" Grid.Column="1" Tag="Eco" ToolTip.Tip="Eco • 15 W" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="3,0" Padding="4" Height="42" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
-                                        <StackPanel Orientation="Vertical" Spacing="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Button x:Name="BtnEco" Grid.Column="1" Tag="Eco" ToolTip.Tip="Eco • 15 W" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="2,0" Padding="4" Height="46" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                                        <StackPanel Orientation="Vertical" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
                                             <TextBlock Text="🍃" FontSize="16" HorizontalAlignment="Center"/>
-                                            <TextBlock Text="Eco" FontSize="9" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Eco" FontSize="10" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
-                                    <Button x:Name="BtnNormal" Grid.Column="2" Tag="Normal" ToolTip.Tip="Normal • 20 W" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="3,0,0,0" Padding="4" Height="42" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
-                                        <StackPanel Orientation="Vertical" Spacing="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Button x:Name="BtnNormal" Grid.Column="2" Tag="Normal" ToolTip.Tip="Normal • 20 W" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="4,0,0,0" Padding="4" Height="46" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                                        <StackPanel Orientation="Vertical" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
                                             <TextBlock Text="🎯" FontSize="16" HorizontalAlignment="Center"/>
-                                            <TextBlock Text="Normal" FontSize="9" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Normal" FontSize="10" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                 </Grid>
-                                <Grid Grid.Row="1" ColumnDefinitions="*,*" Margin="24,0">
-                                    <Button x:Name="BtnDesempenho" Grid.Column="0" Tag="Desempenho" ToolTip.Tip="Desempenho • 25 W" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="0,0,3,0" Padding="4" Height="42" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
-                                        <StackPanel Orientation="Vertical" Spacing="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Grid Grid.Row="1" ColumnDefinitions="*,*" Margin="40,0">
+                                    <Button x:Name="BtnDesempenho" Grid.Column="0" Tag="Desempenho" ToolTip.Tip="Desempenho • 25 W" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="0,0,4,0" Padding="4" Height="46" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                                        <StackPanel Orientation="Vertical" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
                                             <TextBlock Text="🚀" FontSize="16" HorizontalAlignment="Center"/>
-                                            <TextBlock Text="Desemp." FontSize="9" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Desemp." FontSize="10" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
-                                    <Button x:Name="BtnBoost" Grid.Column="1" Tag="Boost" ToolTip.Tip="Boost • 30 W" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="3,0,0,0" Padding="4" Height="42" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
-                                        <StackPanel Orientation="Vertical" Spacing="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Button x:Name="BtnBoost" Grid.Column="1" Tag="Boost" ToolTip.Tip="Boost • 30 W" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="4,0,0,0" Padding="4" Height="46" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                                        <StackPanel Orientation="Vertical" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
                                             <TextBlock Text="🔥" FontSize="16" HorizontalAlignment="Center"/>
-                                            <TextBlock Text="Boost" FontSize="9" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Boost" FontSize="10" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                 </Grid>
@@ -118,77 +120,68 @@
 
                     <!-- Seção: Curva das ventoinhas -->
                     <Border x:Name="FanSection" CornerRadius="12" BorderThickness="2" BorderBrush="Transparent" Padding="10" Background="#1AFFFFFF">
-                        <StackPanel Spacing="9">
+                        <StackPanel Spacing="8">
                             <TextBlock Text="❄️ Refrigeração (ventoinhas)" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
-                            <Grid ColumnDefinitions="*,*,*,*,*">
-                                <Button x:Name="BtnFanAuto" Grid.Column="0" Tag="Automático" Click="OnFanClick" Background="#252A36" Foreground="White" CornerRadius="9" Padding="3" Height="62" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="Automático">
-                                    <StackPanel Spacing="3" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <TextBlock Text="🤖" FontSize="19" HorizontalAlignment="Center"/>
+                            
+                            <UniformGrid Columns="5" Margin="0,4">
+                                <Button x:Name="BtnFanAuto" Tag="Automático" Click="OnFanClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="2" Padding="2" Height="60" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                                    <StackPanel Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <TextBlock Text="🤖" FontSize="18" HorizontalAlignment="Center"/>
                                         <TextBlock Text="Auto" FontSize="9" HorizontalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
-                                <Button x:Name="BtnFanSilent" Grid.Column="1" Tag="Silencioso" Click="OnFanClick" Background="#252A36" Foreground="White" CornerRadius="9" Padding="3" Height="62" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="Silencioso">
-                                    <StackPanel Spacing="1" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <TextBlock Text="✣" FontSize="19" HorizontalAlignment="Center"/>
-                                        <TextBlock Text="Silenc." FontSize="9" HorizontalAlignment="Center"/>
+                                <Button x:Name="BtnFanSilent" Tag="Silencioso" Click="OnFanClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="2" Padding="2" Height="60" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                                    <StackPanel Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <TextBlock Text="✣" FontSize="18" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Silenc" FontSize="9" HorizontalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
-                                <Button x:Name="BtnFanNormal" Grid.Column="2" Tag="Normal" Click="OnFanClick" Background="#252A36" Foreground="White" CornerRadius="9" Padding="3" Height="62" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="Normal">
-                                    <StackPanel Spacing="0" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <Grid RowDefinitions="10,10">
-                                            <TextBlock Grid.Row="0" Text="✣" FontSize="13" HorizontalAlignment="Center"/>
-                                            <TextBlock Grid.Row="1" Text="✣" FontSize="13" HorizontalAlignment="Center"/>
-                                        </Grid>
+                                <Button x:Name="BtnFanNormal" Tag="Normal" Click="OnFanClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="2" Padding="2" Height="60" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                                    <StackPanel Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <TextBlock Text="✣" FontSize="18" HorizontalAlignment="Center"/>
                                         <TextBlock Text="Normal" FontSize="9" HorizontalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
-                                <Button x:Name="BtnFanPerformance" Grid.Column="3" Tag="Desempenho" Click="OnFanClick" Background="#252A36" Foreground="White" CornerRadius="9" Padding="3" Height="62" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="Desempenho">
-                                    <StackPanel Spacing="0" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <Grid RowDefinitions="9,9,9">
-                                            <TextBlock Grid.Row="0" Text="✣" FontSize="12" HorizontalAlignment="Center"/>
-                                            <TextBlock Grid.Row="1" Text="✣" FontSize="12" HorizontalAlignment="Center"/>
-                                            <TextBlock Grid.Row="2" Text="✣" FontSize="12" HorizontalAlignment="Center"/>
-                                        </Grid>
-                                        <TextBlock Text="Desemp." FontSize="9" HorizontalAlignment="Center"/>
+                                <Button x:Name="BtnFanPerformance" Tag="Desempenho" Click="OnFanClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="2" Padding="2" Height="60" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                                    <StackPanel Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <TextBlock Text="✣" FontSize="18" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Desemp" FontSize="9" HorizontalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
-                                <Button x:Name="BtnFanBoost" Grid.Column="4" Tag="Boost" Click="OnFanClick" Background="#252A36" Foreground="White" CornerRadius="9" Padding="3" Height="62" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="Boost">
-                                    <StackPanel Spacing="0" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <Grid RowDefinitions="8,8,8,8">
-                                            <TextBlock Grid.Row="0" Text="✣" FontSize="11" HorizontalAlignment="Center"/>
-                                            <TextBlock Grid.Row="1" Text="✣" FontSize="11" HorizontalAlignment="Center"/>
-                                            <TextBlock Grid.Row="2" Text="✣" FontSize="11" HorizontalAlignment="Center"/>
-                                            <TextBlock Grid.Row="3" Text="✣" FontSize="11" HorizontalAlignment="Center"/>
-                                        </Grid>
+                                <Button x:Name="BtnFanBoost" Tag="Boost" Click="OnFanClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="2" Padding="2" Height="60" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                                    <StackPanel Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <TextBlock Text="✣" FontSize="18" HorizontalAlignment="Center"/>
                                         <TextBlock Text="Boost" FontSize="9" HorizontalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
-                            </Grid>
-                            <TextBlock x:Name="TxtFanStatus" Text="Lendo tabela original do firmware..." Foreground="#B8C0D4" FontSize="10" TextWrapping="Wrap"/>
+                            </UniformGrid>
+                            
+                            <!-- 🟢 AQUI: Height fixo de 36px impede que o texto mude o layout -->
+                            <TextBlock x:Name="TxtFanStatus" Text="Lendo tabela original..." Foreground="White" FontSize="11" TextWrapping="Wrap" TextAlignment="Center" Margin="0,4,0,0" Height="36" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
 
-<!-- Seção: Cor -->
+                    <!-- Seção: Cor -->
                     <Border x:Name="ColorSection" CornerRadius="12" BorderThickness="2" BorderBrush="Transparent" Padding="10" Background="#1AFFFFFF">
-                        <StackPanel Spacing="8">
+                        <StackPanel Spacing="6">
                             <TextBlock Text="🎨 Modo de Cor" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
                             <Grid ColumnDefinitions="*,*,*,*">
                                 <Button x:Name="BtnColorDefault" Grid.Column="0" Tag="0" Content="Padrão" Click="OnColorClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="0,0,4,0" FontSize="11"/>
-                                <Button x:Name="BtnColorVivid" Grid.Column="1" Tag="1" Content="Vívido" Click="OnColorClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="4,0,4,0" FontSize="11"/>
-                                <Button x:Name="BtnColorOled" Grid.Column="2" Tag="2" Content="OLED" Click="OnColorClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="4,0,4,0" FontSize="11"/>
+                                <Button x:Name="BtnColorVivid" Grid.Column="1" Tag="1" Content="Vívido" Click="OnColorClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="2,0" FontSize="11"/>
+                                <Button x:Name="BtnColorOled" Grid.Column="2" Tag="2" Content="OLED" Click="OnColorClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="2,0" FontSize="11"/>
                                 <Button x:Name="BtnColorNight" Grid.Column="3" Tag="3" Content="Noturno" Click="OnColorClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="5" Margin="4,0,0,0" FontSize="11"/>
                             </Grid>
                         </StackPanel>
                     </Border>
 
-                                        <!-- Seção: HUD -->
+                    <!-- Seção: HUD -->
                     <Border x:Name="HudSection" CornerRadius="12" BorderThickness="2" BorderBrush="Transparent" Padding="10" Background="#1AFFFFFF">
-                        <StackPanel Spacing="8">
+                        <StackPanel Spacing="6">
                             <TextBlock Text="📊 HUD de Desempenho" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
                             <Grid ColumnDefinitions="*,*,*,*">
                                 <Button x:Name="BtnHudOff" Grid.Column="0" Tag="0" Content="Off" Click="OnHudClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="8" Margin="0,0,4,0" FontSize="12"/>
-                                <Button x:Name="BtnHudMin" Grid.Column="1" Tag="1" Content="Min" Click="OnHudClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="8" Margin="4,0,4,0" FontSize="12"/>
-                                <Button x:Name="BtnHudMed" Grid.Column="2" Tag="2" Content="Méd" Click="OnHudClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="8" Margin="4,0,4,0" FontSize="12"/>
+                                <Button x:Name="BtnHudMin" Grid.Column="1" Tag="1" Content="Min" Click="OnHudClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="8" Margin="2,0" FontSize="12"/>
+                                <Button x:Name="BtnHudMed" Grid.Column="2" Tag="2" Content="Méd" Click="OnHudClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="8" Margin="2,0" FontSize="12"/>
                                 <Button x:Name="BtnHudFull" Grid.Column="3" Tag="3" Content="Full" Click="OnHudClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="8" Margin="4,0,0,0" FontSize="12"/>
                             </Grid>
                         </StackPanel>
@@ -216,15 +209,15 @@
                             <TextBlock Text="📸 Captura" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
                             <Grid ColumnDefinitions="*,*">
                                 <Button x:Name="BtnScreenshot" Grid.Column="0" Click="OnScreenshotClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="8" Margin="0,0,4,0">
-                                    <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
                                         <TextBlock Text="📷" FontSize="14" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Tirar Print" FontSize="12" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Print" FontSize="12" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <Button x:Name="BtnRecord" Grid.Column="1" Click="OnRecordClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="8" Margin="4,0,0,0">
-                                    <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
                                         <TextBlock Text="🎥" FontSize="14" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Gravar Tela" FontSize="12" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Gravar" FontSize="12" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                             </Grid>

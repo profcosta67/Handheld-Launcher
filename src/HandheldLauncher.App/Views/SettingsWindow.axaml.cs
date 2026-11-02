@@ -230,6 +230,25 @@ public partial class SettingsWindow : Window
         TouchKeyboard.Toggle();
     }
 
+    // 🟢 NOVO MÉTODO: Para o botão "Abrir site da Chave"
+    private void OnOpenApiKeySiteClick(object? sender, RoutedEventArgs e)
+    {
+        const string url = "https://www.steamgriddb.com/profile/preferences/api"; // ou a URL correta que você usa
+        if (Owner is MainWindow mainWindow)
+        {
+            mainWindow.OpenExternalUrl(url);
+        }
+        else
+        {
+            // Fallback caso não ache a MainWindow
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = url,
+                UseShellExecute = true
+            });
+        }
+    }
+
     private void OnSaveClick(object? sender, RoutedEventArgs e)
     {
         ViewModel.SaveTo(_settings);

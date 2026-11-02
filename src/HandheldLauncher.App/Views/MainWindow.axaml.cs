@@ -29,6 +29,9 @@ public partial class MainWindow : Window
     [DllImport("user32.dll")]
     private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
     private const int RestoreHotkeyId = 0xB00;
     private const uint ModControl = 0x0002;
     private const uint ModAlt = 0x0001;
@@ -56,6 +59,9 @@ public partial class MainWindow : Window
 
     // Instância única da janela de Overlay
     private OverlayWindow? _overlayWindow;
+    
+    // Controle de tempo para evitar duplo clique do controle (abre e fecha rápido)
+    private DateTime _lastOverlayToggle = DateTime.MinValue;
 
     public MainWindow()
     {
@@ -178,9 +184,15 @@ public partial class MainWindow : Window
         return IntPtr.Zero;
     }
 
-    // NOVA FUNÇÃO CENTRALIZADA
+    // NOVA FUNÇÃO CENTRALIZADA COM PROTEÇÃO CONTRA DUPLO DISPARO
     public void ToggleOverlay()
     {
+        // Se o L3+R3 disparar duas vezes em menos de 500ms, ignora o segundo.
+        if ((DateTime.Now - _lastOverlayToggle).TotalMilliseconds < 500) 
+            return;
+            
+        _lastOverlayToggle = DateTime.Now;
+
         if (_overlayWindow != null && _overlayWindow.IsVisible)
         {
             _overlayWindow.Hide();
@@ -188,6 +200,36 @@ public partial class MainWindow : Window
         else
         {
             (DataContext as MainViewModel)?.RequestOpenOverlay();
+        }
+    }
+
+    // 🟢 NOVA FUNÇÃO: Abre links externos sem ficar atrás do launcher
+    public void OpenExternalUrl(string url)
+    {
+        try
+        {
+            _topmostEnforcerTimer?.Stop();
+            Topmost = false;
+
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = url,
+                UseShellExecute = true
+            });
+
+            // Volta o Topmost depois de 3 segundos
+            DispatcherTimer.RunOnce(() =>
+            {
+                if (IsVisible)
+                {
+                    Topmost = true;
+                    if (_topmostEnforcerTimer != null) _topmostEnforcerTimer.Start();
+                }
+            }, TimeSpan.FromSeconds(3));
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[MAIN] Falha ao abrir URL externa: {ex.Message}");
         }
     }
 
@@ -442,8 +484,21 @@ public partial class MainWindow : Window
                 {
                     _overlayWindow.Show();
                 }
-                
+
+                // Truque para forçar a janela a ficar na frente do jogo
+                _overlayWindow.Topmost = true;
                 _overlayWindow.Activate();
+                _overlayWindow.Focus();
+
+                // Força o Windows a colocar a janela em primeiro plano
+                if (OperatingSystem.IsWindows())
+                {
+                    var handle = _overlayWindow.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+                    if (handle != IntPtr.Zero)
+                    {
+                        SetForegroundWindow(handle);
+                    }
+                }
             }
             catch (Exception ex)
             {

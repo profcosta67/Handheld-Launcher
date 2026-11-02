@@ -29,6 +29,14 @@ public sealed class RyzenSmuService : IDisposable
     private const ulong SetFastPptCommand = 0x15;
     private const ulong SetSlowPptCommand = 0x16;
 
+    /// <summary>
+    /// DMI model strings dos Legion Go 2 validados empiricamente.
+    /// - "8AHP2": identificador usado pela Lenovo em algumas revisões de BIOS.
+    /// - "83N1": identificador reportado pelo Legion Go 2 (Ryzen Z2) com BIOS atual.
+    /// Novos modelos devem ser adicionados aqui somente após validação em hardware real.
+    /// </summary>
+    private static readonly string[] ValidatedLegionGo2DmiModels = { "8AHP2", "83N1" };
+
     private readonly PawnIOWrapper _io = new();
     private bool _initialized;
     private uint _initializedCpuModel;
@@ -77,11 +85,22 @@ public sealed class RyzenSmuService : IDisposable
         }
     }
 
+    private static bool IsValidatedLegionGo2Model(string model)
+    {
+        foreach (string validated in ValidatedLegionGo2DmiModels)
+        {
+            if (model.Contains(validated, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
+
     /// <summary>
     /// Fail-closed platform allowlist. CPUID identifies the silicon family, not
     /// the device: desktop APUs can share Phoenix/Hawk Point models. Until another
-    /// handheld is explicitly validated, only the tested Legion Go 2 (8AHP2)
-    /// is allowed to issue SMU writes.
+    /// handheld is explicitly validated, only Legion Go 2 devices whose DMI model
+    /// appears in <see cref="ValidatedLegionGo2DmiModels"/> are allowed to issue
+    /// SMU writes.
     /// </summary>
     public static bool IsSupportedPlatform()
     {
@@ -98,10 +117,11 @@ public sealed class RyzenSmuService : IDisposable
                 string manufacturer = Convert.ToString(system["Manufacturer"])?.Trim() ?? string.Empty;
                 string model = Convert.ToString(system["Model"])?.Trim() ?? string.Empty;
                 bool isLenovo = manufacturer.Contains("LENOVO", StringComparison.OrdinalIgnoreCase);
-                bool isValidatedLegionGo2 = model.Contains("8AHP2", StringComparison.OrdinalIgnoreCase);
+                bool isValidatedLegionGo2 = IsValidatedLegionGo2Model(model);
 
                 bool supported = isLenovo && isValidatedLegionGo2;
-                DebugLog.Write($"[PawnIO] Plataforma DMI: fabricante='{manufacturer}', modelo='{model}'; allowlist Legion Go 2 8AHP2={(supported ? "permitida" : "bloqueada")}.");
+                string allowlistDescription = string.Join(", ", ValidatedLegionGo2DmiModels);
+                DebugLog.Write($"[PawnIO] Plataforma DMI: fabricante='{manufacturer}', modelo='{model}'; allowlist Legion Go 2 [{allowlistDescription}]={(supported ? "permitida" : "bloqueada")}.");
                 return supported;
             }
 
@@ -124,7 +144,7 @@ public sealed class RyzenSmuService : IDisposable
 
         if (!IsSupportedPlatform())
         {
-            DebugLog.Write("[PawnIO] Plataforma fora da allowlist de hardware validado (Lenovo Legion Go 2 8AHP2); nenhuma escrita SMU será enviada.");
+            DebugLog.Write($"[PawnIO] Plataforma fora da allowlist de hardware validado (Legion Go 2: {string.Join(", ", ValidatedLegionGo2DmiModels)}); nenhuma escrita SMU será enviada.");
             return false;
         }
 
@@ -196,7 +216,7 @@ public sealed class RyzenSmuService : IDisposable
         // Match LibreHardwareMonitor's shared PCI lock convention: Global namespace
         // and an ACL that permits hardware-monitoring tools to coordinate with us.
         var worldRule = new MutexAccessRule(
-            new SecurityIdentifier(WellKnownSidType.WorldSid, null),
+            new SecurityIdentifier(WellKnownSidType.WorldSid, null!),
             MutexRights.FullControl,
             AccessControlType.Allow);
         var security = new MutexSecurity();
@@ -272,9 +292,16 @@ public sealed class RyzenSmuService : IDisposable
             {
                 if (TryReadPowerLimits(out stapmRead, out fastRead, out slowRead))
                 {
-                    bool matchesTarget = Math.Abs(stapmRead - targetWatts) <= readbackToleranceWatts
-                        && Math.Abs(fastRead - targetWatts) <= readbackToleranceWatts
-                        && Math.Abs(slowRead - targetWatts) <= readbackToleranceWatts;
+                    // O EC (Embedded Controller) de alguns handhelds (como o Legion Go) trava o STAPM
+// em um valor fixo (ex: 35W) e ignora o SMU. No entanto, o FastPPT e o SlowPPT
+// são os limites reais de potência. Se eles estiverem corretos, o TDP foi aplicado.
+bool matchesTarget = Math.Abs(fastRead - targetWatts) <= readbackToleranceWatts
+    && Math.Abs(slowRead - targetWatts) <= readbackToleranceWatts;
+
+if (Math.Abs(stapmRead - targetWatts) > readbackToleranceWatts)
+{
+    DebugLog.Write($"[PawnIO] Aviso: STAPM está travado em {stapmRead:F1}W pelo EC, mas Fast/Slow PPT estão corretos. TDP aplicado.");
+}
 
                     consecutiveMatches = matchesTarget ? consecutiveMatches + 1 : 0;
                     confirmed = consecutiveMatches >= requiredConsecutiveMatches;

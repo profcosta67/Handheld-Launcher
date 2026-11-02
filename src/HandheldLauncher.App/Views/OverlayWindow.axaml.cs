@@ -30,12 +30,19 @@ public partial class OverlayWindow : Window
     private string _currentFanMode = "Automático";
     private int _currentColor = 0;
 
-    private enum SubMenuMode { None, Resolution, RefreshRate }
+    private enum SubMenuMode { None, Resolution, RefreshRate, Tdp, Fan, Color, Hud, Volume, Brightness }
     private SubMenuMode _activeSubMenu = SubMenuMode.None;
+    
     private int _currentResIndex = 0;
     private int _currentHzIndex = 0;
+    private int _currentHudIndex = 0;
+    
     private int _tempResIndex = 0;
     private int _tempHzIndex = 0;
+    private int _tempTdpIndex = 2; 
+    private int _tempFanIndex = 0; 
+    private int _tempColorIndex = 0; 
+    private int _tempHudIndex = 0;
 
     private readonly MainViewModel _viewModel;
     public bool IsAppClosing { get; set; } = false; 
@@ -71,8 +78,6 @@ public partial class OverlayWindow : Window
         _viewModel = viewModel;
         InitializeComponent();
 
-        // Keep unsupported desktops from presenting active TDP controls.
-        // The RyzenSmuService repeats these checks before every SMU write.
         _tdpHardwareSupported = OperatingSystem.IsWindows()
             && RyzenSmuService.IsSupportedPlatform()
             && RyzenSmuService.IsSupportedCpu();
@@ -139,7 +144,9 @@ public partial class OverlayWindow : Window
             SetColorButtonVisual(settings.ColorMode);
             if (VolumeSlider != null) VolumeSlider.Value = settings.Volume;
             if (BrightnessSlider != null) BrightnessSlider.Value = settings.Brightness;
-            SetHudButtonVisual(settings.OverlayPreset);
+            
+            _currentHudIndex = settings.OverlayPreset;
+            SetHudButtonVisual(_currentHudIndex);
 
             string displayInfo = _hardwareService.GetDisplayInfo();
             if (displayInfo.Contains("x") && displayInfo.Contains("Hz"))
@@ -196,26 +203,20 @@ public partial class OverlayWindow : Window
             {
                 case GamepadAction.MoveLeft:
                 case GamepadAction.MoveUp:
-                    if (_activeSubMenu == SubMenuMode.Resolution) _tempResIndex = Math.Max(0, _tempResIndex - 1);
-                    else _tempHzIndex = Math.Max(0, _tempHzIndex - 1);
-                    UpdateTempVisuals();
+                    HandleSubMenuMove(-1);
                     break;
                 case GamepadAction.MoveRight:
                 case GamepadAction.MoveDown:
-                    if (_activeSubMenu == SubMenuMode.Resolution) _tempResIndex = Math.Min(_resolutionButtons.Length - 1, _tempResIndex + 1);
-                    else _tempHzIndex = Math.Min(_refreshButtons.Length - 1, _tempHzIndex + 1);
-                    UpdateTempVisuals();
+                    HandleSubMenuMove(1);
                     break;
                 case GamepadAction.Confirm:
-                    if (_activeSubMenu == SubMenuMode.Resolution) _currentResIndex = _tempResIndex;
-                    else _currentHzIndex = _tempHzIndex;
-                    ApplyDisplayMode();
+                    ApplySubMenuChange(); 
                     _activeSubMenu = SubMenuMode.None;
                     UpdateFocusVisual();
-                    UpdatePersistentVisuals();
+                    UpdatePersistentVisuals(); 
                     break;
                 case GamepadAction.Back:
-                    _activeSubMenu = SubMenuMode.None;
+                    _activeSubMenu = SubMenuMode.None; 
                     UpdateFocusVisual();
                     UpdatePersistentVisuals();
                     break;
@@ -227,7 +228,7 @@ public partial class OverlayWindow : Window
         {
             case GamepadAction.Back:
             case GamepadAction.GlobalMenu:
-                Hide();
+                Hide(); 
                 break;
             case GamepadAction.MoveUp:
                 _focusIndex = Math.Max(0, _focusIndex - 1);
@@ -237,29 +238,147 @@ public partial class OverlayWindow : Window
                 _focusIndex = Math.Min(_sections.Length - 1, _focusIndex + 1);
                 UpdateFocusVisual();
                 break;
-            case GamepadAction.MoveLeft:
-                HandleHorizontalInput(-1);
-                break;
-            case GamepadAction.MoveRight:
-                HandleHorizontalInput(1);
-                break;
             case GamepadAction.Confirm:
-                if (_focusIndex == 0) 
+                EnterSubMenu(); 
+                break;
+        }
+    }
+
+    private void EnterSubMenu()
+    {
+        switch (_focusIndex)
+        {
+            case 0: 
+                _tempResIndex = _currentResIndex;
+                _activeSubMenu = SubMenuMode.Resolution;
+                UpdateTempVisuals();
+                break;
+            case 1: 
+                _tempHzIndex = _currentHzIndex;
+                _activeSubMenu = SubMenuMode.RefreshRate;
+                UpdateTempVisuals();
+                break;
+            case 2: 
+                if (!_tdpHardwareSupported) return;
+                string[] tdps = { "UltraEco", "Eco", "Normal", "Desempenho", "Boost" };
+                _tempTdpIndex = Array.IndexOf(tdps, _currentTdp);
+                if (_tempTdpIndex < 0) _tempTdpIndex = 2;
+                _activeSubMenu = SubMenuMode.Tdp;
+                UpdateTempVisuals();
+                break;
+            case 3: 
+                string[] fans = { "Automático", "Silencioso", "Normal", "Desempenho", "Boost" };
+                _tempFanIndex = Array.IndexOf(fans, _currentFanMode);
+                if (_tempFanIndex < 0) _tempFanIndex = 0;
+                _activeSubMenu = SubMenuMode.Fan;
+                UpdateTempVisuals();
+                break;
+            case 4: 
+                _tempColorIndex = _currentColor;
+                _activeSubMenu = SubMenuMode.Color;
+                UpdateTempVisuals();
+                break;
+            case 5: 
+                _tempHudIndex = _currentHudIndex;
+                _activeSubMenu = SubMenuMode.Hud;
+                UpdateTempVisuals();
+                break;
+            case 6: 
+                _activeSubMenu = SubMenuMode.Volume;
+                break;
+            case 7: 
+                _activeSubMenu = SubMenuMode.Brightness;
+                break;
+            case 8: 
+                OnScreenshotClick(null, new RoutedEventArgs());
+                break;
+        }
+    }
+
+    private void HandleSubMenuMove(int direction)
+    {
+        switch (_activeSubMenu)
+        {
+            case SubMenuMode.Resolution:
+                _tempResIndex = Math.Clamp(_tempResIndex + direction, 0, _resolutionButtons.Length - 1);
+                UpdateTempVisuals();
+                break;
+            case SubMenuMode.RefreshRate:
+                _tempHzIndex = Math.Clamp(_tempHzIndex + direction, 0, _refreshButtons.Length - 1);
+                UpdateTempVisuals();
+                break;
+            case SubMenuMode.Tdp:
+                _tempTdpIndex = Math.Clamp(_tempTdpIndex + direction, 0, 4);
+                UpdateTempVisuals();
+                break;
+            case SubMenuMode.Fan:
+                _tempFanIndex = Math.Clamp(_tempFanIndex + direction, 0, 4);
+                UpdateTempVisuals();
+                break;
+            case SubMenuMode.Color:
+                _tempColorIndex = Math.Clamp(_tempColorIndex + direction, 0, 3);
+                UpdateTempVisuals();
+                break;
+            case SubMenuMode.Hud:
+                _tempHudIndex = Math.Clamp(_tempHudIndex + direction, 0, 3);
+                UpdateTempVisuals();
+                break;
+            case SubMenuMode.Volume:
+                if (VolumeSlider != null) VolumeSlider.Value = Math.Clamp(VolumeSlider.Value + (direction * 5), 0, 100);
+                break;
+            case SubMenuMode.Brightness:
+                if (BrightnessSlider != null) BrightnessSlider.Value = Math.Clamp(BrightnessSlider.Value + (direction * 5), 0, 100);
+                break;
+        }
+    }
+
+    private void ApplySubMenuChange()
+    {
+        switch (_activeSubMenu)
+        {
+            case SubMenuMode.Resolution:
+                _currentResIndex = _tempResIndex;
+                ApplyDisplayMode();
+                break;
+            case SubMenuMode.RefreshRate:
+                _currentHzIndex = _tempHzIndex;
+                ApplyDisplayMode();
+                break;
+            case SubMenuMode.Tdp:
+                string[] tdpModes = { "UltraEco", "Eco", "Normal", "Desempenho", "Boost" };
+                string newTdp = tdpModes[_tempTdpIndex];
+                if (newTdp != _currentTdp && _hardwareService.SetTdpMode(newTdp))
                 {
-                    _tempResIndex = _currentResIndex;
-                    _activeSubMenu = SubMenuMode.Resolution;
-                    UpdateTempVisuals();
+                    SetTdpButtonVisual(newTdp);
+                    SaveSetting("TdpMode", newTdp);
+                    var linkedFanMode = newTdp switch
+                    {
+                        "UltraEco" or "Eco" => "Silencioso",
+                        "Normal" => "Normal",
+                        "Desempenho" => "Desempenho",
+                        "Boost" => "Boost",
+                        _ => "Automático"
+                    };
+                    ApplyFanMode(linkedFanMode);
                 }
-                else if (_focusIndex == 1)
+                break;
+            case SubMenuMode.Fan:
+                string[] fanModes = { "Automático", "Silencioso", "Normal", "Desempenho", "Boost" };
+                ApplyFanMode(fanModes[_tempFanIndex]);
+                break;
+            case SubMenuMode.Color:
+                string mode = _tempColorIndex switch { 1 => "Vívido", 2 => "OLED (Alto Contraste)", 3 => "Noturno (Luz Quente)", _ => "Padrão" };
+                if (_hardwareService.SetColorMode(mode))
                 {
-                    _tempHzIndex = _currentHzIndex;
-                    _activeSubMenu = SubMenuMode.RefreshRate;
-                    UpdateTempVisuals();
+                    SetColorButtonVisual(_tempColorIndex);
+                    SaveSetting("ColorMode", _tempColorIndex.ToString());
                 }
-                else
-                {
-                    HandleConfirm();
-                }
+                break;
+            case SubMenuMode.Hud:
+                _currentHudIndex = _tempHudIndex;
+                _viewModel.SetOverlayPreset(_currentHudIndex);
+                SetHudButtonVisual(_currentHudIndex);
+                SaveSetting("OverlayPreset", _currentHudIndex.ToString());
                 break;
         }
     }
@@ -267,18 +386,18 @@ public partial class OverlayWindow : Window
     private void UpdateFocusVisual()
     {
         for (int i = 0; i < _sections.Length; i++)
+        {
             _sections[i].BorderBrush = (i == _focusIndex) ? _focusBorderColor : Brushes.Transparent;
-
-        // 🟢 Rola o ScrollViewer para mostrar a seção focada
+        }
         ScrollToFocusedSection();
     }
 
-    // 🟢 NOVO: Scroll automático para a seção focada
     private void ScrollToFocusedSection()
     {
         if (MainScrollViewer == null || _sections.Length == 0) return;
         if (_focusIndex < 0 || _focusIndex >= _sections.Length) return;
 
+        // Força a rolagem no próximo ciclo de layout para garantir que as dimensões estejam atualizadas
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
             try
@@ -292,88 +411,14 @@ public partial class OverlayWindow : Window
                 var itemTop = position.Value.Y;
                 var itemBottom = itemTop + focused.Bounds.Height;
 
+                // Adiciona uma margem extra para o Scroll ficar mais bonito
                 if (itemTop < viewTop)
-                    MainScrollViewer.Offset = new Vector(MainScrollViewer.Offset.X, itemTop);
+                    MainScrollViewer.Offset = new Vector(MainScrollViewer.Offset.X, Math.Max(0, itemTop - 10));
                 else if (itemBottom > viewBottom)
-                    MainScrollViewer.Offset = new Vector(MainScrollViewer.Offset.X, itemBottom - MainScrollViewer.Viewport.Height);
+                    MainScrollViewer.Offset = new Vector(MainScrollViewer.Offset.X, itemBottom - MainScrollViewer.Viewport.Height + 10);
             }
             catch { }
         }, Avalonia.Threading.DispatcherPriority.Background);
-    }
-
-    private void HandleHorizontalInput(int direction)
-    {
-        switch (_focusIndex)
-        {
-            case 2: // TDP
-                if (!_tdpHardwareSupported) break;
-                string[] tdpModes = { "UltraEco", "Eco", "Normal", "Desempenho", "Boost" };
-                int currentIndex = Array.IndexOf(tdpModes, _currentTdp);
-                if (currentIndex < 0) currentIndex = 2;
-                int nextIndex = Math.Clamp(currentIndex + Math.Sign(direction), 0, tdpModes.Length - 1);
-                string newTdp = tdpModes[nextIndex];
-                if (newTdp != _currentTdp) {
-                    if (_hardwareService.SetTdpMode(newTdp)) {
-                        SetTdpButtonVisual(newTdp);
-                        SaveSetting("TdpMode", newTdp);
-                        var linkedFanMode = newTdp switch
-                        {
-                            "UltraEco" or "Eco" => "Silencioso",
-                            "Normal" => "Normal",
-                            "Desempenho" => "Desempenho",
-                            "Boost" => "Boost",
-                            _ => "Automático"
-                        };
-                        ApplyFanMode(linkedFanMode);
-                    } else {
-                        DebugLog.Write($"[OVERLAY] O perfil TDP {newTdp} não foi aplicado; seleção anterior mantida.");
-                    }
-                }
-                break;
-            case 3: // Ventoinhas
-                HandleFanHorizontalInput(direction);
-                break;
-            case 4: // Cor
-                var newColorIndex = Math.Clamp(_currentColor + direction, 0, 3);
-                string mode = newColorIndex switch { 1 => "Vívido", 2 => "OLED (Alto Contraste)", 3 => "Noturno (Luz Quente)", _ => "Padrão" };
-                if (_hardwareService.SetColorMode(mode)) {
-                    SetColorButtonVisual(newColorIndex);
-                    SaveSetting("ColorMode", newColorIndex.ToString());
-                } else {
-                    DebugLog.Write($"[OVERLAY] O modo de cor {mode} não foi aplicado; seleção anterior mantida.");
-                }
-                break;
-            case 5: // HUD
-                if (_viewModel.IsPerformanceHudEnabled) {
-                    var newHudIndex = Math.Clamp(_viewModel.CurrentHudPreset + direction, 0, 3);
-                    _viewModel.SetOverlayPreset(newHudIndex);
-                    SetHudButtonVisual(newHudIndex);
-                    SaveSetting("OverlayPreset", newHudIndex.ToString());
-                }
-                break;
-            case 6: // Volume
-                if (VolumeSlider != null) VolumeSlider.Value = Math.Clamp(VolumeSlider.Value + (direction * 5), 0, 100);
-                break;
-            case 7: // Brilho
-                if (BrightnessSlider != null) BrightnessSlider.Value = Math.Clamp(BrightnessSlider.Value + (direction * 5), 0, 100);
-                break;
-            case 8: // Captura
-                if (direction < 0) OnScreenshotClick(null, new RoutedEventArgs());
-                else if (direction > 0) OnRecordClick(null, new RoutedEventArgs());
-                break;
-        }
-    }
-
-    private void HandleConfirm()
-    {
-        if (_focusIndex == 5) {
-            var nextIndex = (_viewModel.CurrentHudPreset + 1) % 4;
-            _viewModel.SetOverlayPreset(nextIndex);
-            SetHudButtonVisual(nextIndex);
-            SaveSetting("OverlayPreset", nextIndex.ToString());
-        }
-        else if (_focusIndex == 8)
-            OnScreenshotClick(null, new RoutedEventArgs());
     }
 
     private void UpdatePersistentVisuals()
@@ -382,6 +427,11 @@ public partial class OverlayWindow : Window
             _resolutionButtons[i].Background = (i == _currentResIndex) ? _activeColor : _inactiveColor;
         for (int i = 0; i < _refreshButtons.Length; i++)
             _refreshButtons[i].Background = (i == _currentHzIndex) ? _activeColor : _inactiveColor;
+        
+        SetTdpButtonVisual(_currentTdp);
+        SetFanButtonVisual(_currentFanMode);
+        SetColorButtonVisual(_currentColor);
+        SetHudButtonVisual(_currentHudIndex);
     }
 
     private void UpdateTempVisuals()
@@ -395,6 +445,36 @@ public partial class OverlayWindow : Window
         {
             for (int i = 0; i < _refreshButtons.Length; i++)
                 _refreshButtons[i].Background = (i == _tempHzIndex) ? _activeColor : _inactiveColor;
+        }
+        else if (_activeSubMenu == SubMenuMode.Tdp)
+        {
+            BtnUltraEco.Background = _tempTdpIndex == 0 ? _activeColor : _inactiveColor;
+            BtnEco.Background = _tempTdpIndex == 1 ? _activeColor : _inactiveColor;
+            BtnNormal.Background = _tempTdpIndex == 2 ? _activeColor : _inactiveColor;
+            BtnDesempenho.Background = _tempTdpIndex == 3 ? _activeColor : _inactiveColor;
+            BtnBoost.Background = _tempTdpIndex == 4 ? _activeColor : _inactiveColor;
+        }
+        else if (_activeSubMenu == SubMenuMode.Fan)
+        {
+            BtnFanAuto.Background = _tempFanIndex == 0 ? _activeColor : _inactiveColor;
+            BtnFanSilent.Background = _tempFanIndex == 1 ? _activeColor : _inactiveColor;
+            BtnFanNormal.Background = _tempFanIndex == 2 ? _activeColor : _inactiveColor;
+            BtnFanPerformance.Background = _tempFanIndex == 3 ? _activeColor : _inactiveColor;
+            BtnFanBoost.Background = _tempFanIndex == 4 ? _activeColor : _inactiveColor;
+        }
+        else if (_activeSubMenu == SubMenuMode.Color)
+        {
+            BtnColorDefault.Background = _tempColorIndex == 0 ? _activeColor : _inactiveColor;
+            BtnColorVivid.Background = _tempColorIndex == 1 ? _activeColor : _inactiveColor;
+            BtnColorOled.Background = _tempColorIndex == 2 ? _activeColor : _inactiveColor;
+            BtnColorNight.Background = _tempColorIndex == 3 ? _activeColor : _inactiveColor;
+        }
+        else if (_activeSubMenu == SubMenuMode.Hud)
+        {
+            BtnHudOff.Background = _tempHudIndex == 0 ? _activeColor : _inactiveColor;
+            BtnHudMin.Background = _tempHudIndex == 1 ? _activeColor : _inactiveColor;
+            BtnHudMed.Background = _tempHudIndex == 2 ? _activeColor : _inactiveColor;
+            BtnHudFull.Background = _tempHudIndex == 3 ? _activeColor : _inactiveColor;
         }
     }
 
@@ -439,11 +519,7 @@ public partial class OverlayWindow : Window
 
     private void OnTdpClick(object? sender, RoutedEventArgs e)
     {
-        if (!_tdpHardwareSupported)
-        {
-            DebugLog.Write("[OVERLAY] Perfil TDP ignorado: hardware não validado.");
-            return;
-        }
+        if (!_tdpHardwareSupported) return;
         if (sender is not Button clickedButton) return;
         var mode = clickedButton.Tag?.ToString() ?? "Normal";
         if (_hardwareService.SetTdpMode(mode))
@@ -460,10 +536,6 @@ public partial class OverlayWindow : Window
             };
             ApplyFanMode(linkedFanMode);
         }
-        else
-        {
-            DebugLog.Write($"[OVERLAY] Falha ao aplicar o perfil TDP {mode}; estado visual não foi alterado.");
-        }
     }
 
     private void SetTdpButtonVisual(string activeMode)
@@ -474,14 +546,6 @@ public partial class OverlayWindow : Window
         if (BtnDesempenho != null) BtnDesempenho.Background = activeMode == "Desempenho" ? _activeColor : _inactiveColor;
         if (BtnBoost != null) BtnBoost.Background = activeMode == "Boost" ? _activeColor : _inactiveColor;
         _currentTdp = activeMode;
-    }
-
-    private void HandleFanHorizontalInput(int direction)
-    {
-        string[] modes = { "Automático", "Silencioso", "Normal", "Desempenho", "Boost" };
-        int index = Array.IndexOf(modes, _currentFanMode);
-        if (index < 0) index = 0;
-        ApplyFanMode(modes[Math.Clamp(index + Math.Sign(direction), 0, modes.Length - 1)]);
     }
 
     private void OnFanClick(object? sender, RoutedEventArgs e)
@@ -518,7 +582,6 @@ public partial class OverlayWindow : Window
         else
         {
             TxtFanStatus.Text = message + " Curva anterior preservada.";
-            DebugLog.Write($"[FAN] Perfil {mode} não aplicado: {message}");
         }
     }
 
@@ -543,10 +606,6 @@ public partial class OverlayWindow : Window
                 SetColorButtonVisual(index);
                 SaveSetting("ColorMode", index.ToString());
             }
-            else
-            {
-                DebugLog.Write($"[OVERLAY] Falha ao aplicar modo de cor {mode}; estado visual não foi alterado.");
-            }
         }
     }
 
@@ -563,6 +622,7 @@ public partial class OverlayWindow : Window
     {
         if (sender is not Button clickedButton) return;
         if (int.TryParse(clickedButton.Tag?.ToString(), out int preset)) {
+            _currentHudIndex = preset;
             _viewModel.SetOverlayPreset(preset);
             SetHudButtonVisual(preset);
             SaveSetting("OverlayPreset", preset.ToString());
@@ -575,12 +635,12 @@ public partial class OverlayWindow : Window
         if (BtnHudMin != null) BtnHudMin.Background = preset == 1 ? _activeColor : _inactiveColor;
         if (BtnHudMed != null) BtnHudMed.Background = preset == 2 ? _activeColor : _inactiveColor;
         if (BtnHudFull != null) BtnHudFull.Background = preset == 3 ? _activeColor : _inactiveColor;
+        _currentHudIndex = preset;
     }
 
     private void OnVolumeChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (_isInitializing) return;
-        DebugLog.Write($"[OVERLAY] Evento do slider de volume: {e.NewValue:F0}%.");
         _hardwareService?.SetVolume(Math.Round(e.NewValue));
         SaveSetting("Volume", e.NewValue.ToString("F0"));
     }
@@ -588,7 +648,6 @@ public partial class OverlayWindow : Window
     private void OnBrightnessChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (_isInitializing) return;
-        DebugLog.Write($"[OVERLAY] Evento do slider de brilho: {e.NewValue:F0}%.");
         _hardwareService?.SetBrightness(Math.Round(e.NewValue));
         SaveSetting("Brightness", e.NewValue.ToString("F0"));
     }
@@ -605,7 +664,7 @@ public partial class OverlayWindow : Window
             DebugLog.Write("[CAPTURA] Atalho Win+PrintScreen simulado.");
             if (BtnScreenshot != null) BtnScreenshot.Content = "Salvo!";
             var timer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
-            timer.Tick += (_, _) => { if (BtnScreenshot != null) BtnScreenshot.Content = "📷 Tirar Print"; timer.Stop(); };
+            timer.Tick += (_, _) => { if (BtnScreenshot != null) BtnScreenshot.Content = "📷 Print"; timer.Stop(); };
             timer.Start();
         }
         catch (Exception ex) { DebugLog.Write($"[CAPTURA] Erro: {ex.Message}"); }
@@ -620,7 +679,7 @@ public partial class OverlayWindow : Window
             if (BtnRecord != null) 
             {
                 bool isRecording = winService.IsRecording;
-                BtnRecord.Content = isRecording ? "🎥 Parar" : "🎥 Gravar Tela";
+                BtnRecord.Content = isRecording ? "🎥 Parar" : "🎥 Gravar";
                 BtnRecord.Background = isRecording ? new SolidColorBrush(Color.FromRgb(255, 64, 64)) : _inactiveColor;
             }
         }

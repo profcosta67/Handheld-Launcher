@@ -72,7 +72,7 @@ public sealed class MainViewModel : ViewModelBase
         SetFilterNotInstalledCommand = new RelayCommand(() => SetFilter(LibraryFilter.NotInstalled));
 
         // 🟢 INICIA O MONITOR DE TEMPERATURA AQUI 🟢
-                _hardwareTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        _hardwareTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         _hardwareTimer.Tick += (_, _) =>
         {
             var temp = _monitorService.GetCpuTemperature();
@@ -349,10 +349,11 @@ public sealed class MainViewModel : ViewModelBase
         }
     }
 
-        public bool IsPerformanceHudEnabled => _hud is not null && _hud.Preset > 0;
+    public bool IsPerformanceHudEnabled => _hud is not null && _hud.Preset > 0;
     
     // 🟢 NOVO: Para o Overlay saber qual modo está selecionado
     public int CurrentHudPreset => _hud?.Preset ?? 0; 
+    
     public void SetPerformanceHudEnabled(bool enabled)
     {
         if (_hud is null || !OperatingSystem.IsWindows()) return;
@@ -1097,7 +1098,21 @@ public sealed class MainViewModel : ViewModelBase
             case GlobalMenuPage.Library:
                 GlobalMenuTitle = "Biblioteca";
                 Add("Atualizar Biblioteca", Refresh);
-                if (CanFetchArtwork) Add("Atualizar Capas Automático", FetchMissingArtwork);
+                
+                // 🟢 AQUI ESTÁ A CORREÇÃO: A opção sempre aparece.
+                if (IsFetchingArtwork)
+                {
+                    Add("Baixando capas... (Aguarde)", () => { });
+                }
+                else if (!_artwork.HasApiKey)
+                {
+                    Add("Atualizar Capas (Configurar API Key)", () => SettingsRequested?.Invoke(this, EventArgs.Empty));
+                }
+                else
+                {
+                    Add("Atualizar Capas Automático", FetchMissingArtwork);
+                }
+                
                 Add("Adicionar jogo", () => AddGameRequested?.Invoke(this, EventArgs.Empty));
                 Add("Downloads", ToggleDownloads);
                 break;
@@ -1623,7 +1638,14 @@ public sealed class MainViewModel : ViewModelBase
 
     private async void FetchMissingArtwork()
     {
-        if (!CanFetchArtwork) return;
+        // 🟢 CORREÇÃO: Se não tiver API Key, abre as configurações
+        if (!_artwork.HasApiKey)
+        {
+            SettingsRequested?.Invoke(this, EventArgs.Empty);
+            return;
+        }
+
+        if (IsFetchingArtwork) return;
         IsFetchingArtwork = true;
 
         try

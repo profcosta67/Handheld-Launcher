@@ -80,8 +80,6 @@ public class WindowsHardwareService : IHardwareService
         };
 
         DebugLog.Write("[TDP] Solicitação do perfil " + mode + ": " + tdpLimit + "mW. Provider permitido: PawnIO.");
-        // O RyzenAdj legado causou ACCESS_VIOLATION (0xC0000005) no preview
-        // e depende da pilha WinRing0 que esta migração está removendo.
         if (!InitializePawnIo())
         {
             DebugLog.Write("[TDP] PawnIO não inicializado. Perfil não aplicado; nenhum fallback WinRing0/RyzenAdj será executado.");
@@ -297,8 +295,6 @@ public class WindowsHardwareService : IHardwareService
 
     public void SetPerformanceHudEnabled(bool enabled)
     {
-        // O HUD é controlado pelo MainViewModel/PerformanceHud; este método
-        // permanece na interface por compatibilidade com outros providers.
         DebugLog.Write($"[HUD] Solicitação de estado recebida: {(enabled ? "ativar" : "desativar")}.");
     }
 
@@ -315,14 +311,33 @@ public class WindowsHardwareService : IHardwareService
     {
         try
         {
+            if (!File.Exists(_ffmpegPath))
+            {
+                DebugLog.Write($"[GRAVADOR] Erro: ffmpeg.exe não encontrado em {_ffmpegPath}");
+                return;
+            }
+
             string videosPath = Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
             string outputPath = Path.Combine(videosPath, $"HandheldLauncher_{DateTime.Now:yyyyMMdd_HHmmss}.mp4");
             string arguments = $"-y -f gdigrab -framerate 60 -i desktop -c:v libx264 -preset ultrafast -crf 23 \"{outputPath}\"";
-            var psi = new ProcessStartInfo { FileName = _ffmpegPath, Arguments = arguments, CreateNoWindow = true, UseShellExecute = false, RedirectStandardInput = true };
+            
+            var psi = new ProcessStartInfo 
+            { 
+                FileName = _ffmpegPath, 
+                Arguments = arguments, 
+                CreateNoWindow = true, 
+                UseShellExecute = false, 
+                RedirectStandardInput = true 
+            };
+            
             _ffmpegProcess = Process.Start(psi);
             DebugLog.Write($"[GRAVADOR] Iniciado. Salvando em: {outputPath}");
         }
-        catch (Exception ex) { DebugLog.Write($"[GRAVADOR] Erro: {ex.Message}"); _ffmpegProcess = null; }
+        catch (Exception ex) 
+        { 
+            DebugLog.Write($"[GRAVADOR] Erro ao iniciar: {ex.Message}"); 
+            _ffmpegProcess = null; 
+        }
     }
 
     private void StopRecording()
@@ -331,14 +346,31 @@ public class WindowsHardwareService : IHardwareService
         {
             if (_ffmpegProcess != null && !_ffmpegProcess.HasExited)
             {
+                // Envia o comando "q" para o FFmpeg finalizar o arquivo .mp4 de forma limpa
                 _ffmpegProcess.StandardInput.WriteLine("q");
-                _ffmpegProcess.WaitForExit(3000);
-                if (!_ffmpegProcess.HasExited) _ffmpegProcess.Kill();
+                _ffmpegProcess.StandardInput.Flush();
+
+                // Aumentamos para 5 segundos para garantir que arquivos longos não corrompam
+                if (!_ffmpegProcess.WaitForExit(5000))
+                {
+                    DebugLog.Write("[GRAVADOR] FFmpeg não respondeu a tempo. Forçando encerramento (risco de arquivo corrompido).");
+                    _ffmpegProcess.Kill();
+                }
+                else
+                {
+                    DebugLog.Write("[GRAVADOR] Parado com sucesso e arquivo salvo.");
+                }
             }
-            DebugLog.Write("[GRAVADOR] Parado.");
         }
-        catch (Exception ex) { DebugLog.Write($"[GRAVADOR] Erro ao parar: {ex.Message}"); }
-        finally { _ffmpegProcess = null; }
+        catch (Exception ex) 
+        { 
+            DebugLog.Write($"[GRAVADOR] Erro ao parar: {ex.Message}"); 
+        }
+        finally 
+        { 
+            _ffmpegProcess?.Dispose();
+            _ffmpegProcess = null; 
+        }
     }
 
     // ==========================================
@@ -419,7 +451,7 @@ public class WindowsHardwareService : IHardwareService
     }
 }
 
-// VolumeMixer (o mesmo que você já tem)
+// VolumeMixer
 internal static class VolumeMixer
 {
     [ComImport]
@@ -448,7 +480,6 @@ internal static class VolumeMixer
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     private interface IAudioEndpointVolume
     {
-        // A ordem precisa corresponder exatamente ao vtable COM do Windows.
         [PreserveSig] int RegisterControlChangeNotify(IntPtr pNotify);
         [PreserveSig] int UnregisterControlChangeNotify(IntPtr pNotify);
         [PreserveSig] int GetChannelCount(out uint channelCount);

@@ -5,7 +5,7 @@ param([switch]$SkipReboot)
 
 $ErrorActionPreference = "Stop"
 
-# 1. Cria a Tarefa Agendada para iniciar no boot com Admin (sem UAC)
+# 1. Cria a Tarefa Agendada para iniciar no boot com Admin (sem UAC) e com Delay
 $exePath = Join-Path $env:LOCALAPPDATA "HandheldLauncher\current\HandheldLauncher.exe"
 
 if (-not (Test-Path $exePath)) {
@@ -16,11 +16,16 @@ if (-not (Test-Path $exePath)) {
     Write-Host "AVISO: Executavel nao encontrado. A Tarefa Agendada nao foi criada."
 } else {
     $action = New-ScheduledTaskAction -Execute $exePath -Argument '--watchdog' -WorkingDirectory (Split-Path -Parent $exePath)
+    
+    # 🟢 AQUI ESTÁ A MÁGICA: Adiciona um delay de 30 segundos para o Launcher abrir por último
     $trigger = New-ScheduledTaskTrigger -AtLogOn
+    $trigger.Delay = "PT30S" # PT30S é o formato ISO 8601 para 30 segundos
+    
     $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Highest
     $settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
-    Register-ScheduledTask -Action $action -Trigger $trigger -Principal $principal -Settings $settings -TaskName "HandheldLauncher_Startup" -Description "Inicia o Handheld Launcher em Modo Console." -Force
-    Write-Host "OK: Tarefa Agendada criada com sucesso."
+    
+    Register-ScheduledTask -Action $action -Trigger $trigger -Principal $principal -Settings $settings -TaskName "HandheldLauncher_Startup" -Description "Inicia o Handheld Launcher em Modo Console (com delay de 30s)." -Force
+    Write-Host "OK: Tarefa Agendada criada com sucesso (Delay de 30s aplicado)."
 }
 
 # 2. Ativa o KioskMode no arquivo de configuracoes
