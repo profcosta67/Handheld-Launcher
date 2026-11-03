@@ -1438,6 +1438,9 @@ public partial class MainWindow : Window
         }
         catch (Exception ex) { DebugLog.Write($"ApplyLayoutTheme: falhou ao ler settings, usando Clássico. {ex}"); layout = new Layouts.ClassicLibraryLayout(); }
         _libraryLayout = (ILibraryLayout)layout;
+        // BigScreen has its own compact status header; hide the generic
+        // application bar there to avoid duplicating the clock/battery row.
+        TopBar.IsVisible = settings.LayoutTheme != 2;
         GamesItemsControl = _libraryLayout.GamesItemsControl;
         GameRowScrollViewer = _libraryLayout.GameRowScrollViewer;
         HeroImage = _libraryLayout.HeroImage;
