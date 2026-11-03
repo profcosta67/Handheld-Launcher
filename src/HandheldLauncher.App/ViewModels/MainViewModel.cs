@@ -185,6 +185,7 @@ public sealed class MainViewModel : ViewModelBase
 
         RebuildGamesFromLibrary();
         InitializeHudFromSettings();
+        Avalonia.Threading.Dispatcher.UIThread.Post(QueueAutomaticMissingCovers, DispatcherPriority.Background);
     }
 
     /// <summary>
@@ -571,6 +572,7 @@ public sealed class MainViewModel : ViewModelBase
         _artwork.ReloadSettings();
         OnPropertyChanged(nameof(CanFetchArtwork));
         if (IsGlobalMenuOpen) BuildGlobalMenu();
+        QueueAutomaticMissingCovers();
     }
 
     public void ApplyEntryEdits(GameEntry game, string? title, bool isApplication) { _library.SaveEntryEdits(game.Id, title, isApplication); RebuildGamesFromLibrary(); }
@@ -1146,6 +1148,30 @@ public sealed class MainViewModel : ViewModelBase
         var restoredIndex = previouslySelectedId is null ? 0 : Math.Max(0, Games.ToList().FindIndex(t => t.Game.Id == previouslySelectedId));
         SelectedIndex = Games.Count > 0 ? restoredIndex : -1;
         if (Games.Count > 0) SelectedTile = Games[SelectedIndex];
+    }
+
+    private bool _automaticCoverFetchQueued;
+
+    private void QueueAutomaticMissingCovers()
+    {
+        if (_automaticCoverFetchQueued || !_artwork.HasApiKey) return;
+        _automaticCoverFetchQueued = true;
+        Avalonia.Threading.Dispatcher.UIThread.Post(async () =>
+        {
+            try
+            {
+                foreach (var game in _library.Games.ToList())
+                {
+                    if (string.IsNullOrWhiteSpace(game.GridImagePath) || !File.Exists(game.GridImagePath))
+                    {
+                        try { await _artwork.FetchGridAsync(game); }
+                        catch (Exception ex) { DebugLog.Write($"[CAPAS] Falha ao buscar capa de '{game.Title}': {ex.Message}"); }
+                    }
+                }
+                RebuildGamesFromLibrary();
+            }
+            finally { _automaticCoverFetchQueued = false; }
+        }, DispatcherPriority.Background);
     }
 
     private async void FetchMissingArtwork()
