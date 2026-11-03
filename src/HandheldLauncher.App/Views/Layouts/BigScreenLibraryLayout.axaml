@@ -59,9 +59,9 @@
 
     <Grid RowDefinitions="*,Auto" Margin="40,24,40,22">
 
-      <StackPanel Grid.Row="0" VerticalAlignment="Center" Spacing="26">
+      <Grid Grid.Row="0" RowDefinitions="Auto,*" RowSpacing="20" VerticalAlignment="Stretch">
 
-        <Grid Height="92" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
+        <Grid Grid.Row="0" Height="82" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
           <Image Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
                  Stretch="Uniform"
                  HorizontalAlignment="Left"
@@ -87,8 +87,9 @@
         </Grid>
 
         <ScrollViewer x:Name="GameRowScrollViewer"
-                      Height="470"
-                      VerticalAlignment="Center"
+                      Grid.Row="1"
+                      MinHeight="220"
+                      VerticalAlignment="Stretch"
                       Background="Transparent"
                       BorderBrush="Transparent"
                       BorderThickness="0"
@@ -207,7 +208,7 @@
           </ItemsControl>
         </ScrollViewer>
 
-      </StackPanel>
+      </Grid>
 
       <TextBlock Grid.Row="0"
                  Text="SUA BIBLIOTECA&#10;Adicione jogos para começar sua experiência."
@@ -220,44 +221,44 @@
                  IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
 
       <StackPanel Grid.Row="1" Spacing="12" Margin="0,20,0,0">
-        <Grid ColumnDefinitions="*,*,*,*,*,*">
-          <Button Grid.Column="0" Classes="bigScreenTab" Classes.active="{Binding IsFilterFavoritesActive}" Command="{Binding SetFilterFavoritesCommand}" Margin="4">
+        <WrapPanel HorizontalAlignment="Center">
+          <Button Width="116" Classes="bigScreenTab" Classes.active="{Binding IsFilterFavoritesActive}" Command="{Binding SetFilterFavoritesCommand}" Margin="4">
             <StackPanel HorizontalAlignment="Center" Spacing="3">
               <TextBlock Text="★" FontSize="19" HorizontalAlignment="Center" />
               <TextBlock Text="Favoritos" />
             </StackPanel>
           </Button>
-          <Button Grid.Column="1" Classes="bigScreenTab" Classes.active="{Binding IsFilterAllActive}" Command="{Binding SetFilterAllCommand}" Margin="4">
+          <Button Width="116" Classes="bigScreenTab" Classes.active="{Binding IsFilterAllActive}" Command="{Binding SetFilterAllCommand}" Margin="4">
             <StackPanel HorizontalAlignment="Center" Spacing="3">
               <TextBlock Text="▦" FontSize="19" HorizontalAlignment="Center" />
               <TextBlock Text="Todos" />
             </StackPanel>
           </Button>
-          <Button Grid.Column="2" Classes="bigScreenTab" Classes.active="{Binding IsFilterComputerActive}" Command="{Binding SetFilterComputerCommand}" Margin="4">
+          <Button Width="116" Classes="bigScreenTab" Classes.active="{Binding IsFilterComputerActive}" Command="{Binding SetFilterComputerCommand}" Margin="4">
             <StackPanel HorizontalAlignment="Center" Spacing="3">
               <TextBlock Text="⌨" FontSize="19" HorizontalAlignment="Center" />
               <TextBlock Text="Computador" />
             </StackPanel>
           </Button>
-          <Button Grid.Column="3" Classes="bigScreenTab" Classes.active="{Binding IsFilterEmulatorsActive}" Command="{Binding SetFilterEmulatorsCommand}" Margin="4">
+          <Button Width="116" Classes="bigScreenTab" Classes.active="{Binding IsFilterEmulatorsActive}" Command="{Binding SetFilterEmulatorsCommand}" Margin="4">
             <StackPanel HorizontalAlignment="Center" Spacing="3">
               <TextBlock Text="🎮" FontSize="19" HorizontalAlignment="Center" />
               <TextBlock Text="Emuladores" />
             </StackPanel>
           </Button>
-          <Button Grid.Column="4" Classes="bigScreenTab" Classes.active="{Binding IsFilterApplicationsActive}" Command="{Binding SetFilterApplicationsCommand}" Margin="4">
+          <Button Width="116" Classes="bigScreenTab" Classes.active="{Binding IsFilterApplicationsActive}" Command="{Binding SetFilterApplicationsCommand}" Margin="4">
             <StackPanel HorizontalAlignment="Center" Spacing="3">
               <TextBlock Text="▣" FontSize="19" HorizontalAlignment="Center" />
               <TextBlock Text="Programas" />
             </StackPanel>
           </Button>
-          <Button Grid.Column="5" Classes="bigScreenTab" Classes.active="{Binding IsFilterNotInstalledActive}" Command="{Binding SetFilterNotInstalledCommand}" Margin="4">
+          <Button Width="116" Classes="bigScreenTab" Classes.active="{Binding IsFilterNotInstalledActive}" Command="{Binding SetFilterNotInstalledCommand}" Margin="4">
             <StackPanel HorizontalAlignment="Center" Spacing="3">
               <TextBlock Text="↓" FontSize="19" HorizontalAlignment="Center" />
               <TextBlock Text="Não instalados" />
             </StackPanel>
           </Button>
-        </Grid>
+        </WrapPanel>
 
         <Button Content="＋  Adicionar programa"
                 HorizontalAlignment="Center"
