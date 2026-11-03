@@ -1165,6 +1165,12 @@ public sealed class MainViewModel : ViewModelBase
                 modal?.UpdateProgress(0, 0, "Todas as capas já estão atualizadas");
                 modal?.CloseForReal();
                 if (dialogTask is not null) { try { await dialogTask; } catch { } }
+                IsFetchingArtwork = false;
+                _artworkPauseGate.Set();
+                _ownedArtworkCts?.Dispose();
+                _ownedArtworkCts = null;
+                try { _artworkSemaphore.Release(); } catch { }
+                DebugLog.Write("[SGDB] Lock de artwork liberado (nenhuma capa pendente).");
                 return;
             }
 
