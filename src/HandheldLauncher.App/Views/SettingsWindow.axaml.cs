@@ -24,6 +24,7 @@ public partial class SettingsWindow : Window
     private FocusZone _focusZone = FocusZone.Tabs;
     private int _tabIndex = 0;
     private int _contentIndex = 0;
+    private AccountsWindow? _accountsWindow;
 
     public SettingsWindow()
     {
@@ -77,6 +78,12 @@ public partial class SettingsWindow : Window
     /// </summary>
     public bool HandleSettingsGamepadAction(GamepadAction action)
     {
+        if (_accountsWindow is { } accounts)
+        {
+            accounts.HandleGamepadAction(action);
+            return true;
+        }
+
         var tabs = GetTabButtons();
         if (tabs.Count == 0) return false;
 
@@ -281,8 +288,9 @@ public partial class SettingsWindow : Window
         // Do not keep this settings dialog above external account websites.
         var wasTopmost = Topmost;
         Topmost = false;
-        try { await new AccountsWindow(ViewModel).ShowDialog(this); }
-        finally { Topmost = wasTopmost; }
+        _accountsWindow = new AccountsWindow(ViewModel);
+        try { await _accountsWindow.ShowDialog(this); }
+        finally { _accountsWindow = null; Topmost = wasTopmost; }
     }
 
     private void OnCategoryTabClick(object? sender, RoutedEventArgs e)
