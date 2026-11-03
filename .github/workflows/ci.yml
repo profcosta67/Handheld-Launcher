@@ -35,6 +35,10 @@ jobs:
           -p:Version=0.14.9-preview
           -o preview-publish
 
+      - name: Preparar FFmpeg (binário fixo e verificado por SHA-256)
+        shell: pwsh
+        run: ./scripts/Prepare-FFmpeg.ps1 -OutputDirectory "preview-publish/Tools"
+
       - name: Preparar módulo PawnIO oficial (hash fixo)
         shell: pwsh
         run: ./scripts/Prepare-PawnIO.ps1 -OutputDirectory "preview-publish/Tools"
