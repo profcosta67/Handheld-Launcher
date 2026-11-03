@@ -122,7 +122,7 @@
               <Rectangle Width="1" Height="14" Fill="#333A4A" VerticalAlignment="Center" />
 
               <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <TextBlock Text="{Binding BatteryStatusText}" Foreground="#E0E0E0" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding BatteryStatusText}" FontFamily="Inter" Foreground="#E0E0E0" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
               </StackPanel>
 
               <Rectangle Width="1" Height="14" Fill="#333A4A" VerticalAlignment="Center" />
