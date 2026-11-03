@@ -61,8 +61,9 @@
 
       <Grid Grid.Row="0" RowDefinitions="Auto,*,Auto" VerticalAlignment="Stretch">
 
-        <Grid Grid.Row="0" Height="82" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
-          <Image Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
+        <Grid Grid.Row="0" Height="82" ColumnDefinitions="*,Auto" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
+          <Image Grid.Column="0"
+                 Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
                  Width="260"
                  Height="64"
                  Stretch="Uniform"
@@ -70,7 +71,8 @@
                  VerticalAlignment="Center"
                  IsVisible="{Binding SelectedTile.ShowCurrentLogo}" />
 
-          <Border Background="{DynamicResource SurfaceRaisedBrush}"
+          <Border Grid.Column="0"
+                  Background="{DynamicResource SurfaceRaisedBrush}"
                   BorderBrush="{DynamicResource AccentBrush}"
                   BorderThickness="1"
                   CornerRadius="16"
@@ -85,6 +87,27 @@
                        FontWeight="SemiBold"
                        TextWrapping="NoWrap"
                        TextTrimming="CharacterEllipsis" />
+          </Border>
+
+          <Border Grid.Column="1"
+                  Background="#AA10131B"
+                  BorderBrush="#445F6F8D"
+                  BorderThickness="1"
+                  CornerRadius="14"
+                  Padding="16,9"
+                  VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+              <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                <TextBlock Text="◷" Foreground="#FF9BA8C4" FontSize="16" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding ClockText}" Foreground="#FFF5F7FF" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
+              </StackPanel>
+              <Border Width="1" Height="22" Background="#556C7898" />
+              <TextBlock Text="{Binding BatteryStatusText}"
+                         Foreground="#FFB8C1D4"
+                         FontSize="11"
+                         FontWeight="SemiBold"
+                         VerticalAlignment="Center" />
+            </StackPanel>
           </Border>
         </Grid>
 
