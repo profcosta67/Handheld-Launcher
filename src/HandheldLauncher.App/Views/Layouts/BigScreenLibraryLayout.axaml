@@ -59,7 +59,7 @@
 
     <Grid RowDefinitions="*,Auto" Margin="40,24,40,22">
 
-      <Grid Grid.Row="0" RowDefinitions="Auto,*,Auto" RowSpacing="14" VerticalAlignment="Stretch">
+      <Grid Grid.Row="0" RowDefinitions="Auto,*,Auto" VerticalAlignment="Stretch">
 
         <Grid Grid.Row="0" Height="82" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
           <Image Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
