@@ -83,18 +83,10 @@ jobs:
         if: steps.exists.outputs.skip != 'true'
         run: Copy-Item "InstallTask.ps1" -Destination "publish/InstallTask.ps1"
 
-      - name: Baixar e empacotar FFmpeg
+      - name: Preparar FFmpeg oficial (versão fixada, hash e licença)
         if: steps.exists.outputs.skip != 'true'
         shell: pwsh
-        run: |
-          Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile "ffmpeg.zip"
-          Expand-Archive -Path "ffmpeg.zip" -DestinationPath "ffmpeg_temp" -Force
-          $exe = Get-ChildItem -Path "ffmpeg_temp" -Filter "ffmpeg.exe" -Recurse | Select-Object -First 1
-          if (-not $exe) { throw "FFmpeg não foi encontrado no pacote baixado." }
-          New-Item -ItemType Directory -Path "publish/Tools" -Force | Out-Null
-          Copy-Item $exe.FullName -Destination "publish/Tools/ffmpeg.exe" -Force
-          Remove-Item "ffmpeg.zip" -Force
-          Remove-Item "ffmpeg_temp" -Recurse -Force
+        run: ./scripts/Prepare-FFmpeg.ps1 -OutputDirectory "publish/Tools"
 
       - name: Conferir que nenhum segredo entrou no pacote
         if: steps.exists.outputs.skip != 'true'
