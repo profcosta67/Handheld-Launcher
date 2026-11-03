@@ -1061,9 +1061,20 @@ public sealed class MainViewModel : ViewModelBase
         {
             if (_activeFilter != LibraryFilter.NotInstalled) return;
             var entry = _library.BuildEntryForOwnedGame(owned);
-            if (string.IsNullOrEmpty(entry.GridImagePath)) await _artwork.FetchGridAsync(entry);
+
+            // Jogos da conta ainda não instalados recebem os mesmos formatos
+            // de arte que os jogos presentes na biblioteca local.
+            if (string.IsNullOrWhiteSpace(entry.GridImagePath) || !File.Exists(entry.GridImagePath))
+                await FetchArtworkSlotSafely(entry, "capa", () => _artwork.FetchGridAsync(entry));
             if (_activeFilter != LibraryFilter.NotInstalled) return;
-            if (string.IsNullOrEmpty(entry.LogoImagePath)) await _artwork.FetchLogoAsync(entry);
+            if (string.IsNullOrWhiteSpace(entry.WideGridImagePath) || !File.Exists(entry.WideGridImagePath))
+                await FetchArtworkSlotSafely(entry, "capa larga", () => _artwork.FetchWideGridAsync(entry));
+            if (string.IsNullOrWhiteSpace(entry.HeroImagePath) || !File.Exists(entry.HeroImagePath))
+                await FetchArtworkSlotSafely(entry, "banner", () => _artwork.FetchHeroAsync(entry));
+            if (string.IsNullOrWhiteSpace(entry.LogoImagePath) || !File.Exists(entry.LogoImagePath))
+                await FetchArtworkSlotSafely(entry, "logo", () => _artwork.FetchLogoAsync(entry));
+            if (string.IsNullOrWhiteSpace(entry.IconImagePath) || !File.Exists(entry.IconImagePath))
+                await FetchArtworkSlotSafely(entry, "ícone", () => _artwork.FetchIconAsync(entry));
         }
         if (_activeFilter == LibraryFilter.NotInstalled) RebuildGamesFromLibrary();
     }
