@@ -63,6 +63,8 @@
 
         <Grid Grid.Row="0" Height="82" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
           <Image Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                 Width="260"
+                 Height="64"
                  Stretch="Uniform"
                  HorizontalAlignment="Left"
                  VerticalAlignment="Center"
