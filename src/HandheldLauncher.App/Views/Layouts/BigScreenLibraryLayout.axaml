@@ -151,7 +151,7 @@
                 HorizontalAlignment="Stretch"
                 MaxWidth="1180"
                 IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
-          <Grid ColumnDefinitions="64,*" ColumnSpacing="18">
+          <Grid ColumnDefinitions="82,*">
             <Border Grid.Column="0"
                     Width="60" Height="60"
                     CornerRadius="12"
