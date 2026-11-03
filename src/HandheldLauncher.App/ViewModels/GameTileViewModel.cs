@@ -156,6 +156,11 @@ public sealed class GameTileViewModel : ViewModelBase
         ? Game.WideGridImagePath ?? GridImagePath ?? IconImagePath
         : GridImagePath ?? Game.WideGridImagePath ?? IconImagePath;
 
+    // Capsule Wide: prioriza a arte horizontal para a biblioteca BigScreen,
+    // usando hero/grid/icon como fallback quando o jogo não possui wide-grid.
+    public string? WideCapsuleImagePath =>
+        Game.WideGridImagePath ?? Game.HeroImagePath ?? Game.GridImagePath ?? Game.IconImagePath;
+
     public double CarouselTileWidth => 220 * SizeScale;
     public double CarouselTileHeight => 290 * SizeScale;
     public string? CarouselTileImagePath => GridImagePath ?? Game.WideGridImagePath ?? IconImagePath;
