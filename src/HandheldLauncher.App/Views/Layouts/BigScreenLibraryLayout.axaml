@@ -57,30 +57,30 @@
 
     <Border Background="{DynamicResource BackdropDimBrush}" IsHitTestVisible="False" />
 
-    <Grid ColumnDefinitions="88,*" RowDefinitions="*" Margin="24,20,32,20">
+    <Grid ColumnDefinitions="104,*" RowDefinitions="*" Margin="24,20,32,20">
 
       <StackPanel Grid.Column="0" Grid.Row="0"
                   VerticalAlignment="Center"
                   HorizontalAlignment="Stretch"
                   Spacing="10"
-                  Margin="0,0,14,0">
+                  Margin="0,0,18,0">
         <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterFavoritesActive}" Command="{Binding SetFilterFavoritesCommand}" ToolTip.Tip="Favoritos" MinHeight="62" Padding="4">
-          <StackPanel HorizontalAlignment="Center" Spacing="2"><TextBlock Text="★" FontSize="22"/><TextBlock Text="Favoritos" FontSize="9"/></StackPanel>
+          <StackPanel HorizontalAlignment="Center" Spacing="2"><TextBlock Text="★" FontSize="22"/><TextBlock Text="Favoritos" FontSize="10"/></StackPanel>
         </Button>
         <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterAllActive}" Command="{Binding SetFilterAllCommand}" ToolTip.Tip="Todos os jogos" MinHeight="62" Padding="4">
-          <StackPanel HorizontalAlignment="Center" Spacing="2"><TextBlock Text="▦" FontSize="22"/><TextBlock Text="Todos" FontSize="9"/></StackPanel>
+          <StackPanel HorizontalAlignment="Center" Spacing="2"><TextBlock Text="▦" FontSize="22"/><TextBlock Text="Todos" FontSize="10"/></StackPanel>
         </Button>
         <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterComputerActive}" Command="{Binding SetFilterComputerCommand}" ToolTip.Tip="Computador" MinHeight="62" Padding="4">
-          <StackPanel HorizontalAlignment="Center" Spacing="2"><TextBlock Text="⌨" FontSize="22"/><TextBlock Text="PC" FontSize="9"/></StackPanel>
+          <StackPanel HorizontalAlignment="Center" Spacing="2"><TextBlock Text="⌨" FontSize="22"/><TextBlock Text="Computador" FontSize="9"/></StackPanel>
         </Button>
         <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterEmulatorsActive}" Command="{Binding SetFilterEmulatorsCommand}" ToolTip.Tip="Emuladores" MinHeight="62" Padding="4">
           <StackPanel HorizontalAlignment="Center" Spacing="2"><TextBlock Text="🎮" FontSize="22"/><TextBlock Text="Emuladores" FontSize="9"/></StackPanel>
         </Button>
         <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterApplicationsActive}" Command="{Binding SetFilterApplicationsCommand}" ToolTip.Tip="Programas" MinHeight="62" Padding="4">
-          <StackPanel HorizontalAlignment="Center" Spacing="2"><TextBlock Text="▣" FontSize="22"/><TextBlock Text="Apps" FontSize="9"/></StackPanel>
+          <StackPanel HorizontalAlignment="Center" Spacing="2"><TextBlock Text="▣" FontSize="22"/><TextBlock Text="Programas" FontSize="9"/></StackPanel>
         </Button>
         <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterNotInstalledActive}" Command="{Binding SetFilterNotInstalledCommand}" ToolTip.Tip="Não instalados" MinHeight="62" Padding="4">
-          <StackPanel HorizontalAlignment="Center" Spacing="2"><TextBlock Text="↓" FontSize="22"/><TextBlock Text="Nuvem" FontSize="9"/></StackPanel>
+          <StackPanel HorizontalAlignment="Center" Spacing="2"><TextBlock Text="↓" FontSize="22"/><TextBlock Text="Não instalados" FontSize="9"/></StackPanel>
         </Button>
         <Button Content="＋" MinHeight="48" Padding="4" ToolTip.Tip="Adicionar programa"
                 IsVisible="{Binding IsFilterApplicationsActive}" Click="OnAddProgramClick" />
@@ -161,17 +161,17 @@
                 BorderBrush="#665F6F8D"
                 BorderThickness="1"
                 CornerRadius="18"
-                Padding="24,15"
-                HorizontalAlignment="Center"
-                MaxWidth="900"
+                Padding="24,17"
+                HorizontalAlignment="Stretch"
+                MaxWidth="1040"
                 IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
           <StackPanel Spacing="7">
             <TextBlock Text="{Binding SelectedTile.Title}"
                        Foreground="#FFF5F7FF"
-                       FontSize="22"
+                       FontSize="23"
                        FontWeight="Bold"
                        TextTrimming="CharacterEllipsis"
-                       MaxWidth="820" />
+                       MaxWidth="960" />
             <StackPanel Orientation="Horizontal" Spacing="16">
               <TextBlock Text="{Binding SelectedTile.SourceLabel}"
                          Foreground="#FF9BA8C4"
@@ -218,7 +218,7 @@
                         BorderThickness="0">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
-                <StackPanel Orientation="Horizontal" Spacing="48" Margin="900,0,900,0" VerticalAlignment="Center" />
+                <StackPanel Orientation="Horizontal" Spacing="38" Margin="700,0,700,0" VerticalAlignment="Center" />
               </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
 
