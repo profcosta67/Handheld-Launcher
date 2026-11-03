@@ -4,7 +4,7 @@
         x:Class="HandheldLauncher.App.Views.SettingsWindow"
         x:DataType="vm:SettingsViewModel"
         Title="Configurações"
-        Width="560" Height="860"
+        Width="780" Height="860"
         CanResize="False"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource BackgroundBrush}">
