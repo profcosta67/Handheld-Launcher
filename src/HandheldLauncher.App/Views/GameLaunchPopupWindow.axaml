@@ -45,7 +45,7 @@
             </StackPanel>
 
             <TextBlock Grid.Column="2"
-                       Text="⚡"
+                       x:Name="TxtLoadingSpinner" Text="◐"
                        FontSize="22"
                        Foreground="#7C5CFC"
                        VerticalAlignment="Center"
