@@ -86,7 +86,7 @@
           </Border>
         </Grid>
 
-        <ScrollViewer x:Name="GameRowScrollViewer"
+        <ScrollViewer x:Name="GameRowScrollViewer" PointerWheelChanged="OnGameRowPointerWheelChanged"
                       Height="430"
                       VerticalAlignment="Center"
                       Background="Transparent"
