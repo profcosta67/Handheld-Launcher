@@ -297,7 +297,11 @@ public partial class SettingsWindow : Window
 
     private async void OnManageAccountsClick(object? sender, RoutedEventArgs e)
     {
-        await new AccountsWindow(ViewModel).ShowDialog(this);
+        // Do not keep this settings dialog above external account websites.
+        var wasTopmost = Topmost;
+        Topmost = false;
+        try { await new AccountsWindow(ViewModel).ShowDialog(this); }
+        finally { Topmost = wasTopmost; }
     }
 
     private void OnCategoryTabClick(object? sender, RoutedEventArgs e)
