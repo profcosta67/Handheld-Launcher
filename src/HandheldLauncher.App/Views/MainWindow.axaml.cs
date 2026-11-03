@@ -1363,11 +1363,11 @@ public partial class MainWindow : Window
         var itemRight = itemLeft + vm.Games[vm.SelectedIndex].TileWidth;
         var viewLeft = GameRowScrollViewer.Offset.X;
         var viewRight = viewLeft + GameRowScrollViewer.Viewport.Width;
-        var maxOffset = Math.Max(0, GameRowScrollViewer.Extent.Width - GameRowScrollViewer.Viewport.Width);
+        var fallbackMaxOffset = Math.Max(0, GameRowScrollViewer.Extent.Width - GameRowScrollViewer.Viewport.Width);
         if (itemLeft < viewLeft)
-            GameRowScrollViewer.Offset = new Vector(Math.Clamp(itemLeft, 0, maxOffset), GameRowScrollViewer.Offset.Y);
+            GameRowScrollViewer.Offset = new Vector(Math.Clamp(itemLeft, 0, fallbackMaxOffset), GameRowScrollViewer.Offset.Y);
         else if (itemRight > viewRight)
-            GameRowScrollViewer.Offset = new Vector(Math.Clamp(itemRight - GameRowScrollViewer.Viewport.Width, 0, maxOffset), GameRowScrollViewer.Offset.Y);
+            GameRowScrollViewer.Offset = new Vector(Math.Clamp(itemRight - GameRowScrollViewer.Viewport.Width, 0, fallbackMaxOffset), GameRowScrollViewer.Offset.Y);
     }
 
     private bool _verticalLayout;
