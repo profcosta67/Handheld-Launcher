@@ -85,64 +85,45 @@
         </Button>
         <Button Content="＋" MinHeight="48" Padding="4" ToolTip.Tip="Adicionar programa"
                 IsVisible="{Binding IsFilterApplicationsActive}" Click="OnAddProgramClick" />
-        <ItemsControl ItemsSource="{Binding SubFilters}" IsVisible="{Binding HasSubFilters}" HorizontalAlignment="Center">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate><StackPanel Orientation="Vertical" HorizontalAlignment="Center" /></ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="vm:SubFilterViewModel">
-              <Button Classes="pill subFilter" Width="76"
-                      Classes.cursor="{Binding IsCursor}"
-                      Content="{Binding Label}"
-                      Click="OnSubFilterClick"
-                      Background="{Binding BackgroundHex, Converter={StaticResource HexColorToBrushConverter}}"
-                      Foreground="{Binding ForegroundHex, Converter={StaticResource HexColorToBrushConverter}}"
-                      BorderBrush="{Binding AccentHex, Converter={StaticResource HexColorToBrushConverter}}"
-                      BorderThickness="2"
-                      Margin="2" />
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
+
       </StackPanel>
 
-      <Grid Grid.Column="1" Grid.Row="0" RowDefinitions="Auto,*,Auto" VerticalAlignment="Stretch">
+      <Grid Grid.Column="1" Grid.Row="0" RowDefinitions="Auto,Auto,*,Auto" VerticalAlignment="Stretch">
 
-        <Grid Grid.Row="0" Height="82" ColumnDefinitions="*,Auto" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
-          <Image Grid.Column="0"
+        <Grid Grid.Row="0" Height="82" ColumnDefinitions="*,Auto,*" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
+          <Image Grid.Column="1"
                  Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
                  Width="260"
                  Height="64"
                  Stretch="Uniform"
-                 HorizontalAlignment="Left"
+                 HorizontalAlignment="Center"
                  VerticalAlignment="Center"
                  IsVisible="{Binding SelectedTile.ShowCurrentLogo}" />
 
-          <Border Grid.Column="0"
-                  Background="{DynamicResource SurfaceRaisedBrush}"
-                  BorderBrush="{DynamicResource AccentBrush}"
-                  BorderThickness="1"
-                  CornerRadius="16"
-                  Padding="24,12"
-                  HorizontalAlignment="Left"
-                  VerticalAlignment="Center"
-                  MaxWidth="900"
-                  IsVisible="{Binding SelectedTile.ShowNameCaption}">
-            <TextBlock Text="{Binding SelectedTile.Title}"
-                       Foreground="{DynamicResource TextPrimaryBrush}"
-                       FontSize="32"
-                       FontWeight="SemiBold"
-                       TextWrapping="NoWrap"
-                       TextTrimming="CharacterEllipsis" />
-          </Border>
+          <TextBlock Grid.Column="1"
+                     Text="{Binding SelectedTile.Title}"
+                     Foreground="#FFF5F7FF"
+                     FontSize="27"
+                     FontWeight="SemiBold"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center"
+                     TextTrimming="CharacterEllipsis"
+                     IsVisible="{Binding SelectedTile.ShowNameCaption}" />
 
-          <Border Grid.Column="1"
+          <Border Grid.Column="2"
                   Background="#AA10131B"
                   BorderBrush="#445F6F8D"
                   BorderThickness="1"
                   CornerRadius="14"
                   Padding="16,9"
                   VerticalAlignment="Center">
-            <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" Spacing="13" VerticalAlignment="Center">
+              <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" ToolTip.Tip="{Binding TopBarTdpToolTip}">
+                <TextBlock Text="⚡" Foreground="#FFFFB84D" FontSize="13" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding TopBarTdpText}" Foreground="#FFF5F7FF" FontSize="14" FontWeight="Bold" VerticalAlignment="Center" />
+                <TextBlock Text="TDP" Foreground="#FF9BA8C4" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center" />
+              </StackPanel>
+              <Border Width="1" Height="22" Background="#556C7898" />
               <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
                 <TextBlock Text="◷" Foreground="#FF9BA8C4" FontSize="16" VerticalAlignment="Center" />
                 <TextBlock Text="{Binding ClockText}" Foreground="#FFF5F7FF" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
@@ -157,7 +138,7 @@
           </Border>
         </Grid>
 
-        <Border Grid.Row="2"
+        <Border Grid.Row="3"
                 Background="#E6111520"
                 BorderBrush="#887B8499"
                 BorderThickness="1"
@@ -197,8 +178,32 @@
           </StackPanel>
         </Border>
 
+        <ItemsControl Grid.Row="1"
+                      ItemsSource="{Binding SubFilters}"
+                      IsVisible="{Binding HasSubFilters}"
+                      HorizontalAlignment="Center"
+                      Margin="0,4,0,8">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" /></ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:SubFilterViewModel">
+              <Button Classes="pill subFilter"
+                      MinWidth="82"
+                      Classes.cursor="{Binding IsCursor}"
+                      Content="{Binding Label}"
+                      Click="OnSubFilterClick"
+                      Background="{Binding BackgroundHex, Converter={StaticResource HexColorToBrushConverter}}"
+                      Foreground="{Binding ForegroundHex, Converter={StaticResource HexColorToBrushConverter}}"
+                      BorderBrush="{Binding AccentHex, Converter={StaticResource HexColorToBrushConverter}}"
+                      BorderThickness="2"
+                      Padding="12,7" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
         <ScrollViewer x:Name="GameRowScrollViewer"
-                      Grid.Row="1"
+                      Grid.Row="2"
                       MinHeight="220"
                       VerticalAlignment="Stretch"
                       Background="Transparent"
