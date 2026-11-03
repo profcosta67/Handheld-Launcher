@@ -59,7 +59,7 @@
 
     <Grid RowDefinitions="*,Auto" Margin="40,24,40,22">
 
-      <Grid Grid.Row="0" RowDefinitions="Auto,*" RowSpacing="20" VerticalAlignment="Stretch">
+      <Grid Grid.Row="0" RowDefinitions="Auto,*,Auto" RowSpacing="14" VerticalAlignment="Stretch">
 
         <Grid Grid.Row="0" Height="82" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
           <Image Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
@@ -85,6 +85,54 @@
                        TextTrimming="CharacterEllipsis" />
           </Border>
         </Grid>
+
+        <Border Grid.Row="2"
+                Background="#CC10131B"
+                BorderBrush="#554F5B73"
+                BorderThickness="1"
+                CornerRadius="18"
+                Padding="22,12"
+                HorizontalAlignment="Center"
+                MaxWidth="820"
+                IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
+          <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+            <StackPanel Grid.Column="0" Grid.Row="0" Spacing="3">
+              <TextBlock Text="{Binding SelectedTile.Title}"
+                         Foreground="#FFF5F7FF"
+                         FontSize="20"
+                         FontWeight="Bold"
+                         TextTrimming="CharacterEllipsis"
+                         MaxWidth="620" />
+              <StackPanel Orientation="Horizontal" Spacing="12">
+                <TextBlock Text="{Binding SelectedTile.SourceLabel}"
+                           Foreground="#FF9BA8C4"
+                           FontSize="10"
+                           FontWeight="Bold" />
+                <TextBlock Text="{Binding SelectedTile.PlaytimeLabel}"
+                           Foreground="#FFB8C1D4"
+                           FontSize="10"
+                           FontWeight="SemiBold" />
+                <TextBlock Text="{Binding SelectedTile.FavoriteLabel}"
+                           Foreground="#FFFFC45C"
+                           FontSize="10"
+                           FontWeight="Bold" />
+              </StackPanel>
+            </StackPanel>
+            <Border Grid.Column="1"
+                    Grid.RowSpan="2"
+                    Background="#332F80ED"
+                    BorderBrush="#665C9DFF"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="14,8"
+                    VerticalAlignment="Center">
+              <StackPanel Spacing="2" HorizontalAlignment="Center">
+                <TextBlock Text="A" Foreground="#FFBBD4FF" FontSize="15" FontWeight="Bold" HorizontalAlignment="Center"/>
+                <TextBlock Text="JOGAR" Foreground="#FFEAF2FF" FontSize="9" FontWeight="Bold"/>
+              </StackPanel>
+            </Border>
+          </Grid>
+        </Border>
 
         <ScrollViewer x:Name="GameRowScrollViewer"
                       Grid.Row="1"
