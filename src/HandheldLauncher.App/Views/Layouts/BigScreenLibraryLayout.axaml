@@ -63,13 +63,14 @@
 
     <Border Background="#88070A12" IsHitTestVisible="False" />
 
-    <Grid ColumnDefinitions="104,*" RowDefinitions="*" Margin="24,20,32,20">
+    <Grid ColumnDefinitions="*" RowDefinitions="Auto,*" Margin="24,14,32,20">
 
       <StackPanel Grid.Column="0" Grid.Row="0"
-                  VerticalAlignment="Center"
-                  HorizontalAlignment="Stretch"
+                  Orientation="Horizontal"
+                  VerticalAlignment="Top"
+                  HorizontalAlignment="Left"
                   Spacing="8"
-                  Margin="0,0,14,0">
+                  Margin="0,0,0,14">
         <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterFavoritesActive}" Command="{Binding SetFilterFavoritesCommand}" ToolTip.Tip="Favoritos" MinHeight="56" Padding="5">
           <StackPanel HorizontalAlignment="Center" Spacing="2"><TextBlock Text="★" FontSize="22"/><TextBlock Text="Favoritos" FontSize="10"/></StackPanel>
         </Button>
@@ -94,16 +95,17 @@
 
       </StackPanel>
 
-      <Grid Grid.Column="1" Grid.Row="0" RowDefinitions="Auto,Auto,*,Auto" VerticalAlignment="Stretch">
+      <Grid Grid.Column="0" Grid.Row="1" RowDefinitions="Auto,Auto,*,Auto" VerticalAlignment="Stretch">
 
-        <Grid Grid.Row="0" Height="82" ColumnDefinitions="*,Auto,*" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
+        <Grid Grid.Row="0" Height="112" ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
           <Image Grid.Column="1"
                  Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
                  Width="260"
                  Height="64"
+                 Margin="0,30,0,0"
                  Stretch="Uniform"
                  HorizontalAlignment="Center"
-                 VerticalAlignment="Center"
+                 VerticalAlignment="Bottom"
                  IsVisible="{Binding SelectedTile.ShowCurrentLogo}" />
 
           <TextBlock Grid.Column="1"
@@ -112,7 +114,8 @@
                      FontSize="27"
                      FontWeight="SemiBold"
                      HorizontalAlignment="Center"
-                     VerticalAlignment="Center"
+                     VerticalAlignment="Bottom"
+                     Margin="0,0,0,10"
                      TextTrimming="CharacterEllipsis"
                      IsVisible="{Binding SelectedTile.ShowNameCaption}" />
 
@@ -122,7 +125,8 @@
                   BorderThickness="1"
                   CornerRadius="14"
                   Padding="16,9"
-                  VerticalAlignment="Center">
+                  VerticalAlignment="Top"
+                  HorizontalAlignment="Right">
             <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
               <Button Classes="pill" Content="Wi-Fi" FontSize="10" Padding="8,5" Click="OnOpenWifiSettingsClick" ToolTip.Tip="Abrir configurações de Wi-Fi" />
               <Button Classes="pill" Content="Bluetooth" FontSize="10" Padding="8,5" Click="OnOpenBluetoothSettingsClick" ToolTip.Tip="Abrir configurações de Bluetooth" />
@@ -135,7 +139,7 @@
               <Border Width="1" Height="22" Background="#556C7898" />
               <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
                 <TextBlock Text="◷" Foreground="#FF9BA8C4" FontSize="16" VerticalAlignment="Center" />
-                <TextBlock Text="{Binding ClockText}" Foreground="#FFF5F7FF" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding ClockText}" Foreground="#FFF5F7FF" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" />
               </StackPanel>
               <Border Width="1" Height="22" Background="#556C7898" />
               <TextBlock Text="{Binding BatteryStatusText}"
@@ -340,7 +344,7 @@
 
       </Grid>
 
-      <TextBlock Grid.Row="0" Grid.Column="1"
+      <TextBlock Grid.Row="1" Grid.Column="0"
                  Text="SUA BIBLIOTECA&#10;Adicione jogos para começar sua experiência."
                  Foreground="{DynamicResource TextPrimaryBrush}"
                  TextWrapping="Wrap"
