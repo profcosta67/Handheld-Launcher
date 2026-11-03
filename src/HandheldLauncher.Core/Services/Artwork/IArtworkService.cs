@@ -81,6 +81,9 @@ public interface IArtworkService
     /// <summary>Same idea as GetGridCandidatesAsync but for a capa landscape (WideGridImagePath) — powers o "Escolher capa larga" picker.</summary>
     Task<IReadOnlyList<ArtworkCandidate>> GetWideGridCandidatesAsync(GameEntry game, bool animatedOnly = false, CancellationToken ct = default);
 
+    /// <summary>Combines landscape grids and SteamGridDB hero banners in the same wide-cover picker.</summary>
+    Task<IReadOnlyList<ArtworkCandidate>> GetWideArtworkCandidatesAsync(GameEntry game, bool animatedOnly = false, CancellationToken ct = default);
+
     /// <summary>
     /// Makes one specific candidate (from GetGridCandidatesAsync) this
     /// game's actual cover — copies the already-downloaded candidate file
