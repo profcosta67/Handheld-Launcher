@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Input;
 using HandheldLauncher.App.ViewModels;
 
 namespace HandheldLauncher.App.Views;
@@ -24,6 +25,7 @@ public partial class AccountsWindow : Window
         InitializeComponent();
         DataContext = viewModel;
         _openExternalUrl = openExternalUrl;
+        Opened += (_, _) => GridDbKeyBox.Focus(NavigationMethod.Directional);
     }
 
     private SettingsViewModel ViewModel => (SettingsViewModel)DataContext!;
