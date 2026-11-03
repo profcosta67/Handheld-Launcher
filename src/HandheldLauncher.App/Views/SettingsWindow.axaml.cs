@@ -82,6 +82,30 @@ public partial class SettingsWindow : Window
 
         var content = GetContentFocusables();
 
+        // Quando uma lista suspensa está aberta, o D-pad navega suas opções
+        // e A confirma/fecha, em vez de alterar o valor sem mostrar a lista.
+        if (_focusZone == FocusZone.Content && _contentIndex >= 0 && _contentIndex < content.Count
+            && content[_contentIndex] is ComboBox openCombo && openCombo.IsDropDownOpen)
+        {
+            switch (action)
+            {
+                case GamepadAction.MoveDown:
+                    openCombo.SelectedIndex = Math.Min(openCombo.ItemCount - 1, Math.Max(0, openCombo.SelectedIndex + 1));
+                    return true;
+                case GamepadAction.MoveUp:
+                    openCombo.SelectedIndex = Math.Max(0, openCombo.SelectedIndex - 1);
+                    return true;
+                case GamepadAction.Confirm:
+                case GamepadAction.Back:
+                    openCombo.IsDropDownOpen = false;
+                    FocusControl(openCombo);
+                    return true;
+                case GamepadAction.MoveLeft:
+                case GamepadAction.MoveRight:
+                    return true;
+            }
+        }
+
         if (_focusZone == FocusZone.Tabs)
         {
             switch (action)
@@ -220,7 +244,8 @@ public partial class SettingsWindow : Window
                     && c.IsEffectivelyVisible
                     && c.IsEffectivelyEnabled
                     && c != this
-                    && !tabButtons.Contains(c))
+                    && !tabButtons.Contains(c)
+                    && c is ComboBox or Slider or CheckBox or RadioButton or TextBox or Button)
         .ToList();
 }
 
@@ -274,9 +299,8 @@ public partial class SettingsWindow : Window
                 rb.IsChecked = true;
                 break;
             case ComboBox combo:
-                // A cicla pro próximo item (não abre dropdown pra evitar travar no jogo)
-                if (combo.ItemCount > 0)
-                    combo.SelectedIndex = (combo.SelectedIndex + 1) % combo.ItemCount;
+                // Primeiro A abre a lista; o próximo A confirma a opção escolhida.
+                combo.IsDropDownOpen = !combo.IsDropDownOpen;
                 break;
             case Slider sl:
                 var step = sl.TickFrequency > 0 ? sl.TickFrequency : (sl.Maximum - sl.Minimum) / 10;
@@ -297,7 +321,17 @@ public partial class SettingsWindow : Window
 
     private async void OnManageAccountsClick(object? sender, RoutedEventArgs e)
     {
-        await new AccountsWindow(ViewModel).ShowDialog(this);
+        await new AccountsWindow(ViewModel, OpenExternalUrlFromDialog).ShowDialog(this);
+    }
+
+    private void OpenExternalUrlFromDialog(string url)
+    {
+        // A janela de configurações não pode permanecer Topmost sobre o navegador.
+        Topmost = false;
+        if (Owner is MainWindow mainWindow)
+            mainWindow.OpenExternalUrl(url);
+        else
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
     }
 
     private void OnCategoryTabClick(object? sender, RoutedEventArgs e)
