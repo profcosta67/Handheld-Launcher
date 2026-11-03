@@ -61,7 +61,8 @@
                     Margin="24"
                     IsVisible="{Binding SelectedTile.ShowCurrentLogo}">
               <Image Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
-                     Height="64" Stretch="Uniform" />
+                     Width="240" Height="64" Stretch="Uniform"
+                     HorizontalAlignment="Left" />
             </Border>
 
           </Grid>
