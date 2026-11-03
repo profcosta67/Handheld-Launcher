@@ -20,7 +20,7 @@ public partial class ClassicLibraryLayout : UserControl, ILibraryLayout
     bool ILibraryLayout.SupportsVerticalGrid => true;
     // Usa o mesmo acompanhamento centralizado do layout Switch.
     // Assim a navegação por controle mantém o jogo selecionado como referência visual.
-    bool ILibraryLayout.CentersSelection => true;
+    bool ILibraryLayout.CentersSelection => false;
 
     private MainWindow? Owner => TopLevel.GetTopLevel(this) as MainWindow;
     private void OnAddProgramClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => Owner?.HandleAddProgramClick();
