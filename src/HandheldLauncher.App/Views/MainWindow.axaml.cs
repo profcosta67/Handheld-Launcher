@@ -1599,4 +1599,19 @@ public partial class MainWindow : Window
         var dialog = new DriverUpdateWindow(); _activeDialog = dialog; dialog.Topmost = true;
         try { await dialog.ShowDialog(this); } finally { _activeDialog = null; }
     }
+
+    private void OnOpenWifiSettingsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-settings:network-wifi") { UseShellExecute = true }); }
+        catch (Exception ex) { DebugLog.Write($"[CONNECTIVITY] Não foi possível abrir Wi-Fi: {ex.Message}"); }
+    }
+
+    private void OnOpenBluetoothSettingsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-settings:bluetooth") { UseShellExecute = true }); }
+        catch (Exception ex) { DebugLog.Write($"[CONNECTIVITY] Não foi possível abrir Bluetooth: {ex.Message}"); }
+    }
+
 }
