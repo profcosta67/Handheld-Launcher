@@ -1,0 +1,54 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="HandheldLauncher.App.Views.ConnectivityPopupWindow"
+        Title="Conectividade"
+        Width="560" Height="650"
+        MinWidth="500" MinHeight="560"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="#10131C"
+        Topmost="True">
+  <Border Padding="24" Background="#10131C" BorderBrush="#394257" BorderThickness="1" CornerRadius="18">
+    <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="16">
+      <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="3">
+          <TextBlock Text="Conectividade" FontSize="24" FontWeight="Bold" Foreground="#F5F7FF"/>
+          <TextBlock Text="Controles rápidos do Handheld Launcher" FontSize="12" Foreground="#9BA8C4"/>
+        </StackPanel>
+        <Button Grid.Column="1" Content="✕" Width="38" Height="38" Click="OnCloseClick"/>
+      </Grid>
+      <Border Grid.Row="1" Background="#202638" CornerRadius="12" Padding="14">
+        <StackPanel Spacing="8">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="Wi-Fi" FontSize="17" FontWeight="Bold" Foreground="#F5F7FF" VerticalAlignment="Center"/>
+            <Button Grid.Column="1" Content="Atualizar redes" Click="OnRefreshWifiClick"/>
+          </Grid>
+          <TextBlock x:Name="WifiStatusText" Text="Consultando adaptador..." Foreground="#B8C1D4" FontSize="12" TextWrapping="Wrap"/>
+          <ComboBox x:Name="WifiNetworksCombo" PlaceholderText="Selecione uma rede disponível" MinHeight="42"/>
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBox x:Name="WifiPasswordBox" Watermark="Senha da rede (se necessário)" PasswordChar="●"/>
+            <Button Grid.Column="1" Content="Conectar" Margin="8,0,0,0" Click="OnConnectWifiClick"/>
+          </Grid>
+        </StackPanel>
+      </Border>
+      <Border Grid.Row="2" Background="#202638" CornerRadius="12" Padding="14">
+        <StackPanel Spacing="10">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="Bluetooth" FontSize="17" FontWeight="Bold" Foreground="#F5F7FF" VerticalAlignment="Center"/>
+            <Button x:Name="BluetoothToggleButton" Grid.Column="1" Content="Ativar / Desativar" Click="OnToggleBluetoothClick"/>
+          </Grid>
+          <TextBlock x:Name="BluetoothStatusText" Text="Consultando adaptador..." Foreground="#B8C1D4" FontSize="12" TextWrapping="Wrap"/>
+          <Button Content="Atualizar dispositivos pareados" HorizontalAlignment="Left" Click="OnRefreshBluetoothClick"/>
+          <ScrollViewer MaxHeight="190" VerticalScrollBarVisibility="Auto">
+            <TextBlock x:Name="BluetoothDevicesText" Text="Nenhum dispositivo listado." Foreground="#D1D8E8" FontSize="12" TextWrapping="Wrap"/>
+          </ScrollViewer>
+          <TextBlock Text="A ativação/desativação usa o adaptador Bluetooth do Windows. A descoberta e o pareamento de novos dispositivos continuam disponíveis pelo fluxo de pareamento do próprio acessório." Foreground="#8794AE" FontSize="11" TextWrapping="Wrap"/>
+        </StackPanel>
+      </Border>
+      <Grid Grid.Row="3" ColumnDefinitions="*,Auto">
+        <TextBlock x:Name="FeedbackText" Text="Pronto." Foreground="#9BA8C4" FontSize="11" VerticalAlignment="Center" TextWrapping="Wrap"/>
+        <Button Grid.Column="1" Content="Fechar" MinWidth="90" Click="OnCloseClick"/>
+      </Grid>
+    </Grid>
+  </Border>
+</Window>
