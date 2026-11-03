@@ -157,69 +157,42 @@
         </Grid>
 
         <Border Grid.Row="2"
-                Background="#CC10131B"
-                BorderBrush="#554F5B73"
+                Background="#D910131B"
+                BorderBrush="#665F6F8D"
                 BorderThickness="1"
                 CornerRadius="18"
-                Padding="22,12"
+                Padding="24,15"
                 HorizontalAlignment="Center"
-                MaxWidth="820"
+                MaxWidth="900"
                 IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
-          <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
-            <StackPanel Grid.Column="0" Grid.Row="0" Spacing="3">
-              <TextBlock Text="{Binding SelectedTile.Title}"
-                         Foreground="#FFF5F7FF"
-                         FontSize="20"
-                         FontWeight="Bold"
-                         TextTrimming="CharacterEllipsis"
-                         MaxWidth="620" />
-              <StackPanel Orientation="Horizontal" Spacing="12">
-                <TextBlock Text="{Binding SelectedTile.SourceLabel}"
-                           Foreground="#FF9BA8C4"
-                           FontSize="10"
-                           FontWeight="Bold" />
-                <TextBlock Text="{Binding SelectedTile.PlaytimeLabel}"
-                           Foreground="#FFB8C1D4"
-                           FontSize="10"
-                           FontWeight="SemiBold" />
-                <TextBlock Text="{Binding SelectedTile.FavoriteLabel}"
-                           Foreground="#FFFFC45C"
-                           FontSize="10"
-                           FontWeight="Bold" />
-              </StackPanel>
+          <StackPanel Spacing="7">
+            <TextBlock Text="{Binding SelectedTile.Title}"
+                       Foreground="#FFF5F7FF"
+                       FontSize="22"
+                       FontWeight="Bold"
+                       TextTrimming="CharacterEllipsis"
+                       MaxWidth="820" />
+            <StackPanel Orientation="Horizontal" Spacing="16">
+              <TextBlock Text="{Binding SelectedTile.SourceLabel}"
+                         Foreground="#FF9BA8C4"
+                         FontSize="11"
+                         FontWeight="Bold" />
+              <Border Width="1" Height="15" Background="#556C7898" />
+              <TextBlock Text="{Binding SelectedTile.InstallStatusLabel}"
+                         Foreground="#FF9ED6B0"
+                         FontSize="11"
+                         FontWeight="Bold" />
+              <Border Width="1" Height="15" Background="#556C7898" />
+              <TextBlock Text="{Binding SelectedTile.PlaytimeLabel}"
+                         Foreground="#FFB8C1D4"
+                         FontSize="11"
+                         FontWeight="SemiBold" />
+              <TextBlock Text="{Binding SelectedTile.FavoriteLabel}"
+                         Foreground="#FFFFC45C"
+                         FontSize="11"
+                         FontWeight="Bold" />
             </StackPanel>
-            <Border Grid.Column="1"
-                    Grid.RowSpan="2"
-                    Background="#332F80ED"
-                    BorderBrush="#665C9DFF"
-                    BorderThickness="1"
-                    CornerRadius="12"
-                    Padding="14,8"
-                    VerticalAlignment="Center">
-              <StackPanel Spacing="5" HorizontalAlignment="Center">
-                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
-                  <StackPanel Spacing="1" HorizontalAlignment="Center">
-                    <TextBlock Text="A" Foreground="#FFBBD4FF" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center"/>
-                    <TextBlock Text="JOGAR" Foreground="#FFEAF2FF" FontSize="8" FontWeight="Bold"/>
-                  </StackPanel>
-                  <Border Width="1" Height="24" Background="#556C7898" />
-                  <StackPanel Spacing="1" HorizontalAlignment="Center">
-                    <TextBlock Text="X" Foreground="#FFBBD4FF" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center"/>
-                    <TextBlock Text="DETALHES" Foreground="#FFEAF2FF" FontSize="8" FontWeight="Bold"/>
-                  </StackPanel>
-                  <Border Width="1" Height="24" Background="#556C7898" />
-                  <StackPanel Spacing="1" HorizontalAlignment="Center">
-                    <TextBlock Text="Y" Foreground="#FFBBD4FF" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center"/>
-                    <TextBlock Text="DOWNLOADS" Foreground="#FFEAF2FF" FontSize="8" FontWeight="Bold"/>
-                  </StackPanel>
-                </StackPanel>
-                <TextBlock Text="ENTER TAMBÉM INICIA O JOGO"
-                           Foreground="#FF8996AF"
-                           FontSize="8"
-                           HorizontalAlignment="Center" />
-              </StackPanel>
-            </Border>
-          </Grid>
+          </StackPanel>
         </Border>
 
         <ScrollViewer x:Name="GameRowScrollViewer"
