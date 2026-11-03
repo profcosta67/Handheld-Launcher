@@ -59,7 +59,6 @@
     <Grid Grid.Row="0" ColumnDefinitions="170,*">
         
       <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel Spacing="8" Margin="0,0,14,8">
-        <Button Classes="pill primary" Content="Wi-Fi e Bluetooth" Click="OnConnectivityShortcutClick" HorizontalAlignment="Stretch" />
         <TextBlock Text="CONFIGURAÇÕES" FontSize="10" FontWeight="Bold" Opacity="0.55" Margin="8,0,0,6" />
         <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAppearanceActive}" Content="Aparência" Tag="0" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
         <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryFoldersActive}" Content="Diretórios" Tag="1" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
