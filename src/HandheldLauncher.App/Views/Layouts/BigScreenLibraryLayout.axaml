@@ -43,19 +43,20 @@
 
     <Image x:Name="HeroBackImage" Stretch="UniformToFill" IsHitTestVisible="False">
       <Image.Effect>
-        <media:BlurEffect Radius="58" />
+        <media:BlurEffect Radius="46" />
       </Image.Effect>
     </Image>
     <Image x:Name="HeroImage"
            Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
            Stretch="UniformToFill"
+           Opacity="0.48"
            IsHitTestVisible="False">
       <Image.Effect>
-        <media:BlurEffect Radius="45" />
+        <media:BlurEffect Radius="24" />
       </Image.Effect>
     </Image>
 
-    <Border Background="{DynamicResource BackdropDimBrush}" IsHitTestVisible="False" />
+    <Border Background="#88070A12" IsHitTestVisible="False" />
 
     <Grid ColumnDefinitions="104,*" RowDefinitions="*" Margin="24,20,32,20">
 
@@ -202,116 +203,102 @@
                       Background="Transparent"
                       BorderBrush="Transparent"
                       BorderThickness="0"
-                      HorizontalContentAlignment="Center"
+                      HorizontalContentAlignment="Left"
                       HorizontalScrollBarVisibility="Hidden"
                       VerticalScrollBarVisibility="Disabled">
           <ScrollViewer.Transitions>
             <Transitions>
-              <VectorTransition Property="Offset" Duration="0:0:0.28" Easing="CubicEaseOut" />
+              <VectorTransition Property="Offset" Duration="0:0:0.22" Easing="CubicEaseOut" />
             </Transitions>
           </ScrollViewer.Transitions>
 
+          <!-- Biblioteca Capsule Wide: fileira contínua, sem efeito de roleta/carrossel. -->
           <ItemsControl x:Name="GamesItemsControl"
                         ItemsSource="{Binding Games}"
-                        HorizontalAlignment="Center"
+                        HorizontalAlignment="Left"
                         Background="Transparent"
                         BorderThickness="0">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
-                <StackPanel Orientation="Horizontal" Spacing="38" Margin="700,0,700,0" VerticalAlignment="Center" />
+                <StackPanel Orientation="Horizontal"
+                            Spacing="20"
+                            Margin="28,18,28,18"
+                            VerticalAlignment="Center" />
               </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
-
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:GameTileViewModel">
-                <Grid Width="{Binding CarouselTileWidth}"
-                      Height="{Binding CarouselTileHeight}"
-                      ClipToBounds="False"
-                      RenderTransformOrigin="50%,50%"
-                      Opacity="{Binding CarouselOpacity}"
-                      ZIndex="{Binding CarouselZIndex}"
-                      PointerPressed="OnTilePointerPressed"
-                      DoubleTapped="OnTileDoubleTapped">
-                  <Grid.RenderTransform>
-                    <TransformGroup>
-                      <ScaleTransform ScaleX="{Binding CarouselScale}" ScaleY="{Binding CarouselScale}">
-                        <ScaleTransform.Transitions>
-                          <Transitions>
-                            <DoubleTransition Property="ScaleX" Duration="0:0:0.22" Easing="CubicEaseOut" />
-                            <DoubleTransition Property="ScaleY" Duration="0:0:0.22" Easing="CubicEaseOut" />
-                          </Transitions>
-                        </ScaleTransform.Transitions>
-                      </ScaleTransform>
-                      <TranslateTransform Y="{Binding CarouselOffsetY}">
-                        <TranslateTransform.Transitions>
-                          <Transitions>
-                            <DoubleTransition Property="Y" Duration="0:0:0.22" Easing="CubicEaseOut" />
-                          </Transitions>
-                        </TranslateTransform.Transitions>
-                      </TranslateTransform>
-                    </TransformGroup>
-                  </Grid.RenderTransform>
-                  <Grid.Transitions>
-                    <Transitions>
-                      <DoubleTransition Property="Opacity" Duration="0:0:0.22" />
-                    </Transitions>
-                  </Grid.Transitions>
-
-                  <!-- CAPA ESTÁTICA NA ROLETA (v15.6-R3: sem AnimatedImage) -->
-                  <Image anim:ImageBehavior.AnimatedSource="{Binding CarouselTileImagePath}"
-                         Width="{Binding CarouselTileWidth}"
-                         Height="{Binding CarouselTileHeight}"
-                         Stretch="Uniform"
-                         HorizontalAlignment="Center"
-                         VerticalAlignment="Center" />
-
-                  <Border Background="{DynamicResource BackdropDimBrush}"
-                          HorizontalAlignment="Stretch"
-                          VerticalAlignment="Stretch"
-                          IsVisible="{Binding ShowEmptyCarouselPlaceholder}">
-                    <TextBlock Text="{Binding Title}"
-                               Classes="gameTitle"
-                               TextWrapping="Wrap"
-                               TextAlignment="Center"
-                               VerticalAlignment="Center"
-                               HorizontalAlignment="Center"
-                               Margin="8" />
-                  </Border>
-
-                  <Border Background="{DynamicResource SurfaceBrush}"
-                          IsHitTestVisible="False"
-                          IsVisible="{Binding IsOwnedNotInstalled}" />
-
-                  <TextBlock Text="★"
-                             Foreground="{DynamicResource AccentBrush}"
-                             FontSize="18"
-                             HorizontalAlignment="Right"
-                             VerticalAlignment="Bottom"
-                             Margin="6"
-                             IsVisible="{Binding IsFavorite}" />
-
-                  <Border Background="{Binding PlatformBadgeColorHex, Converter={StaticResource HexColorToBrushConverter}}"
-                          CornerRadius="4"
-                          Padding="4,1"
-                          HorizontalAlignment="Right"
-                          VerticalAlignment="Top"
-                          Margin="6"
-                          IsVisible="{Binding HasPlatformBadge}">
-                    <TextBlock Text="{Binding PlatformBadgeText}" FontSize="9" FontWeight="Bold" Foreground="White" />
-                  </Border>
-
-                  <Border BorderBrush="{DynamicResource TextPrimaryBrush}"
-                          CornerRadius="5"
-                          BorderThickness="4"
-                          IsHitTestVisible="False"
-                          IsVisible="{Binding IsFocused}" />
-                  <Border BorderBrush="{DynamicResource AccentBrush}"
-                          CornerRadius="5"
-                          BorderThickness="3"
-                          Margin="5"
-                          IsHitTestVisible="False"
-                          IsVisible="{Binding IsFocused}" />
-                </Grid>
+                <Border Width="320"
+                        Height="180"
+                        CornerRadius="17"
+                        Background="#D9151925"
+                        BorderBrush="#667B8499"
+                        BorderThickness="1"
+                        ClipToBounds="True"
+                        PointerPressed="OnTilePointerPressed"
+                        DoubleTapped="OnTileDoubleTapped">
+                  <Grid>
+                    <Image Source="{Binding WideCapsuleImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                           Stretch="UniformToFill"
+                           HorizontalAlignment="Stretch"
+                           VerticalAlignment="Stretch" />
+                    <Border Background="#55000000"
+                            IsVisible="{Binding ShowEmptyCarouselPlaceholder}">
+                      <TextBlock Text="{Binding Title}"
+                                 Foreground="#FFF5F7FF"
+                                 FontSize="19"
+                                 FontWeight="SemiBold"
+                                 TextWrapping="Wrap"
+                                 TextAlignment="Center"
+                                 VerticalAlignment="Center"
+                                 HorizontalAlignment="Center"
+                                 Margin="18" />
+                    </Border>
+                    <Border Background="#B8000000"
+                            Height="48"
+                            VerticalAlignment="Bottom"
+                            Padding="14,7">
+                      <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0"
+                                   Text="{Binding Title}"
+                                   Foreground="#FFF5F7FF"
+                                   FontSize="15"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" />
+                        <Border Grid.Column="1"
+                                Background="{Binding PlatformBadgeColorHex, Converter={StaticResource HexColorToBrushConverter}}"
+                                CornerRadius="5"
+                                Padding="6,2"
+                                VerticalAlignment="Center"
+                                IsVisible="{Binding HasPlatformBadge}">
+                          <TextBlock Text="{Binding PlatformBadgeText}"
+                                     FontSize="10"
+                                     FontWeight="Bold"
+                                     Foreground="White" />
+                        </Border>
+                      </Grid>
+                    </Border>
+                    <TextBlock Text="★"
+                               Foreground="#FFFFC45C"
+                               FontSize="18"
+                               HorizontalAlignment="Right"
+                               VerticalAlignment="Top"
+                               Margin="12"
+                               IsVisible="{Binding IsFavorite}" />
+                    <Border BorderBrush="#FFF5F7FF"
+                            CornerRadius="14"
+                            BorderThickness="3"
+                            IsHitTestVisible="False"
+                            IsVisible="{Binding IsFocused}" />
+                    <Border BorderBrush="{DynamicResource AccentBrush}"
+                            CornerRadius="11"
+                            BorderThickness="2"
+                            Margin="5"
+                            IsHitTestVisible="False"
+                            IsVisible="{Binding IsFocused}" />
+                  </Grid>
+                </Border>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
