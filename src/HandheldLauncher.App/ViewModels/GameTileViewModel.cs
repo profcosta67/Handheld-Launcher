@@ -90,7 +90,7 @@ public sealed class GameTileViewModel : ViewModelBase
     private static string NormalizeDescription(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return string.Empty;
-        var normalized = Regex.Replace(value, @"\\s+", " ").Trim();
+        var normalized = Regex.Replace(value, @"\s+", " ").Trim();
         return normalized.Length > 360 ? normalized[..357].TrimEnd() + "..." : normalized;
     }
 
