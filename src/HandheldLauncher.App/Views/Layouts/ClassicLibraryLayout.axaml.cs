@@ -1,6 +1,5 @@
 using System;
 using Avalonia;
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using HandheldLauncher.App.ViewModels;
