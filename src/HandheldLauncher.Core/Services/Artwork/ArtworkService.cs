@@ -276,6 +276,30 @@ public sealed class ArtworkService : IArtworkService
                 : await _client.GetWideGridCandidatesForTitleAsync(game.Title, animatedOnly, ct),
             $"{game.Id}_widegrid_candidate");
 
+    public async Task<IReadOnlyList<ArtworkCandidate>> GetWideArtworkCandidatesAsync(GameEntry game, bool animatedOnly = false, CancellationToken ct = default)
+    {
+        if (!HasApiKey) return Array.Empty<ArtworkCandidate>();
+        try
+        {
+            var gridsTask = game.Source == GameSource.Steam && game.SteamAppId is { } appId
+                ? _client.GetWideGridCandidatesForSteamAppAsync(appId, animatedOnly, ct)
+                : _client.GetWideGridCandidatesForTitleAsync(game.Title, animatedOnly, ct);
+            var heroesTask = game.Source == GameSource.Steam && game.SteamAppId is { } steamAppId
+                ? _client.GetHeroCandidatesForSteamAppAsync(steamAppId, animatedOnly, ct)
+                : _client.GetHeroCandidatesForTitleAsync(game.Title, animatedOnly, ct);
+
+            await Task.WhenAll(gridsTask, heroesTask);
+            var grids = await DownloadCandidatesAsync(await gridsTask, $"{game.Id}_widegrid_candidate", ct);
+            var heroes = await DownloadCandidatesAsync(await heroesTask, $"{game.Id}_hero_candidate", ct, isHero: true);
+            return grids.Concat(heroes).ToArray();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[SGDB] Wide artwork '{game.Title}' EXCEPTION: {ex.Message}");
+            return Array.Empty<ArtworkCandidate>();
+        }
+    }
+
     private async Task<IReadOnlyList<ArtworkCandidate>> FetchCandidatesCoreAsync(
         GameEntry game, bool animatedOnly, CancellationToken ct,
         Func<Task<IReadOnlyList<SteamGridDbImage>>> fetchImages, string filenamePrefix)
@@ -302,12 +326,12 @@ public sealed class ArtworkService : IArtworkService
     public Task<bool> ApplyIconCandidateAsync(GameEntry game, ArtworkCandidate candidate, CancellationToken ct = default)
         => ApplyCandidateAsync(game, candidate, ArtworkSlot.Icon, ct);
     public Task<bool> ApplyWideGridCandidateAsync(GameEntry game, ArtworkCandidate candidate, CancellationToken ct = default)
-        => ApplyCandidateAsync(game, candidate, ArtworkSlot.WideGrid, ct);
+        => ApplyCandidateAsync(game, candidate, candidate.IsHero ? ArtworkSlot.Hero : ArtworkSlot.WideGrid, ct);
 
     private enum ArtworkSlot { Grid, Hero, Logo, WideGrid, Icon }
 
     private async Task<IReadOnlyList<ArtworkCandidate>> DownloadCandidatesAsync(
-        IReadOnlyList<SteamGridDbImage> images, string filenamePrefix, CancellationToken ct)
+        IReadOnlyList<SteamGridDbImage> images, string filenamePrefix, CancellationToken ct, bool isHero = false)
     {
         var candidatesDir = Path.Combine(_cacheDir, "candidates");
         var results = new ConcurrentBag<ArtworkCandidate>();
@@ -322,7 +346,7 @@ public sealed class ArtworkService : IArtworkService
                 {
                     var localPath = await DownloadToCache(image.Url, candidatesDir, $"{filenamePrefix}_{image.Id}", ct, skipIfExists: true);
                     if (localPath is null) return;
-                    results.Add(new ArtworkCandidate { Id = image.Id, RemoteUrl = image.Url, LocalThumbnailPath = localPath, Width = image.Width, Height = image.Height });
+                    results.Add(new ArtworkCandidate { Id = image.Id, RemoteUrl = image.Url, LocalThumbnailPath = localPath, Width = image.Width, Height = image.Height, IsHero = isHero });
                 }
                 finally { sem.Release(); }
             }, ct));
