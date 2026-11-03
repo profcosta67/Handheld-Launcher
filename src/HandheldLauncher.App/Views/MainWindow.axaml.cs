@@ -424,7 +424,13 @@ public partial class MainWindow : Window
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = url, UseShellExecute = true });
             DispatcherTimer.RunOnce(() =>
             {
-                if (IsVisible) { Topmost = true; _topmostEnforcerTimer?.Start(); }
+                // Não voltar para Topmost enquanto uma janela modal estiver aberta:
+                // isso cobria o navegador aberto a partir de Contas/Configurações.
+                if (IsVisible && _activeDialog is null)
+                {
+                    Topmost = true;
+                    _topmostEnforcerTimer?.Start();
+                }
             }, TimeSpan.FromSeconds(3));
         }
         catch (Exception ex) { DebugLog.Write($"[MAIN] Falha ao abrir URL externa: {ex.Message}"); }
