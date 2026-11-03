@@ -9,7 +9,7 @@
         Background="#10131C"
         Topmost="True">
   <Border Padding="24" Background="#10131C" BorderBrush="#394257" BorderThickness="1" CornerRadius="18">
-    <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="16">
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
       <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
         <StackPanel Spacing="3">
           <TextBlock Text="Conectividade" FontSize="24" FontWeight="Bold" Foreground="#F5F7FF"/>
