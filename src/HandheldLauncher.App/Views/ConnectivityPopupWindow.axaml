@@ -26,7 +26,7 @@
           <TextBlock x:Name="WifiStatusText" Text="Consultando adaptador..." Foreground="#B8C1D4" FontSize="12" TextWrapping="Wrap"/>
           <ComboBox x:Name="WifiNetworksCombo" PlaceholderText="Selecione uma rede disponível" MinHeight="42"/>
           <Grid ColumnDefinitions="*,Auto">
-            <TextBox x:Name="WifiPasswordBox" Watermark="Senha da rede (se necessário)" PasswordChar="●"/>
+            <TextBlock Text="Conecta a redes com perfil já salvo no Windows." Foreground="#8794AE" FontSize="11" VerticalAlignment="Center" TextWrapping="Wrap"/>
             <Button Grid.Column="1" Content="Conectar" Margin="8,0,0,0" Click="OnConnectWifiClick"/>
           </Grid>
         </StackPanel>
