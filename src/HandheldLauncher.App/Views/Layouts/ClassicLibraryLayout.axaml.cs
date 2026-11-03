@@ -18,7 +18,9 @@ public partial class ClassicLibraryLayout : UserControl, ILibraryLayout
     Image ILibraryLayout.HeroImage => HeroImage;
     Image ILibraryLayout.HeroBackImage => HeroBackImage;
     bool ILibraryLayout.SupportsVerticalGrid => true;
-    bool ILibraryLayout.CentersSelection => false;
+    // Usa o mesmo acompanhamento centralizado do layout Switch.
+    // Assim a navegação por controle mantém o jogo selecionado como referência visual.
+    bool ILibraryLayout.CentersSelection => true;
 
     private MainWindow? Owner => TopLevel.GetTopLevel(this) as MainWindow;
     private void OnAddProgramClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => Owner?.HandleAddProgramClick();
