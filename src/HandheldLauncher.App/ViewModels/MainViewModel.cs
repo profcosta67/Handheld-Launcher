@@ -396,7 +396,7 @@ public sealed class MainViewModel : ViewModelBase
         _targetTdpWatts = watts;
         OnPropertyChanged(nameof(TopBarTdpText));
         OnPropertyChanged(nameof(TopBarTdpToolTip));
-        if (_hud != null) _hud.TdpStatusText = watts > 0 ? $"{mode} {watts}W" : "";
+        if (_hud != null) _hud.TdpStatusText = watts > 0 ? $"{watts}W" : "";
     }
 
     public void UpdateHudColorMode(string modeText) { if (_hud != null) _hud.ColorModeText = modeText ?? ""; }
