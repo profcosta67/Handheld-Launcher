@@ -41,7 +41,7 @@ public partial class BigScreenLibraryLayout : UserControl, ILibraryLayout
     bool ILibraryLayout.SupportsVerticalGrid => false;
 
     /// <summary>A roleta vive disso: a capa em foco no centro, a fileira correndo por baixo.</summary>
-    bool ILibraryLayout.CentersSelection => true;
+    bool ILibraryLayout.CentersSelection => false;
 
     // Mesmos repasses do ClassicLibraryLayout — ver comentário lá.
     private MainWindow? Owner => TopLevel.GetTopLevel(this) as MainWindow;
