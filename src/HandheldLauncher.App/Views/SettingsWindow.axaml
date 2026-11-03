@@ -183,39 +183,38 @@
           <TextBlock Text="O launcher nunca pede nem guarda a senha da Steam. As chaves ficam criptografadas neste PC (só o seu usuário do Windows consegue ler)." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
         </StackPanel>
 
-        <!-- ===== Atalhos de Teclado ===== -->
-        <StackPanel Spacing="12" IsVisible="{Binding IsCategoryShortcutsActive}">
-          <TextBlock Text="Atalhos de Teclado (teclado físico)" FontSize="13" FontWeight="SemiBold" />
-          <Grid ColumnDefinitions="*, 200">
-            <TextBlock Text="Filtro Anterior" VerticalAlignment="Center" />
-            <TextBox Grid.Column="1" Text="{Binding KeyPrevFilter}" Watermark="Ex: Q" />
+        <!-- ===== Referência fixa de atalhos ===== -->
+        <StackPanel Spacing="14" IsVisible="{Binding IsCategoryShortcutsActive}">
+          <TextBlock Text="Atalhos do launcher" FontSize="16" FontWeight="SemiBold" />
+          <TextBlock Text="Consulta rápida dos comandos disponíveis. Os atalhos são fixos nesta versão." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+          <Grid ColumnDefinitions="*,*" ColumnSpacing="24">
+            <StackPanel Grid.Column="0" Spacing="9">
+              <TextBlock Text="🎮 CONTROLE" FontSize="12" FontWeight="Bold" Foreground="#3FB950" />
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Navegar na biblioteca"/><TextBlock Grid.Column="1" Text="D-Pad" FontWeight="Bold"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Confirmar / Abrir jogo"/><TextBlock Grid.Column="1" Text="A" FontWeight="Bold"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Voltar / Fechar"/><TextBlock Grid.Column="1" Text="B" FontWeight="Bold"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Opções do jogo"/><TextBlock Grid.Column="1" Text="Select" FontWeight="Bold"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Menu global"/><TextBlock Grid.Column="1" Text="Start" FontWeight="Bold"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Filtro anterior"/><TextBlock Grid.Column="1" Text="LB" FontWeight="Bold"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Próximo filtro"/><TextBlock Grid.Column="1" Text="RB" FontWeight="Bold"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Downloads"/><TextBlock Grid.Column="1" Text="Y" FontWeight="Bold"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Detalhes do jogo"/><TextBlock Grid.Column="1" Text="X" FontWeight="Bold"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Quick Settings"/><TextBlock Grid.Column="1" Text="L3 + R3" FontWeight="Bold"/></Grid>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Spacing="9">
+              <TextBlock Text="⌨ TECLADO" FontSize="12" FontWeight="Bold" Foreground="#7C5CFC" />
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Navegar na biblioteca"/><TextBlock Grid.Column="1" Text="← ↑ ↓ →" FontWeight="Bold"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Abrir jogo selecionado"/><TextBlock Grid.Column="1" Text="Enter" FontWeight="Bold"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Filtro anterior"/><TextBlock Grid.Column="1" Text="Q" FontWeight="Bold"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Próximo filtro"/><TextBlock Grid.Column="1" Text="E" FontWeight="Bold"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Downloads"/><TextBlock Grid.Column="1" Text="D" FontWeight="Bold"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Opções do jogo"/><TextBlock Grid.Column="1" Text="Space" FontWeight="Bold"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Menu global"/><TextBlock Grid.Column="1" Text="Escape" FontWeight="Bold"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Fechar jogo"/><TextBlock Grid.Column="1" Text="Ctrl + W" FontWeight="Bold"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Ajuda de atalhos"/><TextBlock Grid.Column="1" Text="F1" FontWeight="Bold"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Quick Settings"/><TextBlock Grid.Column="1" Text="Ctrl + Alt + O" FontWeight="Bold"/></Grid>
+            </StackPanel>
           </Grid>
-          <Grid ColumnDefinitions="*, 200">
-            <TextBlock Text="Próximo Filtro" VerticalAlignment="Center" />
-            <TextBox Grid.Column="1" Text="{Binding KeyNextFilter}" Watermark="Ex: E" />
-          </Grid>
-          <Grid ColumnDefinitions="*, 200">
-            <TextBlock Text="Downloads" VerticalAlignment="Center" />
-            <TextBox Grid.Column="1" Text="{Binding KeyDownloads}" Watermark="Ex: D" />
-          </Grid>
-          <Grid ColumnDefinitions="*, 200">
-            <TextBlock Text="Menu de Contexto (Opções do Jogo)" VerticalAlignment="Center" />
-            <TextBox Grid.Column="1" Text="{Binding KeyContextMenu}" Watermark="Ex: Space" />
-          </Grid>
-          <Grid ColumnDefinitions="*, 200">
-            <TextBlock Text="Menu Global (Sistema)" VerticalAlignment="Center" />
-            <TextBox Grid.Column="1" Text="{Binding KeyGlobalMenu}" Watermark="Ex: Escape" />
-          </Grid>
-          <Grid ColumnDefinitions="*, 200">
-            <TextBlock Text="Fechar Jogo" VerticalAlignment="Center" />
-            <TextBox Grid.Column="1" Text="{Binding KeyCloseGame}" Watermark="Ex: Ctrl+W" />
-          </Grid>
-          <Grid ColumnDefinitions="*, 200">
-            <TextBlock Text="Abrir Jogo Selecionado" VerticalAlignment="Center" />
-            <TextBox Grid.Column="1" Text="{Binding KeyLaunchGame}" Watermark="Ex: Enter" />
-          </Grid>
-          <TextBlock Text="Aceita combinações como 'Ctrl+W', 'Alt+F4', 'Escape', 'Space', 'F1'. Setas e navegação ficam fixas. Deixe em branco para restaurar o padrão ao salvar." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
-          <TextBlock Text="💡 Dica: pressione F1 no launcher a qualquer momento para ver esta lista formatada." Classes="subtle" FontSize="11" TextWrapping="Wrap" FontStyle="Italic" />
         </StackPanel>
 
         <!-- ===== 🦆 Lossless Scaling ===== -->
