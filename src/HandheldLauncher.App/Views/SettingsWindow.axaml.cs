@@ -110,21 +110,21 @@ public partial class SettingsWindow : Window
         {
             switch (action)
             {
-                case GamepadAction.MoveLeft:
+                case GamepadAction.MoveUp:
                 case GamepadAction.PreviousFilter:
                     _tabIndex = (_tabIndex - 1 + tabs.Count) % tabs.Count;
                     ViewModel.CategoryIndex = _tabIndex;
                     FocusControl(tabs[_tabIndex]);
                     return true;
 
-                case GamepadAction.MoveRight:
+                case GamepadAction.MoveDown:
                 case GamepadAction.NextFilter:
                     _tabIndex = (_tabIndex + 1) % tabs.Count;
                     ViewModel.CategoryIndex = _tabIndex;
                     FocusControl(tabs[_tabIndex]);
                     return true;
 
-                case GamepadAction.MoveDown:
+                case GamepadAction.MoveRight:
                 case GamepadAction.Confirm:
                     if (content.Count > 0)
                     {
@@ -138,8 +138,7 @@ public partial class SettingsWindow : Window
                     Close();
                     return true;
 
-                case GamepadAction.MoveUp:
-                    // Já está no topo — não faz nada (evita "sumir" do foco)
+                case GamepadAction.MoveLeft:
                     return true;
             }
         }
