@@ -145,7 +145,7 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
     {
         if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
         var type = animatedOnly ? "animated" : "static,animated";
-        return await FetchGridCandidates($"{BaseUrl}/icons/steam/{steamAppId}?types={type}&mimes=image/png,image/webp", ct);
+        return await FetchGridCandidates($"{BaseUrl}/icons/steam/{steamAppId}?types={type}", ct);
     }
 
     public async Task<IReadOnlyList<SteamGridDbImage>> GetIconCandidatesForTitleAsync(string title, bool animatedOnly = false, CancellationToken ct = default)
@@ -154,7 +154,7 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
         var gameId = await SearchGameId(title, ct);
         if (gameId is null) return Array.Empty<SteamGridDbImage>();
         var type = animatedOnly ? "animated" : "static,animated";
-        return await FetchGridCandidates($"{BaseUrl}/icons/game/{gameId}?types={type}&mimes=image/png,image/webp", ct);
+        return await FetchGridCandidates($"{BaseUrl}/icons/game/{gameId}?types={type}", ct);
     }
 
     public async Task<IReadOnlyList<SteamGridDbImage>> GetWideGridCandidatesForSteamAppAsync(uint steamAppId, bool animatedOnly = false, CancellationToken ct = default)
@@ -176,7 +176,9 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
     private async Task<int?> SearchGameId(string title, CancellationToken ct)
     {
         var normalizedTitle = title.Trim();
-        var url = $"{BaseUrl}/search/autocomplete/{Uri.EscapeDataString(normalizedTitle)}";
+        var comparableTitle = NormalizeGameTitle(normalizedTitle);
+        var searchTitle = comparableTitle.Length > 0 ? comparableTitle : normalizedTitle;
+        var url = $"{BaseUrl}/search/autocomplete/{Uri.EscapeDataString(searchTitle)}";
         using var response = await _http.GetAsync(url, ct);
         if (!response.IsSuccessStatusCode)
         {
@@ -196,11 +198,14 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
         // remasters and similarly named games. Prefer exact title, then a
         // contained title; do not silently apply artwork from an unrelated game.
         var exact = results.FirstOrDefault(x =>
-            string.Equals(x.Name?.Trim(), normalizedTitle, StringComparison.OrdinalIgnoreCase));
+            string.Equals(NormalizeGameTitle(x.Name), comparableTitle, StringComparison.Ordinal));
         var partial = exact ?? results.FirstOrDefault(x =>
-            !string.IsNullOrWhiteSpace(x.Name) &&
-            (normalizedTitle.Contains(x.Name, StringComparison.OrdinalIgnoreCase) ||
-             x.Name.Contains(normalizedTitle, StringComparison.OrdinalIgnoreCase)));
+        {
+            var candidate = NormalizeGameTitle(x.Name);
+            return candidate.Length >= 4 &&
+                   (comparableTitle.Contains(candidate, StringComparison.Ordinal) ||
+                    candidate.Contains(comparableTitle, StringComparison.Ordinal));
+        });
 
         if (partial is null)
         {
@@ -210,6 +215,19 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
 
         System.Diagnostics.Debug.WriteLine($"[SGDB] Matched '{normalizedTitle}' to '{partial.Name}' (id={partial.Id}).");
         return partial.Id;
+    }
+
+    private static string NormalizeGameTitle(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+
+        // Remove trademarks and punctuation differences (e.g. eFootball™),
+        // while preserving letters and digits for safe title matching.
+        var normalized = new string(value
+            .ToLowerInvariant()
+            .Select(c => char.IsLetterOrDigit(c) ? c : ' ')
+            .ToArray());
+        return string.Join(' ', normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries));
     }
 
     private async Task<IReadOnlyList<SteamGridDbImage>> FetchGridCandidates(string url, CancellationToken ct, bool? wideOnly = null)
