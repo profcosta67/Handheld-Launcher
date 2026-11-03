@@ -42,6 +42,12 @@ public sealed class GameTileViewModel : ViewModelBase
 
     public string FavoriteLabel => Game.IsFavorite ? "★ FAVORITO" : string.Empty;
 
+    public string InstallStatusLabel => Game.IsOwnedNotInstalled
+        ? "DISPONÍVEL PARA INSTALAR"
+        : Game.IsRunning
+            ? "EM EXECUÇÃO"
+            : "INSTALADO";
+
     public string? GridImagePath => Game.GridImagePath;
     public string? HeroImagePath => Game.HeroImagePath;
     public string? LogoImagePath => Game.LogoImagePath;
