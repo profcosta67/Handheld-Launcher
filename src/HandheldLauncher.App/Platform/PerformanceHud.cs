@@ -221,13 +221,14 @@ internal static class HudFormatter
     private static void AddTdpGroup(List<string> groups, string? tdpStatus, string? realTdp)
     {
         if (string.IsNullOrEmpty(tdpStatus)) return;
-        
-        var text = tdpStatus;
-        if (!string.IsNullOrEmpty(realTdp) && realTdp != "-- W" && realTdp != "0 W")
-        {
-            text += $" ({realTdp})";
-        }
-        groups.Add(Group("TDP", TdpColor, Value(text)));
+
+        // Mostra somente o limite configurado em watts, sem o nome do perfil.
+        var match = System.Text.RegularExpressions.Regex.Match(
+            tdpStatus, @"(\d+)\s*W",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (!match.Success) return;
+
+        groups.Add(Group("TDP", TdpColor, Value(match.Groups[1].Value) + Unit("W")));
     }
 
     private static void AddTemp(List<string> groups, string? cpuTemp)
