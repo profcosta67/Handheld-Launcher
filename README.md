@@ -2,7 +2,7 @@
 
 Launcher para PCs portáteis e handhelds Windows, reunindo biblioteca de jogos, atalhos, ajustes de hardware e ferramentas de captura em uma interface otimizada para controle.
 
-**Versão em preparação:** v0.14.9
+**Versão atual:** v0.14.9
 
 ## Funcionalidades
 
@@ -25,7 +25,7 @@ Launcher para PCs portáteis e handhelds Windows, reunindo biblioteca de jogos, 
 - Integração com PawnIO e RyzenAdj para controle de TDP em hardware compatível.
 - Ajuste de dimensões do Overlay à área de trabalho disponível.
 
-## Novidades previstas para v0.14.9
+## Novidades da versão v0.14.9
 
 - Correção de estouro de pilha ao decodificar determinadas imagens PNG animadas, atualizando AnimatedImage.Avalonia de 2.1.2 para 2.1.4.
 - Downloads automáticos de capas permanecem estáticos; seleção manual continua aceitando capas animadas.
@@ -37,7 +37,7 @@ Launcher para PCs portáteis e handhelds Windows, reunindo biblioteca de jogos, 
 - Ajustes no popup de inicialização do jogo, incluindo indicador de carregamento e atualização do ícone quando disponível.
 - Ajustes de abertura minimizada do Lossless Scaling. O funcionamento de Aplicar Agora/Frame Generation depende de validação específica no dispositivo.
 
-> Esta seção descreve o escopo da versão em preparação. Consulte as notas do GitHub Release para saber exatamente o que foi validado na publicação.
+Consulte também o arquivo [release-notes/0.14.9.md](release-notes/0.14.9.md) para o histórico detalhado desta versão.
 
 ## Requisitos
 
