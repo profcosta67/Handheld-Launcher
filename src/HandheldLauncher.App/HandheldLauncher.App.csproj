@@ -17,7 +17,7 @@
 
     <ItemGroup>
     <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
-    <PackageReference Include="AnimatedImage.Avalonia" Version="2.1.2" />
+    <PackageReference Include="AnimatedImage.Avalonia" Version="2.1.4" />
     <PackageReference Include="AnimatedImage.Native" Version="2.1.2" />
     <PackageReference Include="Avalonia" Version="11.2.*" />
     <PackageReference Include="Avalonia.Desktop" Version="11.2.*" />
