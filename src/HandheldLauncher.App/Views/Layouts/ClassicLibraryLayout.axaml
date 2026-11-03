@@ -136,7 +136,7 @@
             <DataTemplate x:DataType="vm:GameTileViewModel">
               <StackPanel Width="{Binding TileWidth}" Spacing="6">
 
-                <Grid Height="36">
+                <Grid Height="46">
                   <TextBlock Text="{Binding Title}"
                              Classes="tileCaption"
                              TextWrapping="NoWrap"
