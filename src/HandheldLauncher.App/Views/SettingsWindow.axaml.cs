@@ -24,6 +24,7 @@ public partial class SettingsWindow : Window
     private FocusZone _focusZone = FocusZone.Tabs;
     private int _tabIndex = 0;
     private int _contentIndex = 0;
+    private AccountsWindow? _accountsWindow;
 
     public SettingsWindow()
     {
@@ -77,6 +78,23 @@ public partial class SettingsWindow : Window
     /// </summary>
     public bool HandleSettingsGamepadAction(GamepadAction action)
     {
+        // A janela Contas é um modal filho. Enquanto ela estiver aberta,
+        // todas as entradas do controle devem ir para ela, nunca para a tela pai.
+        if (_accountsWindow is { IsVisible: true } accounts)
+        {
+            DialogGamepadNavigator.Handle(accounts, action);
+            return true;
+        }
+
+        // X (GameDetails na camada XInput) foi reservado nesta janela para
+        // salvar e fechar, sem alterar o atalho global de detalhes do jogo.
+        if (action == GamepadAction.GameDetails)
+        {
+            ViewModel.SaveTo(_settings);
+            Close();
+            return true;
+        }
+
         var tabs = GetTabButtons();
         if (tabs.Count == 0) return false;
 
@@ -320,7 +338,10 @@ public partial class SettingsWindow : Window
 
     private async void OnManageAccountsClick(object? sender, RoutedEventArgs e)
     {
-        await new AccountsWindow(ViewModel, OpenExternalUrlFromDialog).ShowDialog(this);
+        var accounts = new AccountsWindow(ViewModel, OpenExternalUrlFromDialog);
+        _accountsWindow = accounts;
+        try { await accounts.ShowDialog(this); }
+        finally { _accountsWindow = null; }
     }
 
     private void OpenExternalUrlFromDialog(string url)
