@@ -51,6 +51,21 @@ Baixe o pacote/instalador correspondente na seção **Releases** do GitHub e sig
 
 O pacote de Windows inclui as ferramentas de terceiros necessárias à gravação, quando indicado nas notas da versão. O FFmpeg é distribuído como executável separado e acompanhado de seu aviso de licença e informações de origem.
 
+## Temas de layout
+
+O launcher oferece três experiências de biblioteca, compartilhando o mesmo núcleo de jogos, integrações e ferramentas:
+
+- **Clássico:** layout original do Handheld Launcher.
+- **Clean:** antigo layout Switch, renomeado sem alterar o índice salvo nas configurações para preservar instalações existentes.
+- **BigScreen:** novo layout imersivo em desenvolvimento, inspirado na navegação de console do Steam Big Picture e Bazzite, com identidade visual própria e foco em controle.
+
+### Roadmap visual
+
+- **v0.15.0:** introdução do BigScreen e renomeação do Switch para Clean.
+- **v0.15.1:** correções do novo layout e refinamento de tipografia, menus, espaçamentos, botões, ícones, animações, sons e navegação.
+
+Os três layouts reutilizam a mesma infraestrutura de biblioteca e funcionalidades para evitar duplicação de recursos.
+
 ## Desenvolvimento
 
 ### Tecnologias
