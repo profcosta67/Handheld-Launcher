@@ -741,6 +741,12 @@ public partial class MainWindow : Window
                 return;
             }
 
+            if (e.PropertyName == nameof(MainViewModel.LaunchingGameIconPath))
+            {
+                _launchPopup?.UpdateIcon(vm.LaunchingGameIconPath);
+                return;
+            }
+
             if (e.PropertyName == nameof(MainViewModel.RunningGame))
             {
                 if (vm.RunningGame is not null)
