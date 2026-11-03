@@ -97,7 +97,7 @@
 
       <Grid Grid.Column="0" Grid.Row="1" RowDefinitions="Auto,Auto,*,Auto" VerticalAlignment="Stretch">
 
-        <Grid Grid.Row="0" Height="132" ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
+        <Grid Grid.Row="0" Height="132" ColumnDefinitions="*,Auto,*" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
           <Image Grid.Column="1"
                  Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
                  Width="320"
