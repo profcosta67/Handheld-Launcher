@@ -187,34 +187,38 @@
         <StackPanel Spacing="14" IsVisible="{Binding IsCategoryShortcutsActive}">
           <TextBlock Text="Atalhos do launcher" FontSize="16" FontWeight="SemiBold" />
           <TextBlock Text="Consulta rápida dos comandos disponíveis. Os atalhos são fixos nesta versão." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
-          <Grid ColumnDefinitions="*,*">
-            <StackPanel Grid.Column="0" Spacing="9">
-              <TextBlock Text="🎮 CONTROLE" FontSize="12" FontWeight="Bold" Foreground="#3FB950" />
-              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Navegar na biblioteca"/><TextBlock Grid.Column="1" Text="D-Pad" FontWeight="Bold"/></Grid>
-              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Confirmar / Abrir jogo"/><TextBlock Grid.Column="1" Text="A" FontWeight="Bold"/></Grid>
-              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Voltar / Fechar"/><TextBlock Grid.Column="1" Text="B" FontWeight="Bold"/></Grid>
-              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Opções do jogo"/><TextBlock Grid.Column="1" Text="Select" FontWeight="Bold"/></Grid>
-              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Menu global"/><TextBlock Grid.Column="1" Text="Start" FontWeight="Bold"/></Grid>
-              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Filtro anterior"/><TextBlock Grid.Column="1" Text="LB" FontWeight="Bold"/></Grid>
-              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Próximo filtro"/><TextBlock Grid.Column="1" Text="RB" FontWeight="Bold"/></Grid>
-              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Downloads"/><TextBlock Grid.Column="1" Text="Y" FontWeight="Bold"/></Grid>
-              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Detalhes do jogo"/><TextBlock Grid.Column="1" Text="X" FontWeight="Bold"/></Grid>
-              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Quick Settings"/><TextBlock Grid.Column="1" Text="L3 + R3" FontWeight="Bold"/></Grid>
+
+          <Border Background="#14251D" BorderBrush="#347A50" BorderThickness="1.5" CornerRadius="12" Padding="14">
+            <StackPanel Spacing="10">
+              <TextBlock Text="🎮 CONTROLE" FontSize="12" FontWeight="Bold" Foreground="#75D99A" />
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Navegar na biblioteca" Foreground="#D6F5E0"/><TextBlock Grid.Column="1" Text="D-Pad" FontWeight="Bold" Foreground="#8FE3AC"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Confirmar / Abrir jogo" Foreground="#D6F5E0"/><TextBlock Grid.Column="1" Text="A" FontWeight="Bold" Foreground="#8FE3AC"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Voltar / Fechar" Foreground="#D6F5E0"/><TextBlock Grid.Column="1" Text="B" FontWeight="Bold" Foreground="#8FE3AC"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Opções do jogo" Foreground="#D6F5E0"/><TextBlock Grid.Column="1" Text="Select" FontWeight="Bold" Foreground="#8FE3AC"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Menu global" Foreground="#D6F5E0"/><TextBlock Grid.Column="1" Text="Start" FontWeight="Bold" Foreground="#8FE3AC"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Filtro anterior" Foreground="#D6F5E0"/><TextBlock Grid.Column="1" Text="LB" FontWeight="Bold" Foreground="#8FE3AC"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Próximo filtro" Foreground="#D6F5E0"/><TextBlock Grid.Column="1" Text="RB" FontWeight="Bold" Foreground="#8FE3AC"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Downloads" Foreground="#D6F5E0"/><TextBlock Grid.Column="1" Text="Y" FontWeight="Bold" Foreground="#8FE3AC"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Detalhes do jogo" Foreground="#D6F5E0"/><TextBlock Grid.Column="1" Text="X" FontWeight="Bold" Foreground="#8FE3AC"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Quick Settings" Foreground="#D6F5E0"/><TextBlock Grid.Column="1" Text="L3 + R3" FontWeight="Bold" Foreground="#8FE3AC"/></Grid>
             </StackPanel>
-            <StackPanel Grid.Column="1" Spacing="9" Margin="20,0,0,0">
-              <TextBlock Text="⌨ TECLADO" FontSize="12" FontWeight="Bold" Foreground="#7C5CFC" />
-              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Navegar na biblioteca"/><TextBlock Grid.Column="1" Text="← ↑ ↓ →" FontWeight="Bold"/></Grid>
-              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Abrir jogo selecionado"/><TextBlock Grid.Column="1" Text="Enter" FontWeight="Bold"/></Grid>
-              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Filtro anterior"/><TextBlock Grid.Column="1" Text="Q" FontWeight="Bold"/></Grid>
-              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Próximo filtro"/><TextBlock Grid.Column="1" Text="E" FontWeight="Bold"/></Grid>
-              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Downloads"/><TextBlock Grid.Column="1" Text="D" FontWeight="Bold"/></Grid>
-              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Opções do jogo"/><TextBlock Grid.Column="1" Text="Space" FontWeight="Bold"/></Grid>
-              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Menu global"/><TextBlock Grid.Column="1" Text="Escape" FontWeight="Bold"/></Grid>
-              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Fechar jogo"/><TextBlock Grid.Column="1" Text="Ctrl + W" FontWeight="Bold"/></Grid>
-              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Ajuda de atalhos"/><TextBlock Grid.Column="1" Text="F1" FontWeight="Bold"/></Grid>
-              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Quick Settings"/><TextBlock Grid.Column="1" Text="Ctrl + Alt + O" FontWeight="Bold"/></Grid>
+          </Border>
+
+          <Border Background="#1D1B30" BorderBrush="#7054C7" BorderThickness="1.5" CornerRadius="12" Padding="14">
+            <StackPanel Spacing="10">
+              <TextBlock Text="⌨ TECLADO" FontSize="12" FontWeight="Bold" Foreground="#B9A5FF" />
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Navegar na biblioteca" Foreground="#E6E0FF"/><TextBlock Grid.Column="1" Text="← ↑ ↓ →" FontWeight="Bold" Foreground="#C6B5FF"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Abrir jogo selecionado" Foreground="#E6E0FF"/><TextBlock Grid.Column="1" Text="Enter" FontWeight="Bold" Foreground="#C6B5FF"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Filtro anterior" Foreground="#E6E0FF"/><TextBlock Grid.Column="1" Text="Q" FontWeight="Bold" Foreground="#C6B5FF"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Próximo filtro" Foreground="#E6E0FF"/><TextBlock Grid.Column="1" Text="E" FontWeight="Bold" Foreground="#C6B5FF"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Downloads" Foreground="#E6E0FF"/><TextBlock Grid.Column="1" Text="D" FontWeight="Bold" Foreground="#C6B5FF"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Opções do jogo" Foreground="#E6E0FF"/><TextBlock Grid.Column="1" Text="Space" FontWeight="Bold" Foreground="#C6B5FF"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Menu global" Foreground="#E6E0FF"/><TextBlock Grid.Column="1" Text="Escape" FontWeight="Bold" Foreground="#C6B5FF"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Fechar jogo" Foreground="#E6E0FF"/><TextBlock Grid.Column="1" Text="Ctrl + W" FontWeight="Bold" Foreground="#C6B5FF"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Ajuda de atalhos" Foreground="#E6E0FF"/><TextBlock Grid.Column="1" Text="F1" FontWeight="Bold" Foreground="#C6B5FF"/></Grid>
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Quick Settings" Foreground="#E6E0FF"/><TextBlock Grid.Column="1" Text="Ctrl + Alt + O" FontWeight="Bold" Foreground="#C6B5FF"/></Grid>
             </StackPanel>
-          </Grid>
+          </Border>
         </StackPanel>
 
         <!-- ===== 🦆 Lossless Scaling ===== -->
