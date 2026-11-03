@@ -261,6 +261,13 @@ public partial class OverlayWindow : Window
 
             var wa = screen.WorkingArea;
             var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
+
+            // Mantém o overlay dentro da área útil em telas menores (ex.: handhelds de 7").
+            var availableWidth = Math.Max(320, wa.Width / scaling - 40);
+            var availableHeight = Math.Max(320, wa.Height / scaling - 40);
+            Width = Math.Min(Width, availableWidth);
+            Height = Math.Min(Height, availableHeight);
+
             var widthPx = (int)(Width * scaling);
             var heightPx = (int)(Height * scaling);
 
