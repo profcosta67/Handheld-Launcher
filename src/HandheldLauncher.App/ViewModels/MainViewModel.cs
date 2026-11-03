@@ -1108,7 +1108,7 @@ public sealed class MainViewModel : ViewModelBase
 
     public void AddManualGame(GameEntry game) { _library.AddManualGame(game); Refresh(); var tile = Games.FirstOrDefault(t => t.Game.Id == game.Id); if (tile is not null) SelectedIndex = Games.IndexOf(tile); }
 
-    public void Refresh() { _library.Refresh(); RebuildGamesFromLibrary(); }
+    public void Refresh() { _library.Refresh(); RebuildGamesFromLibrary(); QueueAutomaticMissingCovers(); }
     public void CycleNextFilter() => CycleFilter(1);
     public void CyclePreviousFilter() => CycleFilter(-1);
 
@@ -1162,16 +1162,28 @@ public sealed class MainViewModel : ViewModelBase
             {
                 foreach (var game in _library.Games.ToList())
                 {
+                    // Busca apenas artes ausentes/inválidas; nunca substitui uma escolha manual existente.
                     if (string.IsNullOrWhiteSpace(game.GridImagePath) || !File.Exists(game.GridImagePath))
-                    {
-                        try { await _artwork.FetchGridAsync(game); }
-                        catch (Exception ex) { DebugLog.Write($"[CAPAS] Falha ao buscar capa de '{game.Title}': {ex.Message}"); }
-                    }
+                        await FetchArtworkSlotSafely(game, "capa", () => _artwork.FetchGridAsync(game));
+                    if (string.IsNullOrWhiteSpace(game.WideGridImagePath) || !File.Exists(game.WideGridImagePath))
+                        await FetchArtworkSlotSafely(game, "capa larga", () => _artwork.FetchWideGridAsync(game));
+                    if (string.IsNullOrWhiteSpace(game.HeroImagePath) || !File.Exists(game.HeroImagePath))
+                        await FetchArtworkSlotSafely(game, "banner", () => _artwork.FetchHeroAsync(game));
+                    if (string.IsNullOrWhiteSpace(game.LogoImagePath) || !File.Exists(game.LogoImagePath))
+                        await FetchArtworkSlotSafely(game, "logo", () => _artwork.FetchLogoAsync(game));
+                    if (string.IsNullOrWhiteSpace(game.IconImagePath) || !File.Exists(game.IconImagePath))
+                        await FetchArtworkSlotSafely(game, "ícone", () => _artwork.FetchIconAsync(game));
                 }
                 RebuildGamesFromLibrary();
             }
             finally { _automaticCoverFetchQueued = false; }
         }, DispatcherPriority.Background);
+    }
+
+    private static async Task FetchArtworkSlotSafely(GameEntry game, string slot, Func<Task<bool>> fetch)
+    {
+        try { await fetch(); }
+        catch (Exception ex) { DebugLog.Write($"[CAPAS] Falha ao buscar {slot} de '{game.Title}': {ex.Message}"); }
     }
 
     private async void FetchMissingArtwork()
