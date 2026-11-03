@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Animation;
@@ -26,7 +28,6 @@ public partial class MainWindow : Window
     [DllImport("user32.dll")] private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")] private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
-
     [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     [DllImport("user32.dll")] private static extern bool BringWindowToTop(IntPtr hWnd);
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
@@ -34,6 +35,36 @@ public partial class MainWindow : Window
     [DllImport("kernel32.dll")] private static extern uint GetCurrentThreadId();
     [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+    private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+    [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr hWnd);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder lpString, int nMaxCount);
+
+    private static System.Collections.Generic.List<(IntPtr Hwnd, string Title, uint Pid)> GetAllVisibleWindows()
+    {
+        var results = new System.Collections.Generic.List<(IntPtr, string, uint)>();
+        try
+        {
+            EnumWindows((hWnd, lParam) =>
+            {
+                try
+                {
+                    if (!IsWindowVisible(hWnd)) return true;
+                    var sb = new System.Text.StringBuilder(512);
+                    var len = GetWindowText(hWnd, sb, sb.Capacity);
+                    if (len <= 0) return true;
+                    var title = sb.ToString();
+                    if (string.IsNullOrWhiteSpace(title)) return true;
+                    GetWindowThreadProcessId(hWnd, out var pid);
+                    results.Add((hWnd, title, pid));
+                }
+                catch { }
+                return true;
+            }, IntPtr.Zero);
+        }
+        catch { }
+        return results;
+    }
 
     private const int SW_RESTORE = 9;
     private static readonly IntPtr HWND_TOPMOST = new(-1);
@@ -98,6 +129,7 @@ public partial class MainWindow : Window
         Closed += (_, _) =>
         {
             _gamepadTimer.Stop();
+            try { InputBlockService.UnblockGamepadForGame(); } catch { }
             if (_overlayWindow != null)
             {
                 _overlayWindow.IsAppClosing = true;
@@ -109,6 +141,8 @@ public partial class MainWindow : Window
 
         Opened += (_, _) =>
         {
+            try { InputBlockService.RecoverOrphanedSuspension(); } catch { }
+
             StartTopmostEnforcer();
             RegisterRestoreHotkey();
 
@@ -123,8 +157,6 @@ public partial class MainWindow : Window
         Closed += (_, _) => UnregisterRestoreHotkeyIfNeeded();
         Activated += (_, _) => { if (OperatingSystem.IsWindows()) PowerThrottling.DisableForThisProcess(); };
     }
-
-    // ===================== [BUG 1] Foreground =====================
 
     private void ForceForeground(bool allowRestore = false, bool forceIfGameRunning = false)
     {
@@ -307,8 +339,8 @@ public partial class MainWindow : Window
 
             if (_overlayWindow != null && _overlayWindow.IsVisible)
             {
-                DebugLog.Write("[OVERLAY] → Hide()");
-                _overlayWindow.Hide();
+                DebugLog.Write("[OVERLAY] → HideWithUnblock()");
+                _overlayWindow.HideWithUnblock();
             }
             else if (DataContext is MainViewModel vm)
             {
@@ -478,6 +510,7 @@ public partial class MainWindow : Window
                 }
 
                 _overlayWindow.SetGameHwnd(gameHwnd);
+                _overlayWindow.SetGamePid(_detectedGamePid);
 
                 DebugLog.Write($"[OVERLAY] Antes Show: IsVisible={_overlayWindow.IsVisible}, Pos={_overlayWindow.Position}, GameHwnd=0x{gameHwnd:X}");
 
@@ -521,34 +554,34 @@ public partial class MainWindow : Window
         StartDownloadsRefreshTimer(vm);
 
         vm.PropertyChanged += (_, e) =>
-{
-    if (e.PropertyName == nameof(MainViewModel.IsFilterAllActive))
-        FadeIn(GamesItemsControl, 220);
+        {
+            if (e.PropertyName == nameof(MainViewModel.IsFilterAllActive))
+                FadeIn(GamesItemsControl, 220);
 
-    if (e.PropertyName == nameof(MainViewModel.IsLaunching))
-    {
-        if (vm.IsLaunching && !string.IsNullOrEmpty(vm.LaunchingGameTitle))
-        {
-            DebugLog.Write($"[JOGO] '{vm.LaunchingGameTitle}' abriu — minimizando launcher + popup.");
-            if (IsVisible) MinimizeToTray();
-            ShowLaunchPopup(vm.LaunchingGameTitle, vm.LaunchingGameIconPath);
-        }
-        return;
-    }
+            if (e.PropertyName == nameof(MainViewModel.IsLaunching))
+            {
+                if (vm.IsLaunching && !string.IsNullOrEmpty(vm.LaunchingGameTitle))
+                {
+                    DebugLog.Write($"[JOGO] '{vm.LaunchingGameTitle}' abriu — minimizando launcher + popup.");
+                    if (IsVisible) MinimizeToTray();
+                    ShowLaunchPopup(vm.LaunchingGameTitle, vm.LaunchingGameIconPath);
+                }
+                return;
+            }
 
-    if (e.PropertyName == nameof(MainViewModel.RunningGame))
-    {
-        if (vm.RunningGame is not null)
-        {
-            if (IsVisible) MinimizeToTray();
-        }
-        else
-        {
-            DebugLog.Write("[JOGO] Jogo fechou — restaurando launcher.");
-            if (!IsVisible) RestoreFromTray();
-        }
-    }
-};
+            if (e.PropertyName == nameof(MainViewModel.RunningGame))
+            {
+                if (vm.RunningGame is not null)
+                {
+                    if (IsVisible) MinimizeToTray();
+                }
+                else
+                {
+                    DebugLog.Write("[JOGO] Jogo fechou — restaurando launcher.");
+                    if (!IsVisible) RestoreFromTray();
+                }
+            }
+        };
 
         ApplyAppearance(vm, AppSettingsStore.Load());
         _ = vm.RunUpdateLoopAsync();
@@ -608,83 +641,227 @@ public partial class MainWindow : Window
 
     private bool _gameWindowSeen = false;
     private int _gameWindowMissingSeconds = 0;
+    private int _gameWatcherTicks = 0;
+    private bool _gameWatcherDiagnosticLogged = false;
+    private int _detectedGamePid = 0;
+    private string _lastLoggedExeHint = string.Empty;
+
     private void ShowLaunchPopup(string title, string? iconPath)
-{
-    try
     {
-        try { _launchPopup?.Close(); } catch { }
-        _launchPopup = null;
+        try
+        {
+            try { _launchPopup?.Close(); } catch { }
+            _launchPopup = null;
+            _launchPopupTimer?.Stop();
+            _launchPopupTimer = null;
+
+            _launchPopup = new GameLaunchPopupWindow(title, iconPath);
+            _launchPopup.Show();
+
+            var thisPopup = _launchPopup;
+
+            _launchPopupTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(90) };
+            _launchPopupTimer.Tick += (_, _) =>
+            {
+                _launchPopupTimer?.Stop();
+
+                bool isSame = ReferenceEquals(_launchPopup, thisPopup);
+                DebugLog.Write($"[POPUP] Timeout 90s disparado. isSame={isSame}, visible={_launchPopup?.IsVisible}, loaded={_launchPopup?.IsLoaded}");
+
+                if (isSame && _launchPopup is not null)
+                {
+                    try
+                    {
+                        _launchPopup.Close();
+                        DebugLog.Write("[POPUP] Close() executado.");
+                    }
+                    catch (Exception ex)
+                    {
+                        DebugLog.Write($"[POPUP] Close() EXCEPTION: {ex.Message}");
+                    }
+                    _launchPopup = null;
+                }
+                else
+                {
+                    DebugLog.Write("[POPUP] Timer disparou, mas janela já não é a mesma (já foi fechada).");
+                }
+            };
+            _launchPopupTimer.Start();
+
+            DebugLog.Write($"[POPUP] Aberto: '{title}' (watchdog 90s iniciado)");
+        }
+        catch (Exception ex) { DebugLog.Write($"[POPUP] EXCEPTION: {ex.Message}"); }
+    }
+
+    private void CloseLaunchPopupWithGrace()
+    {
+        DebugLog.Write($"[POPUP] CloseLaunchPopupWithGrace chamado. popup_null={_launchPopup is null}");
+        if (_launchPopup is null) return;
 
         _launchPopupTimer?.Stop();
-        _launchPopupTimer = null;
-
-        _launchPopup = new GameLaunchPopupWindow(title, iconPath);
-        _launchPopup.Show();
-
         _launchPopupTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
         _launchPopupTimer.Tick += (_, _) =>
         {
             _launchPopupTimer?.Stop();
             try { _launchPopup?.Close(); } catch { }
             _launchPopup = null;
+            DebugLog.Write("[POPUP] Fechado após 3s de detecção da janela.");
         };
         _launchPopupTimer.Start();
-
-        DebugLog.Write($"[POPUP] Aberto: '{title}'");
+        DebugLog.Write("[POPUP] Janela detectada — fechando em 3s.");
     }
-    catch (Exception ex)
-    {
-        DebugLog.Write($"[POPUP] EXCEPTION: {ex.Message}");
-    }
-}
 
     private void StartGameWatcher(MainViewModel vm)
     {
         _gameWatcherTimer?.Stop();
         _gameWindowSeen = false;
         _gameWindowMissingSeconds = 0;
+        _gameWatcherTicks = 0;
+        _gameWatcherDiagnosticLogged = false;
+        _detectedGamePid = 0;
+        _lastLoggedExeHint = string.Empty;
 
         DebugLog.Write("[JOGO-WATCHER] Iniciado.");
 
         _gameWatcherTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _gameWatcherTimer.Tick += (_, _) =>
         {
-            if (vm.RunningGame is null) { _gameWindowSeen = false; _gameWindowMissingSeconds = 0; return; }
+            if (vm.RunningGame is null) { _gameWindowSeen = false; _gameWindowMissingSeconds = 0; _gameWatcherTicks = 0; return; }
             if (!OperatingSystem.IsWindows()) return;
             if (_activeDialog != null) { _gameWindowMissingSeconds = 0; return; }
 
+            _gameWatcherTicks++;
+
             try
             {
-                var gameTitle = vm.RunningGame.Title;
+                var game = vm.RunningGame;
+                var gameTitle = game.Title;
                 if (string.IsNullOrEmpty(gameTitle)) return;
 
-                var titleLower = gameTitle.ToLowerInvariant();
+                static string Normalize(string s)
+                {
+                    if (string.IsNullOrEmpty(s)) return string.Empty;
+                    var sb = new System.Text.StringBuilder(s.Length);
+                    foreach (var c in s)
+                        if (char.IsLetterOrDigit(c) || c == ' ')
+                            sb.Append(char.ToLowerInvariant(c));
+                    return System.Text.RegularExpressions.Regex.Replace(sb.ToString(), @"\s+", " ").Trim();
+                }
+
+                var normalizedTarget = Normalize(gameTitle);
+
+                var exeHint = string.Empty;
+                try
+                {
+                    if (!string.IsNullOrEmpty(game.InstallDirectory) && Directory.Exists(game.InstallDirectory))
+                    {
+                        var badNames = new[] { "unins", "crash", "report", "installer", "setup", "ubisoft", "upc", "connect", "launcher", "prereq", "vcredist", "directx", "vulkan", "dxsetup", "dotnet" };
+
+                        bool IsGameExe(string path)
+                        {
+                            var name = Path.GetFileName(path).ToLowerInvariant();
+                            return !badNames.Any(b => name.Contains(b));
+                        }
+
+                        var candidates = Directory.EnumerateFiles(game.InstallDirectory, "*.exe", SearchOption.AllDirectories)
+                            .Where(IsGameExe)
+                            .OrderByDescending(f => new FileInfo(f).Length)
+                            .ToList();
+
+                        if (candidates.Count > 0)
+                            exeHint = Path.GetFileNameWithoutExtension(candidates[0]).ToLowerInvariant();
+
+                        if (!string.Equals(_lastLoggedExeHint, exeHint, StringComparison.OrdinalIgnoreCase))
+                        {
+                            _lastLoggedExeHint = exeHint;
+                            DebugLog.Write($"[JOGO-WATCHER] exeHint detectado: '{exeHint}' (de {candidates.Count} candidatos)");
+                        }
+                    }
+                }
+                catch { }
+
+                var windows = GetAllVisibleWindows();
                 bool found = false;
                 IntPtr foundHwnd = IntPtr.Zero;
-                var myPid = Environment.ProcessId;
+                uint foundPid = 0;
 
-                foreach (var p in Process.GetProcesses())
+                foreach (var w in windows)
                 {
                     try
                     {
-                        if (p.Id == myPid) continue;
-                        if (p.MainWindowHandle == IntPtr.Zero) continue;
-                        var title = p.MainWindowTitle;
-                        if (string.IsNullOrEmpty(title)) continue;
-                        if (title.ToLowerInvariant().Contains(titleLower))
+                        var norm = Normalize(w.Title);
+                        if (!string.IsNullOrEmpty(normalizedTarget) && norm.Contains(normalizedTarget))
                         {
                             found = true;
+                            foundHwnd = w.Hwnd;
+                            foundPid = w.Pid;
                             break;
                         }
                     }
                     catch { }
                 }
 
+                if (!found && !string.IsNullOrEmpty(exeHint))
+                {
+                    foreach (var w in windows)
+                    {
+                        try
+                        {
+                            var proc = Process.GetProcessById((int)w.Pid);
+                            var procName = proc.ProcessName.ToLowerInvariant();
+                            if (procName == exeHint || procName.Contains(exeHint) || exeHint.Contains(procName))
+                            {
+                                found = true;
+                                foundHwnd = w.Hwnd;
+                                foundPid = w.Pid;
+                                break;
+                            }
+                        }
+                        catch { }
+                    }
+                }
+
+                // Verificação rápida de processo morto — restaura em ~1s em vez de esperar 8s
+                if (_gameWindowSeen && _detectedGamePid != 0)
+                {
+                    bool procDead = false;
+                    try
+                    {
+                        using var proc = Process.GetProcessById(_detectedGamePid);
+                        procDead = proc.HasExited;
+                    }
+                    catch (ArgumentException) { procDead = true; }
+                    catch { }
+
+                    if (procDead)
+                    {
+                        DebugLog.Write($"[JOGO-WATCHER] Processo do jogo morreu — restaurando launcher imediatamente.");
+                        LosslessScalingService.SetGameHwnd(IntPtr.Zero);
+                        vm.NotifyGameExitedExternally();
+                        _gameWindowSeen = false;
+                        _gameWindowMissingSeconds = 0;
+                        _detectedGamePid = 0;
+                        return;
+                    }
+                }
+
+                if (!found && !_gameWindowSeen && !_gameWatcherDiagnosticLogged && _gameWatcherTicks >= 10)
+                {
+                    _gameWatcherDiagnosticLogged = true;
+                    DebugLog.Write($"[JOGO-WATCHER] DIAGNÓSTICO (tick={_gameWatcherTicks}): '{gameTitle}' não detectado. exeHint='{exeHint}', installDir='{game.InstallDirectory}'.");
+                    DebugLog.Write($"[JOGO-WATCHER] Janelas visíveis no sistema ({windows.Count}):");
+                    foreach (var w in windows)
+                        DebugLog.Write($"[JOGO-WATCHER]   - '{w.Title}' (pid={w.Pid}, hwnd=0x{w.Hwnd:X})");
+                }
+
                 if (found)
                 {
                     if (!_gameWindowSeen)
                     {
-                        DebugLog.Write($"[JOGO-WATCHER] Janela de '{gameTitle}' detectada pela primeira vez.");
+                        DebugLog.Write($"[JOGO-WATCHER] Janela de '{gameTitle}' detectada pela primeira vez (hwnd=0x{foundHwnd:X}, pid={foundPid}).");
+                        LosslessScalingService.SetGameHwnd(foundHwnd);
+                        _detectedGamePid = (int)foundPid;
+                        CloseLaunchPopupWithGrace();
                         _gameWindowSeen = true;
                     }
                     _gameWindowMissingSeconds = 0;
@@ -693,14 +870,14 @@ public partial class MainWindow : Window
                 {
                     _gameWindowMissingSeconds += 1;
                     DebugLog.Write($"[JOGO-WATCHER] Janela de '{gameTitle}' ausente há {_gameWindowMissingSeconds}s.");
-                    LosslessScalingService.SetGameHwnd(foundHwnd);   // ← NOVO
                     if (_gameWindowMissingSeconds >= 8)
                     {
                         DebugLog.Write($"[JOGO-WATCHER] Janela de '{gameTitle}' sumiu há {_gameWindowMissingSeconds}s — liberando launcher.");
-                        LosslessScalingService.SetGameHwnd(IntPtr.Zero);  // ← NOVO (limpa ao fechar)
+                        LosslessScalingService.SetGameHwnd(IntPtr.Zero);
                         vm.NotifyGameExitedExternally();
                         _gameWindowSeen = false;
                         _gameWindowMissingSeconds = 0;
+                        _detectedGamePid = 0;
                     }
                 }
             }

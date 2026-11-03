@@ -22,7 +22,16 @@
                     CornerRadius="12"
                     Background="#252A36"
                     VerticalAlignment="Center">
-                <Image x:Name="GameIcon" Stretch="UniformToFill"/>
+                <Grid>
+                    <Image x:Name="GameIcon" Stretch="UniformToFill"/>
+                    <TextBlock x:Name="TxtIconFallback"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               FontSize="24"
+                               FontWeight="Bold"
+                               Foreground="#7C5CFC"
+                               IsVisible="False"/>
+                </Grid>
             </Border>
 
             <StackPanel Grid.Column="1" Spacing="4" Margin="16,0,0,0" VerticalAlignment="Center">

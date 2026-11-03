@@ -19,12 +19,13 @@ namespace HandheldLauncher.App.Views;
 public partial class OverlayWindow : Window
 {
     private bool _lsfgIsActive = false;
+    private int _gamePid = 0;
 
     private readonly IHardwareService _hardwareService;
     private readonly IBrush _activeColor = new SolidColorBrush(Color.FromRgb(124, 92, 252));
     private readonly IBrush _inactiveColor = new SolidColorBrush(Color.FromRgb(37, 42, 54));
     private readonly IBrush _focusBorderColor = new SolidColorBrush(Color.FromRgb(124, 92, 252));
-    
+
     private bool _isInitializing = true;
     private int _focusIndex = 0;
     private readonly Border[] _sections;
@@ -37,27 +38,26 @@ public partial class OverlayWindow : Window
 
     private enum SubMenuMode { None, Resolution, RefreshRate, Tdp, Fan, Color, Hud, Volume, Brightness, Capture, Lossless }
     private SubMenuMode _activeSubMenu = SubMenuMode.None;
-    
+
     private int _currentResIndex = 0;
     private int _currentHzIndex = 0;
     private int _currentHudIndex = 0;
-    
+
     private int _tempResIndex = 0;
     private int _tempHzIndex = 0;
-    private int _tempTdpIndex = 2; 
-    private int _tempFanIndex = 0; 
-    private int _tempColorIndex = 0; 
+    private int _tempTdpIndex = 2;
+    private int _tempFanIndex = 0;
+    private int _tempColorIndex = 0;
     private int _tempHudIndex = 0;
     private int _tempCaptureIndex = 0;
     private int _tempLosslessIndex = 0;
 
     private readonly MainViewModel _viewModel;
-    public bool IsAppClosing { get; set; } = false; 
+    public bool IsAppClosing { get; set; } = false;
 
     private Button[] _resolutionButtons = null!;
     private Button[] _refreshButtons = null!;
 
-    // ===================== [BUG 3] Win32 para topmost + HWND do jogo =====================
     [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
@@ -101,10 +101,10 @@ public partial class OverlayWindow : Window
             DebugLog.Write("[OVERLAY] Controles TDP desabilitados: este equipamento não está na matriz de hardware validado.");
         }
 
-        _sections = new[] { 
-            ResolutionSection, RefreshSection, 
-            TdpSection, FanSection, ColorSection, HudSection, 
-            VolumeSection, BrightnessSection, LosslessSection, CaptureSection 
+        _sections = new[] {
+            ResolutionSection, RefreshSection,
+            TdpSection, FanSection, ColorSection, HudSection,
+            VolumeSection, BrightnessSection, LosslessSection, CaptureSection
         };
 
         _resolutionButtons = new[] { BtnRes720, BtnRes900, BtnRes1080, BtnRes1200, BtnRes2K, BtnResGo };
@@ -113,8 +113,8 @@ public partial class OverlayWindow : Window
         if (OperatingSystem.IsWindows()) _hardwareService = new WindowsHardwareService();
         else if (OperatingSystem.IsLinux()) _hardwareService = new LinuxHardwareService();
         else _hardwareService = new MockHardwareService();
-        
-        try 
+
+        try
         {
             var settings = AppSettingsStore.Load();
             SetTdpButtonVisual(string.IsNullOrEmpty(settings.TdpMode) ? "Normal" : settings.TdpMode);
@@ -151,7 +151,7 @@ public partial class OverlayWindow : Window
             SetColorButtonVisual(settings.ColorMode);
             if (VolumeSlider != null) VolumeSlider.Value = settings.Volume;
             if (BrightnessSlider != null) BrightnessSlider.Value = settings.Brightness;
-            
+
             _currentHudIndex = settings.OverlayPreset;
             SetHudButtonVisual(_currentHudIndex);
 
@@ -186,73 +186,71 @@ public partial class OverlayWindow : Window
         catch (Exception ex) { DebugLog.Write($"[OVERLAY] Aviso: {ex.Message}"); }
 
         Closed += (_, _) => _fanCurveService?.Dispose();
-_isInitializing = false;
-UpdateFocusVisual();
+        _isInitializing = false;
+        UpdateFocusVisual();
     }
 
-    /// <summary>
-/// [FIX] Re-asserta HWND_TOPMOST via Win32. SEM SWP_SHOWWINDOW — a janela já
-/// está visível e esse flag força repaint visível (flicker). Também NÃO mexe
-/// no Topmost do Avalonia (evita conflito de z-order).
-/// </summary>
-public void ForceTopmost()
-{
-    if (!OperatingSystem.IsWindows() || !IsVisible) return;
-    try
+    public void ForceTopmost()
     {
-        var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
-        if (handle == IntPtr.Zero) return;
-        SetWindowPos(handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+        if (!OperatingSystem.IsWindows() || !IsVisible) return;
+        try
+        {
+            var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+            if (handle == IntPtr.Zero) return;
+            SetWindowPos(handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+        }
+        catch (Exception ex) { DebugLog.Write($"[OVERLAY] ForceTopmost EXCEPTION: {ex.Message}"); }
     }
-    catch (Exception ex) { DebugLog.Write($"[OVERLAY] ForceTopmost EXCEPTION: {ex.Message}"); }
-}
 
-public void SetGameHwnd(IntPtr hwnd)
-{
-    bool wasGame = _gameHwnd != IntPtr.Zero;
-    _gameHwnd = hwnd;
-
-    // Se o jogo acabou de fechar, reseta o estado do framegen
-    if (wasGame && hwnd == IntPtr.Zero)
+    public void SetGameHwnd(IntPtr hwnd)
     {
-        _lsfgIsActive = false;
-        UpdateLsfgButtonState();
+        bool wasGame = _gameHwnd != IntPtr.Zero;
+        _gameHwnd = hwnd;
+
+        if (wasGame && hwnd == IntPtr.Zero)
+        {
+            _lsfgIsActive = false;
+            UpdateLsfgButtonState();
+        }
     }
-}
+
+    public void SetGamePid(int pid)
+    {
+        _gamePid = pid;
+        DebugLog.Write($"[OVERLAY] GamePid registrado: {pid}");
+    }
 
     protected override void OnOpened(EventArgs e)
-{
-    base.OnOpened(e);
-    DebugLog.Write($"[OVERLAY] OnOpened chamado. Width={Width}, Height={Height}");
-
-    // NÃO posiciona mais aqui — MainWindow faz isso via SW_HIDE + Post.
-    // NÃO muda WindowState/Opacity — MainWindow controla via Win32.
-
-    if (!_tdpAppliedOnOpen && _tdpHardwareSupported)
     {
-        _tdpAppliedOnOpen = true;
-        var settings = AppSettingsStore.Load();
-        var savedTdp = string.IsNullOrWhiteSpace(settings.TdpMode) ? "Normal" : settings.TdpMode;
-        _ = Task.Run(() =>
+        base.OnOpened(e);
+        DebugLog.Write($"[OVERLAY] OnOpened chamado. Width={Width}, Height={Height}");
+
+        // Suspende o processo do JOGO (não do launcher) — input bloqueado
+        InputBlockService.BlockGamepadForGame(_gamePid);
+
+        if (!_tdpAppliedOnOpen && _tdpHardwareSupported)
         {
-            DebugLog.Write($"[OVERLAY] Re-aplicando TDP salvo ao abrir: {savedTdp}");
-            var ok = _hardwareService.SetTdpMode(savedTdp);
-            DebugLog.Write(ok
-                ? $"[OVERLAY] TDP {savedTdp} re-aplicado com sucesso."
-                : $"[OVERLAY] Falha ao re-aplicar TDP {savedTdp}; veja os logs [PawnIO].");
-
-            if (ok)
+            _tdpAppliedOnOpen = true;
+            var settings = AppSettingsStore.Load();
+            var savedTdp = string.IsNullOrWhiteSpace(settings.TdpMode) ? "Normal" : settings.TdpMode;
+            _ = Task.Run(() =>
             {
-                Dispatcher.UIThread.Post(() => _viewModel.UpdateHudTdpStatus(savedTdp));
-            }
-        });
-    }
+                DebugLog.Write($"[OVERLAY] Re-aplicando TDP salvo ao abrir: {savedTdp}");
+                var ok = _hardwareService.SetTdpMode(savedTdp);
+                DebugLog.Write(ok
+                    ? $"[OVERLAY] TDP {savedTdp} re-aplicado com sucesso."
+                    : $"[OVERLAY] Falha ao re-aplicar TDP {savedTdp}; veja os logs [PawnIO].");
 
-    if (_hardwareService is WindowsHardwareService winSvcForSync)
-    {
-        _viewModel.UpdateHudRecordingState(winSvcForSync.IsRecording);
+                if (ok)
+                    Dispatcher.UIThread.Post(() => _viewModel.UpdateHudTdpStatus(savedTdp));
+            });
+        }
+
+        if (_hardwareService is WindowsHardwareService winSvcForSync)
+        {
+            _viewModel.UpdateHudRecordingState(winSvcForSync.IsRecording);
+        }
     }
-}
 
     public void PositionOnRightEdge()
     {
@@ -279,17 +277,23 @@ public void SetGameHwnd(IntPtr hwnd)
         }
     }
 
+    public void HideWithUnblock()
+    {
+        InputBlockService.UnblockGamepadForGame();
+        Hide();
+    }
+
     protected override void OnClosing(WindowClosingEventArgs e)
     {
-        if (!IsAppClosing) { e.Cancel = true; Hide(); }
+        if (!IsAppClosing) { e.Cancel = true; HideWithUnblock(); }
         base.OnClosing(e);
     }
 
-    private void OnCloseClick(object? sender, RoutedEventArgs e) => Hide(); 
+    private void OnCloseClick(object? sender, RoutedEventArgs e) => HideWithUnblock();
 
     public void HandleGamepadAction(GamepadAction action)
     {
-        if (action == GamepadAction.ToggleQuickSettings) { Hide(); return; }
+        if (action == GamepadAction.ToggleQuickSettings) { HideWithUnblock(); return; }
 
         if (_activeSubMenu != SubMenuMode.None)
         {
@@ -300,14 +304,14 @@ public void SetGameHwnd(IntPtr hwnd)
                 case GamepadAction.MoveRight:
                 case GamepadAction.MoveDown: HandleSubMenuMove(1); break;
                 case GamepadAction.Confirm:
-                    ApplySubMenuChange(); 
+                    ApplySubMenuChange();
                     _activeSubMenu = SubMenuMode.None;
                     ClearTempHighlights();
                     UpdateFocusVisual();
-                    UpdatePersistentVisuals(); 
+                    UpdatePersistentVisuals();
                     break;
                 case GamepadAction.Back:
-                    _activeSubMenu = SubMenuMode.None; 
+                    _activeSubMenu = SubMenuMode.None;
                     ClearTempHighlights();
                     UpdateFocusVisual();
                     UpdatePersistentVisuals();
@@ -319,7 +323,7 @@ public void SetGameHwnd(IntPtr hwnd)
         switch (action)
         {
             case GamepadAction.Back:
-            case GamepadAction.GlobalMenu: Hide(); break;
+            case GamepadAction.GlobalMenu: HideWithUnblock(); break;
             case GamepadAction.MoveUp: _focusIndex = Math.Max(0, _focusIndex - 1); UpdateFocusVisual(); break;
             case GamepadAction.MoveDown: _focusIndex = Math.Min(_sections.Length - 1, _focusIndex + 1); UpdateFocusVisual(); break;
             case GamepadAction.Confirm: EnterSubMenu(); break;
@@ -334,13 +338,13 @@ public void SetGameHwnd(IntPtr hwnd)
         {
             case 0: _tempResIndex = _currentResIndex; _activeSubMenu = SubMenuMode.Resolution; UpdateTempVisuals(); break;
             case 1: _tempHzIndex = _currentHzIndex; _activeSubMenu = SubMenuMode.RefreshRate; UpdateTempVisuals(); break;
-            case 2: 
+            case 2:
                 if (!_tdpHardwareSupported) return;
                 string[] tdps = { "UltraEco", "Eco", "Normal", "Desempenho", "Boost" };
                 _tempTdpIndex = Array.IndexOf(tdps, _currentTdp);
                 if (_tempTdpIndex < 0) _tempTdpIndex = 2;
                 _activeSubMenu = SubMenuMode.Tdp; UpdateTempVisuals(); break;
-            case 3: 
+            case 3:
                 string[] fans = { "Automático", "Silencioso", "Normal", "Desempenho", "Boost" };
                 _tempFanIndex = Array.IndexOf(fans, _currentFanMode);
                 if (_tempFanIndex < 0) _tempFanIndex = 0;
@@ -349,12 +353,12 @@ public void SetGameHwnd(IntPtr hwnd)
             case 5: _tempHudIndex = _currentHudIndex; _activeSubMenu = SubMenuMode.Hud; UpdateTempVisuals(); break;
             case 6: _activeSubMenu = SubMenuMode.Volume; break;
             case 7: _activeSubMenu = SubMenuMode.Brightness; break;
-            case 8: 
-                    _tempLosslessIndex = 0;
-                    _activeSubMenu = SubMenuMode.Lossless;
-                    UpdateTempVisuals();
-                    UpdateLsfgButtonState();
-                    break;
+            case 8:
+                _tempLosslessIndex = 0;
+                _activeSubMenu = SubMenuMode.Lossless;
+                UpdateTempVisuals();
+                UpdateLsfgButtonState();
+                break;
             case 9: _tempCaptureIndex = 0; _activeSubMenu = SubMenuMode.Capture; UpdateTempVisuals(); break;
         }
     }
@@ -706,130 +710,121 @@ public void SetGameHwnd(IntPtr hwnd)
         }
     }
 
-    /// <summary>
-    /// [BUG 4] Aplica o frame gen do Lossless Scaling.
-    /// O Lossless escuta Ctrl+Alt+S via hook global, mas só quando um JOGO está
-    /// em foreground. Se o overlay estiver em foco, o SendInput vai parar no overlay
-    /// (que não tem hook) e nada acontece. Solução: devolver o foco ao jogo ANTES
-    /// de disparar o atalho. Se falhar, esconder o overlay e tentar de novo.
-    /// </summary>
-   private async void OnLsfgApplyClick(object? sender, RoutedEventArgs e)
-{
-    if (!OperatingSystem.IsWindows()) return;
-
-    if (_gameHwnd != IntPtr.Zero)
-        LosslessScalingService.SetGameHwnd(_gameHwnd);
-
-    // Auto-launch se necessário
-    if (!LosslessScalingService.IsLosslessRunning())
+    private async void OnLsfgApplyClick(object? sender, RoutedEventArgs e)
     {
+        if (!OperatingSystem.IsWindows()) return;
+
+        if (_gameHwnd != IntPtr.Zero)
+            LosslessScalingService.SetGameHwnd(_gameHwnd);
+
+        if (!LosslessScalingService.IsLosslessRunning())
+        {
+            if (BtnLsfgApply != null)
+            {
+                BtnLsfgApply.Content = "Abrindo Lossless...";
+                BtnLsfgApply.IsEnabled = false;
+            }
+            DebugLog.Write("[PATINHO] Lossless não está rodando — abrindo automaticamente.");
+
+            if (!LosslessScalingService.TryLaunchLossless())
+            {
+                if (BtnLsfgApply != null) BtnLsfgApply.IsEnabled = true;
+                UpdateLsfgButtonState();
+                return;
+            }
+
+            for (int i = 0; i < 10; i++)
+            {
+                await Task.Delay(500);
+                if (LosslessScalingService.IsLosslessRunning()) break;
+            }
+            await Task.Delay(1000);
+            if (BtnLsfgApply != null) BtnLsfgApply.IsEnabled = true;
+        }
+
+        if (_gameHwnd != IntPtr.Zero)
+        {
+            try { SetForegroundWindow(_gameHwnd); } catch { }
+            await Task.Delay(150);
+        }
+
+        bool focusOnGame = _gameHwnd != IntPtr.Zero && GetForegroundWindow() == _gameHwnd;
+        bool success;
+
+        if (focusOnGame)
+        {
+            success = LosslessScalingService.ToggleFrameGen();
+        }
+        else
+        {
+            DebugLog.Write("[PATINHO] Fallback: ocultando overlay para liberar foreground.");
+            var wasVisible = IsVisible;
+            if (wasVisible) HideWithUnblock();
+            await Task.Delay(250);
+            success = LosslessScalingService.ToggleFrameGen();
+            if (wasVisible && !IsAppClosing)
+            {
+                Show();
+                InputBlockService.BlockGamepadForGame(_gamePid);   // ← CORRIGIDO: era IntPtr, agora int
+                ForceTopmost();
+            }
+        }
+
+        if (success)
+        {
+            _lsfgIsActive = !_lsfgIsActive;
+            DebugLog.Write($"[PATINHO] Estado interno: _lsfgIsActive={_lsfgIsActive}");
+        }
+
         if (BtnLsfgApply != null)
         {
-            BtnLsfgApply.Content = "Abrindo Lossless...";
-            BtnLsfgApply.IsEnabled = false;
+            string feedback = success
+                ? (_lsfgIsActive ? "✓ Ativado!" : "✓ Desativado!")
+                : "Falhou";
+
+            BtnLsfgApply.Content = feedback;
+            BtnLsfgApply.Background = success
+                ? new SolidColorBrush(Color.FromRgb(46, 151, 98))
+                : new SolidColorBrush(Color.FromRgb(255, 64, 64));
+
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1500) };
+            timer.Tick += (_, _) =>
+            {
+                timer.Stop();
+                UpdateLsfgButtonState();
+            };
+            timer.Start();
         }
-        DebugLog.Write("[PATINHO] Lossless não está rodando — abrindo automaticamente.");
 
-        if (!LosslessScalingService.TryLaunchLossless())
+        ForceTopmost();
+    }
+
+    private void UpdateLsfgButtonState()
+    {
+        if (BtnLsfgApply == null) return;
+
+        bool running = LosslessScalingService.IsLosslessRunning();
+        bool activeContext = running && _gameHwnd != IntPtr.Zero && _lsfgIsActive;
+
+        if (!running)
         {
-            if (BtnLsfgApply != null) BtnLsfgApply.IsEnabled = true;
-            UpdateLsfgButtonState();
-            return;
+            BtnLsfgApply.Content = "Abrir Lossless";
+            BtnLsfgApply.Background = _inactiveColor;
+            BtnLsfgApply.IsEnabled = true;
         }
-
-        for (int i = 0; i < 10; i++)
+        else if (activeContext)
         {
-            await Task.Delay(500);
-            if (LosslessScalingService.IsLosslessRunning()) break;
+            BtnLsfgApply.Content = "🟢 Desativar";
+            BtnLsfgApply.Background = new SolidColorBrush(Color.FromRgb(46, 151, 98));
+            BtnLsfgApply.IsEnabled = true;
         }
-        await Task.Delay(1000);
-        if (BtnLsfgApply != null) BtnLsfgApply.IsEnabled = true;
-    }
-
-    // Foco no jogo
-    if (_gameHwnd != IntPtr.Zero)
-    {
-        try { SetForegroundWindow(_gameHwnd); } catch { }
-        await Task.Delay(150);
-    }
-
-    bool focusOnGame = _gameHwnd != IntPtr.Zero && GetForegroundWindow() == _gameHwnd;
-    bool success;
-
-    if (focusOnGame)
-    {
-        success = LosslessScalingService.ToggleFrameGen();
-    }
-    else
-    {
-        DebugLog.Write("[PATINHO] Fallback: ocultando overlay para liberar foreground.");
-        var wasVisible = IsVisible;
-        if (wasVisible) Hide();
-        await Task.Delay(250);
-        success = LosslessScalingService.ToggleFrameGen();
-        if (wasVisible && !IsAppClosing)
+        else
         {
-            Show();
-            ForceTopmost();
+            BtnLsfgApply.Content = "Aplicar";
+            BtnLsfgApply.Background = _inactiveColor;
+            BtnLsfgApply.IsEnabled = true;
         }
     }
-
-    if (success)
-    {
-        _lsfgIsActive = !_lsfgIsActive;
-        DebugLog.Write($"[PATINHO] Estado interno: _lsfgIsActive={_lsfgIsActive}");
-    }
-
-    // Feedback rápido (1.5s) antes de voltar ao estado persistente
-    if (BtnLsfgApply != null)
-    {
-        string feedback = success
-            ? (_lsfgIsActive ? "✓ Ativado!" : "✓ Desativado!")
-            : "Falhou";
-
-        BtnLsfgApply.Content = feedback;
-        BtnLsfgApply.Background = success
-            ? new SolidColorBrush(Color.FromRgb(46, 151, 98))
-            : new SolidColorBrush(Color.FromRgb(255, 64, 64));
-
-        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1500) };
-        timer.Tick += (_, _) =>
-        {
-            timer.Stop();
-            UpdateLsfgButtonState(); // volta pro estado persistente
-        };
-        timer.Start();
-    }
-
-    ForceTopmost();
-}
-
-private void UpdateLsfgButtonState()
-{
-    if (BtnLsfgApply == null) return;
-
-    bool running = LosslessScalingService.IsLosslessRunning();
-    bool activeContext = running && _gameHwnd != IntPtr.Zero && _lsfgIsActive;
-
-    if (!running)
-    {
-        BtnLsfgApply.Content = "Abrir Lossless";
-        BtnLsfgApply.Background = _inactiveColor;
-        BtnLsfgApply.IsEnabled = true;
-    }
-    else if (activeContext)
-    {
-        BtnLsfgApply.Content = "🟢 Desativar";
-        BtnLsfgApply.Background = new SolidColorBrush(Color.FromRgb(46, 151, 98)); // verde
-        BtnLsfgApply.IsEnabled = true;
-    }
-    else
-    {
-        BtnLsfgApply.Content = "Aplicar";
-        BtnLsfgApply.Background = _inactiveColor;
-        BtnLsfgApply.IsEnabled = true;
-    }
-}
 
     private void OnLsfgOpenClick(object? sender, RoutedEventArgs e)
     {

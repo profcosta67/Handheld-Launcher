@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.IO;
+using System.Linq;
 using System.Windows.Input;
 using System.Diagnostics;
 using HandheldLauncher.App.Diagnostics;
@@ -159,8 +161,8 @@ public sealed class MainViewModel : ViewModelBase
                     foreach (var reading in hwInfo.Readings)
                     {
                         var label = reading.Name;
-                        
-                        if (label.Contains("Package Power", StringComparison.OrdinalIgnoreCase) || 
+
+                        if (label.Contains("Package Power", StringComparison.OrdinalIgnoreCase) ||
                             label.Contains("CPU Package Power", StringComparison.OrdinalIgnoreCase))
                         {
                             _realTimeTdpWatts = (int)reading.Value;
@@ -185,16 +187,20 @@ public sealed class MainViewModel : ViewModelBase
         InitializeHudFromSettings();
     }
 
+    /// <summary>
+    /// Inicia o HWiNFO64 em segundo plano se estiver disponível.
+    /// Se não encontrar o executável e a flag HwInfoDisabled não estiver setada,
+    /// tenta uma vez, loga e desabilita permanentemente (silencioso nos próximos boots).
+    /// </summary>
     private void EnsureHwInfoRunning()
     {
-        if (!OperatingSystem.IsWindows()) return;
-
         try
         {
-            var processes = Process.GetProcessesByName("HWiNFO64");
-            if (processes.Length > 0) return; 
+            var settings = AppSettingsStore.Load();
+            if (settings.HwInfoDisabled) return;
 
-            string[] possiblePaths = {
+            string[] possiblePaths =
+            {
                 Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Tools", "HWiNFO64.exe"),
                 Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Tools", "HWiNFO64", "HWiNFO64.exe"),
                 @"C:\Program Files\HWiNFO64\HWiNFO64.exe",
@@ -203,23 +209,24 @@ public sealed class MainViewModel : ViewModelBase
 
             var exePath = possiblePaths.FirstOrDefault(File.Exists);
 
-            if (exePath != null)
+            if (exePath is null)
             {
-                DebugLog.Write($"[HWiNFO] Iniciando em segundo plano: {exePath}");
-                var psi = new ProcessStartInfo
-                {
-                    FileName = exePath,
-                    Arguments = "-s", 
-                    UseShellExecute = true, 
-                    WindowStyle = ProcessWindowStyle.Minimized,
-                    WorkingDirectory = Path.GetDirectoryName(exePath) ?? AppDomain.CurrentDomain.BaseDirectory
-                };
-                Process.Start(psi);
+                DebugLog.Write("[HWiNFO] Executável não encontrado — desabilitando checagem até reativação manual nas Settings.");
+                settings.HwInfoDisabled = true;
+                AppSettingsStore.Save(settings);
+                return;
             }
-            else
+
+            DebugLog.Write($"[HWiNFO] Iniciando em segundo plano: {exePath}");
+            var psi = new ProcessStartInfo
             {
-                DebugLog.Write($"[HWiNFO] Executável não encontrado. Coloque o HWiNFO64.exe na pasta Tools ou instale-o no caminho padrão.");
-            }
+                FileName = exePath,
+                Arguments = "-s",
+                UseShellExecute = true,
+                WindowStyle = ProcessWindowStyle.Minimized,
+                WorkingDirectory = Path.GetDirectoryName(exePath) ?? AppDomain.CurrentDomain.BaseDirectory
+            };
+            Process.Start(psi);
         }
         catch (Exception ex)
         {
@@ -379,7 +386,7 @@ public sealed class MainViewModel : ViewModelBase
     public void UpdateHudTdpStatus(string mode)
     {
         var watts = mode switch { "UltraEco" => 8, "Eco" => 15, "Normal" => 20, "Desempenho" => 25, "Boost" => 30, _ => 0 };
-        
+
         _targetTdpWatts = watts;
         OnPropertyChanged(nameof(TopBarTdpText));
         OnPropertyChanged(nameof(TopBarTdpToolTip));
@@ -441,7 +448,7 @@ public sealed class MainViewModel : ViewModelBase
     private int _contextMenuIndex;
     public ObservableCollection<ContextMenuItemViewModel> ContextMenuItems { get; } = new();
     private readonly List<Action> _contextMenuActions = new();
-    
+
     private enum ArtworkPickerKind { Grid, WideGrid, Hero, Logo, Icon }
     private enum LibraryFilter { All, Favorites, Computer, Emulators, Applications, NotInstalled }
 
@@ -641,14 +648,25 @@ public sealed class MainViewModel : ViewModelBase
         if (game.IsOwnedNotInstalled) { if (game.SteamAppId is { } ownedAppId) _launcher.OpenSteamInstaller(ownedAppId); return; }
 
         LaunchingGameTitle = game.Title;
-        LaunchingGameIconPath = game.IconImagePath;
+        LaunchingGameIconPath = ResolveIconPath(game);
         IsLaunching = true;
 
-        if (_artwork.HasApiKey)
+        // Se tem API key e o ícone não existe, baixa sincronamente com timeout de 3s
+        if (_artwork.HasApiKey && string.IsNullOrEmpty(LaunchingGameIconPath))
         {
-            bool iconExists = !string.IsNullOrEmpty(game.IconImagePath) && System.IO.File.Exists(game.IconImagePath);
-            if (!iconExists) _ = FetchLaunchIconAsync(game);
+            try
+            {
+                var fetchTask = _artwork.FetchIconAsync(game);
+                var completed = await Task.WhenAny(fetchTask, Task.Delay(3000));
+                if (completed == fetchTask && await fetchTask)
+                    LaunchingGameIconPath = game.IconImagePath;
+            }
+            catch { }
         }
+
+        // Fallback: tenta capa grid, wide grid, hero (nessa ordem)
+        if (string.IsNullOrEmpty(LaunchingGameIconPath))
+            LaunchingGameIconPath = ResolveFallbackImage(game);
 
         _launcher.Launch(game);
         RunningGame = game;
@@ -658,6 +676,23 @@ public sealed class MainViewModel : ViewModelBase
 
         await Task.Delay(LaunchFeedbackMilliseconds);
         IsLaunching = false;
+    }
+
+    private static string? ResolveIconPath(GameEntry game)
+    {
+        if (!string.IsNullOrEmpty(game.IconImagePath) && File.Exists(game.IconImagePath))
+            return game.IconImagePath;
+        return null;
+    }
+
+    private static string? ResolveFallbackImage(GameEntry game)
+    {
+        // Prioriza icon > grid > wide grid > hero
+        string?[] candidates = { game.IconImagePath, game.GridImagePath, game.WideGridImagePath, game.HeroImagePath };
+        foreach (var path in candidates)
+            if (!string.IsNullOrEmpty(path) && File.Exists(path))
+                return path;
+        return null;
     }
 
     private async Task FetchLaunchIconAsync(GameEntry game)
@@ -677,11 +712,11 @@ public sealed class MainViewModel : ViewModelBase
 
     public void CloseRunningGame() { if (RunningGame is null) return; _launcher.CloseGame(RunningGame); RunningGame = null; }
     public void NotifyGameExitedExternally()
-{
-    if (RunningGame is null) return;
-    DebugLog.Write($"[JOGO] '{RunningGame.Title}' liberado externamente — limpando RunningGame.");
-    RunningGame = null;
-}
+    {
+        if (RunningGame is null) return;
+        DebugLog.Write($"[JOGO] '{RunningGame.Title}' liberado externamente — limpando RunningGame.");
+        RunningGame = null;
+    }
 
     public void ToggleContextMenu()
     {

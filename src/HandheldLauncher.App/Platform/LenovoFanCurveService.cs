@@ -95,6 +95,13 @@ public sealed class LenovoFanCurveService : IDisposable
                 if (current is null) { message = "Fan Method indisponível."; return false; }
                 _original ??= (int[])current.Clone();
                 var target = BuildPreset(mode, current);
+                // Se o alvo já é a curva atual, não precisa enviar nem reler
+if (target.SequenceEqual(current))
+{
+    message = $"Curva {mode} já é a atual — nada a alterar.";
+    DebugLog.Write($"[FAN] {mode}: alvo igual à curva atual, pulando Set.");
+    return true;
+}
                 if (!InvokeSet(target))
                 {
                     try { InvokeSet(current); } catch { }
@@ -244,25 +251,34 @@ public sealed class LenovoFanCurveService : IDisposable
     }
 
     private static int[] BuildPreset(string mode, int[] current)
+{
+    // Presets calibrados pro Legion Go 2 (controles 0-115)
+    int[] values = mode switch
     {
-        // Conservative initial curves, expressed in Lenovo's firmware control units.
-        // These are deliberately capped at 100 until RPM/thermal response is measured.
-        int[] values = mode switch
-        {
-            "Silencioso" => [0,0,0,0,8,15,25,38,55,70],
-            "Normal" => [0,0,0,5,15,28,42,58,75,90],
-            "Desempenho" => [0,0,5,15,30,48,65,80,92,100],
-            "Boost" => [0,5,15,30,50,70,85,95,100,100],
-            _ => throw new ArgumentException("O modo Automático não grava uma curva.", nameof(mode))
-        };
-        // Never return a less aggressive curve than the current firmware's safety curve.
-        for (int i = 0; i < PointCount; i++)
-        {
+        "Silencioso" => [5, 10, 15, 20, 30, 40, 50, 65, 80, 95],
+        "Normal"     => [15, 20, 25, 30, 40, 55, 70, 85, 95, 100],
+        "Desempenho" => [20, 25, 35, 45, 60, 72, 84, 94, 100, 100],
+        "Boost"      => [27, 29, 32, 36, 50, 70, 85, 95, 100, 100],
+        _ => throw new ArgumentException("O modo Automático não grava uma curva.", nameof(mode))
+    };
+
+    // Piso de segurança: nunca abaixo disso (protege contra superaquecimento)
+    int[] floor = [0, 0, 0, 0, 5, 10, 15, 20, 30, 50];
+
+    // Silent/Normal: permite ficar MAIS SUAVE que a curva atual
+    // Desempenho/Boost: mantém o piso da curva atual (nunca menos agressivo)
+    bool allowBelowCurrent = mode is "Silencioso" or "Normal";
+
+    for (int i = 0; i < PointCount; i++)
+    {
+        values[i] = Math.Max(values[i], floor[i]);
+        if (!allowBelowCurrent)
             values[i] = Math.Max(values[i], current[i]);
-            if (i > 0) values[i] = Math.Max(values[i], values[i - 1]);
-        }
-        return values;
+        if (i > 0)
+            values[i] = Math.Max(values[i], values[i - 1]);   // monotônico
     }
+    return values;
+}
 
     private static void WriteUInt16(byte[] target, int offset, int value)
     {
