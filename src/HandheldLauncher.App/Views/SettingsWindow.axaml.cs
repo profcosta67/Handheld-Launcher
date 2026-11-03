@@ -380,6 +380,17 @@ public partial class SettingsWindow : Window
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
     }
 
+    private void OnConnectivityShortcutClick(object? sender, RoutedEventArgs e)
+    {
+        ViewModel.CategoryIndex = 7;
+        _tabIndex = 7;
+        _focusZone = FocusZone.Tabs;
+        _contentIndex = 0;
+
+        var tabs = GetTabButtons();
+        if (tabs.Count > _tabIndex) FocusControl(tabs[_tabIndex]);
+    }
+
     private void OnCategoryTabClick(object? sender, RoutedEventArgs e)
     {
         if (sender is Button { Tag: string tag } && int.TryParse(tag, out var index))
