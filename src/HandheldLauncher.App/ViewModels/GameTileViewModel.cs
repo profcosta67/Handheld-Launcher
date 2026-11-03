@@ -1,4 +1,9 @@
 using System.IO;
+using System.Net;
+using System.Net.Http;
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using Avalonia.Media.Imaging;
 using HandheldLauncher.Core.Models;
 
@@ -11,12 +16,83 @@ namespace HandheldLauncher.App.ViewModels;
 /// </summary>
 public sealed class GameTileViewModel : ViewModelBase
 {
+    private static readonly HttpClient DescriptionHttp = new() { Timeout = TimeSpan.FromSeconds(12) };
+    private bool _descriptionRequested;
+    private string _description = string.Empty;
+
     public GameTileViewModel(GameEntry game)
     {
         Game = game;
     }
 
     public GameEntry Game { get; }
+
+    public string Description
+    {
+        get => _description;
+        private set
+        {
+            if (SetField(ref _description, value))
+                OnPropertyChanged(nameof(HasDescription));
+        }
+    }
+
+    public bool HasDescription => !string.IsNullOrWhiteSpace(Description);
+
+    /// <summary>
+    /// Carrega a descrição apenas quando o jogo é selecionado. Assim a
+    /// biblioteca não dispara dezenas de consultas durante a inicialização.
+    /// </summary>
+    public async Task LoadDescriptionAsync()
+    {
+        if (_descriptionRequested) return;
+        _descriptionRequested = true;
+
+        try
+        {
+            string? description = null;
+            if (Game.SteamAppId is uint appId)
+            {
+                var url = $"https://store.steampowered.com/api/appdetails?appids={appId}&l=portuguese";
+                var json = await DescriptionHttp.GetStringAsync(url);
+                using var doc = JsonDocument.Parse(json);
+                if (doc.RootElement.TryGetProperty(appId.ToString(), out var entry) &&
+                    entry.TryGetProperty("success", out var success) && success.GetBoolean() &&
+                    entry.TryGetProperty("data", out var data))
+                {
+                    if (data.TryGetProperty("short_description", out var shortDescription))
+                        description = shortDescription.GetString();
+                    if (string.IsNullOrWhiteSpace(description) &&
+                        data.TryGetProperty("detailed_description", out var detailed))
+                    {
+                        var html = detailed.GetString() ?? string.Empty;
+                        description = WebUtility.HtmlDecode(Regex.Replace(html, @"<[^>]+>", " "));
+                    }
+                }
+            }
+            else
+            {
+                var rawg = new HandheldLauncher.App.Platform.RawgMetadataService();
+                var data = await rawg.GetGameDetailsAsync(Game.Title);
+                description = data?.Description;
+            }
+
+            Description = NormalizeDescription(description);
+        }
+        catch (Exception ex)
+        {
+            HandheldLauncher.App.Diagnostics.DebugLog.Write(
+                $"[GAME DESCRIPTION] Falha ao carregar '{Game.Title}': {ex.GetType().Name}: {ex.Message}");
+            Description = string.Empty;
+        }
+    }
+
+    private static string NormalizeDescription(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+        var normalized = Regex.Replace(value, @"\\s+", " ").Trim();
+        return normalized.Length > 360 ? normalized[..357].TrimEnd() + "..." : normalized;
+    }
 
     public string Title => Game.Title;
 
