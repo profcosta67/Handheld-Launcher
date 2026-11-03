@@ -158,22 +158,23 @@
         </Grid>
 
         <Border Grid.Row="2"
-                Background="#D910131B"
-                BorderBrush="#665F6F8D"
+                Background="#E6111520"
+                BorderBrush="#887B8499"
                 BorderThickness="1"
-                CornerRadius="18"
-                Padding="24,17"
+                CornerRadius="20"
+                Padding="28,20"
+                MinHeight="116"
                 HorizontalAlignment="Stretch"
-                MaxWidth="1040"
+                MaxWidth="1180"
                 IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
           <StackPanel Spacing="7">
             <TextBlock Text="{Binding SelectedTile.Title}"
                        Foreground="#FFF5F7FF"
-                       FontSize="23"
+                       FontSize="25"
                        FontWeight="Bold"
                        TextTrimming="CharacterEllipsis"
                        MaxWidth="960" />
-            <StackPanel Orientation="Horizontal" Spacing="16">
+            <StackPanel Orientation="Horizontal" Spacing="20">
               <TextBlock Text="{Binding SelectedTile.SourceLabel}"
                          Foreground="#FF9BA8C4"
                          FontSize="11"
