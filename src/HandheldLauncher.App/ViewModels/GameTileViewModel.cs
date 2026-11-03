@@ -145,7 +145,7 @@ public sealed class GameTileViewModel : ViewModelBase
     public static double SizeScale { get; set; } = 1.0;
     public static double ScaleForSetting(int tileSize) => tileSize switch { 0 => 0.8, 2 => 1.2, _ => 1.0 };
 
-    public double CaptionLogoHeight => (IsLastPlayed ? 32 : 22) * SizeScale;
+    public double CaptionLogoHeight => (IsLastPlayed ? 42 : 38) * SizeScale;
     public double TileHeight => 290 * SizeScale;
     public double TileWidth => (IsLastPlayed ? 580 : 220) * SizeScale;
 
