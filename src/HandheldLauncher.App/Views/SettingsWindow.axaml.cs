@@ -568,15 +568,18 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private static void OpenWindowsSettings(string uri)
+    private void OpenWindowsSettings(string uri)
     {
         try
         {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = uri,
-                UseShellExecute = true
-            });
+            // A janela modal de configurações e o launcher não podem ficar
+            // acima do painel nativo do Windows.
+            Topmost = false;
+            if (Owner is MainWindow mainWindow)
+                mainWindow.OpenWindowsSettings(uri);
+            else
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(uri) { UseShellExecute = true });
+            DebugLog.Write($"[SETTINGS] Solicitada abertura de {uri}.");
         }
         catch (Exception ex)
         {
