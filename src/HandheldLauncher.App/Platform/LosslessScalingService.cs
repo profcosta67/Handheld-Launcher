@@ -140,7 +140,12 @@ public static bool TryLaunchLossless()
 
     try
     {
-        Process.Start(new ProcessStartInfo { FileName = exe, UseShellExecute = true });
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = exe,
+            UseShellExecute = true,
+            WindowStyle = ProcessWindowStyle.Minimized
+        });
         DebugLog.Write($"[PATINHO] Lossless iniciado automaticamente: {exe}");
         return true;
     }
