@@ -57,9 +57,36 @@
 
     <Border Background="{DynamicResource BackdropDimBrush}" IsHitTestVisible="False" />
 
-    <Grid RowDefinitions="*,Auto" Margin="40,24,40,22">
+    <Grid ColumnDefinitions="88,*" RowDefinitions="*" Margin="24,20,32,20">
 
-      <Grid Grid.Row="0" RowDefinitions="Auto,*,Auto" VerticalAlignment="Stretch">
+      <StackPanel Grid.Column="0" Grid.Row="0"
+                  VerticalAlignment="Center"
+                  HorizontalAlignment="Stretch"
+                  Spacing="10"
+                  Margin="0,0,14,0">
+        <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterFavoritesActive}" Command="{Binding SetFilterFavoritesCommand}" ToolTip.Tip="Favoritos" MinHeight="62" Padding="4">
+          <StackPanel HorizontalAlignment="Center" Spacing="2"><TextBlock Text="★" FontSize="22"/><TextBlock Text="Favoritos" FontSize="9"/></StackPanel>
+        </Button>
+        <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterAllActive}" Command="{Binding SetFilterAllCommand}" ToolTip.Tip="Todos os jogos" MinHeight="62" Padding="4">
+          <StackPanel HorizontalAlignment="Center" Spacing="2"><TextBlock Text="▦" FontSize="22"/><TextBlock Text="Todos" FontSize="9"/></StackPanel>
+        </Button>
+        <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterComputerActive}" Command="{Binding SetFilterComputerCommand}" ToolTip.Tip="Computador" MinHeight="62" Padding="4">
+          <StackPanel HorizontalAlignment="Center" Spacing="2"><TextBlock Text="⌨" FontSize="22"/><TextBlock Text="PC" FontSize="9"/></StackPanel>
+        </Button>
+        <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterEmulatorsActive}" Command="{Binding SetFilterEmulatorsCommand}" ToolTip.Tip="Emuladores" MinHeight="62" Padding="4">
+          <StackPanel HorizontalAlignment="Center" Spacing="2"><TextBlock Text="🎮" FontSize="22"/><TextBlock Text="Emuladores" FontSize="9"/></StackPanel>
+        </Button>
+        <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterApplicationsActive}" Command="{Binding SetFilterApplicationsCommand}" ToolTip.Tip="Programas" MinHeight="62" Padding="4">
+          <StackPanel HorizontalAlignment="Center" Spacing="2"><TextBlock Text="▣" FontSize="22"/><TextBlock Text="Apps" FontSize="9"/></StackPanel>
+        </Button>
+        <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterNotInstalledActive}" Command="{Binding SetFilterNotInstalledCommand}" ToolTip.Tip="Não instalados" MinHeight="62" Padding="4">
+          <StackPanel HorizontalAlignment="Center" Spacing="2"><TextBlock Text="↓" FontSize="22"/><TextBlock Text="Nuvem" FontSize="9"/></StackPanel>
+        </Button>
+        <Button Content="＋" MinHeight="48" Padding="4" ToolTip.Tip="Adicionar programa"
+                IsVisible="{Binding IsFilterApplicationsActive}" Click="OnAddProgramClick" />
+      </StackPanel>
+
+      <Grid Grid.Column="1" Grid.Row="0" RowDefinitions="Auto,*,Auto" VerticalAlignment="Stretch">
 
         <Grid Grid.Row="0" Height="82" ColumnDefinitions="*,Auto" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
           <Image Grid.Column="0"
@@ -311,62 +338,17 @@
                  Margin="24"
                  IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
 
-      <StackPanel Grid.Row="1" Spacing="12" Margin="0,20,0,0">
-        <WrapPanel HorizontalAlignment="Center">
-          <Button Width="116" Classes="bigScreenTab" Classes.active="{Binding IsFilterFavoritesActive}" Command="{Binding SetFilterFavoritesCommand}" Margin="4">
-            <StackPanel HorizontalAlignment="Center" Spacing="3">
-              <TextBlock Text="★" FontSize="19" HorizontalAlignment="Center" />
-              <TextBlock Text="Favoritos" />
-            </StackPanel>
-          </Button>
-          <Button Width="116" Classes="bigScreenTab" Classes.active="{Binding IsFilterAllActive}" Command="{Binding SetFilterAllCommand}" Margin="4">
-            <StackPanel HorizontalAlignment="Center" Spacing="3">
-              <TextBlock Text="▦" FontSize="19" HorizontalAlignment="Center" />
-              <TextBlock Text="Todos" />
-            </StackPanel>
-          </Button>
-          <Button Width="116" Classes="bigScreenTab" Classes.active="{Binding IsFilterComputerActive}" Command="{Binding SetFilterComputerCommand}" Margin="4">
-            <StackPanel HorizontalAlignment="Center" Spacing="3">
-              <TextBlock Text="⌨" FontSize="19" HorizontalAlignment="Center" />
-              <TextBlock Text="Computador" />
-            </StackPanel>
-          </Button>
-          <Button Width="116" Classes="bigScreenTab" Classes.active="{Binding IsFilterEmulatorsActive}" Command="{Binding SetFilterEmulatorsCommand}" Margin="4">
-            <StackPanel HorizontalAlignment="Center" Spacing="3">
-              <TextBlock Text="🎮" FontSize="19" HorizontalAlignment="Center" />
-              <TextBlock Text="Emuladores" />
-            </StackPanel>
-          </Button>
-          <Button Width="116" Classes="bigScreenTab" Classes.active="{Binding IsFilterApplicationsActive}" Command="{Binding SetFilterApplicationsCommand}" Margin="4">
-            <StackPanel HorizontalAlignment="Center" Spacing="3">
-              <TextBlock Text="▣" FontSize="19" HorizontalAlignment="Center" />
-              <TextBlock Text="Programas" />
-            </StackPanel>
-          </Button>
-          <Button Width="116" Classes="bigScreenTab" Classes.active="{Binding IsFilterNotInstalledActive}" Command="{Binding SetFilterNotInstalledCommand}" Margin="4">
-            <StackPanel HorizontalAlignment="Center" Spacing="3">
-              <TextBlock Text="↓" FontSize="19" HorizontalAlignment="Center" />
-              <TextBlock Text="Não instalados" />
-            </StackPanel>
-          </Button>
-        </WrapPanel>
-
-        <Button Content="＋  Adicionar programa"
-                HorizontalAlignment="Center"
-                MinWidth="220"
-                Margin="4,2,4,0"
-                IsVisible="{Binding IsFilterApplicationsActive}"
-                Click="OnAddProgramClick" />
+      <StackPanel Grid.Column="0" Grid.Row="0" Spacing="8" Margin="0,12,0,0" IsVisible="{Binding HasSubFilters}">
 
         <ItemsControl ItemsSource="{Binding SubFilters}" IsVisible="{Binding HasSubFilters}" HorizontalAlignment="Center">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
-              <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center" />
+              <StackPanel Orientation="Vertical" HorizontalAlignment="Center" />
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:SubFilterViewModel">
-              <Button Classes="pill subFilter"
+              <Button Classes="pill subFilter" Width="76"
                       Classes.cursor="{Binding IsCursor}"
                       Content="{Binding Label}"
                       Click="OnSubFilterClick"
