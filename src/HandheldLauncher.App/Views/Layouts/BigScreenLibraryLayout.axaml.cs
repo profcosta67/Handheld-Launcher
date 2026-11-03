@@ -55,9 +55,9 @@ public partial class BigScreenLibraryLayout : UserControl, ILibraryLayout
     private void OnSubFilterClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => Owner?.HandleSubFilterClick(sender, e);
 
     private void OnOpenWifiSettingsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-        => Owner?.OpenWindowsSettings("ms-settings:network-wifi");
+        => Owner?.OpenConnectivityPopup();
 
     private void OnOpenBluetoothSettingsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-        => Owner?.OpenWindowsSettings("ms-settings:bluetooth");
+        => Owner?.OpenConnectivityPopup();
 
 }
