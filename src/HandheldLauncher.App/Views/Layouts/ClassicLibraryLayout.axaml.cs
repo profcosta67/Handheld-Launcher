@@ -31,6 +31,16 @@ public partial class ClassicLibraryLayout : UserControl, ILibraryLayout
 
     private MainWindow? Owner => TopLevel.GetTopLevel(this) as MainWindow;
 
+    private void OnGameRowPointerWheelChanged(object? sender, PointerWheelEventArgs e)
+    {
+        var maxOffset = Math.Max(0, GameRowScrollViewer.Extent.Width - GameRowScrollViewer.Viewport.Width);
+        if (maxOffset <= 0) return;
+        var delta = Math.Abs(e.Delta.X) > Math.Abs(e.Delta.Y) ? e.Delta.X : e.Delta.Y;
+        var next = Math.Clamp(GameRowScrollViewer.Offset.X - delta * 120, 0, maxOffset);
+        GameRowScrollViewer.Offset = new Avalonia.Vector(next, GameRowScrollViewer.Offset.Y);
+        e.Handled = true;
+    }
+
     private void OnAddProgramClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => Owner?.HandleAddProgramClick();
 
     private void OnTilePointerPressed(object? sender, PointerPressedEventArgs e) => Owner?.HandleTilePointerPressed(sender, e);
