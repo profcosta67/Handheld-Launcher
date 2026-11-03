@@ -62,7 +62,8 @@
                     IsVisible="{Binding SelectedTile.ShowCurrentLogo}">
               <Image Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
                      Width="240" Height="64" Stretch="Uniform"
-                     HorizontalAlignment="Left" />
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center" />
             </Border>
 
           </Grid>
@@ -146,6 +147,7 @@
                              IsVisible="{Binding ShowNameCaption}" />
 
                   <Image Source="{Binding LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                         Width="190"
                          Height="{Binding CaptionLogoHeight}"
                          Stretch="Uniform"
                          HorizontalAlignment="Left"
