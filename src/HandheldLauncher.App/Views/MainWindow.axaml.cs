@@ -1426,9 +1426,11 @@ public partial class MainWindow : Window
     private void ApplyLayoutTheme()
     {
         UserControl layout;
+        var layoutTheme = 0;
         try
         {
             var settings = AppSettingsStore.Load();
+            layoutTheme = settings.LayoutTheme;
             layout = settings.LayoutTheme switch
             {
                 2 => new Layouts.BigScreenLibraryLayout(),
@@ -1440,7 +1442,7 @@ public partial class MainWindow : Window
         _libraryLayout = (ILibraryLayout)layout;
         // BigScreen has its own compact status header; hide the generic
         // application bar there to avoid duplicating the clock/battery row.
-        TopBar.IsVisible = settings.LayoutTheme != 2;
+        TopBar.IsVisible = layoutTheme != 2;
         GamesItemsControl = _libraryLayout.GamesItemsControl;
         GameRowScrollViewer = _libraryLayout.GameRowScrollViewer;
         HeroImage = _libraryLayout.HeroImage;
