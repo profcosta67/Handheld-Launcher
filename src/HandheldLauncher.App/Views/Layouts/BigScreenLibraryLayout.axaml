@@ -84,6 +84,24 @@
         </Button>
         <Button Content="＋" MinHeight="48" Padding="4" ToolTip.Tip="Adicionar programa"
                 IsVisible="{Binding IsFilterApplicationsActive}" Click="OnAddProgramClick" />
+        <ItemsControl ItemsSource="{Binding SubFilters}" IsVisible="{Binding HasSubFilters}" HorizontalAlignment="Center">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate><StackPanel Orientation="Vertical" HorizontalAlignment="Center" /></ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:SubFilterViewModel">
+              <Button Classes="pill subFilter" Width="76"
+                      Classes.cursor="{Binding IsCursor}"
+                      Content="{Binding Label}"
+                      Click="OnSubFilterClick"
+                      Background="{Binding BackgroundHex, Converter={StaticResource HexColorToBrushConverter}}"
+                      Foreground="{Binding ForegroundHex, Converter={StaticResource HexColorToBrushConverter}}"
+                      BorderBrush="{Binding AccentHex, Converter={StaticResource HexColorToBrushConverter}}"
+                      BorderThickness="2"
+                      Margin="2" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
       </StackPanel>
 
       <Grid Grid.Column="1" Grid.Row="0" RowDefinitions="Auto,*,Auto" VerticalAlignment="Stretch">
@@ -328,7 +346,7 @@
 
       </Grid>
 
-      <TextBlock Grid.Row="0"
+      <TextBlock Grid.Row="0" Grid.Column="1"
                  Text="SUA BIBLIOTECA&#10;Adicione jogos para começar sua experiência."
                  Foreground="{DynamicResource TextPrimaryBrush}"
                  TextWrapping="Wrap"
@@ -337,30 +355,6 @@
                  HorizontalAlignment="Center"
                  Margin="24"
                  IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
-
-      <StackPanel Grid.Column="0" Grid.Row="0" Spacing="8" Margin="0,12,0,0" IsVisible="{Binding HasSubFilters}">
-
-        <ItemsControl ItemsSource="{Binding SubFilters}" IsVisible="{Binding HasSubFilters}" HorizontalAlignment="Center">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <StackPanel Orientation="Vertical" HorizontalAlignment="Center" />
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="vm:SubFilterViewModel">
-              <Button Classes="pill subFilter" Width="76"
-                      Classes.cursor="{Binding IsCursor}"
-                      Content="{Binding Label}"
-                      Click="OnSubFilterClick"
-                      Background="{Binding BackgroundHex, Converter={StaticResource HexColorToBrushConverter}}"
-                      Foreground="{Binding ForegroundHex, Converter={StaticResource HexColorToBrushConverter}}"
-                      BorderBrush="{Binding AccentHex, Converter={StaticResource HexColorToBrushConverter}}"
-                      BorderThickness="2"
-                      Margin="4,0" />
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </StackPanel>
 
     </Grid>
   </Panel>
