@@ -4,7 +4,7 @@
         x:Class="HandheldLauncher.App.Views.SettingsWindow"
         x:DataType="vm:SettingsViewModel"
         Title="Configurações"
-        Width="560" Height="860"
+        Width="760" Height="860"
         CanResize="False"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource BackgroundBrush}">
@@ -55,20 +55,19 @@
   </Window.Styles>
 
   <Panel>
-  <Grid RowDefinitions="*,Auto" Margin="24" IsEnabled="{Binding FormEnabled}">
-    <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+  <Grid ColumnDefinitions="150,*" RowDefinitions="*,Auto" Margin="20" IsEnabled="{Binding FormEnabled}">
+    <StackPanel Grid.Column="0" Grid.Row="0" Spacing="8" Margin="0,0,12,0">
+      <TextBlock Text="PREFERÊNCIAS" FontSize="10" FontWeight="SemiBold" Classes="subtle" Margin="4,0,0,8" />
+      <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAppearanceActive}" Content="Aparência" Tag="0" Click="OnCategoryTabClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="10,10" />
+      <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryFoldersActive}" Content="Diretórios" Tag="1" Click="OnCategoryTabClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="10,10" />
+      <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryEmulatorsActive}" Content="Emuladores" Tag="2" Click="OnCategoryTabClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="10,10" />
+      <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryModeActive}" Content="Modo de uso" Tag="3" Click="OnCategoryTabClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="10,10" />
+      <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAccountsActive}" Content="Contas" Tag="4" Click="OnCategoryTabClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="10,10" />
+      <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryShortcutsActive}" Content="Atalhos" Tag="5" Click="OnCategoryTabClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="10,10" />
+      <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryLosslessActive}" Content="Lossless Scaling" Tag="6" Click="OnCategoryTabClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="10,10" />
+    </StackPanel>
+    <ScrollViewer Grid.Column="1" Grid.Row="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="12">
-        
-        <!-- Abas (7 colunas) -->
-        <Grid ColumnDefinitions="*,*,*,*,*,*,*" Margin="0,0,0,4">
-          <Button Grid.Column="0" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAppearanceActive}" Content="Aparência" Tag="0" Click="OnCategoryTabClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,2,0" Padding="2,8" FontSize="10" />
-          <Button Grid.Column="1" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryFoldersActive}" Content="Diretórios" Tag="1" Click="OnCategoryTabClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="2,0,2,0" Padding="2,8" FontSize="10" />
-          <Button Grid.Column="2" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryEmulatorsActive}" Content="Emuladores" Tag="2" Click="OnCategoryTabClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="2,0,2,0" Padding="2,8" FontSize="10" />
-          <Button Grid.Column="3" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryModeActive}" Content="Modo" Tag="3" Click="OnCategoryTabClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="2,0,2,0" Padding="2,8" FontSize="10" />
-          <Button Grid.Column="4" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAccountsActive}" Content="Contas" Tag="4" Click="OnCategoryTabClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="2,0,2,0" Padding="2,8" FontSize="10" />
-          <Button Grid.Column="5" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryShortcutsActive}" Content="Teclas" Tag="5" Click="OnCategoryTabClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="2,0,2,0" Padding="2,8" FontSize="10" />
-          <Button Grid.Column="6" Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryLosslessActive}" Content="🦆" Tag="6" Click="OnCategoryTabClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="2,0,0,0" Padding="2,8" FontSize="12" />
-        </Grid>
 
         <!-- ===== Aparência ===== -->
         <StackPanel Spacing="12" IsVisible="{Binding IsCategoryAppearanceActive}">
@@ -236,7 +235,7 @@
       </StackPanel>
     </ScrollViewer>
 
-    <StackPanel Grid.Row="1" Spacing="10" Margin="0,16,0,0">
+    <StackPanel Grid.ColumnSpan="2" Grid.Row="1" Spacing="10" Margin="0,16,0,0">
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
     <Button Classes="pill" Content="⌨ Teclado" Click="OnKeyboardClick" />
     <Button Classes="pill" Content="Fechar" Click="OnCloseClick" />
