@@ -80,28 +80,22 @@ public partial class SettingsWindow : Window
         var tabs = GetTabButtons();
         if (tabs.Count == 0) return false;
 
-        var content = GetContentFocusables();
-
         if (_focusZone == FocusZone.Tabs)
         {
             switch (action)
             {
-                case GamepadAction.MoveLeft:
-                case GamepadAction.PreviousFilter:
+                case GamepadAction.MoveUp:
                     _tabIndex = (_tabIndex - 1 + tabs.Count) % tabs.Count;
                     ViewModel.CategoryIndex = _tabIndex;
                     FocusControl(tabs[_tabIndex]);
                     return true;
-
-                case GamepadAction.MoveRight:
-                case GamepadAction.NextFilter:
+                case GamepadAction.MoveDown:
                     _tabIndex = (_tabIndex + 1) % tabs.Count;
                     ViewModel.CategoryIndex = _tabIndex;
                     FocusControl(tabs[_tabIndex]);
                     return true;
-
-                case GamepadAction.MoveDown:
                 case GamepadAction.Confirm:
+                    var content = GetContentFocusables();
                     if (content.Count > 0)
                     {
                         _focusZone = FocusZone.Content;
@@ -109,69 +103,56 @@ public partial class SettingsWindow : Window
                         FocusControl(content[0]);
                     }
                     return true;
-
                 case GamepadAction.Back:
                     Close();
                     return true;
-
-                case GamepadAction.MoveUp:
-                    // Já está no topo — não faz nada (evita "sumir" do foco)
+                case GamepadAction.MoveLeft:
+                case GamepadAction.MoveRight:
+                case GamepadAction.PreviousFilter:
+                case GamepadAction.NextFilter:
                     return true;
             }
         }
-        else // Content
+        else
         {
+            var content = GetContentFocusables();
+            if (content.Count == 0)
+            {
+                _focusZone = FocusZone.Tabs;
+                FocusControl(tabs[_tabIndex]);
+                return true;
+            }
+
+            _contentIndex = Math.Clamp(_contentIndex, 0, content.Count - 1);
             switch (action)
             {
                 case GamepadAction.MoveDown:
-                    if (content.Count == 0) { _focusZone = FocusZone.Tabs; FocusControl(tabs[_tabIndex]); return true; }
-                    _contentIndex = (_contentIndex + 1) % content.Count;
+                    _contentIndex = Math.Min(_contentIndex + 1, content.Count - 1);
                     FocusControl(content[_contentIndex]);
                     return true;
-
                 case GamepadAction.MoveUp:
-                    if (content.Count == 0 || _contentIndex == 0)
-                    {
-                        _focusZone = FocusZone.Tabs;
-                        FocusControl(tabs[_tabIndex]);
-                        return true;
-                    }
-                    _contentIndex--;
+                    _contentIndex = Math.Max(_contentIndex - 1, 0);
                     FocusControl(content[_contentIndex]);
                     return true;
-
                 case GamepadAction.MoveLeft:
-                    // ComboBox/Slider mudam valor; senão, não faz nada
-                    if (TryChangeValue(content, _contentIndex, -1)) return true;
+                    TryChangeValue(content, _contentIndex, -1);
                     return true;
-
                 case GamepadAction.MoveRight:
-                    if (TryChangeValue(content, _contentIndex, +1)) return true;
+                    TryChangeValue(content, _contentIndex, +1);
                     return true;
-
                 case GamepadAction.Confirm:
-                    if (content.Count > 0) ActivateControl(content[_contentIndex]);
+                    ActivateControl(content[_contentIndex]);
                     return true;
-
                 case GamepadAction.Back:
                     _focusZone = FocusZone.Tabs;
                     FocusControl(tabs[_tabIndex]);
                     return true;
-
-                case GamepadAction.PreviousFilter:
-                    _tabIndex = (_tabIndex - 1 + tabs.Count) % tabs.Count;
-                    ViewModel.CategoryIndex = _tabIndex;
-                    _focusZone = FocusZone.Tabs;
-                    _contentIndex = 0;
-                    FocusControl(tabs[_tabIndex]);
+                case GamepadAction.GameDetails: // Botão X: salvar e fechar
+                    ViewModel.SaveTo(_settings);
+                    Close();
                     return true;
-
+                case GamepadAction.PreviousFilter:
                 case GamepadAction.NextFilter:
-                    _tabIndex = (_tabIndex + 1) % tabs.Count;
-                    ViewModel.CategoryIndex = _tabIndex;
-                    _focusZone = FocusZone.Tabs;
-                    _contentIndex = 0;
-                    FocusControl(tabs[_tabIndex]);
                     return true;
             }
         }
