@@ -1330,7 +1330,7 @@ public sealed class MainViewModel : ViewModelBase
         {
             var candidates = kind switch
             {
-                ArtworkPickerKind.WideGrid => await _artwork.GetWideGridCandidatesAsync(game, FilterAnimatedOnly), ArtworkPickerKind.Hero => await _artwork.GetHeroCandidatesAsync(game, FilterAnimatedOnly),
+                ArtworkPickerKind.WideGrid => await _artwork.GetWideArtworkCandidatesAsync(game, FilterAnimatedOnly), ArtworkPickerKind.Hero => await _artwork.GetHeroCandidatesAsync(game, FilterAnimatedOnly),
                 ArtworkPickerKind.Logo => await _artwork.GetLogoCandidatesAsync(game, FilterAnimatedOnly), ArtworkPickerKind.Icon => await _artwork.GetIconCandidatesAsync(game, FilterAnimatedOnly), _ => await _artwork.GetGridCandidatesAsync(game, FilterAnimatedOnly),
             };
             if (!IsCoverPickerOpen || _coverPickerGame != game) return;
