@@ -60,6 +60,7 @@
         
       <StackPanel Grid.Column="0" Spacing="8" Margin="0,0,14,8">
         <TextBlock Text="CONFIGURAÇÕES" FontSize="10" FontWeight="Bold" Opacity="0.55" Margin="8,0,0,6" />
+        <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryConnectivityActive}" Content="Wi-Fi / Bluetooth" Tag="7" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
         <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAppearanceActive}" Content="Aparência" Tag="0" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
         <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryFoldersActive}" Content="Diretórios" Tag="1" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
         <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryEmulatorsActive}" Content="Emuladores" Tag="2" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
@@ -67,7 +68,6 @@
         <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAccountsActive}" Content="Contas" Tag="4" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
         <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryShortcutsActive}" Content="Atalhos" Tag="5" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
         <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryLosslessActive}" Content="Lossless Scaling" Tag="6" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
-        <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryConnectivityActive}" Content="Wi-Fi / Bluetooth" Tag="7" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
         <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryNewsActive}" Content="Novidades" Tag="8" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
       </StackPanel>
       <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
