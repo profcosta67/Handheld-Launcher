@@ -1548,7 +1548,17 @@ public partial class MainWindow : Window
         dialog.CheckForUpdates = vm.CheckForUpdatesWithResultAsync;
         dialog.Topmost = true;
         _activeDialog = dialog;
-        try { await dialog.ShowDialog(this); } finally { _activeDialog = null; }
+        try { await dialog.ShowDialog(this); }
+        finally
+        {
+            _activeDialog = null;
+            // A janela principal volta a ficar Topmost somente depois que o modal fecha.
+            if (IsVisible && WindowState != WindowState.Minimized)
+            {
+                Topmost = true;
+                _topmostEnforcerTimer?.Start();
+            }
+        }
         ApplyAppearance(vm, AppSettingsStore.Load());
         vm.RefreshArtworkState();
     }
