@@ -175,7 +175,7 @@
                         BorderThickness="0">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
-                <StackPanel Orientation="Horizontal" Spacing="96" Margin="900,0,900,0" VerticalAlignment="Center" />
+                <StackPanel Orientation="Horizontal" Spacing="48" Margin="900,0,900,0" VerticalAlignment="Center" />
               </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
 
