@@ -56,11 +56,11 @@
 
   <Panel>
   <Grid RowDefinitions="*,Auto" Margin="24" IsEnabled="{Binding FormEnabled}">
-    <Grid Grid.Row="0" ColumnDefinitions="142,*">
+    <Grid Grid.Row="0" ColumnDefinitions="170,*">
         
       <StackPanel Grid.Column="0" Spacing="8" Margin="0,0,14,8">
         <TextBlock Text="CONFIGURAÇÕES" FontSize="10" FontWeight="Bold" Opacity="0.55" Margin="8,0,0,6" />
-        <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryConnectivityActive}" Content="Wi-Fi / Bluetooth" Tag="7" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
+        <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryConnectivityActive}" Content="Wi-Fi e Bluetooth" Tag="7" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
         <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAppearanceActive}" Content="Aparência" Tag="0" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
         <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryFoldersActive}" Content="Diretórios" Tag="1" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
         <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryEmulatorsActive}" Content="Emuladores" Tag="2" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
