@@ -662,6 +662,10 @@ public sealed class MainViewModel : ViewModelBase
 
         if (string.IsNullOrEmpty(LaunchingGameIconPath)) LaunchingGameIconPath = ResolveFallbackImage(game);
 
+        // Se o ícone do SteamGridDB ainda estiver baixando, atualiza o popup assim que chegar.
+        if (string.IsNullOrEmpty(LaunchingGameIconPath) && _artwork.HasApiKey)
+            _ = FetchLaunchIconAsync(game);
+
         _launcher.Launch(game);
         RunningGame = game;
         _library.MarkLaunched(game.Id);
