@@ -124,7 +124,7 @@
       </StackPanel>
 
       <!-- Fileira de jogos -->
-      <ScrollViewer x:Name="GameRowScrollViewer" Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+      <ScrollViewer x:Name="GameRowScrollViewer" PointerWheelChanged="OnGameRowPointerWheelChanged" Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
         <ScrollViewer.Transitions>
           <Transitions>
             <VectorTransition Property="Offset" Duration="0:0:0.28" Easing="CubicEaseOut" />
