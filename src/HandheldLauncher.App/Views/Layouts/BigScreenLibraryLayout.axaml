@@ -145,6 +145,7 @@
               <TextBlock Text="{Binding BatteryStatusText}"
                          Foreground="#FFB8C1D4"
                          FontSize="14"
+                         FontFamily="Inter"
                          FontWeight="SemiBold"
                          VerticalAlignment="Center" />
             </StackPanel>
