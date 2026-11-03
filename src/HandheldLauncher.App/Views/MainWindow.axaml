@@ -1,6 +1,5 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:anim="https://github.com/whistyun/AnimatedImage.Avalonia"
         xmlns:vm="using:HandheldLauncher.App.ViewModels"
         xmlns:models="using:HandheldLauncher.Core.Models"
         xmlns:conv="using:HandheldLauncher.App.Converters"
@@ -254,7 +253,7 @@
                 <DataTemplate x:DataType="vm:ArtworkCandidateViewModel">
                   <Border Classes="coverCandidate" Classes.selected="{Binding IsSelected}" Cursor="Hand" PointerPressed="OnCoverCandidatePressed" Width="150" Height="170" Margin="6" CornerRadius="8" ClipToBounds="True" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <Grid>
-                      <Image anim:ImageBehavior.AnimatedSource="{Binding LocalThumbnailPath}" Stretch="Uniform" />
+                      <Image Source="{Binding LocalThumbnailPath, Converter={StaticResource FileToBitmapConverter}}" Stretch="Uniform" />
                       <Border Background="#CC6B4EFF" CornerRadius="5" Padding="6,3"
                               HorizontalAlignment="Right" VerticalAlignment="Top" Margin="6"
                               IsVisible="{Binding IsHero}">
