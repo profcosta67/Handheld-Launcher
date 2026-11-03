@@ -68,6 +68,7 @@ public sealed class PerformanceHud : IDisposable
             var devMode = new DEVMODE { dmDeviceName = new string(new char[32]) };
             devMode.dmSize = (short)Marshal.SizeOf(devMode);
             if (EnumDisplaySettings(null, -1, ref devMode))
+            {
                 var height = devMode.dmPelsHeight;
                 _resolutionText = height switch
                 {
@@ -79,6 +80,7 @@ public sealed class PerformanceHud : IDisposable
                     720 => "720p",
                     _ => $"{height}p"
                 };
+            }
             _lastResolutionCheck = DateTime.Now;
         }
         catch { }
