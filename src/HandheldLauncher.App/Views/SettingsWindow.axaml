@@ -67,6 +67,8 @@
         <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAccountsActive}" Content="Contas" Tag="4" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
         <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryShortcutsActive}" Content="Atalhos" Tag="5" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
         <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryLosslessActive}" Content="Lossless Scaling" Tag="6" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
+        <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryConnectivityActive}" Content="Wi-Fi / Bluetooth" Tag="7" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
+        <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryNewsActive}" Content="Novidades" Tag="8" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
       </StackPanel>
       <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
         <StackPanel Spacing="12">
@@ -219,6 +221,54 @@
               <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Quick Settings" Foreground="#E6E0FF"/><TextBlock Grid.Column="1" Text="Ctrl + Alt + O" FontWeight="Bold" Foreground="#C6B5FF"/></Grid>
             </StackPanel>
           </Border>
+        </StackPanel>
+
+        <!-- ===== Conectividade ===== -->
+        <StackPanel Spacing="14" IsVisible="{Binding IsCategoryConnectivityActive}">
+          <TextBlock Text="Conectividade do dispositivo" FontSize="16" FontWeight="SemiBold" />
+          <TextBlock Text="Abra os painéis nativos do Windows para conectar redes, escolher dispositivos e gerenciar pareamentos. O launcher não altera rádios em segundo plano." Classes="subtle" FontSize="12" TextWrapping="Wrap" />
+          <Border Background="#202536" CornerRadius="14" Padding="18">
+            <StackPanel Spacing="10">
+              <TextBlock Text="Wi-Fi" FontSize="17" FontWeight="Bold" />
+              <TextBlock Text="Conectar a uma rede, esquecer redes salvas e configurar propriedades da conexão." Classes="subtle" TextWrapping="Wrap" />
+              <Button Classes="pill primary" Content="Abrir configurações de Wi-Fi" Click="OnOpenWifiSettingsClick" HorizontalAlignment="Left" />
+            </StackPanel>
+          </Border>
+          <Border Background="#202536" CornerRadius="14" Padding="18">
+            <StackPanel Spacing="10">
+              <TextBlock Text="Bluetooth" FontSize="17" FontWeight="Bold" />
+              <TextBlock Text="Ligar ou desligar o Bluetooth, parear controles, fones e outros acessórios." Classes="subtle" TextWrapping="Wrap" />
+              <Button Classes="pill primary" Content="Abrir configurações de Bluetooth" Click="OnOpenBluetoothSettingsClick" HorizontalAlignment="Left" />
+            </StackPanel>
+          </Border>
+          <TextBlock Text="Dica: no Legion Go 2, use essas telas para parear controles e fones sem sair procurando as opções nas Configurações gerais." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+        </StackPanel>
+
+        <!-- ===== Novidades ===== -->
+        <StackPanel Spacing="12" IsVisible="{Binding IsCategoryNewsActive}">
+          <TextBlock Text="Novidades do Handheld Launcher" FontSize="18" FontWeight="Bold" />
+          <TextBlock Text="Resumo das versões recentes. Esta lista acompanha as notas de versão publicadas no projeto." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+          <Border Background="#251A3A" BorderBrush="#7652B8" BorderThickness="1" CornerRadius="12" Padding="14">
+            <StackPanel Spacing="8">
+              <StackPanel Orientation="Horizontal" Spacing="12"><TextBlock Text="v0.14.9" FontSize="17" FontWeight="Bold"/><TextBlock Text="Estabilidade e experiência portátil" Foreground="#BFA9FF" VerticalAlignment="Center"/></StackPanel>
+              <TextBlock Text="Corrigido o travamento ao decodificar determinadas capas PNG animadas. Downloads automáticos permanecem estáticos e a seleção manual mantém suporte a animações." TextWrapping="Wrap"/>
+              <TextBlock Text="FFmpeg incluído no pacote Windows x64 para gravação de tela. HUD mais compacto, TDP exibido em watts e overlay adaptado a telas menores." TextWrapping="Wrap"/>
+              <TextBlock Text="Melhorias na navegação por teclado nas configurações, atalhos de controle reorganizados e ajustes na abertura do Lossless Scaling." TextWrapping="Wrap"/>
+            </StackPanel>
+          </Border>
+          <Border Background="#202536" CornerRadius="12" Padding="14">
+            <StackPanel Spacing="8">
+              <TextBlock Text="v0.14.7 – v0.14.8" FontSize="16" FontWeight="Bold"/>
+              <TextBlock Text="Ajustes de manutenção, estabilidade e correções incrementais da biblioteca e da experiência de uso." TextWrapping="Wrap"/>
+            </StackPanel>
+          </Border>
+          <Border Background="#202536" CornerRadius="12" Padding="14">
+            <StackPanel Spacing="8">
+              <TextBlock Text="v0.14.0 – v0.14.6" FontSize="16" FontWeight="Bold"/>
+              <TextBlock Text="Evolução dos recursos de biblioteca, downloads e artes dos jogos, ajustes de interface, configurações e correções de compatibilidade." TextWrapping="Wrap"/>
+            </StackPanel>
+          </Border>
+          <Button Classes="pill" Content="Ver todas as notas de versão" Click="OnOpenReleaseNotesClick" HorizontalAlignment="Left" />
         </StackPanel>
 
         <!-- ===== 🦆 Lossless Scaling ===== -->
