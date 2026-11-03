@@ -126,9 +126,27 @@
                     CornerRadius="12"
                     Padding="14,8"
                     VerticalAlignment="Center">
-              <StackPanel Spacing="2" HorizontalAlignment="Center">
-                <TextBlock Text="A" Foreground="#FFBBD4FF" FontSize="15" FontWeight="Bold" HorizontalAlignment="Center"/>
-                <TextBlock Text="JOGAR" Foreground="#FFEAF2FF" FontSize="9" FontWeight="Bold"/>
+              <StackPanel Spacing="5" HorizontalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+                  <StackPanel Spacing="1" HorizontalAlignment="Center">
+                    <TextBlock Text="A" Foreground="#FFBBD4FF" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center"/>
+                    <TextBlock Text="JOGAR" Foreground="#FFEAF2FF" FontSize="8" FontWeight="Bold"/>
+                  </StackPanel>
+                  <Border Width="1" Height="24" Background="#556C7898" />
+                  <StackPanel Spacing="1" HorizontalAlignment="Center">
+                    <TextBlock Text="X" Foreground="#FFBBD4FF" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center"/>
+                    <TextBlock Text="DETALHES" Foreground="#FFEAF2FF" FontSize="8" FontWeight="Bold"/>
+                  </StackPanel>
+                  <Border Width="1" Height="24" Background="#556C7898" />
+                  <StackPanel Spacing="1" HorizontalAlignment="Center">
+                    <TextBlock Text="Y" Foreground="#FFBBD4FF" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center"/>
+                    <TextBlock Text="DOWNLOADS" Foreground="#FFEAF2FF" FontSize="8" FontWeight="Bold"/>
+                  </StackPanel>
+                </StackPanel>
+                <TextBlock Text="ENTER TAMBÉM INICIA O JOGO"
+                           Foreground="#FF8996AF"
+                           FontSize="8"
+                           HorizontalAlignment="Center" />
               </StackPanel>
             </Border>
           </Grid>
