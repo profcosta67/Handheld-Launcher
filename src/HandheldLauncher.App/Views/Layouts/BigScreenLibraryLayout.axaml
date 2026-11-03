@@ -88,7 +88,7 @@
 
       </StackPanel>
 
-      <Grid Grid.Column="1" Grid.Row="0" RowDefinitions="Auto,Auto,*,Auto" VerticalAlignment="Stretch">
+      <Grid Grid.Column="1" Grid.Row="0" RowDefinitions="Auto,Auto,*,Auto,Auto" VerticalAlignment="Stretch">
 
         <Grid Grid.Row="0" Height="82" ColumnDefinitions="*,Auto,*" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
           <Image Grid.Column="1"
@@ -343,6 +343,39 @@
                  HorizontalAlignment="Center"
                  Margin="24"
                  IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
+
+      <Border Grid.Row="4"
+              Grid.Column="1"
+              HorizontalAlignment="Center"
+              Margin="0,8,0,0"
+              Padding="14,7"
+              Background="#CC101521"
+              BorderBrush="#557B8499"
+              BorderThickness="1"
+              CornerRadius="14">
+        <StackPanel Orientation="Horizontal" Spacing="18" VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal" Spacing="5">
+            <TextBlock Text="D-PAD" Foreground="#FFFFFFFF" FontSize="10" FontWeight="Bold" />
+            <TextBlock Text="Navegar" Foreground="#FFB8C1D4" FontSize="10" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="5">
+            <TextBlock Text="A" Foreground="#FFFFFFFF" FontSize="10" FontWeight="Bold" />
+            <TextBlock Text="Abrir" Foreground="#FFB8C1D4" FontSize="10" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="5">
+            <TextBlock Text="X" Foreground="#FFFFFFFF" FontSize="10" FontWeight="Bold" />
+            <TextBlock Text="Detalhes" Foreground="#FFB8C1D4" FontSize="10" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="5">
+            <TextBlock Text="Y" Foreground="#FFFFFFFF" FontSize="10" FontWeight="Bold" />
+            <TextBlock Text="Downloads" Foreground="#FFB8C1D4" FontSize="10" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="5">
+            <TextBlock Text="START" Foreground="#FFFFFFFF" FontSize="10" FontWeight="Bold" />
+            <TextBlock Text="Menu" Foreground="#FFB8C1D4" FontSize="10" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
 
     </Grid>
   </Panel>
