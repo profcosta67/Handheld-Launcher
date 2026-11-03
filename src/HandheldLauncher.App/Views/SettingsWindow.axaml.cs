@@ -587,11 +587,17 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private void OnOpenWifiSettingsClick(object? sender, RoutedEventArgs e)
-        => OpenWindowsSettings("ms-settings:network-wifi");
+    private async void OnOpenWifiSettingsClick(object? sender, RoutedEventArgs e)
+    {
+        var dialog = new ConnectivityPopupWindow { Topmost = true };
+        await dialog.ShowDialog(this);
+    }
 
-    private void OnOpenBluetoothSettingsClick(object? sender, RoutedEventArgs e)
-        => OpenWindowsSettings("ms-settings:bluetooth");
+    private async void OnOpenBluetoothSettingsClick(object? sender, RoutedEventArgs e)
+    {
+        var dialog = new ConnectivityPopupWindow { Topmost = true };
+        await dialog.ShowDialog(this);
+    }
 
     private void OnOpenReleaseNotesClick(object? sender, RoutedEventArgs e)
         => OpenWindowsSettings("https://github.com/profcosta67/Handheld-Launcher/tree/main/release-notes");
