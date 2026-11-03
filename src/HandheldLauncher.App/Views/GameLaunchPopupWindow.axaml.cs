@@ -1,15 +1,28 @@
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 
 namespace HandheldLauncher.App.Views;
 
 public partial class GameLaunchPopupWindow : Window
 {
+    private readonly DispatcherTimer _spinnerTimer;
+    private readonly string[] _spinnerFrames = { "◐", "◓", "◑", "◒" };
+    private int _spinnerFrame;
     public GameLaunchPopupWindow() : this("", null) { }
 
     public GameLaunchPopupWindow(string title, string? iconPath)
     {
         InitializeComponent();
+
+        _spinnerTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(110) };
+        _spinnerTimer.Tick += (_, _) =>
+        {
+            _spinnerFrame = (_spinnerFrame + 1) % _spinnerFrames.Length;
+            TxtLoadingSpinner.Text = _spinnerFrames[_spinnerFrame];
+        };
+        _spinnerTimer.Start();
+        Closed += (_, _) => _spinnerTimer.Stop();
 
         TxtGameTitle.Text = string.IsNullOrEmpty(title) ? "Abrindo..." : title;
 
