@@ -14,26 +14,26 @@
   </UserControl.Resources>
 
   <UserControl.Styles>
-    <Style Selector="Button.switchTab">
+    <Style Selector="Button.bigScreenTab">
       <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
       <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource TextSecondaryBrush}" />
       <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="12" />
-      <Setter Property="Padding" Value="8,7" />
-      <Setter Property="MinHeight" Value="58" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="CornerRadius" Value="16" />
+      <Setter Property="Padding" Value="12,10" />
+      <Setter Property="MinHeight" Value="68" />
+      <Setter Property="FontSize" Value="12" />
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="HorizontalAlignment" Value="Stretch" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
     </Style>
-    <Style Selector="Button.switchTab /template/ ContentPresenter">
+    <Style Selector="Button.bigScreenTab /template/ ContentPresenter">
       <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
       <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource TextSecondaryBrush}" />
       <Setter Property="BorderThickness" Value="1" />
     </Style>
-    <Style Selector="Button.switchTab.active /template/ ContentPresenter">
+    <Style Selector="Button.bigScreenTab.active /template/ ContentPresenter">
       <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
       <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}" />
     </Style>
@@ -43,7 +43,7 @@
 
     <Image x:Name="HeroBackImage" Stretch="UniformToFill" IsHitTestVisible="False">
       <Image.Effect>
-        <media:BlurEffect Radius="45" />
+        <media:BlurEffect Radius="58" />
       </Image.Effect>
     </Image>
     <Image x:Name="HeroImage"
@@ -57,29 +57,29 @@
 
     <Border Background="{DynamicResource BackdropDimBrush}" IsHitTestVisible="False" />
 
-    <Grid RowDefinitions="*,Auto" Margin="28,16,28,16">
+    <Grid RowDefinitions="*,Auto" Margin="40,24,40,22">
 
-      <StackPanel Grid.Row="0" VerticalAlignment="Center" Spacing="16">
+      <StackPanel Grid.Row="0" VerticalAlignment="Center" Spacing="26">
 
-        <Grid Height="76" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
+        <Grid Height="92" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
           <Image Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
                  Stretch="Uniform"
-                 HorizontalAlignment="Center"
+                 HorizontalAlignment="Left"
                  VerticalAlignment="Center"
                  IsVisible="{Binding SelectedTile.ShowCurrentLogo}" />
 
           <Border Background="{DynamicResource SurfaceRaisedBrush}"
                   BorderBrush="{DynamicResource AccentBrush}"
                   BorderThickness="1"
-                  CornerRadius="14"
-                  Padding="20,8"
-                  HorizontalAlignment="Center"
+                  CornerRadius="16"
+                  Padding="24,12"
+                  HorizontalAlignment="Left"
                   VerticalAlignment="Center"
                   MaxWidth="900"
                   IsVisible="{Binding SelectedTile.ShowNameCaption}">
             <TextBlock Text="{Binding SelectedTile.Title}"
                        Foreground="{DynamicResource TextPrimaryBrush}"
-                       FontSize="26"
+                       FontSize="32"
                        FontWeight="SemiBold"
                        TextWrapping="NoWrap"
                        TextTrimming="CharacterEllipsis" />
@@ -87,7 +87,7 @@
         </Grid>
 
         <ScrollViewer x:Name="GameRowScrollViewer"
-                      Height="430"
+                      Height="470"
                       VerticalAlignment="Center"
                       Background="Transparent"
                       BorderBrush="Transparent"
@@ -108,7 +108,7 @@
                         BorderThickness="0">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
-                <StackPanel Orientation="Horizontal" Spacing="120" Margin="900,0,900,0" VerticalAlignment="Center" />
+                <StackPanel Orientation="Horizontal" Spacing="96" Margin="900,0,900,0" VerticalAlignment="Center" />
               </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
 
@@ -210,7 +210,7 @@
       </StackPanel>
 
       <TextBlock Grid.Row="0"
-                 Text="Nenhum jogo encontrado ainda.&#10;Adicione um jogo manualmente para começar."
+                 Text="SUA BIBLIOTECA&#10;Adicione jogos para começar sua experiência."
                  Foreground="{DynamicResource TextPrimaryBrush}"
                  TextWrapping="Wrap"
                  TextAlignment="Center"
@@ -219,39 +219,39 @@
                  Margin="24"
                  IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
 
-      <StackPanel Grid.Row="1" Spacing="8" Margin="0,16,0,0">
+      <StackPanel Grid.Row="1" Spacing="12" Margin="0,20,0,0">
         <Grid ColumnDefinitions="*,*,*,*,*,*">
-          <Button Grid.Column="0" Classes="switchTab" Classes.active="{Binding IsFilterFavoritesActive}" Command="{Binding SetFilterFavoritesCommand}" Margin="4">
+          <Button Grid.Column="0" Classes="bigScreenTab" Classes.active="{Binding IsFilterFavoritesActive}" Command="{Binding SetFilterFavoritesCommand}" Margin="4">
             <StackPanel HorizontalAlignment="Center" Spacing="3">
               <TextBlock Text="★" FontSize="19" HorizontalAlignment="Center" />
               <TextBlock Text="Favoritos" />
             </StackPanel>
           </Button>
-          <Button Grid.Column="1" Classes="switchTab" Classes.active="{Binding IsFilterAllActive}" Command="{Binding SetFilterAllCommand}" Margin="4">
+          <Button Grid.Column="1" Classes="bigScreenTab" Classes.active="{Binding IsFilterAllActive}" Command="{Binding SetFilterAllCommand}" Margin="4">
             <StackPanel HorizontalAlignment="Center" Spacing="3">
               <TextBlock Text="▦" FontSize="19" HorizontalAlignment="Center" />
               <TextBlock Text="Todos" />
             </StackPanel>
           </Button>
-          <Button Grid.Column="2" Classes="switchTab" Classes.active="{Binding IsFilterComputerActive}" Command="{Binding SetFilterComputerCommand}" Margin="4">
+          <Button Grid.Column="2" Classes="bigScreenTab" Classes.active="{Binding IsFilterComputerActive}" Command="{Binding SetFilterComputerCommand}" Margin="4">
             <StackPanel HorizontalAlignment="Center" Spacing="3">
               <TextBlock Text="⌨" FontSize="19" HorizontalAlignment="Center" />
               <TextBlock Text="Computador" />
             </StackPanel>
           </Button>
-          <Button Grid.Column="3" Classes="switchTab" Classes.active="{Binding IsFilterEmulatorsActive}" Command="{Binding SetFilterEmulatorsCommand}" Margin="4">
+          <Button Grid.Column="3" Classes="bigScreenTab" Classes.active="{Binding IsFilterEmulatorsActive}" Command="{Binding SetFilterEmulatorsCommand}" Margin="4">
             <StackPanel HorizontalAlignment="Center" Spacing="3">
               <TextBlock Text="🎮" FontSize="19" HorizontalAlignment="Center" />
               <TextBlock Text="Emuladores" />
             </StackPanel>
           </Button>
-          <Button Grid.Column="4" Classes="switchTab" Classes.active="{Binding IsFilterApplicationsActive}" Command="{Binding SetFilterApplicationsCommand}" Margin="4">
+          <Button Grid.Column="4" Classes="bigScreenTab" Classes.active="{Binding IsFilterApplicationsActive}" Command="{Binding SetFilterApplicationsCommand}" Margin="4">
             <StackPanel HorizontalAlignment="Center" Spacing="3">
               <TextBlock Text="▣" FontSize="19" HorizontalAlignment="Center" />
               <TextBlock Text="Programas" />
             </StackPanel>
           </Button>
-          <Button Grid.Column="5" Classes="switchTab" Classes.active="{Binding IsFilterNotInstalledActive}" Command="{Binding SetFilterNotInstalledCommand}" Margin="4">
+          <Button Grid.Column="5" Classes="bigScreenTab" Classes.active="{Binding IsFilterNotInstalledActive}" Command="{Binding SetFilterNotInstalledCommand}" Margin="4">
             <StackPanel HorizontalAlignment="Center" Spacing="3">
               <TextBlock Text="↓" FontSize="19" HorizontalAlignment="Center" />
               <TextBlock Text="Não instalados" />
