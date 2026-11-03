@@ -1633,10 +1633,18 @@ public partial class MainWindow : Window
         }
     }
 
+    public async void OpenConnectivityPopup()
+    {
+        var dialog = new ConnectivityPopupWindow { Topmost = true };
+        _activeDialog = dialog;
+        try { await dialog.ShowDialog(this); }
+        finally { _activeDialog = null; }
+    }
+
     private void OnOpenWifiSettingsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-        => OpenWindowsSettings("ms-settings:network-wifi");
+        => OpenConnectivityPopup();
 
     private void OnOpenBluetoothSettingsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-        => OpenWindowsSettings("ms-settings:bluetooth");
+        => OpenConnectivityPopup();
 
 }
