@@ -84,9 +84,59 @@ public partial class MainWindow : Window
     private const int OverlayHotkeyId = 0xB01;
     private const uint VkO = 0x4F;
     private const uint WmHotkey = 0x0312;
+    private const uint TrayCallbackMessage = 0x8000 + 0x51;
+    private const uint NIM_ADD = 0, NIM_DELETE = 2, NIF_MESSAGE = 1, NIF_ICON = 2, NIF_TIP = 4;
+    private const uint TPM_RETURNCMD = 0x0100, TPM_RIGHTBUTTON = 0x0002, TPM_NONOTIFY = 0x0080;
+    private const uint MF_STRING = 0, MF_SEPARATOR = 0x00000800;
+    private const int TrayMenuOpen = 1, TrayMenuExit = 2;
+    private const int WmLButtonUp = 0x0202, WmLButtonDoubleClick = 0x0203, WmRButtonUp = 0x0205;
     private const uint WmSysCommand = 0x0112;
     private const int ScMonitorPower = 0xF170;
     private static readonly IntPtr HwndBroadcast = new(0xffff);
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct NotifyIconData
+    {
+        public uint cbSize;
+        public IntPtr hWnd;
+        public uint uID;
+        public uint uFlags;
+        public uint uCallbackMessage;
+        public IntPtr hIcon;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string szTip;
+        public uint dwState;
+        public uint dwStateMask;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)] public string szInfo;
+        public uint uTimeoutOrVersion;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 64)] public string szInfoTitle;
+        public uint dwInfoFlags;
+        public Guid guidItem;
+        public IntPtr hBalloonIcon;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativePoint { public int X; public int Y; }
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    private static extern bool Shell_NotifyIcon(uint dwMessage, ref NotifyIconData data);
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    private static extern uint ExtractIconEx(string file, int index, out IntPtr largeIcon, out IntPtr smallIcon, uint iconCount);
+    [DllImport("user32.dll")]
+    private static extern bool DestroyIcon(IntPtr icon);
+    [DllImport("user32.dll")]
+    private static extern IntPtr CreatePopupMenu();
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern bool AppendMenu(IntPtr menu, uint flags, uint itemId, string? itemText);
+    [DllImport("user32.dll")]
+    private static extern bool GetCursorPos(out NativePoint point);
+    [DllImport("user32.dll")]
+    private static extern uint TrackPopupMenuEx(IntPtr menu, uint flags, int x, int y, IntPtr hwnd, IntPtr parameters);
+    [DllImport("user32.dll")]
+    private static extern bool DestroyMenu(IntPtr menu);
+
+    private IntPtr _trayIconHandle;
+    private IntPtr _unusedTrayIconHandle;
+    private bool _trayIconAdded;
 
     private readonly GamepadPoller _gamepad = new();
     private readonly DispatcherTimer _gamepadTimer;
@@ -129,6 +179,7 @@ public partial class MainWindow : Window
         Closed += (_, _) =>
         {
             _gamepadTimer.Stop();
+            RemoveTrayIcon();
             try { InputBlockService.UnblockGamepadForGame(); } catch { }
             if (_overlayWindow != null)
             {
@@ -145,6 +196,7 @@ public partial class MainWindow : Window
 
             StartTopmostEnforcer();
             RegisterRestoreHotkey();
+            CreateTrayIcon();
 
             ForceForeground(allowRestore: true, forceIfGameRunning: true);
 
@@ -324,6 +376,15 @@ public partial class MainWindow : Window
         if (msg == WmHotkey && wParam.ToInt32() == RestoreHotkeyId) { RestoreFromTray(); handled = true; }
         else if (msg == WmHotkey && wParam.ToInt32() == OverlayHotkeyId) { Dispatcher.UIThread.Post(() => ToggleOverlay()); handled = true; }
         else if (msg == SingleInstance.RestoreMessageId) { RestoreFromTray(); handled = true; }
+        else if (msg == TrayCallbackMessage)
+        {
+            var trayEvent = lParam.ToInt32();
+            if (trayEvent == WmLButtonUp || trayEvent == WmLButtonDoubleClick)
+                Dispatcher.UIThread.Post(RestoreFromTray);
+            else if (trayEvent == WmRButtonUp)
+                Dispatcher.UIThread.Post(ShowTrayContextMenu);
+            handled = true;
+        }
         return IntPtr.Zero;
     }
 
@@ -369,7 +430,111 @@ public partial class MainWindow : Window
         catch (Exception ex) { DebugLog.Write($"[MAIN] Falha ao abrir URL externa: {ex.Message}"); }
     }
 
-    private void MinimizeToTray() => Hide();
+    private void CreateTrayIcon()
+    {
+        if (!OperatingSystem.IsWindows() || _trayIconAdded) return;
+        try
+        {
+            var hwnd = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+            var executable = Environment.ProcessPath;
+            if (hwnd == IntPtr.Zero || string.IsNullOrWhiteSpace(executable)) return;
+            if (ExtractIconEx(executable, 0, out var largeIcon, out var smallIcon, 1) == 0) return;
+
+            _trayIconHandle = smallIcon != IntPtr.Zero ? smallIcon : largeIcon;
+            _unusedTrayIconHandle = smallIcon != IntPtr.Zero ? largeIcon : IntPtr.Zero;
+            if (_trayIconHandle == IntPtr.Zero) return;
+
+            var data = new NotifyIconData
+            {
+                cbSize = (uint)Marshal.SizeOf<NotifyIconData>(),
+                hWnd = hwnd,
+                uID = 1,
+                uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP,
+                uCallbackMessage = TrayCallbackMessage,
+                hIcon = _trayIconHandle,
+                szTip = "Handheld Launcher",
+                szInfo = string.Empty,
+                szInfoTitle = string.Empty,
+                guidItem = Guid.Empty
+            };
+
+            _trayIconAdded = Shell_NotifyIcon(NIM_ADD, ref data);
+            if (!_trayIconAdded)
+            {
+                DebugLog.Write("[TRAY] Shell_NotifyIcon(NIM_ADD) falhou.");
+                ReleaseTrayIconHandles();
+                return;
+            }
+            DebugLog.Write("[TRAY] Ícone da bandeja registrado.");
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[TRAY] Falha ao registrar ícone: {ex}");
+            ReleaseTrayIconHandles();
+        }
+    }
+
+    private void RemoveTrayIcon()
+    {
+        if (_trayIconAdded)
+        {
+            try
+            {
+                var data = new NotifyIconData
+                {
+                    cbSize = (uint)Marshal.SizeOf<NotifyIconData>(),
+                    hWnd = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero,
+                    uID = 1,
+                    szTip = string.Empty,
+                    szInfo = string.Empty,
+                    szInfoTitle = string.Empty
+                };
+                Shell_NotifyIcon(NIM_DELETE, ref data);
+            }
+            catch (Exception ex) { DebugLog.Write($"[TRAY] Falha ao remover ícone: {ex.Message}"); }
+        }
+        _trayIconAdded = false;
+        ReleaseTrayIconHandles();
+    }
+
+    private void ReleaseTrayIconHandles()
+    {
+        if (_trayIconHandle != IntPtr.Zero) { DestroyIcon(_trayIconHandle); _trayIconHandle = IntPtr.Zero; }
+        if (_unusedTrayIconHandle != IntPtr.Zero) { DestroyIcon(_unusedTrayIconHandle); _unusedTrayIconHandle = IntPtr.Zero; }
+    }
+
+    private void ShowTrayContextMenu()
+    {
+        var hwnd = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+        if (hwnd == IntPtr.Zero) return;
+        var menu = CreatePopupMenu();
+        if (menu == IntPtr.Zero) return;
+        try
+        {
+            AppendMenu(menu, MF_STRING, TrayMenuOpen, "Abrir Handheld Launcher");
+            AppendMenu(menu, MF_SEPARATOR, 0, null);
+            AppendMenu(menu, MF_STRING, TrayMenuExit, "Sair");
+            GetCursorPos(out var point);
+            SetForegroundWindow(hwnd);
+            var command = TrackPopupMenuEx(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_NONOTIFY, point.X, point.Y, hwnd, IntPtr.Zero);
+            PostMessage(hwnd, 0, IntPtr.Zero, IntPtr.Zero);
+            if (command == TrayMenuOpen) RestoreFromTray();
+            else if (command == TrayMenuExit) QuitFromTray();
+        }
+        catch (Exception ex) { DebugLog.Write($"[TRAY] Falha ao exibir menu: {ex}"); }
+        finally { DestroyMenu(menu); }
+    }
+
+    private void MinimizeToTray()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            CreateTrayIcon();
+            if (_trayIconAdded) { Hide(); return; }
+        }
+        // Nunca esconder a janela se o shell não aceitar o ícone da bandeja.
+        WindowState = WindowState.Minimized;
+    }
     private bool AnimationsEnabled => !Classes.Contains("noAnim");
 
     private void FadeIn(Control control, int milliseconds)
@@ -419,7 +584,8 @@ public partial class MainWindow : Window
         {
             DebugLog.Write("[RESTORE] RestoreFromTray chamado.");
             Show();
-            if (Topmost) WindowState = WindowState.FullScreen;
+            if (WindowState == WindowState.Minimized) WindowState = Topmost ? WindowState.FullScreen : WindowState.Normal;
+            else if (Topmost) WindowState = WindowState.FullScreen;
             Activate();
 
             try
@@ -1186,17 +1352,22 @@ public partial class MainWindow : Window
         }
 
         if (_verticalLayout) return;
-        var scale = GameTileViewModel.SizeScale;
-        var normalWidth = 220 * scale;
-        var lastPlayedWidth = 580 * scale;
-        const double spacing = 120;
+
+        // Usa dimensões reais e o mesmo espaçamento do StackPanel (28 px).
+        // O cálculo antigo usava 120 px entre tiles e provocava saltos grandes.
+        const double spacing = 28;
         double itemLeft = 0;
-        for (var i = 0; i < vm.SelectedIndex; i++) itemLeft += (vm.Games[i].IsLastPlayed ? lastPlayedWidth : normalWidth) + spacing;
-        var itemRight = itemLeft + (vm.Games[vm.SelectedIndex].IsLastPlayed ? lastPlayedWidth : normalWidth);
+        for (var i = 0; i < vm.SelectedIndex; i++)
+            itemLeft += vm.Games[i].TileWidth + spacing;
+
+        var itemRight = itemLeft + vm.Games[vm.SelectedIndex].TileWidth;
         var viewLeft = GameRowScrollViewer.Offset.X;
         var viewRight = viewLeft + GameRowScrollViewer.Viewport.Width;
-        if (itemLeft < viewLeft) GameRowScrollViewer.Offset = new Vector(itemLeft, GameRowScrollViewer.Offset.Y);
-        else if (itemRight > viewRight) GameRowScrollViewer.Offset = new Vector(itemRight - GameRowScrollViewer.Viewport.Width, GameRowScrollViewer.Offset.Y);
+        var maxOffset = Math.Max(0, GameRowScrollViewer.Extent.Width - GameRowScrollViewer.Viewport.Width);
+        if (itemLeft < viewLeft)
+            GameRowScrollViewer.Offset = new Vector(Math.Clamp(itemLeft, 0, maxOffset), GameRowScrollViewer.Offset.Y);
+        else if (itemRight > viewRight)
+            GameRowScrollViewer.Offset = new Vector(Math.Clamp(itemRight - GameRowScrollViewer.Viewport.Width, 0, maxOffset), GameRowScrollViewer.Offset.Y);
     }
 
     private bool _verticalLayout;

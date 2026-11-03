@@ -11,12 +11,13 @@
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <RootNamespace>HandheldLauncher.App</RootNamespace>
     <AssemblyName>HandheldLauncher</AssemblyName>
-    <Version>0.14.8</Version>
+    <Version>0.14.9</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
     <ItemGroup>
     <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
+    <PackageReference Include="AnimatedImage.Avalonia" Version="2.1.2" />
     <PackageReference Include="AnimatedImage.Native" Version="2.1.2" />
     <PackageReference Include="Avalonia" Version="11.2.*" />
     <PackageReference Include="Avalonia.Desktop" Version="11.2.*" />

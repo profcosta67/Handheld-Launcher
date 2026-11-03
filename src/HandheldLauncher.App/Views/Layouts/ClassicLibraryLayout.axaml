@@ -29,7 +29,7 @@
 
             <Image x:Name="HeroBackImage" Stretch="Uniform" IsHitTestVisible="False" />
             <Image x:Name="HeroImage"
-                   Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                   anim:ImageBehavior.AnimatedSource="{Binding SelectedTile.BannerImagePath}"
                    Stretch="Uniform" />
 
             <Border IsHitTestVisible="False">

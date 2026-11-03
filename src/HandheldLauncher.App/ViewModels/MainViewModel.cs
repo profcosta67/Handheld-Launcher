@@ -1073,9 +1073,11 @@ public sealed class MainViewModel : ViewModelBase
         }
         else
         {
-            if (!await _artworkSemaphore.WaitAsync(0))
+            // O auto-fetch só é disparado uma vez após a inicialização.
+            // Aguarda a fila de downloads existentes em vez de desistir no primeiro conflito.
+            if (!await _artworkSemaphore.WaitAsync(TimeSpan.FromSeconds(60)))
             {
-                DebugLog.Write("[SGDB] ABORT background: outro download em andamento");
+                DebugLog.Write("[SGDB] TIMEOUT background aguardando outro download — abortando com segurança");
                 return;
             }
         }
