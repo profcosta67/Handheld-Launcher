@@ -261,6 +261,13 @@ public partial class OverlayWindow : Window
 
             var wa = screen.WorkingArea;
             var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
+
+            // Mantém o overlay dentro da área útil em telas menores (ex.: handhelds de 7").
+            var availableWidth = Math.Max(320, wa.Width / scaling - 40);
+            var availableHeight = Math.Max(320, wa.Height / scaling - 40);
+            Width = Math.Min(Width, availableWidth);
+            Height = Math.Min(Height, availableHeight);
+
             var widthPx = (int)(Width * scaling);
             var heightPx = (int)(Height * scaling);
 
@@ -677,19 +684,47 @@ public partial class OverlayWindow : Window
         _hardwareService?.SetBrightness(Math.Round(e.NewValue)); SaveSetting("Brightness", e.NewValue.ToString("F0"));
     }
 
-    private void OnScreenshotClick(object? sender, RoutedEventArgs e)
+    private async void OnScreenshotClick(object? sender, RoutedEventArgs e)
     {
         if (!OperatingSystem.IsWindows()) return;
+
+        var wasVisible = IsVisible;
         try
         {
-            SendKey(VK_LWIN, false); SendKey(VK_SNAPSHOT, false); SendKey(VK_SNAPSHOT, true); SendKey(VK_LWIN, true);
-            DebugLog.Write("[CAPTURA] Atalho Win+PrintScreen simulado.");
-            if (BtnScreenshot != null) BtnScreenshot.Content = "Salvo!";
-            var timer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
-            timer.Tick += (_, _) => { if (BtnScreenshot != null) BtnScreenshot.Content = "📷 Print"; timer.Stop(); };
-            timer.Start();
+            // Oculta o overlay antes da captura para que ele não apareça na própria imagem.
+            if (wasVisible) HideWithUnblock();
+            await Task.Delay(250);
+
+            // Win+PrintScreen com pequenas pausas: alguns dispositivos ignoram
+            // a sequência quando todos os eventos são enviados no mesmo instante.
+            SendKey(VK_LWIN, false);
+            await Task.Delay(80);
+            SendKey(VK_SNAPSHOT, false);
+            await Task.Delay(80);
+            SendKey(VK_SNAPSHOT, true);
+            await Task.Delay(80);
+            SendKey(VK_LWIN, true);
+
+            DebugLog.Write("[CAPTURA] Atalho Win+PrintScreen enviado após ocultar o overlay.");
+            if (BtnScreenshot != null) BtnScreenshot.Content = "Captura enviada";
+            await Task.Delay(1500);
         }
-        catch (Exception ex) { DebugLog.Write($"[CAPTURA] Erro: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[CAPTURA] Erro: {ex.GetType().Name}: {ex.Message}");
+            if (BtnScreenshot != null) BtnScreenshot.Content = "Falha";
+            await Task.Delay(1200);
+        }
+        finally
+        {
+            if (BtnScreenshot != null) BtnScreenshot.Content = "📷 Print";
+            if (wasVisible && !IsAppClosing)
+            {
+                Show();
+                InputBlockService.BlockGamepadForGame(_gamePid);
+                ForceTopmost();
+            }
+        }
     }
 
     private void OnRecordClick(object? sender, RoutedEventArgs e)

@@ -68,7 +68,19 @@ public sealed class PerformanceHud : IDisposable
             var devMode = new DEVMODE { dmDeviceName = new string(new char[32]) };
             devMode.dmSize = (short)Marshal.SizeOf(devMode);
             if (EnumDisplaySettings(null, -1, ref devMode))
-                _resolutionText = $"{devMode.dmPelsWidth}x{devMode.dmPelsHeight} @ {devMode.dmDisplayFrequency}Hz";
+            {
+                var height = devMode.dmPelsHeight;
+                _resolutionText = height switch
+                {
+                    2160 => "2160p",
+                    1440 => "1440p",
+                    1200 => "1200p",
+                    1080 => "1080p",
+                    900 => "900p",
+                    720 => "720p",
+                    _ => $"{height}p"
+                };
+            }
             _lastResolutionCheck = DateTime.Now;
         }
         catch { }
@@ -156,7 +168,7 @@ internal static class HudFormatter
 {
     private const string GpuColor = "2E9762", CpuColor = "2E97CB", VramColor = "AD64C1", RamColor = "C26693", BatteryColor = "FF9078", FpsColor = "EB5B5B", ClockColor = "CCCCCC", TempColor = "FF9D00", ResColor = "CCCCCC";
     private const string TdpColor = "FFB84D", RecColor = "FF4040";
-    private const string ValueColor = "FFFFFF", UnitColor = "B0B0B0", Critical = "FF4040", GroupSeparator = "     ", FrameColor = "F2C14E";
+    private const string ValueColor = "FFFFFF", UnitColor = "B0B0B0", Critical = "FF4040", GroupSeparator = "   ", FrameColor = "F2C14E";
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
     public static string Format(
@@ -209,13 +221,14 @@ internal static class HudFormatter
     private static void AddTdpGroup(List<string> groups, string? tdpStatus, string? realTdp)
     {
         if (string.IsNullOrEmpty(tdpStatus)) return;
-        
-        var text = tdpStatus;
-        if (!string.IsNullOrEmpty(realTdp) && realTdp != "-- W" && realTdp != "0 W")
-        {
-            text += $" ({realTdp})";
-        }
-        groups.Add(Group("TDP", TdpColor, Value(text)));
+
+        // Mostra somente o limite configurado em watts, sem o nome do perfil.
+        var match = System.Text.RegularExpressions.Regex.Match(
+            tdpStatus, @"(\d+)\s*W",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (!match.Success) return;
+
+        groups.Add(Group("TDP", TdpColor, Value(match.Groups[1].Value) + Unit("W")));
     }
 
     private static void AddTemp(List<string> groups, string? cpuTemp)

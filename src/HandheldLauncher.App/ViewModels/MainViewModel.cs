@@ -396,7 +396,7 @@ public sealed class MainViewModel : ViewModelBase
         _targetTdpWatts = watts;
         OnPropertyChanged(nameof(TopBarTdpText));
         OnPropertyChanged(nameof(TopBarTdpToolTip));
-        if (_hud != null) _hud.TdpStatusText = watts > 0 ? $"{mode} {watts}W" : "";
+        if (_hud != null) _hud.TdpStatusText = watts > 0 ? $"{watts}W" : "";
     }
 
     public void UpdateHudColorMode(string modeText) { if (_hud != null) _hud.ColorModeText = modeText ?? ""; }
@@ -661,6 +661,10 @@ public sealed class MainViewModel : ViewModelBase
         }
 
         if (string.IsNullOrEmpty(LaunchingGameIconPath)) LaunchingGameIconPath = ResolveFallbackImage(game);
+
+        // Se o ícone do SteamGridDB ainda estiver baixando, atualiza o popup assim que chegar.
+        if (string.IsNullOrEmpty(LaunchingGameIconPath) && _artwork.HasApiKey)
+            _ = FetchLaunchIconAsync(game);
 
         _launcher.Launch(game);
         RunningGame = game;
@@ -1064,18 +1068,24 @@ public sealed class MainViewModel : ViewModelBase
 
         if (userInitiated)
         {
+            // O auto-fetch de inicialização pode ainda estar usando o semáforo.
+            // Cancela-o e aguarda a liberação por até 60s; 5s fazia o comando
+            // manual desistir antes de criar o popup personalizado.
             try { _ownedArtworkCts?.Cancel(); } catch { }
-            if (!await _artworkSemaphore.WaitAsync(TimeSpan.FromSeconds(5)))
+            DebugLog.Write("[SGDB] Download manual aguardando a fila atual (até 60s).");
+            if (!await _artworkSemaphore.WaitAsync(TimeSpan.FromSeconds(60)))
             {
-                DebugLog.Write("[SGDB] TIMEOUT esperando lock — abortando");
+                DebugLog.Write("[SGDB] TIMEOUT aguardando fila de artwork após 60s — comando manual não iniciado.");
                 return;
             }
         }
         else
         {
-            if (!await _artworkSemaphore.WaitAsync(0))
+            // O auto-fetch só é disparado uma vez após a inicialização.
+            // Aguarda a fila de downloads existentes em vez de desistir no primeiro conflito.
+            if (!await _artworkSemaphore.WaitAsync(TimeSpan.FromSeconds(60)))
             {
-                DebugLog.Write("[SGDB] ABORT background: outro download em andamento");
+                DebugLog.Write("[SGDB] TIMEOUT background aguardando outro download — abortando com segurança");
                 return;
             }
         }
@@ -1156,6 +1166,15 @@ public sealed class MainViewModel : ViewModelBase
             if (total == 0)
             {
                 DebugLog.Write("[SGDB] Nada a baixar — todas as capas já estão no cache.");
+                modal?.UpdateProgress(0, 0, "Todas as capas já estão atualizadas");
+                modal?.CloseForReal();
+                if (dialogTask is not null) { try { await dialogTask; } catch { } }
+                IsFetchingArtwork = false;
+                _artworkPauseGate.Set();
+                _ownedArtworkCts?.Dispose();
+                _ownedArtworkCts = null;
+                try { _artworkSemaphore.Release(); } catch { }
+                DebugLog.Write("[SGDB] Lock de artwork liberado (nenhuma capa pendente).");
                 return;
             }
 
@@ -1322,13 +1341,13 @@ public sealed class MainViewModel : ViewModelBase
 
     private async void OpenCoverPicker(GameEntry game, ArtworkPickerKind kind)
     {
-        CoverPickerTitle = kind switch { ArtworkPickerKind.WideGrid => $"Capa larga · {game.Title}", ArtworkPickerKind.Hero => $"Banner · {game.Title}", ArtworkPickerKind.Logo => $"Logo · {game.Title}", ArtworkPickerKind.Icon => $"Ícone · {game.Title}", _ => $"Capa · {game.Title}", };
+        CoverPickerTitle = kind switch { ArtworkPickerKind.WideGrid => $"Capas largas e banners · {game.Title}", ArtworkPickerKind.Hero => $"Banner · {game.Title}", ArtworkPickerKind.Logo => $"Logo · {game.Title}", ArtworkPickerKind.Icon => $"Ícone · {game.Title}", _ => $"Capa · {game.Title}", };
         _coverPickerKind = kind; _coverPickerGame = game; _coverPickerIndex = 0; CoverPickerErrorMessage = null; CoverPickerCandidates.Clear(); NotifyCoverPickerResultFlags(); IsCoverPickerLoading = true; IsCoverPickerOpen = true;
         try
         {
             var candidates = kind switch
             {
-                ArtworkPickerKind.WideGrid => await _artwork.GetWideGridCandidatesAsync(game, FilterAnimatedOnly), ArtworkPickerKind.Hero => await _artwork.GetHeroCandidatesAsync(game, FilterAnimatedOnly),
+                ArtworkPickerKind.WideGrid => await _artwork.GetWideArtworkCandidatesAsync(game, FilterAnimatedOnly), ArtworkPickerKind.Hero => await _artwork.GetHeroCandidatesAsync(game, FilterAnimatedOnly),
                 ArtworkPickerKind.Logo => await _artwork.GetLogoCandidatesAsync(game, FilterAnimatedOnly), ArtworkPickerKind.Icon => await _artwork.GetIconCandidatesAsync(game, FilterAnimatedOnly), _ => await _artwork.GetGridCandidatesAsync(game, FilterAnimatedOnly),
             };
             if (!IsCoverPickerOpen || _coverPickerGame != game) return;

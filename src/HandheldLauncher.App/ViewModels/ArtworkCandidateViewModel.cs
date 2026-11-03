@@ -18,6 +18,8 @@ public sealed class ArtworkCandidateViewModel : ViewModelBase
 
     public string LocalThumbnailPath => Candidate.LocalThumbnailPath;
 
+    public bool IsHero => Candidate.IsHero;
+
     private bool _isSelected;
     public bool IsSelected
     {

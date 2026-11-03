@@ -41,35 +41,56 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
 
     public bool HasApiKey => !string.IsNullOrWhiteSpace(_apiKey);
 
-    public async Task<SteamGridDbImage?> GetBestGridForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
-        => (await GetGridCandidatesForSteamAppAsync(steamAppId, false, ct)).FirstOrDefault();
+    // Automatic artwork downloads must always use static images.
+    // The manual picker uses the candidate methods below and intentionally
+    // keeps both static and animated options available.
+    public Task<SteamGridDbImage?> GetBestGridForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
+        => GetBestStaticForSteamAppAsync("grids", steamAppId, ct);
 
-    public async Task<SteamGridDbImage?> GetBestGridForTitleAsync(string title, CancellationToken ct = default)
-        => (await GetGridCandidatesForTitleAsync(title, false, ct)).FirstOrDefault();
+    public Task<SteamGridDbImage?> GetBestGridForTitleAsync(string title, CancellationToken ct = default)
+        => GetBestStaticForTitleAsync("grids", title, ct);
 
-    public async Task<SteamGridDbImage?> GetBestHeroForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
-        => (await GetHeroCandidatesForSteamAppAsync(steamAppId, false, ct)).FirstOrDefault();
+    public Task<SteamGridDbImage?> GetBestHeroForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
+        => GetBestStaticForSteamAppAsync("heroes", steamAppId, ct, wideOnly: true);
 
-    public async Task<SteamGridDbImage?> GetBestHeroForTitleAsync(string title, CancellationToken ct = default)
-        => (await GetHeroCandidatesForTitleAsync(title, false, ct)).FirstOrDefault();
+    public Task<SteamGridDbImage?> GetBestHeroForTitleAsync(string title, CancellationToken ct = default)
+        => GetBestStaticForTitleAsync("heroes", title, ct, wideOnly: true);
 
-    public async Task<SteamGridDbImage?> GetBestLogoForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
-        => (await GetLogoCandidatesForSteamAppAsync(steamAppId, false, ct)).FirstOrDefault();
+    public Task<SteamGridDbImage?> GetBestLogoForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
+        => GetBestStaticForSteamAppAsync("logos", steamAppId, ct);
 
-    public async Task<SteamGridDbImage?> GetBestLogoForTitleAsync(string title, CancellationToken ct = default)
-        => (await GetLogoCandidatesForTitleAsync(title, false, ct)).FirstOrDefault();
+    public Task<SteamGridDbImage?> GetBestLogoForTitleAsync(string title, CancellationToken ct = default)
+        => GetBestStaticForTitleAsync("logos", title, ct);
 
-    public async Task<SteamGridDbImage?> GetBestIconForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
-        => (await GetIconCandidatesForSteamAppAsync(steamAppId, false, ct)).FirstOrDefault();
+    public Task<SteamGridDbImage?> GetBestIconForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
+        => GetBestStaticForSteamAppAsync("icons", steamAppId, ct, extraQuery: "&mimes=image/png,image/webp");
 
-    public async Task<SteamGridDbImage?> GetBestIconForTitleAsync(string title, CancellationToken ct = default)
-        => (await GetIconCandidatesForTitleAsync(title, false, ct)).FirstOrDefault();
+    public Task<SteamGridDbImage?> GetBestIconForTitleAsync(string title, CancellationToken ct = default)
+        => GetBestStaticForTitleAsync("icons", title, ct, extraQuery: "&mimes=image/png,image/webp");
 
-    public async Task<SteamGridDbImage?> GetBestWideGridForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
-        => (await GetWideGridCandidatesForSteamAppAsync(steamAppId, false, ct)).FirstOrDefault();
+    public Task<SteamGridDbImage?> GetBestWideGridForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
+        => GetBestStaticForSteamAppAsync("grids", steamAppId, ct, wideOnly: true);
 
-    public async Task<SteamGridDbImage?> GetBestWideGridForTitleAsync(string title, CancellationToken ct = default)
-        => (await GetWideGridCandidatesForTitleAsync(title, false, ct)).FirstOrDefault();
+    public Task<SteamGridDbImage?> GetBestWideGridForTitleAsync(string title, CancellationToken ct = default)
+        => GetBestStaticForTitleAsync("grids", title, ct, wideOnly: true);
+
+    private async Task<SteamGridDbImage?> GetBestStaticForSteamAppAsync(
+        string category, uint steamAppId, CancellationToken ct, bool wideOnly = false, string extraQuery = "")
+    {
+        if (!HasApiKey) return null;
+        return (await FetchGridCandidates(
+            $"{BaseUrl}/{category}/steam/{steamAppId}?types=static{extraQuery}", ct, wideOnly)).FirstOrDefault();
+    }
+
+    private async Task<SteamGridDbImage?> GetBestStaticForTitleAsync(
+        string category, string title, CancellationToken ct, bool wideOnly = false, string extraQuery = "")
+    {
+        if (!HasApiKey) return null;
+        var gameId = await SearchGameId(title, ct);
+        if (gameId is null) return null;
+        return (await FetchGridCandidates(
+            $"{BaseUrl}/{category}/game/{gameId}?types=static{extraQuery}", ct, wideOnly)).FirstOrDefault();
+    }
 
     // --- Candidatos ---
     public async Task<IReadOnlyList<SteamGridDbImage>> GetGridCandidatesForSteamAppAsync(uint steamAppId, bool animatedOnly = false, CancellationToken ct = default)

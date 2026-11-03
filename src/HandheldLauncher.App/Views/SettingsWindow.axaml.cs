@@ -24,6 +24,7 @@ public partial class SettingsWindow : Window
     private FocusZone _focusZone = FocusZone.Tabs;
     private int _tabIndex = 0;
     private int _contentIndex = 0;
+    private AccountsWindow? _accountsWindow;
 
     public SettingsWindow()
     {
@@ -37,6 +38,7 @@ public partial class SettingsWindow : Window
         Opened += (_, _) => { FitToScreen(); FocusActiveTab(); };
 
         AddHandler(PointerPressedEvent, (_, e) => _lastPointerWasTouch = e.Pointer.Type != PointerType.Mouse, RoutingStrategies.Tunnel);
+        AddHandler(KeyDownEvent, OnSettingsKeyDown, RoutingStrategies.Tunnel);
         AddHandler(GotFocusEvent, (_, e) =>
         {
             if (e.Source is TextBox && e.NavigationMethod == NavigationMethod.Pointer && _lastPointerWasTouch)
@@ -44,6 +46,28 @@ public partial class SettingsWindow : Window
                 TouchKeyboard.Show();
             }
         }, RoutingStrategies.Bubble);
+    }
+
+    private void OnSettingsKeyDown(object? sender, KeyEventArgs e)
+    {
+        // Não intercepta setas enquanto o usuário está editando texto.
+        if (e.Source is TextBox && e.Key is not Key.Escape) return;
+
+        GamepadAction? action = e.Key switch
+        {
+            Key.Up => GamepadAction.MoveUp,
+            Key.Down => GamepadAction.MoveDown,
+            Key.Left => GamepadAction.MoveLeft,
+            Key.Right => GamepadAction.MoveRight,
+            Key.Enter or Key.Space => GamepadAction.Confirm,
+            Key.Escape => GamepadAction.Back,
+            Key.Q => GamepadAction.PreviousFilter,
+            Key.E => GamepadAction.NextFilter,
+            _ => null
+        };
+
+        if (action is { } mapped && HandleSettingsGamepadAction(mapped))
+            e.Handled = true;
     }
 
     private bool _lastPointerWasTouch;
@@ -77,30 +101,71 @@ public partial class SettingsWindow : Window
     /// </summary>
     public bool HandleSettingsGamepadAction(GamepadAction action)
     {
+        // A janela Contas é um modal filho. Enquanto ela estiver aberta,
+        // todas as entradas do controle devem ir para ela, nunca para a tela pai.
+        if (_accountsWindow is { IsVisible: true } accounts)
+        {
+            DialogGamepadNavigator.Handle(accounts, action);
+            return true;
+        }
+
+        // X (GameDetails na camada XInput) foi reservado nesta janela para
+        // salvar e fechar, sem alterar o atalho global de detalhes do jogo.
+        if (action == GamepadAction.GameDetails)
+        {
+            ViewModel.SaveTo(_settings);
+            Close();
+            return true;
+        }
+
         var tabs = GetTabButtons();
         if (tabs.Count == 0) return false;
 
         var content = GetContentFocusables();
 
+        // Quando uma lista suspensa está aberta, o D-pad navega suas opções
+        // e A confirma/fecha, em vez de alterar o valor sem mostrar a lista.
+        if (_focusZone == FocusZone.Content && _contentIndex >= 0 && _contentIndex < content.Count
+            && content[_contentIndex] is ComboBox openCombo && openCombo.IsDropDownOpen)
+        {
+            switch (action)
+            {
+                case GamepadAction.MoveDown:
+                    openCombo.SelectedIndex = Math.Min(openCombo.ItemCount - 1, Math.Max(0, openCombo.SelectedIndex + 1));
+                    return true;
+                case GamepadAction.MoveUp:
+                    openCombo.SelectedIndex = Math.Max(0, openCombo.SelectedIndex - 1);
+                    return true;
+                case GamepadAction.Confirm:
+                case GamepadAction.Back:
+                    openCombo.IsDropDownOpen = false;
+                    FocusControl(openCombo);
+                    return true;
+                case GamepadAction.MoveLeft:
+                case GamepadAction.MoveRight:
+                    return true;
+            }
+        }
+
         if (_focusZone == FocusZone.Tabs)
         {
             switch (action)
             {
-                case GamepadAction.MoveLeft:
+                case GamepadAction.MoveUp:
                 case GamepadAction.PreviousFilter:
                     _tabIndex = (_tabIndex - 1 + tabs.Count) % tabs.Count;
                     ViewModel.CategoryIndex = _tabIndex;
                     FocusControl(tabs[_tabIndex]);
                     return true;
 
-                case GamepadAction.MoveRight:
+                case GamepadAction.MoveDown:
                 case GamepadAction.NextFilter:
                     _tabIndex = (_tabIndex + 1) % tabs.Count;
                     ViewModel.CategoryIndex = _tabIndex;
                     FocusControl(tabs[_tabIndex]);
                     return true;
 
-                case GamepadAction.MoveDown:
+                case GamepadAction.MoveRight:
                 case GamepadAction.Confirm:
                     if (content.Count > 0)
                     {
@@ -114,8 +179,7 @@ public partial class SettingsWindow : Window
                     Close();
                     return true;
 
-                case GamepadAction.MoveUp:
-                    // Já está no topo — não faz nada (evita "sumir" do foco)
+                case GamepadAction.MoveLeft:
                     return true;
             }
         }
@@ -220,7 +284,8 @@ public partial class SettingsWindow : Window
                     && c.IsEffectivelyVisible
                     && c.IsEffectivelyEnabled
                     && c != this
-                    && !tabButtons.Contains(c))
+                    && !tabButtons.Contains(c)
+                    && c is ComboBox or Slider or CheckBox or RadioButton or TextBox or Button)
         .ToList();
 }
 
@@ -274,9 +339,8 @@ public partial class SettingsWindow : Window
                 rb.IsChecked = true;
                 break;
             case ComboBox combo:
-                // A cicla pro próximo item (não abre dropdown pra evitar travar no jogo)
-                if (combo.ItemCount > 0)
-                    combo.SelectedIndex = (combo.SelectedIndex + 1) % combo.ItemCount;
+                // Primeiro A abre a lista; o próximo A confirma a opção escolhida.
+                combo.IsDropDownOpen = !combo.IsDropDownOpen;
                 break;
             case Slider sl:
                 var step = sl.TickFrequency > 0 ? sl.TickFrequency : (sl.Maximum - sl.Minimum) / 10;
@@ -297,7 +361,23 @@ public partial class SettingsWindow : Window
 
     private async void OnManageAccountsClick(object? sender, RoutedEventArgs e)
     {
-        await new AccountsWindow(ViewModel).ShowDialog(this);
+        var accounts = new AccountsWindow(ViewModel, OpenExternalUrlFromDialog);
+        _accountsWindow = accounts;
+        try { await accounts.ShowDialog(this); }
+        finally { _accountsWindow = null; }
+    }
+
+    private void OpenExternalUrlFromDialog(string url)
+    {
+        // A janela de configurações não pode permanecer Topmost sobre o navegador.
+        Topmost = false;
+        if (Owner is MainWindow mainWindow)
+        {
+            mainWindow.Topmost = false;
+            mainWindow.OpenExternalUrl(url);
+        }
+        else
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
     }
 
     private void OnCategoryTabClick(object? sender, RoutedEventArgs e)

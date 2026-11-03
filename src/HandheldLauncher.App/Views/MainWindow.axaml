@@ -1,6 +1,5 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:anim="https://github.com/whistyun/AnimatedImage.Avalonia"
         xmlns:vm="using:HandheldLauncher.App.ViewModels"
         xmlns:models="using:HandheldLauncher.Core.Models"
         xmlns:conv="using:HandheldLauncher.App.Converters"
@@ -241,7 +240,7 @@
             </StackPanel>
           </Grid>
           <TextBlock Grid.Row="1" Text="Buscando opções no SteamGridDB..." Foreground="LightGray" FontSize="{DynamicResource FontSizeBody}" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsCoverPickerLoading}" />
-          <TextBlock Grid.Row="1" Text="Nenhuma opção estática encontrada para esse jogo." Foreground="LightGray" FontSize="{DynamicResource FontSizeBody}" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding CoverPickerIsEmpty}" />
+          <TextBlock Grid.Row="1" Text="Nenhuma capa larga ou banner encontrado para esse jogo." Foreground="LightGray" FontSize="{DynamicResource FontSizeBody}" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding CoverPickerIsEmpty}" />
           <TextBlock Grid.Row="1" Text="{Binding CoverPickerErrorMessage}" Foreground="LightGray" FontSize="{DynamicResource FontSizeBody}" TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20" IsVisible="{Binding CoverPickerHasError}" />
           <ScrollViewer x:Name="CoverPickerScrollViewer" Grid.Row="1" MaxHeight="460" IsVisible="{Binding CoverPickerHasResults}">
             <ItemsControl ItemsSource="{Binding CoverPickerCandidates}">
@@ -253,7 +252,14 @@
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:ArtworkCandidateViewModel">
                   <Border Classes="coverCandidate" Classes.selected="{Binding IsSelected}" Cursor="Hand" PointerPressed="OnCoverCandidatePressed" Width="150" Height="170" Margin="6" CornerRadius="8" ClipToBounds="True" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <Image Source="{Binding LocalThumbnailPath, Converter={StaticResource FileToBitmapConverter}}" Stretch="Uniform" />
+                    <Grid>
+                      <Image Source="{Binding LocalThumbnailPath, Converter={StaticResource FileToBitmapConverter}}" Stretch="Uniform" />
+                      <Border Background="#CC6B4EFF" CornerRadius="5" Padding="6,3"
+                              HorizontalAlignment="Right" VerticalAlignment="Top" Margin="6"
+                              IsVisible="{Binding IsHero}">
+                        <TextBlock Text="BANNER" FontSize="9" FontWeight="Bold" Foreground="White" />
+                      </Border>
+                    </Grid>
                   </Border>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>

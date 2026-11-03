@@ -34,20 +34,46 @@ public sealed class GameTileViewModel : ViewModelBase
     /// Agora: se arquivo não existe, ou new Bitmap falha, HasLogo=false e
     /// o nome do jogo aparece em vez do logo quebrado.
     /// </summary>
+    private string? _validatedLogoPath;
+    private DateTime _validatedLogoLastWriteUtc;
+    private bool _hasValidatedLogo;
+    private bool _cachedHasLogo;
+
     public bool HasLogo
     {
         get
         {
             var path = LogoImagePath;
-            if (string.IsNullOrEmpty(path)) return false;
+            if (string.IsNullOrWhiteSpace(path)) return false;
+
             try
             {
                 if (!File.Exists(path)) return false;
+
+                // Validate each logo only once per file version. Both
+                // ShowCurrentLogo and ShowNameCaption bind to HasLogo;
+                // decoding the same PNG on every binding read needlessly
+                // performs synchronous disk I/O and bitmap decoding on UI.
+                var lastWriteUtc = File.GetLastWriteTimeUtc(path);
+                if (_hasValidatedLogo &&
+                    string.Equals(_validatedLogoPath, path, StringComparison.OrdinalIgnoreCase) &&
+                    _validatedLogoLastWriteUtc == lastWriteUtc)
+                {
+                    return _cachedHasLogo;
+                }
+
                 using var bmp = new Bitmap(path);
-                return bmp.PixelSize.Width > 0 && bmp.PixelSize.Height > 0;
+                _cachedHasLogo = bmp.PixelSize.Width > 0 && bmp.PixelSize.Height > 0;
+                _validatedLogoPath = path;
+                _validatedLogoLastWriteUtc = lastWriteUtc;
+                _hasValidatedLogo = true;
+                return _cachedHasLogo;
             }
             catch
             {
+                // Do not cache failures: a missing or temporarily locked
+                // artwork file may become readable later.
+                _hasValidatedLogo = false;
                 return false;
             }
         }
