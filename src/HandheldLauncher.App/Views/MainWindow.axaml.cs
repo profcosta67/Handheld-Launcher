@@ -1158,6 +1158,10 @@ public partial class MainWindow : Window
         if (GameRowScrollViewer is null) return;
         if (vm.Games.Count == 0 || vm.SelectedIndex < 0 || vm.SelectedIndex >= vm.Games.Count) return;
 
+        // A seleção muda via gamepad antes do próximo layout pass; atualiza
+        // os containers para calcular o deslocamento com a posição mais recente.
+        GamesItemsControl?.UpdateLayout();
+        GameRowScrollViewer.UpdateLayout();
         var container = GamesItemsControl?.ContainerFromIndex(vm.SelectedIndex);
         var position = container?.TranslatePoint(new Point(0, 0), GamesItemsControl!);
         if (container is not null && position is { } p)
