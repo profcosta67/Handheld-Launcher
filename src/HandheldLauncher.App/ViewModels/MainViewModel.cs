@@ -264,7 +264,15 @@ public sealed class MainViewModel : ViewModelBase
     }
 
     private GameTileViewModel? _selectedTile;
-    public GameTileViewModel? SelectedTile { get => _selectedTile; private set => SetField(ref _selectedTile, value); }
+    public GameTileViewModel? SelectedTile
+    {
+        get => _selectedTile;
+        private set
+        {
+            if (SetField(ref _selectedTile, value) && value is not null)
+                _ = value.LoadDescriptionAsync();
+        }
+    }
 
     private string _updateStatusText = string.Empty;
     public string UpdateStatusText
