@@ -51,7 +51,7 @@ public partial class AccountsWindow : Window
                 case GamepadAction.Confirm: SendKey(0x0D); break;
                 case GamepadAction.Back: SendKey(0x1B); break;
                 case GamepadAction.GameDetails: SendKey(0x09); break; // X = Tab
-                case GamepadAction.PreviousFilter: SendKey(0xA0); SendKey(0x09); break; // Shift+Tab
+                case GamepadAction.PreviousFilter: SendShiftTab(); break; // Shift+Tab
                 case GamepadAction.NextFilter: SendKey(0x09); break;
             }
             return;
@@ -82,6 +82,13 @@ public partial class AccountsWindow : Window
     {
         keybd_event(key, 0, 0, UIntPtr.Zero);
         keybd_event(key, 0, KeyUp, UIntPtr.Zero);
+    }
+
+    private static void SendShiftTab()
+    {
+        keybd_event(0x10, 0, 0, UIntPtr.Zero);
+        SendKey(0x09);
+        keybd_event(0x10, 0, KeyUp, UIntPtr.Zero);
     }
 
     private SettingsViewModel ViewModel => (SettingsViewModel)DataContext!;
