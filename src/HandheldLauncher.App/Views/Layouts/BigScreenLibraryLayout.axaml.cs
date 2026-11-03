@@ -40,7 +40,7 @@ public partial class BigScreenLibraryLayout : UserControl, ILibraryLayout
     /// </summary>
     bool ILibraryLayout.SupportsVerticalGrid => false;
 
-    /// <summary>A roleta vive disso: a capa em foco no centro, a fileira correndo por baixo.</summary>
+    /// <summary>A seleção acompanha o fluxo natural da biblioteca Capsule Wide, sem recentralização forçada.</summary>
     bool ILibraryLayout.CentersSelection => false;
 
     // Mesmos repasses do ClassicLibraryLayout — ver comentário lá.
