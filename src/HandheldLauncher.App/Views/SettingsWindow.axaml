@@ -187,7 +187,7 @@
         <StackPanel Spacing="14" IsVisible="{Binding IsCategoryShortcutsActive}">
           <TextBlock Text="Atalhos do launcher" FontSize="16" FontWeight="SemiBold" />
           <TextBlock Text="Consulta rápida dos comandos disponíveis. Os atalhos são fixos nesta versão." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
-          <Grid ColumnDefinitions="*,*" ColumnSpacing="24">
+          <Grid ColumnDefinitions="*,*">
             <StackPanel Grid.Column="0" Spacing="9">
               <TextBlock Text="🎮 CONTROLE" FontSize="12" FontWeight="Bold" Foreground="#3FB950" />
               <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Navegar na biblioteca"/><TextBlock Grid.Column="1" Text="D-Pad" FontWeight="Bold"/></Grid>
@@ -201,7 +201,7 @@
               <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Detalhes do jogo"/><TextBlock Grid.Column="1" Text="X" FontWeight="Bold"/></Grid>
               <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Quick Settings"/><TextBlock Grid.Column="1" Text="L3 + R3" FontWeight="Bold"/></Grid>
             </StackPanel>
-            <StackPanel Grid.Column="1" Spacing="9">
+            <StackPanel Grid.Column="1" Spacing="9" Margin="20,0,0,0">
               <TextBlock Text="⌨ TECLADO" FontSize="12" FontWeight="Bold" Foreground="#7C5CFC" />
               <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Navegar na biblioteca"/><TextBlock Grid.Column="1" Text="← ↑ ↓ →" FontWeight="Bold"/></Grid>
               <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Abrir jogo selecionado"/><TextBlock Grid.Column="1" Text="Enter" FontWeight="Bold"/></Grid>
