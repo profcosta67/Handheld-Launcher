@@ -328,7 +328,10 @@ public partial class SettingsWindow : Window
         // A janela de configurações não pode permanecer Topmost sobre o navegador.
         Topmost = false;
         if (Owner is MainWindow mainWindow)
+        {
+            mainWindow.Topmost = false;
             mainWindow.OpenExternalUrl(url);
+        }
         else
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
     }
