@@ -1321,40 +1321,50 @@ public partial class MainWindow : Window
 
     private void ScrollSelectionIntoViewNow(MainViewModel vm)
     {
-        if (GameRowScrollViewer is null) return;
+        if (GameRowScrollViewer is null || GamesItemsControl is null) return;
         if (vm.Games.Count == 0 || vm.SelectedIndex < 0 || vm.SelectedIndex >= vm.Games.Count) return;
 
-        var container = GamesItemsControl?.ContainerFromIndex(vm.SelectedIndex);
-        var position = container?.TranslatePoint(new Point(0, 0), GamesItemsControl!);
+        var container = GamesItemsControl.ContainerFromIndex(vm.SelectedIndex);
+        // Medir a tile em relação à janela visível do ScrollViewer (não ao ItemsControl).
+        // Assim a posição já considera o deslocamento atual e funciona mesmo quando
+        // o ItemsControl ocupa toda a largura do layout.
+        var position = container?.TranslatePoint(new Point(0, 0), GameRowScrollViewer);
         if (container is not null && position is { } p)
         {
             var offset = GameRowScrollViewer.Offset;
             var viewport = GameRowScrollViewer.Viewport;
+            var maxX = Math.Max(0, GameRowScrollViewer.Extent.Width - viewport.Width);
+            var maxY = Math.Max(0, GameRowScrollViewer.Extent.Height - viewport.Height);
+
             if (_verticalLayout)
             {
-                var top = p.Y - 12; var bottom = p.Y + container.Bounds.Height + 12;
-                if (top < offset.Y) GameRowScrollViewer.Offset = new Vector(offset.X, Math.Max(0, top));
-                else if (bottom > offset.Y + viewport.Height) GameRowScrollViewer.Offset = new Vector(offset.X, bottom - viewport.Height);
+                var top = p.Y - 12;
+                var bottom = p.Y + container.Bounds.Height + 12;
+                var nextY = offset.Y;
+                if (top < 0) nextY += top;
+                else if (bottom > viewport.Height) nextY += bottom - viewport.Height;
+                GameRowScrollViewer.Offset = new Vector(offset.X, Math.Clamp(nextY, 0, maxY));
             }
             else if (_libraryLayout.CentersSelection)
             {
-                var target = p.X + container.Bounds.Width / 2 - viewport.Width / 2;
-                var maxOffset = Math.Max(0, GameRowScrollViewer.Extent.Width - viewport.Width);
-                GameRowScrollViewer.Offset = new Vector(Math.Clamp(target, 0, maxOffset), offset.Y);
+                var target = offset.X + p.X + container.Bounds.Width / 2 - viewport.Width / 2;
+                GameRowScrollViewer.Offset = new Vector(Math.Clamp(target, 0, maxX), offset.Y);
             }
             else
             {
-                var left = p.X; var right = p.X + container.Bounds.Width;
-                if (left < offset.X) GameRowScrollViewer.Offset = new Vector(left, offset.Y);
-                else if (right > offset.X + viewport.Width) GameRowScrollViewer.Offset = new Vector(right - viewport.Width, offset.Y);
+                // Clássico: deslocamento mínimo, somente quando a capa sair da área visível.
+                var left = p.X;
+                var right = p.X + container.Bounds.Width;
+                var nextX = offset.X;
+                if (left < 0) nextX += left;
+                else if (right > viewport.Width) nextX += right - viewport.Width;
+                GameRowScrollViewer.Offset = new Vector(Math.Clamp(nextX, 0, maxX), offset.Y);
             }
             return;
         }
 
+        // Fallback para o caso em que o container ainda não foi realizado pelo ItemsControl.
         if (_verticalLayout) return;
-
-        // Usa dimensões reais e o mesmo espaçamento do StackPanel (28 px).
-        // O cálculo antigo usava 120 px entre tiles e provocava saltos grandes.
         const double spacing = 28;
         double itemLeft = 0;
         for (var i = 0; i < vm.SelectedIndex; i++)
