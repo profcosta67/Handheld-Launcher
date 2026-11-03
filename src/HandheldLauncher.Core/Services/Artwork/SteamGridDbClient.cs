@@ -63,10 +63,10 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
         => GetBestStaticForTitleAsync("logos", title, ct);
 
     public Task<SteamGridDbImage?> GetBestIconForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
-        => GetBestStaticForSteamAppAsync("icons", steamAppId, ct, extraQuery: "&mimes=image/png,image/webp");
+        => GetBestStaticForSteamAppAsync("icons", steamAppId, ct);
 
     public Task<SteamGridDbImage?> GetBestIconForTitleAsync(string title, CancellationToken ct = default)
-        => GetBestStaticForTitleAsync("icons", title, ct, extraQuery: "&mimes=image/png,image/webp");
+        => GetBestStaticForTitleAsync("icons", title, ct);
 
     public Task<SteamGridDbImage?> GetBestWideGridForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
         => GetBestStaticForSteamAppAsync("grids", steamAppId, ct, wideOnly: true);
