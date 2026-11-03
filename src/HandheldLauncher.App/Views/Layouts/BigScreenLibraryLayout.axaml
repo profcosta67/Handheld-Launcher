@@ -244,7 +244,7 @@
                            HorizontalAlignment="Stretch"
                            VerticalAlignment="Stretch" />
                     <Border Background="#55000000"
-                            IsVisible="{Binding ShowEmptyCarouselPlaceholder}">
+                            IsVisible="{Binding ShowEmptyWideCapsulePlaceholder}">
                       <TextBlock Text="{Binding Title}"
                                  Foreground="#FFF5F7FF"
                                  FontSize="19"
