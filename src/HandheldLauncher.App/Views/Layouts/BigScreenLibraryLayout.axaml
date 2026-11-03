@@ -1,0 +1,293 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:anim="https://github.com/whistyun/AnimatedImage.Avalonia"
+             xmlns:vm="using:HandheldLauncher.App.ViewModels"
+             xmlns:conv="using:HandheldLauncher.App.Converters"
+             xmlns:dataConv="using:Avalonia.Data.Converters"
+             xmlns:media="using:Avalonia.Media"
+             x:Class="HandheldLauncher.App.Views.Layouts.BigScreenLibraryLayout"
+             x:DataType="vm:MainViewModel">
+
+  <UserControl.Resources>
+    <conv:FileToBitmapConverter x:Key="FileToBitmapConverter" />
+    <conv:HexColorToBrushConverter x:Key="HexColorToBrushConverter" />
+  </UserControl.Resources>
+
+  <UserControl.Styles>
+    <Style Selector="Button.switchTab">
+      <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource TextSecondaryBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="Padding" Value="8,7" />
+      <Setter Property="MinHeight" Value="58" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.switchTab /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource TextSecondaryBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Button.switchTab.active /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}" />
+    </Style>
+  </UserControl.Styles>
+
+  <Panel>
+
+    <Image x:Name="HeroBackImage" Stretch="UniformToFill" IsHitTestVisible="False">
+      <Image.Effect>
+        <media:BlurEffect Radius="45" />
+      </Image.Effect>
+    </Image>
+    <Image x:Name="HeroImage"
+           Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
+           Stretch="UniformToFill"
+           IsHitTestVisible="False">
+      <Image.Effect>
+        <media:BlurEffect Radius="45" />
+      </Image.Effect>
+    </Image>
+
+    <Border Background="{DynamicResource BackdropDimBrush}" IsHitTestVisible="False" />
+
+    <Grid RowDefinitions="*,Auto" Margin="28,16,28,16">
+
+      <StackPanel Grid.Row="0" VerticalAlignment="Center" Spacing="16">
+
+        <Grid Height="76" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
+          <Image Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                 Stretch="Uniform"
+                 HorizontalAlignment="Center"
+                 VerticalAlignment="Center"
+                 IsVisible="{Binding SelectedTile.ShowCurrentLogo}" />
+
+          <Border Background="{DynamicResource SurfaceRaisedBrush}"
+                  BorderBrush="{DynamicResource AccentBrush}"
+                  BorderThickness="1"
+                  CornerRadius="14"
+                  Padding="20,8"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  MaxWidth="900"
+                  IsVisible="{Binding SelectedTile.ShowNameCaption}">
+            <TextBlock Text="{Binding SelectedTile.Title}"
+                       Foreground="{DynamicResource TextPrimaryBrush}"
+                       FontSize="26"
+                       FontWeight="SemiBold"
+                       TextWrapping="NoWrap"
+                       TextTrimming="CharacterEllipsis" />
+          </Border>
+        </Grid>
+
+        <ScrollViewer x:Name="GameRowScrollViewer"
+                      Height="430"
+                      VerticalAlignment="Center"
+                      Background="Transparent"
+                      BorderBrush="Transparent"
+                      BorderThickness="0"
+                      HorizontalContentAlignment="Center"
+                      HorizontalScrollBarVisibility="Hidden"
+                      VerticalScrollBarVisibility="Disabled">
+          <ScrollViewer.Transitions>
+            <Transitions>
+              <VectorTransition Property="Offset" Duration="0:0:0.28" Easing="CubicEaseOut" />
+            </Transitions>
+          </ScrollViewer.Transitions>
+
+          <ItemsControl x:Name="GamesItemsControl"
+                        ItemsSource="{Binding Games}"
+                        HorizontalAlignment="Center"
+                        Background="Transparent"
+                        BorderThickness="0">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Orientation="Horizontal" Spacing="120" Margin="900,0,900,0" VerticalAlignment="Center" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:GameTileViewModel">
+                <Grid Width="{Binding CarouselTileWidth}"
+                      Height="{Binding CarouselTileHeight}"
+                      ClipToBounds="False"
+                      RenderTransformOrigin="50%,50%"
+                      Opacity="{Binding CarouselOpacity}"
+                      ZIndex="{Binding CarouselZIndex}"
+                      PointerPressed="OnTilePointerPressed"
+                      DoubleTapped="OnTileDoubleTapped">
+                  <Grid.RenderTransform>
+                    <TransformGroup>
+                      <ScaleTransform ScaleX="{Binding CarouselScale}" ScaleY="{Binding CarouselScale}">
+                        <ScaleTransform.Transitions>
+                          <Transitions>
+                            <DoubleTransition Property="ScaleX" Duration="0:0:0.22" Easing="CubicEaseOut" />
+                            <DoubleTransition Property="ScaleY" Duration="0:0:0.22" Easing="CubicEaseOut" />
+                          </Transitions>
+                        </ScaleTransform.Transitions>
+                      </ScaleTransform>
+                      <TranslateTransform Y="{Binding CarouselOffsetY}">
+                        <TranslateTransform.Transitions>
+                          <Transitions>
+                            <DoubleTransition Property="Y" Duration="0:0:0.22" Easing="CubicEaseOut" />
+                          </Transitions>
+                        </TranslateTransform.Transitions>
+                      </TranslateTransform>
+                    </TransformGroup>
+                  </Grid.RenderTransform>
+                  <Grid.Transitions>
+                    <Transitions>
+                      <DoubleTransition Property="Opacity" Duration="0:0:0.22" />
+                    </Transitions>
+                  </Grid.Transitions>
+
+                  <!-- CAPA ESTÁTICA NA ROLETA (v15.6-R3: sem AnimatedImage) -->
+                  <Image anim:ImageBehavior.AnimatedSource="{Binding CarouselTileImagePath}"
+                         Width="{Binding CarouselTileWidth}"
+                         Height="{Binding CarouselTileHeight}"
+                         Stretch="Uniform"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center" />
+
+                  <Border Background="{DynamicResource BackdropDimBrush}"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
+                          IsVisible="{Binding ShowEmptyCarouselPlaceholder}">
+                    <TextBlock Text="{Binding Title}"
+                               Classes="gameTitle"
+                               TextWrapping="Wrap"
+                               TextAlignment="Center"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Center"
+                               Margin="8" />
+                  </Border>
+
+                  <Border Background="{DynamicResource SurfaceBrush}"
+                          IsHitTestVisible="False"
+                          IsVisible="{Binding IsOwnedNotInstalled}" />
+
+                  <TextBlock Text="★"
+                             Foreground="{DynamicResource AccentBrush}"
+                             FontSize="18"
+                             HorizontalAlignment="Right"
+                             VerticalAlignment="Bottom"
+                             Margin="6"
+                             IsVisible="{Binding IsFavorite}" />
+
+                  <Border Background="{Binding PlatformBadgeColorHex, Converter={StaticResource HexColorToBrushConverter}}"
+                          CornerRadius="4"
+                          Padding="4,1"
+                          HorizontalAlignment="Right"
+                          VerticalAlignment="Top"
+                          Margin="6"
+                          IsVisible="{Binding HasPlatformBadge}">
+                    <TextBlock Text="{Binding PlatformBadgeText}" FontSize="9" FontWeight="Bold" Foreground="White" />
+                  </Border>
+
+                  <Border BorderBrush="{DynamicResource TextPrimaryBrush}"
+                          CornerRadius="5"
+                          BorderThickness="4"
+                          IsHitTestVisible="False"
+                          IsVisible="{Binding IsFocused}" />
+                  <Border BorderBrush="{DynamicResource AccentBrush}"
+                          CornerRadius="5"
+                          BorderThickness="3"
+                          Margin="5"
+                          IsHitTestVisible="False"
+                          IsVisible="{Binding IsFocused}" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+
+      </StackPanel>
+
+      <TextBlock Grid.Row="0"
+                 Text="Nenhum jogo encontrado ainda.&#10;Adicione um jogo manualmente para começar."
+                 Foreground="{DynamicResource TextPrimaryBrush}"
+                 TextWrapping="Wrap"
+                 TextAlignment="Center"
+                 VerticalAlignment="Center"
+                 HorizontalAlignment="Center"
+                 Margin="24"
+                 IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
+
+      <StackPanel Grid.Row="1" Spacing="8" Margin="0,16,0,0">
+        <Grid ColumnDefinitions="*,*,*,*,*,*">
+          <Button Grid.Column="0" Classes="switchTab" Classes.active="{Binding IsFilterFavoritesActive}" Command="{Binding SetFilterFavoritesCommand}" Margin="4">
+            <StackPanel HorizontalAlignment="Center" Spacing="3">
+              <TextBlock Text="★" FontSize="19" HorizontalAlignment="Center" />
+              <TextBlock Text="Favoritos" />
+            </StackPanel>
+          </Button>
+          <Button Grid.Column="1" Classes="switchTab" Classes.active="{Binding IsFilterAllActive}" Command="{Binding SetFilterAllCommand}" Margin="4">
+            <StackPanel HorizontalAlignment="Center" Spacing="3">
+              <TextBlock Text="▦" FontSize="19" HorizontalAlignment="Center" />
+              <TextBlock Text="Todos" />
+            </StackPanel>
+          </Button>
+          <Button Grid.Column="2" Classes="switchTab" Classes.active="{Binding IsFilterComputerActive}" Command="{Binding SetFilterComputerCommand}" Margin="4">
+            <StackPanel HorizontalAlignment="Center" Spacing="3">
+              <TextBlock Text="⌨" FontSize="19" HorizontalAlignment="Center" />
+              <TextBlock Text="Computador" />
+            </StackPanel>
+          </Button>
+          <Button Grid.Column="3" Classes="switchTab" Classes.active="{Binding IsFilterEmulatorsActive}" Command="{Binding SetFilterEmulatorsCommand}" Margin="4">
+            <StackPanel HorizontalAlignment="Center" Spacing="3">
+              <TextBlock Text="🎮" FontSize="19" HorizontalAlignment="Center" />
+              <TextBlock Text="Emuladores" />
+            </StackPanel>
+          </Button>
+          <Button Grid.Column="4" Classes="switchTab" Classes.active="{Binding IsFilterApplicationsActive}" Command="{Binding SetFilterApplicationsCommand}" Margin="4">
+            <StackPanel HorizontalAlignment="Center" Spacing="3">
+              <TextBlock Text="▣" FontSize="19" HorizontalAlignment="Center" />
+              <TextBlock Text="Programas" />
+            </StackPanel>
+          </Button>
+          <Button Grid.Column="5" Classes="switchTab" Classes.active="{Binding IsFilterNotInstalledActive}" Command="{Binding SetFilterNotInstalledCommand}" Margin="4">
+            <StackPanel HorizontalAlignment="Center" Spacing="3">
+              <TextBlock Text="↓" FontSize="19" HorizontalAlignment="Center" />
+              <TextBlock Text="Não instalados" />
+            </StackPanel>
+          </Button>
+        </Grid>
+
+        <Button Content="＋  Adicionar programa"
+                HorizontalAlignment="Center"
+                MinWidth="220"
+                Margin="4,2,4,0"
+                IsVisible="{Binding IsFilterApplicationsActive}"
+                Click="OnAddProgramClick" />
+
+        <ItemsControl ItemsSource="{Binding SubFilters}" IsVisible="{Binding HasSubFilters}" HorizontalAlignment="Center">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:SubFilterViewModel">
+              <Button Classes="pill subFilter"
+                      Classes.cursor="{Binding IsCursor}"
+                      Content="{Binding Label}"
+                      Click="OnSubFilterClick"
+                      Background="{Binding BackgroundHex, Converter={StaticResource HexColorToBrushConverter}}"
+                      Foreground="{Binding ForegroundHex, Converter={StaticResource HexColorToBrushConverter}}"
+                      BorderBrush="{Binding AccentHex, Converter={StaticResource HexColorToBrushConverter}}"
+                      BorderThickness="2"
+                      Margin="4,0" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+
+    </Grid>
+  </Panel>
+</UserControl>
