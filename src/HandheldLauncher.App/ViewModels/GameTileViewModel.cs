@@ -165,6 +165,7 @@ public sealed class GameTileViewModel : ViewModelBase
     public double CarouselTileHeight => 290 * SizeScale;
     public string? CarouselTileImagePath => GridImagePath ?? Game.WideGridImagePath ?? IconImagePath;
     public bool ShowEmptyCarouselPlaceholder => string.IsNullOrEmpty(CarouselTileImagePath);
+    public bool ShowEmptyWideCapsulePlaceholder => string.IsNullOrWhiteSpace(WideCapsuleImagePath);
 
     private int _carouselDistance;
     public int CarouselDistance
