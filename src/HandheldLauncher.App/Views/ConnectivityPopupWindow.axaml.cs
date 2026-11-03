@@ -101,7 +101,8 @@ public partial class ConnectivityPopupWindow : Window
         {
             FeedbackText.Text = $"Solicitando conexão com {ssid}...";
             // Conecta a perfis já salvos no Windows. Se não houver perfil, o netsh informa isso claramente.
-            var result = await RunAsync("netsh.exe", $"wlan connect name={\"\\"\"}{ssid}{\"\\"\"}");
+            var quotedSsid = "\"" + ssid.Replace("\"", "") + "\"";
+            var result = await RunAsync("netsh.exe", "wlan connect name=" + quotedSsid);
             FeedbackText.Text = result.ExitCode == 0 ? $"Solicitação enviada para {ssid}. Se a rede exigir senha, salve o perfil no Windows primeiro." : result.Output.Trim();
             await RefreshWifiAsync();
         }
