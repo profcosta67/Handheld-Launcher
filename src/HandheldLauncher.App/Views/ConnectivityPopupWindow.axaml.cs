@@ -36,8 +36,6 @@ public partial class ConnectivityPopupWindow : Window
         return (process.ExitCode, (await outputTask) + Environment.NewLine + (await errorTask));
     }
 
-    private static string PsQuote(string value) => "'" + value.Replace("'", "''") + "'";
-
     private async Task RefreshWifiAsync()
     {
         try
