@@ -38,6 +38,7 @@ public partial class SettingsWindow : Window
         Opened += (_, _) => { FitToScreen(); FocusActiveTab(); };
 
         AddHandler(PointerPressedEvent, (_, e) => _lastPointerWasTouch = e.Pointer.Type != PointerType.Mouse, RoutingStrategies.Tunnel);
+        AddHandler(KeyDownEvent, OnSettingsKeyDown, RoutingStrategies.Tunnel);
         AddHandler(GotFocusEvent, (_, e) =>
         {
             if (e.Source is TextBox && e.NavigationMethod == NavigationMethod.Pointer && _lastPointerWasTouch)
@@ -45,6 +46,28 @@ public partial class SettingsWindow : Window
                 TouchKeyboard.Show();
             }
         }, RoutingStrategies.Bubble);
+    }
+
+    private void OnSettingsKeyDown(object? sender, KeyEventArgs e)
+    {
+        // Não intercepta setas enquanto o usuário está editando texto.
+        if (e.Source is TextBox && e.Key is not Key.Escape) return;
+
+        GamepadAction? action = e.Key switch
+        {
+            Key.Up => GamepadAction.MoveUp,
+            Key.Down => GamepadAction.MoveDown,
+            Key.Left => GamepadAction.MoveLeft,
+            Key.Right => GamepadAction.MoveRight,
+            Key.Enter or Key.Space => GamepadAction.Confirm,
+            Key.Escape => GamepadAction.Back,
+            Key.Q => GamepadAction.PreviousFilter,
+            Key.E => GamepadAction.NextFilter,
+            _ => null
+        };
+
+        if (action is { } mapped && HandleSettingsGamepadAction(mapped))
+            e.Handled = true;
     }
 
     private bool _lastPointerWasTouch;
