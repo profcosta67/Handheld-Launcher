@@ -1064,10 +1064,14 @@ public sealed class MainViewModel : ViewModelBase
 
         if (userInitiated)
         {
+            // O auto-fetch de inicialização pode ainda estar usando o semáforo.
+            // Cancela-o e aguarda a liberação por até 60s; 5s fazia o comando
+            // manual desistir antes de criar o popup personalizado.
             try { _ownedArtworkCts?.Cancel(); } catch { }
-            if (!await _artworkSemaphore.WaitAsync(TimeSpan.FromSeconds(5)))
+            DebugLog.Write("[SGDB] Download manual aguardando a fila atual (até 60s).");
+            if (!await _artworkSemaphore.WaitAsync(TimeSpan.FromSeconds(60)))
             {
-                DebugLog.Write("[SGDB] TIMEOUT esperando lock — abortando");
+                DebugLog.Write("[SGDB] TIMEOUT aguardando fila de artwork após 60s — comando manual não iniciado.");
                 return;
             }
         }
@@ -1158,6 +1162,9 @@ public sealed class MainViewModel : ViewModelBase
             if (total == 0)
             {
                 DebugLog.Write("[SGDB] Nada a baixar — todas as capas já estão no cache.");
+                modal?.UpdateProgress(0, 0, "Todas as capas já estão atualizadas");
+                modal?.CloseForReal();
+                if (dialogTask is not null) { try { await dialogTask; } catch { } }
                 return;
             }
 
