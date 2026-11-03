@@ -11,6 +11,18 @@ public partial class GameLaunchPopupWindow : Window
     private int _spinnerFrame;
     public GameLaunchPopupWindow() : this("", null) { }
 
+    public void UpdateIcon(string? iconPath)
+    {
+        if (string.IsNullOrWhiteSpace(iconPath) || !System.IO.File.Exists(iconPath)) return;
+        try
+        {
+            GameIcon.Source = new Bitmap(iconPath);
+            GameIcon.IsVisible = true;
+            TxtIconFallback.IsVisible = false;
+        }
+        catch { }
+    }
+
     public GameLaunchPopupWindow(string title, string? iconPath)
     {
         InitializeComponent();
