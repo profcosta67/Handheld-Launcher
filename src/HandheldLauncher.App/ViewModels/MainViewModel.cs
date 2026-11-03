@@ -3,13 +3,17 @@ using System.IO;
 using System.Linq;
 using System.Windows.Input;
 using System.Diagnostics;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using HandheldLauncher.App.Diagnostics;
 using HandheldLauncher.App.Platform;
+using HandheldLauncher.App.Services;
+using HandheldLauncher.App.Views;
 using HandheldLauncher.Core.Models;
 using HandheldLauncher.Core.Services;
 using HandheldLauncher.Core.Services.Artwork;
 using Avalonia.Threading;
-using HandheldLauncher.App.Services;
 
 namespace HandheldLauncher.App.ViewModels;
 
@@ -30,6 +34,13 @@ public sealed class MainViewModel : ViewModelBase
     private bool _hwInfoWasAvailable;
     private DispatcherTimer? _hardwareTimer;
 
+    // ✅ v15.6: semáforo + CTS para serializar downloads de artwork (defesa em profundidade)
+    private readonly SemaphoreSlim _artworkSemaphore = new(1, 1);
+    private CancellationTokenSource? _ownedArtworkCts;
+
+    // ✅ v15.6-R2: gate de pausa (true = rodando, reset = pausado)
+    private readonly ManualResetEventSlim _artworkPauseGate = new(true);
+
     private string _cpuTemperature = "--°C";
     public string CpuTemperature
     {
@@ -45,7 +56,6 @@ public sealed class MainViewModel : ViewModelBase
         ? $"Alvo: {_targetTdpWatts} W | Consumo Real: {_realTimeTdpWatts} W"
         : $"TDP Configurado: {_targetTdpWatts} W";
 
-    // ===== Painel de Atalhos (F1) =====
     private bool _isShortcutsHelpOpen;
     public bool IsShortcutsHelpOpen
     {
@@ -58,24 +68,13 @@ public sealed class MainViewModel : ViewModelBase
 
     public record ShortcutItem(string Label, string Key);
 
-    public void OpenShortcutsHelp()
-    {
-        RefreshShortcuts();
-        IsShortcutsHelpOpen = true;
-    }
-
+    public void OpenShortcutsHelp() { RefreshShortcuts(); IsShortcutsHelpOpen = true; }
     public void CloseShortcutsHelp() => IsShortcutsHelpOpen = false;
-
-    public void ToggleShortcutsHelp()
-    {
-        if (IsShortcutsHelpOpen) CloseShortcutsHelp();
-        else OpenShortcutsHelp();
-    }
+    public void ToggleShortcutsHelp() { if (IsShortcutsHelpOpen) CloseShortcutsHelp(); else OpenShortcutsHelp(); }
 
     private void RefreshShortcuts()
     {
-        GamepadShortcuts.Clear();
-        KeyboardShortcuts.Clear();
+        GamepadShortcuts.Clear(); KeyboardShortcuts.Clear();
         try
         {
             GamepadShortcuts.Add(new ShortcutItem("Navegar na biblioteca", "D-Pad"));
@@ -114,14 +113,9 @@ public sealed class MainViewModel : ViewModelBase
         ISteamOwnedGamesClient? steamOwnedGames = null,
         ISteamAchievementsClient? steamAchievements = null)
     {
-        _library = library;
-        _launcher = launcher;
-        _artwork = artwork;
-        _performanceOverlay = performanceOverlay;
-        _updates = updates;
-        _hud = hud;
-        _steamOwnedGames = steamOwnedGames;
-        _steamAchievements = steamAchievements;
+        _library = library; _launcher = launcher; _artwork = artwork;
+        _performanceOverlay = performanceOverlay; _updates = updates; _hud = hud;
+        _steamOwnedGames = steamOwnedGames; _steamAchievements = steamAchievements;
         _launcher.GameExited += OnGameExited;
 
         Games = new ObservableCollection<GameTileViewModel>();
@@ -161,7 +155,6 @@ public sealed class MainViewModel : ViewModelBase
                     foreach (var reading in hwInfo.Readings)
                     {
                         var label = reading.Name;
-
                         if (label.Contains("Package Power", StringComparison.OrdinalIgnoreCase) ||
                             label.Contains("CPU Package Power", StringComparison.OrdinalIgnoreCase))
                         {
@@ -185,13 +178,29 @@ public sealed class MainViewModel : ViewModelBase
 
         RebuildGamesFromLibrary();
         InitializeHudFromSettings();
+
+        _ = ScheduleAutoArtworkFetchAsync();
     }
 
-    /// <summary>
-    /// Inicia o HWiNFO64 em segundo plano se estiver disponível.
-    /// Se não encontrar o executável e a flag HwInfoDisabled não estiver setada,
-    /// tenta uma vez, loga e desabilita permanentemente (silencioso nos próximos boots).
-    /// </summary>
+    private async Task ScheduleAutoArtworkFetchAsync()
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(15));
+            if (!_artwork.HasApiKey) { DebugLog.Write("[SGDB] Auto-fetch agendado: sem API key, abortando."); return; }
+            // ✅ v15.6-R2: despacha pra UI thread antes de mexer em estado bindado
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                DebugLog.Write("[SGDB] Auto-fetch agendado disparando.");
+                FetchMissingArtworkBackground();
+            });
+        }
+        catch (Exception ex) { DebugLog.Write($"[SGDB] Auto-fetch agendado EXCEPTION: {ex.Message}"); }
+    }
+
+    private static bool NeedsDownload(string? path)
+        => string.IsNullOrEmpty(path) || !File.Exists(path);
+
     private void EnsureHwInfoRunning()
     {
         try
@@ -220,18 +229,13 @@ public sealed class MainViewModel : ViewModelBase
             DebugLog.Write($"[HWiNFO] Iniciando em segundo plano: {exePath}");
             var psi = new ProcessStartInfo
             {
-                FileName = exePath,
-                Arguments = "-s",
-                UseShellExecute = true,
+                FileName = exePath, Arguments = "-s", UseShellExecute = true,
                 WindowStyle = ProcessWindowStyle.Minimized,
                 WorkingDirectory = Path.GetDirectoryName(exePath) ?? AppDomain.CurrentDomain.BaseDirectory
             };
             Process.Start(psi);
         }
-        catch (Exception ex)
-        {
-            DebugLog.Write($"[HWiNFO] Erro ao tentar iniciar: {ex.Message}");
-        }
+        catch (Exception ex) { DebugLog.Write($"[HWiNFO] Erro ao tentar iniciar: {ex.Message}"); }
     }
 
     public void Dispose()
@@ -239,6 +243,10 @@ public sealed class MainViewModel : ViewModelBase
         _hardwareTimer?.Stop();
         _monitorService.Dispose();
         _hwInfoService.Dispose();
+        try { _ownedArtworkCts?.Cancel(); } catch { }
+        _ownedArtworkCts?.Dispose();
+        _artworkSemaphore.Dispose();
+        _artworkPauseGate.Dispose();
     }
 
     public ObservableCollection<GameTileViewModel> Games { get; }
@@ -371,7 +379,6 @@ public sealed class MainViewModel : ViewModelBase
     }
 
     public void ClearOverlayNow() { if (OperatingSystem.IsWindows()) _hud?.ClearNow(); }
-
     public bool IsPerformanceHudEnabled => _hud is not null && _hud.Preset > 0;
     public int CurrentHudPreset => _hud?.Preset ?? 0;
 
@@ -386,13 +393,10 @@ public sealed class MainViewModel : ViewModelBase
     public void UpdateHudTdpStatus(string mode)
     {
         var watts = mode switch { "UltraEco" => 8, "Eco" => 15, "Normal" => 20, "Desempenho" => 25, "Boost" => 30, _ => 0 };
-
         _targetTdpWatts = watts;
         OnPropertyChanged(nameof(TopBarTdpText));
         OnPropertyChanged(nameof(TopBarTdpToolTip));
-
-        if (_hud != null)
-            _hud.TdpStatusText = watts > 0 ? $"{mode} {watts}W" : "";
+        if (_hud != null) _hud.TdpStatusText = watts > 0 ? $"{mode} {watts}W" : "";
     }
 
     public void UpdateHudColorMode(string modeText) { if (_hud != null) _hud.ColorModeText = modeText ?? ""; }
@@ -413,7 +417,6 @@ public sealed class MainViewModel : ViewModelBase
 
     private string _batteryStatusText = string.Empty;
     public string BatteryStatusText { get => _batteryStatusText; set => SetField(ref _batteryStatusText, value); }
-
     private string _clockText = string.Empty;
     public string ClockText { get => _clockText; set => SetField(ref _clockText, value); }
 
@@ -432,6 +435,7 @@ public sealed class MainViewModel : ViewModelBase
     private const int LaunchFeedbackMilliseconds = 2500;
 
     private bool _isFetchingArtwork;
+    private bool _isFetchingOwnedArtwork;
     public bool IsFetchingArtwork
     {
         get => _isFetchingArtwork;
@@ -467,22 +471,19 @@ public sealed class MainViewModel : ViewModelBase
 
     private bool _isSubFilterRowFocused;
     public bool IsSubFilterRowFocused { get => _isSubFilterRowFocused; private set => SetField(ref _isSubFilterRowFocused, value); }
-
     private int _subFilterCursor;
 
     public void FocusSubFilterRow()
     {
         if (SubFilters.Count == 0) return;
         _subFilterCursor = Math.Clamp(_subFilterCursor, 0, SubFilters.Count - 1);
-        IsSubFilterRowFocused = true;
-        UpdateSubFilterCursorFlags();
+        IsSubFilterRowFocused = true; UpdateSubFilterCursorFlags();
     }
 
     public void LeaveSubFilterRow()
     {
         if (!IsSubFilterRowFocused) return;
-        IsSubFilterRowFocused = false;
-        UpdateSubFilterCursorFlags();
+        IsSubFilterRowFocused = false; UpdateSubFilterCursorFlags();
     }
 
     public void MoveSubFilterCursor(int delta)
@@ -507,9 +508,7 @@ public sealed class MainViewModel : ViewModelBase
 
     private void RebuildSubFilters()
     {
-        SubFilters.Clear();
-        _subFilterCursor = 0;
-        IsSubFilterRowFocused = false;
+        SubFilters.Clear(); _subFilterCursor = 0; IsSubFilterRowFocused = false;
 
         switch (_activeFilter)
         {
@@ -644,29 +643,24 @@ public sealed class MainViewModel : ViewModelBase
     {
         if (SelectedTile is null) return;
         var game = SelectedTile.Game;
-
         if (game.IsOwnedNotInstalled) { if (game.SteamAppId is { } ownedAppId) _launcher.OpenSteamInstaller(ownedAppId); return; }
 
         LaunchingGameTitle = game.Title;
         LaunchingGameIconPath = ResolveIconPath(game);
         IsLaunching = true;
 
-        // Se tem API key e o ícone não existe, baixa sincronamente com timeout de 3s
         if (_artwork.HasApiKey && string.IsNullOrEmpty(LaunchingGameIconPath))
         {
             try
             {
                 var fetchTask = _artwork.FetchIconAsync(game);
                 var completed = await Task.WhenAny(fetchTask, Task.Delay(3000));
-                if (completed == fetchTask && await fetchTask)
-                    LaunchingGameIconPath = game.IconImagePath;
+                if (completed == fetchTask && await fetchTask) LaunchingGameIconPath = game.IconImagePath;
             }
             catch { }
         }
 
-        // Fallback: tenta capa grid, wide grid, hero (nessa ordem)
-        if (string.IsNullOrEmpty(LaunchingGameIconPath))
-            LaunchingGameIconPath = ResolveFallbackImage(game);
+        if (string.IsNullOrEmpty(LaunchingGameIconPath)) LaunchingGameIconPath = ResolveFallbackImage(game);
 
         _launcher.Launch(game);
         RunningGame = game;
@@ -679,19 +673,13 @@ public sealed class MainViewModel : ViewModelBase
     }
 
     private static string? ResolveIconPath(GameEntry game)
-    {
-        if (!string.IsNullOrEmpty(game.IconImagePath) && File.Exists(game.IconImagePath))
-            return game.IconImagePath;
-        return null;
-    }
+        => !string.IsNullOrEmpty(game.IconImagePath) && File.Exists(game.IconImagePath) ? game.IconImagePath : null;
 
     private static string? ResolveFallbackImage(GameEntry game)
     {
-        // Prioriza icon > grid > wide grid > hero
         string?[] candidates = { game.IconImagePath, game.GridImagePath, game.WideGridImagePath, game.HeroImagePath };
         foreach (var path in candidates)
-            if (!string.IsNullOrEmpty(path) && File.Exists(path))
-                return path;
+            if (!string.IsNullOrEmpty(path) && File.Exists(path)) return path;
         return null;
     }
 
@@ -765,7 +753,6 @@ public sealed class MainViewModel : ViewModelBase
     }
 
     private void ReopenContextMenu(GameTileViewModel tile) { ContextMenuTarget = tile; _contextMenuIndex = 0; BuildContextMenu(tile); UpdateContextMenuSelection(); IsContextMenuOpen = true; }
-
     private void ToggleFavorite(GameEntry game) { _library.SetFavorite(game.Id, !game.IsFavorite); RebuildGamesFromLibrary(); }
 
     private void OpenGameFromMenu(GameEntry game)
@@ -814,25 +801,20 @@ public sealed class MainViewModel : ViewModelBase
     {
         var index = CoverPickerCandidates.IndexOf(candidate);
         if (index < 0) return;
-        _coverPickerIndex = index;
-        UpdateCoverPickerSelection();
-        ConfirmCoverPickerSelection();
+        _coverPickerIndex = index; UpdateCoverPickerSelection(); ConfirmCoverPickerSelection();
     }
 
     private void UpdateContextMenuSelection() { for (var i = 0; i < ContextMenuItems.Count; i++) ContextMenuItems[i].IsSelected = i == _contextMenuIndex; }
 
     private enum GlobalMenuPage { Root, Library, Hud, Settings, Power, ConfirmPower }
     private GlobalMenuPage _globalMenuPage = GlobalMenuPage.Root;
-
     private string _pendingPowerConfirmLabel = string.Empty;
     private Action? _pendingPowerAction;
 
     private void RequestPowerConfirm(string lowercaseLabel, Action action)
     {
-        _pendingPowerConfirmLabel = lowercaseLabel;
-        _pendingPowerAction = action;
-        NavigateGlobalMenu(GlobalMenuPage.ConfirmPower);
-        IsGlobalMenuOpen = true;
+        _pendingPowerConfirmLabel = lowercaseLabel; _pendingPowerAction = action;
+        NavigateGlobalMenu(GlobalMenuPage.ConfirmPower); IsGlobalMenuOpen = true;
     }
 
     private readonly List<bool> _globalMenuNavigates = new();
@@ -893,7 +875,11 @@ public sealed class MainViewModel : ViewModelBase
                 GlobalMenuTitle = "Biblioteca"; Add("🔄 Atualizar Biblioteca", Refresh);
                 if (IsFetchingArtwork) Add("⏳ Baixando capas... (Aguarde)", () => { });
                 else if (!_artwork.HasApiKey) Add("🖼 Atualizar Capas (Configurar API Key)", () => SettingsRequested?.Invoke(this, EventArgs.Empty));
-                else Add("🖼 Atualizar Capas Automático", FetchMissingArtwork);
+                else Add("🖼 Atualizar Capas Automático", () =>
+                {
+                    DebugLog.Write($"[SGDB] MENU: 'Atualizar Capas Automático' clicado. HasApiKey={_artwork.HasApiKey}, IsFetchingArtwork={IsFetchingArtwork}, Games={_library.Games.Count}");
+                    FetchMissingArtwork();
+                });
                 Add("➕ Adicionar jogo", () => AddGameRequested?.Invoke(this, EventArgs.Empty));
                 Add("⬇ Downloads", ToggleDownloads); break;
 
@@ -1027,14 +1013,22 @@ public sealed class MainViewModel : ViewModelBase
         {
             if (_downloadSamples.TryGetValue(download.Title, out var previous))
             {
-                var seconds = (now - previous.At).TotalSeconds; var delta = download.BytesDownloaded - previous.Bytes;
-                if (delta > 0 && seconds > 0.5) { var speed = delta / seconds; download.BytesPerSecond = speed; _downloadSamples[download.Title] = (download.BytesDownloaded, now, speed); }
+                var seconds = (now - previous.At).TotalSeconds;
+                var delta = download.BytesDownloaded - previous.Bytes;
+                if (delta > 0 && seconds > 0.5)
+                {
+                    var speed = delta / seconds;
+                    download.BytesPerSecond = speed;
+                    _downloadSamples[download.Title] = (download.BytesDownloaded, now, speed);
+                }
                 else download.BytesPerSecond = (now - previous.At).TotalSeconds < 30 ? previous.Speed : null;
             }
             else _downloadSamples[download.Title] = (download.BytesDownloaded, now, null);
             ActiveDownloads.Add(download);
         }
-        OnPropertyChanged(nameof(HasActiveDownloads)); OnPropertyChanged(nameof(NoActiveDownloads)); OnPropertyChanged(nameof(TopBarDownloadPercent)); OnPropertyChanged(nameof(TopBarDownloadPercentText)); OnPropertyChanged(nameof(TopBarDownloadToolTip));
+        OnPropertyChanged(nameof(HasActiveDownloads)); OnPropertyChanged(nameof(NoActiveDownloads));
+        OnPropertyChanged(nameof(TopBarDownloadPercent)); OnPropertyChanged(nameof(TopBarDownloadPercentText));
+        OnPropertyChanged(nameof(TopBarDownloadToolTip));
     }
 
     public async void RefreshOwnedGames()
@@ -1052,18 +1046,276 @@ public sealed class MainViewModel : ViewModelBase
         finally { IsLoadingOwnedGames = false; UpdateNotInstalledTabMessage(); }
     }
 
+    // ============================================================
+    // v15.6-R2 — FETCH DE ARTWORK COM MODAL + SEMÁFORO + PAUSE
+    // ============================================================
+
+    private void FetchMissingArtwork() => FetchMissingArtworkCore(userInitiated: true);
+    private void FetchMissingArtworkBackground() => FetchMissingArtworkCore(userInitiated: false);
+
+        private async void FetchMissingArtworkCore(bool userInitiated)
+    {
+        if (!_artwork.HasApiKey)
+        {
+            DebugLog.Write("[SGDB] ABORT: sem API key → abrindo Settings");
+            if (userInitiated) SettingsRequested?.Invoke(this, EventArgs.Empty);
+            return;
+        }
+
+        if (userInitiated)
+        {
+            try { _ownedArtworkCts?.Cancel(); } catch { }
+            if (!await _artworkSemaphore.WaitAsync(TimeSpan.FromSeconds(5)))
+            {
+                DebugLog.Write("[SGDB] TIMEOUT esperando lock — abortando");
+                return;
+            }
+        }
+        else
+        {
+            if (!await _artworkSemaphore.WaitAsync(0))
+            {
+                DebugLog.Write("[SGDB] ABORT background: outro download em andamento");
+                return;
+            }
+        }
+
+        _ownedArtworkCts = new CancellationTokenSource();
+        var ct = _ownedArtworkCts.Token;
+        _artworkPauseGate.Set();
+        IsFetchingArtwork = true;
+
+        ArtworkDownloadPopupWindow? modal = null;
+        Task? dialogTask = null;
+        if (userInitiated)
+        {
+            try
+            {
+                modal = new ArtworkDownloadPopupWindow();
+                modal.Configure(0);
+                modal.CancelRequested += (_, _) =>
+                {
+                    DebugLog.Write("[SGDB] Cancel solicitado pelo usuário");
+                    try { _ownedArtworkCts?.Cancel(); } catch { }
+                    _artworkPauseGate.Set();
+                };
+                modal.PauseToggled += (_, _) =>
+                {
+                    if (_artworkPauseGate.IsSet) { _artworkPauseGate.Reset(); DebugLog.Write("[SGDB] Download PAUSADO."); }
+                    else { _artworkPauseGate.Set(); DebugLog.Write("[SGDB] Download RETOMADO."); }
+                };
+                var owner = GetMainWindow();
+                if (owner is not null) dialogTask = modal.ShowDialog(owner);
+                else { modal.Show(); dialogTask = Task.CompletedTask; }
+            }
+            catch (Exception ex)
+            {
+                DebugLog.Write($"[SGDB] Falha ao abrir modal: {ex.Message}");
+                modal = null; dialogTask = null;
+            }
+        }
+
+        try
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            int ok = 0, skipped = 0;
+
+            // ✅ v15.6-R4: recarrega overrides do disco pra alinhar GameEntry.*ImagePath
+            // com o que realmente está salvo. Sem isso, paths em memória podiam estar
+            // null mesmo com os arquivos existindo → baixava tudo de novo.
+            _library.Refresh();
+
+            var installed = _library.Games.ToList();
+
+            List<GameEntry> ownedEntries = new();
+            if (userInitiated && HasSteamWebApiCredentials)
+            {
+                try
+                {
+                    var owned = await _library.GetOwnedButNotInstalledSteamGamesAsync(ct);
+                    OwnedNotInstalledGames.Clear();
+                    foreach (var og in owned) OwnedNotInstalledGames.Add(og);
+                    ownedEntries = owned.Select(_library.BuildEntryForOwnedGame).ToList();
+                    DebugLog.Write($"[SGDB] Owned games incluídos no download: {ownedEntries.Count}");
+                }
+                catch (OperationCanceledException) { }
+                catch (Exception ex) { DebugLog.Write($"[SGDB] Falha ao carregar owned games: {ex.Message}"); }
+            }
+
+            // ✅ v15.6-R4: só conta como "a processar" quem realmente tem algo faltando.
+            // Popup mostra 0/N com N = pendentes, não total.
+            static bool HasPendingWork(GameEntry g) =>
+                NeedsDownload(g.GridImagePath) || NeedsDownload(g.HeroImagePath) ||
+                NeedsDownload(g.LogoImagePath) || NeedsDownload(g.WideGridImagePath) ||
+                NeedsDownload(g.IconImagePath);
+
+            var installedPending = installed.Where(HasPendingWork).ToList();
+            var ownedPending = ownedEntries.Where(HasPendingWork).ToList();
+
+            var total = installedPending.Count + ownedPending.Count;
+            if (total == 0)
+            {
+                DebugLog.Write("[SGDB] Nada a baixar — todas as capas já estão no cache.");
+                return;
+            }
+
+            if (modal != null) modal.Configure(total);
+            DebugLog.Write($"[SGDB] === Atualização iniciada ({installedPending.Count} instalados + {ownedPending.Count} owned = {total} pendentes) === userInitiated={userInitiated}");
+
+            int processed = 0;
+            bool cancelledInPhase1 = false;
+
+            // ===== Fase 1: instalados pendentes =====
+            foreach (var game in installedPending)
+            {
+                if (ct.IsCancellationRequested) { DebugLog.Write("[SGDB] Cancelado (fase 1)."); cancelledInPhase1 = true; break; }
+                try { await Task.Run(() => _artworkPauseGate.Wait(ct), ct); }
+                catch (OperationCanceledException) { cancelledInPhase1 = true; break; }
+
+                processed++;
+                if (modal != null) modal.UpdateProgress(processed, total, game.Title);
+
+                bool anyWork = false;
+                try
+                {
+                    if (NeedsDownload(game.GridImagePath)) { anyWork = true; if (await _artwork.FetchGridAsync(game, ct)) ok++; }
+                    if (ct.IsCancellationRequested) break;
+                    if (NeedsDownload(game.HeroImagePath)) { anyWork = true; if (await _artwork.FetchHeroAsync(game, ct)) ok++; }
+                    if (ct.IsCancellationRequested) break;
+                    if (NeedsDownload(game.LogoImagePath)) { anyWork = true; if (await _artwork.FetchLogoAsync(game, ct)) ok++; }
+                    if (ct.IsCancellationRequested) break;
+                    if (NeedsDownload(game.WideGridImagePath)) { anyWork = true; if (await _artwork.FetchWideGridAsync(game, ct)) ok++; }
+                    if (ct.IsCancellationRequested) break;
+                    if (NeedsDownload(game.IconImagePath)) { anyWork = true; if (await _artwork.FetchIconAsync(game, ct)) ok++; }
+                }
+                catch (OperationCanceledException) { DebugLog.Write("[SGDB] Cancelado (exceção fase 1)."); cancelledInPhase1 = true; break; }
+                catch (Exception ex) { DebugLog.Write($"[SGDB] '{game.Title}' EXCEPTION: {ex.Message}"); }
+
+                if (!anyWork) { skipped++; continue; }
+                try { await Task.Delay(1000, ct); } catch (OperationCanceledException) { cancelledInPhase1 = true; break; }
+            }
+
+            // ===== Fase 2: owned pendentes (só se não cancelou na fase 1) =====
+            if (!cancelledInPhase1 && !ct.IsCancellationRequested)
+            {
+                foreach (var game in ownedPending)
+                {
+                    if (ct.IsCancellationRequested) { DebugLog.Write("[SGDB] Cancelado (fase 2)."); break; }
+                    try { await Task.Run(() => _artworkPauseGate.Wait(ct), ct); }
+                    catch (OperationCanceledException) { break; }
+
+                    processed++;
+                    if (modal != null) modal.UpdateProgress(processed, total, game.Title);
+
+                    bool anyWork = false;
+                    try
+                    {
+                        if (NeedsDownload(game.GridImagePath)) { anyWork = true; if (await _artwork.FetchGridAsync(game, ct)) ok++; }
+                        if (ct.IsCancellationRequested) break;
+                        if (NeedsDownload(game.HeroImagePath)) { anyWork = true; if (await _artwork.FetchHeroAsync(game, ct)) ok++; }
+                        if (ct.IsCancellationRequested) break;
+                        if (NeedsDownload(game.LogoImagePath)) { anyWork = true; if (await _artwork.FetchLogoAsync(game, ct)) ok++; }
+                        if (ct.IsCancellationRequested) break;
+                        if (NeedsDownload(game.WideGridImagePath)) { anyWork = true; if (await _artwork.FetchWideGridAsync(game, ct)) ok++; }
+                        if (ct.IsCancellationRequested) break;
+                        if (NeedsDownload(game.IconImagePath)) { anyWork = true; if (await _artwork.FetchIconAsync(game, ct)) ok++; }
+                    }
+                    catch (OperationCanceledException) { DebugLog.Write("[SGDB] Cancelado (exceção fase 2)."); break; }
+                    catch (Exception ex) { DebugLog.Write($"[SGDB] '{game.Title}' owned EXCEPTION: {ex.Message}"); }
+
+                    if (!anyWork) { skipped++; continue; }
+                    try { await Task.Delay(1000, ct); } catch (OperationCanceledException) { break; }
+                }
+            }
+
+            DebugLog.Write($"[SGDB] === Concluído em {sw.Elapsed.TotalSeconds:F1}s === Processados={processed}/{total}, Sucessos={ok}, Skipped={skipped}");
+            if (ok > 0) Refresh();
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[SGDB] EXCEPTION FATAL: {ex.GetType().Name} - {ex.Message}\n{ex.StackTrace}");
+        }
+        finally
+        {
+            IsFetchingArtwork = false;
+            _artworkPauseGate.Set();
+            _ownedArtworkCts?.Dispose();
+            _ownedArtworkCts = null;
+            try { _artworkSemaphore.Release(); } catch { }
+            DebugLog.Write("[SGDB] Lock de artwork liberado.");
+            modal?.CloseForReal();
+            if (dialogTask is not null) { try { await dialogTask; } catch { } }
+        }
+    }
+
     private async void FetchMissingArtworkForOwnedGames()
     {
         if (!_artwork.HasApiKey) return;
-        foreach (var owned in OwnedNotInstalledGames.ToList())
+        if (_isFetchingOwnedArtwork) return;
+
+        if (!await _artworkSemaphore.WaitAsync(0))
         {
-            if (_activeFilter != LibraryFilter.NotInstalled) return;
-            var entry = _library.BuildEntryForOwnedGame(owned);
-            if (string.IsNullOrEmpty(entry.GridImagePath)) await _artwork.FetchGridAsync(entry);
-            if (_activeFilter != LibraryFilter.NotInstalled) return;
-            if (string.IsNullOrEmpty(entry.LogoImagePath)) await _artwork.FetchLogoAsync(entry);
+            DebugLog.Write("[SGDB] ABORT owned: lock ocupado");
+            return;
         }
-        if (_activeFilter == LibraryFilter.NotInstalled) RebuildGamesFromLibrary();
+
+        _isFetchingOwnedArtwork = true;
+        _ownedArtworkCts = new CancellationTokenSource();
+        var ct = _ownedArtworkCts.Token;
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        int downloaded = 0, total = 0;
+        DebugLog.Write($"[SGDB] === Owned-not-installed iniciado ({OwnedNotInstalledGames.Count} jogos) ===");
+
+        try
+        {
+            foreach (var owned in OwnedNotInstalledGames.ToList())
+            {
+                if (ct.IsCancellationRequested) break;
+                if (_activeFilter != LibraryFilter.NotInstalled) return;
+
+                total++;
+                var entry = _library.BuildEntryForOwnedGame(owned);
+                bool anyWork = false;
+                try
+                {
+                    if (NeedsDownload(entry.GridImagePath)) { anyWork = true; if (await _artwork.FetchGridAsync(entry, ct)) downloaded++; }
+                    if (ct.IsCancellationRequested) break;
+                    if (NeedsDownload(entry.HeroImagePath)) { anyWork = true; if (await _artwork.FetchHeroAsync(entry, ct)) downloaded++; }
+                    if (ct.IsCancellationRequested) break;
+                    if (NeedsDownload(entry.LogoImagePath)) { anyWork = true; if (await _artwork.FetchLogoAsync(entry, ct)) downloaded++; }
+                    if (ct.IsCancellationRequested) break;
+                    if (NeedsDownload(entry.WideGridImagePath)) { anyWork = true; if (await _artwork.FetchWideGridAsync(entry, ct)) downloaded++; }
+                    if (ct.IsCancellationRequested) break;
+                    if (NeedsDownload(entry.IconImagePath)) { anyWork = true; if (await _artwork.FetchIconAsync(entry, ct)) downloaded++; }
+                }
+                catch (OperationCanceledException) { break; }
+                catch (Exception ex) { DebugLog.Write($"[SGDB] '{entry.Title}' owned EXCEPTION: {ex.Message}"); }
+
+                if (anyWork) { try { await Task.Delay(1000, ct); } catch (OperationCanceledException) { break; } }
+            }
+
+            DebugLog.Write($"[SGDB] === Owned concluído em {sw.Elapsed.TotalSeconds:F1}s (total={total}, baixados={downloaded}) ===");
+            if (_activeFilter == LibraryFilter.NotInstalled) RebuildGamesFromLibrary();
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[SGDB] Owned FATAL: {ex.GetType().Name} - {ex.Message}");
+        }
+        finally
+        {
+            _isFetchingOwnedArtwork = false;
+            _ownedArtworkCts?.Dispose();
+            _ownedArtworkCts = null;
+            try { _artworkSemaphore.Release(); } catch { }
+            DebugLog.Write("[SGDB] Owned lock liberado.");
+        }
+    }
+
+    private static Window? GetMainWindow()
+    {
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime d)
+            return d.MainWindow;
+        return null;
     }
 
     public void InstallOwnedGame(OwnedSteamGame game) => _launcher.OpenSteamInstaller(game.AppId);
@@ -1146,25 +1398,6 @@ public sealed class MainViewModel : ViewModelBase
         var restoredIndex = previouslySelectedId is null ? 0 : Math.Max(0, Games.ToList().FindIndex(t => t.Game.Id == previouslySelectedId));
         SelectedIndex = Games.Count > 0 ? restoredIndex : -1;
         if (Games.Count > 0) SelectedTile = Games[SelectedIndex];
-    }
-
-    private async void FetchMissingArtwork()
-    {
-        if (!_artwork.HasApiKey) { SettingsRequested?.Invoke(this, EventArgs.Empty); return; }
-        if (IsFetchingArtwork) return; IsFetchingArtwork = true;
-        try
-        {
-            foreach (var game in _library.Games.ToList())
-            {
-                if (string.IsNullOrEmpty(game.GridImagePath)) await _artwork.FetchGridAsync(game);
-                if (string.IsNullOrEmpty(game.HeroImagePath)) await _artwork.FetchHeroAsync(game);
-                if (string.IsNullOrEmpty(game.LogoImagePath)) await _artwork.FetchLogoAsync(game);
-                if (string.IsNullOrEmpty(game.WideGridImagePath)) await _artwork.FetchWideGridAsync(game);
-                if (string.IsNullOrEmpty(game.IconImagePath)) await _artwork.FetchIconAsync(game);
-            }
-            Refresh();
-        }
-        finally { IsFetchingArtwork = false; }
     }
 
     private void UpdateFocus() { for (var i = 0; i < Games.Count; i++) { Games[i].IsFocused = i == _selectedIndex; Games[i].CarouselDistance = i - _selectedIndex; } }

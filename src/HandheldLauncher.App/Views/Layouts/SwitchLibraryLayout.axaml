@@ -1,6 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:anim="https://github.com/whistyun/AnimatedImage.Avalonia"
              xmlns:vm="using:HandheldLauncher.App.ViewModels"
              xmlns:conv="using:HandheldLauncher.App.Converters"
              xmlns:dataConv="using:Avalonia.Data.Converters"
@@ -147,8 +146,8 @@
                     </Transitions>
                   </Grid.Transitions>
 
-                  <!-- CAPA ANIMADA NA ROLETA -->
-                  <Image anim:ImageBehavior.AnimatedSource="{Binding CarouselTileImagePath}"
+                  <!-- CAPA ESTÁTICA NA ROLETA (v15.6-R3: sem AnimatedImage) -->
+                  <Image Source="{Binding CarouselTileImagePath, Converter={StaticResource FileToBitmapConverter}}"
                          Width="{Binding CarouselTileWidth}"
                          Height="{Binding CarouselTileHeight}"
                          Stretch="Uniform"

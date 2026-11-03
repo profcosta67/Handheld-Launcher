@@ -1,3 +1,5 @@
+using System.IO;
+using Avalonia.Media.Imaging;
 using HandheldLauncher.Core.Models;
 
 namespace HandheldLauncher.App.ViewModels;
@@ -18,54 +20,46 @@ public sealed class GameTileViewModel : ViewModelBase
 
     public string Title => Game.Title;
 
-    /// <summary>
-    /// Cover art to show on the tile. Falls back to null (the view shows a
-    /// title-only placeholder tile) until SteamGridDB art is wired in.
-    /// </summary>
     public string? GridImagePath => Game.GridImagePath;
-
-    /// <summary>
-    /// Wide banner art (SteamGridDB "hero"). Independent fetch from
-    /// GridImagePath — a game can have one without the other.
-    /// </summary>
     public string? HeroImagePath => Game.HeroImagePath;
-
-    /// <summary>
-    /// "CURRENT LOGO" — SteamGridDB's transparent wordmark/title overlay,
-    /// a third asset type distinct from GridImagePath/HeroImagePath (see
-    /// ArtworkService.FetchLogoAsync). Only ever actually shown when
-    /// ShowCurrentLogo is true (see below) — this raw path is exposed
-    /// separately in case a future picker needs it directly.
-    /// </summary>
     public string? LogoImagePath => Game.LogoImagePath;
-
-    /// <summary>Ícone quadrado (SteamGridDB, seção Icons) — cabeçalho do menu do jogo.</summary>
     public string? IconImagePath => Game.IconImagePath;
 
-    /// <summary>True once SteamGridDB has actually given us a logo for this game (see "Atualizar Capas Automático").</summary>
-    public bool HasLogo => !string.IsNullOrEmpty(LogoImagePath);
-
     /// <summary>
-    /// Badge minimalista no canto superior direito da capa indicando a
-    /// loja (v0.9.6, pedido do usuário). Deliberadamente NÃO é o logo
-    /// oficial de cada loja — só a inicial/sigla em cor própria — pra não
-    /// reproduzir marca registrada de terceiros dentro do launcher.
+    /// ✅ v15.6-R3: HasLogo agora valida que o arquivo REALMENTE carrega
+    /// com Avalonia (new Bitmap), não só que o path existe. Bug do round
+    /// anterior: logo baixado + trim corrompido = HasLogo=true escondia
+    /// o nome, mas o Image não renderizava nada → tile vazia.
     ///
-    /// <para>
-    /// v0.9.18, pedido do usuário ("por exemplo Xbox um X verde, Switch
-    /// como o éden e rosa"): emulador e atalho manual deixaram de ser null
-    /// (eram, com a justificativa de que "não têm loja") e ganharam selo —
-    /// "SW" rosa pro Switch/Eden e "A" cinza pros atalhos adicionados à
-    /// mão, agora que existe subfiltro "Atalhos" na aba Computador e faz
-    /// sentido identificá-los na capa. O X verde do Xbox já era assim
-    /// desde a v0.9.6, então saiu exatamente como ele pediu sem mexer.
-    /// </para>
-    /// <para>
-    /// "SW" com DUAS letras de propósito, não "S": o Steam já usa "S", e
-    /// dois selos iguais diferenciados só pela cor seriam frágeis (tela no
-    /// sol, daltonismo). Mesma razão do "EA" ao lado do "E" da Epic.
-    /// </para>
+    /// Agora: se arquivo não existe, ou new Bitmap falha, HasLogo=false e
+    /// o nome do jogo aparece em vez do logo quebrado.
     /// </summary>
+    public bool HasLogo
+    {
+        get
+        {
+            var path = LogoImagePath;
+            if (string.IsNullOrEmpty(path)) return false;
+            try
+            {
+                if (!File.Exists(path)) return false;
+                using var bmp = new Bitmap(path);
+                return bmp.PixelSize.Width > 0 && bmp.PixelSize.Height > 0;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
+
+    public bool IsFavorite => Game.IsFavorite;
+    public bool ShowCurrentLogo => HasLogo;
+    public bool ShowNameCaption => !HasLogo;
+
+    public bool ShowEmptyPlaceholder => string.IsNullOrEmpty(TileImagePath);
+    public bool IsOwnedNotInstalled => Game.IsOwnedNotInstalled;
+
     public string? PlatformBadgeText => Game.Source switch
     {
         GameSource.Steam => "S",
@@ -81,7 +75,6 @@ public sealed class GameTileViewModel : ViewModelBase
 
     public bool HasPlatformBadge => PlatformBadgeText is not null;
 
-    /// <summary>Cor de fundo do badge — uma por loja, só pra diferenciar visualmente, sem tentar imitar a paleta oficial de cada marca.</summary>
     public string PlatformBadgeColorHex => Game.Source switch
     {
         GameSource.Steam => "#1B2838",
@@ -90,168 +83,27 @@ public sealed class GameTileViewModel : ViewModelBase
         GameSource.Ubisoft => "#0070CC",
         GameSource.EaApp => "#C40C28",
         GameSource.XboxApp => "#107C10",
-        // Rosa pedido pelo usuário pro Switch/Eden. Tom escuro o
-        // suficiente pro texto branco em cima continuar legível (o selo
-        // usa Foreground="White" fixo, ver MainWindow.axaml) — um rosa
-        // claro ficaria bonito e ilegível.
         GameSource.Emulator => "#C2185B",
         GameSource.Manual => "#5A5A5A",
         _ => "#000000",
     };
 
-    /// <summary>
-    /// Toggled pelo item "Favoritar"/"Desfavoritar" do menu de contexto
-    /// (ver MainViewModel.ConfirmContextMenuSelection) — drives a estrelinha
-    /// discreta no canto da tile, pra dar algum jeito de ver quem tá
-    /// favoritado sem precisar entrar na aba "Favoritos" pra checar.
-    /// </summary>
-    public bool IsFavorite => Game.IsFavorite;
-
-    /// <summary>
-    /// True pra uma tile da aba "Não instalados" (jogo da conta Steam
-    /// ainda não instalado nesta máquina — ver GameEntry.
-    /// IsOwnedNotInstalled). Drives o badge "Instalar" no canto da tile
-    /// (MainWindow.axaml) — confirmar/clicar nessas tiles instala em vez
-    /// de abrir (ver MainViewModel.LaunchSelected/BuildContextMenu).
-    /// </summary>
-    public bool IsOwnedNotInstalled => Game.IsOwnedNotInstalled;
-
-    /// <summary>
-    /// Drives showing the LOGO instead of the game's name — in the hero
-    /// banner's bottom-left corner (MainWindow.axaml, follows SelectedTile)
-    /// AND above every tile's capsule, CAPSULE or WIDE CAPSULE alike (see
-    /// ShowNameCaption below for the exact opposite). Per the user's
-    /// explicit, final rule: "a LOGO não vai dentro das capas... ele vai
-    /// apenas dentro da hero (banner) lá em cima e ACIMA DAS CAPAS NO LUGAR
-    /// DO NOME" — logo replaces the name wherever a logo exists, on ANY
-    /// tile (earlier in this session this was scoped to only the WIDE
-    /// CAPSULE — that was wrong, this corrects it). Only true once
-    /// SteamGridDB has actually given us a logo for this specific game.
-    /// </summary>
-    public bool ShowCurrentLogo => HasLogo;
-
-    /// <summary>
-    /// Drives showing the plain name instead — the exact complement of
-    /// ShowCurrentLogo (see above): whichever tile doesn't have a logo yet
-    /// falls back to its name, CAPSULE or WIDE CAPSULE alike. The two are
-    /// never shown together on the same tile/banner.
-    /// </summary>
-    public bool ShowNameCaption => !HasLogo;
-
-    /// <summary>
-    /// How tall the logo image renders above the tile's capsule (see
-    /// MainWindow.axaml's caption Grid) — a bit bigger on the WIDE CAPSULE
-    /// than on a normal CAPSULE, per the user's request ("deixa ela um
-    /// pouco maior o tamanho na wide capsule"). The caption Grid itself
-    /// stays a FIXED height for every tile regardless (see MainWindow.axaml
-    /// comment) so this size difference never shifts the capsule images
-    /// below out of alignment across the row.
-    /// </summary>
-    public double CaptionLogoHeight => (IsLastPlayed ? 32 : 22) * SizeScale;
-
-    /// <summary>
-    /// Escala do "Tamanho das capas" (Configurações, v0.6.0): 0.8 pequeno,
-    /// 1.0 médio, 1.2 grande. Estático porque vale pra biblioteca inteira;
-    /// MainViewModel recria as tiles depois de mudar.
-    /// </summary>
     public static double SizeScale { get; set; } = 1.0;
-
     public static double ScaleForSetting(int tileSize) => tileSize switch { 0 => 0.8, 2 => 1.2, _ => 1.0 };
 
-    /// <summary>Altura da capa (bindada direto no Border.gameTile desde a v0.6.0).</summary>
+    public double CaptionLogoHeight => (IsLastPlayed ? 32 : 22) * SizeScale;
     public double TileHeight => 290 * SizeScale;
-
-    /// <summary>
-    /// The centered title-only placeholder INSIDE the capsule border
-    /// (shown pre-SteamGridDB, before any art at all has been fetched for
-    /// that specific tile) — every CAPSULE tile also shows a caption
-    /// (name or logo, see ShowNameCaption/ShowCurrentLogo) ABOVE it, so this
-    /// placeholder only covers the case where the image area itself has
-    /// nothing to show.
-    /// </summary>
-    public bool ShowEmptyPlaceholder => string.IsNullOrEmpty(TileImagePath);
-
-    /// <summary>
-    /// Must match Theme.axaml's Border.gameTile (220) / .lastPlayed (620)
-    /// width exactly — same kind of duplication already accepted
-    /// elsewhere in this project (see MainWindow.
-    /// ScrollGameRowSelectionIntoView's hardcoded widths). Needed because
-    /// the per-tile StackPanel (caption above, capsule below) has no
-    /// width of its own otherwise — it would size itself to whichever is
-    /// widest (often the caption text for a long title), breaking the
-    /// row's fixed-width layout and the scroll math that assumes it.
-    /// 170/460 → 190/510 → 220/620 → 220/580 nesta leva — a WIDE CAPSULE
-    /// encolheu um pouco (620 → 580) porque o usuário reportou que ela
-    /// estava "pegando o ícone do lado" (sobrepondo a próxima tile).
-    /// </summary>
     public double TileWidth => (IsLastPlayed ? 580 : 220) * SizeScale;
 
-    /// <summary>
-    /// What the hero banner (the crisp, non-blurred box back at the top of
-    /// MainWindow, restored this leva — see its comment there) AND the
-    /// full-window blurred background both show for whichever game the
-    /// player is currently navigated over (both follow SelectedTile, so
-    /// this re-evaluates every time MainWindow rebinds it): the real hero
-    /// art when we have it, otherwise the portrait cover stretched to fill
-    /// (still better than a blank panel), otherwise null. The WIDE CAPSULE
-    /// tile in the row never uses this — see TileImagePath below, always
-    /// cover/grid art regardless of size.
-    /// </summary>
     public string? BannerImagePath => Game.HeroImagePath ?? Game.GridImagePath;
-
-    /// <summary>
-    /// What this tile shows IN THE ROW. CAPSULE normal: sempre o
-    /// GridImagePath (capa portrait), igual sempre foi. WIDE CAPSULE
-    /// ("último jogo aberto"): agora usa Game.WideGridImagePath — um
-    /// asset INDEPENDENTE (capa landscape, buscada separado — ver
-    /// GameEntry.WideGridImagePath), NUNCA mais GridImagePath. Correção
-    /// desta leva: antes a WIDE CAPSULE reusava a mesma capa portrait da
-    /// CAPSULE normal só renderizada mais larga, e isso esticava/puxava a
-    /// imagem vertical dentro da caixa horizontal — bug reportado pelo
-    /// usuário como urgente. Sem WideGridImagePath baixado ainda, cai pro
-    /// placeholder vazio (ShowEmptyPlaceholder) — de propósito NÃO cai de
-    /// volta pro GridImagePath esticado, que é exatamente o visual que
-    /// estava sendo corrigido.
-    /// </summary>
     public string? TileImagePath => IsLastPlayed ? Game.WideGridImagePath : GridImagePath;
 
-    // --- Propriedades da ROLETA do tema de layout Switch ---
-    //
-    // Existem porque as de cima são, por desenho, do layout Clássico: ele
-    // tem a WIDE CAPSULE do "último jogo aberto", larga (580) e com arte
-    // landscape própria. Na roleta do tema Switch a fileira é UNIFORME —
-    // uma capa destoando do tamanho quebraria o arco — e o jogo em foco já
-    // é destacado pelo zoom, não pelo tamanho da caixa.
-    //
-    // v0.9.21: eram quadradas (SquareTile*); o usuário pediu "tamanho do
-    // capsule original para não danificar as artes da capa", então voltaram
-    // à proporção retrato de sempre.
-
-    /// <summary>Largura da capa na roleta — a capsule normal, sem o caso especial do último jogo aberto.</summary>
     public double CarouselTileWidth => 220 * SizeScale;
-
-    /// <summary>Altura da capa na roleta — mesma proporção da capsule clássica.</summary>
     public double CarouselTileHeight => 290 * SizeScale;
-
-    /// <summary>
-    /// Arte da capa na roleta: a retrato normal, caindo pra landscape só
-    /// se a retrato não existir (melhor uma arte em proporção errada do que
-    /// um bloco vazio — e com Stretch=Uniform ela aparece inteira, sem
-    /// esticar nem cortar).
-    /// </summary>
     public string? CarouselTileImagePath => GridImagePath ?? Game.WideGridImagePath;
-
-    /// <summary>Sem arte nenhuma — mostra o nome dentro da caixa, pra não ficar um bloco vazio.</summary>
     public bool ShowEmptyCarouselPlaceholder => string.IsNullOrEmpty(CarouselTileImagePath);
 
     private int _carouselDistance;
-
-    /// <summary>
-    /// Posições de distância até o jogo em foco, COM SINAL (-2 = duas à
-    /// esquerda, +3 = três à direita, 0 = é o foco). Atualizada por
-    /// MainViewModel.UpdateFocus. É a única entrada da roleta: tudo abaixo
-    /// é derivado dela.
-    /// </summary>
     public int CarouselDistance
     {
         get => _carouselDistance;
@@ -267,57 +119,16 @@ public sealed class GameTileViewModel : ViewModelBase
         }
     }
 
-    /// <summary>
-    /// Quantas posições longe do foco, com teto — passando disso a capa
-    /// não encolhe nem desce mais, senão as pontas de uma biblioteca grande
-    /// viravam riscos minúsculos lá embaixo.
-    /// </summary>
     private int ClampedDistance => Math.Min(Math.Abs(_carouselDistance), 4);
-
-    /// <summary>
-    /// Zoom: a do meio vem "pra frente da tela" (1.18) e as vizinhas vão
-    /// encolhendo. Como isto é RenderTransform (não layout), a capa em foco
-    /// cresce POR CIMA das vizinhas sem empurrar a fileira — é o que dá o
-    /// efeito de profundidade sem a fileira "pular" a cada navegação.
-    /// </summary>
-    /// <summary>
-    /// v0.9.23: zoom bem maior na do meio (1.55, era 1.18) e queda mais
-    /// forte pras vizinhas — pedido do usuário: "aumenta ainda mais o zoom
-    /// da arte, principalmente [a selecionada]" e "pra ficar menos ícones
-    /// na tela".
-    /// </summary>
     public double CarouselScale => 1.42 - ClampedDistance * 0.16;
-
-    /// <summary>
-    /// O arco: quanto mais longe do foco, mais a capa desce. Quadrático de
-    /// propósito — linear dá uma rampa reta, e o que o usuário pediu foi
-    /// "aspecto de arco".
-    /// </summary>
     public double CarouselOffsetY => ClampedDistance * ClampedDistance * 14.0;
-
-    /// <summary>As pontas desbotam, reforçando a profundidade sem escondê-las.</summary>
     public double CarouselOpacity => 1.0 - ClampedDistance * 0.14;
-
-    /// <summary>A capa em foco desenha por cima das vizinhas — sem isto o zoom dela ficaria recortado pelas de depois na ordem da fileira.</summary>
     public int CarouselZIndex => 100 - ClampedDistance;
 
     private bool _isFocused;
-    public bool IsFocused
-    {
-        get => _isFocused;
-        set => SetField(ref _isFocused, value);
-    }
+    public bool IsFocused { get => _isFocused; set => SetField(ref _isFocused, value); }
 
     private bool _isLastPlayed;
-
-    /// <summary>
-    /// True for exactly one tile (or none, on a fresh library with nothing
-    /// played yet): the "último jogo aberto" / WIDE CAPSULE, rendered wider
-    /// than the normal CAPSULE tiles (same cover art, just bigger — see
-    /// TileWidth/TileImagePath). Set by MainViewModel whenever a game is
-    /// launched or the library reorders/refreshes — never by navigation
-    /// alone.
-    /// </summary>
     public bool IsLastPlayed
     {
         get => _isLastPlayed;
@@ -328,13 +139,6 @@ public sealed class GameTileViewModel : ViewModelBase
                 OnPropertyChanged(nameof(TileWidth));
                 OnPropertyChanged(nameof(TileHeight));
                 OnPropertyChanged(nameof(CaptionLogoHeight));
-
-                // TileImagePath agora depende de IsLastPlayed (WideGridImagePath
-                // vs GridImagePath, ver TileImagePath acima) — sem isso, ao
-                // lançar um jogo diferente (LaunchSelected chama
-                // ReorderLastPlayedFirst SEM reconstruir as tiles do zero),
-                // a imagem continuaria mostrando a capa errada até o
-                // próximo Refresh() completo.
                 OnPropertyChanged(nameof(TileImagePath));
                 OnPropertyChanged(nameof(ShowEmptyPlaceholder));
             }

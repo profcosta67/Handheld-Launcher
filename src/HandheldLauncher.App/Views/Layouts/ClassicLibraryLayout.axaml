@@ -1,6 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:anim="https://github.com/whistyun/AnimatedImage.Avalonia"
              xmlns:vm="using:HandheldLauncher.App.ViewModels"
              xmlns:conv="using:HandheldLauncher.App.Converters"
              xmlns:dataConv="using:Avalonia.Data.Converters"
@@ -15,12 +14,10 @@
 
     <Grid RowDefinitions="Auto,Auto,*" Margin="24,20,24,20">
 
-      <!-- Hero: o jogo focado, banner largo deitado. -->
       <Border Grid.Row="0" Classes="heroBanner" Height="380" Margin="0,0,0,20">
         <Grid>
           <Grid IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
-            
-            <!-- Fundo desfocado do Hero -->
+
             <Image Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
                    Stretch="UniformToFill"
                    Opacity="0.3"
@@ -30,13 +27,11 @@
               </Image.Effect>
             </Image>
 
-            <!-- Imagem principal nítida (Animada) -->
             <Image x:Name="HeroBackImage" Stretch="Uniform" IsHitTestVisible="False" />
             <Image x:Name="HeroImage"
-                   anim:ImageBehavior.AnimatedSource="{Binding SelectedTile.BannerImagePath}"
+                   Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
                    Stretch="Uniform" />
 
-            <!-- MÁGICA VISUAL: Gradiente que funde as bordas da imagem com o fundo -->
             <Border IsHitTestVisible="False">
               <Border.Background>
                 <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
@@ -47,7 +42,7 @@
                 </LinearGradientBrush>
               </Border.Background>
             </Border>
-           
+
             <TextBlock Text="{Binding SelectedTile.Title}"
                        Classes="heroTitle"
                        TextWrapping="Wrap"
@@ -57,18 +52,17 @@
                        Margin="20"
                        IsVisible="{Binding SelectedTile.BannerImagePath, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
 
-            <!-- MELHORIA 3: Logo com fundo escuro para dar contraste -->
-            <Border Background="#80000000" 
-                    CornerRadius="12" 
-                    Padding="16,8" 
-                    HorizontalAlignment="Left" 
-                    VerticalAlignment="Top" 
+            <Border Background="#80000000"
+                    CornerRadius="12"
+                    Padding="16,8"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
                     Margin="24"
                     IsVisible="{Binding SelectedTile.ShowCurrentLogo}">
               <Image Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
                      Height="64" Stretch="Uniform" />
             </Border>
-            
+
           </Grid>
 
           <TextBlock Text="Nenhum jogo encontrado ainda.&#10;Adicione um jogo manualmente para começar."
@@ -82,10 +76,8 @@
         </Grid>
       </Border>
 
-      <!-- Abas de filtro -->
       <StackPanel Grid.Row="1" Spacing="16" Margin="0,0,0,20">
         <Grid ColumnDefinitions="*,*,*,*,*,*">
-          <!-- MELHORIA 4: Adicionado CornerRadius="12" em todas as abas -->
           <Button Grid.Column="0" CornerRadius="12" Classes="pill filterTab" Classes.active="{Binding IsFilterFavoritesActive}" Content="Favoritos" Command="{Binding SetFilterFavoritesCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,5,0" FontSize="13" />
           <Button Grid.Column="1" CornerRadius="12" Classes="pill filterTab" Classes.active="{Binding IsFilterAllActive}" Content="Todos" Command="{Binding SetFilterAllCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" FontSize="13" />
           <Button Grid.Column="2" CornerRadius="12" Classes="pill filterTab" Classes.active="{Binding IsFilterComputerActive}" Content="Computador" Command="{Binding SetFilterComputerCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" FontSize="13" />
@@ -123,18 +115,16 @@
         </ItemsControl>
       </StackPanel>
 
-      <!-- Fileira de jogos -->
       <ScrollViewer x:Name="GameRowScrollViewer" Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
         <ScrollViewer.Transitions>
           <Transitions>
             <VectorTransition Property="Offset" Duration="0:0:0.28" Easing="CubicEaseOut" />
           </Transitions>
         </ScrollViewer.Transitions>
-        
+
         <ItemsControl x:Name="GamesItemsControl" ItemsSource="{Binding Games}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
-              <!-- MELHORIA 1: Spacing aumentado de 18 para 28 -->
               <StackPanel Orientation="Horizontal" Spacing="28" />
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
@@ -169,8 +159,7 @@
                         PointerPressed="OnTilePointerPressed"
                         DoubleTapped="OnTileDoubleTapped">
                   <Grid>
-                    <!-- CAPA ANIMADA -->
-                    <Image anim:ImageBehavior.AnimatedSource="{Binding TileImagePath}" Stretch="Uniform" />
+                    <Image Source="{Binding TileImagePath, Converter={StaticResource FileToBitmapConverter}}" Stretch="Uniform" />
 
                     <Border Background="#99383838"
                             IsHitTestVisible="False"

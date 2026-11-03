@@ -1,0 +1,78 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="HandheldLauncher.App.Views.ArtworkDownloadPopupWindow"
+        Title="Baixando Capas"
+        Width="320" Height="300"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Topmost="True"
+        Background="#1A1A1A"
+        SystemDecorations="None"
+        TransparencyLevelHint="Mica,Blur,None">
+  <Border CornerRadius="16" Background="#1A1A1A" BorderBrush="#2A2A2A" BorderThickness="1" Padding="20">
+    <Grid RowDefinitions="*,Auto">
+
+      <!-- Centro: círculo + título + número -->
+      <StackPanel Grid.Row="0" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="18">
+
+        <!-- Círculo animado (spinner) -->
+        <Grid Width="80" Height="80" HorizontalAlignment="Center">
+          <Ellipse Stroke="#2A2A2A" StrokeThickness="5" />
+          <Ellipse x:Name="SpinnerRing"
+                   Stroke="#7B68EE" StrokeThickness="5"
+                   StrokeDashArray="18,62"
+                   StrokeLineCap="Round" />
+        </Grid>
+
+        <!-- Título -->
+        <TextBlock Text="Baixando Capas"
+                   FontSize="20" FontWeight="Bold"
+                   Foreground="White"
+                   HorizontalAlignment="Center" />
+
+        <!-- Número atual / total -->
+        <TextBlock x:Name="ProgressText"
+                   Text="0 / 0"
+                   FontSize="28" FontWeight="SemiBold"
+                   Foreground="#7B68EE"
+                   HorizontalAlignment="Center" />
+
+        <!-- Nome do jogo (subtítulo discreto) -->
+        <TextBlock x:Name="CurrentGameText"
+                   Text=""
+                   FontSize="11"
+                   Foreground="#707070"
+                   HorizontalAlignment="Center"
+                   TextAlignment="Center"
+                   TextTrimming="CharacterEllipsis"
+                   MaxWidth="260"
+                   MaxHeight="16" />
+
+      </StackPanel>
+
+      <!-- Rodapé: só os ícones -->
+      <StackPanel Grid.Row="1"
+                  Orientation="Horizontal"
+                  HorizontalAlignment="Center"
+                  Spacing="16"
+                  Margin="0,16,0,0">
+        <Button x:Name="PauseButton"
+                Content="⏸"
+                Width="56" Height="44"
+                FontSize="18"
+                CornerRadius="10"
+                Background="#2A2A3A"
+                Foreground="White" />
+        <Button x:Name="CancelButton"
+                Content="✕"
+                Width="56" Height="44"
+                FontSize="18"
+                CornerRadius="10"
+                Background="#3A1A1A"
+                Foreground="White" />
+      </StackPanel>
+
+    </Grid>
+  </Border>
+</Window>
