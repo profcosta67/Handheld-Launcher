@@ -902,7 +902,7 @@ public sealed class MainViewModel : ViewModelBase
                 break;
 
             case GlobalMenuPage.Settings:
-                GlobalMenuTitle = "Configurações"; Add("⚙ Preferências", () => SettingsRequested?.Invoke(this, EventArgs.Empty)); Add("📐 Layout da tela", () => LayoutPickerRequested?.Invoke(this, EventArgs.Empty));
+                GlobalMenuTitle = "Configurações"; Add("⚙ Preferências", () => SettingsRequested?.Invoke(this, EventArgs.Empty)); Add("🎨 Temas", () => LayoutPickerRequested?.Invoke(this, EventArgs.Empty));
                 Add("🔄 Atualizações (Windows + Drivers)", () => SystemUpdateRequested?.Invoke(this, EventArgs.Empty)); Add("🛠 Instalar Driver Manual (.inf)", () => DriverUpdateRequested?.Invoke(this, EventArgs.Empty));
                 if (_updates is { IsInstalled: true } && !IsUpdateReady) Add($"🔄 Verificar atualizações (v{_updates.CurrentVersionText})", () => _ = CheckForUpdatesAsync(userInitiated: true));
                 break;
