@@ -1429,7 +1429,12 @@ public partial class MainWindow : Window
         try
         {
             var settings = AppSettingsStore.Load();
-            layout = settings.LayoutTheme == 1 ? new Layouts.SwitchLibraryLayout() : new Layouts.ClassicLibraryLayout();
+            layout = settings.LayoutTheme switch
+            {
+                2 => new Layouts.BigScreenLibraryLayout(),
+                1 => new Layouts.SwitchLibraryLayout(), // índice legado mantido para instalações existentes (agora chamado Clean)
+                _ => new Layouts.ClassicLibraryLayout()
+            };
         }
         catch (Exception ex) { DebugLog.Write($"ApplyLayoutTheme: falhou ao ler settings, usando Clássico. {ex}"); layout = new Layouts.ClassicLibraryLayout(); }
         _libraryLayout = (ILibraryLayout)layout;
