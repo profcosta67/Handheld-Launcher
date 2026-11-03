@@ -53,4 +53,19 @@ public partial class BigScreenLibraryLayout : UserControl, ILibraryLayout
     private void OnTileDoubleTapped(object? sender, TappedEventArgs e) => Owner?.HandleTileDoubleTapped(sender, e);
 
     private void OnSubFilterClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => Owner?.HandleSubFilterClick(sender, e);
+
+    private void OnOpenWifiSettingsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-settings:network-wifi") { UseShellExecute = true }); }
+        catch { /* O Windows pode bloquear a abertura das configurações. */ }
+    }
+
+    private void OnOpenBluetoothSettingsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-settings:bluetooth") { UseShellExecute = true }); }
+        catch { /* O Windows pode bloquear a abertura das configurações. */ }
+    }
+
 }
