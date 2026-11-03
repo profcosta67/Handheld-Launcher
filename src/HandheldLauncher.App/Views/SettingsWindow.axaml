@@ -9,6 +9,51 @@
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource BackgroundBrush}">
 
+  <Window.Styles>
+    <Style Selector="ComboBox">
+      <Setter Property="FocusAdorner">
+        <Template>
+          <Border BorderBrush="#7C5CFC" BorderThickness="3" CornerRadius="10" Margin="-4"/>
+        </Template>
+      </Setter>
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="FocusAdorner">
+        <Template>
+          <Border BorderBrush="#7C5CFC" BorderThickness="3" CornerRadius="10" Margin="-4"/>
+        </Template>
+      </Setter>
+    </Style>
+    <Style Selector="CheckBox">
+      <Setter Property="FocusAdorner">
+        <Template>
+          <Border BorderBrush="#7C5CFC" BorderThickness="3" CornerRadius="10" Margin="-4"/>
+        </Template>
+      </Setter>
+    </Style>
+    <Style Selector="RadioButton">
+      <Setter Property="FocusAdorner">
+        <Template>
+          <Border BorderBrush="#7C5CFC" BorderThickness="3" CornerRadius="10" Margin="-4"/>
+        </Template>
+      </Setter>
+    </Style>
+    <Style Selector="Slider">
+      <Setter Property="FocusAdorner">
+        <Template>
+          <Border BorderBrush="#7C5CFC" BorderThickness="3" CornerRadius="16" Margin="-4"/>
+        </Template>
+      </Setter>
+    </Style>
+    <Style Selector="Button.categoryTab">
+      <Setter Property="FocusAdorner">
+        <Template>
+          <Border BorderBrush="#7C5CFC" BorderThickness="3" CornerRadius="16" Margin="-3"/>
+        </Template>
+      </Setter>
+    </Style>
+  </Window.Styles>
+
   <Panel>
   <Grid RowDefinitions="*,Auto" Margin="24" IsEnabled="{Binding FormEnabled}">
     <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
@@ -192,10 +237,12 @@
     </ScrollViewer>
 
     <StackPanel Grid.Row="1" Spacing="10" Margin="0,16,0,0">
-      <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-        <TextBlock Text="{Binding VersionText}" Classes="subtle" VerticalAlignment="Center" />
-        <Button Classes="pill" Content="Verificar atualizações" Click="OnCheckUpdatesClick" IsVisible="{Binding UpdatesAvailable}" />
-      </StackPanel>
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+    <Button Classes="pill" Content="⌨ Teclado" Click="OnKeyboardClick" />
+    <Button Classes="pill" Content="Fechar" Click="OnCloseClick" />
+    <Button Classes="pill" Content="Salvar" Click="OnSaveClick" />
+    <Button Classes="pill primary" Content="✓ Salvar e Fechar" Click="OnSaveAndCloseClick" />
+</StackPanel>
       <TextBlock Text="{Binding UpdateResultText}" IsVisible="{Binding HasUpdateResult}" TextWrapping="Wrap" />
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
         <Button Classes="pill" Content="⌨ Teclado" Click="OnKeyboardClick" />

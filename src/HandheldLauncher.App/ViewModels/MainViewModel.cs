@@ -676,6 +676,12 @@ public sealed class MainViewModel : ViewModelBase
     }
 
     public void CloseRunningGame() { if (RunningGame is null) return; _launcher.CloseGame(RunningGame); RunningGame = null; }
+    public void NotifyGameExitedExternally()
+{
+    if (RunningGame is null) return;
+    DebugLog.Write($"[JOGO] '{RunningGame.Title}' liberado externamente — limpando RunningGame.");
+    RunningGame = null;
+}
 
     public void ToggleContextMenu()
     {

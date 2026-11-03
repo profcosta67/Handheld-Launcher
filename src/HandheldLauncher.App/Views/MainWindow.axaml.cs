@@ -27,6 +27,20 @@ public partial class MainWindow : Window
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")] private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
 
+    [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    [DllImport("user32.dll")] private static extern bool BringWindowToTop(IntPtr hWnd);
+    [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+    [DllImport("user32.dll")] private static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+    [DllImport("kernel32.dll")] private static extern uint GetCurrentThreadId();
+    [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+    [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+
+    private const int SW_RESTORE = 9;
+    private static readonly IntPtr HWND_TOPMOST = new(-1);
+    private const uint SWP_NOMOVE = 0x0002;
+    private const uint SWP_NOSIZE = 0x0001;
+    private const uint SWP_SHOWWINDOW = 0x0040;
+
     private const byte VK_LWIN = 0x5B;
     private const byte VK_D = 0x44;
     private const uint KEYEVENTF_KEYUP = 0x0002;
@@ -46,6 +60,10 @@ public partial class MainWindow : Window
     private readonly GamepadPoller _gamepad = new();
     private readonly DispatcherTimer _gamepadTimer;
     private DispatcherTimer? _topmostEnforcerTimer;
+    private DispatcherTimer? _foregroundFighterTimer;
+    private DispatcherTimer? _gameWatcherTimer;
+    private GameLaunchPopupWindow? _launchPopup;
+    private DispatcherTimer? _launchPopupTimer;
     private DispatcherTimer? _batteryTimer;
     private bool _hotkeyRegistered;
 
@@ -75,10 +93,7 @@ public partial class MainWindow : Window
         _gamepadTimer.Tick += OnGamepadTick;
         _gamepadTimer.Start();
 
-        Closing += (_, _) =>
-        {
-            DebugLog.Write("[STARTUP] Fechamento detectado.");
-        };
+        Closing += (_, _) => DebugLog.Write("[STARTUP] Fechamento detectado.");
 
         Closed += (_, _) =>
         {
@@ -94,34 +109,147 @@ public partial class MainWindow : Window
 
         Opened += (_, _) =>
         {
-            if (Topmost) StartTopmostEnforcer();
+            StartTopmostEnforcer();
             RegisterRestoreHotkey();
-            
-            if (OperatingSystem.IsWindows())
-            {
-                try
-                {
-                    var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
-                    if (handle != IntPtr.Zero) SetForegroundWindow(handle);
-                }
-                catch { }
-            }
-        };
-        Closed += (_, _) => UnregisterRestoreHotkeyIfNeeded();
 
+            ForceForeground(allowRestore: true, forceIfGameRunning: true);
+
+            StartForegroundFighter();
+
+            PointerPressed += (_, _) => StopForegroundFighter();
+            KeyDown += (_, _) => StopForegroundFighter();
+        };
+
+        Closed += (_, _) => UnregisterRestoreHotkeyIfNeeded();
         Activated += (_, _) => { if (OperatingSystem.IsWindows()) PowerThrottling.DisableForThisProcess(); };
+    }
+
+    // ===================== [BUG 1] Foreground =====================
+
+    private void ForceForeground(bool allowRestore = false, bool forceIfGameRunning = false)
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        if (!IsVisible) return;
+        if (WindowState == WindowState.Minimized) return;
+
+        try
+        {
+            var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+            if (handle == IntPtr.Zero) return;
+
+            if (!forceIfGameRunning)
+            {
+                var fg = GetForegroundWindow();
+                if (fg != IntPtr.Zero && fg != handle)
+                    return;
+            }
+
+            if (allowRestore && WindowState == WindowState.Normal)
+                ShowWindow(handle, SW_RESTORE);
+
+            var foregroundHandle = GetForegroundWindow();
+            if (foregroundHandle == handle)
+            {
+                SetWindowPos(handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+                return;
+            }
+
+            if (foregroundHandle != IntPtr.Zero)
+            {
+                var fgThread = GetWindowThreadProcessId(foregroundHandle, out _);
+                var myThread = GetCurrentThreadId();
+                if (fgThread != 0 && fgThread != myThread)
+                {
+                    AttachThreadInput(fgThread, myThread, true);
+                    try
+                    {
+                        BringWindowToTop(handle);
+                        SetForegroundWindow(handle);
+                        SetWindowPos(handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+                    }
+                    finally
+                    {
+                        AttachThreadInput(fgThread, myThread, false);
+                    }
+                    return;
+                }
+            }
+
+            BringWindowToTop(handle);
+            SetForegroundWindow(handle);
+            SetWindowPos(handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[STARTUP] ForceForeground EXCEPTION: {ex.Message}");
+        }
+    }
+
+    private void StartForegroundFighter()
+    {
+        _foregroundFighterTimer?.Stop();
+        _foregroundFighterTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(800) };
+        var attempts = 0;
+        _foregroundFighterTimer.Tick += (_, _) =>
+        {
+            attempts++;
+
+            if (!IsVisible) { _foregroundFighterTimer?.Stop(); return; }
+            if (WindowState == WindowState.Minimized) { _foregroundFighterTimer?.Stop(); return; }
+            if (IsActive) { _foregroundFighterTimer?.Stop(); return; }
+            if (_activeDialog != null) { _foregroundFighterTimer?.Stop(); return; }
+
+            try
+            {
+                var fg = GetForegroundWindow();
+                var myHandle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+                if (fg != IntPtr.Zero && myHandle != IntPtr.Zero && fg != myHandle)
+                {
+                    _foregroundFighterTimer?.Stop();
+                    return;
+                }
+            }
+            catch { }
+
+            ForceForeground();
+
+            if (attempts >= 20) _foregroundFighterTimer?.Stop();
+        };
+        _foregroundFighterTimer.Start();
+        Closed += (_, _) => _foregroundFighterTimer?.Stop();
     }
 
     private static readonly TimeSpan TopmostEnforcerGracePeriod = TimeSpan.FromSeconds(120);
 
     private void StartTopmostEnforcer()
     {
+        _topmostEnforcerTimer?.Stop();
         _topmostEnforcerTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         _topmostEnforcerTimer.Tick += (_, _) =>
         {
-            if (!Topmost || !IsVisible) return;
-            Topmost = false;
-            Topmost = true;
+            if (!IsVisible) return;
+            if (WindowState == WindowState.Minimized) return;
+            if (_activeDialog != null) return;
+
+            try
+            {
+                if (OperatingSystem.IsWindows())
+                {
+                    var fg = GetForegroundWindow();
+                    var myHandle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+                    if (fg != IntPtr.Zero && myHandle != IntPtr.Zero && fg != myHandle)
+                        return;
+                }
+            }
+            catch { }
+
+            try
+            {
+                var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+                if (handle != IntPtr.Zero)
+                    SetWindowPos(handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+            }
+            catch { }
         };
         _topmostEnforcerTimer.Start();
         Closed += (_, _) => _topmostEnforcerTimer?.Stop();
@@ -130,6 +258,11 @@ public partial class MainWindow : Window
         graceTimer.Tick += (_, _) => { _topmostEnforcerTimer?.Stop(); graceTimer.Stop(); };
         graceTimer.Start();
         Closed += (_, _) => graceTimer.Stop();
+    }
+
+    private void StopForegroundFighter()
+    {
+        _foregroundFighterTimer?.Stop();
     }
 
     private void RegisterRestoreHotkey()
@@ -198,7 +331,7 @@ public partial class MainWindow : Window
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = url, UseShellExecute = true });
             DispatcherTimer.RunOnce(() =>
             {
-                if (IsVisible) { Topmost = true; if (_topmostEnforcerTimer != null) _topmostEnforcerTimer.Start(); }
+                if (IsVisible) { Topmost = true; _topmostEnforcerTimer?.Start(); }
             }, TimeSpan.FromSeconds(3));
         }
         catch (Exception ex) { DebugLog.Write($"[MAIN] Falha ao abrir URL externa: {ex.Message}"); }
@@ -247,7 +380,31 @@ public partial class MainWindow : Window
     private void OnShortcutsCloseClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => (DataContext as MainViewModel)?.CloseShortcutsHelp();
 
     public void QuitFromTray() { WatchdogGate.MarkDeliberateQuit(); Close(); }
-    public void RestoreFromTray() { Show(); if (Topmost) WindowState = WindowState.FullScreen; Activate(); }
+
+    public void RestoreFromTray()
+    {
+        try
+        {
+            DebugLog.Write("[RESTORE] RestoreFromTray chamado.");
+            Show();
+            if (Topmost) WindowState = WindowState.FullScreen;
+            Activate();
+
+            try
+            {
+                var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+                if (handle != IntPtr.Zero)
+                    SetWindowPos(handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+            }
+            catch { }
+
+            DebugLog.Write("[RESTORE] RestoreFromTray concluído.");
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[RESTORE] EXCEPTION: {ex.Message}");
+        }
+    }
 
     private static void TurnOffScreen() { if (!OperatingSystem.IsWindows()) return; try { PostMessage(HwndBroadcast, WmSysCommand, (IntPtr)ScMonitorPower, (IntPtr)2); } catch { } }
     private static void RestartDevice() { if (!OperatingSystem.IsWindows()) return; RunShutdownExe("/r /f /t 0"); }
@@ -278,8 +435,8 @@ public partial class MainWindow : Window
         vm.EditGameRequested += (_, game) => _ = OpenEditGameDialogAsync(vm, game);
         vm.LayoutPickerRequested += (_, _) => _ = OpenLayoutPickerAsync();
         vm.SettingsRequested += (_, _) => _ = OpenSettingsDialogAsync(vm);
-        vm.SystemUpdateRequested += (_, _) => _ = OpenSystemUpdateDialogAsync(); 
-        vm.DriverUpdateRequested += (_, _) => _ = OpenDriverUpdateDialogAsync(); 
+        vm.SystemUpdateRequested += (_, _) => _ = OpenSystemUpdateDialogAsync();
+        vm.DriverUpdateRequested += (_, _) => _ = OpenDriverUpdateDialogAsync();
 
         vm.QuitRequested += (_, _) =>
         {
@@ -301,6 +458,12 @@ public partial class MainWindow : Window
             {
                 DebugLog.Write("[OVERLAY] Handler disparado.");
 
+                IntPtr gameHwnd = IntPtr.Zero;
+                if (OperatingSystem.IsWindows())
+                {
+                    try { gameHwnd = GetForegroundWindow(); } catch { }
+                }
+
                 if (_overlayWindow != null && !_overlayWindow.IsLoaded)
                 {
                     DebugLog.Write("[OVERLAY] Janela destruída, recriando.");
@@ -314,10 +477,32 @@ public partial class MainWindow : Window
                     _overlayWindow = new OverlayWindow(vm);
                 }
 
-                DebugLog.Write($"[OVERLAY] Antes Show: IsVisible={_overlayWindow.IsVisible}, Pos={_overlayWindow.Position}");
+                _overlayWindow.SetGameHwnd(gameHwnd);
+
+                DebugLog.Write($"[OVERLAY] Antes Show: IsVisible={_overlayWindow.IsVisible}, Pos={_overlayWindow.Position}, GameHwnd=0x{gameHwnd:X}");
 
                 _overlayWindow.Show();
-                _overlayWindow.Topmost = true;
+
+                var hwnd = _overlayWindow.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+                if (hwnd != IntPtr.Zero)
+                {
+                    ShowWindow(hwnd, 0);
+
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        try
+                        {
+                            _overlayWindow.PositionOnRightEdge();
+                            ShowWindow(hwnd, 1);
+                            _overlayWindow.ForceTopmost();
+                            DebugLog.Write($"[OVERLAY] Reposicionado e mostrado. Pos={_overlayWindow.Position}");
+                        }
+                        catch (Exception ex)
+                        {
+                            DebugLog.Write($"[OVERLAY] PostShow EXCEPTION: {ex.Message}");
+                        }
+                    }, DispatcherPriority.Loaded);
+                }
 
                 DebugLog.Write($"[OVERLAY] Depois Show: IsVisible={_overlayWindow.IsVisible}, Pos={_overlayWindow.Position}");
             }
@@ -331,10 +516,39 @@ public partial class MainWindow : Window
             }
         };
 
+        StartGameWatcher(vm);
         StartBatteryMonitor(vm);
         StartDownloadsRefreshTimer(vm);
 
-        vm.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(MainViewModel.IsFilterAllActive)) FadeIn(GamesItemsControl, 220); };
+        vm.PropertyChanged += (_, e) =>
+{
+    if (e.PropertyName == nameof(MainViewModel.IsFilterAllActive))
+        FadeIn(GamesItemsControl, 220);
+
+    if (e.PropertyName == nameof(MainViewModel.IsLaunching))
+    {
+        if (vm.IsLaunching && !string.IsNullOrEmpty(vm.LaunchingGameTitle))
+        {
+            DebugLog.Write($"[JOGO] '{vm.LaunchingGameTitle}' abriu — minimizando launcher + popup.");
+            if (IsVisible) MinimizeToTray();
+            ShowLaunchPopup(vm.LaunchingGameTitle, vm.LaunchingGameIconPath);
+        }
+        return;
+    }
+
+    if (e.PropertyName == nameof(MainViewModel.RunningGame))
+    {
+        if (vm.RunningGame is not null)
+        {
+            if (IsVisible) MinimizeToTray();
+        }
+        else
+        {
+            DebugLog.Write("[JOGO] Jogo fechou — restaurando launcher.");
+            if (!IsVisible) RestoreFromTray();
+        }
+    }
+};
 
         ApplyAppearance(vm, AppSettingsStore.Load());
         _ = vm.RunUpdateLoopAsync();
@@ -362,7 +576,7 @@ public partial class MainWindow : Window
             DebugLog.Write("RestoreWindowsShell: Kiosk Mode desativado.");
 
             var explorerPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
-            
+
             if (Process.GetProcessesByName("explorer").Length == 0 && File.Exists(explorerPath))
             {
                 Process.Start(new ProcessStartInfo { FileName = explorerPath, UseShellExecute = true });
@@ -391,6 +605,113 @@ public partial class MainWindow : Window
     }
 
     private DispatcherTimer? _downloadsRefreshTimer;
+
+    private bool _gameWindowSeen = false;
+    private int _gameWindowMissingSeconds = 0;
+    private void ShowLaunchPopup(string title, string? iconPath)
+{
+    try
+    {
+        try { _launchPopup?.Close(); } catch { }
+        _launchPopup = null;
+
+        _launchPopupTimer?.Stop();
+        _launchPopupTimer = null;
+
+        _launchPopup = new GameLaunchPopupWindow(title, iconPath);
+        _launchPopup.Show();
+
+        _launchPopupTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+        _launchPopupTimer.Tick += (_, _) =>
+        {
+            _launchPopupTimer?.Stop();
+            try { _launchPopup?.Close(); } catch { }
+            _launchPopup = null;
+        };
+        _launchPopupTimer.Start();
+
+        DebugLog.Write($"[POPUP] Aberto: '{title}'");
+    }
+    catch (Exception ex)
+    {
+        DebugLog.Write($"[POPUP] EXCEPTION: {ex.Message}");
+    }
+}
+
+    private void StartGameWatcher(MainViewModel vm)
+    {
+        _gameWatcherTimer?.Stop();
+        _gameWindowSeen = false;
+        _gameWindowMissingSeconds = 0;
+
+        DebugLog.Write("[JOGO-WATCHER] Iniciado.");
+
+        _gameWatcherTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _gameWatcherTimer.Tick += (_, _) =>
+        {
+            if (vm.RunningGame is null) { _gameWindowSeen = false; _gameWindowMissingSeconds = 0; return; }
+            if (!OperatingSystem.IsWindows()) return;
+            if (_activeDialog != null) { _gameWindowMissingSeconds = 0; return; }
+
+            try
+            {
+                var gameTitle = vm.RunningGame.Title;
+                if (string.IsNullOrEmpty(gameTitle)) return;
+
+                var titleLower = gameTitle.ToLowerInvariant();
+                bool found = false;
+                IntPtr foundHwnd = IntPtr.Zero;
+                var myPid = Environment.ProcessId;
+
+                foreach (var p in Process.GetProcesses())
+                {
+                    try
+                    {
+                        if (p.Id == myPid) continue;
+                        if (p.MainWindowHandle == IntPtr.Zero) continue;
+                        var title = p.MainWindowTitle;
+                        if (string.IsNullOrEmpty(title)) continue;
+                        if (title.ToLowerInvariant().Contains(titleLower))
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+                    catch { }
+                }
+
+                if (found)
+                {
+                    if (!_gameWindowSeen)
+                    {
+                        DebugLog.Write($"[JOGO-WATCHER] Janela de '{gameTitle}' detectada pela primeira vez.");
+                        _gameWindowSeen = true;
+                    }
+                    _gameWindowMissingSeconds = 0;
+                }
+                else if (_gameWindowSeen)
+                {
+                    _gameWindowMissingSeconds += 1;
+                    DebugLog.Write($"[JOGO-WATCHER] Janela de '{gameTitle}' ausente há {_gameWindowMissingSeconds}s.");
+                    LosslessScalingService.SetGameHwnd(foundHwnd);   // ← NOVO
+                    if (_gameWindowMissingSeconds >= 8)
+                    {
+                        DebugLog.Write($"[JOGO-WATCHER] Janela de '{gameTitle}' sumiu há {_gameWindowMissingSeconds}s — liberando launcher.");
+                        LosslessScalingService.SetGameHwnd(IntPtr.Zero);  // ← NOVO (limpa ao fechar)
+                        vm.NotifyGameExitedExternally();
+                        _gameWindowSeen = false;
+                        _gameWindowMissingSeconds = 0;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                DebugLog.Write($"[JOGO-WATCHER] EXCEPTION: {ex.Message}");
+            }
+        };
+        _gameWatcherTimer.Start();
+        Closed += (_, _) => _gameWatcherTimer?.Stop();
+    }
 
     private void StartDownloadsRefreshTimer(MainViewModel vm)
     {
@@ -427,7 +748,13 @@ public partial class MainWindow : Window
 
             if (_activeDialog is { } dialog)
             {
-                foreach (var dialogAction in actions) { UiSounds.PlayForAction(dialogAction); DialogGamepadNavigator.Handle(dialog, dialogAction); }
+                foreach (var dialogAction in actions)
+                {
+                    UiSounds.PlayForAction(dialogAction);
+                    if (dialog is SettingsWindow sw && sw.HandleSettingsGamepadAction(dialogAction))
+                        continue;
+                    DialogGamepadNavigator.Handle(dialog, dialogAction);
+                }
                 return;
             }
 
@@ -541,21 +868,8 @@ public partial class MainWindow : Window
     {
         if (DataContext is not MainViewModel vm) return;
 
-        // F1 abre/fecha o painel de atalhos (sempre funciona, em qualquer estado)
-        if (e.Key == Key.F1)
-        {
-            vm.ToggleShortcutsHelp();
-            e.Handled = true;
-            return;
-        }
-
-        // Se o painel de ajuda estiver aberto, qualquer tecla o fecha
-        if (vm.IsShortcutsHelpOpen)
-        {
-            vm.CloseShortcutsHelp();
-            e.Handled = true;
-            return;
-        }
+        if (e.Key == Key.F1) { vm.ToggleShortcutsHelp(); e.Handled = true; return; }
+        if (vm.IsShortcutsHelpOpen) { vm.CloseShortcutsHelp(); e.Handled = true; return; }
 
         if (vm.IsCoverPickerOpen)
         {
@@ -642,15 +956,8 @@ public partial class MainWindow : Window
     private bool TryMatch(string gestureString, KeyEventArgs e)
     {
         if (string.IsNullOrWhiteSpace(gestureString)) return false;
-        try
-        {
-            var gesture = KeyGesture.Parse(gestureString);
-            return gesture.Matches(e);
-        }
-        catch 
-        { 
-            return false; 
-        }
+        try { var gesture = KeyGesture.Parse(gestureString); return gesture.Matches(e); }
+        catch { return false; }
     }
 
     private void ScrollCoverPickerSelectionIntoView(MainViewModel vm)
@@ -835,14 +1142,14 @@ public partial class MainWindow : Window
 
     private async Task OpenAddProgramDialogAsync(MainViewModel vm)
     {
-        var dialog = new AddGameWindow(isApplication: true); _activeDialog = dialog;
+        var dialog = new AddGameWindow(isApplication: true); _activeDialog = dialog; dialog.Topmost = true;
         GameEntry? result; try { result = await dialog.ShowDialog<GameEntry?>(this); } finally { _activeDialog = null; }
         if (result is null) return; vm.AddManualGame(result); vm.SetFilterApplicationsCommand.Execute(null);
     }
 
     private async Task OpenAddGameDialogAsync(MainViewModel vm)
     {
-        var dialog = new AddGameWindow(); _activeDialog = dialog;
+        var dialog = new AddGameWindow(); _activeDialog = dialog; dialog.Topmost = true;
         GameEntry? result; try { result = await dialog.ShowDialog<GameEntry?>(this); } finally { _activeDialog = null; }
         if (result is null) return; vm.AddManualGame(result);
     }
@@ -851,7 +1158,7 @@ public partial class MainWindow : Window
     {
         AppSettings settings;
         try { settings = AppSettingsStore.Load(); } catch (Exception ex) { DebugLog.Write($"OpenLayoutPicker: falhou ao ler settings: {ex.Message}"); return; }
-        var dialog = new LayoutPickerWindow(settings.LayoutTheme); _activeDialog = dialog;
+        var dialog = new LayoutPickerWindow(settings.LayoutTheme); _activeDialog = dialog; dialog.Topmost = true;
         bool apply; try { apply = await dialog.ShowDialog<bool>(this); } finally { _activeDialog = null; }
         if (!apply || dialog.SelectedLayout == settings.LayoutTheme) return;
         settings.LayoutTheme = dialog.SelectedLayout;
@@ -862,12 +1169,11 @@ public partial class MainWindow : Window
 
     private async Task OpenEditGameDialogAsync(MainViewModel vm, GameEntry game)
     {
-        var dialog = new EditGameWindow(game.TitleOverride ?? game.Title, game.IsApplication); _activeDialog = dialog;
+        var dialog = new EditGameWindow(game.TitleOverride ?? game.Title, game.IsApplication); _activeDialog = dialog; dialog.Topmost = true;
         bool saved; try { saved = await dialog.ShowDialog<bool>(this); } finally { _activeDialog = null; }
         if (!saved) return; vm.ApplyEntryEdits(game, dialog.EditedTitle, dialog.IsApplication);
     }
 
-    [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
     private bool IsOurWindowInForeground() { if (!OperatingSystem.IsWindows()) return true; try { var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero; return handle != IntPtr.Zero && GetForegroundWindow() == handle; } catch { return true; } }
 
     private async Task OpenSettingsDialogAsync(MainViewModel vm)
@@ -876,6 +1182,7 @@ public partial class MainWindow : Window
         dialog.ViewModel.VersionText = vm.AppVersionText;
         dialog.ViewModel.UpdatesAvailable = vm.UpdatesInstalled;
         dialog.CheckForUpdates = vm.CheckForUpdatesWithResultAsync;
+        dialog.Topmost = true;
         _activeDialog = dialog;
         try { await dialog.ShowDialog(this); } finally { _activeDialog = null; }
         ApplyAppearance(vm, AppSettingsStore.Load());
@@ -886,20 +1193,20 @@ public partial class MainWindow : Window
     {
         var dialog = new GameDetailsWindow { DataContext = vm.CreateGameDetailsViewModel(game) };
         var settings = AppSettingsStore.Load();
-        ThemeManager.ApplyFont(dialog, settings.UiFont);
+        ThemeManager.ApplyFont(dialog, settings.UiFont); dialog.Topmost = true;
         _activeDialog = dialog;
         try { await dialog.ShowDialog(this); } finally { _activeDialog = null; }
     }
 
     private async Task OpenSystemUpdateDialogAsync()
     {
-        var dialog = new SystemUpdateWindow(); _activeDialog = dialog;
+        var dialog = new SystemUpdateWindow(); _activeDialog = dialog; dialog.Topmost = true;
         try { await dialog.ShowDialog(this); } finally { _activeDialog = null; }
     }
 
     private async Task OpenDriverUpdateDialogAsync()
     {
-        var dialog = new DriverUpdateWindow(); _activeDialog = dialog;
+        var dialog = new DriverUpdateWindow(); _activeDialog = dialog; dialog.Topmost = true;
         try { await dialog.ShowDialog(this); } finally { _activeDialog = null; }
     }
 }

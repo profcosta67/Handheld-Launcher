@@ -18,6 +18,8 @@ namespace HandheldLauncher.App.Views;
 
 public partial class OverlayWindow : Window
 {
+    private bool _lsfgIsActive = false;
+
     private readonly IHardwareService _hardwareService;
     private readonly IBrush _activeColor = new SolidColorBrush(Color.FromRgb(124, 92, 252));
     private readonly IBrush _inactiveColor = new SolidColorBrush(Color.FromRgb(37, 42, 54));
@@ -33,7 +35,6 @@ public partial class OverlayWindow : Window
     private int _currentColor = 0;
     private bool _tdpAppliedOnOpen = false;
 
-    // [PATCH] Adicionado Lossless ao enum de submenus
     private enum SubMenuMode { None, Resolution, RefreshRate, Tdp, Fan, Color, Hud, Volume, Brightness, Capture, Lossless }
     private SubMenuMode _activeSubMenu = SubMenuMode.None;
     
@@ -48,13 +49,25 @@ public partial class OverlayWindow : Window
     private int _tempColorIndex = 0; 
     private int _tempHudIndex = 0;
     private int _tempCaptureIndex = 0;
-    private int _tempLosslessIndex = 0;   // [PATCH] novo índice temporário do submenu Lossless
+    private int _tempLosslessIndex = 0;
 
     private readonly MainViewModel _viewModel;
     public bool IsAppClosing { get; set; } = false; 
 
     private Button[] _resolutionButtons = null!;
     private Button[] _refreshButtons = null!;
+
+    // ===================== [BUG 3] Win32 para topmost + HWND do jogo =====================
+    [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+    [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hWnd);
+    [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+
+    private static readonly IntPtr HWND_TOPMOST = new(-1);
+    private const uint SWP_NOMOVE = 0x0002;
+    private const uint SWP_NOSIZE = 0x0001;
+    private const uint SWP_SHOWWINDOW = 0x0040;
+
+    private IntPtr _gameHwnd = IntPtr.Zero;
 
     [DllImport("user32.dll")] private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
     [StructLayout(LayoutKind.Sequential)] private struct INPUT { public uint type; public InputUnion U; }
@@ -89,10 +102,10 @@ public partial class OverlayWindow : Window
         }
 
         _sections = new[] { 
-    ResolutionSection, RefreshSection, 
-    TdpSection, FanSection, ColorSection, HudSection, 
-    VolumeSection, BrightnessSection, LosslessSection, CaptureSection 
-};
+            ResolutionSection, RefreshSection, 
+            TdpSection, FanSection, ColorSection, HudSection, 
+            VolumeSection, BrightnessSection, LosslessSection, CaptureSection 
+        };
 
         _resolutionButtons = new[] { BtnRes720, BtnRes900, BtnRes1080, BtnRes1200, BtnRes2K, BtnResGo };
         _refreshButtons = new[] { BtnHz60, BtnHz120, BtnHz144, BtnHz240 };
@@ -173,50 +186,75 @@ public partial class OverlayWindow : Window
         catch (Exception ex) { DebugLog.Write($"[OVERLAY] Aviso: {ex.Message}"); }
 
         Closed += (_, _) => _fanCurveService?.Dispose();
-        _isInitializing = false;
-        UpdateFocusVisual();
+_isInitializing = false;
+UpdateFocusVisual();
     }
+
+    /// <summary>
+/// [FIX] Re-asserta HWND_TOPMOST via Win32. SEM SWP_SHOWWINDOW — a janela já
+/// está visível e esse flag força repaint visível (flicker). Também NÃO mexe
+/// no Topmost do Avalonia (evita conflito de z-order).
+/// </summary>
+public void ForceTopmost()
+{
+    if (!OperatingSystem.IsWindows() || !IsVisible) return;
+    try
+    {
+        var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+        if (handle == IntPtr.Zero) return;
+        SetWindowPos(handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+    }
+    catch (Exception ex) { DebugLog.Write($"[OVERLAY] ForceTopmost EXCEPTION: {ex.Message}"); }
+}
+
+public void SetGameHwnd(IntPtr hwnd)
+{
+    bool wasGame = _gameHwnd != IntPtr.Zero;
+    _gameHwnd = hwnd;
+
+    // Se o jogo acabou de fechar, reseta o estado do framegen
+    if (wasGame && hwnd == IntPtr.Zero)
+    {
+        _lsfgIsActive = false;
+        UpdateLsfgButtonState();
+    }
+}
 
     protected override void OnOpened(EventArgs e)
+{
+    base.OnOpened(e);
+    DebugLog.Write($"[OVERLAY] OnOpened chamado. Width={Width}, Height={Height}");
+
+    // NÃO posiciona mais aqui — MainWindow faz isso via SW_HIDE + Post.
+    // NÃO muda WindowState/Opacity — MainWindow controla via Win32.
+
+    if (!_tdpAppliedOnOpen && _tdpHardwareSupported)
     {
-        base.OnOpened(e);
-        DebugLog.Write($"[OVERLAY] OnOpened chamado. Width={Width}, Height={Height}");
-        
-        PositionOnRightEdge();
-        
-        Dispatcher.UIThread.Post(() =>
+        _tdpAppliedOnOpen = true;
+        var settings = AppSettingsStore.Load();
+        var savedTdp = string.IsNullOrWhiteSpace(settings.TdpMode) ? "Normal" : settings.TdpMode;
+        _ = Task.Run(() =>
         {
-            DebugLog.Write("[OVERLAY] PositionOnRightEdge (fallback pós-load).");
-            PositionOnRightEdge();
-        }, DispatcherPriority.Loaded);
+            DebugLog.Write($"[OVERLAY] Re-aplicando TDP salvo ao abrir: {savedTdp}");
+            var ok = _hardwareService.SetTdpMode(savedTdp);
+            DebugLog.Write(ok
+                ? $"[OVERLAY] TDP {savedTdp} re-aplicado com sucesso."
+                : $"[OVERLAY] Falha ao re-aplicar TDP {savedTdp}; veja os logs [PawnIO].");
 
-        if (!_tdpAppliedOnOpen && _tdpHardwareSupported)
-        {
-            _tdpAppliedOnOpen = true;
-            var settings = AppSettingsStore.Load();
-            var savedTdp = string.IsNullOrWhiteSpace(settings.TdpMode) ? "Normal" : settings.TdpMode;
-            _ = Task.Run(() =>
+            if (ok)
             {
-                DebugLog.Write($"[OVERLAY] Re-aplicando TDP salvo ao abrir: {savedTdp}");
-                var ok = _hardwareService.SetTdpMode(savedTdp);
-                DebugLog.Write(ok
-                    ? $"[OVERLAY] TDP {savedTdp} re-aplicado com sucesso."
-                    : $"[OVERLAY] Falha ao re-aplicar TDP {savedTdp}; veja os logs [PawnIO].");
-
-                if (ok)
-                {
-                    Dispatcher.UIThread.Post(() => _viewModel.UpdateHudTdpStatus(savedTdp));
-                }
-            });
-        }
-
-        if (_hardwareService is WindowsHardwareService winSvcForSync)
-        {
-            _viewModel.UpdateHudRecordingState(winSvcForSync.IsRecording);
-        }
+                Dispatcher.UIThread.Post(() => _viewModel.UpdateHudTdpStatus(savedTdp));
+            }
+        });
     }
 
-    private void PositionOnRightEdge()
+    if (_hardwareService is WindowsHardwareService winSvcForSync)
+    {
+        _viewModel.UpdateHudRecordingState(winSvcForSync.IsRecording);
+    }
+}
+
+    public void PositionOnRightEdge()
     {
         try
         {
@@ -264,13 +302,13 @@ public partial class OverlayWindow : Window
                 case GamepadAction.Confirm:
                     ApplySubMenuChange(); 
                     _activeSubMenu = SubMenuMode.None;
-                    ClearTempHighlights();        // [PATCH] limpa destaques de submenu
+                    ClearTempHighlights();
                     UpdateFocusVisual();
                     UpdatePersistentVisuals(); 
                     break;
                 case GamepadAction.Back:
                     _activeSubMenu = SubMenuMode.None; 
-                    ClearTempHighlights();        // [PATCH] limpa destaques de submenu
+                    ClearTempHighlights();
                     UpdateFocusVisual();
                     UpdatePersistentVisuals();
                     break;
@@ -290,7 +328,6 @@ public partial class OverlayWindow : Window
 
     private void EnterSubMenu()
     {
-        // [PATCH] limpa destaques de submenus anteriores ao entrar em um novo
         ClearTempHighlights();
 
         switch (_focusIndex)
@@ -310,14 +347,15 @@ public partial class OverlayWindow : Window
                 _activeSubMenu = SubMenuMode.Fan; UpdateTempVisuals(); break;
             case 4: _tempColorIndex = _currentColor; _activeSubMenu = SubMenuMode.Color; UpdateTempVisuals(); break;
             case 5: _tempHudIndex = _currentHudIndex; _activeSubMenu = SubMenuMode.Hud; UpdateTempVisuals(); break;
-            case 6: _activeSubMenu = SubMenuMode.Volume; break;          // ← era 7
-            case 7: _activeSubMenu = SubMenuMode.Brightness; break;      // ← era 8
+            case 6: _activeSubMenu = SubMenuMode.Volume; break;
+            case 7: _activeSubMenu = SubMenuMode.Brightness; break;
             case 8: 
-    _tempLosslessIndex = 0;
-    _activeSubMenu = SubMenuMode.Lossless;
-    UpdateTempVisuals();
-    break;                                                    // ← era 6
-case 9: _tempCaptureIndex = 0; _activeSubMenu = SubMenuMode.Capture; UpdateTempVisuals(); break;
+                    _tempLosslessIndex = 0;
+                    _activeSubMenu = SubMenuMode.Lossless;
+                    UpdateTempVisuals();
+                    UpdateLsfgButtonState();
+                    break;
+            case 9: _tempCaptureIndex = 0; _activeSubMenu = SubMenuMode.Capture; UpdateTempVisuals(); break;
         }
     }
 
@@ -331,7 +369,6 @@ case 9: _tempCaptureIndex = 0; _activeSubMenu = SubMenuMode.Capture; UpdateTempV
             case SubMenuMode.Fan: _tempFanIndex = Math.Clamp(_tempFanIndex + direction, 0, 4); UpdateTempVisuals(); break;
             case SubMenuMode.Color: _tempColorIndex = Math.Clamp(_tempColorIndex + direction, 0, 3); UpdateTempVisuals(); break;
             case SubMenuMode.Hud: _tempHudIndex = Math.Clamp(_tempHudIndex + direction, 0, 3); UpdateTempVisuals(); break;
-            // [PATCH] navegação entre os 2 botões do Lossless
             case SubMenuMode.Lossless: _tempLosslessIndex = Math.Clamp(_tempLosslessIndex + direction, 0, 1); UpdateTempVisuals(); break;
             case SubMenuMode.Volume: if (VolumeSlider != null) VolumeSlider.Value = Math.Clamp(VolumeSlider.Value + (direction * 5), 0, 100); break;
             case SubMenuMode.Brightness: if (BrightnessSlider != null) BrightnessSlider.Value = Math.Clamp(BrightnessSlider.Value + (direction * 5), 0, 100); break;
@@ -376,7 +413,6 @@ case 9: _tempCaptureIndex = 0; _activeSubMenu = SubMenuMode.Capture; UpdateTempV
                 SetHudButtonVisual(_currentHudIndex);
                 SaveSetting("OverlayPreset", _currentHudIndex.ToString());
                 break;
-            // [PATCH] executa ação do Lossless (0 = Aplicar Agora, 1 = Abrir App)
             case SubMenuMode.Lossless:
                 if (_tempLosslessIndex == 0) OnLsfgApplyClick(null, new RoutedEventArgs());
                 else OnLsfgOpenClick(null, new RoutedEventArgs());
@@ -388,11 +424,6 @@ case 9: _tempCaptureIndex = 0; _activeSubMenu = SubMenuMode.Capture; UpdateTempV
         }
     }
 
-    /// <summary>
-    /// [PATCH] Restaura o fundo neutro de todos os botões que podem ser temporariamente
-    /// destacados por um submenu. Chamado ao entrar em qualquer submenu e ao sair
-    /// (Confirm ou Back), para evitar que um destaque "vaze" para fora do submenu.
-    /// </summary>
     private void ClearTempHighlights()
     {
         if (BtnScreenshot != null) BtnScreenshot.Background = _inactiveColor;
@@ -488,7 +519,6 @@ case 9: _tempCaptureIndex = 0; _activeSubMenu = SubMenuMode.Capture; UpdateTempV
             BtnHudMed.Background = _tempHudIndex == 2 ? _activeColor : _inactiveColor;
             BtnHudFull.Background = _tempHudIndex == 3 ? _activeColor : _inactiveColor;
         }
-        // [PATCH] destaca visualmente o botão ativo do Lossless
         else if (_activeSubMenu == SubMenuMode.Lossless)
         {
             if (BtnLsfgApply != null) BtnLsfgApply.Background = _tempLosslessIndex == 0 ? _activeColor : _inactiveColor;
@@ -676,32 +706,130 @@ case 9: _tempCaptureIndex = 0; _activeSubMenu = SubMenuMode.Capture; UpdateTempV
         }
     }
 
-    private void OnLsfgApplyClick(object? sender, RoutedEventArgs e)
+    /// <summary>
+    /// [BUG 4] Aplica o frame gen do Lossless Scaling.
+    /// O Lossless escuta Ctrl+Alt+S via hook global, mas só quando um JOGO está
+    /// em foreground. Se o overlay estiver em foco, o SendInput vai parar no overlay
+    /// (que não tem hook) e nada acontece. Solução: devolver o foco ao jogo ANTES
+    /// de disparar o atalho. Se falhar, esconder o overlay e tentar de novo.
+    /// </summary>
+   private async void OnLsfgApplyClick(object? sender, RoutedEventArgs e)
+{
+    if (!OperatingSystem.IsWindows()) return;
+
+    if (_gameHwnd != IntPtr.Zero)
+        LosslessScalingService.SetGameHwnd(_gameHwnd);
+
+    // Auto-launch se necessário
+    if (!LosslessScalingService.IsLosslessRunning())
     {
-        if (!OperatingSystem.IsWindows()) return;
-        bool success = LosslessScalingService.ToggleFrameGen();
-        
         if (BtnLsfgApply != null)
         {
-            // [PATCH] não salvamos mais o conteúdo original (podia capturar "Ativado!" de um clique anterior)
-            // e usamos o texto fixo ao restaurar, evitando "grudar" o estado visual.
-            BtnLsfgApply.Content = success ? "Ativado!" : "Falhou";
-            BtnLsfgApply.Background = success
-                ? new SolidColorBrush(Color.FromRgb(46, 151, 98))
-                : new SolidColorBrush(Color.FromRgb(255, 64, 64));
+            BtnLsfgApply.Content = "Abrindo Lossless...";
+            BtnLsfgApply.IsEnabled = false;
+        }
+        DebugLog.Write("[PATINHO] Lossless não está rodando — abrindo automaticamente.");
 
-            var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
-            timer.Tick += (_, _) =>
-            {
-                BtnLsfgApply.Content = "Aplicar Agora";
-                // Só repõe o fundo neutro se o usuário não estiver mais no submenu Lossless
-                if (_activeSubMenu != SubMenuMode.Lossless)
-                    BtnLsfgApply.Background = _inactiveColor;
-                timer.Stop();
-            };
-            timer.Start();
+        if (!LosslessScalingService.TryLaunchLossless())
+        {
+            if (BtnLsfgApply != null) BtnLsfgApply.IsEnabled = true;
+            UpdateLsfgButtonState();
+            return;
+        }
+
+        for (int i = 0; i < 10; i++)
+        {
+            await Task.Delay(500);
+            if (LosslessScalingService.IsLosslessRunning()) break;
+        }
+        await Task.Delay(1000);
+        if (BtnLsfgApply != null) BtnLsfgApply.IsEnabled = true;
+    }
+
+    // Foco no jogo
+    if (_gameHwnd != IntPtr.Zero)
+    {
+        try { SetForegroundWindow(_gameHwnd); } catch { }
+        await Task.Delay(150);
+    }
+
+    bool focusOnGame = _gameHwnd != IntPtr.Zero && GetForegroundWindow() == _gameHwnd;
+    bool success;
+
+    if (focusOnGame)
+    {
+        success = LosslessScalingService.ToggleFrameGen();
+    }
+    else
+    {
+        DebugLog.Write("[PATINHO] Fallback: ocultando overlay para liberar foreground.");
+        var wasVisible = IsVisible;
+        if (wasVisible) Hide();
+        await Task.Delay(250);
+        success = LosslessScalingService.ToggleFrameGen();
+        if (wasVisible && !IsAppClosing)
+        {
+            Show();
+            ForceTopmost();
         }
     }
+
+    if (success)
+    {
+        _lsfgIsActive = !_lsfgIsActive;
+        DebugLog.Write($"[PATINHO] Estado interno: _lsfgIsActive={_lsfgIsActive}");
+    }
+
+    // Feedback rápido (1.5s) antes de voltar ao estado persistente
+    if (BtnLsfgApply != null)
+    {
+        string feedback = success
+            ? (_lsfgIsActive ? "✓ Ativado!" : "✓ Desativado!")
+            : "Falhou";
+
+        BtnLsfgApply.Content = feedback;
+        BtnLsfgApply.Background = success
+            ? new SolidColorBrush(Color.FromRgb(46, 151, 98))
+            : new SolidColorBrush(Color.FromRgb(255, 64, 64));
+
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1500) };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            UpdateLsfgButtonState(); // volta pro estado persistente
+        };
+        timer.Start();
+    }
+
+    ForceTopmost();
+}
+
+private void UpdateLsfgButtonState()
+{
+    if (BtnLsfgApply == null) return;
+
+    bool running = LosslessScalingService.IsLosslessRunning();
+    bool activeContext = running && _gameHwnd != IntPtr.Zero && _lsfgIsActive;
+
+    if (!running)
+    {
+        BtnLsfgApply.Content = "Abrir Lossless";
+        BtnLsfgApply.Background = _inactiveColor;
+        BtnLsfgApply.IsEnabled = true;
+    }
+    else if (activeContext)
+    {
+        BtnLsfgApply.Content = "🟢 Desativar";
+        BtnLsfgApply.Background = new SolidColorBrush(Color.FromRgb(46, 151, 98)); // verde
+        BtnLsfgApply.IsEnabled = true;
+    }
+    else
+    {
+        BtnLsfgApply.Content = "Aplicar";
+        BtnLsfgApply.Background = _inactiveColor;
+        BtnLsfgApply.IsEnabled = true;
+    }
+}
 
     private void OnLsfgOpenClick(object? sender, RoutedEventArgs e)
     {

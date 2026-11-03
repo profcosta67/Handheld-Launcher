@@ -1,12 +1,15 @@
+using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.VisualTree;
+using HandheldLauncher.App.Diagnostics;
+using HandheldLauncher.App.Input;
 using HandheldLauncher.App.Platform;
 using HandheldLauncher.App.ViewModels;
 using HandheldLauncher.Core.Models;
 using HandheldLauncher.Core.Services;
-using HandheldLauncher.App.Diagnostics;
 
 namespace HandheldLauncher.App.Views;
 
@@ -15,6 +18,12 @@ public partial class SettingsWindow : Window
     public SettingsViewModel ViewModel { get; } = new();
 
     private readonly AppSettings _settings;
+
+    // ===== [BUG 2] Estado de navegação por gamepad =====
+    private enum FocusZone { Tabs, Content }
+    private FocusZone _focusZone = FocusZone.Tabs;
+    private int _tabIndex = 0;
+    private int _contentIndex = 0;
 
     public SettingsWindow()
     {
@@ -25,7 +34,7 @@ public partial class SettingsWindow : Window
         ViewModel.LoadFrom(_settings);
         ThemeManager.ApplyFont(this, _settings.UiFont);
 
-        Opened += (_, _) => FitToScreen();
+        Opened += (_, _) => { FitToScreen(); FocusActiveTab(); };
 
         AddHandler(PointerPressedEvent, (_, e) => _lastPointerWasTouch = e.Pointer.Type != PointerType.Mouse, RoutingStrategies.Tunnel);
         AddHandler(GotFocusEvent, (_, e) =>
@@ -55,6 +64,237 @@ public partial class SettingsWindow : Window
         catch { }
     }
 
+    // ===================== [BUG 2] Navegação por Gamepad =====================
+
+    /// <summary>
+    /// Trata as ações do controle dentro da janela de Settings.
+    /// Retorna true se a ação foi consumida (não deve ir pro DialogGamepadNavigator).
+    ///
+    /// Fluxo:
+    /// - Zone=Tabs: Left/Right (ou L1/R1) muda aba. Down ou A entra no conteúdo.
+    /// - Zone=Content: Up/Down navega itens. Up no primeiro item volta pras abas.
+    ///   A ativa o controle focado. B volta pras abas. L1/R1 muda aba (atalho).
+    /// </summary>
+    public bool HandleSettingsGamepadAction(GamepadAction action)
+    {
+        var tabs = GetTabButtons();
+        if (tabs.Count == 0) return false;
+
+        var content = GetContentFocusables();
+
+        if (_focusZone == FocusZone.Tabs)
+        {
+            switch (action)
+            {
+                case GamepadAction.MoveLeft:
+                case GamepadAction.PreviousFilter:
+                    _tabIndex = (_tabIndex - 1 + tabs.Count) % tabs.Count;
+                    ViewModel.CategoryIndex = _tabIndex;
+                    FocusControl(tabs[_tabIndex]);
+                    return true;
+
+                case GamepadAction.MoveRight:
+                case GamepadAction.NextFilter:
+                    _tabIndex = (_tabIndex + 1) % tabs.Count;
+                    ViewModel.CategoryIndex = _tabIndex;
+                    FocusControl(tabs[_tabIndex]);
+                    return true;
+
+                case GamepadAction.MoveDown:
+                case GamepadAction.Confirm:
+                    if (content.Count > 0)
+                    {
+                        _focusZone = FocusZone.Content;
+                        _contentIndex = 0;
+                        FocusControl(content[0]);
+                    }
+                    return true;
+
+                case GamepadAction.Back:
+                    Close();
+                    return true;
+
+                case GamepadAction.MoveUp:
+                    // Já está no topo — não faz nada (evita "sumir" do foco)
+                    return true;
+            }
+        }
+        else // Content
+        {
+            switch (action)
+            {
+                case GamepadAction.MoveDown:
+                    if (content.Count == 0) { _focusZone = FocusZone.Tabs; FocusControl(tabs[_tabIndex]); return true; }
+                    _contentIndex = (_contentIndex + 1) % content.Count;
+                    FocusControl(content[_contentIndex]);
+                    return true;
+
+                case GamepadAction.MoveUp:
+                    if (content.Count == 0 || _contentIndex == 0)
+                    {
+                        _focusZone = FocusZone.Tabs;
+                        FocusControl(tabs[_tabIndex]);
+                        return true;
+                    }
+                    _contentIndex--;
+                    FocusControl(content[_contentIndex]);
+                    return true;
+
+                case GamepadAction.MoveLeft:
+                    // ComboBox/Slider mudam valor; senão, não faz nada
+                    if (TryChangeValue(content, _contentIndex, -1)) return true;
+                    return true;
+
+                case GamepadAction.MoveRight:
+                    if (TryChangeValue(content, _contentIndex, +1)) return true;
+                    return true;
+
+                case GamepadAction.Confirm:
+                    if (content.Count > 0) ActivateControl(content[_contentIndex]);
+                    return true;
+
+                case GamepadAction.Back:
+                    _focusZone = FocusZone.Tabs;
+                    FocusControl(tabs[_tabIndex]);
+                    return true;
+
+                case GamepadAction.PreviousFilter:
+                    _tabIndex = (_tabIndex - 1 + tabs.Count) % tabs.Count;
+                    ViewModel.CategoryIndex = _tabIndex;
+                    _focusZone = FocusZone.Tabs;
+                    _contentIndex = 0;
+                    FocusControl(tabs[_tabIndex]);
+                    return true;
+
+                case GamepadAction.NextFilter:
+                    _tabIndex = (_tabIndex + 1) % tabs.Count;
+                    ViewModel.CategoryIndex = _tabIndex;
+                    _focusZone = FocusZone.Tabs;
+                    _contentIndex = 0;
+                    FocusControl(tabs[_tabIndex]);
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void FocusActiveTab()
+    {
+        var tabs = GetTabButtons();
+        if (tabs.Count == 0) return;
+        _tabIndex = Math.Clamp(ViewModel.CategoryIndex, 0, tabs.Count - 1);
+        _focusZone = FocusZone.Tabs;
+        FocusControl(tabs[_tabIndex]);
+    }
+
+ private void FocusControl(Control control)
+{
+    // [FIX FOCO] NavigationMethod.Directional aciona o FocusAdorner (o "círculo" roxo).
+    // Sem isso, control.Focus() sem método NÃO mostra o FocusAdorner.
+    control.Focus(NavigationMethod.Directional);
+    control.BringIntoView();
+}
+
+    /// <summary>
+    /// Retorna os botões de aba (classes "categoryTab"), na ordem em que aparecem.
+    /// </summary>
+    private List<Button> GetTabButtons() => this.GetVisualDescendants()
+        .OfType<Button>()
+        .Where(b => b.Classes.Contains("categoryTab") && b.IsEffectivelyVisible)
+        .ToList();
+
+    /// <summary>
+    /// Retorna os controles focáveis do CONTEÚDO (exclui abas e rodapé).
+    /// Só inclui controles visíveis — então já filtra automaticamente pela aba ativa.
+    /// </summary>
+    private List<Control> GetContentFocusables()
+{
+    var tabButtons = new HashSet<Control>(GetTabButtons().Cast<Control>());
+
+    // [FIX] Não exclui mais os botões do rodapé. Agora o D-Pad desce
+    // até eles depois de passar por todos os controles da aba.
+    return this.GetVisualDescendants()
+        .OfType<Control>()
+        .Where(c => c.Focusable
+                    && c.IsEffectivelyVisible
+                    && c.IsEffectivelyEnabled
+                    && c != this
+                    && !tabButtons.Contains(c))
+        .ToList();
+}
+
+    
+        private bool TryChangeValue(List<Control> content, int index, int direction)
+    {
+        if (index < 0 || index >= content.Count) return false;
+        var control = content[index];
+
+        if (control is ComboBox combo)
+        {
+            var count = combo.ItemCount;
+            if (count == 0) return false;
+            var current = combo.SelectedIndex < 0 ? 0 : combo.SelectedIndex;
+            combo.SelectedIndex = Math.Clamp(current + direction, 0, count - 1);
+            return true;
+        }
+
+        if (control is Slider slider)
+        {
+            var step = slider.TickFrequency > 0 ? slider.TickFrequency : (slider.Maximum - slider.Minimum) / 10;
+            slider.Value = Math.Clamp(slider.Value + direction * step, slider.Minimum, slider.Maximum);
+            return true;
+        }
+
+        if (control is RadioButton)
+        {
+            // Left/Right em grupo de RadioButtons: navega o grupo
+            var siblings = content.OfType<RadioButton>().ToList();
+            var idx = siblings.IndexOf((RadioButton)control);
+            if (idx < 0) return false;
+            var next = Math.Clamp(idx + direction, 0, siblings.Count - 1);
+            siblings[next].IsChecked = true;
+            FocusControl(siblings[next]);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static void ActivateControl(Control control)
+    {
+        switch (control)
+        {
+            // ⚠️ IMPORTANTE: CheckBox e RadioButton herdam de Button — têm que vir PRIMEIRO,
+            // senão o `case Button` os captura e os cases ficam inalcançáveis.
+            case CheckBox cb:
+                cb.IsChecked = !cb.IsChecked;
+                break;
+            case RadioButton rb:
+                rb.IsChecked = true;
+                break;
+            case ComboBox combo:
+                // A cicla pro próximo item (não abre dropdown pra evitar travar no jogo)
+                if (combo.ItemCount > 0)
+                    combo.SelectedIndex = (combo.SelectedIndex + 1) % combo.ItemCount;
+                break;
+            case Slider sl:
+                var step = sl.TickFrequency > 0 ? sl.TickFrequency : (sl.Maximum - sl.Minimum) / 10;
+                sl.Value = sl.Value + step > sl.Maximum ? sl.Minimum : sl.Value + step;
+                break;
+            case TextBox:
+                // Focar o TextBox dispara o keyboard virtual via GotFocus
+                control.Focus();
+                break;
+            case Button btn:
+                btn.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                break;
+        }
+    }
+
+    
+    // ===================== handlers existentes =====================
+
     private async void OnManageAccountsClick(object? sender, RoutedEventArgs e)
     {
         await new AccountsWindow(ViewModel).ShowDialog(this);
@@ -65,6 +305,9 @@ public partial class SettingsWindow : Window
         if (sender is Button { Tag: string tag } && int.TryParse(tag, out var index))
         {
             ViewModel.CategoryIndex = index;
+            _tabIndex = index;
+            _focusZone = FocusZone.Tabs;
+            _contentIndex = 0;
         }
     }
 
@@ -256,6 +499,11 @@ public partial class SettingsWindow : Window
 
     private void OnCloseClick(object? sender, RoutedEventArgs e)
     {
+        Close();
+    }
+    private void OnSaveAndCloseClick(object? sender, RoutedEventArgs e)
+    {
+        ViewModel.SaveTo(_settings);
         Close();
     }
 }

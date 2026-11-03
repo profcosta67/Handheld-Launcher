@@ -5,8 +5,7 @@
         Width="440" Height="850"
         SystemDecorations="None"
         Background="Transparent"
-        TransparencyLevelHint="Transparent"
-        Topmost="True"
+        TransparencyLevelHint="None"
         ShowInTaskbar="False"
         WindowStartupLocation="Manual"
         CanResize="False">
@@ -22,7 +21,7 @@
         </Style>
     </Window.Styles>
 
-    <Border Background="#E6121212" 
+    <Border Background="#121212" 
             CornerRadius="24,0,0,24" 
             BorderBrush="#333333" 
             BorderThickness="1,0,0,0"

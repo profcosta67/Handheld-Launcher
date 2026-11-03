@@ -83,9 +83,9 @@ internal static class WatchdogTask
                     <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
                     <Enabled>true</Enabled>
                     <RestartOnFailure>
-                      <Interval>PT30S</Interval>
-                      <Count>3</Count>
-                    </RestartOnFailure>
+                        <Interval>PT1M</Interval>
+                        <Count>3</Count>
+                        </RestartOnFailure>
                   </Settings>
                   <Actions Context="Author">
                     <Exec>
