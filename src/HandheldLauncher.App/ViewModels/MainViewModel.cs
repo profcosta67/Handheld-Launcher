@@ -806,7 +806,27 @@ public sealed class MainViewModel : ViewModelBase
     public void HighlightContextMenuItem(ContextMenuItemViewModel item) { var index = ContextMenuItems.IndexOf(item); if (index < 0) return; _contextMenuIndex = index; UpdateContextMenuSelection(); }
     public void ActivateContextMenuItem(ContextMenuItemViewModel item) { HighlightContextMenuItem(item); if (ContextMenuItems.IndexOf(item) >= 0) ConfirmContextMenuSelection(); }
     public void HighlightGlobalMenuItem(ContextMenuItemViewModel item) { var index = GlobalMenuItems.IndexOf(item); if (index < 0) return; _globalMenuIndex = index; UpdateGlobalMenuSelection(); }
-    public void ActivateGlobalMenuItem(ContextMenuItemViewModel item) { HighlightGlobalMenuItem(item); if (GlobalMenuItems.IndexOf(item) >= 0) ConfirmGlobalMenuSelection(); }
+
+    // Resolve o item clicado pelo próprio índice em vez de delegar para
+    // ConfirmGlobalMenuSelection(), que lê o _globalMenuIndex compartilhado
+    // com teclado/gamepad — esse índice pode mudar entre o clique e o
+    // despacho por reentrância de hover do ponteiro (branch fix/power-menu-dispatch).
+    public void ActivateGlobalMenuItem(ContextMenuItemViewModel item)
+    {
+        var index = GlobalMenuItems.IndexOf(item);
+        if (index < 0 || index >= _globalMenuActions.Count || index >= _globalMenuNavigates.Count)
+        {
+            DebugLog.Write($"Global menu: ignored stale pointer item '{item.Label}' on page {_globalMenuPage}.");
+            return;
+        }
+
+        _globalMenuIndex = index;
+        UpdateGlobalMenuSelection();
+        var action = _globalMenuActions[index];
+        var navigates = _globalMenuNavigates[index];
+        if (!navigates) CloseGlobalMenu();
+        action();
+    }
 
     public void ActivateCoverCandidate(ArtworkCandidateViewModel candidate)
     {
