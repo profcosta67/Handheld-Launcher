@@ -52,6 +52,28 @@ internal static class Program
             })
             .Run();
 
+        // Processo ajudante do GameInput (L3+R3 com o jogo na frente) — o
+        // mesmo exe, aberto por GameInputHelper.StartHelperProcess() com
+        // "--gameinput-helper <pid>". Sai daqui antes de qualquer outra
+        // coisa (mutex de instância única, janela): não é uma abertura do
+        // launcher, é o processo ajudante escutando o combo em segundo
+        // plano enquanto o jogo está em primeiro plano. Ver Input/GameInputHelper.
+        //
+        // v0.16.2: esse despacho existia desde a v0.6.3 (commit e7d3773) mas
+        // foi perdido na reescrita completa deste Main() em c3ef109 (v0.13.7,
+        // 31/10) e nunca foi restaurado. Sem ele, o processo ajudante sempre
+        // perdia a disputa do mutex de instância única contra o launcher
+        // principal já aberto, caía direto no NotifyExistingInstance() lá
+        // embaixo (que restaura a janela principal da bandeja — o "segundo
+        // popup" maior que aparecia e sumia logo, relatado pelo usuário) e
+        // saía sem nunca chegar a rodar — por isso o Quick Settings parava
+        // de responder ao L3+R3 assim que um jogo era aberto.
+        if (args.Length > 0 && args[0] == HandheldLauncher.App.Input.GameInputHelper.Argument)
+        {
+            HandheldLauncher.App.Input.GameInputHelper.RunHelper(args);
+            return;
+        }
+
         // 🟢 CORREÇÃO BUG 1: Se estamos reiniciando (layout picker), espera o
         // processo antigo morrer ANTES de disputar o mutex. Sem isso, o novo
         // processo perde o mutex e sai, deixando o usuário sem launcher.

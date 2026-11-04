@@ -458,14 +458,24 @@ public partial class MainWindow : Window
                 _overlayWindow.Opacity = 0;
                 _overlayWindow.Show();
 
+                // v0.16.2: Show() real (acima) dispara OnOpened da própria
+                // OverlayWindow em TODO open agora — não só no primeiro, como
+                // antes de trocar pro Show()/Opacity real (v0.16.1). OnOpened
+                // já faz seu próprio PositionOnRightEdge()+ForceTopmost() (mais
+                // um retry de 200ms de segurança). Chamar os dois de novo aqui
+                // duplicava o reposicionamento e o ForceTopmost em toda
+                // abertura, competindo em ~200ms um com o outro — isso é o que
+                // causava o overlay "brigando" com o launcher pela frente,
+                // relatado depois do beta.1. Aqui só esperamos (mesma
+                // prioridade de Dispatcher, então entra na fila depois do post
+                // que o OnOpened já fez durante o Show() acima) e restauramos
+                // a opacidade.
                 Dispatcher.UIThread.Post(() =>
                 {
                     try
                     {
-                        _overlayWindow.PositionOnRightEdge();
-                        _overlayWindow.ForceTopmost();
                         _overlayWindow.Opacity = 1;
-                        DebugLog.Write($"[OVERLAY] Reposicionado e mostrado. Pos={_overlayWindow.Position}, IsVisible={_overlayWindow.IsVisible}");
+                        DebugLog.Write($"[OVERLAY] Mostrado (reposicionado pelo OnOpened). Pos={_overlayWindow.Position}, IsVisible={_overlayWindow.IsVisible}");
                     }
                     catch (Exception ex)
                     {
