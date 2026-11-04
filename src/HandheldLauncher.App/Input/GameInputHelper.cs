@@ -65,6 +65,19 @@ internal static unsafe class GameInputHelper
 
     private static Process? _helper;
 
+    /// <summary>v0.16.2: estado do ajudante pra Central de Ajuda.</summary>
+    public static bool IsHelperRunning
+    {
+        get
+        {
+            try { return _helper is { HasExited: false }; }
+            catch { return false; }
+        }
+    }
+
+    public static int? LastExitCode { get; private set; }
+    public static DateTime? LastExitAtLocal { get; private set; }
+
     /// <summary>
     /// Lado do launcher: abre o processo ajudante (melhor esforço). Idempotente —
     /// chamar com o ajudante já rodando não abre uma segunda cópia (v0.16:
@@ -97,7 +110,12 @@ internal static unsafe class GameInputHelper
                 helper.EnableRaisingEvents = true;
                 helper.Exited += (_, _) =>
                 {
-                    try { DebugLog.Write($"GameInputHelper: ajudante saiu (pid={helper.Id}, código=0x{helper.ExitCode:X8})."); }
+                    try
+                    {
+                        LastExitCode = helper.ExitCode;
+                        LastExitAtLocal = DateTime.Now;
+                        DebugLog.Write($"GameInputHelper: ajudante saiu (pid={helper.Id}, código=0x{helper.ExitCode:X8}).");
+                    }
                     catch { }
                 };
             }

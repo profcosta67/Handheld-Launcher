@@ -1,3 +1,4 @@
+using HandheldLauncher.App.Diagnostics;
 using Velopack;
 using Velopack.Sources;
 
@@ -44,6 +45,7 @@ public sealed class UpdateService
     /// </summary>
     public UpdateService(bool betaChannelOptIn = false)
     {
+        IsBetaChannel = betaChannelOptIn;
         try
         {
             if (betaChannelOptIn)
@@ -123,22 +125,49 @@ public sealed class UpdateService
     /// </summary>
     public async Task<string?> CheckAndDownloadAsync(CancellationToken cancellationToken = default)
     {
-        if (_manager is null || !IsInstalled) return null;
+        if (_manager is null || !IsInstalled)
+        {
+            RecordCheck("não verificado — launcher não está numa instalação com atualização automática", ok: true);
+            return null;
+        }
         if (_pending is not null) return PendingVersionText;
 
         try
         {
             var info = await _manager.CheckForUpdatesAsync();
-            if (info is null) return null;
+            if (info is null)
+            {
+                RecordCheck("nenhuma versão nova", ok: true);
+                return null;
+            }
 
             await _manager.DownloadUpdatesAsync(info);
             _pending = info;
+            RecordCheck($"versão {PendingVersionText} baixada, pronta pra instalar", ok: true);
             return PendingVersionText;
         }
-        catch
+        catch (Exception ex)
         {
+            // v0.16.2: continua sem incomodar quem só quer jogar, mas agora
+            // deixa rastro — antes a falha sumia sem log nenhum.
+            DebugLog.Write($"[UPDATE] Falha ao verificar/baixar atualização: {ex.GetType().Name}: {ex.Message}");
+            RecordCheck($"falhou ({ex.Message})", ok: false);
             return null;
         }
+    }
+
+    /// <summary>v0.16.2: canal com que o serviço foi montado na abertura.</summary>
+    public static bool IsBetaChannel { get; private set; }
+
+    /// <summary>v0.16.2: resultado da última verificação, pra Central de Ajuda.</summary>
+    public static LastCheckInfo? LastCheck { get; private set; }
+
+    public sealed record LastCheckInfo(DateTime AtLocal, string Result, bool Ok);
+
+    private static void RecordCheck(string result, bool ok)
+    {
+        LastCheck = new LastCheckInfo(DateTime.Now, result, ok);
+        DebugLog.Write($"[UPDATE] Verificação: {result}");
     }
 
     /// <summary>

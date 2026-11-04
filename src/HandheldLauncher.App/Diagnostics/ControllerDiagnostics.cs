@@ -87,7 +87,7 @@ internal static class ControllerDiagnostics
         }
     }
 
-    private static string ConnectedSlots()
+    internal static string ConnectedSlots()
     {
         var slots = new List<string>();
         for (uint slot = 0; slot < 4; slot++)
@@ -129,7 +129,7 @@ internal static class ControllerDiagnostics
         }
     }
 
-    private static string DescribeLegionProcesses()
+    internal static string DescribeLegionProcesses()
     {
         try
         {
@@ -157,7 +157,7 @@ internal static class ControllerDiagnostics
     /// linha cada. Exige Windows 10 2004+ (o /enum-devices); em versões
     /// antigas só registra a falha.
     /// </summary>
-    private static List<string> LenovoDeviceBlocks(string arguments)
+    internal static List<string> LenovoDeviceBlocks(string arguments)
     {
         var result = new List<string>();
         try
