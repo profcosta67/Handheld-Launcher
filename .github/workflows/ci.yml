@@ -23,14 +23,6 @@ jobs:
       - name: Restaurar pacotes
         run: dotnet restore HandheldLauncher.sln
 
-      # TEMPORÁRIO: só pra descobrir as versões exatas resolvidas hoje pelos
-      # ranges flutuantes (Avalonia 11.2.*), pra fixar no Directory.Packages.props.
-      # Removido no commit seguinte.
-      - name: "TEMP: listar versões resolvidas"
-        run: |
-          dotnet list src/HandheldLauncher.App package
-          dotnet list src/HandheldLauncher.Core package
-
       - name: Compilar
         run: dotnet build HandheldLauncher.sln -c Release --no-restore
 
