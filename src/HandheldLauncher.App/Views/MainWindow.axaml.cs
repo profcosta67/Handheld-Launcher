@@ -1426,13 +1426,23 @@ public partial class MainWindow : Window
     private void ApplyLayoutTheme()
     {
         UserControl layout;
+        var layoutTheme = 0;
         try
         {
             var settings = AppSettingsStore.Load();
-            layout = settings.LayoutTheme == 1 ? new Layouts.SwitchLibraryLayout() : new Layouts.ClassicLibraryLayout();
+            layoutTheme = settings.LayoutTheme;
+            layout = settings.LayoutTheme switch
+            {
+                2 => new Layouts.BigScreenLibraryLayout(),
+                1 => new Layouts.SwitchLibraryLayout(), // índice legado mantido para instalações existentes (agora chamado Clean)
+                _ => new Layouts.ClassicLibraryLayout()
+            };
         }
         catch (Exception ex) { DebugLog.Write($"ApplyLayoutTheme: falhou ao ler settings, usando Clássico. {ex}"); layout = new Layouts.ClassicLibraryLayout(); }
         _libraryLayout = (ILibraryLayout)layout;
+        // BigScreen has its own compact status header; hide the generic
+        // application bar there to avoid duplicating the clock/battery row.
+        TopBar.IsVisible = layoutTheme != 2;
         GamesItemsControl = _libraryLayout.GamesItemsControl;
         GameRowScrollViewer = _libraryLayout.GameRowScrollViewer;
         HeroImage = _libraryLayout.HeroImage;

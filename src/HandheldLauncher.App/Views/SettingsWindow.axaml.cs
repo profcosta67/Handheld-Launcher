@@ -557,6 +557,31 @@ public partial class SettingsWindow : Window
         }
     }
 
+    private static void OpenWindowsSettings(string uri)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = uri,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[SETTINGS] Não foi possível abrir {uri}: {ex.Message}");
+        }
+    }
+
+    private void OnOpenWifiSettingsClick(object? sender, RoutedEventArgs e)
+        => OpenWindowsSettings("ms-settings:network-wifi");
+
+    private void OnOpenBluetoothSettingsClick(object? sender, RoutedEventArgs e)
+        => OpenWindowsSettings("ms-settings:bluetooth");
+
+    private void OnOpenReleaseNotesClick(object? sender, RoutedEventArgs e)
+        => OpenWindowsSettings("https://github.com/profcosta67/Handheld-Launcher/tree/main/release-notes");
+
     private void OnSaveClick(object? sender, RoutedEventArgs e)
     {
         ViewModel.SaveTo(_settings);

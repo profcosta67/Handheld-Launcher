@@ -21,7 +21,9 @@ public class RawgMetadataService
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "HandheldLauncher", "rawg_cache");
 
-    private readonly HttpClient _http = new();
+    // RAWG may intermittently fail to load or respond slowly. Keep metadata
+    // lookups bounded so opening game details never stalls the UI for a long time.
+    private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(15) };
 
     // ── API pública de cache ──
     public void ClearCache()

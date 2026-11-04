@@ -1,0 +1,334 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:anim="https://github.com/whistyun/AnimatedImage.Avalonia"
+             xmlns:vm="using:HandheldLauncher.App.ViewModels"
+             xmlns:conv="using:HandheldLauncher.App.Converters"
+             xmlns:dataConv="using:Avalonia.Data.Converters"
+             xmlns:media="using:Avalonia.Media"
+             x:Class="HandheldLauncher.App.Views.Layouts.BigScreenLibraryLayout"
+             x:DataType="vm:MainViewModel">
+
+  <UserControl.Resources>
+    <conv:FileToBitmapConverter x:Key="FileToBitmapConverter" />
+    <conv:HexColorToBrushConverter x:Key="HexColorToBrushConverter" />
+  </UserControl.Resources>
+
+  <UserControl.Styles>
+    <Style Selector="Button.bigScreenTab">
+      <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource TextSecondaryBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="16" />
+      <Setter Property="Padding" Value="12,10" />
+      <Setter Property="MinHeight" Value="68" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.bigScreenTab /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource TextSecondaryBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Button.bigScreenTab.active /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}" />
+    </Style>
+  </UserControl.Styles>
+
+  <Panel>
+
+    <Image x:Name="HeroBackImage" Stretch="UniformToFill" IsHitTestVisible="False">
+      <Image.Effect>
+        <media:BlurEffect Radius="58" />
+      </Image.Effect>
+    </Image>
+    <Image x:Name="HeroImage"
+           Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
+           Stretch="UniformToFill"
+           IsHitTestVisible="False">
+      <Image.Effect>
+        <media:BlurEffect Radius="45" />
+      </Image.Effect>
+    </Image>
+
+    <Border Background="{DynamicResource BackdropDimBrush}" IsHitTestVisible="False" />
+
+    <Grid ColumnDefinitions="104,*" RowDefinitions="*" Margin="24,20,32,20">
+
+      <StackPanel Grid.Column="0" Grid.Row="0"
+                  VerticalAlignment="Center"
+                  HorizontalAlignment="Stretch"
+                  Spacing="10"
+                  Margin="0,0,18,0">
+        <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterFavoritesActive}" Command="{Binding SetFilterFavoritesCommand}" ToolTip.Tip="Favoritos" MinHeight="62" Padding="4">
+          <StackPanel HorizontalAlignment="Center" Spacing="2"><TextBlock Text="★" FontSize="22"/><TextBlock Text="Favoritos" FontSize="10"/></StackPanel>
+        </Button>
+        <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterAllActive}" Command="{Binding SetFilterAllCommand}" ToolTip.Tip="Todos os jogos" MinHeight="62" Padding="4">
+          <StackPanel HorizontalAlignment="Center" Spacing="2"><TextBlock Text="▦" FontSize="22"/><TextBlock Text="Todos" FontSize="10"/></StackPanel>
+        </Button>
+        <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterComputerActive}" Command="{Binding SetFilterComputerCommand}" ToolTip.Tip="Computador" MinHeight="62" Padding="4">
+          <StackPanel HorizontalAlignment="Center" Spacing="2"><TextBlock Text="⌨" FontSize="22"/><TextBlock Text="Computador" FontSize="9"/></StackPanel>
+        </Button>
+        <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterEmulatorsActive}" Command="{Binding SetFilterEmulatorsCommand}" ToolTip.Tip="Emuladores" MinHeight="62" Padding="4">
+          <StackPanel HorizontalAlignment="Center" Spacing="2"><TextBlock Text="🎮" FontSize="22"/><TextBlock Text="Emuladores" FontSize="9"/></StackPanel>
+        </Button>
+        <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterApplicationsActive}" Command="{Binding SetFilterApplicationsCommand}" ToolTip.Tip="Programas" MinHeight="62" Padding="4">
+          <StackPanel HorizontalAlignment="Center" Spacing="2"><TextBlock Text="▣" FontSize="22"/><TextBlock Text="Programas" FontSize="9"/></StackPanel>
+        </Button>
+        <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterNotInstalledActive}" Command="{Binding SetFilterNotInstalledCommand}" ToolTip.Tip="Não instalados" MinHeight="62" Padding="4">
+          <StackPanel HorizontalAlignment="Center" Spacing="2"><TextBlock Text="↓" FontSize="22"/><TextBlock Text="Não instalados" FontSize="9"/></StackPanel>
+        </Button>
+        <Button Content="＋" MinHeight="48" Padding="4" ToolTip.Tip="Adicionar programa"
+                IsVisible="{Binding IsFilterApplicationsActive}" Click="OnAddProgramClick" />
+        <ItemsControl ItemsSource="{Binding SubFilters}" IsVisible="{Binding HasSubFilters}" HorizontalAlignment="Center">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate><StackPanel Orientation="Vertical" HorizontalAlignment="Center" /></ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:SubFilterViewModel">
+              <Button Classes="pill subFilter" Width="76"
+                      Classes.cursor="{Binding IsCursor}"
+                      Content="{Binding Label}"
+                      Click="OnSubFilterClick"
+                      Background="{Binding BackgroundHex, Converter={StaticResource HexColorToBrushConverter}}"
+                      Foreground="{Binding ForegroundHex, Converter={StaticResource HexColorToBrushConverter}}"
+                      BorderBrush="{Binding AccentHex, Converter={StaticResource HexColorToBrushConverter}}"
+                      BorderThickness="2"
+                      Margin="2" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+
+      <Grid Grid.Column="1" Grid.Row="0" RowDefinitions="Auto,*,Auto" VerticalAlignment="Stretch">
+
+        <Grid Grid.Row="0" Height="82" ColumnDefinitions="*,Auto" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
+          <Image Grid.Column="0"
+                 Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                 Width="260"
+                 Height="64"
+                 Stretch="Uniform"
+                 HorizontalAlignment="Left"
+                 VerticalAlignment="Center"
+                 IsVisible="{Binding SelectedTile.ShowCurrentLogo}" />
+
+          <Border Grid.Column="0"
+                  Background="{DynamicResource SurfaceRaisedBrush}"
+                  BorderBrush="{DynamicResource AccentBrush}"
+                  BorderThickness="1"
+                  CornerRadius="16"
+                  Padding="24,12"
+                  HorizontalAlignment="Left"
+                  VerticalAlignment="Center"
+                  MaxWidth="900"
+                  IsVisible="{Binding SelectedTile.ShowNameCaption}">
+            <TextBlock Text="{Binding SelectedTile.Title}"
+                       Foreground="{DynamicResource TextPrimaryBrush}"
+                       FontSize="32"
+                       FontWeight="SemiBold"
+                       TextWrapping="NoWrap"
+                       TextTrimming="CharacterEllipsis" />
+          </Border>
+
+          <Border Grid.Column="1"
+                  Background="#AA10131B"
+                  BorderBrush="#445F6F8D"
+                  BorderThickness="1"
+                  CornerRadius="14"
+                  Padding="16,9"
+                  VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+              <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                <TextBlock Text="◷" Foreground="#FF9BA8C4" FontSize="16" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding ClockText}" Foreground="#FFF5F7FF" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
+              </StackPanel>
+              <Border Width="1" Height="22" Background="#556C7898" />
+              <TextBlock Text="{Binding BatteryStatusText}"
+                         Foreground="#FFB8C1D4"
+                         FontSize="11"
+                         FontWeight="SemiBold"
+                         VerticalAlignment="Center" />
+            </StackPanel>
+          </Border>
+        </Grid>
+
+        <Border Grid.Row="2"
+                Background="#D910131B"
+                BorderBrush="#665F6F8D"
+                BorderThickness="1"
+                CornerRadius="18"
+                Padding="24,17"
+                HorizontalAlignment="Stretch"
+                MaxWidth="1040"
+                IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
+          <StackPanel Spacing="7">
+            <TextBlock Text="{Binding SelectedTile.Title}"
+                       Foreground="#FFF5F7FF"
+                       FontSize="23"
+                       FontWeight="Bold"
+                       TextTrimming="CharacterEllipsis"
+                       MaxWidth="960" />
+            <StackPanel Orientation="Horizontal" Spacing="16">
+              <TextBlock Text="{Binding SelectedTile.SourceLabel}"
+                         Foreground="#FF9BA8C4"
+                         FontSize="11"
+                         FontWeight="Bold" />
+              <Border Width="1" Height="15" Background="#556C7898" />
+              <TextBlock Text="{Binding SelectedTile.InstallStatusLabel}"
+                         Foreground="#FF9ED6B0"
+                         FontSize="11"
+                         FontWeight="Bold" />
+              <Border Width="1" Height="15" Background="#556C7898" />
+              <TextBlock Text="{Binding SelectedTile.PlaytimeLabel}"
+                         Foreground="#FFB8C1D4"
+                         FontSize="11"
+                         FontWeight="SemiBold" />
+              <TextBlock Text="{Binding SelectedTile.FavoriteLabel}"
+                         Foreground="#FFFFC45C"
+                         FontSize="11"
+                         FontWeight="Bold" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <ScrollViewer x:Name="GameRowScrollViewer"
+                      Grid.Row="1"
+                      MinHeight="220"
+                      VerticalAlignment="Stretch"
+                      Background="Transparent"
+                      BorderBrush="Transparent"
+                      BorderThickness="0"
+                      HorizontalContentAlignment="Center"
+                      HorizontalScrollBarVisibility="Hidden"
+                      VerticalScrollBarVisibility="Disabled">
+          <ScrollViewer.Transitions>
+            <Transitions>
+              <VectorTransition Property="Offset" Duration="0:0:0.28" Easing="CubicEaseOut" />
+            </Transitions>
+          </ScrollViewer.Transitions>
+
+          <ItemsControl x:Name="GamesItemsControl"
+                        ItemsSource="{Binding Games}"
+                        HorizontalAlignment="Center"
+                        Background="Transparent"
+                        BorderThickness="0">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Orientation="Horizontal" Spacing="38" Margin="700,0,700,0" VerticalAlignment="Center" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:GameTileViewModel">
+                <Grid Width="{Binding CarouselTileWidth}"
+                      Height="{Binding CarouselTileHeight}"
+                      ClipToBounds="False"
+                      RenderTransformOrigin="50%,50%"
+                      Opacity="{Binding CarouselOpacity}"
+                      ZIndex="{Binding CarouselZIndex}"
+                      PointerPressed="OnTilePointerPressed"
+                      DoubleTapped="OnTileDoubleTapped">
+                  <Grid.RenderTransform>
+                    <TransformGroup>
+                      <ScaleTransform ScaleX="{Binding CarouselScale}" ScaleY="{Binding CarouselScale}">
+                        <ScaleTransform.Transitions>
+                          <Transitions>
+                            <DoubleTransition Property="ScaleX" Duration="0:0:0.22" Easing="CubicEaseOut" />
+                            <DoubleTransition Property="ScaleY" Duration="0:0:0.22" Easing="CubicEaseOut" />
+                          </Transitions>
+                        </ScaleTransform.Transitions>
+                      </ScaleTransform>
+                      <TranslateTransform Y="{Binding CarouselOffsetY}">
+                        <TranslateTransform.Transitions>
+                          <Transitions>
+                            <DoubleTransition Property="Y" Duration="0:0:0.22" Easing="CubicEaseOut" />
+                          </Transitions>
+                        </TranslateTransform.Transitions>
+                      </TranslateTransform>
+                    </TransformGroup>
+                  </Grid.RenderTransform>
+                  <Grid.Transitions>
+                    <Transitions>
+                      <DoubleTransition Property="Opacity" Duration="0:0:0.22" />
+                    </Transitions>
+                  </Grid.Transitions>
+
+                  <!-- CAPA ESTÁTICA NA ROLETA (v15.6-R3: sem AnimatedImage) -->
+                  <Image anim:ImageBehavior.AnimatedSource="{Binding CarouselTileImagePath}"
+                         Width="{Binding CarouselTileWidth}"
+                         Height="{Binding CarouselTileHeight}"
+                         Stretch="Uniform"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center" />
+
+                  <Border Background="{DynamicResource BackdropDimBrush}"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
+                          IsVisible="{Binding ShowEmptyCarouselPlaceholder}">
+                    <TextBlock Text="{Binding Title}"
+                               Classes="gameTitle"
+                               TextWrapping="Wrap"
+                               TextAlignment="Center"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Center"
+                               Margin="8" />
+                  </Border>
+
+                  <Border Background="{DynamicResource SurfaceBrush}"
+                          IsHitTestVisible="False"
+                          IsVisible="{Binding IsOwnedNotInstalled}" />
+
+                  <TextBlock Text="★"
+                             Foreground="{DynamicResource AccentBrush}"
+                             FontSize="18"
+                             HorizontalAlignment="Right"
+                             VerticalAlignment="Bottom"
+                             Margin="6"
+                             IsVisible="{Binding IsFavorite}" />
+
+                  <Border Background="{Binding PlatformBadgeColorHex, Converter={StaticResource HexColorToBrushConverter}}"
+                          CornerRadius="4"
+                          Padding="4,1"
+                          HorizontalAlignment="Right"
+                          VerticalAlignment="Top"
+                          Margin="6"
+                          IsVisible="{Binding HasPlatformBadge}">
+                    <TextBlock Text="{Binding PlatformBadgeText}" FontSize="9" FontWeight="Bold" Foreground="White" />
+                  </Border>
+
+                  <Border BorderBrush="{DynamicResource TextPrimaryBrush}"
+                          CornerRadius="5"
+                          BorderThickness="4"
+                          IsHitTestVisible="False"
+                          IsVisible="{Binding IsFocused}" />
+                  <Border BorderBrush="{DynamicResource AccentBrush}"
+                          CornerRadius="5"
+                          BorderThickness="3"
+                          Margin="5"
+                          IsHitTestVisible="False"
+                          IsVisible="{Binding IsFocused}" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+
+      </Grid>
+
+      <TextBlock Grid.Row="0" Grid.Column="1"
+                 Text="SUA BIBLIOTECA&#10;Adicione jogos para começar sua experiência."
+                 Foreground="{DynamicResource TextPrimaryBrush}"
+                 TextWrapping="Wrap"
+                 TextAlignment="Center"
+                 VerticalAlignment="Center"
+                 HorizontalAlignment="Center"
+                 Margin="24"
+                 IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
+
+    </Grid>
+  </Panel>
+</UserControl>

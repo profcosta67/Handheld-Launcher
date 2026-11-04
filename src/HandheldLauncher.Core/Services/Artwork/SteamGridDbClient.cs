@@ -175,11 +175,41 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
 
     private async Task<int?> SearchGameId(string title, CancellationToken ct)
     {
-        var url = $"{BaseUrl}/search/autocomplete/{Uri.EscapeDataString(title)}";
+        var normalizedTitle = title.Trim();
+        var url = $"{BaseUrl}/search/autocomplete/{Uri.EscapeDataString(normalizedTitle)}";
         using var response = await _http.GetAsync(url, ct);
-        if (!response.IsSuccessStatusCode) return null;
+        if (!response.IsSuccessStatusCode)
+        {
+            System.Diagnostics.Debug.WriteLine($"[SGDB] Search '{normalizedTitle}' failed: HTTP {(int)response.StatusCode}.");
+            return null;
+        }
+
         var payload = await response.Content.ReadFromJsonSafe<SearchResponse>(ct);
-        return payload?.Data?.FirstOrDefault()?.Id;
+        var results = payload?.Data;
+        if (results is null || results.Count == 0)
+        {
+            System.Diagnostics.Debug.WriteLine($"[SGDB] No game match for '{normalizedTitle}'.");
+            return null;
+        }
+
+        // Autocomplete order alone is not a reliable match for editions,
+        // remasters and similarly named games. Prefer exact title, then a
+        // contained title; do not silently apply artwork from an unrelated game.
+        var exact = results.FirstOrDefault(x =>
+            string.Equals(x.Name?.Trim(), normalizedTitle, StringComparison.OrdinalIgnoreCase));
+        var partial = exact ?? results.FirstOrDefault(x =>
+            !string.IsNullOrWhiteSpace(x.Name) &&
+            (normalizedTitle.Contains(x.Name, StringComparison.OrdinalIgnoreCase) ||
+             x.Name.Contains(normalizedTitle, StringComparison.OrdinalIgnoreCase)));
+
+        if (partial is null)
+        {
+            System.Diagnostics.Debug.WriteLine($"[SGDB] Ambiguous autocomplete for '{normalizedTitle}'; refusing unrelated first result.");
+            return null;
+        }
+
+        System.Diagnostics.Debug.WriteLine($"[SGDB] Matched '{normalizedTitle}' to '{partial.Name}' (id={partial.Id}).");
+        return partial.Id;
     }
 
     private async Task<IReadOnlyList<SteamGridDbImage>> FetchGridCandidates(string url, CancellationToken ct, bool? wideOnly = null)
@@ -205,7 +235,11 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
     public void Dispose() => _http.Dispose();
 
     private sealed class SearchResponse { public List<SearchResult>? Data { get; set; } }
-    private sealed class SearchResult { public int Id { get; set; } }
+    private sealed class SearchResult
+    {
+        public int Id { get; set; }
+        public string? Name { get; set; }
+    }
     private sealed class GridResponse { public List<GridResult>? Data { get; set; } }
     private sealed class GridResult
     {

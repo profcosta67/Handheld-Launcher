@@ -20,6 +20,34 @@ public sealed class GameTileViewModel : ViewModelBase
 
     public string Title => Game.Title;
 
+    public string SourceLabel => Game.Source switch
+    {
+        GameSource.Steam => "STEAM",
+        GameSource.EpicGames => "EPIC GAMES",
+        GameSource.Gog => "GOG",
+        GameSource.Ubisoft => "UBISOFT CONNECT",
+        GameSource.EaApp => "EA APP",
+        GameSource.XboxApp => "XBOX",
+        GameSource.Emulator => "EMULADOR",
+        GameSource.Manual => "ADICIONADO MANUALMENTE",
+        _ => "BIBLIOTECA",
+    };
+
+    public string PlaytimeLabel => Game.PlaytimeMinutes switch
+    {
+        <= 0 => "AINDA NÃO JOGADO",
+        < 60 => $"{Game.PlaytimeMinutes} MIN JOGADOS",
+        _ => $"{Game.PlaytimeMinutes / 60}H {Game.PlaytimeMinutes % 60:00}MIN JOGADOS",
+    };
+
+    public string FavoriteLabel => Game.IsFavorite ? "★ FAVORITO" : string.Empty;
+
+    public string InstallStatusLabel => Game.IsOwnedNotInstalled
+        ? "DISPONÍVEL PARA INSTALAR"
+        : Game.IsRunning
+            ? "EM EXECUÇÃO"
+            : "INSTALADO";
+
     public string? GridImagePath => Game.GridImagePath;
     public string? HeroImagePath => Game.HeroImagePath;
     public string? LogoImagePath => Game.LogoImagePath;
@@ -122,11 +150,15 @@ public sealed class GameTileViewModel : ViewModelBase
     public double TileWidth => (IsLastPlayed ? 580 : 220) * SizeScale;
 
     public string? BannerImagePath => Game.HeroImagePath ?? Game.GridImagePath;
-    public string? TileImagePath => IsLastPlayed ? Game.WideGridImagePath : GridImagePath;
+    // Não deixa o tile ficar vazio quando a arte principal ainda não existe.
+    // Jogos recém-adicionados ou sem wide-grid usam a melhor arte disponível.
+    public string? TileImagePath => IsLastPlayed
+        ? Game.WideGridImagePath ?? GridImagePath ?? IconImagePath
+        : GridImagePath ?? Game.WideGridImagePath ?? IconImagePath;
 
     public double CarouselTileWidth => 220 * SizeScale;
     public double CarouselTileHeight => 290 * SizeScale;
-    public string? CarouselTileImagePath => GridImagePath ?? Game.WideGridImagePath;
+    public string? CarouselTileImagePath => GridImagePath ?? Game.WideGridImagePath ?? IconImagePath;
     public bool ShowEmptyCarouselPlaceholder => string.IsNullOrEmpty(CarouselTileImagePath);
 
     private int _carouselDistance;
