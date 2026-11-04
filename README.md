@@ -2,7 +2,7 @@
 
 Launcher para PCs portáteis e handhelds Windows, reunindo biblioteca de jogos, atalhos, ajustes de hardware e ferramentas de captura em uma interface otimizada para controle.
 
-**Versão atual:** v0.15.0
+**Versão atual:** v0.15.1
 
 ## Funcionalidades
 
