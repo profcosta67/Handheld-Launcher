@@ -16,6 +16,7 @@ public sealed class ArtworkService : IArtworkService
     private readonly IGameLibraryStore _store;
     private readonly HttpClient _downloadHttp;
     private readonly string _cacheDir;
+    private bool _selfHealRan;
 
     public ArtworkService(ISteamGridDbClient client, IGameLibraryStore store, string? cacheDirOverride = null)
     {
@@ -28,8 +29,15 @@ public sealed class ArtworkService : IArtworkService
             "HandheldLauncher", "artwork");
         Directory.CreateDirectory(_cacheDir);
 
-        SelfHealCorruptedArtwork();
-        SanitizeOverrides();
+        // 🟢 OTIMIZAÇÃO: Roda em background para não travar a abertura do app!
+        _ = Task.Run(() => 
+        {
+            if (_selfHealRan) return;
+            _selfHealRan = true;
+            
+            SelfHealCorruptedArtwork();
+            SanitizeOverrides();
+        });
     }
 
     public bool HasApiKey => _client.HasApiKey;
@@ -40,12 +48,6 @@ public sealed class ArtworkService : IArtworkService
         _client.UpdateApiKey(settings.SteamGridDbApiKey);
     }
 
-    /// <summary>
-    /// Valida cada arquivo do cache com SKBitmap.Decode (full decode, não só
-    /// magic bytes) — a forma que funciona no SkiaSharp atual: byte[] em vez
-    /// de string path. Se o decode falhar, deleta o arquivo e limpa o
-    /// override → HasLogo=false → nome do jogo volta a aparecer.
-    /// </summary>
     private void SelfHealCorruptedArtwork()
     {
         try
@@ -62,20 +64,15 @@ public sealed class ArtworkService : IArtworkService
                 {
                     var fi = new FileInfo(file);
                     if (fi.Length < 100) { File.Delete(file); deletedPaths.Add(file); deleted++; continue; }
-
-                    var bytes = File.ReadAllBytes(file);
-                    using var bmp = SKBitmap.Decode(bytes);
-                    if (bmp is null)
+                    
+                    if (!IsValidImageMagic(file))
                     {
                         File.Delete(file);
                         deletedPaths.Add(file);
                         deleted++;
                     }
                 }
-                catch
-                {
-                    try { File.Delete(file); deletedPaths.Add(file); deleted++; } catch { }
-                }
+                catch { }
             }
 
             var overridesCleaned = 0;
@@ -96,7 +93,7 @@ public sealed class ArtworkService : IArtworkService
             }
 
             if (deleted > 0 || overridesCleaned > 0)
-                System.Diagnostics.Debug.WriteLine($"[SGDB] SelfHeal: {deleted}/{scanned} arquivos removidos, {overridesCleaned} overrides limpos.");
+                System.Diagnostics.Debug.WriteLine($"[SGDB] SelfHeal Background: {deleted}/{scanned} arquivos removidos, {overridesCleaned} overrides limpos.");
         }
         catch (Exception ex)
         {
@@ -116,16 +113,16 @@ public sealed class ArtworkService : IArtworkService
                 var ov = kv.Value;
                 bool changed = false;
 
-                if (!string.IsNullOrEmpty(ov.GridImagePath) && !IsValidImageFile(ov.GridImagePath)) { ov.GridImagePath = null; changed = true; }
-                if (!string.IsNullOrEmpty(ov.HeroImagePath) && !IsValidImageFile(ov.HeroImagePath)) { ov.HeroImagePath = null; changed = true; }
-                if (!string.IsNullOrEmpty(ov.LogoImagePath) && !IsValidImageFile(ov.LogoImagePath)) { ov.LogoImagePath = null; changed = true; }
-                if (!string.IsNullOrEmpty(ov.WideGridImagePath) && !IsValidImageFile(ov.WideGridImagePath)) { ov.WideGridImagePath = null; changed = true; }
-                if (!string.IsNullOrEmpty(ov.IconImagePath) && !IsValidImageFile(ov.IconImagePath)) { ov.IconImagePath = null; changed = true; }
+                if (!string.IsNullOrEmpty(ov.GridImagePath) && !File.Exists(ov.GridImagePath)) { ov.GridImagePath = null; changed = true; }
+                if (!string.IsNullOrEmpty(ov.HeroImagePath) && !File.Exists(ov.HeroImagePath)) { ov.HeroImagePath = null; changed = true; }
+                if (!string.IsNullOrEmpty(ov.LogoImagePath) && !File.Exists(ov.LogoImagePath)) { ov.LogoImagePath = null; changed = true; }
+                if (!string.IsNullOrEmpty(ov.WideGridImagePath) && !File.Exists(ov.WideGridImagePath)) { ov.WideGridImagePath = null; changed = true; }
+                if (!string.IsNullOrEmpty(ov.IconImagePath) && !File.Exists(ov.IconImagePath)) { ov.IconImagePath = null; changed = true; }
 
                 if (changed) { _store.SaveOverride(kv.Key, ov); cleaned++; }
             }
             if (cleaned > 0)
-                System.Diagnostics.Debug.WriteLine($"[SGDB] SanitizeOverrides: {cleaned} override(s) limpos.");
+                System.Diagnostics.Debug.WriteLine($"[SGDB] SanitizeOverrides Background: {cleaned} override(s) limpos.");
         }
         catch (Exception ex)
         {
@@ -133,20 +130,31 @@ public sealed class ArtworkService : IArtworkService
         }
     }
 
-    /// <summary>
-    /// Valida com SKBitmap.Decode(bytes) — full decode. Se o PNG tem header
-    /// válido mas body corrompido (bug do trim antigo), retorna false aqui
-    /// e o nome do jogo aparece em vez do logo quebrado.
-    /// </summary>
+    private static bool IsValidImageMagic(string path)
+    {
+        try
+        {
+            using var fs = File.OpenRead(path);
+            if (fs.Length < 4) return false;
+            var b = new byte[12];
+            var read = fs.Read(b, 0, 12);
+            if (read < 4) return false;
+            if (b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4E && b[3] == 0x47) return true; // PNG
+            if (b[0] == 0xFF && b[1] == 0xD8 && b[2] == 0xFF) return true; // JPEG
+            if (b[0] == 0x47 && b[1] == 0x49 && b[2] == 0x46) return true; // GIF
+            if (read >= 12 && b[0] == 0x52 && b[1] == 0x49 && b[2] == 0x46 && b[3] == 0x46 && b[8] == 0x57 && b[9] == 0x45 && b[10] == 0x42 && b[11] == 0x50) return true; // WebP
+            return false;
+        }
+        catch { return false; }
+    }
+
     private static bool IsValidImageFile(string? path)
     {
         if (string.IsNullOrEmpty(path) || !File.Exists(path)) return false;
         try
         {
             if (new FileInfo(path).Length < 100) return false;
-            var bytes = File.ReadAllBytes(path);
-            using var bmp = SKBitmap.Decode(bytes);
-            return bmp is not null;
+            return IsValidImageMagic(path);
         }
         catch { return false; }
     }
@@ -183,13 +191,6 @@ public sealed class ArtworkService : IArtworkService
         return true;
     }
 
-    /// <summary>
-    /// v15.6-R3: SEM TRIM. TrimTransparentPadding antigo corrompia PNGs com
-    /// SKImage.Encode em alguns casos (header válido, body quebrado) →
-    /// Avalonia new Bitmap falhava ao renderizar → tile vazia + HasLogo
-    /// escondia o nome. Projeto antigo NÃO fazia trim e funcionava — voltamos
-    /// ao mesmo fluxo.
-    /// </summary>
     public async Task<bool> FetchLogoAsync(GameEntry game, CancellationToken ct = default)
     {
         if (!HasApiKey) return false;
@@ -199,9 +200,7 @@ public sealed class ArtworkService : IArtworkService
         if (image is null) return false;
         var localPath = await DownloadToCache(image.Url, _cacheDir, $"{game.Id}_logo", ct);
         if (localPath is null) return false;
-
         if (!IsValidImageFile(localPath)) return false;
-
         var data = GetOrCreateOverride(game.Id);
         data.LogoImagePath = localPath;
         _store.SaveOverride(game.Id, data);
@@ -276,6 +275,13 @@ public sealed class ArtworkService : IArtworkService
                 : await _client.GetWideGridCandidatesForTitleAsync(game.Title, animatedOnly, ct),
             $"{game.Id}_widegrid_candidate");
 
+    public Task<IReadOnlyList<ArtworkCandidate>> GetWideArtworkCandidatesAsync(GameEntry game, bool animatedOnly = false, CancellationToken ct = default)
+        => FetchCandidatesCoreAsync(game, animatedOnly, ct, async () =>
+            game.Source == GameSource.Steam && game.SteamAppId is { } appId
+                ? await _client.GetWideGridCandidatesForSteamAppAsync(appId, animatedOnly, ct)
+                : await _client.GetWideGridCandidatesForTitleAsync(game.Title, animatedOnly, ct),
+            $"{game.Id}_widegrid_candidate");
+
     private async Task<IReadOnlyList<ArtworkCandidate>> FetchCandidatesCoreAsync(
         GameEntry game, bool animatedOnly, CancellationToken ct,
         Func<Task<IReadOnlyList<SteamGridDbImage>>> fetchImages, string filenamePrefix)
@@ -331,10 +337,6 @@ public sealed class ArtworkService : IArtworkService
         return results.ToArray();
     }
 
-    /// <summary>
-    /// Não precisa de async: só faz File.Copy e SaveOverride (síncronos).
-    /// Retorna Task.FromResult pra casar com a interface async.
-    /// </summary>
     private Task<bool> ApplyCandidateAsync(GameEntry game, ArtworkCandidate candidate, ArtworkSlot slot, CancellationToken ct)
     {
         Directory.CreateDirectory(_cacheDir);
@@ -369,7 +371,11 @@ public sealed class ArtworkService : IArtworkService
         try
         {
             using var response = await _downloadHttp.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
-            if (!response.IsSuccessStatusCode) return null;
+            if (!response.IsSuccessStatusCode)
+            {
+                System.Diagnostics.Debug.WriteLine($"[SGDB] HTTP {(int)response.StatusCode} em {Path.GetFileName(url)}");
+                return null;
+            }
 
             var tempPath = localPath + ".tmp";
             try
@@ -377,9 +383,9 @@ public sealed class ArtworkService : IArtworkService
                 using (var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true))
                     await response.Content.CopyToAsync(fs, ct);
 
-                if (!IsValidImageFile(tempPath))
+                if (!IsValidImageMagic(tempPath))
                 {
-                    System.Diagnostics.Debug.WriteLine($"[SGDB] Download inválido: {Path.GetFileName(url)}");
+                    System.Diagnostics.Debug.WriteLine($"[SGDB] Download inválido (não é imagem): {Path.GetFileName(url)}");
                     try { File.Delete(tempPath); } catch { }
                     return null;
                 }

@@ -1,8 +1,18 @@
+using System.Collections.ObjectModel;
+using System.Net.Http;
+using System.Text.Json;
 using HandheldLauncher.App.Platform;
 using HandheldLauncher.Core.Models;
 using HandheldLauncher.Core.Services;
 
 namespace HandheldLauncher.App.ViewModels;
+
+public sealed class GitHubRelease
+{
+    public string TagName { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Body { get; set; } = string.Empty;
+}
 
 public sealed class SettingsViewModel : ViewModelBase
 {
@@ -190,6 +200,9 @@ public sealed class SettingsViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsCategoryAccountsActive));
                 OnPropertyChanged(nameof(IsCategoryShortcutsActive));
                 OnPropertyChanged(nameof(IsCategoryLosslessActive));
+                OnPropertyChanged(nameof(IsCategoryConnectivityActive));
+                OnPropertyChanged(nameof(IsCategoryNewsActive));
+                OnPropertyChanged(nameof(SaveButtonText));
             }
         }
     }
@@ -201,6 +214,10 @@ public sealed class SettingsViewModel : ViewModelBase
     public bool IsCategoryAccountsActive => _categoryIndex == 4;
     public bool IsCategoryShortcutsActive => _categoryIndex == 5;
     public bool IsCategoryLosslessActive => _categoryIndex == 6;
+    public bool IsCategoryConnectivityActive => _categoryIndex == 7;
+    public bool IsCategoryNewsActive => _categoryIndex == 8;
+
+    public string SaveButtonText => IsCategoryNewsActive ? "✕ Fechar" : "✕ Salvar e fechar";
 
     private int _fontIndex;
     public int FontIndex { get => _fontIndex; set => SetField(ref _fontIndex, value); }
@@ -301,6 +318,50 @@ public sealed class SettingsViewModel : ViewModelBase
     {
         get => _losslessScalingPath;
         set => SetField(ref _losslessScalingPath, value);
+    }
+
+    // ===== Notas de Versão (Release Notes) =====
+    public ObservableCollection<GitHubRelease> ReleaseHistory { get; } = new();
+    private bool _isLoadingReleases;
+    public bool IsLoadingReleases { get => _isLoadingReleases; set => SetField(ref _isLoadingReleases, value); }
+
+    public async Task LoadReleaseNotesAsync()
+    {
+        if (ReleaseHistory.Count > 0 || IsLoadingReleases) return;
+        
+        IsLoadingReleases = true;
+        try
+        {
+            using var client = new HttpClient();
+            // User-Agent obrigatório para a API do GitHub não bloquear
+            client.DefaultRequestHeaders.Add("User-Agent", "Handheld-Launcher");
+            
+            var response = await client.GetAsync("https://api.github.com/repos/profcosta67/Handheld-Launcher/releases?per_page=10");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                var releases = JsonSerializer.Deserialize<List<GitHubRelease>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                
+                if (releases != null)
+                {
+                    foreach (var r in releases)
+                    {
+                        // Limpa o Markdown básico para ficar legível na tela
+                        var cleanBody = r.Body?.Replace("### ", "").Replace("## ", "").Replace("**", "").Replace("- ", "• ") ?? "";
+                        r.Body = cleanBody;
+                        ReleaseHistory.Add(r);
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Se falhar (sem internet), não faz nada, deixa a tela vazia.
+        }
+        finally
+        {
+            IsLoadingReleases = false;
+        }
     }
 
     private string? _savedMessage;

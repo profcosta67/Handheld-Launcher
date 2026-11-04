@@ -18,12 +18,12 @@ public partial class SettingsWindow : Window
     public SettingsViewModel ViewModel { get; } = new();
 
     private readonly AppSettings _settings;
-
-    // ===== [BUG 2] Estado de navegação por gamepad =====
     private enum FocusZone { Tabs, Content }
     private FocusZone _focusZone = FocusZone.Tabs;
     private int _tabIndex = 0;
     private int _contentIndex = 0;
+    private AccountsWindow? _accountsWindow;
+    private ConnectivityPopupWindow? _connectivityDialog;
 
     public SettingsWindow()
     {
@@ -34,9 +34,15 @@ public partial class SettingsWindow : Window
         ViewModel.LoadFrom(_settings);
         ThemeManager.ApplyFont(this, _settings.UiFont);
 
-        Opened += (_, _) => { FitToScreen(); FocusActiveTab(); };
+        Opened += async (_, _) => 
+        { 
+            FitToScreen(); 
+            FocusActiveTab(); 
+            await ViewModel.LoadReleaseNotesAsync();
+        };
 
         AddHandler(PointerPressedEvent, (_, e) => _lastPointerWasTouch = e.Pointer.Type != PointerType.Mouse, RoutingStrategies.Tunnel);
+        AddHandler(KeyDownEvent, OnSettingsKeyDown, RoutingStrategies.Tunnel);
         AddHandler(GotFocusEvent, (_, e) =>
         {
             if (e.Source is TextBox && e.NavigationMethod == NavigationMethod.Pointer && _lastPointerWasTouch)
@@ -44,6 +50,27 @@ public partial class SettingsWindow : Window
                 TouchKeyboard.Show();
             }
         }, RoutingStrategies.Bubble);
+    }
+
+    private void OnSettingsKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Source is TextBox && e.Key is not Key.Escape) return;
+
+        GamepadAction? action = e.Key switch
+        {
+            Key.Up => GamepadAction.MoveUp,
+            Key.Down => GamepadAction.MoveDown,
+            Key.Left => GamepadAction.MoveLeft,
+            Key.Right => GamepadAction.MoveRight,
+            Key.Enter or Key.Space => GamepadAction.Confirm,
+            Key.Escape => GamepadAction.Back,
+            Key.Q => GamepadAction.PreviousFilter,
+            Key.E => GamepadAction.NextFilter,
+            _ => null
+        };
+
+        if (action is { } mapped && HandleSettingsGamepadAction(mapped))
+            e.Handled = true;
     }
 
     private bool _lastPointerWasTouch;
@@ -64,43 +91,80 @@ public partial class SettingsWindow : Window
         catch { }
     }
 
-    // ===================== [BUG 2] Navegação por Gamepad =====================
-
-    /// <summary>
-    /// Trata as ações do controle dentro da janela de Settings.
-    /// Retorna true se a ação foi consumida (não deve ir pro DialogGamepadNavigator).
-    ///
-    /// Fluxo:
-    /// - Zone=Tabs: Left/Right (ou L1/R1) muda aba. Down ou A entra no conteúdo.
-    /// - Zone=Content: Up/Down navega itens. Up no primeiro item volta pras abas.
-    ///   A ativa o controle focado. B volta pras abas. L1/R1 muda aba (atalho).
-    /// </summary>
     public bool HandleSettingsGamepadAction(GamepadAction action)
     {
+        // 🟢 Se o popup estiver aberto, a SettingsWindow ignora e repassa (embora o popup agora tenha seu próprio poller, isso é segurança extra)
+        if (_connectivityDialog is { IsVisible: true })
+        {
+            _connectivityDialog.HandleGamepadAction(action);
+            return true;
+        }
+
+        if (_accountsWindow is { IsVisible: true } accounts)
+        {
+            DialogGamepadNavigator.Handle(accounts, action);
+            return true;
+        }
+
+        if (action == GamepadAction.GameDetails) // Botão X
+        {
+            ViewModel.SaveTo(_settings);
+            Close();
+            return true;
+        }
+
+        if (action == GamepadAction.Menu) // Botão Start
+        {
+            ViewModel.SaveTo(_settings);
+            return true;
+        }
+
         var tabs = GetTabButtons();
         if (tabs.Count == 0) return false;
 
         var content = GetContentFocusables();
 
+        if (_focusZone == FocusZone.Content && _contentIndex >= 0 && _contentIndex < content.Count
+            && content[_contentIndex] is ComboBox openCombo && openCombo.IsDropDownOpen)
+        {
+            switch (action)
+            {
+                case GamepadAction.MoveDown:
+                    openCombo.SelectedIndex = Math.Min(openCombo.ItemCount - 1, Math.Max(0, openCombo.SelectedIndex + 1));
+                    return true;
+                case GamepadAction.MoveUp:
+                    openCombo.SelectedIndex = Math.Max(0, openCombo.SelectedIndex - 1);
+                    return true;
+                case GamepadAction.Confirm:
+                case GamepadAction.Back:
+                    openCombo.IsDropDownOpen = false;
+                    FocusControl(openCombo);
+                    return true;
+                case GamepadAction.MoveLeft:
+                case GamepadAction.MoveRight:
+                    return true;
+            }
+        }
+
         if (_focusZone == FocusZone.Tabs)
         {
             switch (action)
             {
-                case GamepadAction.MoveLeft:
+                case GamepadAction.MoveUp:
                 case GamepadAction.PreviousFilter:
                     _tabIndex = (_tabIndex - 1 + tabs.Count) % tabs.Count;
                     ViewModel.CategoryIndex = _tabIndex;
                     FocusControl(tabs[_tabIndex]);
                     return true;
 
-                case GamepadAction.MoveRight:
+                case GamepadAction.MoveDown:
                 case GamepadAction.NextFilter:
                     _tabIndex = (_tabIndex + 1) % tabs.Count;
                     ViewModel.CategoryIndex = _tabIndex;
                     FocusControl(tabs[_tabIndex]);
                     return true;
 
-                case GamepadAction.MoveDown:
+                case GamepadAction.MoveRight:
                 case GamepadAction.Confirm:
                     if (content.Count > 0)
                     {
@@ -114,12 +178,11 @@ public partial class SettingsWindow : Window
                     Close();
                     return true;
 
-                case GamepadAction.MoveUp:
-                    // Já está no topo — não faz nada (evita "sumir" do foco)
+                case GamepadAction.MoveLeft:
                     return true;
             }
         }
-        else // Content
+        else
         {
             switch (action)
             {
@@ -141,7 +204,6 @@ public partial class SettingsWindow : Window
                     return true;
 
                 case GamepadAction.MoveLeft:
-                    // ComboBox/Slider mudam valor; senão, não faz nada
                     if (TryChangeValue(content, _contentIndex, -1)) return true;
                     return true;
 
@@ -188,44 +250,28 @@ public partial class SettingsWindow : Window
         FocusControl(tabs[_tabIndex]);
     }
 
- private void FocusControl(Control control)
-{
-    // [FIX FOCO] NavigationMethod.Directional aciona o FocusAdorner (o "círculo" roxo).
-    // Sem isso, control.Focus() sem método NÃO mostra o FocusAdorner.
-    control.Focus(NavigationMethod.Directional);
-    control.BringIntoView();
-}
+    private void FocusControl(Control control)
+    {
+        control.Focus(NavigationMethod.Directional);
+        control.BringIntoView();
+    }
 
-    /// <summary>
-    /// Retorna os botões de aba (classes "categoryTab"), na ordem em que aparecem.
-    /// </summary>
     private List<Button> GetTabButtons() => this.GetVisualDescendants()
         .OfType<Button>()
         .Where(b => b.Classes.Contains("categoryTab") && b.IsEffectivelyVisible)
         .ToList();
 
-    /// <summary>
-    /// Retorna os controles focáveis do CONTEÚDO (exclui abas e rodapé).
-    /// Só inclui controles visíveis — então já filtra automaticamente pela aba ativa.
-    /// </summary>
     private List<Control> GetContentFocusables()
-{
-    var tabButtons = new HashSet<Control>(GetTabButtons().Cast<Control>());
+    {
+        var tabButtons = new HashSet<Control>(GetTabButtons().Cast<Control>());
+        return this.GetVisualDescendants()
+            .OfType<Control>()
+            .Where(c => c.Focusable && c.IsEffectivelyVisible && c.IsEffectivelyEnabled && c != this && !tabButtons.Contains(c)
+                        && c is ComboBox or Slider or CheckBox or RadioButton or TextBox or Button)
+            .ToList();
+    }
 
-    // [FIX] Não exclui mais os botões do rodapé. Agora o D-Pad desce
-    // até eles depois de passar por todos os controles da aba.
-    return this.GetVisualDescendants()
-        .OfType<Control>()
-        .Where(c => c.Focusable
-                    && c.IsEffectivelyVisible
-                    && c.IsEffectivelyEnabled
-                    && c != this
-                    && !tabButtons.Contains(c))
-        .ToList();
-}
-
-    
-        private bool TryChangeValue(List<Control> content, int index, int direction)
+    private bool TryChangeValue(List<Control> content, int index, int direction)
     {
         if (index < 0 || index >= content.Count) return false;
         var control = content[index];
@@ -248,7 +294,6 @@ public partial class SettingsWindow : Window
 
         if (control is RadioButton)
         {
-            // Left/Right em grupo de RadioButtons: navega o grupo
             var siblings = content.OfType<RadioButton>().ToList();
             var idx = siblings.IndexOf((RadioButton)control);
             if (idx < 0) return false;
@@ -257,7 +302,6 @@ public partial class SettingsWindow : Window
             FocusControl(siblings[next]);
             return true;
         }
-
         return false;
     }
 
@@ -265,39 +309,36 @@ public partial class SettingsWindow : Window
     {
         switch (control)
         {
-            // ⚠️ IMPORTANTE: CheckBox e RadioButton herdam de Button — têm que vir PRIMEIRO,
-            // senão o `case Button` os captura e os cases ficam inalcançáveis.
-            case CheckBox cb:
-                cb.IsChecked = !cb.IsChecked;
-                break;
-            case RadioButton rb:
-                rb.IsChecked = true;
-                break;
-            case ComboBox combo:
-                // A cicla pro próximo item (não abre dropdown pra evitar travar no jogo)
-                if (combo.ItemCount > 0)
-                    combo.SelectedIndex = (combo.SelectedIndex + 1) % combo.ItemCount;
-                break;
+            case CheckBox cb: cb.IsChecked = !cb.IsChecked; break;
+            case RadioButton rb: rb.IsChecked = true; break;
+            case ComboBox combo: combo.IsDropDownOpen = !combo.IsDropDownOpen; break;
             case Slider sl:
                 var step = sl.TickFrequency > 0 ? sl.TickFrequency : (sl.Maximum - sl.Minimum) / 10;
                 sl.Value = sl.Value + step > sl.Maximum ? sl.Minimum : sl.Value + step;
                 break;
-            case TextBox:
-                // Focar o TextBox dispara o keyboard virtual via GotFocus
-                control.Focus();
-                break;
-            case Button btn:
-                btn.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                break;
+            case TextBox: control.Focus(); break;
+            case Button btn: btn.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); break;
         }
     }
 
-    
-    // ===================== handlers existentes =====================
-
     private async void OnManageAccountsClick(object? sender, RoutedEventArgs e)
     {
-        await new AccountsWindow(ViewModel).ShowDialog(this);
+        var accounts = new AccountsWindow(ViewModel, OpenExternalUrlFromDialog);
+        _accountsWindow = accounts;
+        try { await accounts.ShowDialog(this); }
+        finally { _accountsWindow = null; }
+    }
+
+    private void OpenExternalUrlFromDialog(string url)
+    {
+        Topmost = false;
+        if (Owner is MainWindow mainWindow)
+        {
+            mainWindow.Topmost = false;
+            mainWindow.OpenExternalUrl(url);
+        }
+        else
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
     }
 
     private void OnCategoryTabClick(object? sender, RoutedEventArgs e)
@@ -323,24 +364,12 @@ public partial class SettingsWindow : Window
             {
                 Title = "Selecione o eden.exe",
                 AllowMultiple = false,
-                FileTypeFilter = new[]
-                {
-                    new Avalonia.Platform.Storage.FilePickerFileType("Executável")
-                    {
-                        Patterns = new[] { "*.exe" }
-                    }
-                }
+                FileTypeFilter = new[] { new Avalonia.Platform.Storage.FilePickerFileType("Executável") { Patterns = new[] { "*.exe" } } }
             });
 
-            if (files.Count > 0)
-            {
-                ViewModel.EdenExecutablePath = files[0].Path.LocalPath;
-            }
+            if (files.Count > 0) ViewModel.EdenExecutablePath = files[0].Path.LocalPath;
         }
-        catch (Exception ex)
-        {
-            DebugLog.Write($"[SETTINGS] Falha ao abrir file picker (eden): {ex.Message}");
-        }
+        catch (Exception ex) { DebugLog.Write($"[SETTINGS] Falha ao abrir file picker (eden): {ex.Message}"); }
     }
 
     private async void OnBrowseLosslessClick(object? sender, RoutedEventArgs e)
@@ -355,24 +384,12 @@ public partial class SettingsWindow : Window
             {
                 Title = "Selecione o LosslessScaling.exe",
                 AllowMultiple = false,
-                FileTypeFilter = new[]
-                {
-                    new Avalonia.Platform.Storage.FilePickerFileType("Executável")
-                    {
-                        Patterns = new[] { "*.exe" }
-                    }
-                }
+                FileTypeFilter = new[] { new Avalonia.Platform.Storage.FilePickerFileType("Executável") { Patterns = new[] { "*.exe" } } }
             });
 
-            if (files.Count > 0)
-            {
-                ViewModel.LosslessScalingPath = files[0].Path.LocalPath;
-            }
+            if (files.Count > 0) ViewModel.LosslessScalingPath = files[0].Path.LocalPath;
         }
-        catch (Exception ex)
-        {
-            DebugLog.Write($"[SETTINGS] Falha ao abrir file picker (lossless): {ex.Message}");
-        }
+        catch (Exception ex) { DebugLog.Write($"[SETTINGS] Falha ao abrir file picker (lossless): {ex.Message}"); }
     }
 
     private async void OnAddRomFolderClick(object? sender, RoutedEventArgs e)
@@ -389,22 +406,15 @@ public partial class SettingsWindow : Window
         var path = folder.TryGetLocalPath();
         if (string.IsNullOrWhiteSpace(path)) return;
 
-        var existing = ViewModel.EdenRomFoldersText
-            .Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-
+        var existing = ViewModel.EdenRomFoldersText.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
         if (existing.Contains(path, StringComparer.OrdinalIgnoreCase)) return;
 
-        ViewModel.EdenRomFoldersText = existing.Length == 0
-            ? path
-            : string.Join(Environment.NewLine, existing.Append(path));
+        ViewModel.EdenRomFoldersText = existing.Length == 0 ? path : string.Join(Environment.NewLine, existing.Append(path));
     }
 
     private void OnTestEdenScanClick(object? sender, RoutedEventArgs e)
     {
-        var folders = ViewModel.EdenRomFoldersText
-            .Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-            .ToList();
-
+        var folders = ViewModel.EdenRomFoldersText.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList();
         var exePath = ViewModel.EdenExecutablePath?.Trim();
 
         try
@@ -421,72 +431,48 @@ public partial class SettingsWindow : Window
 
     private static string DescribeScan(EdenScanReport report)
     {
-        if (!report.EdenExecutableFound)
-        {
-            return "O eden.exe não foi encontrado no caminho acima — sem ele nenhum jogo é listado.";
-        }
-
-        var parts = new List<string>
-        {
-            report.Games == 1 ? "1 jogo encontrado" : $"{report.Games} jogos encontrados",
-        };
-
-        if (report.SkippedAddOns > 0)
-        {
-            parts.Add(report.SkippedAddOns == 1
-                ? "1 arquivo ignorado (DLC ou atualização)"
-                : $"{report.SkippedAddOns} arquivos ignorados (DLC ou atualização)");
-        }
-
-        if (report.FoldersMissing > 0)
-        {
-            parts.Add(report.FoldersMissing == 1
-                ? "1 pasta da lista não existe"
-                : $"{report.FoldersMissing} pastas da lista não existem");
-        }
-
-        if (report.UsedEdenConfigFallback)
-        {
-            parts.Add(report.FoldersScanned > 0
-                ? "nenhuma pasta informada aqui, então foi usada a configuração do próprio Eden"
-                : "nenhuma pasta informada aqui e a configuração do próprio Eden não tem pasta nenhuma");
-        }
-
+        if (!report.EdenExecutableFound) return "O eden.exe não foi encontrado no caminho acima — sem ele nenhum jogo é listado.";
+        
+        var parts = new List<string> { report.Games == 1 ? "1 jogo encontrado" : $"{report.Games} jogos encontrados" };
+        if (report.SkippedAddOns > 0) parts.Add(report.SkippedAddOns == 1 ? "1 arquivo ignorado (DLC ou atualização)" : $"{report.SkippedAddOns} arquivos ignorados (DLC ou atualização)");
+        if (report.FoldersMissing > 0) parts.Add(report.FoldersMissing == 1 ? "1 pasta da lista não existe" : $"{report.FoldersMissing} pastas da lista não existem");
+        if (report.UsedEdenConfigFallback) parts.Add(report.FoldersScanned > 0 ? "nenhuma pasta informada aqui, então foi usada a configuração do próprio Eden" : "nenhuma pasta informada aqui e a configuração do próprio Eden não tem pasta nenhuma");
+        
         return string.Join(" · ", parts) + ".";
     }
 
-    private void OnKeyboardClick(object? sender, RoutedEventArgs e)
+    private void OnKeyboardClick(object? sender, RoutedEventArgs e) => TouchKeyboard.Toggle();
+
+    private async void OnOpenWifiSettingsClick(object? sender, RoutedEventArgs e)
     {
-        TouchKeyboard.Toggle();
+        var dialog = new ConnectivityPopupWindow { Topmost = true };
+        _connectivityDialog = dialog;
+        try { await dialog.ShowDialog(this); }
+        finally { _connectivityDialog = null; }
     }
 
-    private void OnOpenApiKeySiteClick(object? sender, RoutedEventArgs e)
+    private async void OnOpenBluetoothSettingsClick(object? sender, RoutedEventArgs e)
     {
-        const string url = "https://www.steamgriddb.com/profile/preferences/api";
-        if (Owner is MainWindow mainWindow)
+        var dialog = new ConnectivityPopupWindow { Topmost = true };
+        _connectivityDialog = dialog;
+        try { await dialog.ShowDialog(this); }
+        finally { _connectivityDialog = null; }
+    }
+
+    private void OnOpenReleaseNotesClick(object? sender, RoutedEventArgs e)
+    {
+        try
         {
-            mainWindow.OpenExternalUrl(url);
+            Topmost = false;
+            if (Owner is MainWindow mainWindow)
+                mainWindow.OpenWindowsSettings("https://github.com/profcosta67/Handheld-Launcher/tree/main/release-notes");
+            else
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://github.com/profcosta67/Handheld-Launcher/tree/main/release-notes") { UseShellExecute = true });
         }
-        else
-        {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = url,
-                UseShellExecute = true
-            });
-        }
+        catch { }
     }
 
-    private void OnSaveClick(object? sender, RoutedEventArgs e)
-    {
-        ViewModel.SaveTo(_settings);
-        SavedOkButton.Focus();
-    }
-
-    private void OnSavedOkClick(object? sender, RoutedEventArgs e)
-    {
-        ViewModel.DismissSavedMessage();
-    }
+    private void OnSavedOkClick(object? sender, RoutedEventArgs e) => ViewModel.DismissSavedMessage();
 
     public Func<Task<string>>? CheckForUpdates { get; set; }
 
@@ -497,12 +483,11 @@ public partial class SettingsWindow : Window
         ViewModel.UpdateResultText = await CheckForUpdates();
     }
 
-    private void OnCloseClick(object? sender, RoutedEventArgs e)
-    {
-        Close();
-    }
+    private void OnCloseClick(object? sender, RoutedEventArgs e) => Close();
+
     private void OnSaveAndCloseClick(object? sender, RoutedEventArgs e)
     {
+        if (ViewModel.IsCategoryNewsActive) { Close(); return; }
         ViewModel.SaveTo(_settings);
         Close();
     }

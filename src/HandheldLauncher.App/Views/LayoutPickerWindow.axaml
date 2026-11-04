@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="HandheldLauncher.App.Views.LayoutPickerWindow"
         Title="Layout da tela"
-        Width="520" Height="420"
+        Width="560" Height="520"
         CanResize="False"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource BackgroundBrush}">
@@ -19,7 +19,7 @@
     botão ("Aplicar e reiniciar") e o reinício acontece sozinho (ver
     Platform/LauncherRestart).
 
-    Sem ViewModel própria: são duas opções e nenhuma regra.
+    Sem ViewModel própria: opções simples de layout.
   -->
 
   <Grid RowDefinitions="Auto,*,Auto" Margin="24">
@@ -40,9 +40,16 @@
 
       <RadioButton x:Name="SwitchOption" GroupName="Layout">
         <StackPanel Spacing="4">
-          <TextBlock Text="Switch" FontWeight="SemiBold" />
-          <TextBlock Text="A arte do jogo em foco vira o fundo da tela, com filtro branco. As capas ficam centralizadas numa roleta horizontal, com a do meio ampliada, e os filtros no pé da tela."
+          <TextBlock Text="Clean" FontWeight="SemiBold" />
+          <TextBlock Text="Visual clean com arte do jogo em foco, carrossel horizontal centralizado e filtros na parte inferior."
                      Classes="subtle" FontSize="11" TextWrapping="Wrap" MaxWidth="400" />
+        </StackPanel>
+      </RadioButton>
+
+      <RadioButton x:Name="BigScreenOption" GroupName="Layout">
+        <StackPanel Spacing="4">
+          <TextBlock Text="BigScreen" FontWeight="SemiBold" />
+          <TextBlock Text="Experiência imersiva para controle: jogo em destaque, carrossel de capas ampliado e navegação inspirada em consoles." Classes="subtle" FontSize="11" TextWrapping="Wrap" MaxWidth="440" />
         </StackPanel>
       </RadioButton>
     </StackPanel>

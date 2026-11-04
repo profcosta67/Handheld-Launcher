@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -30,7 +33,6 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
         }
     }
 
-    // 🟢 NOVO MÉTODO: Permite atualizar a chave sem reiniciar o app
     public void UpdateApiKey(string? apiKey)
     {
         _apiKey = apiKey;
@@ -41,37 +43,54 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
 
     public bool HasApiKey => !string.IsNullOrWhiteSpace(_apiKey);
 
-    public async Task<SteamGridDbImage?> GetBestGridForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
-        => (await GetGridCandidatesForSteamAppAsync(steamAppId, false, ct)).FirstOrDefault();
+    public Task<SteamGridDbImage?> GetBestGridForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
+        => GetBestStaticForSteamAppAsync("grids", steamAppId, ct);
 
-    public async Task<SteamGridDbImage?> GetBestGridForTitleAsync(string title, CancellationToken ct = default)
-        => (await GetGridCandidatesForTitleAsync(title, false, ct)).FirstOrDefault();
+    public Task<SteamGridDbImage?> GetBestGridForTitleAsync(string title, CancellationToken ct = default)
+        => GetBestStaticForTitleAsync("grids", title, ct);
 
-    public async Task<SteamGridDbImage?> GetBestHeroForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
-        => (await GetHeroCandidatesForSteamAppAsync(steamAppId, false, ct)).FirstOrDefault();
+    public Task<SteamGridDbImage?> GetBestHeroForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
+        => GetBestStaticForSteamAppAsync("heroes", steamAppId, ct, wideOnly: true);
 
-    public async Task<SteamGridDbImage?> GetBestHeroForTitleAsync(string title, CancellationToken ct = default)
-        => (await GetHeroCandidatesForTitleAsync(title, false, ct)).FirstOrDefault();
+    public Task<SteamGridDbImage?> GetBestHeroForTitleAsync(string title, CancellationToken ct = default)
+        => GetBestStaticForTitleAsync("heroes", title, ct, wideOnly: true);
 
-    public async Task<SteamGridDbImage?> GetBestLogoForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
-        => (await GetLogoCandidatesForSteamAppAsync(steamAppId, false, ct)).FirstOrDefault();
+    public Task<SteamGridDbImage?> GetBestLogoForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
+        => GetBestStaticForSteamAppAsync("logos", steamAppId, ct);
 
-    public async Task<SteamGridDbImage?> GetBestLogoForTitleAsync(string title, CancellationToken ct = default)
-        => (await GetLogoCandidatesForTitleAsync(title, false, ct)).FirstOrDefault();
+    public Task<SteamGridDbImage?> GetBestLogoForTitleAsync(string title, CancellationToken ct = default)
+        => GetBestStaticForTitleAsync("logos", title, ct);
 
-    public async Task<SteamGridDbImage?> GetBestIconForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
-        => (await GetIconCandidatesForSteamAppAsync(steamAppId, false, ct)).FirstOrDefault();
+    public Task<SteamGridDbImage?> GetBestIconForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
+        => GetBestStaticForSteamAppAsync("icons", steamAppId, ct);
 
-    public async Task<SteamGridDbImage?> GetBestIconForTitleAsync(string title, CancellationToken ct = default)
-        => (await GetIconCandidatesForTitleAsync(title, false, ct)).FirstOrDefault();
+    public Task<SteamGridDbImage?> GetBestIconForTitleAsync(string title, CancellationToken ct = default)
+        => GetBestStaticForTitleAsync("icons", title, ct);
 
-    public async Task<SteamGridDbImage?> GetBestWideGridForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
-        => (await GetWideGridCandidatesForSteamAppAsync(steamAppId, false, ct)).FirstOrDefault();
+    public Task<SteamGridDbImage?> GetBestWideGridForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
+        => GetBestStaticForSteamAppAsync("grids", steamAppId, ct, wideOnly: true);
 
-    public async Task<SteamGridDbImage?> GetBestWideGridForTitleAsync(string title, CancellationToken ct = default)
-        => (await GetWideGridCandidatesForTitleAsync(title, false, ct)).FirstOrDefault();
+    public Task<SteamGridDbImage?> GetBestWideGridForTitleAsync(string title, CancellationToken ct = default)
+        => GetBestStaticForTitleAsync("grids", title, ct, wideOnly: true);
 
-    // --- Candidatos ---
+    private async Task<SteamGridDbImage?> GetBestStaticForSteamAppAsync(
+        string category, uint steamAppId, CancellationToken ct, bool wideOnly = false, string extraQuery = "")
+    {
+        if (!HasApiKey) return null;
+        return (await FetchGridCandidates(
+            $"{BaseUrl}/{category}/steam/{steamAppId}?types=static{extraQuery}", ct, wideOnly)).FirstOrDefault();
+    }
+
+    private async Task<SteamGridDbImage?> GetBestStaticForTitleAsync(
+        string category, string title, CancellationToken ct, bool wideOnly = false, string extraQuery = "")
+    {
+        if (!HasApiKey) return null;
+        var gameId = await SearchGameId(title, ct);
+        if (gameId is null) return null;
+        return (await FetchGridCandidates(
+            $"{BaseUrl}/{category}/game/{gameId}?types=static{extraQuery}", ct, wideOnly)).FirstOrDefault();
+    }
+
     public async Task<IReadOnlyList<SteamGridDbImage>> GetGridCandidatesForSteamAppAsync(uint steamAppId, bool animatedOnly = false, CancellationToken ct = default)
     {
         if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
@@ -124,7 +143,7 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
     {
         if (!HasApiKey) return Array.Empty<SteamGridDbImage>();
         var type = animatedOnly ? "animated" : "static,animated";
-        return await FetchGridCandidates($"{BaseUrl}/icons/steam/{steamAppId}?types={type}&mimes=image/png,image/webp", ct);
+        return await FetchGridCandidates($"{BaseUrl}/icons/steam/{steamAppId}?types={type}", ct);
     }
 
     public async Task<IReadOnlyList<SteamGridDbImage>> GetIconCandidatesForTitleAsync(string title, bool animatedOnly = false, CancellationToken ct = default)
@@ -133,7 +152,7 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
         var gameId = await SearchGameId(title, ct);
         if (gameId is null) return Array.Empty<SteamGridDbImage>();
         var type = animatedOnly ? "animated" : "static,animated";
-        return await FetchGridCandidates($"{BaseUrl}/icons/game/{gameId}?types={type}&mimes=image/png,image/webp", ct);
+        return await FetchGridCandidates($"{BaseUrl}/icons/game/{gameId}?types={type}", ct);
     }
 
     public async Task<IReadOnlyList<SteamGridDbImage>> GetWideGridCandidatesForSteamAppAsync(uint steamAppId, bool animatedOnly = false, CancellationToken ct = default)
@@ -154,11 +173,68 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
 
     private async Task<int?> SearchGameId(string title, CancellationToken ct)
     {
-        var url = $"{BaseUrl}/search/autocomplete/{Uri.EscapeDataString(title)}";
+        var normalizedTitle = title.Trim();
+        var comparableTitle = NormalizeGameTitle(normalizedTitle);
+        var searchTitle = comparableTitle.Length > 0 ? comparableTitle : normalizedTitle;
+        var url = $"{BaseUrl}/search/autocomplete/{Uri.EscapeDataString(searchTitle)}";
         using var response = await _http.GetAsync(url, ct);
-        if (!response.IsSuccessStatusCode) return null;
+        if (!response.IsSuccessStatusCode)
+        {
+            System.Diagnostics.Debug.WriteLine($"[SGDB] Search '{normalizedTitle}' failed: HTTP {(int)response.StatusCode}.");
+            return null;
+        }
+
         var payload = await response.Content.ReadFromJsonSafe<SearchResponse>(ct);
-        return payload?.Data?.FirstOrDefault()?.Id;
+        var results = payload?.Data;
+        if (results is null || results.Count == 0)
+        {
+            System.Diagnostics.Debug.WriteLine($"[SGDB] No game match for '{normalizedTitle}'.");
+            return null;
+        }
+
+        var exact = results.FirstOrDefault(x =>
+            string.Equals(NormalizeGameTitle(x.Name), comparableTitle, StringComparison.Ordinal));
+        var partial = exact ?? results.FirstOrDefault(x =>
+        {
+            var candidate = NormalizeGameTitle(x.Name);
+            return candidate.Length >= 4 &&
+                   (comparableTitle.Contains(candidate, StringComparison.Ordinal) ||
+                    candidate.Contains(comparableTitle, StringComparison.Ordinal));
+        });
+
+        if (partial is null)
+        {
+            System.Diagnostics.Debug.WriteLine($"[SGDB] Ambiguous autocomplete for '{normalizedTitle}'; refusing unrelated first result.");
+            return null;
+        }
+
+        System.Diagnostics.Debug.WriteLine($"[SGDB] Matched '{normalizedTitle}' to '{partial.Name}' (id={partial.Id}).");
+        return partial.Id;
+    }
+
+    private static string NormalizeGameTitle(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+
+        // 🟢 Remove sufixos de instância (-001, -002) gerados por emuladores
+        value = Regex.Replace(value, @"-\d{3}$", "");
+
+        // 🟢 NOVO: Remove acentos (é -> e, á -> a) para garantir que "Pokémon" e "Pokemon" sejam iguais
+        var normalized = value.Normalize(NormalizationForm.FormD);
+        var sb = new StringBuilder();
+        foreach (var c in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+                sb.Append(c);
+        }
+
+        // Remove pontuação e converte para minúsculas
+        var result = new string(sb.ToString()
+            .ToLowerInvariant()
+            .Select(c => char.IsLetterOrDigit(c) ? c : ' ')
+            .ToArray());
+            
+        return string.Join(' ', result.Split(' ', StringSplitOptions.RemoveEmptyEntries));
     }
 
     private async Task<IReadOnlyList<SteamGridDbImage>> FetchGridCandidates(string url, CancellationToken ct, bool? wideOnly = null)
@@ -184,7 +260,11 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
     public void Dispose() => _http.Dispose();
 
     private sealed class SearchResponse { public List<SearchResult>? Data { get; set; } }
-    private sealed class SearchResult { public int Id { get; set; } }
+    private sealed class SearchResult
+    {
+        public int Id { get; set; }
+        public string? Name { get; set; }
+    }
     private sealed class GridResponse { public List<GridResult>? Data { get; set; } }
     private sealed class GridResult
     {

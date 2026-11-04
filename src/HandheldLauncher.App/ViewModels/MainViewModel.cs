@@ -34,12 +34,10 @@ public sealed class MainViewModel : ViewModelBase
     private bool _hwInfoWasAvailable;
     private DispatcherTimer? _hardwareTimer;
 
-    // ✅ v15.6: semáforo + CTS para serializar downloads de artwork (defesa em profundidade)
     private readonly SemaphoreSlim _artworkSemaphore = new(1, 1);
     private CancellationTokenSource? _ownedArtworkCts;
-
-    // ✅ v15.6-R2: gate de pausa (true = rodando, reset = pausado)
     private readonly ManualResetEventSlim _artworkPauseGate = new(true);
+    private readonly HashSet<string> _failedAssets = new();
 
     private string _cpuTemperature = "--°C";
     public string CpuTemperature
@@ -134,7 +132,8 @@ public sealed class MainViewModel : ViewModelBase
         SetFilterApplicationsCommand = new RelayCommand(() => SetFilter(LibraryFilter.Applications));
         SetFilterNotInstalledCommand = new RelayCommand(() => SetFilter(LibraryFilter.NotInstalled));
 
-        EnsureHwInfoRunning();
+        // 🟢 OTIMIZAÇÃO: HWiNFO busca em background para não travar o boot
+        _ = Task.Run(() => EnsureHwInfoRunning());
 
         _hardwareTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         _hardwareTimer.Tick += (_, _) =>
@@ -188,7 +187,6 @@ public sealed class MainViewModel : ViewModelBase
         {
             await Task.Delay(TimeSpan.FromSeconds(15));
             if (!_artwork.HasApiKey) { DebugLog.Write("[SGDB] Auto-fetch agendado: sem API key, abortando."); return; }
-            // ✅ v15.6-R2: despacha pra UI thread antes de mexer em estado bindado
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 DebugLog.Write("[SGDB] Auto-fetch agendado disparando.");
@@ -264,7 +262,15 @@ public sealed class MainViewModel : ViewModelBase
     }
 
     private GameTileViewModel? _selectedTile;
-    public GameTileViewModel? SelectedTile { get => _selectedTile; private set => SetField(ref _selectedTile, value); }
+    public GameTileViewModel? SelectedTile
+    {
+        get => _selectedTile;
+        private set
+        {
+            if (SetField(ref _selectedTile, value) && value is not null)
+                _ = value.LoadDescriptionAsync();
+        }
+    }
 
     private string _updateStatusText = string.Empty;
     public string UpdateStatusText
@@ -396,7 +402,7 @@ public sealed class MainViewModel : ViewModelBase
         _targetTdpWatts = watts;
         OnPropertyChanged(nameof(TopBarTdpText));
         OnPropertyChanged(nameof(TopBarTdpToolTip));
-        if (_hud != null) _hud.TdpStatusText = watts > 0 ? $"{mode} {watts}W" : "";
+        if (_hud != null) _hud.TdpStatusText = watts > 0 ? $"{watts}W" : "";
     }
 
     public void UpdateHudColorMode(string modeText) { if (_hud != null) _hud.ColorModeText = modeText ?? ""; }
@@ -662,6 +668,9 @@ public sealed class MainViewModel : ViewModelBase
 
         if (string.IsNullOrEmpty(LaunchingGameIconPath)) LaunchingGameIconPath = ResolveFallbackImage(game);
 
+        if (string.IsNullOrEmpty(LaunchingGameIconPath) && _artwork.HasApiKey)
+            _ = FetchLaunchIconAsync(game);
+
         _launcher.Launch(game);
         RunningGame = game;
         _library.MarkLaunched(game.Id);
@@ -898,7 +907,7 @@ public sealed class MainViewModel : ViewModelBase
                 break;
 
             case GlobalMenuPage.Settings:
-                GlobalMenuTitle = "Configurações"; Add("⚙ Preferências", () => SettingsRequested?.Invoke(this, EventArgs.Empty)); Add("📐 Layout da tela", () => LayoutPickerRequested?.Invoke(this, EventArgs.Empty));
+                GlobalMenuTitle = "Configurações"; Add("⚙ Preferências", () => SettingsRequested?.Invoke(this, EventArgs.Empty)); Add("🎨 Temas", () => LayoutPickerRequested?.Invoke(this, EventArgs.Empty));
                 Add("🔄 Atualizações (Windows + Drivers)", () => SystemUpdateRequested?.Invoke(this, EventArgs.Empty)); Add("🛠 Instalar Driver Manual (.inf)", () => DriverUpdateRequested?.Invoke(this, EventArgs.Empty));
                 if (_updates is { IsInstalled: true } && !IsUpdateReady) Add($"🔄 Verificar atualizações (v{_updates.CurrentVersionText})", () => _ = CheckForUpdatesAsync(userInitiated: true));
                 break;
@@ -1046,14 +1055,10 @@ public sealed class MainViewModel : ViewModelBase
         finally { IsLoadingOwnedGames = false; UpdateNotInstalledTabMessage(); }
     }
 
-    // ============================================================
-    // v15.6-R2 — FETCH DE ARTWORK COM MODAL + SEMÁFORO + PAUSE
-    // ============================================================
-
     private void FetchMissingArtwork() => FetchMissingArtworkCore(userInitiated: true);
     private void FetchMissingArtworkBackground() => FetchMissingArtworkCore(userInitiated: false);
 
-        private async void FetchMissingArtworkCore(bool userInitiated)
+    private async void FetchMissingArtworkCore(bool userInitiated)
     {
         if (!_artwork.HasApiKey)
         {
@@ -1084,6 +1089,8 @@ public sealed class MainViewModel : ViewModelBase
         var ct = _ownedArtworkCts.Token;
         _artworkPauseGate.Set();
         IsFetchingArtwork = true;
+        
+        _failedAssets.Clear();
 
         ArtworkDownloadPopupWindow? modal = null;
         Task? dialogTask = null;
@@ -1120,11 +1127,7 @@ public sealed class MainViewModel : ViewModelBase
             var sw = System.Diagnostics.Stopwatch.StartNew();
             int ok = 0, skipped = 0;
 
-            // ✅ v15.6-R4: recarrega overrides do disco pra alinhar GameEntry.*ImagePath
-            // com o que realmente está salvo. Sem isso, paths em memória podiam estar
-            // null mesmo com os arquivos existindo → baixava tudo de novo.
             _library.Refresh();
-
             var installed = _library.Games.ToList();
 
             List<GameEntry> ownedEntries = new();
@@ -1136,14 +1139,12 @@ public sealed class MainViewModel : ViewModelBase
                     OwnedNotInstalledGames.Clear();
                     foreach (var og in owned) OwnedNotInstalledGames.Add(og);
                     ownedEntries = owned.Select(_library.BuildEntryForOwnedGame).ToList();
-                    DebugLog.Write($"[SGDB] Owned games incluídos no download: {ownedEntries.Count}");
+                    DebugLog.Write($"[SGDB] Owned games incluídos na checagem: {ownedEntries.Count}");
                 }
                 catch (OperationCanceledException) { }
                 catch (Exception ex) { DebugLog.Write($"[SGDB] Falha ao carregar owned games: {ex.Message}"); }
             }
 
-            // ✅ v15.6-R4: só conta como "a processar" quem realmente tem algo faltando.
-            // Popup mostra 0/N com N = pendentes, não total.
             static bool HasPendingWork(GameEntry g) =>
                 NeedsDownload(g.GridImagePath) || NeedsDownload(g.HeroImagePath) ||
                 NeedsDownload(g.LogoImagePath) || NeedsDownload(g.WideGridImagePath) ||
@@ -1159,13 +1160,18 @@ public sealed class MainViewModel : ViewModelBase
                 return;
             }
 
+            DebugLog.Write($"[SGDB] Diagnóstico: {installedPending.Count} instalados pendentes, {ownedPending.Count} owned pendentes.");
+            foreach (var g in installedPending)
+            {
+                DebugLog.Write($"[SGDB] Pendente: {g.Title} | Grid:{NeedsDownload(g.GridImagePath)} Hero:{NeedsDownload(g.HeroImagePath)} Logo:{NeedsDownload(g.LogoImagePath)} Wide:{NeedsDownload(g.WideGridImagePath)} Icon:{NeedsDownload(g.IconImagePath)}");
+            }
+
             if (modal != null) modal.Configure(total);
             DebugLog.Write($"[SGDB] === Atualização iniciada ({installedPending.Count} instalados + {ownedPending.Count} owned = {total} pendentes) === userInitiated={userInitiated}");
 
             int processed = 0;
             bool cancelledInPhase1 = false;
 
-            // ===== Fase 1: instalados pendentes =====
             foreach (var game in installedPending)
             {
                 if (ct.IsCancellationRequested) { DebugLog.Write("[SGDB] Cancelado (fase 1)."); cancelledInPhase1 = true; break; }
@@ -1178,15 +1184,15 @@ public sealed class MainViewModel : ViewModelBase
                 bool anyWork = false;
                 try
                 {
-                    if (NeedsDownload(game.GridImagePath)) { anyWork = true; if (await _artwork.FetchGridAsync(game, ct)) ok++; }
+                    if (NeedsDownload(game.GridImagePath) && !_failedAssets.Contains($"{game.Id}_grid")) { anyWork = true; if (await _artwork.FetchGridAsync(game, ct)) ok++; else _failedAssets.Add($"{game.Id}_grid"); }
                     if (ct.IsCancellationRequested) break;
-                    if (NeedsDownload(game.HeroImagePath)) { anyWork = true; if (await _artwork.FetchHeroAsync(game, ct)) ok++; }
+                    if (NeedsDownload(game.HeroImagePath) && !_failedAssets.Contains($"{game.Id}_hero")) { anyWork = true; if (await _artwork.FetchHeroAsync(game, ct)) ok++; else _failedAssets.Add($"{game.Id}_hero"); }
                     if (ct.IsCancellationRequested) break;
-                    if (NeedsDownload(game.LogoImagePath)) { anyWork = true; if (await _artwork.FetchLogoAsync(game, ct)) ok++; }
+                    if (NeedsDownload(game.LogoImagePath) && !_failedAssets.Contains($"{game.Id}_logo")) { anyWork = true; if (await _artwork.FetchLogoAsync(game, ct)) ok++; else _failedAssets.Add($"{game.Id}_logo"); }
                     if (ct.IsCancellationRequested) break;
-                    if (NeedsDownload(game.WideGridImagePath)) { anyWork = true; if (await _artwork.FetchWideGridAsync(game, ct)) ok++; }
+                    if (NeedsDownload(game.WideGridImagePath) && !_failedAssets.Contains($"{game.Id}_widegrid")) { anyWork = true; if (await _artwork.FetchWideGridAsync(game, ct)) ok++; else _failedAssets.Add($"{game.Id}_widegrid"); }
                     if (ct.IsCancellationRequested) break;
-                    if (NeedsDownload(game.IconImagePath)) { anyWork = true; if (await _artwork.FetchIconAsync(game, ct)) ok++; }
+                    if (NeedsDownload(game.IconImagePath) && !_failedAssets.Contains($"{game.Id}_icon")) { anyWork = true; if (await _artwork.FetchIconAsync(game, ct)) ok++; else _failedAssets.Add($"{game.Id}_icon"); }
                 }
                 catch (OperationCanceledException) { DebugLog.Write("[SGDB] Cancelado (exceção fase 1)."); cancelledInPhase1 = true; break; }
                 catch (Exception ex) { DebugLog.Write($"[SGDB] '{game.Title}' EXCEPTION: {ex.Message}"); }
@@ -1195,7 +1201,6 @@ public sealed class MainViewModel : ViewModelBase
                 try { await Task.Delay(1000, ct); } catch (OperationCanceledException) { cancelledInPhase1 = true; break; }
             }
 
-            // ===== Fase 2: owned pendentes (só se não cancelou na fase 1) =====
             if (!cancelledInPhase1 && !ct.IsCancellationRequested)
             {
                 foreach (var game in ownedPending)
@@ -1210,15 +1215,15 @@ public sealed class MainViewModel : ViewModelBase
                     bool anyWork = false;
                     try
                     {
-                        if (NeedsDownload(game.GridImagePath)) { anyWork = true; if (await _artwork.FetchGridAsync(game, ct)) ok++; }
+                        if (NeedsDownload(game.GridImagePath) && !_failedAssets.Contains($"{game.Id}_grid")) { anyWork = true; if (await _artwork.FetchGridAsync(game, ct)) ok++; else _failedAssets.Add($"{game.Id}_grid"); }
                         if (ct.IsCancellationRequested) break;
-                        if (NeedsDownload(game.HeroImagePath)) { anyWork = true; if (await _artwork.FetchHeroAsync(game, ct)) ok++; }
+                        if (NeedsDownload(game.HeroImagePath) && !_failedAssets.Contains($"{game.Id}_hero")) { anyWork = true; if (await _artwork.FetchHeroAsync(game, ct)) ok++; else _failedAssets.Add($"{game.Id}_hero"); }
                         if (ct.IsCancellationRequested) break;
-                        if (NeedsDownload(game.LogoImagePath)) { anyWork = true; if (await _artwork.FetchLogoAsync(game, ct)) ok++; }
+                        if (NeedsDownload(game.LogoImagePath) && !_failedAssets.Contains($"{game.Id}_logo")) { anyWork = true; if (await _artwork.FetchLogoAsync(game, ct)) ok++; else _failedAssets.Add($"{game.Id}_logo"); }
                         if (ct.IsCancellationRequested) break;
-                        if (NeedsDownload(game.WideGridImagePath)) { anyWork = true; if (await _artwork.FetchWideGridAsync(game, ct)) ok++; }
+                        if (NeedsDownload(game.WideGridImagePath) && !_failedAssets.Contains($"{game.Id}_widegrid")) { anyWork = true; if (await _artwork.FetchWideGridAsync(game, ct)) ok++; else _failedAssets.Add($"{game.Id}_widegrid"); }
                         if (ct.IsCancellationRequested) break;
-                        if (NeedsDownload(game.IconImagePath)) { anyWork = true; if (await _artwork.FetchIconAsync(game, ct)) ok++; }
+                        if (NeedsDownload(game.IconImagePath) && !_failedAssets.Contains($"{game.Id}_icon")) { anyWork = true; if (await _artwork.FetchIconAsync(game, ct)) ok++; else _failedAssets.Add($"{game.Id}_icon"); }
                     }
                     catch (OperationCanceledException) { DebugLog.Write("[SGDB] Cancelado (exceção fase 2)."); break; }
                     catch (Exception ex) { DebugLog.Write($"[SGDB] '{game.Title}' owned EXCEPTION: {ex.Message}"); }
@@ -1322,13 +1327,13 @@ public sealed class MainViewModel : ViewModelBase
 
     private async void OpenCoverPicker(GameEntry game, ArtworkPickerKind kind)
     {
-        CoverPickerTitle = kind switch { ArtworkPickerKind.WideGrid => $"Capa larga · {game.Title}", ArtworkPickerKind.Hero => $"Banner · {game.Title}", ArtworkPickerKind.Logo => $"Logo · {game.Title}", ArtworkPickerKind.Icon => $"Ícone · {game.Title}", _ => $"Capa · {game.Title}", };
+        CoverPickerTitle = kind switch { ArtworkPickerKind.WideGrid => $"Capas largas e banners · {game.Title}", ArtworkPickerKind.Hero => $"Banner · {game.Title}", ArtworkPickerKind.Logo => $"Logo · {game.Title}", ArtworkPickerKind.Icon => $"Ícone · {game.Title}", _ => $"Capa · {game.Title}", };
         _coverPickerKind = kind; _coverPickerGame = game; _coverPickerIndex = 0; CoverPickerErrorMessage = null; CoverPickerCandidates.Clear(); NotifyCoverPickerResultFlags(); IsCoverPickerLoading = true; IsCoverPickerOpen = true;
         try
         {
             var candidates = kind switch
             {
-                ArtworkPickerKind.WideGrid => await _artwork.GetWideGridCandidatesAsync(game, FilterAnimatedOnly), ArtworkPickerKind.Hero => await _artwork.GetHeroCandidatesAsync(game, FilterAnimatedOnly),
+                ArtworkPickerKind.WideGrid => await _artwork.GetWideArtworkCandidatesAsync(game, FilterAnimatedOnly), ArtworkPickerKind.Hero => await _artwork.GetHeroCandidatesAsync(game, FilterAnimatedOnly),
                 ArtworkPickerKind.Logo => await _artwork.GetLogoCandidatesAsync(game, FilterAnimatedOnly), ArtworkPickerKind.Icon => await _artwork.GetIconCandidatesAsync(game, FilterAnimatedOnly), _ => await _artwork.GetGridCandidatesAsync(game, FilterAnimatedOnly),
             };
             if (!IsCoverPickerOpen || _coverPickerGame != game) return;

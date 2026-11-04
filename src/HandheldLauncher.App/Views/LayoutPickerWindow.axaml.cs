@@ -21,7 +21,8 @@ public partial class LayoutPickerWindow : Window
         InitializeComponent();
         ThemeManager.ApplyFont(this, HandheldLauncher.Core.Services.AppSettingsStore.Load().UiFont);
 
-        if (currentLayout == 1) SwitchOption.IsChecked = true;
+        if (currentLayout == 2) BigScreenOption.IsChecked = true;
+        else if (currentLayout == 1) SwitchOption.IsChecked = true;
         else ClassicOption.IsChecked = true;
     }
 
@@ -30,8 +31,8 @@ public partial class LayoutPickerWindow : Window
     {
     }
 
-    /// <summary>Índice escolhido, no mesmo esquema de ThemeManager.LayoutThemeNames: 0 Clássico, 1 Switch.</summary>
-    public int SelectedLayout => SwitchOption.IsChecked == true ? 1 : 0;
+    /// <summary>0 Clássico, 1 Clean (compatível com o antigo Switch), 2 BigScreen.</summary>
+    public int SelectedLayout => BigScreenOption.IsChecked == true ? 2 : SwitchOption.IsChecked == true ? 1 : 0;
 
     private void OnApplyClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {

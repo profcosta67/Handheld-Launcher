@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Input;
 using HandheldLauncher.App.ViewModels;
 
 namespace HandheldLauncher.App.Views;
@@ -12,16 +13,19 @@ namespace HandheldLauncher.App.Views;
 /// </summary>
 public partial class AccountsWindow : Window
 {
+    private readonly Action<string>? _openExternalUrl;
     // Só pro designer/casos sem parâmetro — SettingsWindow sempre usa o
     // outro construtor, passando a MESMA ViewModel (não uma cópia).
     public AccountsWindow() : this(new SettingsViewModel())
     {
     }
 
-    public AccountsWindow(SettingsViewModel viewModel)
+    public AccountsWindow(SettingsViewModel viewModel, Action<string>? openExternalUrl = null)
     {
         InitializeComponent();
         DataContext = viewModel;
+        _openExternalUrl = openExternalUrl;
+        Opened += (_, _) => GridDbKeyBox.Focus(NavigationMethod.Directional);
     }
 
     private SettingsViewModel ViewModel => (SettingsViewModel)DataContext!;
@@ -35,16 +39,17 @@ public partial class AccountsWindow : Window
     // v0.14: botão "Obter chave" do bloco RAWG — aponta pra doc oficial.
     private void OnGetRawgKeyClick(object? sender, RoutedEventArgs e) => OpenUrl("https://rawg.io/apidocs");
 
-    private static void OpenUrl(string url)
+    private void OpenUrl(string url)
     {
         try
         {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+            // Retira o modal e seu owner da camada Topmost antes de chamar o navegador.
+            Topmost = false;
+            if (Owner is Window owner) owner.Topmost = false;
+            if (_openExternalUrl is not null) _openExternalUrl(url);
+            else System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
         }
-        catch
-        {
-            // Melhor esforço.
-        }
+        catch { /* Melhor esforço; o log central registra falhas quando há MainWindow. */ }
     }
 
     // "Proteção de visualização" pedida pelo usuário: mascarado (•) por

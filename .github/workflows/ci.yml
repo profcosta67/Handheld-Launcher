@@ -4,7 +4,7 @@ name: Build
 
 on:
   push:
-    branches: [master, main, 'design/**', 'feature/**']
+    branches: [master, main, 'design/**', 'feature/**', 'recovery/**']
   pull_request:
 
 permissions:
@@ -32,8 +32,12 @@ jobs:
         run: >
           dotnet publish src/HandheldLauncher.App -c Release -r win-x64
           --self-contained true
-          -p:Version=0.9.25-preview
+          -p:Version=0.14.9-preview
           -o preview-publish
+
+      - name: Preparar FFmpeg (binário fixo e verificado por SHA-256)
+        shell: pwsh
+        run: ./scripts/Prepare-FFmpeg.ps1 -OutputDirectory "preview-publish/Tools"
 
       - name: Preparar módulo PawnIO oficial (hash fixo)
         shell: pwsh

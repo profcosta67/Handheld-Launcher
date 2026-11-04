@@ -1,156 +1,111 @@
-👨‍💻 Autor
-Marcelo Costa (profcosta67)
-
-GitHub: @profcosta67
-
 # 🎮 Handheld Launcher
 
-Um launcher completo, moderno e focado em performance para Handhelds (Legion Go, ROG Ally, Steam Deck e PCs portáteis).
+Launcher para PCs portáteis e handhelds Windows, reunindo biblioteca de jogos, atalhos, ajustes de hardware e ferramentas de captura em uma interface otimizada para controle.
 
-O projeto foi desenhado para ser o seu **centro de controle (Hub)**, reunindo biblioteca de jogos, ajustes de hardware (TDP), monitoramento em tempo real e atalhos de sistema em uma interface única e amigável para controle.
+**Versão atual:** v0.14.9
 
-## ✨ Funcionalidades
+## Funcionalidades
 
-### 📚 Biblioteca de Jogos
-- Escaneamento automático de bibliotecas: **Steam, Epic Games, GOG, Xbox App, Ubisoft, EA** e emuladores (Eden/Switch).
-- Capas automáticas e suporte a **capas animadas** (GIF/WebP).
-- Filtros rápidos por plataforma, favoritos e status de instalação.
+### Biblioteca de jogos
+- Detecção de bibliotecas Steam, Epic Games, GOG, Xbox App, Ubisoft e EA, além de emuladores e atalhos configurados.
+- Capas e artes obtidas pelo SteamGridDB.
+- Downloads automáticos de capas em formato estático e possibilidade de selecionar manualmente imagens animadas.
+- Filtros por plataforma, favoritos e estado de instalação.
 
-### ⚡ Quick Settings (Overlay)
-Aperte **L3 + R3** (ou o atalho `Ctrl + Alt + O`) durante o jogo para abrir o painel de controle rápido:
-- **TDP:** Modos UltraEco (8W), Eco (15W), Normal (20W), Desempenho (25W) e Boost (30W) com proteção térmica de 90°C.
-- **Tela:** Alterne a resolução (720p, 1080p, 2K) e a taxa de atualização (60Hz, 120Hz, 144Hz, 240Hz) sem sair do jogo.
-- **Modo de Cor:** Padrão, Vívido, OLED e Noturno.
-- **HUD de Desempenho:** Ative o monitor de FPS, temperatura (CPU/SoC), RAM e bateria no topo da tela.
-- **Sistema:** Controle de Volume e Brilho em tempo real.
-- **Captura:** Atalhos para tirar print (salva em `Imagens/Screenshots`) e gravar tela.
+### Quick Settings e Overlay
+- Ajustes de TDP e monitoramento de sensores compatíveis.
+- Alteração de resolução, taxa de atualização e modo de cor.
+- HUD de desempenho com FPS, temperaturas, memória, bateria, resolução e TDP.
+- Controle de volume e brilho.
+- Captura de tela e gravação de tela pelo FFmpeg.
 
-### 🛡️ Segurança e Performance
-- **Shell Mode (Windows):** Substitui o `explorer.exe` no boot, transformando o dispositivo em um console dedicado.
-- **Idle Detector:** Desliga a tela automaticamente para economizar bateria quando nenhum jogo está rodando.
-- **Driver de TDP:** Arquitetura preparada para o **PawnIO** (driver seguro assinado pela Microsoft) com *fallback* automático para o RyzenAdj.
+### Integração com handhelds
+- Navegação por controle e teclado físico.
+- Atalhos de sistema e Quick Settings.
+- Integração com PawnIO e RyzenAdj para controle de TDP em hardware compatível.
+- Ajuste de dimensões do Overlay à área de trabalho disponível.
 
----
+## Novidades da versão v0.14.9
 
-## 🛠️ Tecnologias Utilizadas
+- Correção de estouro de pilha ao decodificar determinadas imagens PNG animadas, atualizando AnimatedImage.Avalonia de 2.1.2 para 2.1.4.
+- Downloads automáticos de capas permanecem estáticos; seleção manual continua aceitando capas animadas.
+- FFmpeg incluído no pacote Windows x64 para habilitar gravação de tela sem instalação separada.
+- HUD mais compacto: resolução em nomenclatura como 1080p/900p/720p e TDP somente em watts.
+- Ajustes de dimensionamento do Overlay para telas menores.
+- Melhorias na navegação da janela de configurações pelo teclado.
+- Referência fixa dos atalhos de teclado e controle, organizada em cartões separados.
+- Ajustes no popup de inicialização do jogo, incluindo indicador de carregamento e atualização do ícone quando disponível.
+- Ajustes de abertura minimizada do Lossless Scaling. O funcionamento de Aplicar Agora/Frame Generation depende de validação específica no dispositivo.
 
-- **C# / .NET 8**
-- **Avalonia UI** (Interface multiplataforma)
-- **Velopack** (Instalador e sistema de atualização automática)
-- **LibreHardwareMonitor** (Leitura de sensores)
-- **FFmpeg** (Gravação de tela)
-- **RyzenAdj / PawnIO** (Controle de TDP da APU)
+Consulte também o arquivo [release-notes/0.14.9.md](release-notes/0.14.9.md) para o histórico detalhado desta versão.
 
----
+## Requisitos
 
-## 🚀 Como Executar
+- Windows 10 ou Windows 11.
+- Dispositivo x64.
+- Recursos de TDP dependem do hardware, drivers e ferramentas compatíveis.
 
-### Pré-requisitos
-- .NET 8 SDK
-- Windows 10/11 (recomendado para todos os recursos) ou macOS/Linux (modo de desenvolvimento/teste).
+## Instalação
 
-### Rodando o projeto
-```bash
-# Clone o repositório
+Baixe o pacote/instalador correspondente na seção **Releases** do GitHub e siga as instruções publicadas junto à versão. Para builds portáteis de teste, extraia o ZIP em uma pasta e execute `HandheldLauncher.exe`.
+
+O pacote de Windows inclui as ferramentas de terceiros necessárias à gravação, quando indicado nas notas da versão. O FFmpeg é distribuído como executável separado e acompanhado de seu aviso de licença e informações de origem.
+
+## Temas de layout
+
+O launcher oferece três experiências de biblioteca, compartilhando o mesmo núcleo de jogos, integrações e ferramentas:
+
+- **Clássico:** layout original do Handheld Launcher.
+- **Clean:** antigo layout Switch, renomeado sem alterar o índice salvo nas configurações para preservar instalações existentes.
+- **BigScreen:** novo layout imersivo em desenvolvimento, inspirado na navegação de console do Steam Big Picture e Bazzite, com identidade visual própria e foco em controle.
+
+### Roadmap visual
+
+- **v0.15.0:** introdução do BigScreen e renomeação do Switch para Clean.
+- **v0.15.1:** correções do novo layout e refinamento de tipografia, menus, espaçamentos, botões, ícones, animações, sons e navegação.
+
+Os três layouts reutilizam a mesma infraestrutura de biblioteca e funcionalidades para evitar duplicação de recursos.
+
+## Desenvolvimento
+
+### Tecnologias
+- C# / .NET 8
+- Avalonia UI
+- Velopack
+- LibreHardwareMonitor
+- FFmpeg
+- PawnIO / RyzenAdj
+
+### Compilar localmente
+
+Instale o .NET 8 SDK e execute:
+
+```powershell
 git clone https://github.com/profcosta67/Handheld-Launcher.git
-
-# Entre na pasta
 cd Handheld-Launcher
+dotnet restore HandheldLauncher.sln
+dotnet build HandheldLauncher.sln -c Release
+```
 
-# Restaure as dependências
-dotnet restore
+Para publicar um build Windows x64:
 
-# Compile e rode
-dotnet run --project src/HandheldLauncher.App
+```powershell
+dotnet publish src/HandheldLauncher.App -c Release -r win-x64 --self-contained true
+```
 
-📦 Instalação e Atualizações
-O projeto utiliza o Velopack. O instalador oficial (HandheldLauncher-win-Setup.exe) pode ser baixado na aba Releases. O aplicativo verifica automaticamente por atualizações e notifica o usuário quando uma nova versão estiver disponível.
-
-📜 Licença
-Este projeto está sob a licença GPL-3.0. Veja o arquivo LICENSE para mais detalhes.
+A preparação do pacote de distribuição também executa os scripts de provisionamento das dependências externas, incluindo FFmpeg e PawnIO.
 
 ## Diagnóstico de TDP com HWiNFO (opcional)
 
-Para registrar a potência e as temperaturas reais durante os testes dos perfis TDP, o Launcher pode ler os sensores publicados pelo HWiNFO64 via Shared Memory. O HWiNFO é um programa externo e não é incluído no instalador do Launcher.
+O Launcher pode ler sensores publicados pelo HWiNFO64 via Shared Memory para auxiliar diagnósticos. O HWiNFO é externo e não é incluído no Launcher.
 
-1. Instale/abra o HWiNFO64 em modo **Sensors-only**.
-2. Abra **Settings** e habilite **Shared Memory Support**.
-3. Deixe o HWiNFO aberto enquanto testa os perfis.
-4. Os registros selecionados são gravados em `%AppData%\\HandheldLauncher\\debug.log`, com o prefixo `[HWiNFO]`.
+1. Abra o HWiNFO64 em modo **Sensors-only**.
+2. Habilite **Shared Memory Support** nas configurações.
+3. Mantenha o HWiNFO aberto durante os testes.
+4. Consulte os registros com prefixo `[HWiNFO]` em `%AppData%\HandheldLauncher\debug.log`.
 
-O registro inclui, quando disponibilizados pelo aparelho/HWiNFO, CPU Package Power, PPT, STAPM, Tctl/Tdie, Effective Clock, GPU Clock e GPU Power. A ausência do HWiNFO ou da opção Shared Memory não interfere no funcionamento normal do Launcher.
+A disponibilidade dos sensores depende do dispositivo e da versão do HWiNFO. A ausência do HWiNFO não impede o funcionamento normal do Launcher.
 
-**Observação:** a edição gratuita do HWiNFO limita a sessão de Shared Memory a 12 horas; depois desse período, reative a opção ou reinicie o HWiNFO. Consulte a documentação oficial do HWiNFO para detalhes.
+## Licença
 
-# 🎮 Handheld Launcher
-
-![Version](https://img.shields.io/badge/version-v0.14.0-blue)
-![License](https://img.shields.io/badge/license-GPL--3.0-green)
-![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
-
-Um launcher completo, moderno e focado em performance para Handhelds (Legion Go, ROG Ally, Steam Deck e PCs portáteis). 
-
-O projeto foi desenhado para ser o seu **centro de controle (Hub)**, reunindo biblioteca de jogos, ajustes de hardware (TDP), monitoramento em tempo real e atalhos de sistema em uma interface única e amigável para controle.
-
-<!-- 📸 ESPAÇO PARA SCREENSHOTS (Recomendo colocar 2 ou 3 fotos da UI aqui) -->
-![Biblioteca do Launcher](link-para-sua-imagem-aqui.png)
-![Overlay de Desempenho](link-para-sua-imagem-aqui.png)
-
----
-
-## ✨ Funcionalidades
-
-### 📚 Biblioteca de Jogos
-- Escaneamento automático de bibliotecas: **Steam, Epic Games, GOG, Xbox App, Ubisoft, EA** e emuladores (Eden/Switch).
-- Capas automáticas via SteamGridDB (incluindo capas animadas GIF/WebP).
-- Filtros rápidos por plataforma, favoritos, aplicativos e status de instalação.
-- **Tela de Detalhes Integrada:** Puxa descrições e metadados da Steam Store e **RAWG API** (para jogos não-Steam, como emuladores e atalhos).
-- **Conquistas Steam:** Exibe o progresso, ícones e datas de desbloqueio das conquistas direto na tela do jogo.
-
-### ⚡ Quick Settings (Overlay)
-Aperte **L3 + R3** (ou o atalho `Ctrl + Alt + O`) durante o jogo para abrir o painel de controle rápido:
-- **TDP:** Modos UltraEco (8W), Eco (15W), Normal (20W), Desempenho (25W) e Boost (30W) com proteção térmica de 90°C.
-- **Tela:** Alterne a resolução (720p, 1080p, 2K) e a taxa de atualização (60Hz, 120Hz, 144Hz, 240Hz) sem sair do jogo.
-- **Modo de Cor:** Padrão, Vívido, OLED e Noturno.
-- **HUD de Desempenho:** Ative o monitor de FPS, temperatura (CPU/SoC), RAM, resolução, Hz e bateria no topo da tela.
-- **Sistema:** Controle de Volume e Brilho em tempo real.
-- **Captura:** Atalhos para tirar print (salva em `Imagens/Screenshots`) e gravar tela.
-
-### 🛡️ Segurança e Performance
-- **Shell Mode (Windows):** Substitui o `explorer.exe` no boot, transformando o dispositivo em um console dedicado.
-- **Idle Detector:** Desliga a tela automaticamente para economizar bateria quando nenhum jogo está rodando.
-- **Driver de TDP:** Arquitetura preparada para o **PawnIO** (driver seguro assinado pela Microsoft) com *fallback* automático para o RyzenAdj.
-
----
-
-## 🛠️ Tecnologias Utilizadas
-
-- **C# / .NET 8**
-- **Avalonia UI** (Interface multiplataforma)
-- **Velopack** (Instalador e sistema de atualização automática)
-- **LibreHardwareMonitor** (Leitura de sensores)
-- **FFmpeg** (Gravação de tela)
-- **RyzenAdj / PawnIO** (Controle de TDP da APU)
-- **RAWG API / Steam Web API** (Metadados e Conquistas)
-
----
-
-## 🚀 Como Executar (Para Desenvolvedores)
-
-### Pré-requisitos
-- .NET 8 SDK
-- Windows 10/11 (recomendado para todos os recursos) ou macOS/Linux (modo de desenvolvimento/teste).
-
-### Rodando o projeto
-```bash
-# Clone o repositório
-git clone https://github.com/profcosta67/Handheld-Launcher.git
-
-# Entre na pasta
-cd Handheld-Launcher
-
-# Restaure as dependências
-dotnet restore
-
-# Compile e rode
-dotnet run --project src/HandheldLauncher.App
+O Handheld Launcher é distribuído sob a licença GPL-3.0. Consulte o arquivo [LICENSE](LICENSE). Componentes de terceiros mantêm suas próprias licenças; consulte os avisos incluídos no pacote.

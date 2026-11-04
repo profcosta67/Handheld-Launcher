@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:anim="https://github.com/whistyun/AnimatedImage.Avalonia"
              xmlns:vm="using:HandheldLauncher.App.ViewModels"
              xmlns:conv="using:HandheldLauncher.App.Converters"
              xmlns:dataConv="using:Avalonia.Data.Converters"
@@ -29,7 +30,7 @@
 
             <Image x:Name="HeroBackImage" Stretch="Uniform" IsHitTestVisible="False" />
             <Image x:Name="HeroImage"
-                   Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                   anim:ImageBehavior.AnimatedSource="{Binding SelectedTile.BannerImagePath}"
                    Stretch="Uniform" />
 
             <Border IsHitTestVisible="False">
@@ -52,16 +53,13 @@
                        Margin="20"
                        IsVisible="{Binding SelectedTile.BannerImagePath, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
 
-            <Border Background="#80000000"
-                    CornerRadius="12"
-                    Padding="16,8"
-                    HorizontalAlignment="Left"
-                    VerticalAlignment="Top"
-                    Margin="24"
-                    IsVisible="{Binding SelectedTile.ShowCurrentLogo}">
-              <Image Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
-                     Height="64" Stretch="Uniform" />
-            </Border>
+            <Image Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                   Width="260" Height="76"
+                   Stretch="Uniform"
+                   HorizontalAlignment="Left"
+                   VerticalAlignment="Top"
+                   Margin="24"
+                   IsVisible="{Binding SelectedTile.ShowCurrentLogo}" />
 
           </Grid>
 
@@ -115,7 +113,7 @@
         </ItemsControl>
       </StackPanel>
 
-      <ScrollViewer x:Name="GameRowScrollViewer" Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+      <ScrollViewer x:Name="GameRowScrollViewer" Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" PointerWheelChanged="OnGameRowPointerWheelChanged">
         <ScrollViewer.Transitions>
           <Transitions>
             <VectorTransition Property="Offset" Duration="0:0:0.28" Easing="CubicEaseOut" />
@@ -133,7 +131,7 @@
             <DataTemplate x:DataType="vm:GameTileViewModel">
               <StackPanel Width="{Binding TileWidth}" Spacing="6">
 
-                <Grid Height="36">
+                <Grid Height="46">
                   <TextBlock Text="{Binding Title}"
                              Classes="tileCaption"
                              TextWrapping="NoWrap"
@@ -144,6 +142,7 @@
                              IsVisible="{Binding ShowNameCaption}" />
 
                   <Image Source="{Binding LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                         Width="190"
                          Height="{Binding CaptionLogoHeight}"
                          Stretch="Uniform"
                          HorizontalAlignment="Left"
@@ -159,7 +158,7 @@
                         PointerPressed="OnTilePointerPressed"
                         DoubleTapped="OnTileDoubleTapped">
                   <Grid>
-                    <Image Source="{Binding TileImagePath, Converter={StaticResource FileToBitmapConverter}}" Stretch="Uniform" />
+                    <Image anim:ImageBehavior.AnimatedSource="{Binding TileImagePath}" Stretch="Uniform" />
 
                     <Border Background="#99383838"
                             IsHitTestVisible="False"

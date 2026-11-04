@@ -83,6 +83,11 @@ public static class LosslessScalingService
     private static extern bool IsWindow(IntPtr hWnd);
 
     [DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    private const int SW_MINIMIZE = 6;
+
+    [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
     // =====================================================================
@@ -140,8 +145,40 @@ public static bool TryLaunchLossless()
 
     try
     {
-        Process.Start(new ProcessStartInfo { FileName = exe, UseShellExecute = true });
-        DebugLog.Write($"[PATINHO] Lossless iniciado automaticamente: {exe}");
+        var process = Process.Start(new ProcessStartInfo
+        {
+            FileName = exe,
+            UseShellExecute = true,
+            WindowStyle = ProcessWindowStyle.Minimized
+        });
+        DebugLog.Write($"[PATINHO] Lossless iniciado automaticamente (solicitado minimizado): {exe}");
+
+        // Alguns aplicativos ignoram WindowStyle.Minimized no ShellExecute.
+        // Aguarda a janela principal aparecer e minimiza explicitamente.
+        if (process is not null)
+        {
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                try
+                {
+                    for (int attempt = 0; attempt < 40; attempt++)
+                    {
+                        if (process.HasExited) break;
+                        process.Refresh();
+                        var hwnd = process.MainWindowHandle;
+                        if (hwnd != IntPtr.Zero)
+                        {
+                            ShowWindow(hwnd, SW_MINIMIZE);
+                            DebugLog.Write("[PATINHO] Janela do Lossless minimizada.");
+                            break;
+                        }
+                        Thread.Sleep(250);
+                    }
+                }
+                catch (Exception ex) { DebugLog.Write($"[PATINHO] Não foi possível minimizar a janela: {ex.Message}"); }
+                finally { process.Dispose(); }
+            });
+        }
         return true;
     }
     catch (Exception ex)

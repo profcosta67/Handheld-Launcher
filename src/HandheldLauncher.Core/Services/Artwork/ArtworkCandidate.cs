@@ -20,4 +20,6 @@ public sealed class ArtworkCandidate
     public required string LocalThumbnailPath { get; init; }
     public int Width { get; init; }
     public int Height { get; init; }
+    /// <summary>True when this item came from SteamGridDB's Heroes/banner endpoint.</summary>
+    public bool IsHero { get; init; }
 }
