@@ -15,14 +15,12 @@
 
   <UserControl.Styles>
     <Style Selector="Button.bigScreenTab">
-      <Setter Property="Width" Value="82" />
+      <Setter Property="Width" Value="112" />
       <Setter Property="Height" Value="72" />
-      <Setter Property="MinWidth" Value="82" />
+      <Setter Property="MinWidth" Value="112" />
       <Setter Property="MinHeight" Value="72" />
-      <Setter Property="Padding" Value="8,7" />
-      <Setter Property="Foreground" Value="#FFF4F6FC" />
-      <Setter Property="BorderBrush" Value="#667F8CA8" />
-      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="10,7" />
+      <Setter Property="BorderThickness" Value="1.5" />
       <Setter Property="CornerRadius" Value="15" />
       <Setter Property="FontSize" Value="11" />
       <Setter Property="FontWeight" Value="SemiBold" />
@@ -31,17 +29,16 @@
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
     <Style Selector="Button.bigScreenTab /template/ ContentPresenter">
-      <Setter Property="Foreground" Value="#FFF4F6FC" />
-      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderThickness" Value="1.5" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
       <Setter Property="Opacity" Value="0.98" />
     </Style>
     <Style Selector="Button.bigScreenTab:pointerover">
-      <Setter Property="BorderBrush" Value="#FFE1E8F5" />
       <Setter Property="Opacity" Value="1" />
     </Style>
-    <Style Selector="Button.bigScreenTab.active /template/ ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
-      <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}" />
+    <Style Selector="Button.bigScreenTab.active">
+      <Setter Property="BorderThickness" Value="2" />
     </Style>
   </UserControl.Styles>
 
@@ -72,13 +69,13 @@
                   HorizontalAlignment="Center"
                   Spacing="14"
                   Margin="0,0,0,18">
-        <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterFavoritesActive}" Command="{Binding SetFilterFavoritesCommand}" Background="#4A3825" ToolTip.Tip="Favoritos"><StackPanel HorizontalAlignment="Center" Spacing="3"><TextBlock Text="★" FontSize="23"/><TextBlock Text="Favoritos" FontSize="10"/></StackPanel></Button>
-        <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterAllActive}" Command="{Binding SetFilterAllCommand}" Background="#24445A" ToolTip.Tip="Todos os jogos"><StackPanel HorizontalAlignment="Center" Spacing="3"><TextBlock Text="▦" FontSize="23"/><TextBlock Text="Todos" FontSize="10"/></StackPanel></Button>
-        <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterComputerActive}" Command="{Binding SetFilterComputerCommand}" Background="#29473D" ToolTip.Tip="Computador"><StackPanel HorizontalAlignment="Center" Spacing="3"><TextBlock Text="⌨" FontSize="23"/><TextBlock Text="Computador" FontSize="9"/></StackPanel></Button>
-        <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterEmulatorsActive}" Command="{Binding SetFilterEmulatorsCommand}" Background="#403052" ToolTip.Tip="Emuladores"><StackPanel HorizontalAlignment="Center" Spacing="3"><TextBlock Text="◈" FontSize="23"/><TextBlock Text="Emuladores" FontSize="9"/></StackPanel></Button>
-        <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterApplicationsActive}" Command="{Binding SetFilterApplicationsCommand}" Background="#4A382C" ToolTip.Tip="Programas"><StackPanel HorizontalAlignment="Center" Spacing="3"><TextBlock Text="▣" FontSize="23"/><TextBlock Text="Programas" FontSize="9"/></StackPanel></Button>
-        <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterNotInstalledActive}" Command="{Binding SetFilterNotInstalledCommand}" Background="#3D3547" ToolTip.Tip="Não instalados"><StackPanel HorizontalAlignment="Center" Spacing="3"><TextBlock Text="↓" FontSize="23"/><TextBlock Text="Não instalados" FontSize="9"/></StackPanel></Button>
-        <Button Classes="bigScreenTab" Width="116" MinWidth="116" Background="#334B3B" ToolTip.Tip="Adicionar jogo ou programa"
+        <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterFavoritesActive}" Command="{Binding SetFilterFavoritesCommand}" Background="#263A6480" Foreground="#FF78A9FF" BorderBrush="#FF78A9FF" ToolTip.Tip="Favoritos"><StackPanel HorizontalAlignment="Center" Spacing="3"><TextBlock Text="★" FontSize="23"/><TextBlock Text="Favoritos" FontSize="10"/></StackPanel></Button>
+        <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterAllActive}" Command="{Binding SetFilterAllCommand}" Background="#263F9BC9" Foreground="#FF65C7FF" BorderBrush="#FF65C7FF" ToolTip.Tip="Todos os jogos"><StackPanel HorizontalAlignment="Center" Spacing="3"><TextBlock Text="▦" FontSize="23"/><TextBlock Text="Todos" FontSize="10"/></StackPanel></Button>
+        <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterComputerActive}" Command="{Binding SetFilterComputerCommand}" Background="#263E9B70" Foreground="#FF75D6A2" BorderBrush="#FF75D6A2" ToolTip.Tip="Computador"><StackPanel HorizontalAlignment="Center" Spacing="3"><TextBlock Text="⌨" FontSize="23"/><TextBlock Text="Computador" FontSize="9"/></StackPanel></Button>
+        <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterEmulatorsActive}" Command="{Binding SetFilterEmulatorsCommand}" Background="#264F3D91" Foreground="#FFC09AFF" BorderBrush="#FFC09AFF" ToolTip.Tip="Emuladores"><StackPanel HorizontalAlignment="Center" Spacing="3"><TextBlock Text="◈" FontSize="23"/><TextBlock Text="Emuladores" FontSize="9"/></StackPanel></Button>
+        <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterApplicationsActive}" Command="{Binding SetFilterApplicationsCommand}" Background="#267D5B32" Foreground="#FFFFBD78" BorderBrush="#FFFFBD78" ToolTip.Tip="Programas"><StackPanel HorizontalAlignment="Center" Spacing="3"><TextBlock Text="▣" FontSize="23"/><TextBlock Text="Programas" FontSize="9"/></StackPanel></Button>
+        <Button Classes="bigScreenTab" Classes.active="{Binding IsFilterNotInstalledActive}" Command="{Binding SetFilterNotInstalledCommand}" Background="#265A6578" Foreground="#FFB9C8DA" BorderBrush="#FFB9C8DA" ToolTip.Tip="Não instalados"><StackPanel HorizontalAlignment="Center" Spacing="3"><TextBlock Text="↓" FontSize="23"/><TextBlock Text="Não instalados" FontSize="9"/></StackPanel></Button>
+        <Button Classes="bigScreenTab" Width="112" MinWidth="112" Background="#263E9B70" Foreground="#FF75D6A2" BorderBrush="#FF75D6A2" ToolTip.Tip="Adicionar jogo ou programa"
                 IsVisible="{Binding IsFilterApplicationsActive}" Click="OnAddProgramClick">
           <StackPanel HorizontalAlignment="Center" Spacing="3"><TextBlock Text="＋" FontSize="23"/><TextBlock Text="Adicionar" FontSize="10"/></StackPanel>
         </Button>
@@ -196,7 +193,7 @@
                       ItemsSource="{Binding SubFilters}"
                       IsVisible="{Binding HasSubFilters}"
                       HorizontalAlignment="Center"
-                      Margin="0,24,0,12">
+                      Margin="0,36,0,12">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" /></ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
