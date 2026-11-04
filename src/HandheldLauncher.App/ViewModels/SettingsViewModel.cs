@@ -281,6 +281,12 @@ public sealed class SettingsViewModel : ViewModelBase
     private bool _soundEffects = true;
     public bool SoundEffects { get => _soundEffects; set => SetField(ref _soundEffects, value); }
 
+    // v0.16: opt-in pro canal beta do Velopack — ver AppSettings.BetaChannelOptIn
+    // e UpdateService. Só tem efeito depois de reiniciar o launcher (o
+    // UpdateService é montado uma vez, na abertura do app).
+    private bool _betaChannelOptIn;
+    public bool BetaChannelOptIn { get => _betaChannelOptIn; set => SetField(ref _betaChannelOptIn, value); }
+
     private int _soundThemeIndex;
     public int SoundThemeIndex { get => _soundThemeIndex; set => SetField(ref _soundThemeIndex, value); }
 
@@ -406,6 +412,7 @@ public sealed class SettingsViewModel : ViewModelBase
         LayoutIndex = settings.VerticalLayout ? 1 : 0;
         Animations = settings.Animations;
         SoundEffects = settings.SoundEffects;
+        BetaChannelOptIn = settings.BetaChannelOptIn;
         SoundThemeIndex = Math.Clamp(settings.SoundTheme, 0, HandheldLauncher.App.Platform.UiSounds.PackNames.Length - 1);
         SoundVolume = Math.Clamp(settings.SoundVolume, 0, 100);
         ColorModeIndex = Math.Clamp(settings.ColorMode, 0, HandheldLauncher.App.Platform.DisplayColorManager.ModeNames.Length - 1);
@@ -447,6 +454,7 @@ public sealed class SettingsViewModel : ViewModelBase
         settings.VerticalLayout = LayoutIndex == 1;
         settings.Animations = Animations;
         settings.SoundEffects = SoundEffects;
+        settings.BetaChannelOptIn = BetaChannelOptIn;
         settings.SoundTheme = Math.Clamp(SoundThemeIndex, 0, HandheldLauncher.App.Platform.UiSounds.PackNames.Length - 1);
         settings.SoundVolume = Math.Clamp((int)Math.Round(SoundVolume), 0, 100);
         settings.ColorMode = Math.Clamp(ColorModeIndex, 0, HandheldLauncher.App.Platform.DisplayColorManager.ModeNames.Length - 1);

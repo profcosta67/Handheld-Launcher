@@ -196,7 +196,14 @@
           <StackPanel Spacing="12" IsVisible="{Binding IsCategoryNewsActive}">
             <TextBlock Text="Novidades do Handheld Launcher" FontSize="18" FontWeight="Bold" />
             <TextBlock Text="Resumo das versões recentes. Esta lista acompanha as notas de versão publicadas no projeto." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
-            
+
+            <Border Background="#202536" CornerRadius="12" Padding="14">
+              <StackPanel Spacing="6">
+                <CheckBox IsChecked="{Binding BetaChannelOptIn}" Content="Receber atualizações beta" />
+                <TextBlock Text="Versões de teste, antes de virarem lançamento oficial — podem ter bugs novos. Precisa reiniciar o launcher pra valer. Pode desativar quando quiser." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+
             <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoadingReleases}" Height="4" Margin="0,10" />
             
             <ItemsControl ItemsSource="{Binding ReleaseHistory}">

@@ -26,6 +26,10 @@ public class AppSettings
     public int ColorMode { get; set; } = 0;
     public int OverlayPreset { get; set; } = 0;
 
+    // v0.16: opt-in pro canal beta do Velopack. Default false — ninguém sai
+    // do canal estável sem pedir. Ver UpdateService.
+    public bool BetaChannelOptIn { get; set; } = false;
+
     // TDP e outros
     public string TdpMode { get; set; } = "Normal";
     public string FanMode { get; set; } = "Automático";

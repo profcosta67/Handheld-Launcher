@@ -72,7 +72,7 @@ public partial class App : Application
                 catch { }
             }
 
-            var updateService = new UpdateService();
+            var updateService = new UpdateService(appSettings.BetaChannelOptIn);
 
             PerformanceHud? performanceHud = null;
             if (OperatingSystem.IsWindows())
