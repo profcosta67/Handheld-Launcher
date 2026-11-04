@@ -503,7 +503,6 @@ public partial class SettingsWindow : Window
 
     private void OnSaveAndCloseClick(object? sender, RoutedEventArgs e)
     {
-        if (ViewModel.IsCategoryNewsActive) { Close(); return; }
         ViewModel.SaveTo(_settings);
         Close();
     }
