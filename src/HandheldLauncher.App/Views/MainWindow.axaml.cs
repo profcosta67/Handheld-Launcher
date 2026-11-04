@@ -646,6 +646,27 @@ public partial class MainWindow : Window
     {
         if (DataContext is not MainViewModel vm) return;
 
+        // v0.16: cria a OverlayWindow já na inicialização (em vez de só na
+        // primeira vez que o usuário abre o Quick Settings). O construtor da
+        // OverlayWindow é quem restaura TDP e curva de ventoinha salvos — se
+        // a janela só nascesse no primeiro L3+R3, o aparelho ficava no perfil
+        // padrão do firmware até o usuário abrir o overlay manualmente depois
+        // de reiniciar/desligar o console. A janela continua oculta (nunca
+        // chamamos Show() aqui) até o usuário pedir o Quick Settings.
+        if (_overlayWindow == null)
+        {
+            try
+            {
+                DebugLog.Write("[OVERLAY] Criando OverlayWindow na inicialização (restaura TDP/ventoinha).");
+                _overlayWindow = new OverlayWindow(vm);
+            }
+            catch (Exception ex)
+            {
+                DebugLog.Write($"[OVERLAY] Falha ao criar OverlayWindow na inicialização: {ex.Message}");
+                _overlayWindow = null;
+            }
+        }
+
         vm.AddGameRequested += (_, _) => _ = OpenAddGameDialogAsync(vm);
         vm.EditGameRequested += (_, game) => _ = OpenEditGameDialogAsync(vm, game);
         vm.LayoutPickerRequested += (_, _) => _ = OpenLayoutPickerAsync();

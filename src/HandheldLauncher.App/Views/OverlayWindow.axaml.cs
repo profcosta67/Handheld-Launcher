@@ -174,6 +174,29 @@ public partial class OverlayWindow : Window
                 TxtFanStatus.Text = "Controle de curva disponível no Windows para o Legion Go 2 (8AHP2).";
                 SetFanButtonVisual("Automático");
             }
+            // v0.16: re-aplica o TDP salvo já na construção da janela (não só
+            // quando o usuário abre o Quick Settings pela primeira vez), pro
+            // aparelho voltar com o último perfil mesmo que ele nunca abra o
+            // overlay depois de reiniciar/desligar o console. Mesma lógica que
+            // já existia em OnOpened, só que agora roda em paralelo com a
+            // restauração da curva de ventoinha acima, no boot do launcher.
+            if (!_tdpAppliedOnOpen && _tdpHardwareSupported)
+            {
+                _tdpAppliedOnOpen = true;
+                var savedTdp = string.IsNullOrWhiteSpace(settings.TdpMode) ? "Normal" : settings.TdpMode;
+                _ = Task.Run(() =>
+                {
+                    DebugLog.Write($"[OVERLAY] Re-aplicando TDP salvo na inicialização: {savedTdp}");
+                    var ok = _hardwareService.SetTdpMode(savedTdp);
+                    DebugLog.Write(ok
+                        ? $"[OVERLAY] TDP {savedTdp} re-aplicado com sucesso."
+                        : $"[OVERLAY] Falha ao re-aplicar TDP {savedTdp}; veja os logs [PawnIO].");
+
+                    if (ok)
+                        Dispatcher.UIThread.Post(() => _viewModel.UpdateHudTdpStatus(savedTdp));
+                });
+            }
+
             SetColorButtonVisual(settings.ColorMode);
             if (VolumeSlider != null) VolumeSlider.Value = settings.Volume;
             if (BrightnessSlider != null) BrightnessSlider.Value = settings.Brightness;
@@ -286,24 +309,6 @@ public partial class OverlayWindow : Window
         StartTopmostEnforcer();
 
         if (_freezeGameOnOverlay) InputBlockService.BlockGamepadForGame(_gamePid);
-
-        if (!_tdpAppliedOnOpen && _tdpHardwareSupported)
-        {
-            _tdpAppliedOnOpen = true;
-            var settings = AppSettingsStore.Load();
-            var savedTdp = string.IsNullOrWhiteSpace(settings.TdpMode) ? "Normal" : settings.TdpMode;
-            _ = Task.Run(() =>
-            {
-                DebugLog.Write($"[OVERLAY] Re-aplicando TDP salvo ao abrir: {savedTdp}");
-                var ok = _hardwareService.SetTdpMode(savedTdp);
-                DebugLog.Write(ok
-                    ? $"[OVERLAY] TDP {savedTdp} re-aplicado com sucesso."
-                    : $"[OVERLAY] Falha ao re-aplicar TDP {savedTdp}; veja os logs [PawnIO].");
-
-                if (ok)
-                    Dispatcher.UIThread.Post(() => _viewModel.UpdateHudTdpStatus(savedTdp));
-            });
-        }
 
         if (_hardwareService is WindowsHardwareService winSvcForSync)
         {
