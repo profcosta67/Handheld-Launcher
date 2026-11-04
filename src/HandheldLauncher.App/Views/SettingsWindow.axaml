@@ -117,6 +117,13 @@
             <RadioButton GroupName="Modo" IsChecked="{Binding IsDesktopMode}" Content="Desktop (PC) — janela normal, não abre sozinho, 'Sair' fecha de verdade" />
             <RadioButton GroupName="Modo" IsChecked="{Binding IsHandheldMode}" Content="Handheld (modo jogo) — tela cheia, abre no login, reabre se fechar" />
             <TextBlock Text="No modo Handheld, 'Sair' (menu Energia) segura a reabertura até reiniciar o aparelho. Abrir pelo atalho sempre funciona." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+
+            <Border Background="#202536" CornerRadius="12" Padding="14">
+              <StackPanel Spacing="6">
+                <CheckBox IsChecked="{Binding FreezeGameOnOverlay}" Content="Congelar o jogo enquanto o Quick Settings está aberto" />
+                <TextBlock Text="Evita que o gamepad chegue nos dois ao mesmo tempo (overlay e jogo). Desligado por padrão: em jogos online com anti-cheat (EAC, BattlEye, Vanguard), congelar o processo do jogo pode ser detectado e resultar em banimento. Só ative se o jogo for offline/single-player ou você tiver certeza que o anti-cheat não se importa." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
           </StackPanel>
 
           <!-- ===== Contas ===== -->

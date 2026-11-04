@@ -35,6 +35,7 @@ public partial class OverlayWindow : Window
     private string _currentFanMode = "Automático";
     private int _currentColor = 0;
     private bool _tdpAppliedOnOpen = false;
+    private readonly bool _freezeGameOnOverlay;
 
     // 🟢 ENFORCER: mantém o overlay sempre no topo enquanto visível
     private DispatcherTimer? _topmostEnforcer;
@@ -130,6 +131,7 @@ public partial class OverlayWindow : Window
         try
         {
             var settings = AppSettingsStore.Load();
+            _freezeGameOnOverlay = settings.FreezeGameOnOverlay;
             SetTdpButtonVisual(string.IsNullOrEmpty(settings.TdpMode) ? "Normal" : settings.TdpMode);
             if (OperatingSystem.IsWindows())
             {
@@ -283,7 +285,7 @@ public partial class OverlayWindow : Window
 
         StartTopmostEnforcer();
 
-        InputBlockService.BlockGamepadForGame(_gamePid);
+        if (_freezeGameOnOverlay) InputBlockService.BlockGamepadForGame(_gamePid);
 
         if (!_tdpAppliedOnOpen && _tdpHardwareSupported)
         {
@@ -891,7 +893,7 @@ public partial class OverlayWindow : Window
             if (wasVisible && !IsAppClosing)
             {
                 Show();
-                InputBlockService.BlockGamepadForGame(_gamePid);
+                if (_freezeGameOnOverlay) InputBlockService.BlockGamepadForGame(_gamePid);
                 ForceTopmost();
             }
         }
@@ -935,7 +937,7 @@ public partial class OverlayWindow : Window
                 if (!LosslessScalingService.TryLaunchLossless())
                 {
                     if (LsfgStatusText != null) LsfgStatusText.Text = "❌ Falha ao iniciar Lossless";
-                    if (wasVisible) { Show(); InputBlockService.BlockGamepadForGame(_gamePid); ForceTopmost(); }
+                    if (wasVisible) { Show(); if (_freezeGameOnOverlay) InputBlockService.BlockGamepadForGame(_gamePid); ForceTopmost(); }
                     return;
                 }
 
@@ -949,7 +951,7 @@ public partial class OverlayWindow : Window
                 if (wasVisible && !IsAppClosing)
                 {
                     Show();
-                    InputBlockService.BlockGamepadForGame(_gamePid);
+                    if (_freezeGameOnOverlay) InputBlockService.BlockGamepadForGame(_gamePid);
                     ForceTopmost();
                     await Task.Delay(300);
                 }
@@ -988,7 +990,7 @@ public partial class OverlayWindow : Window
             if (!IsVisible && !IsAppClosing)
             {
                 Show();
-                InputBlockService.BlockGamepadForGame(_gamePid);
+                if (_freezeGameOnOverlay) InputBlockService.BlockGamepadForGame(_gamePid);
                 ForceTopmost();
             }
         }
