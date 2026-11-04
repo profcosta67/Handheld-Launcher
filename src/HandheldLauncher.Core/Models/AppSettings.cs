@@ -20,7 +20,14 @@ public class AppSettings
     public List<string> XboxScanFolders { get; set; } = new();
     public string EdenExecutablePath { get; set; } = string.Empty;
     public List<string> EdenRomFolders { get; set; } = new();
-    public bool KioskMode { get; set; } = false;
+    // v0.16.2: padrão Handheld (tela cheia) — pedido do usuário. Só vale
+    // pra quem ainda não tem essa chave salva (instalação nova); quem já
+    // escolheu Desktop/Handheld mantém a escolha. AutoRestart continua
+    // false: a reabertura automática (tarefa agendada) só é criada quando
+    // o usuário salva o modo Handheld nas Configurações, então uma
+    // instalação nova abre em tela cheia sem ficar presa num loop de
+    // reabertura. O InstallTask.ps1 do instalador já fazia o mesmo.
+    public bool KioskMode { get; set; } = true;
     public bool AutoRestart { get; set; } = false;
     public bool ModeChosen { get; set; } = false;
     public int ColorMode { get; set; } = 0;
