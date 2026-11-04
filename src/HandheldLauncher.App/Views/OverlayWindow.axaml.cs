@@ -229,6 +229,7 @@ public partial class OverlayWindow : Window
                 1 => "Vívido",
                 2 => "OLED",
                 3 => "Noturno",
+                4 => "Confortável", // v0.16.2: modo que só existe nas Configurações
                 _ => "Padrão"
             };
             _viewModel.UpdateHudColorMode(initialColorName);

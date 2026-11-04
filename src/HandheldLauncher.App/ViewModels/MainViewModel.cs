@@ -420,7 +420,7 @@ public sealed class MainViewModel : ViewModelBase
         {
             var settings = AppSettingsStore.Load();
             UpdateHudTdpStatus(string.IsNullOrWhiteSpace(settings.TdpMode) ? "Normal" : settings.TdpMode);
-            UpdateHudColorMode(settings.ColorMode switch { 1 => "Vívido", 2 => "OLED", 3 => "Noturno", _ => "Padrão" });
+            UpdateHudColorMode(settings.ColorMode switch { 1 => "Vívido", 2 => "OLED", 3 => "Noturno", 4 => "Confortável", _ => "Padrão" });
             UpdateHudRecordingState(false);
         }
         catch (Exception ex) { DebugLog.Write($"[HUD] Falha ao inicializar HUD a partir das configurações: {ex.Message}"); }

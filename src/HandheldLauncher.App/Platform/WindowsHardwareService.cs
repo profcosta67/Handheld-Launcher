@@ -187,74 +187,29 @@ public class WindowsHardwareService : IHardwareService
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SetDeviceGammaRamp(IntPtr hdc, ref GammaRamp ramp);
 
-        public bool SetColorMode(string mode)
+    public bool SetColorMode(string mode)
     {
         if (!OperatingSystem.IsWindows()) return false;
 
-        lock (GammaLock)
-        {
-            IntPtr hdc = IntPtr.Zero;
-            try
-            {
-                hdc = GetDC(IntPtr.Zero);
-                if (hdc == IntPtr.Zero)
-                {
-                    DebugLog.Write("[COR] Não foi possível obter o contexto de vídeo.");
-                    return false;
-                }
-
-                // 1. SEMPRE limpa a tela para o estado neutro (Identidade) antes de tudo.
-                // Isso evita que os efeitos se somem (ex: OLED + Vívido) ou que fiquem presos na tela.
-                var identityRamp = CreateIdentityGammaRamp();
-                SetDeviceGammaRamp(hdc, ref identityRamp);
-
-                if (string.Equals(mode, "Padrão", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Tenta restaurar a original se existir, senão a identidade já aplicada já resolve.
-                    if (_originalGammaRamp is { } original)
-                    {
-                        var restore = CloneGammaRamp(original);
-                        SetDeviceGammaRamp(hdc, ref restore);
-                    }
-                    DebugLog.Write("[COR] Modo Padrão aplicado (efeitos removidos).");
-                    return true;
-                }
-
-                // Salva a identidade como referência base se ainda não tiver uma
-                _originalGammaRamp ??= CreateIdentityGammaRamp();
-
-                double contrast = mode switch
-                {
-                    "Vívido" => 1.10,
-                    "OLED" => 1.18,
-                    "Noturno" => 1.00,
-                    _ => 1.00
-                };
-
-                double redGain = mode == "Vívido" ? 1.025 : 1.0;
-                double greenGain = mode == "Vívido" ? 1.01 : mode == "Noturno" ? 0.94 : 1.0;
-                double blueGain = mode == "Vívido" ? 1.025 : mode == "Noturno" ? 0.72 : 1.0;
-
-                // 2. Aplica o efeito desejado em cima da rampa identidade
-                var ramp = BuildGammaRamp(identityRamp, contrast, redGain, greenGain, blueGain);
-                bool applied = SetDeviceGammaRamp(hdc, ref ramp);
-                
-                DebugLog.Write(applied
-                    ? $"[COR] Perfil {mode} aplicado via calibração de gama do Windows."
-                    : $"[COR] O driver de vídeo recusou o perfil {mode}.");
-                return applied;
-            }
-            catch (Exception ex)
-            {
-                DebugLog.Write($"[COR] Erro ao aplicar perfil {mode}: {ex.Message}");
-                return false;
-            }
-            finally
-            {
-                if (hdc != IntPtr.Zero) ReleaseDC(IntPtr.Zero, hdc);
-            }
-        }
+        // v0.16.2: o Quick Settings passa a usar o MESMO sistema de cor da
+        // abertura do launcher e das Configurações (DisplayColorManager).
+        // Antes, este método tinha uma base própria (rampa neutra) e efeitos
+        // próprios, sem avisar o DisplayColorManager — os dois sistemas se
+        // desencontravam: o launcher abria com a cor salva, o Quick Settings
+        // mostrava "Padrão", e trocar de modo somava efeitos. force: true
+        // porque o Windows pode ter resetado a curva por baixo.
+        var index = DisplayColorManager.IndexFromName(mode);
+        var applied = DisplayColorManager.Apply(index, force: true);
+        DebugLog.Write(applied
+            ? $"[COR] Perfil {mode} aplicado (Quick Settings → DisplayColorManager)."
+            : $"[COR] Perfil {mode} não pôde ser aplicado; veja as linhas [DisplayColor].");
+        return applied;
     }
+
+    // Os helpers abaixo (CreateIdentityGammaRamp/CloneGammaRamp/BuildGammaRamp,
+    // _originalGammaRamp e GammaLock) eram do sistema de cor antigo do Quick
+    // Settings e não são mais usados desde a v0.16.2. Mantidos até o dono do
+    // projeto aprovar a remoção.
 
     private static GammaRamp CreateIdentityGammaRamp()
     {
