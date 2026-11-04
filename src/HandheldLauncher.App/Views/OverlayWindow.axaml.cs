@@ -35,6 +35,7 @@ public partial class OverlayWindow : Window
     private string _currentFanMode = "Automático";
     private int _currentColor = 0;
     private bool _tdpAppliedOnOpen = false;
+    private readonly bool _freezeGameOnOverlay;
 
     // 🟢 ENFORCER: mantém o overlay sempre no topo enquanto visível
     private DispatcherTimer? _topmostEnforcer;
@@ -130,10 +131,22 @@ public partial class OverlayWindow : Window
         try
         {
             var settings = AppSettingsStore.Load();
+            _freezeGameOnOverlay = settings.FreezeGameOnOverlay;
             SetTdpButtonVisual(string.IsNullOrEmpty(settings.TdpMode) ? "Normal" : settings.TdpMode);
             if (OperatingSystem.IsWindows())
             {
                 _fanCurveService = new LenovoFanCurveService();
+                if (_tdpHardwareSupported && !_fanCurveService.IsSupportedModel)
+                {
+                    // TDP continua liberado em qualquer Ryzen Zen 4 Mobile
+                    // (Phoenix/Hawk Point) — não só no Legion Go 2 — pra não
+                    // travar o recurso em aparelhos como ROG Ally/Ally X, que
+                    // usam o mesmo silício. Só avisamos que este modelo
+                    // específico ainda não foi validado, na mesma faixa
+                    // (5W-30W) que ferramentas como RyzenAdj já usam nele.
+                    TxtTdpStatus.Text = "Ainda não validado neste modelo específico; comandos ficam entre 5W e 30W.";
+                    TxtTdpStatus.IsVisible = true;
+                }
                 if (_fanCurveService.TryRead(out _, out var fanReadMessage))
                 {
                     _currentFanMode = string.IsNullOrWhiteSpace(settings.FanMode) ? "Automático" : settings.FanMode;
@@ -161,6 +174,29 @@ public partial class OverlayWindow : Window
                 TxtFanStatus.Text = "Controle de curva disponível no Windows para o Legion Go 2 (8AHP2).";
                 SetFanButtonVisual("Automático");
             }
+            // v0.16: re-aplica o TDP salvo já na construção da janela (não só
+            // quando o usuário abre o Quick Settings pela primeira vez), pro
+            // aparelho voltar com o último perfil mesmo que ele nunca abra o
+            // overlay depois de reiniciar/desligar o console. Mesma lógica que
+            // já existia em OnOpened, só que agora roda em paralelo com a
+            // restauração da curva de ventoinha acima, no boot do launcher.
+            if (!_tdpAppliedOnOpen && _tdpHardwareSupported)
+            {
+                _tdpAppliedOnOpen = true;
+                var savedTdp = string.IsNullOrWhiteSpace(settings.TdpMode) ? "Normal" : settings.TdpMode;
+                _ = Task.Run(() =>
+                {
+                    DebugLog.Write($"[OVERLAY] Re-aplicando TDP salvo na inicialização: {savedTdp}");
+                    var ok = _hardwareService.SetTdpMode(savedTdp);
+                    DebugLog.Write(ok
+                        ? $"[OVERLAY] TDP {savedTdp} re-aplicado com sucesso."
+                        : $"[OVERLAY] Falha ao re-aplicar TDP {savedTdp}; veja os logs [PawnIO].");
+
+                    if (ok)
+                        Dispatcher.UIThread.Post(() => _viewModel.UpdateHudTdpStatus(savedTdp));
+                });
+            }
+
             SetColorButtonVisual(settings.ColorMode);
             if (VolumeSlider != null) VolumeSlider.Value = settings.Volume;
             if (BrightnessSlider != null) BrightnessSlider.Value = settings.Brightness;
@@ -272,25 +308,7 @@ public partial class OverlayWindow : Window
 
         StartTopmostEnforcer();
 
-        InputBlockService.BlockGamepadForGame(_gamePid);
-
-        if (!_tdpAppliedOnOpen && _tdpHardwareSupported)
-        {
-            _tdpAppliedOnOpen = true;
-            var settings = AppSettingsStore.Load();
-            var savedTdp = string.IsNullOrWhiteSpace(settings.TdpMode) ? "Normal" : settings.TdpMode;
-            _ = Task.Run(() =>
-            {
-                DebugLog.Write($"[OVERLAY] Re-aplicando TDP salvo ao abrir: {savedTdp}");
-                var ok = _hardwareService.SetTdpMode(savedTdp);
-                DebugLog.Write(ok
-                    ? $"[OVERLAY] TDP {savedTdp} re-aplicado com sucesso."
-                    : $"[OVERLAY] Falha ao re-aplicar TDP {savedTdp}; veja os logs [PawnIO].");
-
-                if (ok)
-                    Dispatcher.UIThread.Post(() => _viewModel.UpdateHudTdpStatus(savedTdp));
-            });
-        }
+        if (_freezeGameOnOverlay) InputBlockService.BlockGamepadForGame(_gamePid);
 
         if (_hardwareService is WindowsHardwareService winSvcForSync)
         {
@@ -880,7 +898,7 @@ public partial class OverlayWindow : Window
             if (wasVisible && !IsAppClosing)
             {
                 Show();
-                InputBlockService.BlockGamepadForGame(_gamePid);
+                if (_freezeGameOnOverlay) InputBlockService.BlockGamepadForGame(_gamePid);
                 ForceTopmost();
             }
         }
@@ -924,7 +942,7 @@ public partial class OverlayWindow : Window
                 if (!LosslessScalingService.TryLaunchLossless())
                 {
                     if (LsfgStatusText != null) LsfgStatusText.Text = "❌ Falha ao iniciar Lossless";
-                    if (wasVisible) { Show(); InputBlockService.BlockGamepadForGame(_gamePid); ForceTopmost(); }
+                    if (wasVisible) { Show(); if (_freezeGameOnOverlay) InputBlockService.BlockGamepadForGame(_gamePid); ForceTopmost(); }
                     return;
                 }
 
@@ -938,7 +956,7 @@ public partial class OverlayWindow : Window
                 if (wasVisible && !IsAppClosing)
                 {
                     Show();
-                    InputBlockService.BlockGamepadForGame(_gamePid);
+                    if (_freezeGameOnOverlay) InputBlockService.BlockGamepadForGame(_gamePid);
                     ForceTopmost();
                     await Task.Delay(300);
                 }
@@ -977,7 +995,7 @@ public partial class OverlayWindow : Window
             if (!IsVisible && !IsAppClosing)
             {
                 Show();
-                InputBlockService.BlockGamepadForGame(_gamePid);
+                if (_freezeGameOnOverlay) InputBlockService.BlockGamepadForGame(_gamePid);
                 ForceTopmost();
             }
         }

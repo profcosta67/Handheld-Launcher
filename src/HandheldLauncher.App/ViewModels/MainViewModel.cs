@@ -123,7 +123,7 @@ public sealed class MainViewModel : ViewModelBase
 
         MoveNextCommand = new RelayCommand(MoveNext, () => Games.Count > 1);
         MovePreviousCommand = new RelayCommand(MovePrevious, () => Games.Count > 1);
-        LaunchSelectedCommand = new RelayCommand(LaunchSelected, () => SelectedTile is not null);
+        LaunchSelectedCommand = new RelayCommand(() => _ = LaunchSelected(), () => SelectedTile is not null);
         CloseRunningGameCommand = new RelayCommand(CloseRunningGame, () => RunningGame is not null);
         RefreshCommand = new RelayCommand(Refresh);
         FetchArtworkCommand = new RelayCommand(FetchMissingArtwork, () => CanFetchArtwork);
@@ -376,14 +376,16 @@ public sealed class MainViewModel : ViewModelBase
         var last = Interlocked.Read(ref _lastOverlayCycleTicks);
         if (now - last < 500 || Interlocked.CompareExchange(ref _lastOverlayCycleTicks, now, last) != last) return;
         _hud.Preset = (_hud.Preset + 1) % PerformanceHud.PresetNames.Length;
-        try { var settings = AppSettingsStore.Load(); settings.OverlayPreset = _hud.Preset; AppSettingsStore.Save(settings); } catch { }
+        try { var settings = AppSettingsStore.Load(); settings.OverlayPreset = _hud.Preset; AppSettingsStore.Save(settings); }
+        catch (Exception ex) { DebugLog.Write($"[HUD] Falha ao salvar preset do overlay: {ex.Message}"); }
     }
 
     public void SetOverlayPreset(int preset)
     {
         if (_hud is null || !OperatingSystem.IsWindows()) return;
         _hud.Preset = preset;
-        try { var settings = AppSettingsStore.Load(); settings.OverlayPreset = _hud.Preset; AppSettingsStore.Save(settings); } catch { }
+        try { var settings = AppSettingsStore.Load(); settings.OverlayPreset = _hud.Preset; AppSettingsStore.Save(settings); }
+        catch (Exception ex) { DebugLog.Write($"[HUD] Falha ao salvar preset do overlay: {ex.Message}"); }
     }
 
     public void ClearOverlayNow() { if (OperatingSystem.IsWindows()) _hud?.ClearNow(); }
@@ -394,7 +396,8 @@ public sealed class MainViewModel : ViewModelBase
     {
         if (_hud is null || !OperatingSystem.IsWindows()) return;
         _hud.Preset = enabled ? Math.Max(1, _hud.Preset) : 0;
-        try { var settings = AppSettingsStore.Load(); settings.OverlayPreset = _hud.Preset; AppSettingsStore.Save(settings); } catch { }
+        try { var settings = AppSettingsStore.Load(); settings.OverlayPreset = _hud.Preset; AppSettingsStore.Save(settings); }
+        catch (Exception ex) { DebugLog.Write($"[HUD] Falha ao salvar preset do overlay: {ex.Message}"); }
         OnPropertyChanged(nameof(IsPerformanceHudEnabled));
     }
 
@@ -420,7 +423,7 @@ public sealed class MainViewModel : ViewModelBase
             UpdateHudColorMode(settings.ColorMode switch { 1 => "Vívido", 2 => "OLED", 3 => "Noturno", _ => "Padrão" });
             UpdateHudRecordingState(false);
         }
-        catch { }
+        catch (Exception ex) { DebugLog.Write($"[HUD] Falha ao inicializar HUD a partir das configurações: {ex.Message}"); }
     }
 
     private string _batteryStatusText = string.Empty;
@@ -625,7 +628,7 @@ public sealed class MainViewModel : ViewModelBase
     public bool FilterAnimatedOnly
     {
         get => _filterAnimatedOnly;
-        set { if (SetField(ref _filterAnimatedOnly, value)) { if (IsCoverPickerOpen && _coverPickerGame != null) OpenCoverPicker(_coverPickerGame, _coverPickerKind); } }
+        set { if (SetField(ref _filterAnimatedOnly, value)) { if (IsCoverPickerOpen && _coverPickerGame != null) _ = OpenCoverPicker(_coverPickerGame, _coverPickerKind); } }
     }
 
     private ArtworkPickerKind _coverPickerKind;
@@ -647,7 +650,7 @@ public sealed class MainViewModel : ViewModelBase
     public void MoveNext() => SelectedIndex++;
     public void MovePrevious() => SelectedIndex--;
 
-    public async void LaunchSelected()
+    public async Task LaunchSelected()
     {
         if (SelectedTile is null) return;
         var game = SelectedTile.Game;
@@ -673,14 +676,24 @@ public sealed class MainViewModel : ViewModelBase
         if (string.IsNullOrEmpty(LaunchingGameIconPath) && _artwork.HasApiKey)
             _ = FetchLaunchIconAsync(game);
 
-        _launcher.Launch(game);
-        RunningGame = game;
-        _library.MarkLaunched(game.Id);
-        ReorderLastPlayedFirst();
-        SelectedIndex = 0;
+        try
+        {
+            _launcher.Launch(game);
+            RunningGame = game;
+            _library.MarkLaunched(game.Id);
+            ReorderLastPlayedFirst();
+            SelectedIndex = 0;
 
-        await Task.Delay(LaunchFeedbackMilliseconds);
-        IsLaunching = false;
+            await Task.Delay(LaunchFeedbackMilliseconds);
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[JOGO] Falha ao lançar '{game.Title}': {ex.Message}");
+        }
+        finally
+        {
+            IsLaunching = false;
+        }
     }
 
     private static string? ResolveIconPath(GameEntry game)
@@ -754,11 +767,11 @@ public sealed class MainViewModel : ViewModelBase
         ContextMenuTarget = tile; ContextMenuItems.Clear(); _contextMenuActions.Clear();
         void Add(string label, Action action) { ContextMenuItems.Add(new ContextMenuItemViewModel(label)); _contextMenuActions.Add(action); }
 
-        Add("🖼 Capa", () => OpenCoverPicker(game, ArtworkPickerKind.Grid));
-        Add("🖼 Capa larga", () => OpenCoverPicker(game, ArtworkPickerKind.WideGrid));
-        Add("🖼 Banner", () => OpenCoverPicker(game, ArtworkPickerKind.Hero));
-        Add("🖼 Logo", () => OpenCoverPicker(game, ArtworkPickerKind.Logo));
-        Add("🖼 Ícone", () => OpenCoverPicker(game, ArtworkPickerKind.Icon));
+        Add("🖼 Capa", () => _ = OpenCoverPicker(game, ArtworkPickerKind.Grid));
+        Add("🖼 Capa larga", () => _ = OpenCoverPicker(game, ArtworkPickerKind.WideGrid));
+        Add("🖼 Banner", () => _ = OpenCoverPicker(game, ArtworkPickerKind.Hero));
+        Add("🖼 Logo", () => _ = OpenCoverPicker(game, ArtworkPickerKind.Logo));
+        Add("🖼 Ícone", () => _ = OpenCoverPicker(game, ArtworkPickerKind.Icon));
         Add("↩ Voltar", () => ReopenContextMenu(tile));
         _contextMenuIndex = 0; UpdateContextMenuSelection(); IsContextMenuOpen = true;
     }
@@ -771,7 +784,7 @@ public sealed class MainViewModel : ViewModelBase
         var tile = Games.FirstOrDefault(t => t.Game.Id == game.Id);
         if (tile is null) return;
         SelectedIndex = Games.IndexOf(tile);
-        LaunchSelected();
+        _ = LaunchSelected();
     }
 
     private void OpenConfirmMenu(GameEntry game, string confirmLabel, Action onConfirm)
@@ -806,13 +819,33 @@ public sealed class MainViewModel : ViewModelBase
     public void HighlightContextMenuItem(ContextMenuItemViewModel item) { var index = ContextMenuItems.IndexOf(item); if (index < 0) return; _contextMenuIndex = index; UpdateContextMenuSelection(); }
     public void ActivateContextMenuItem(ContextMenuItemViewModel item) { HighlightContextMenuItem(item); if (ContextMenuItems.IndexOf(item) >= 0) ConfirmContextMenuSelection(); }
     public void HighlightGlobalMenuItem(ContextMenuItemViewModel item) { var index = GlobalMenuItems.IndexOf(item); if (index < 0) return; _globalMenuIndex = index; UpdateGlobalMenuSelection(); }
-    public void ActivateGlobalMenuItem(ContextMenuItemViewModel item) { HighlightGlobalMenuItem(item); if (GlobalMenuItems.IndexOf(item) >= 0) ConfirmGlobalMenuSelection(); }
+
+    // Resolve o item clicado pelo próprio índice em vez de delegar para
+    // ConfirmGlobalMenuSelection(), que lê o _globalMenuIndex compartilhado
+    // com teclado/gamepad — esse índice pode mudar entre o clique e o
+    // despacho por reentrância de hover do ponteiro (branch fix/power-menu-dispatch).
+    public void ActivateGlobalMenuItem(ContextMenuItemViewModel item)
+    {
+        var index = GlobalMenuItems.IndexOf(item);
+        if (index < 0 || index >= _globalMenuActions.Count || index >= _globalMenuNavigates.Count)
+        {
+            DebugLog.Write($"Global menu: ignored stale pointer item '{item.Label}' on page {_globalMenuPage}.");
+            return;
+        }
+
+        _globalMenuIndex = index;
+        UpdateGlobalMenuSelection();
+        var action = _globalMenuActions[index];
+        var navigates = _globalMenuNavigates[index];
+        if (!navigates) CloseGlobalMenu();
+        action();
+    }
 
     public void ActivateCoverCandidate(ArtworkCandidateViewModel candidate)
     {
         var index = CoverPickerCandidates.IndexOf(candidate);
         if (index < 0) return;
-        _coverPickerIndex = index; UpdateCoverPickerSelection(); ConfirmCoverPickerSelection();
+        _coverPickerIndex = index; UpdateCoverPickerSelection(); _ = ConfirmCoverPickerSelection();
     }
 
     private void UpdateContextMenuSelection() { for (var i = 0; i < ContextMenuItems.Count; i++) ContextMenuItems[i].IsSelected = i == _contextMenuIndex; }
@@ -1042,7 +1075,7 @@ public sealed class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(TopBarDownloadToolTip));
     }
 
-    public async void RefreshOwnedGames()
+    public async Task RefreshOwnedGames()
     {
         if (!HasSteamWebApiCredentials) return;
         IsLoadingOwnedGames = true; OwnedGamesErrorMessage = null; UpdateNotInstalledTabMessage();
@@ -1051,16 +1084,16 @@ public sealed class MainViewModel : ViewModelBase
             var owned = await _library.GetOwnedButNotInstalledSteamGamesAsync();
             if (!IsDownloadsOpen && _activeFilter != LibraryFilter.NotInstalled) return;
             OwnedNotInstalledGames.Clear(); foreach (var game in owned) OwnedNotInstalledGames.Add(game);
-            if (_activeFilter == LibraryFilter.NotInstalled) { RebuildGamesFromLibrary(); FetchMissingArtworkForOwnedGames(); }
+            if (_activeFilter == LibraryFilter.NotInstalled) { RebuildGamesFromLibrary(); _ = FetchMissingArtworkForOwnedGames(); }
         }
         catch (Exception ex) { OwnedGamesErrorMessage = $"Erro ao buscar jogos da conta: {ex.Message}"; }
         finally { IsLoadingOwnedGames = false; UpdateNotInstalledTabMessage(); }
     }
 
-    private void FetchMissingArtwork() => FetchMissingArtworkCore(userInitiated: true);
-    private void FetchMissingArtworkBackground() => FetchMissingArtworkCore(userInitiated: false);
+    private void FetchMissingArtwork() => _ = FetchMissingArtworkCore(userInitiated: true);
+    private void FetchMissingArtworkBackground() => _ = FetchMissingArtworkCore(userInitiated: false);
 
-    private async void FetchMissingArtworkCore(bool userInitiated)
+    private async Task FetchMissingArtworkCore(bool userInitiated)
     {
         if (!_artwork.HasApiKey)
         {
@@ -1265,7 +1298,7 @@ public sealed class MainViewModel : ViewModelBase
         }
     }
 
-    private async void FetchMissingArtworkForOwnedGames()
+    private async Task FetchMissingArtworkForOwnedGames()
     {
         if (!_artwork.HasApiKey) return;
         if (_isFetchingOwnedArtwork) return;
@@ -1337,7 +1370,7 @@ public sealed class MainViewModel : ViewModelBase
 
     public void InstallOwnedGame(OwnedSteamGame game) => _launcher.OpenSteamInstaller(game.AppId);
 
-    private async void OpenCoverPicker(GameEntry game, ArtworkPickerKind kind)
+    private async Task OpenCoverPicker(GameEntry game, ArtworkPickerKind kind)
     {
         CoverPickerTitle = kind switch { ArtworkPickerKind.WideGrid => $"Capas largas e banners · {game.Title}", ArtworkPickerKind.Hero => $"Banner · {game.Title}", ArtworkPickerKind.Logo => $"Logo · {game.Title}", ArtworkPickerKind.Icon => $"Ícone · {game.Title}", _ => $"Capa · {game.Title}", };
         _coverPickerKind = kind; _coverPickerGame = game; _coverPickerIndex = 0; CoverPickerErrorMessage = null; CoverPickerCandidates.Clear(); NotifyCoverPickerResultFlags(); IsCoverPickerLoading = true; IsCoverPickerOpen = true;
@@ -1378,11 +1411,12 @@ public sealed class MainViewModel : ViewModelBase
     public void MoveCoverPickerSelection(int delta) { if (!IsCoverPickerOpen || CoverPickerCandidates.Count == 0) return; _coverPickerIndex = ((_coverPickerIndex + delta) % CoverPickerCandidates.Count + CoverPickerCandidates.Count) % CoverPickerCandidates.Count; UpdateCoverPickerSelection(); }
     public void MoveCoverPickerSelectionVertical(int rowDelta) { if (!IsCoverPickerOpen || CoverPickerCandidates.Count == 0) return; var newIndex = _coverPickerIndex + rowDelta * CoverPickerColumns; if (newIndex < 0 || newIndex >= CoverPickerCandidates.Count) return; _coverPickerIndex = newIndex; UpdateCoverPickerSelection(); }
 
-    public async void ConfirmCoverPickerSelection()
+    public async Task ConfirmCoverPickerSelection()
     {
         if (!IsCoverPickerOpen || _coverPickerGame is null || CoverPickerCandidates.Count == 0) { CloseCoverPicker(); return; }
         var chosen = CoverPickerCandidates[_coverPickerIndex].Candidate; var game = _coverPickerGame; var kind = _coverPickerKind; CloseCoverPicker();
-        try { var applied = kind switch { ArtworkPickerKind.WideGrid => await _artwork.ApplyWideGridCandidateAsync(game, chosen), ArtworkPickerKind.Hero => await _artwork.ApplyHeroCandidateAsync(game, chosen), ArtworkPickerKind.Logo => await _artwork.ApplyLogoCandidateAsync(game, chosen), ArtworkPickerKind.Icon => await _artwork.ApplyIconCandidateAsync(game, chosen), _ => await _artwork.ApplyGridCandidateAsync(game, chosen), }; } catch { }
+        try { var applied = kind switch { ArtworkPickerKind.WideGrid => await _artwork.ApplyWideGridCandidateAsync(game, chosen), ArtworkPickerKind.Hero => await _artwork.ApplyHeroCandidateAsync(game, chosen), ArtworkPickerKind.Logo => await _artwork.ApplyLogoCandidateAsync(game, chosen), ArtworkPickerKind.Icon => await _artwork.ApplyIconCandidateAsync(game, chosen), _ => await _artwork.ApplyGridCandidateAsync(game, chosen), }; }
+        catch (Exception ex) { DebugLog.Write($"[SGDB] Falha ao aplicar capa escolhida para '{game.Title}': {ex.Message}"); }
         Refresh();
     }
 
@@ -1408,7 +1442,7 @@ public sealed class MainViewModel : ViewModelBase
         _activeFilter = filter;
         OnPropertyChanged(nameof(IsFilterAllActive)); OnPropertyChanged(nameof(IsFilterFavoritesActive)); OnPropertyChanged(nameof(IsFilterComputerActive)); OnPropertyChanged(nameof(IsFilterEmulatorsActive)); OnPropertyChanged(nameof(IsFilterApplicationsActive)); OnPropertyChanged(nameof(IsFilterNotInstalledActive));
         RebuildSubFilters(); RebuildGamesFromLibrary();
-        if (filter == LibraryFilter.NotInstalled) RefreshOwnedGames();
+        if (filter == LibraryFilter.NotInstalled) _ = RefreshOwnedGames();
     }
 
     private bool MatchesActiveFilter(GameEntry game) => _activeFilter switch

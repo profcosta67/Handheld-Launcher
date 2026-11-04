@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Management;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using HandheldLauncher.App.Diagnostics;
 
 #pragma warning disable CA1416 // Este arquivo lida com APIs exclusivas do Windows (PerformanceCounter, WMI) de forma segura em tempo de execução.
 
@@ -48,8 +49,8 @@ internal sealed class SystemMetrics : IDisposable
             _cpuFrequency = TryCounter("Processor Information", "Processor Frequency", "_Total");
 
             // Primeira leitura de contador "%" sempre volta 0 — descarta.
-            try { _cpuUtility?.NextValue(); } catch { }
-            try { _cpuPerformance?.NextValue(); } catch { }
+            try { _cpuUtility?.NextValue(); } catch (Exception ex) { DebugLog.Write($"[Metrics] Falha na leitura inicial de CPU Utility: {ex.Message}"); }
+            try { _cpuPerformance?.NextValue(); } catch (Exception ex) { DebugLog.Write($"[Metrics] Falha na leitura inicial de CPU Performance: {ex.Message}"); }
         }
     }
 

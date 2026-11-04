@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
+using System.Reflection;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -15,7 +17,14 @@ public class SteamStoreService
     public SteamStoreService()
     {
         _http = new HttpClient();
-        _http.DefaultRequestHeaders.UserAgent.ParseAdd("HandheldLauncher/15.6");
+        // Versão lida do assembly (que por sua vez vem do arquivo VERSION na
+        // raiz, via HandheldLauncher.App.csproj) em vez de fixa no código —
+        // evita repetir o número e ele ficar desatualizado como "15.6" estava.
+        var version = Assembly.GetEntryAssembly()?
+            .GetCustomAttributes(typeof(AssemblyInformationalVersionAttribute), false)
+            .OfType<AssemblyInformationalVersionAttribute>()
+            .FirstOrDefault()?.InformationalVersion ?? "dev";
+        _http.DefaultRequestHeaders.UserAgent.ParseAdd($"HandheldLauncher/{version}");
     }
 
     public async Task<GameMetadata?> FetchMetadataAsync(uint appId)

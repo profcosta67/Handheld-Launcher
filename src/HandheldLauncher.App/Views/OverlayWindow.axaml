@@ -113,6 +113,7 @@
                                     </Button>
                                 </Grid>
                             </Grid>
+                            <TextBlock x:Name="TxtTdpStatus" Text="" Foreground="#B8B8C0" FontSize="11" TextWrapping="Wrap" TextAlignment="Center" Margin="0,4,0,0" IsVisible="False"/>
                         </StackPanel>
                     </Border>
 

@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using HandheldLauncher.App.Diagnostics;
 using HandheldLauncher.App.Platform;
 using HandheldLauncher.App.ViewModels;
 using HandheldLauncher.App.Views;
@@ -29,14 +30,16 @@ public partial class App : Application
                 && SteamAccountDetector.FindMostRecent() is { } steamAccount)
             {
                 appSettings.SteamId64 = steamAccount.SteamId64;
-                try { AppSettingsStore.Save(appSettings); } catch { }
+                try { AppSettingsStore.Save(appSettings); }
+                catch (Exception ex) { DebugLog.Write($"[Startup] Falha ao salvar SteamId64 detectado: {ex.Message}"); }
             }
 
             if (string.IsNullOrWhiteSpace(appSettings.EdenExecutablePath)
                 && EdenInstallationDetector.FindExecutable() is { } edenExe)
             {
                 appSettings.EdenExecutablePath = edenExe;
-                try { AppSettingsStore.Save(appSettings); } catch { }
+                try { AppSettingsStore.Save(appSettings); }
+                catch (Exception ex) { DebugLog.Write($"[Startup] Falha ao salvar caminho do Eden detectado: {ex.Message}"); }
             }
 
             var steamScanner = new SteamLibraryScanner();
@@ -69,10 +72,10 @@ public partial class App : Application
                         RtssProfileConfig.TryConfigureGlobalOsd(rtssDir);
                     }
                 }
-                catch { }
+                catch (Exception ex) { DebugLog.Write($"[Startup] Falha ao configurar RTSS/overlay de desempenho: {ex.Message}"); }
             }
 
-            var updateService = new UpdateService();
+            var updateService = new UpdateService(appSettings.BetaChannelOptIn);
 
             PerformanceHud? performanceHud = null;
             if (OperatingSystem.IsWindows())
@@ -127,17 +130,20 @@ public partial class App : Application
 
             if (OperatingSystem.IsWindows())
             {
-                var overlayHotkeys = new HandheldLauncher.App.Input.OverlayHotkeyWatcher(() =>
-                {
-                    Avalonia.Threading.Dispatcher.UIThread.Post(() => mainWindow.ToggleOverlay());
-                });
-                desktop.Exit += (_, _) => overlayHotkeys.Dispose();
-
+                // v0.16: os dois detectores de L3+R3 (OverlayHotkeyWatcher via
+                // XInput comum, e GameInputHelper via GameInput com entrega em
+                // segundo plano) rodavam juntos o tempo todo e podiam disparar
+                // o mesmo ToggleOverlay() em corrida — causa provável do bug
+                // intermitente do Quick Settings relatado pelo usuário. Agora
+                // o MainWindow alterna entre os dois conforme um jogo está
+                // rodando ou não (só um fica ativo por vez), o que também
+                // reduz o tempo em que o launcher força entrega de input em
+                // segundo plano — suspeito de travar a suspensão do aparelho.
                 HandheldLauncher.App.Input.GameInputHelper.ListenInBackground(() =>
                 {
                     Avalonia.Threading.Dispatcher.UIThread.Post(() => mainWindow.ToggleOverlay());
                 });
-                HandheldLauncher.App.Input.GameInputHelper.StartHelperProcess();
+                mainWindow.InitializeGamepadComboDetection();
                 desktop.Exit += (_, _) => HandheldLauncher.App.Input.GameInputHelper.StopHelperProcess();
             }
 

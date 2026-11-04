@@ -20,7 +20,17 @@ namespace HandheldLauncher.App.Input;
 /// errado lá (GameInput ausente, versão diferente, até um crash), só o
 /// ajudante cai; o launcher continua normal com o XInput de antes. Quando vê
 /// L3+R3, o ajudante sinaliza um evento com nome do Windows que o launcher
-/// está esperando. O ajudante se encerra sozinho quando o launcher fecha.
+/// está esperando.
+///
+/// v0.16: o ajudante só fica ligado enquanto um JOGO está rodando — é só
+/// nesse momento que o launcher perde o foco e precisa da entrega em
+/// segundo plano. Com o launcher na biblioteca (foco normal), quem detecta
+/// L3+R3 é o <see cref="OverlayHotkeyWatcher"/>, via XInput comum — os dois
+/// nunca ficam ligados ao mesmo tempo (evita os dois dispararem o mesmo
+/// toggle do overlay em corrida, e reduz o tempo em que algo força entrega
+/// de input em segundo plano, o que foi identificado como um provável
+/// bloqueador de suspensão/Modern Standby no aparelho). Ver
+/// MainWindow.SetGamepadComboDetectionForGame.
 /// </summary>
 internal static unsafe class GameInputHelper
 {
@@ -55,11 +65,18 @@ internal static unsafe class GameInputHelper
 
     private static Process? _helper;
 
-    /// <summary>Lado do launcher: abre o processo ajudante (melhor esforço).</summary>
+    /// <summary>
+    /// Lado do launcher: abre o processo ajudante (melhor esforço). Idempotente —
+    /// chamar com o ajudante já rodando não abre uma segunda cópia (v0.16:
+    /// agora é ligado/desligado conforme um jogo está rodando ou não, então
+    /// precisa ser seguro contra chamadas repetidas).
+    /// </summary>
     public static void StartHelperProcess()
     {
         try
         {
+            if (_helper is { HasExited: false }) return;
+
             var exe = Environment.ProcessPath;
             if (string.IsNullOrEmpty(exe)) return;
             _helper = Process.Start(new ProcessStartInfo(exe, $"{Argument} {Environment.ProcessId}")
@@ -76,7 +93,8 @@ internal static unsafe class GameInputHelper
 
     /// <summary>
     /// Encerra o ajudante na hora (antes de aplicar uma atualização — ele roda
-    /// do mesmo exe e seguraria os arquivos — ou ao fechar o launcher).
+    /// do mesmo exe e seguraria os arquivos — ao fechar o launcher, ou ao
+    /// voltar pra biblioteca depois de um jogo — v0.16). Idempotente.
     /// </summary>
     public static void StopHelperProcess()
     {
@@ -87,6 +105,10 @@ internal static unsafe class GameInputHelper
         catch
         {
             // Melhor esforço — ele também se encerra sozinho em até 2 s.
+        }
+        finally
+        {
+            _helper = null;
         }
     }
 

@@ -26,6 +26,16 @@ public class AppSettings
     public int ColorMode { get; set; } = 0;
     public int OverlayPreset { get; set; } = 0;
 
+    // v0.16: opt-in pro canal beta do Velopack. Default false — ninguém sai
+    // do canal estável sem pedir. Ver UpdateService.
+    public bool BetaChannelOptIn { get; set; } = false;
+
+    // v0.16: opt-in pra suspender (congelar) o processo do jogo enquanto o
+    // Quick Settings está aberto. Default false — alguns anti-cheats (EAC,
+    // BattlEye, Vanguard) podem marcar NtSuspendProcess como suspeito. Ver
+    // InputBlockService.BlockGamepadForGame / OverlayWindow.
+    public bool FreezeGameOnOverlay { get; set; } = false;
+
     // TDP e outros
     public string TdpMode { get; set; } = "Normal";
     public string FanMode { get; set; } = "Automático";

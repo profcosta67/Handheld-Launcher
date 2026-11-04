@@ -229,7 +229,10 @@ public sealed class GameLauncher : IGameLauncher
         {
             if (!process.HasExited) process.Kill(entireProcessTree: true);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[GameLauncher] Falha ao finalizar processo do jogo: {ex.Message}");
+        }
     }
 
     private static bool TryGetMainModulePath(Process process, out string path)

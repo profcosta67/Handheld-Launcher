@@ -104,7 +104,8 @@ if (target.SequenceEqual(current))
 }
                 if (!InvokeSet(target))
                 {
-                    try { InvokeSet(current); } catch { }
+                    try { InvokeSet(current); }
+                    catch (Exception ex) { DebugLog.Write($"[FAN] Falha ao reenviar curva anterior após recusa do firmware: {ex.Message}"); }
                     message = "O firmware recusou a curva; tabela anterior reenviada.";
                     return false;
                 }

@@ -212,7 +212,10 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
         return partial.Id;
     }
 
-    private static string NormalizeGameTitle(string? value)
+    // internal (não private) só pra ficar testável por
+    // HandheldLauncher.Core.Tests (InternalsVisibleTo no .csproj) — mesmo
+    // comportamento, continua fora da API pública do Core.
+    internal static string NormalizeGameTitle(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return string.Empty;
 

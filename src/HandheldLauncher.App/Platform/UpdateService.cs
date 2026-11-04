@@ -27,13 +27,36 @@ public sealed class UpdateService
     private readonly UpdateManager? _manager;
     private UpdateInfo? _pending;
 
-    public UpdateService()
+    /// <summary>
+    /// v0.16: <paramref name="betaChannelOptIn"/> vem de
+    /// AppSettings.BetaChannelOptIn (default false — ver comentário lá).
+    /// Canal estável (default): mesmo comportamento de sempre, byte a byte
+    /// — GithubSource com prerelease=false, sem UpdateOptions, então o
+    /// GitHub nem entrega um Release "beta" marcado como pré-lançamento
+    /// pra essa instância, e o Velopack só olha releases.win.json.
+    /// Canal beta (opt-in explícito): prerelease=true no GithubSource (só
+    /// assim o pré-lançamento aparece pra essa instância) +
+    /// ExplicitChannel="beta" (só assim ele procura releases.beta.json em
+    /// vez do canal padrão do build atual) + AllowVersionDowngrade=true
+    /// (recomendação oficial da Velopack pra quando o usuário desativar o
+    /// beta depois e precisar "descer" pra uma estável mais antiga que a
+    /// beta que tinha instalado — ver docs.velopack.io/integrating/switching-channels).
+    /// </summary>
+    public UpdateService(bool betaChannelOptIn = false)
     {
         try
         {
-            // Repositório público: sem token. 3º parâmetro = não considerar
-            // pré-lançamentos.
-            _manager = new UpdateManager(new GithubSource(RepoUrl, null, false));
+            if (betaChannelOptIn)
+            {
+                var options = new UpdateOptions { ExplicitChannel = "beta", AllowVersionDowngrade = true };
+                _manager = new UpdateManager(new GithubSource(RepoUrl, null, prerelease: true), options);
+            }
+            else
+            {
+                // Repositório público: sem token. 3º parâmetro = não considerar
+                // pré-lançamentos.
+                _manager = new UpdateManager(new GithubSource(RepoUrl, null, false));
+            }
         }
         catch
         {

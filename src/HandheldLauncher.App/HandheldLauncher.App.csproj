@@ -11,7 +11,12 @@
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <RootNamespace>HandheldLauncher.App</RootNamespace>
     <AssemblyName>HandheldLauncher</AssemblyName>
-    <Version>0.15.5</Version>
+    <!-- Fonte única da versão: o arquivo VERSION na raiz do repo. CI e
+         release.yml também leem desse arquivo (ver -p:Version), então ele
+         nunca precisa ser editado em dois lugares. Um `-p:Version=X` passado
+         na linha de comando (como o CI/release fazem) ainda sobrescreve isto
+         normalmente — é só o valor padrão de build local. -->
+    <Version>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)../../VERSION').Trim())</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
@@ -19,11 +24,14 @@
     <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
     <PackageReference Include="AnimatedImage.Avalonia" Version="2.1.4" />
     <PackageReference Include="AnimatedImage.Native" Version="2.1.2" />
-    <PackageReference Include="Avalonia" Version="11.2.*" />
-    <PackageReference Include="Avalonia.Desktop" Version="11.2.*" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.*" />
-    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.2.*" />
-    <PackageReference Include="Avalonia.Diagnostics" Version="11.2.*" Condition="'$(Configuration)' == 'Debug'" />
+    <!-- Fixadas em 11.2.8 (v0.16): eram "11.2.*", que podia puxar um patch
+         novo do Avalonia sem aviso a qualquer restore/build, inclusive numa
+         release. Pra atualizar de propósito, suba os 5 números juntos. -->
+    <PackageReference Include="Avalonia" Version="11.2.8" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.2.8" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.8" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.2.8" />
+    <PackageReference Include="Avalonia.Diagnostics" Version="11.2.8" Condition="'$(Configuration)' == 'Debug'" />
     <PackageReference Include="Velopack" Version="1.2.161" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="8.0.0" />
     <PackageReference Include="System.Management" Version="10.0.2" />
