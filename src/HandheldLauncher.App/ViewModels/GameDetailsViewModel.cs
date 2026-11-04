@@ -20,7 +20,7 @@ public sealed class GameDetailsViewModel : ViewModelBase
     {
         try
         {
-            StoreHttp.DefaultRequestHeaders.UserAgent.ParseAdd("HandheldLauncher/0.14 (Windows; C#)");
+            StoreHttp.DefaultRequestHeaders.UserAgent.ParseAdd($"{AppUserAgent.Value} (Windows; C#)");
             StoreHttp.DefaultRequestHeaders.Accept.ParseAdd("application/json");
         }
         catch { /* melhor esforço */ }

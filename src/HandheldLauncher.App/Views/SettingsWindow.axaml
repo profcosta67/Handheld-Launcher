@@ -114,8 +114,8 @@
 
           <!-- ===== Modo de uso ===== -->
           <StackPanel Spacing="12" IsVisible="{Binding IsCategoryModeActive}">
-            <RadioButton GroupName="Modo" IsChecked="{Binding IsDesktopMode}" Content="Desktop (PC) — janela normal, não abre sozinho, 'Sair' fecha de verdade" />
-            <RadioButton GroupName="Modo" IsChecked="{Binding IsHandheldMode}" Content="Handheld (modo jogo) — tela cheia, abre no login, reabre se fechar" />
+            <RadioButton GroupName="Modo" IsChecked="{Binding IsHandheldMode}" Content="Handheld (recomendado no aparelho) — tela cheia, abre sozinho no login e reabre se fechar" />
+            <RadioButton GroupName="Modo" IsChecked="{Binding IsDesktopMode}" Content="Uso em PC (Desktop) — janela normal, não abre sozinho, 'Sair' fecha de verdade" />
             <TextBlock Text="No modo Handheld, 'Sair' (menu Energia) segura a reabertura até reiniciar o aparelho. Abrir pelo atalho sempre funciona." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
 
             <Border Background="#202536" CornerRadius="12" Padding="14">
