@@ -121,12 +121,12 @@ internal static class HelpArticles
         }),
 
         // ---------------- Ajuda ----------------
-        new("mandar-log", "Ajuda", "Como mandar o log pra investigar um problema", new[]
+        new("mandar-log", "Ajuda", "Como reportar um problema (e mandar o log)", new[]
         {
             "1. Anote o horário em que o problema aconteceu.",
-            "2. Na Central de Ajuda, use \"Abrir pasta do log\".",
-            "3. Mande o arquivo debug.log (e o debug.old.log, se existir).",
-            "O log não guarda senhas. As chaves de API ficam só no arquivo de configurações, que não precisa ser enviado. Em breve, o botão Reportar erro vai montar esse pacote sozinho, já sem dados pessoais.",
+            "2. Na Central de Ajuda, use \"Reportar erro\". O launcher salva um arquivo .zip na Área de Trabalho com o relatório das verificações, o log e as configurações — já sem chaves de API, SteamID, nome de usuário e nome do PC.",
+            "3. Mande o .zip pelo grupo, ou use \"Abrir relato no GitHub\" (precisa de conta), descreva o problema e arraste o arquivo pra página.",
+            "Nada é enviado sozinho: o pacote fica no aparelho até você mandar.",
         }),
     };
 

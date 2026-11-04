@@ -45,16 +45,36 @@
       <ScrollViewer x:Name="ArticleScroll" IsVisible="False" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel x:Name="ArticlePanel" Spacing="10" Margin="0,0,10,8" />
       </ScrollViewer>
+
+      <ScrollViewer x:Name="ReportScroll" IsVisible="False" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="12" Margin="0,0,10,8">
+          <Button Classes="pill" Content="← Voltar" HorizontalAlignment="Left" Click="OnReportBackClick" />
+          <TextBlock Text="🐞 Reportar erro" FontSize="18" FontWeight="Bold" />
+          <TextBlock x:Name="TxtReportStatus" Text="Preparando o pacote..." FontSize="14" TextWrapping="Wrap" />
+          <Border Background="#202536" CornerRadius="12" Padding="14">
+            <StackPanel Spacing="6">
+              <TextBlock Text="O que vai no pacote" FontWeight="Bold" />
+              <TextBlock Classes="subtle" FontSize="12" TextWrapping="Wrap"
+                         Text="O relatório das verificações, o debug.log e as configurações. Antes de salvar, o launcher remove as chaves de API, o SteamID, o seu nome de usuário e o nome do PC. Nada é enviado sozinho — você escolhe pra onde mandar." />
+            </StackPanel>
+          </Border>
+          <StackPanel x:Name="ReportActions" Spacing="10" IsVisible="False">
+            <TextBlock Classes="subtle" FontSize="12" TextWrapping="Wrap"
+                       Text="Mande o arquivo pelo grupo/WhatsApp, ou abra o relato no GitHub (precisa de conta) e arraste o arquivo pra lá." />
+            <Button x:Name="BtnShowReport" Classes="pill" Content="📂 Mostrar o arquivo" HorizontalAlignment="Left" Click="OnShowReportClick" />
+            <Button x:Name="BtnOpenIssue" Classes="pill primary" Content="🌐 Abrir relato no GitHub" HorizontalAlignment="Left" Click="OnOpenIssueClick" />
+          </StackPanel>
+        </StackPanel>
+      </ScrollViewer>
     </Panel>
 
     <StackPanel Grid.Row="2" Spacing="10" Margin="0,16,0,0">
-      <TextBlock Text="Em breve aqui: o botão Reportar erro, que monta o pacote com o log sem dados pessoais."
-                 Classes="subtle" FontSize="11" TextWrapping="Wrap" />
       <Grid ColumnDefinitions="*,Auto">
         <TextBlock Grid.Column="0" x:Name="TxtControls" Text="🎮 ↑↓: navegar | A: abrir | LB/RB: trocar aba | B: fechar"
                    VerticalAlignment="Center" Foreground="#8794AE" FontSize="11" TextWrapping="Wrap" />
         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
           <Button x:Name="BtnRerun" Classes="pill" Content="🔄 Verificar de novo" Click="OnRerunClick" />
+          <Button x:Name="BtnReport" Classes="pill" Content="🐞 Reportar erro" Click="OnReportClick" />
           <Button Classes="pill" Content="📂 Abrir pasta do log" Click="OnOpenLogFolderClick" />
           <Button Classes="pill primary" Content="✕ Fechar" Click="OnCloseClick" />
         </StackPanel>

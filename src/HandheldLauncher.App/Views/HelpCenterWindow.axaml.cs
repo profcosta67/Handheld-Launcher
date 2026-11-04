@@ -23,12 +23,15 @@ namespace HandheldLauncher.App.Views;
 /// </summary>
 public partial class HelpCenterWindow : Window
 {
-    private enum View { Checks, Manual, Article }
+    private enum View { Checks, Manual, Article, Report }
 
     private View _view = View.Checks;
     private View _articleReturnView = View.Checks;
     private bool _running;
     private bool _manualBuilt;
+    private bool _reporting;
+    private IReadOnlyList<HealthChecks.Result>? _lastChecks;
+    private ProblemReport.Created? _lastReport;
 
     public HelpCenterWindow()
     {
@@ -45,7 +48,7 @@ public partial class HelpCenterWindow : Window
         {
             if (e.Key == Key.Escape)
             {
-                if (!GoBackFromArticle()) Close();
+                if (!GoBack()) Close();
                 e.Handled = true;
             }
         };
@@ -65,18 +68,22 @@ public partial class HelpCenterWindow : Window
                 return true;
 
             case GamepadAction.Back:
-                return GoBackFromArticle();
+                return GoBack();
 
             default:
                 return false;
         }
     }
 
-    private bool GoBackFromArticle()
+    /// <summary>B/Esc: de um artigo ou do relatório, volta; da lista, deixa fechar.</summary>
+    private bool GoBack()
     {
-        if (_view != View.Article) return false;
-        ShowView(_articleReturnView);
-        return true;
+        switch (_view)
+        {
+            case View.Article: ShowView(_articleReturnView); return true;
+            case View.Report: ShowView(View.Checks); return true;
+            default: return false;
+        }
     }
 
     // --------------------------------------------------------------------
@@ -87,15 +94,20 @@ public partial class HelpCenterWindow : Window
         ChecksScroll.IsVisible = view == View.Checks;
         ManualScroll.IsVisible = view == View.Manual;
         ArticleScroll.IsVisible = view == View.Article;
+        ReportScroll.IsVisible = view == View.Report;
         BtnRerun.IsVisible = view == View.Checks;
+        BtnReport.IsVisible = view != View.Report;
         TxtSummary.IsVisible = view == View.Checks;
 
-        BtnTabChecks.Classes.Set("primary", view == View.Checks);
+        BtnTabChecks.Classes.Set("primary", view is View.Checks or View.Report);
         BtnTabManual.Classes.Set("primary", view is View.Manual or View.Article);
 
-        TxtControls.Text = view == View.Article
-            ? "🎮 ↑↓: rolar | B: voltar"
-            : "🎮 ↑↓: navegar | A: abrir | LB/RB: trocar aba | B: fechar";
+        TxtControls.Text = view switch
+        {
+            View.Article => "🎮 ↑↓: rolar | B: voltar",
+            View.Report => "🎮 ↑↓: navegar | A: selecionar | B: voltar",
+            _ => "🎮 ↑↓: navegar | A: abrir | LB/RB: trocar aba | B: fechar",
+        };
 
         if (view == View.Manual)
         {
@@ -146,6 +158,7 @@ public partial class HelpCenterWindow : Window
 
     private void RenderChecks(IReadOnlyList<HealthChecks.Result> results)
     {
+        _lastChecks = results;
         ResultsPanel.Children.Clear();
 
         // Problemas primeiro, depois atenção, informação e ok.
@@ -234,9 +247,52 @@ public partial class HelpCenterWindow : Window
     {
         var back = new Button { Content = "← Voltar", HorizontalAlignment = HorizontalAlignment.Left };
         back.Classes.Add("pill");
-        back.Click += (_, _) => GoBackFromArticle();
+        back.Click += (_, _) => GoBack();
         return back;
     }
+
+    // ---------------- Reportar erro ----------------
+
+    private async void OnReportClick(object? sender, RoutedEventArgs e)
+    {
+        if (_reporting) return;
+        _reporting = true;
+        _lastReport = null;
+        ReportActions.IsVisible = false;
+        TxtReportStatus.Text = "Preparando o pacote... (leva alguns segundos)";
+        ShowView(View.Report);
+
+        try
+        {
+            // Usa as verificações já mostradas; se ainda não rodaram, roda agora.
+            var checks = _lastChecks ?? await HealthChecks.RunAllAsync();
+            _lastReport = await ProblemReport.CreateAsync(checks);
+            TxtReportStatus.Text = $"✅ Pacote salvo na Área de Trabalho:\n{Path.GetFileName(_lastReport.ZipPath)}";
+            ReportActions.IsVisible = true;
+            BtnShowReport.Focus();
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[AJUDA] Falha ao criar o pacote de relatório: {ex}");
+            TxtReportStatus.Text = "❌ Não foi possível criar o pacote. Use \"Abrir pasta do log\" e mande o debug.log manualmente.";
+        }
+        finally
+        {
+            _reporting = false;
+        }
+    }
+
+    private void OnShowReportClick(object? sender, RoutedEventArgs e)
+    {
+        if (_lastReport is { } report) ProblemReport.RevealInExplorer(report.ZipPath);
+    }
+
+    private void OnOpenIssueClick(object? sender, RoutedEventArgs e)
+    {
+        if (_lastReport is { } report) ProblemReport.OpenUrl(report.IssueUrl);
+    }
+
+    private void OnReportBackClick(object? sender, RoutedEventArgs e) => GoBack();
 
     // ---------------- Comum ----------------
 
