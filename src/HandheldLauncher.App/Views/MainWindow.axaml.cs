@@ -1152,7 +1152,7 @@ public partial class MainWindow : Window
                         case GamepadAction.MoveRight: vm.MoveCoverPickerSelection(1); ScrollCoverPickerSelectionIntoView(vm); break;
                         case GamepadAction.MoveUp: vm.MoveCoverPickerSelectionVertical(-1); ScrollCoverPickerSelectionIntoView(vm); break;
                         case GamepadAction.MoveDown: vm.MoveCoverPickerSelectionVertical(1); ScrollCoverPickerSelectionIntoView(vm); break;
-                        case GamepadAction.Confirm: vm.ConfirmCoverPickerSelection(); break;
+                        case GamepadAction.Confirm: _ = vm.ConfirmCoverPickerSelection(); break;
                         case GamepadAction.Back: case GamepadAction.Menu: case GamepadAction.GlobalMenu: vm.CloseCoverPicker(); break;
                     }
                     continue;
@@ -1214,7 +1214,7 @@ public partial class MainWindow : Window
                     case GamepadAction.MoveRight: vm.MoveNext(); ScrollGameRowSelectionIntoView(vm); break;
                     case GamepadAction.MoveUp: if (!MoveSelectionVertical(vm, -1)) vm.FocusSubFilterRow(); break;
                     case GamepadAction.MoveDown: MoveSelectionVertical(vm, 1); break;
-                    case GamepadAction.Confirm: vm.LaunchSelected(); ScrollGameRowSelectionIntoView(vm); break;
+                    case GamepadAction.Confirm: _ = vm.LaunchSelected(); ScrollGameRowSelectionIntoView(vm); break;
                     case GamepadAction.Back: vm.CloseRunningGame(); break;
                     case GamepadAction.Menu: vm.ToggleContextMenu(); break;
                     case GamepadAction.GlobalMenu: vm.ToggleGlobalMenu(); break;
@@ -1245,7 +1245,7 @@ public partial class MainWindow : Window
                 case Key.Right: vm.MoveCoverPickerSelection(1); ScrollCoverPickerSelectionIntoView(vm); e.Handled = true; break;
                 case Key.Up: vm.MoveCoverPickerSelectionVertical(-1); ScrollCoverPickerSelectionIntoView(vm); e.Handled = true; break;
                 case Key.Down: vm.MoveCoverPickerSelectionVertical(1); ScrollCoverPickerSelectionIntoView(vm); e.Handled = true; break;
-                case Key.Enter: vm.ConfirmCoverPickerSelection(); e.Handled = true; break;
+                case Key.Enter: _ = vm.ConfirmCoverPickerSelection(); e.Handled = true; break;
                 case Key.Escape: vm.CloseCoverPicker(); e.Handled = true; break;
             }
             return;
@@ -1302,7 +1302,7 @@ public partial class MainWindow : Window
 
         var settings = AppSettingsStore.Load();
 
-        if (TryMatch(settings.KeyLaunchGame, e)) { vm.LaunchSelected(); ScrollGameRowSelectionIntoView(vm); e.Handled = true; return; }
+        if (TryMatch(settings.KeyLaunchGame, e)) { _ = vm.LaunchSelected(); ScrollGameRowSelectionIntoView(vm); e.Handled = true; return; }
         if (TryMatch(settings.KeyGlobalMenu, e)) { vm.ToggleGlobalMenu(); e.Handled = true; return; }
         if (TryMatch(settings.KeyCloseGame, e)) { vm.CloseRunningGame(); e.Handled = true; return; }
         if (TryMatch(settings.KeyContextMenu, e)) { vm.ToggleContextMenu(); e.Handled = true; return; }
@@ -1514,7 +1514,7 @@ public partial class MainWindow : Window
         if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed && !vm.IsContextMenuOpen) { vm.ToggleContextMenu(); e.Handled = true; }
     }
 
-    public void HandleTileDoubleTapped(object? sender, TappedEventArgs e) { if (DataContext is not MainViewModel vm) return; vm.LaunchSelected(); ScrollGameRowSelectionIntoView(vm); }
+    public void HandleTileDoubleTapped(object? sender, TappedEventArgs e) { if (DataContext is not MainViewModel vm) return; _ = vm.LaunchSelected(); ScrollGameRowSelectionIntoView(vm); }
 
     private void OnGearMenuClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => (DataContext as MainViewModel)?.ToggleGlobalMenu();
     private void OnDownloadsShortcutClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => (DataContext as MainViewModel)?.ToggleDownloads();
@@ -1635,7 +1635,7 @@ public partial class MainWindow : Window
         }
     }
 
-    public async void OpenConnectivityPopup()
+    public async Task OpenConnectivityPopup()
     {
         var dialog = new ConnectivityPopupWindow { Topmost = true };
         _activeDialog = dialog;
@@ -1644,9 +1644,9 @@ public partial class MainWindow : Window
     }
 
     private void OnOpenWifiSettingsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-        => OpenConnectivityPopup();
+        => _ = OpenConnectivityPopup();
 
     private void OnOpenBluetoothSettingsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-        => OpenConnectivityPopup();
+        => _ = OpenConnectivityPopup();
 
 }
