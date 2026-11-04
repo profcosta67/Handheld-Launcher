@@ -1,4 +1,9 @@
 using System.IO;
+using System.Net;
+using System.Net.Http;
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using Avalonia.Media.Imaging;
 using HandheldLauncher.Core.Models;
 
@@ -11,12 +16,83 @@ namespace HandheldLauncher.App.ViewModels;
 /// </summary>
 public sealed class GameTileViewModel : ViewModelBase
 {
+    private static readonly HttpClient DescriptionHttp = new() { Timeout = TimeSpan.FromSeconds(12) };
+    private bool _descriptionRequested;
+    private string _description = string.Empty;
+
     public GameTileViewModel(GameEntry game)
     {
         Game = game;
     }
 
     public GameEntry Game { get; }
+
+    public string Description
+    {
+        get => _description;
+        private set
+        {
+            if (SetField(ref _description, value))
+                OnPropertyChanged(nameof(HasDescription));
+        }
+    }
+
+    public bool HasDescription => !string.IsNullOrWhiteSpace(Description);
+
+    /// <summary>
+    /// Carrega a descrição apenas quando o jogo é selecionado. Assim a
+    /// biblioteca não dispara dezenas de consultas durante a inicialização.
+    /// </summary>
+    public async Task LoadDescriptionAsync()
+    {
+        if (_descriptionRequested) return;
+        _descriptionRequested = true;
+
+        try
+        {
+            string? description = null;
+            if (Game.SteamAppId is uint appId)
+            {
+                var url = $"https://store.steampowered.com/api/appdetails?appids={appId}&l=portuguese";
+                var json = await DescriptionHttp.GetStringAsync(url);
+                using var doc = JsonDocument.Parse(json);
+                if (doc.RootElement.TryGetProperty(appId.ToString(), out var entry) &&
+                    entry.TryGetProperty("success", out var success) && success.GetBoolean() &&
+                    entry.TryGetProperty("data", out var data))
+                {
+                    if (data.TryGetProperty("short_description", out var shortDescription))
+                        description = shortDescription.GetString();
+                    if (string.IsNullOrWhiteSpace(description) &&
+                        data.TryGetProperty("detailed_description", out var detailed))
+                    {
+                        var html = detailed.GetString() ?? string.Empty;
+                        description = WebUtility.HtmlDecode(Regex.Replace(html, @"<[^>]+>", " "));
+                    }
+                }
+            }
+            else
+            {
+                var rawg = new HandheldLauncher.App.Platform.RawgMetadataService();
+                var data = await rawg.GetGameDetailsAsync(Game.Title);
+                description = data?.Description;
+            }
+
+            Description = NormalizeDescription(description);
+        }
+        catch (Exception ex)
+        {
+            HandheldLauncher.App.Diagnostics.DebugLog.Write(
+                $"[GAME DESCRIPTION] Falha ao carregar '{Game.Title}': {ex.GetType().Name}: {ex.Message}");
+            Description = string.Empty;
+        }
+    }
+
+    private static string NormalizeDescription(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+        var normalized = Regex.Replace(value, @"\s+", " ").Trim();
+        return normalized.Length > 360 ? normalized[..357].TrimEnd() + "..." : normalized;
+    }
 
     public string Title => Game.Title;
 
@@ -145,7 +221,7 @@ public sealed class GameTileViewModel : ViewModelBase
     public static double SizeScale { get; set; } = 1.0;
     public static double ScaleForSetting(int tileSize) => tileSize switch { 0 => 0.8, 2 => 1.2, _ => 1.0 };
 
-    public double CaptionLogoHeight => (IsLastPlayed ? 32 : 22) * SizeScale;
+    public double CaptionLogoHeight => (IsLastPlayed ? 42 : 38) * SizeScale;
     public double TileHeight => 290 * SizeScale;
     public double TileWidth => (IsLastPlayed ? 580 : 220) * SizeScale;
 
@@ -156,10 +232,16 @@ public sealed class GameTileViewModel : ViewModelBase
         ? Game.WideGridImagePath ?? GridImagePath ?? IconImagePath
         : GridImagePath ?? Game.WideGridImagePath ?? IconImagePath;
 
+    // Capsule Wide: prioriza a arte horizontal para a biblioteca BigScreen,
+    // usando hero/grid/icon como fallback quando o jogo não possui wide-grid.
+    public string? WideCapsuleImagePath =>
+        Game.WideGridImagePath ?? Game.HeroImagePath ?? Game.GridImagePath ?? Game.IconImagePath;
+
     public double CarouselTileWidth => 220 * SizeScale;
     public double CarouselTileHeight => 290 * SizeScale;
     public string? CarouselTileImagePath => GridImagePath ?? Game.WideGridImagePath ?? IconImagePath;
     public bool ShowEmptyCarouselPlaceholder => string.IsNullOrEmpty(CarouselTileImagePath);
+    public bool ShowEmptyWideCapsulePlaceholder => string.IsNullOrWhiteSpace(WideCapsuleImagePath);
 
     private int _carouselDistance;
     public int CarouselDistance
