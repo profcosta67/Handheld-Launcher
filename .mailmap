@@ -1,0 +1,8 @@
+# Unifies the user's own commit identities under one name/email for
+# `git shortlog`, `git blame` and GitHub's contributor stats. Does not
+# rewrite any existing commit — mailmap is applied by git at read time.
+# Claude's own commits are left as a distinct, legitimate co-author.
+Marcelo Costa <m.augustorp@live.com> <marcelo.costa@MacBook-Air-de-Marcelo.local>
+Marcelo Costa <m.augustorp@live.com> Prof.Costa <m.augustorp@live.com>
+Marcelo Costa <m.augustorp@live.com> profcosta67 <348838423+profcosta67@users.noreply.github.com>
+Marcelo Costa <m.augustorp@live.com> profcosta67 <m.augustorp@live.com>
