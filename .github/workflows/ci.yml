@@ -26,6 +26,9 @@ jobs:
       - name: Compilar
         run: dotnet build HandheldLauncher.sln -c Release --no-restore
 
+      - name: Testes (HandheldLauncher.Core.Tests)
+        run: dotnet test src/HandheldLauncher.Core.Tests -c Release --no-build --verbosity normal
+
       # Versão do pacote de teste = o que está em VERSION + "-preview", pra
       # nunca ficar presa a uma versão antiga (mesma fonte que release.yml usa).
       - name: Descobrir versão de teste

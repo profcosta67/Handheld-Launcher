@@ -224,7 +224,9 @@ public sealed class EdenLibraryScanner : IStoreLibraryScanner
     /// número não ser invisível.
     /// </para>
     /// </summary>
-    private static bool LooksLikeAddOnOrUpdate(string fileName)
+    // internal (não private) só pra ficar testável por
+    // HandheldLauncher.Core.Tests (InternalsVisibleTo no .csproj).
+    internal static bool LooksLikeAddOnOrUpdate(string fileName)
     {
         foreach (var token in BracketTokens(fileName))
         {
@@ -242,7 +244,7 @@ public sealed class EdenLibraryScanner : IStoreLibraryScanner
     }
 
     /// <summary>Conteúdo de cada [...] do nome, na ordem em que aparecem.</summary>
-    private static IEnumerable<string> BracketTokens(string fileName)
+    internal static IEnumerable<string> BracketTokens(string fileName)
     {
         var start = -1;
         for (var i = 0; i < fileName.Length; i++)
@@ -264,7 +266,7 @@ public sealed class EdenLibraryScanner : IStoreLibraryScanner
     /// pra não filtrar um jogo cujo nome só contenha essas letras por
     /// acidente no meio de outra palavra.
     /// </summary>
-    private static bool ContainsWord(string text, string word)
+    internal static bool ContainsWord(string text, string word)
     {
         var from = 0;
         while (from <= text.Length - word.Length)
@@ -371,7 +373,7 @@ public sealed class EdenLibraryScanner : IStoreLibraryScanner
     }
 
     /// <summary>Mesmo esquema do XboxFolderScanner.SanitizeForId — determinístico, nunca usa GetHashCode (randomizado por processo).</summary>
-    private static string SanitizeForId(string path)
+    internal static string SanitizeForId(string path)
     {
         var chars = path.ToLowerInvariant().Select(c => char.IsLetterOrDigit(c) ? c : '_').ToArray();
         return new string(chars);
