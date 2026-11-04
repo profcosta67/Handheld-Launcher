@@ -248,70 +248,101 @@ public partial class OverlayWindow : Window
     }
 
     protected override void OnOpened(EventArgs e)
+{
+    base.OnOpened(e);
+    DebugLog.Write($"[OVERLAY] OnOpened chamado. Width={Width}, Height={Height}");
+
+    // 🟢 v0.15.3 FIX: posiciona na borda direita APÓS o layout aplicar Width/Height
+    Dispatcher.UIThread.Post(() =>
     {
-        base.OnOpened(e);
-        DebugLog.Write($"[OVERLAY] OnOpened chamado. Width={Width}, Height={Height}");
+        PositionOnRightEdge();
+        ForceTopmost();
+    }, DispatcherPriority.Loaded);
 
-        // 🟢 Inicia o enforcer do topmost
-        StartTopmostEnforcer();
+    // 🟢 v0.15.3 FIX: segunda tentativa 200ms depois (garante se o layout demorar)
+    var retryTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
+    retryTimer.Tick += (_, _) =>
+    {
+        retryTimer.Stop();
+        PositionOnRightEdge();
+        ForceTopmost();
+    };
+    retryTimer.Start();
 
-        // Suspende o processo do JOGO (não do launcher) — input bloqueado
-        InputBlockService.BlockGamepadForGame(_gamePid);
+    StartTopmostEnforcer();
 
-        if (!_tdpAppliedOnOpen && _tdpHardwareSupported)
+    InputBlockService.BlockGamepadForGame(_gamePid);
+
+    if (!_tdpAppliedOnOpen && _tdpHardwareSupported)
+    {
+        _tdpAppliedOnOpen = true;
+        var settings = AppSettingsStore.Load();
+        var savedTdp = string.IsNullOrWhiteSpace(settings.TdpMode) ? "Normal" : settings.TdpMode;
+        _ = Task.Run(() =>
         {
-            _tdpAppliedOnOpen = true;
-            var settings = AppSettingsStore.Load();
-            var savedTdp = string.IsNullOrWhiteSpace(settings.TdpMode) ? "Normal" : settings.TdpMode;
-            _ = Task.Run(() =>
-            {
-                DebugLog.Write($"[OVERLAY] Re-aplicando TDP salvo ao abrir: {savedTdp}");
-                var ok = _hardwareService.SetTdpMode(savedTdp);
-                DebugLog.Write(ok
-                    ? $"[OVERLAY] TDP {savedTdp} re-aplicado com sucesso."
-                    : $"[OVERLAY] Falha ao re-aplicar TDP {savedTdp}; veja os logs [PawnIO].");
+            DebugLog.Write($"[OVERLAY] Re-aplicando TDP salvo ao abrir: {savedTdp}");
+            var ok = _hardwareService.SetTdpMode(savedTdp);
+            DebugLog.Write(ok
+                ? $"[OVERLAY] TDP {savedTdp} re-aplicado com sucesso."
+                : $"[OVERLAY] Falha ao re-aplicar TDP {savedTdp}; veja os logs [PawnIO].");
 
-                if (ok)
-                    Dispatcher.UIThread.Post(() => _viewModel.UpdateHudTdpStatus(savedTdp));
-            });
-        }
-
-        if (_hardwareService is WindowsHardwareService winSvcForSync)
-        {
-            _viewModel.UpdateHudRecordingState(winSvcForSync.IsRecording);
-        }
+            if (ok)
+                Dispatcher.UIThread.Post(() => _viewModel.UpdateHudTdpStatus(savedTdp));
+        });
     }
+
+    if (_hardwareService is WindowsHardwareService winSvcForSync)
+    {
+        _viewModel.UpdateHudRecordingState(winSvcForSync.IsRecording);
+    }
+}
 
     public void PositionOnRightEdge()
+{
+    try
     {
-        try
+        var screen = Screens.Primary ?? Screens.All.FirstOrDefault();
+        if (screen == null) { DebugLog.Write("[OVERLAY] PositionOnRightEdge: screen null"); return; }
+
+        var wa = screen.WorkingArea;
+        var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
+
+        // 🟢 v0.15.3: tenta Bounds (mais confiável) → ClientSize → Width → fallback
+        double actualWidth = 0;
+        double actualHeight = 0;
+
+        if (Bounds.Width > 0 && !double.IsNaN(Bounds.Width)) { actualWidth = Bounds.Width; actualHeight = Bounds.Height; }
+        else if (ClientSize.Width > 0) { actualWidth = ClientSize.Width; actualHeight = ClientSize.Height; }
+        else if (Width > 0 && !double.IsNaN(Width)) { actualWidth = Width; actualHeight = Height; }
+        else { actualWidth = 480; actualHeight = 600; }
+
+        DebugLog.Write($"[OVERLAY] PositionOnRightEdge: Bounds={Bounds.Width}x{Bounds.Height}, ClientSize={ClientSize.Width}x{ClientSize.Height}, Width={Width}x{Height}, using={actualWidth}x{actualHeight}");
+
+        // Aplica Width/Height se ainda estão NaN (garante que a janela tem tamanho)
+        if (double.IsNaN(Width) || Width <= 0) Width = actualWidth;
+        if (double.IsNaN(Height) || Height <= 0) Height = actualHeight;
+
+        var widthPx = (int)(actualWidth * scaling);
+        var heightPx = (int)(actualHeight * scaling);
+
+        if (widthPx <= 0 || heightPx <= 0)
         {
-            var screen = Screens.Primary ?? Screens.All.FirstOrDefault();
-            if (screen == null) return;
-
-            var wa = screen.WorkingArea;
-            var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
-
-            var availableWidth = Math.Max(320, wa.Width / scaling - 40);
-            var availableHeight = Math.Max(320, wa.Height / scaling - 40);
-            Width = Math.Min(Width, availableWidth);
-            Height = Math.Min(Height, availableHeight);
-
-            var widthPx = (int)(Width * scaling);
-            var heightPx = (int)(Height * scaling);
-
-            if (widthPx <= 0 || heightPx <= 0) return;
-
-            var x = wa.X + wa.Width - widthPx - 20;
-            var y = wa.Y + (wa.Height - heightPx) / 2;
-
-            Position = new PixelPoint(x, y);
+            DebugLog.Write($"[OVERLAY] PositionOnRightEdge ABORT: widthPx={widthPx}, heightPx={heightPx}");
+            return;
         }
-        catch (Exception ex)
-        {
-            DebugLog.Write($"[OVERLAY] PositionOnRightEdge EXCEPTION: {ex.Message}");
-        }
+
+        // Borda direita, verticalmente centralizado
+        var x = wa.X + wa.Width - widthPx - 20;
+        var y = wa.Y + (wa.Height - heightPx) / 2;
+
+        Position = new PixelPoint(x, y);
+        DebugLog.Write($"[OVERLAY] PositionOnRightEdge: x={x}, y={y} (w={widthPx}, h={heightPx})");
     }
+    catch (Exception ex)
+    {
+        DebugLog.Write($"[OVERLAY] PositionOnRightEdge EXCEPTION: {ex.Message}");
+    }
+}
 
     public void HideWithUnblock()
     {

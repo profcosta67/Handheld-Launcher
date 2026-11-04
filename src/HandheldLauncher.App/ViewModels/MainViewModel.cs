@@ -27,6 +27,9 @@ public sealed class MainViewModel : ViewModelBase
     private readonly PerformanceHud? _hud;
     private readonly ISteamOwnedGamesClient? _steamOwnedGames;
     private readonly ISteamAchievementsClient? _steamAchievements;
+    
+    // 🟢 Instância única do SteamStoreService
+    private readonly SteamStoreService _steamStore = new();
 
     private readonly HardwareMonitorService _monitorService = new();
     private readonly HWiNFOSharedMemoryService _hwInfoService = new();
@@ -132,7 +135,6 @@ public sealed class MainViewModel : ViewModelBase
         SetFilterApplicationsCommand = new RelayCommand(() => SetFilter(LibraryFilter.Applications));
         SetFilterNotInstalledCommand = new RelayCommand(() => SetFilter(LibraryFilter.NotInstalled));
 
-        // 🟢 OTIMIZAÇÃO: HWiNFO busca em background para não travar o boot
         _ = Task.Run(() => EnsureHwInfoRunning());
 
         _hardwareTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
@@ -268,7 +270,7 @@ public sealed class MainViewModel : ViewModelBase
         private set
         {
             if (SetField(ref _selectedTile, value) && value is not null)
-                _ = value.LoadDescriptionAsync();
+                _ = value.LoadDescriptionAsync(); // 🟢 Chama a descrição
         }
     }
 
@@ -1069,9 +1071,6 @@ public sealed class MainViewModel : ViewModelBase
 
         if (userInitiated)
         {
-            // O auto-fetch de inicialização pode ainda estar usando o semáforo.
-            // Cancela-o e aguarda a liberação por até 60s; 5s fazia o comando
-            // manual desistir antes de criar o popup personalizado.
             try { _ownedArtworkCts?.Cancel(); } catch { }
             DebugLog.Write("[SGDB] Download manual aguardando a fila atual (até 60s).");
             if (!await _artworkSemaphore.WaitAsync(TimeSpan.FromSeconds(60)))
@@ -1082,8 +1081,6 @@ public sealed class MainViewModel : ViewModelBase
         }
         else
         {
-            // O auto-fetch só é disparado uma vez após a inicialização.
-            // Aguarda a fila de downloads existentes em vez de desistir no primeiro conflito.
             if (!await _artworkSemaphore.WaitAsync(TimeSpan.FromSeconds(60)))
             {
                 DebugLog.Write("[SGDB] TIMEOUT background aguardando outro download — abortando com segurança");
@@ -1346,11 +1343,26 @@ public sealed class MainViewModel : ViewModelBase
         _coverPickerKind = kind; _coverPickerGame = game; _coverPickerIndex = 0; CoverPickerErrorMessage = null; CoverPickerCandidates.Clear(); NotifyCoverPickerResultFlags(); IsCoverPickerLoading = true; IsCoverPickerOpen = true;
         try
         {
-            var candidates = kind switch
+            var candidates = new List<ArtworkCandidate>();
+            
+            if (kind == ArtworkPickerKind.WideGrid)
             {
-                ArtworkPickerKind.WideGrid => await _artwork.GetWideArtworkCandidatesAsync(game, FilterAnimatedOnly), ArtworkPickerKind.Hero => await _artwork.GetHeroCandidatesAsync(game, FilterAnimatedOnly),
-                ArtworkPickerKind.Logo => await _artwork.GetLogoCandidatesAsync(game, FilterAnimatedOnly), ArtworkPickerKind.Icon => await _artwork.GetIconCandidatesAsync(game, FilterAnimatedOnly), _ => await _artwork.GetGridCandidatesAsync(game, FilterAnimatedOnly),
-            };
+                var wides = await _artwork.GetWideGridCandidatesAsync(game, FilterAnimatedOnly);
+                var heroes = await _artwork.GetHeroCandidatesAsync(game, FilterAnimatedOnly);
+                candidates.AddRange(wides);
+                candidates.AddRange(heroes);
+            }
+            else
+            {
+                candidates = (kind switch
+                {
+                    ArtworkPickerKind.Hero => await _artwork.GetHeroCandidatesAsync(game, FilterAnimatedOnly),
+                    ArtworkPickerKind.Logo => await _artwork.GetLogoCandidatesAsync(game, FilterAnimatedOnly),
+                    ArtworkPickerKind.Icon => await _artwork.GetIconCandidatesAsync(game, FilterAnimatedOnly),
+                    _ => await _artwork.GetGridCandidatesAsync(game, FilterAnimatedOnly),
+                }).ToList();
+            }
+
             if (!IsCoverPickerOpen || _coverPickerGame != game) return;
             foreach (var candidate in candidates) CoverPickerCandidates.Add(new ArtworkCandidateViewModel(candidate));
             UpdateCoverPickerSelection();
@@ -1412,8 +1424,21 @@ public sealed class MainViewModel : ViewModelBase
     {
         var previouslySelectedId = SelectedTile?.Game.Id;
         Games.Clear();
-        if (_activeFilter == LibraryFilter.NotInstalled) { foreach (var owned in OwnedNotInstalledGames) Games.Add(new GameTileViewModel(_library.BuildEntryForOwnedGame(owned))); }
-        else { foreach (var game in _library.Games) { if (MatchesActiveFilter(game)) Games.Add(new GameTileViewModel(game)); } }
+        
+        if (_activeFilter == LibraryFilter.NotInstalled) 
+        { 
+            foreach (var owned in OwnedNotInstalledGames) 
+                Games.Add(new GameTileViewModel(_library.BuildEntryForOwnedGame(owned), _steamStore)); 
+        }
+        else 
+        { 
+            foreach (var game in _library.Games) 
+            { 
+                if (MatchesActiveFilter(game)) 
+                    Games.Add(new GameTileViewModel(game, _steamStore)); // 🟢 Passa o _steamStore
+            } 
+        }
+        
         ReorderLastPlayedFirst(); UpdateNotInstalledTabMessage();
         var restoredIndex = previouslySelectedId is null ? 0 : Math.Max(0, Games.ToList().FindIndex(t => t.Game.Id == previouslySelectedId));
         SelectedIndex = Games.Count > 0 ? restoredIndex : -1;

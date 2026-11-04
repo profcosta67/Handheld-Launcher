@@ -2,20 +2,23 @@ using System.IO;
 using System.Threading.Tasks;
 using Avalonia.Media.Imaging;
 using HandheldLauncher.Core.Models;
+using HandheldLauncher.Core.Services; // 🟢 ADICIONADO
 
 namespace HandheldLauncher.App.ViewModels;
 
 public sealed class GameTileViewModel : ViewModelBase
 {
-    public GameTileViewModel(GameEntry game)
-    {
-        Game = game;
+    private readonly SteamStoreService _steamStore; // 🟢 INJEÇÃO
+
+    // 🟢 Construtor agora exige o serviço
+    public GameTileViewModel(GameEntry game, SteamStoreService steamStore) 
+    { 
+        Game = game; 
+        _steamStore = steamStore;
     }
 
     public GameEntry Game { get; }
-
     public string Title => Game.Title;
-
     public string? GridImagePath => Game.GridImagePath;
     public string? HeroImagePath => Game.HeroImagePath;
     public string? LogoImagePath => Game.LogoImagePath;
@@ -43,73 +46,78 @@ public sealed class GameTileViewModel : ViewModelBase
     public bool IsOwnedNotInstalled => Game.IsOwnedNotInstalled;
     public bool ShowEmptyPlaceholder => string.IsNullOrEmpty(TileImagePath);
 
-    // 🟢 Label properties para o BigScreenLayout
     public string SourceLabel => Game.Source switch
     {
-        GameSource.Steam => "STEAM",
-        GameSource.EpicGames => "EPIC",
-        GameSource.Gog => "GOG",
-        GameSource.Ubisoft => "UBISOFT",
-        GameSource.EaApp => "EA",
-        GameSource.XboxApp => "XBOX",
-        GameSource.Emulator => "EMULADOR",
-        GameSource.Manual => "ATALHO",
-        _ => ""
+        GameSource.Steam => "STEAM", GameSource.EpicGames => "EPIC", GameSource.Gog => "GOG",
+        GameSource.Ubisoft => "UBISOFT", GameSource.EaApp => "EA", GameSource.XboxApp => "XBOX",
+        GameSource.Emulator => "EMULADOR", GameSource.Manual => "ATALHO", _ => ""
     };
-
     public string InstallStatusLabel => Game.IsOwnedNotInstalled ? "NÃO INSTALADO" : "INSTALADO";
-    
-    public string PlaytimeLabel => Game.PlaytimeMinutes > 0 
-        ? $"{Game.PlaytimeMinutes / 60.0:0.#}h jogadas" 
-        : "Nunca jogado";
-
+    public string PlaytimeLabel => Game.PlaytimeMinutes > 0 ? $"{Game.PlaytimeMinutes / 60.0:0.#}h jogadas" : "Nunca jogado";
     public string FavoriteLabel => Game.IsFavorite ? "★ Favorito" : "";
 
-    // 🟢 Descrição do jogo (carregada via RAWG)
     private string _description = string.Empty;
     public string Description
     {
         get => _description;
-        private set
-        {
-            if (SetField(ref _description, value))
-                OnPropertyChanged(nameof(HasDescription));
-        }
+        private set { if (SetField(ref _description, value)) OnPropertyChanged(nameof(HasDescription)); }
     }
-
     public bool HasDescription => !string.IsNullOrWhiteSpace(Description);
+    
+    private bool _isLoadingDescription;
+    
+    public async Task LoadDescriptionAsync() 
+    { 
+        // 🟢 Se já carregou ou está carregando, não faz nada
+        if (HasDescription || _isLoadingDescription) return;
+        
+        _isLoadingDescription = true;
 
-    public async Task LoadDescriptionAsync()
-    {
-        try { await Task.CompletedTask; } catch { }
+        // 🟢 Se não for da Steam, coloca fallback
+        if (Game.Source != GameSource.Steam || Game.SteamAppId is not { } appId)
+        {
+            Description = "Informações detalhadas indisponíveis para este jogo.";
+            _isLoadingDescription = false;
+            return;
+        }
+
+        try
+        {
+            var meta = await _steamStore.FetchMetadataAsync(appId);
+            if (meta is not null)
+            {
+                Description = !string.IsNullOrWhiteSpace(meta.Description) 
+                    ? meta.Description 
+                    : meta.ShortDescription ?? "";
+            }
+            else
+            {
+                Description = "Não foi possível carregar a descrição no momento.";
+            }
+        }
+        catch 
+        {
+            Description = "Erro ao carregar descrição.";
+        }
+        finally
+        {
+            _isLoadingDescription = false;
+        }
     }
 
     public string? PlatformBadgeText => Game.Source switch
     {
-        GameSource.Steam => "S",
-        GameSource.EpicGames => "E",
-        GameSource.Gog => "G",
-        GameSource.Ubisoft => "U",
-        GameSource.EaApp => "EA",
-        GameSource.XboxApp => "X",
-        GameSource.Emulator => "SW",
-        GameSource.Manual => "A",
-        _ => null,
+        GameSource.Steam => "S", GameSource.EpicGames => "E", GameSource.Gog => "G",
+        GameSource.Ubisoft => "U", GameSource.EaApp => "EA", GameSource.XboxApp => "X",
+        GameSource.Emulator => "SW", GameSource.Manual => "A", _ => null,
     };
-
     public bool HasPlatformBadge => PlatformBadgeText is not null;
 
     public string PlatformBadgeColorHex => Game.Source switch
     {
-        GameSource.Steam => "#1B2838",
-        GameSource.EpicGames => "#2A2A2A",
-        GameSource.Gog => "#5C3A99",
-        GameSource.Ubisoft => "#0070CC",
-        GameSource.EaApp => "#C40C28",
-        GameSource.XboxApp => "#107C10",
-        GameSource.Emulator => "#C2185B",
-        GameSource.Manual => "#5A5A5A",
-        _ => "#000000",
+        GameSource.Steam => "#1B2838", GameSource.EpicGames => "#2A2A2A", GameSource.Gog => "#5C3A99",
+        GameSource.Ubisoft => "#0070CC", GameSource.EaApp => "#C40C28", GameSource.XboxApp => "#107C10",
+        GameSource.Emulator => "#C2185B", GameSource.Manual => "#5A5A5A", _ => "#000000",
     };
 
     public static double SizeScale { get; set; } = 1.0;
@@ -121,16 +129,20 @@ public sealed class GameTileViewModel : ViewModelBase
 
     public string? BannerImagePath => Game.HeroImagePath ?? Game.GridImagePath;
 
-    public string? TileImagePath => IsLastPlayed
-        ? (Game.WideGridImagePath ?? Game.HeroImagePath ?? Game.GridImagePath)
-        : GridImagePath;
+    private static string? ExistsOrNull(string? path)
+        => !string.IsNullOrEmpty(path) && File.Exists(path) ? path : null;
 
-    public string? WideCapsuleImagePath => Game.WideGridImagePath ?? Game.HeroImagePath ?? Game.GridImagePath;
+    public string? TileImagePath => IsLastPlayed
+        ? (ExistsOrNull(Game.WideGridImagePath) ?? ExistsOrNull(Game.HeroImagePath) ?? ExistsOrNull(Game.GridImagePath))
+        : ExistsOrNull(GridImagePath);
+
+    public string? WideCapsuleImagePath
+        => ExistsOrNull(Game.WideGridImagePath) ?? ExistsOrNull(Game.HeroImagePath) ?? ExistsOrNull(Game.GridImagePath);
     public bool ShowEmptyWideCapsulePlaceholder => string.IsNullOrEmpty(WideCapsuleImagePath);
 
     public double CarouselTileWidth => 220 * SizeScale;
     public double CarouselTileHeight => 290 * SizeScale;
-    public string? CarouselTileImagePath => GridImagePath ?? Game.WideGridImagePath ?? Game.HeroImagePath;
+    public string? CarouselTileImagePath => ExistsOrNull(GridImagePath) ?? ExistsOrNull(Game.WideGridImagePath) ?? ExistsOrNull(Game.HeroImagePath);
     public bool ShowEmptyCarouselPlaceholder => string.IsNullOrEmpty(CarouselTileImagePath);
 
     private int _carouselDistance;
@@ -149,7 +161,7 @@ public sealed class GameTileViewModel : ViewModelBase
         }
     }
 
-    private int ClampedDistance => Math.Min(Math.Abs(_carouselDistance), 4);
+    private int ClampedDistance => System.Math.Min(System.Math.Abs(_carouselDistance), 4);
     public double CarouselScale => 1.42 - ClampedDistance * 0.16;
     public double CarouselOffsetY => ClampedDistance * ClampedDistance * 14.0;
     public double CarouselOpacity => 1.0 - ClampedDistance * 0.14;
