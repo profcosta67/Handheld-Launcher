@@ -56,9 +56,9 @@
 
   <Panel>
   <Grid RowDefinitions="*,Auto" Margin="24" IsEnabled="{Binding FormEnabled}">
-    <Grid Grid.Row="0" ColumnDefinitions="142,*">
+    <Grid Grid.Row="0" ColumnDefinitions="170,*">
         
-      <StackPanel Grid.Column="0" Spacing="8" Margin="0,0,14,8">
+      <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel Spacing="8" Margin="0,0,14,8">
         <TextBlock Text="CONFIGURAÇÕES" FontSize="10" FontWeight="Bold" Opacity="0.55" Margin="8,0,0,6" />
         <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAppearanceActive}" Content="Aparência" Tag="0" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
         <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryFoldersActive}" Content="Diretórios" Tag="1" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
@@ -67,9 +67,9 @@
         <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAccountsActive}" Content="Contas" Tag="4" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
         <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryShortcutsActive}" Content="Atalhos" Tag="5" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
         <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryLosslessActive}" Content="Lossless Scaling" Tag="6" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
-        <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryConnectivityActive}" Content="Wi-Fi / Bluetooth" Tag="7" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
+        <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryConnectivityActive}" Content="Wi-Fi e Bluetooth" Tag="7" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
         <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryNewsActive}" Content="Novidades" Tag="8" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
-      </StackPanel>
+      </StackPanel></ScrollViewer>
       <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
         <StackPanel Spacing="12">
         <!-- ===== Aparência ===== -->
@@ -231,14 +231,14 @@
             <StackPanel Spacing="10">
               <TextBlock Text="Wi-Fi" FontSize="17" FontWeight="Bold" />
               <TextBlock Text="Conectar a uma rede, esquecer redes salvas e configurar propriedades da conexão." Classes="subtle" TextWrapping="Wrap" />
-              <Button Classes="pill primary" Content="Abrir configurações de Wi-Fi" Click="OnOpenWifiSettingsClick" HorizontalAlignment="Left" />
+              <Button Classes="pill primary" Content="Abrir painel de conectividade" Click="OnOpenWifiSettingsClick" HorizontalAlignment="Left" />
             </StackPanel>
           </Border>
           <Border Background="#202536" CornerRadius="14" Padding="18">
             <StackPanel Spacing="10">
               <TextBlock Text="Bluetooth" FontSize="17" FontWeight="Bold" />
               <TextBlock Text="Ligar ou desligar o Bluetooth, parear controles, fones e outros acessórios." Classes="subtle" TextWrapping="Wrap" />
-              <Button Classes="pill primary" Content="Abrir configurações de Bluetooth" Click="OnOpenBluetoothSettingsClick" HorizontalAlignment="Left" />
+              <Button Classes="pill primary" Content="Abrir painel de conectividade" Click="OnOpenBluetoothSettingsClick" HorizontalAlignment="Left" />
             </StackPanel>
           </Border>
           <TextBlock Text="Dica: no Legion Go 2, use essas telas para parear controles e fones sem sair procurando as opções nas Configurações gerais." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
