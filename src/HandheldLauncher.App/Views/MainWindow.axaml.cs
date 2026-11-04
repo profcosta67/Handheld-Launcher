@@ -160,6 +160,11 @@ public partial class MainWindow : Window
     private OverlayWindow? _overlayWindow;
     private DateTime _lastOverlayToggle = DateTime.MinValue;
 
+    // v0.16: só um detector de L3+R3 fica ativo por vez — ver
+    // SetGamepadComboDetectionForGame.
+    private OverlayHotkeyWatcher? _overlayHotkeyWatcher;
+    private bool? _gamepadComboModeIsGame;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -423,6 +428,69 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             DebugLog.Write($"[OVERLAY] ToggleOverlay EXCEPTION: {ex}");
+        }
+    }
+
+    /// <summary>
+    /// v0.16: chamado uma vez no startup (de App.axaml.cs). Liga o detector
+    /// de L3+R3 correto pro estado atual (sem jogo rodando = biblioteca) e
+    /// garante a limpeza de ambos ao fechar o launcher.
+    /// </summary>
+    public void InitializeGamepadComboDetection()
+    {
+        SetGamepadComboDetectionForGame(gameRunning: false);
+        Closed += (_, _) =>
+        {
+            _overlayHotkeyWatcher?.Dispose();
+            _overlayHotkeyWatcher = null;
+            GameInputHelper.StopHelperProcess();
+        };
+    }
+
+    /// <summary>
+    /// v0.16: alterna qual detector de L3+R3 está ativo, conforme um jogo
+    /// está rodando ou não. Os dois nunca ficam ligados ao mesmo tempo:
+    ///
+    /// <list type="bullet">
+    /// <item>Sem jogo (biblioteca): <see cref="OverlayHotkeyWatcher"/> — lê
+    /// XInput comum; funciona porque o launcher tem o foco normal aqui.</item>
+    /// <item>Com jogo rodando: <see cref="GameInputHelper"/> — processo
+    /// ajudante com entrega de input em segundo plano, única forma de
+    /// detectar L3+R3 com o jogo em foreground.</item>
+    /// </list>
+    ///
+    /// Antes da v0.16 os dois ficavam ligados o tempo todo, o que podia
+    /// disparar o mesmo ToggleOverlay() duas vezes em corrida (bug
+    /// intermitente do Quick Settings) e mantinha o pedido de entrega de
+    /// input em segundo plano ativo mesmo parado na biblioteca — suspeito de
+    /// bloquear a suspensão/Modern Standby do aparelho.
+    /// </summary>
+    private void SetGamepadComboDetectionForGame(bool gameRunning)
+    {
+        // Os dois detectores (XInput e GameInput) só existem no Windows —
+        // igual ao comportamento original, de antes da v0.16, em que ambos
+        // só eram criados dentro de um "if (OperatingSystem.IsWindows())"
+        // no App.axaml.cs.
+        if (!OperatingSystem.IsWindows()) return;
+
+        if (_gamepadComboModeIsGame == gameRunning) return;
+        _gamepadComboModeIsGame = gameRunning;
+
+        if (gameRunning)
+        {
+            _overlayHotkeyWatcher?.Dispose();
+            _overlayHotkeyWatcher = null;
+            GameInputHelper.StartHelperProcess();
+            DebugLog.Write("[OVERLAY] Detector de L3+R3: GameInputHelper (jogo rodando).");
+        }
+        else
+        {
+            GameInputHelper.StopHelperProcess();
+            _overlayHotkeyWatcher ??= new OverlayHotkeyWatcher(() =>
+            {
+                Dispatcher.UIThread.Post(ToggleOverlay);
+            });
+            DebugLog.Write("[OVERLAY] Detector de L3+R3: OverlayHotkeyWatcher (biblioteca).");
         }
     }
 
@@ -781,6 +849,8 @@ public partial class MainWindow : Window
 
             if (e.PropertyName == nameof(MainViewModel.RunningGame))
             {
+                SetGamepadComboDetectionForGame(vm.RunningGame is not null);
+
                 if (vm.RunningGame is not null)
                 {
                     if (IsVisible) MinimizeToTray();

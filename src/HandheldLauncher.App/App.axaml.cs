@@ -130,17 +130,20 @@ public partial class App : Application
 
             if (OperatingSystem.IsWindows())
             {
-                var overlayHotkeys = new HandheldLauncher.App.Input.OverlayHotkeyWatcher(() =>
-                {
-                    Avalonia.Threading.Dispatcher.UIThread.Post(() => mainWindow.ToggleOverlay());
-                });
-                desktop.Exit += (_, _) => overlayHotkeys.Dispose();
-
+                // v0.16: os dois detectores de L3+R3 (OverlayHotkeyWatcher via
+                // XInput comum, e GameInputHelper via GameInput com entrega em
+                // segundo plano) rodavam juntos o tempo todo e podiam disparar
+                // o mesmo ToggleOverlay() em corrida — causa provável do bug
+                // intermitente do Quick Settings relatado pelo usuário. Agora
+                // o MainWindow alterna entre os dois conforme um jogo está
+                // rodando ou não (só um fica ativo por vez), o que também
+                // reduz o tempo em que o launcher força entrega de input em
+                // segundo plano — suspeito de travar a suspensão do aparelho.
                 HandheldLauncher.App.Input.GameInputHelper.ListenInBackground(() =>
                 {
                     Avalonia.Threading.Dispatcher.UIThread.Post(() => mainWindow.ToggleOverlay());
                 });
-                HandheldLauncher.App.Input.GameInputHelper.StartHelperProcess();
+                mainWindow.InitializeGamepadComboDetection();
                 desktop.Exit += (_, _) => HandheldLauncher.App.Input.GameInputHelper.StopHelperProcess();
             }
 
