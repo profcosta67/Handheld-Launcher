@@ -90,6 +90,14 @@ public static class LosslessScalingService
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
+    // P/Invokes adicionados para o FIX P2 (Minimizar mais rápido)
+    [DllImport("user32.dll")]
+    private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+    private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr hWnd);
+
     // =====================================================================
     //  API pública
     // =====================================================================
@@ -128,65 +136,77 @@ public static class LosslessScalingService
     }
 
     /// <summary>
-/// Se o Lossless não estiver rodando, tenta abrir. Retorna true se já estava
-/// rodando ou se o launch foi disparado com sucesso. Não espera o processo
-/// aparecer no Process.GetProcesses — quem chama deve aguardar.
-/// </summary>
-public static bool TryLaunchLossless()
-{
-    if (IsLosslessRunning()) return true;
-
-    var exe = GetExecutablePath();
-    if (string.IsNullOrEmpty(exe))
+    /// Se o Lossless não estiver rodando, tenta abrir. Retorna true se já estava
+    /// rodando ou se o launch foi disparado com sucesso.
+    /// </summary>
+    public static bool TryLaunchLossless()
     {
-        DebugLog.Write("[PATINHO] Caminho do Lossless não configurado — não dá pra abrir.");
-        return false;
-    }
+        if (IsLosslessRunning()) return true;
 
-    try
-    {
-        var process = Process.Start(new ProcessStartInfo
+        var exe = GetExecutablePath();
+        if (string.IsNullOrEmpty(exe))
         {
-            FileName = exe,
-            UseShellExecute = true,
-            WindowStyle = ProcessWindowStyle.Minimized
-        });
-        DebugLog.Write($"[PATINHO] Lossless iniciado automaticamente (solicitado minimizado): {exe}");
-
-        // Alguns aplicativos ignoram WindowStyle.Minimized no ShellExecute.
-        // Aguarda a janela principal aparecer e minimiza explicitamente.
-        if (process is not null)
-        {
-            ThreadPool.QueueUserWorkItem(_ =>
-            {
-                try
-                {
-                    for (int attempt = 0; attempt < 40; attempt++)
-                    {
-                        if (process.HasExited) break;
-                        process.Refresh();
-                        var hwnd = process.MainWindowHandle;
-                        if (hwnd != IntPtr.Zero)
-                        {
-                            ShowWindow(hwnd, SW_MINIMIZE);
-                            DebugLog.Write("[PATINHO] Janela do Lossless minimizada.");
-                            break;
-                        }
-                        Thread.Sleep(250);
-                    }
-                }
-                catch (Exception ex) { DebugLog.Write($"[PATINHO] Não foi possível minimizar a janela: {ex.Message}"); }
-                finally { process.Dispose(); }
-            });
+            DebugLog.Write("[PATINHO] Caminho do Lossless não configurado — não dá pra abrir.");
+            return false;
         }
-        return true;
+
+        try
+        {
+            var process = Process.Start(new ProcessStartInfo
+            {
+                FileName = exe,
+                UseShellExecute = true,
+                WindowStyle = ProcessWindowStyle.Minimized
+            });
+            DebugLog.Write($"[PATINHO] Lossless iniciado automaticamente: {exe}");
+
+            if (process is not null)
+            {
+                ThreadPool.QueueUserWorkItem(_ =>
+                {
+                    try
+                    {
+                        // FIX P2: Polling mais rápido (100ms) usando EnumWindows se MainWindowHandle falhar
+                        for (int attempt = 0; attempt < 60; attempt++) // 60 * 100ms = 6 segundos
+                        {
+                            if (process.HasExited) break;
+                            
+                            IntPtr hwnd = process.MainWindowHandle;
+                            if (hwnd == IntPtr.Zero)
+                            {
+                                EnumWindows((hWnd, lParam) =>
+                                {
+                                    GetWindowThreadProcessId(hWnd, out uint pid);
+                                    if (pid == process.Id && IsWindowVisible(hWnd))
+                                    {
+                                        hwnd = hWnd;
+                                        return false; // Para o enum
+                                    }
+                                    return true;
+                                }, IntPtr.Zero);
+                            }
+
+                            if (hwnd != IntPtr.Zero)
+                            {
+                                ShowWindow(hwnd, SW_MINIMIZE);
+                                DebugLog.Write("[PATINHO] Janela do Lossless minimizada com sucesso.");
+                                break;
+                            }
+                            Thread.Sleep(100);
+                        }
+                    }
+                    catch (Exception ex) { DebugLog.Write($"[PATINHO] Não foi possível minimizar a janela: {ex.Message}"); }
+                    finally { process.Dispose(); }
+                });
+            }
+            return true;
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[PATINHO] Falha ao iniciar Lossless: {ex.Message}");
+            return false;
+        }
     }
-    catch (Exception ex)
-    {
-        DebugLog.Write($"[PATINHO] Falha ao iniciar Lossless: {ex.Message}");
-        return false;
-    }
-}
 
     /// <summary>
     /// Ativa/desativa o frame gen do Lossless Scaling.

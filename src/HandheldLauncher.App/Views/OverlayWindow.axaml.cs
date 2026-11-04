@@ -53,13 +53,21 @@ public partial class OverlayWindow : Window
     private int _tempColorIndex = 0;
     private int _tempHudIndex = 0;
     private int _tempCaptureIndex = 0;
+
+    // 🟢 Lossless: índice 0 = botão toggle, índice 1 = multiplicador
     private int _tempLosslessIndex = 0;
+    private int _currentMultiplierIndex = 0; // 0 = 2x, 1 = 3x, 2 = 4x
+    private int _tempMultiplierIndex = 0;
 
     private readonly MainViewModel _viewModel;
     public bool IsAppClosing { get; set; } = false;
 
     private Button[] _resolutionButtons = null!;
     private Button[] _refreshButtons = null!;
+    private Button[] _multiplierButtons = null!;
+
+    // 🟢 FIX: Controla se um scroll está pendente para evitar fila dupla
+    private bool _scrollPending = false;
 
     [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hWnd);
@@ -113,6 +121,7 @@ public partial class OverlayWindow : Window
 
         _resolutionButtons = new[] { BtnRes720, BtnRes900, BtnRes1080, BtnRes1200, BtnRes2K, BtnResGo };
         _refreshButtons = new[] { BtnHz60, BtnHz120, BtnHz144, BtnHz240 };
+        _multiplierButtons = new[] { BtnMult2x, BtnMult3x, BtnMult4x };
 
         if (OperatingSystem.IsWindows()) _hardwareService = new WindowsHardwareService();
         else if (OperatingSystem.IsLinux()) _hardwareService = new LinuxHardwareService();
@@ -177,6 +186,7 @@ public partial class OverlayWindow : Window
             }
             UpdatePersistentVisuals();
             UpdateScreenInfoText();
+            UpdateMultiplierVisual();
 
             var initialColorName = settings.ColorMode switch
             {
@@ -194,10 +204,6 @@ public partial class OverlayWindow : Window
         UpdateFocusVisual();
     }
 
-    /// <summary>
-    /// 🟢 v0.15.2 FIX: re-afirma o topmost sem roubar foco (SWP_NOACTIVATE)
-    /// para evitar o bug de "overlay piscando" — só toca no Z-order.
-    /// </summary>
     public void ForceTopmost()
     {
         if (!OperatingSystem.IsWindows() || !IsVisible) return;
@@ -210,11 +216,6 @@ public partial class OverlayWindow : Window
         catch (Exception ex) { DebugLog.Write($"[OVERLAY] ForceTopmost EXCEPTION: {ex.Message}"); }
     }
 
-    /// <summary>
-    /// 🟢 v0.15.2 FIX: loop de 1s que re-afirma o topmost enquanto o overlay
-    /// está visível. Resolve o bug "overlay sumindo no jogo" (jogo em fullscreen
-    /// às vezes "rouba" o Z-order do overlay). SWP_NOACTIVATE evita o flicker.
-    /// </summary>
     private void StartTopmostEnforcer()
     {
         if (_topmostEnforcer != null) return;
@@ -248,105 +249,102 @@ public partial class OverlayWindow : Window
     }
 
     protected override void OnOpened(EventArgs e)
-{
-    base.OnOpened(e);
-    DebugLog.Write($"[OVERLAY] OnOpened chamado. Width={Width}, Height={Height}");
-
-    // 🟢 v0.15.3 FIX: posiciona na borda direita APÓS o layout aplicar Width/Height
-    Dispatcher.UIThread.Post(() =>
     {
-        PositionOnRightEdge();
-        ForceTopmost();
-    }, DispatcherPriority.Loaded);
+        base.OnOpened(e);
+        DebugLog.Write($"[OVERLAY] OnOpened chamado. Width={Width}, Height={Height}");
+        UpdateLsfgStatus();
 
-    // 🟢 v0.15.3 FIX: segunda tentativa 200ms depois (garante se o layout demorar)
-    var retryTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
-    retryTimer.Tick += (_, _) =>
-    {
-        retryTimer.Stop();
-        PositionOnRightEdge();
-        ForceTopmost();
-    };
-    retryTimer.Start();
-
-    StartTopmostEnforcer();
-
-    InputBlockService.BlockGamepadForGame(_gamePid);
-
-    if (!_tdpAppliedOnOpen && _tdpHardwareSupported)
-    {
-        _tdpAppliedOnOpen = true;
-        var settings = AppSettingsStore.Load();
-        var savedTdp = string.IsNullOrWhiteSpace(settings.TdpMode) ? "Normal" : settings.TdpMode;
-        _ = Task.Run(() =>
+        Dispatcher.UIThread.Post(() =>
         {
-            DebugLog.Write($"[OVERLAY] Re-aplicando TDP salvo ao abrir: {savedTdp}");
-            var ok = _hardwareService.SetTdpMode(savedTdp);
-            DebugLog.Write(ok
-                ? $"[OVERLAY] TDP {savedTdp} re-aplicado com sucesso."
-                : $"[OVERLAY] Falha ao re-aplicar TDP {savedTdp}; veja os logs [PawnIO].");
+            PositionOnRightEdge();
+            ForceTopmost();
+        }, DispatcherPriority.Loaded);
 
-            if (ok)
-                Dispatcher.UIThread.Post(() => _viewModel.UpdateHudTdpStatus(savedTdp));
-        });
-    }
-
-    if (_hardwareService is WindowsHardwareService winSvcForSync)
-    {
-        _viewModel.UpdateHudRecordingState(winSvcForSync.IsRecording);
-    }
-}
-
-    public void PositionOnRightEdge()
-{
-    try
-    {
-        var screen = Screens.Primary ?? Screens.All.FirstOrDefault();
-        if (screen == null) { DebugLog.Write("[OVERLAY] PositionOnRightEdge: screen null"); return; }
-
-        var wa = screen.WorkingArea;
-        var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
-
-        // 🟢 v0.15.3: tenta Bounds (mais confiável) → ClientSize → Width → fallback
-        double actualWidth = 0;
-        double actualHeight = 0;
-
-        if (Bounds.Width > 0 && !double.IsNaN(Bounds.Width)) { actualWidth = Bounds.Width; actualHeight = Bounds.Height; }
-        else if (ClientSize.Width > 0) { actualWidth = ClientSize.Width; actualHeight = ClientSize.Height; }
-        else if (Width > 0 && !double.IsNaN(Width)) { actualWidth = Width; actualHeight = Height; }
-        else { actualWidth = 480; actualHeight = 600; }
-
-        DebugLog.Write($"[OVERLAY] PositionOnRightEdge: Bounds={Bounds.Width}x{Bounds.Height}, ClientSize={ClientSize.Width}x{ClientSize.Height}, Width={Width}x{Height}, using={actualWidth}x{actualHeight}");
-
-        // Aplica Width/Height se ainda estão NaN (garante que a janela tem tamanho)
-        if (double.IsNaN(Width) || Width <= 0) Width = actualWidth;
-        if (double.IsNaN(Height) || Height <= 0) Height = actualHeight;
-
-        var widthPx = (int)(actualWidth * scaling);
-        var heightPx = (int)(actualHeight * scaling);
-
-        if (widthPx <= 0 || heightPx <= 0)
+        var retryTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
+        retryTimer.Tick += (_, _) =>
         {
-            DebugLog.Write($"[OVERLAY] PositionOnRightEdge ABORT: widthPx={widthPx}, heightPx={heightPx}");
-            return;
+            retryTimer.Stop();
+            PositionOnRightEdge();
+            ForceTopmost();
+            UpdateLsfgStatus();
+        };
+        retryTimer.Start();
+
+        StartTopmostEnforcer();
+
+        InputBlockService.BlockGamepadForGame(_gamePid);
+
+        if (!_tdpAppliedOnOpen && _tdpHardwareSupported)
+        {
+            _tdpAppliedOnOpen = true;
+            var settings = AppSettingsStore.Load();
+            var savedTdp = string.IsNullOrWhiteSpace(settings.TdpMode) ? "Normal" : settings.TdpMode;
+            _ = Task.Run(() =>
+            {
+                DebugLog.Write($"[OVERLAY] Re-aplicando TDP salvo ao abrir: {savedTdp}");
+                var ok = _hardwareService.SetTdpMode(savedTdp);
+                DebugLog.Write(ok
+                    ? $"[OVERLAY] TDP {savedTdp} re-aplicado com sucesso."
+                    : $"[OVERLAY] Falha ao re-aplicar TDP {savedTdp}; veja os logs [PawnIO].");
+
+                if (ok)
+                    Dispatcher.UIThread.Post(() => _viewModel.UpdateHudTdpStatus(savedTdp));
+            });
         }
 
-        // Borda direita, verticalmente centralizado
-        var x = wa.X + wa.Width - widthPx - 20;
-        var y = wa.Y + (wa.Height - heightPx) / 2;
+        if (_hardwareService is WindowsHardwareService winSvcForSync)
+        {
+            _viewModel.UpdateHudRecordingState(winSvcForSync.IsRecording);
+        }
+    }
 
-        Position = new PixelPoint(x, y);
-        DebugLog.Write($"[OVERLAY] PositionOnRightEdge: x={x}, y={y} (w={widthPx}, h={heightPx})");
-    }
-    catch (Exception ex)
+    private void UpdateLsfgStatus()
     {
-        DebugLog.Write($"[OVERLAY] PositionOnRightEdge EXCEPTION: {ex.Message}");
+        if (LsfgStatusText == null) return;
+        LsfgStatusText.Text = LosslessScalingService.IsLosslessRunning()
+            ? "Lossless pronto"
+            : "Lossless não está rodando";
     }
-}
+
+    public void PositionOnRightEdge()
+    {
+        try
+        {
+            var screen = Screens.Primary ?? Screens.All.FirstOrDefault();
+            if (screen == null) { DebugLog.Write("[OVERLAY] PositionOnRightEdge: screen null"); return; }
+
+            var wa = screen.WorkingArea;
+            var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
+
+            double actualWidth = 0;
+            double actualHeight = 0;
+
+            if (Bounds.Width > 0 && !double.IsNaN(Bounds.Width)) { actualWidth = Bounds.Width; actualHeight = Bounds.Height; }
+            else if (ClientSize.Width > 0) { actualWidth = ClientSize.Width; actualHeight = ClientSize.Height; }
+            else if (Width > 0 && !double.IsNaN(Width)) { actualWidth = Width; actualHeight = Height; }
+            else { actualWidth = 480; actualHeight = 600; }
+
+            if (double.IsNaN(Width) || Width <= 0) Width = actualWidth;
+            if (double.IsNaN(Height) || Height <= 0) Height = actualHeight;
+
+            var widthPx = (int)(actualWidth * scaling);
+            var heightPx = (int)(actualHeight * scaling);
+
+            if (widthPx <= 0 || heightPx <= 0) return;
+
+            var x = wa.X + wa.Width - widthPx - 20;
+            var y = wa.Y + (wa.Height - heightPx) / 2;
+
+            Position = new PixelPoint(x, y);
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[OVERLAY] PositionOnRightEdge EXCEPTION: {ex.Message}");
+        }
+    }
 
     public void HideWithUnblock()
     {
-        // 🟢 Para o enforcer antes de esconder
         StopTopmostEnforcer();
         InputBlockService.UnblockGamepadForGame();
         Hide();
@@ -366,6 +364,52 @@ public partial class OverlayWindow : Window
 
         if (_activeSubMenu != SubMenuMode.None)
         {
+            // 🟢 Tratamento especial para o Lossless (navegação interna toggle ⇄ multiplicador)
+            if (_activeSubMenu == SubMenuMode.Lossless)
+            {
+                switch (action)
+                {
+                    case GamepadAction.MoveUp:
+                        _tempLosslessIndex = Math.Max(0, _tempLosslessIndex - 1);
+                        UpdateTempVisuals();
+                        break;
+                    case GamepadAction.MoveDown:
+                        _tempLosslessIndex = Math.Min(1, _tempLosslessIndex + 1);
+                        UpdateTempVisuals();
+                        break;
+                    case GamepadAction.MoveLeft:
+                        if (_tempLosslessIndex == 1)
+                        {
+                            _tempMultiplierIndex = Math.Max(0, _tempMultiplierIndex - 1);
+                            UpdateMultiplierVisual();
+                            UpdateTempVisuals();
+                        }
+                        break;
+                    case GamepadAction.MoveRight:
+                        if (_tempLosslessIndex == 1)
+                        {
+                            _tempMultiplierIndex = Math.Min(2, _tempMultiplierIndex + 1);
+                            UpdateMultiplierVisual();
+                            UpdateTempVisuals();
+                        }
+                        break;
+                    case GamepadAction.Confirm:
+                        ApplySubMenuChange();
+                        _activeSubMenu = SubMenuMode.None;
+                        ClearTempHighlights();
+                        UpdateFocusVisual();
+                        UpdatePersistentVisuals();
+                        break;
+                    case GamepadAction.Back:
+                        _activeSubMenu = SubMenuMode.None;
+                        ClearTempHighlights();
+                        UpdateFocusVisual();
+                        UpdatePersistentVisuals();
+                        break;
+                }
+                return;
+            }
+
             switch (action)
             {
                 case GamepadAction.MoveLeft:
@@ -424,9 +468,12 @@ public partial class OverlayWindow : Window
             case 7: _activeSubMenu = SubMenuMode.Brightness; break;
             case 8:
                 _tempLosslessIndex = 0;
+                _tempMultiplierIndex = _currentMultiplierIndex;
                 _activeSubMenu = SubMenuMode.Lossless;
+                UpdateMultiplierVisual();
                 UpdateTempVisuals();
                 UpdateLsfgButtonState();
+                UpdateLsfgStatus();
                 break;
             case 9: _tempCaptureIndex = 0; _activeSubMenu = SubMenuMode.Capture; UpdateTempVisuals(); break;
         }
@@ -442,10 +489,10 @@ public partial class OverlayWindow : Window
             case SubMenuMode.Fan: _tempFanIndex = Math.Clamp(_tempFanIndex + direction, 0, 4); UpdateTempVisuals(); break;
             case SubMenuMode.Color: _tempColorIndex = Math.Clamp(_tempColorIndex + direction, 0, 3); UpdateTempVisuals(); break;
             case SubMenuMode.Hud: _tempHudIndex = Math.Clamp(_tempHudIndex + direction, 0, 3); UpdateTempVisuals(); break;
-            case SubMenuMode.Lossless: _tempLosslessIndex = Math.Clamp(_tempLosslessIndex + direction, 0, 1); UpdateTempVisuals(); break;
             case SubMenuMode.Volume: if (VolumeSlider != null) VolumeSlider.Value = Math.Clamp(VolumeSlider.Value + (direction * 5), 0, 100); break;
             case SubMenuMode.Brightness: if (BrightnessSlider != null) BrightnessSlider.Value = Math.Clamp(BrightnessSlider.Value + (direction * 5), 0, 100); break;
             case SubMenuMode.Capture: _tempCaptureIndex = Math.Clamp(_tempCaptureIndex + direction, 0, 1); UpdateTempVisuals(); break;
+            case SubMenuMode.Lossless: break; // tratado em HandleGamepadAction
         }
     }
 
@@ -487,8 +534,16 @@ public partial class OverlayWindow : Window
                 SaveSetting("OverlayPreset", _currentHudIndex.ToString());
                 break;
             case SubMenuMode.Lossless:
-                if (_tempLosslessIndex == 0) OnLsfgApplyClick(null, new RoutedEventArgs());
-                else OnLsfgOpenClick(null, new RoutedEventArgs());
+                if (_tempLosslessIndex == 0)
+                {
+                    OnLsfgToggleClick(BtnLsfgToggle, new RoutedEventArgs());
+                }
+                else
+                {
+                    _currentMultiplierIndex = _tempMultiplierIndex;
+                    if (LsfgStatusText != null)
+                        LsfgStatusText.Text = $"Multiplicador salvo: {(_currentMultiplierIndex + 2)}x (configure no Lossless)";
+                }
                 break;
             case SubMenuMode.Capture:
                 if (_tempCaptureIndex == 0) OnScreenshotClick(null, new RoutedEventArgs());
@@ -497,12 +552,37 @@ public partial class OverlayWindow : Window
         }
     }
 
+    // 🟢 Atualiza visual dos 3 botões de multiplicador
+    private void UpdateMultiplierVisual()
+    {
+        if (_multiplierButtons == null) return;
+        for (int i = 0; i < _multiplierButtons.Length; i++)
+        {
+            if (_multiplierButtons[i] != null)
+                _multiplierButtons[i].Background = (i == _currentMultiplierIndex) ? _activeColor : _inactiveColor;
+        }
+    }
+
+    // 🟢 Handler de clique do mouse nos botões de multiplicador
+    private void OnMultiplierClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button clickedButton) return;
+        if (int.TryParse(clickedButton.Tag?.ToString(), out int index))
+        {
+            _currentMultiplierIndex = index;
+            _tempMultiplierIndex = index;
+            UpdateMultiplierVisual();
+            if (LsfgStatusText != null)
+                LsfgStatusText.Text = $"Multiplicador salvo: {(index + 2)}x (configure no Lossless)";
+        }
+    }
+
     private void ClearTempHighlights()
     {
         if (BtnScreenshot != null) BtnScreenshot.Background = _inactiveColor;
         if (BtnRecord != null) BtnRecord.Background = _inactiveColor;
-        if (BtnLsfgApply != null) BtnLsfgApply.Background = _inactiveColor;
-        if (BtnLsfgOpen != null) BtnLsfgOpen.Background = _inactiveColor;
+        if (BtnLsfgToggle != null) BtnLsfgToggle.Background = _inactiveColor;
+        if (LsfgMultiplierBorder != null) LsfgMultiplierBorder.BorderBrush = Brushes.Transparent;
     }
 
     private void UpdateFocusVisual()
@@ -516,30 +596,36 @@ public partial class OverlayWindow : Window
         if (MainScrollViewer == null || _sections.Length == 0) return;
         if (_focusIndex < 0 || _focusIndex >= _sections.Length) return;
 
+        if (_scrollPending) return;
+        _scrollPending = true;
+
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
+            _scrollPending = false;
             try
             {
-                if (_focusIndex == _sections.Length - 1)
-                {
-                    MainScrollViewer.Offset = new Vector(MainScrollViewer.Offset.X, MainScrollViewer.Extent.Height - MainScrollViewer.Viewport.Height);
-                    return;
-                }
-
                 var focused = _sections[_focusIndex];
-                var position = focused.TranslatePoint(new Point(0, 0), MainScrollViewer);
-                if (position is null) return;
 
-                var viewTop = MainScrollViewer.Offset.Y;
-                var viewBottom = viewTop + MainScrollViewer.Viewport.Height;
-                var itemTop = position.Value.Y;
-                var itemBottom = itemTop + focused.Bounds.Height;
+                double itemTop = focused.Bounds.Y;
+                double itemBottom = itemTop + focused.Bounds.Height;
 
-                if (itemTop < viewTop) MainScrollViewer.Offset = new Vector(MainScrollViewer.Offset.X, Math.Max(0, itemTop - 10));
-                else if (itemBottom > viewBottom) MainScrollViewer.Offset = new Vector(MainScrollViewer.Offset.X, itemBottom - MainScrollViewer.Viewport.Height + 10);
+                double viewTop = MainScrollViewer.Offset.Y;
+                double viewBottom = viewTop + MainScrollViewer.Viewport.Height;
+
+                if (itemTop < viewTop)
+                {
+                    MainScrollViewer.Offset = new Vector(MainScrollViewer.Offset.X, Math.Max(0, itemTop - 20));
+                }
+                else if (itemBottom > viewBottom)
+                {
+                    double targetOffset = itemBottom - MainScrollViewer.Viewport.Height + 20;
+                    double maxOffset = Math.Max(0, MainScrollViewer.Extent.Height - MainScrollViewer.Viewport.Height);
+                    targetOffset = Math.Min(targetOffset, maxOffset);
+                    MainScrollViewer.Offset = new Vector(MainScrollViewer.Offset.X, Math.Max(0, targetOffset));
+                }
             }
             catch { }
-        }, Avalonia.Threading.DispatcherPriority.Background);
+        }, Avalonia.Threading.DispatcherPriority.Loaded);
     }
 
     private void UpdatePersistentVisuals()
@@ -550,6 +636,7 @@ public partial class OverlayWindow : Window
         SetFanButtonVisual(_currentFanMode);
         SetColorButtonVisual(_currentColor);
         SetHudButtonVisual(_currentHudIndex);
+        UpdateMultiplierVisual();
     }
 
     private void UpdateTempVisuals()
@@ -594,8 +681,21 @@ public partial class OverlayWindow : Window
         }
         else if (_activeSubMenu == SubMenuMode.Lossless)
         {
-            if (BtnLsfgApply != null) BtnLsfgApply.Background = _tempLosslessIndex == 0 ? _activeColor : _inactiveColor;
-            if (BtnLsfgOpen != null) BtnLsfgOpen.Background = _tempLosslessIndex == 1 ? _activeColor : _inactiveColor;
+            if (BtnLsfgToggle != null)
+                BtnLsfgToggle.Background = _tempLosslessIndex == 0 ? _activeColor : _inactiveColor;
+
+            if (LsfgMultiplierBorder != null)
+                LsfgMultiplierBorder.BorderBrush = _tempLosslessIndex == 1 ? _activeColor : Brushes.Transparent;
+
+            // Atualiza os 3 botões de multiplicador
+            if (_multiplierButtons != null)
+            {
+                for (int i = 0; i < _multiplierButtons.Length; i++)
+                {
+                    if (_multiplierButtons[i] != null)
+                        _multiplierButtons[i].Background = (i == _tempMultiplierIndex) ? _activeColor : _inactiveColor;
+                }
+            }
         }
         else if (_activeSubMenu == SubMenuMode.Capture)
         {
@@ -804,119 +904,130 @@ public partial class OverlayWindow : Window
         }
     }
 
-    private async void OnLsfgApplyClick(object? sender, RoutedEventArgs e)
+    private async void OnLsfgToggleClick(object? sender, RoutedEventArgs e)
     {
         if (!OperatingSystem.IsWindows()) return;
 
-        if (_gameHwnd != IntPtr.Zero)
-            LosslessScalingService.SetGameHwnd(_gameHwnd);
+        if (BtnLsfgToggle != null) BtnLsfgToggle.IsEnabled = false;
 
-        if (!LosslessScalingService.IsLosslessRunning())
+        try
         {
-            if (BtnLsfgApply != null)
+            if (!LosslessScalingService.IsLosslessRunning())
             {
-                BtnLsfgApply.Content = "Abrindo Lossless...";
-                BtnLsfgApply.IsEnabled = false;
-            }
-            DebugLog.Write("[PATINHO] Lossless não está rodando — abrindo automaticamente.");
+                DebugLog.Write("[PATINHO] Lossless não está rodando — iniciando em segundo plano.");
 
-            if (!LosslessScalingService.TryLaunchLossless())
+                var wasVisible = IsVisible;
+                if (wasVisible) HideWithUnblock();
+
+                if (LsfgStatusText != null) LsfgStatusText.Text = "Iniciando Lossless...";
+
+                if (!LosslessScalingService.TryLaunchLossless())
+                {
+                    if (LsfgStatusText != null) LsfgStatusText.Text = "❌ Falha ao iniciar Lossless";
+                    if (wasVisible) { Show(); InputBlockService.BlockGamepadForGame(_gamePid); ForceTopmost(); }
+                    return;
+                }
+
+                for (int i = 0; i < 20; i++)
+                {
+                    await Task.Delay(500);
+                    if (LosslessScalingService.IsLosslessRunning()) break;
+                }
+                await Task.Delay(1500);
+
+                if (wasVisible && !IsAppClosing)
+                {
+                    Show();
+                    InputBlockService.BlockGamepadForGame(_gamePid);
+                    ForceTopmost();
+                    await Task.Delay(300);
+                }
+            }
+
+            if (_gameHwnd != IntPtr.Zero)
             {
-                if (BtnLsfgApply != null) BtnLsfgApply.IsEnabled = true;
-                UpdateLsfgButtonState();
-                return;
+                LosslessScalingService.SetGameHwnd(_gameHwnd);
+                try { SetForegroundWindow(_gameHwnd); } catch { }
+                await Task.Delay(300);
             }
 
-            for (int i = 0; i < 10; i++)
+            if (LsfgStatusText != null) LsfgStatusText.Text = "Enviando atalho...";
+
+            bool success = LosslessScalingService.ToggleFrameGen();
+
+            if (success)
             {
-                await Task.Delay(500);
-                if (LosslessScalingService.IsLosslessRunning()) break;
+                _lsfgIsActive = !_lsfgIsActive;
+                UpdateLsfgToggleVisual();
+                DebugLog.Write($"[PATINHO] Toggle OK — estado: {(_lsfgIsActive ? "ativado" : "desativado")}");
             }
-            await Task.Delay(1000);
-            if (BtnLsfgApply != null) BtnLsfgApply.IsEnabled = true;
+            else
+            {
+                if (LsfgStatusText != null) LsfgStatusText.Text = "❌ Falha ao enviar atalho";
+            }
         }
-
-        if (_gameHwnd != IntPtr.Zero)
+        catch (Exception ex)
         {
-            try { SetForegroundWindow(_gameHwnd); } catch { }
-            await Task.Delay(150);
+            DebugLog.Write($"[PATINHO] Toggle EXCEPTION: {ex.Message}");
+            if (LsfgStatusText != null) LsfgStatusText.Text = $"❌ Erro: {ex.Message}";
         }
-
-        bool focusOnGame = _gameHwnd != IntPtr.Zero && GetForegroundWindow() == _gameHwnd;
-        bool success;
-
-        if (focusOnGame)
+        finally
         {
-            success = LosslessScalingService.ToggleFrameGen();
-        }
-        else
-        {
-            DebugLog.Write("[PATINHO] Fallback: ocultando overlay para liberar foreground.");
-            var wasVisible = IsVisible;
-            if (wasVisible) HideWithUnblock();
-            await Task.Delay(250);
-            success = LosslessScalingService.ToggleFrameGen();
-            if (wasVisible && !IsAppClosing)
+            if (BtnLsfgToggle != null) BtnLsfgToggle.IsEnabled = true;
+            if (!IsVisible && !IsAppClosing)
             {
                 Show();
                 InputBlockService.BlockGamepadForGame(_gamePid);
                 ForceTopmost();
             }
         }
+    }
 
-        if (success)
+    private void UpdateLsfgToggleVisual()
+    {
+        if (BtnLsfgToggle == null) return;
+
+        if (_lsfgIsActive)
         {
-            _lsfgIsActive = !_lsfgIsActive;
-            DebugLog.Write($"[PATINHO] Estado interno: _lsfgIsActive={_lsfgIsActive}");
+            BtnLsfgToggle.Content = "🟢 Ativado";
+            BtnLsfgToggle.Background = new SolidColorBrush(Color.FromRgb(46, 151, 98));
+        }
+        else
+        {
+            BtnLsfgToggle.Content = "⚪ Desativado";
+            BtnLsfgToggle.Background = new SolidColorBrush(Color.FromRgb(42, 42, 58));
         }
 
-        if (BtnLsfgApply != null)
+        if (LsfgStatusText != null)
         {
-            string feedback = success
-                ? (_lsfgIsActive ? "✓ Ativado!" : "✓ Desativado!")
-                : "Falhou";
-
-            BtnLsfgApply.Content = feedback;
-            BtnLsfgApply.Background = success
-                ? new SolidColorBrush(Color.FromRgb(46, 151, 98))
-                : new SolidColorBrush(Color.FromRgb(255, 64, 64));
-
-            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1500) };
-            timer.Tick += (_, _) =>
-            {
-                timer.Stop();
-                UpdateLsfgButtonState();
-            };
-            timer.Start();
+            LsfgStatusText.Text = _lsfgIsActive ? "Frame Generation ativo" : "Frame Generation inativo";
         }
-
-        ForceTopmost();
     }
 
     private void UpdateLsfgButtonState()
     {
-        if (BtnLsfgApply == null) return;
+        if (BtnLsfgToggle == null) return;
 
         bool running = LosslessScalingService.IsLosslessRunning();
         bool activeContext = running && _gameHwnd != IntPtr.Zero && _lsfgIsActive;
 
         if (!running)
         {
-            BtnLsfgApply.Content = "Abrir Lossless";
-            BtnLsfgApply.Background = _inactiveColor;
-            BtnLsfgApply.IsEnabled = true;
+            BtnLsfgToggle.Content = "Abrir Lossless";
+            BtnLsfgToggle.Background = _inactiveColor;
+            BtnLsfgToggle.IsEnabled = true;
         }
         else if (activeContext)
         {
-            BtnLsfgApply.Content = "🟢 Desativar";
-            BtnLsfgApply.Background = new SolidColorBrush(Color.FromRgb(46, 151, 98));
-            BtnLsfgApply.IsEnabled = true;
+            BtnLsfgToggle.Content = "🟢 Desativar";
+            BtnLsfgToggle.Background = new SolidColorBrush(Color.FromRgb(46, 151, 98));
+            BtnLsfgToggle.IsEnabled = true;
         }
         else
         {
-            BtnLsfgApply.Content = "Aplicar";
-            BtnLsfgApply.Background = _inactiveColor;
-            BtnLsfgApply.IsEnabled = true;
+            BtnLsfgToggle.Content = "Aplicar";
+            BtnLsfgToggle.Background = _inactiveColor;
+            BtnLsfgToggle.IsEnabled = true;
         }
     }
 

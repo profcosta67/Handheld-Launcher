@@ -1,8 +1,9 @@
+using System;
+using System.IO;
+using System.Threading.Tasks;
 using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
-using Avalonia.Platform;
 using HandheldLauncher.App.Platform;
 using HandheldLauncher.App.ViewModels;
 using HandheldLauncher.App.Views;
@@ -28,14 +29,14 @@ public partial class App : Application
                 && SteamAccountDetector.FindMostRecent() is { } steamAccount)
             {
                 appSettings.SteamId64 = steamAccount.SteamId64;
-                try { AppSettingsStore.Save(appSettings); } catch { /* melhor esforço */ }
+                try { AppSettingsStore.Save(appSettings); } catch { }
             }
 
             if (string.IsNullOrWhiteSpace(appSettings.EdenExecutablePath)
                 && EdenInstallationDetector.FindExecutable() is { } edenExe)
             {
                 appSettings.EdenExecutablePath = edenExe;
-                try { AppSettingsStore.Save(appSettings); } catch { /* melhor esforço */ }
+                try { AppSettingsStore.Save(appSettings); } catch { }
             }
 
             var steamScanner = new SteamLibraryScanner();
@@ -88,8 +89,6 @@ public partial class App : Application
 
             if (OperatingSystem.IsWindows())
             {
-                // Captura a curva do Windows antes de aplicar o modo salvo.
-                // Os próximos presets sempre serão derivados desta mesma base.
                 DisplayColorManager.CaptureOriginal();
                 DisplayColorManager.Apply(appSettings.ColorMode);
                 desktop.Exit += (_, _) => DisplayColorManager.RestoreOriginal();
@@ -102,6 +101,29 @@ public partial class App : Application
             {
                 DataContext = mainViewModel,
             };
+
+            // 🟢 v0.15.4: Inicia o Lossless Scaling em segundo plano (minimizado)
+            // pra ficar pronto pra receber o atalho Ctrl+Alt+S quando o usuário clicar no toggle do Overlay.
+            if (OperatingSystem.IsWindows())
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        // Pequeno delay pra não competir com o boot do launcher
+                        await Task.Delay(5000);
+                        if (!LosslessScalingService.IsLosslessRunning())
+                        {
+                            var launched = LosslessScalingService.TryLaunchLossless();
+                            System.Diagnostics.Debug.WriteLine($"[PATINHO] Boot launch: {(launched ? "iniciado" : "falhou")}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[PATINHO] Boot launch EXCEPTION: {ex.Message}");
+                    }
+                });
+            }
 
             if (OperatingSystem.IsWindows())
             {

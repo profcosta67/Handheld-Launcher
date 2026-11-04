@@ -198,15 +198,52 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- 🦆 NOVO: Seção do Patinho (Lossless Scaling) -->
+                    <!-- Seção: Lossless Scaling -->
                     <Border x:Name="LosslessSection" CornerRadius="12" BorderThickness="2" BorderBrush="Transparent" Padding="10" Background="#1AFFFFFF">
-                        <StackPanel Spacing="8">
-                            <TextBlock Text="🦆 Lossless - FrameGen" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
-                            <Grid ColumnDefinitions="*,*">
-                                <Button x:Name="BtnLsfgApply" Grid.Column="0" Content="Aplicar Agora" Click="OnLsfgApplyClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="8" Margin="0,0,4,0" FontSize="12" />
-                                <Button x:Name="BtnLsfgOpen" Grid.Column="1" Content="Abrir App" Click="OnLsfgOpenClick" Background="#252A36" Foreground="White" CornerRadius="8" Padding="8" Margin="4,0,0,0" FontSize="12" />
-                            </Grid>
-                            <TextBlock Text="Com o jogo aberto, clique em 'Aplicar Agora' para simular o atalho (Ctrl+Alt+S)." Foreground="#888888" FontSize="11" TextWrapping="Wrap" />
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="🦆 Lossless Scaling" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
+                            
+                            <!-- Status -->
+                            <TextBlock x:Name="LsfgStatusText" 
+                                       Text="Verificando..." 
+                                       Foreground="#9BA8C4" 
+                                       FontSize="11" 
+                                       TextAlignment="Center"/>
+                            
+                            <!-- Toggle ON/OFF -->
+                            <Button x:Name="BtnLsfgToggle" 
+                                    Content="⚪ Desativado" 
+                                    FontSize="14" 
+                                    FontWeight="SemiBold"
+                                    Padding="16,10"
+                                    Background="#252A36"
+                                    Foreground="White"
+                                    CornerRadius="10"
+                                    HorizontalAlignment="Center"
+                                    MinWidth="200"
+                                    HorizontalContentAlignment="Center"
+                                    Click="OnLsfgToggleClick"/>
+                            
+                            <!-- Seletor de Multiplicador (informativo) -->
+                            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" Margin="0,4,0,0">
+                                <TextBlock Text="Multiplicador:" Foreground="#9BA8C4" FontSize="11" VerticalAlignment="Center"/>
+                                <Border x:Name="LsfgMultiplierBorder" BorderThickness="2" BorderBrush="Transparent" CornerRadius="8" Padding="2">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <Button x:Name="BtnMult2x" Content="2x" Tag="0" Click="OnMultiplierClick" Background="#252A36" Foreground="White" CornerRadius="6" Padding="10,4" FontSize="11" MinWidth="36"/>
+                                        <Button x:Name="BtnMult3x" Content="3x" Tag="1" Click="OnMultiplierClick" Background="#252A36" Foreground="White" CornerRadius="6" Padding="10,4" FontSize="11" MinWidth="36"/>
+                                        <Button x:Name="BtnMult4x" Content="4x" Tag="2" Click="OnMultiplierClick" Background="#252A36" Foreground="White" CornerRadius="6" Padding="10,4" FontSize="11" MinWidth="36"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                            
+                            <!-- Aviso -->
+                            <TextBlock Text="⚠️ Configure o multiplicador no Lossless Scaling (perfil do jogo ou global)." 
+                                       Foreground="#FF9D00" 
+                                       FontSize="10" 
+                                       TextWrapping="Wrap" 
+                                       TextAlignment="Center"
+                                       MaxWidth="300"
+                                       HorizontalAlignment="Center"/>
                         </StackPanel>
                     </Border>
 
