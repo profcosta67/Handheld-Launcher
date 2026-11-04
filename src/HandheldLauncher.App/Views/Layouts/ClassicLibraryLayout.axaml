@@ -53,18 +53,13 @@
                        Margin="20"
                        IsVisible="{Binding SelectedTile.BannerImagePath, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
 
-            <Border Background="#80000000"
-                    CornerRadius="12"
-                    Padding="16,8"
-                    HorizontalAlignment="Left"
-                    VerticalAlignment="Top"
-                    Margin="24"
-                    IsVisible="{Binding SelectedTile.ShowCurrentLogo}">
-              <Image Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
-                     Width="240" Height="64" Stretch="Uniform"
-                     HorizontalAlignment="Center"
-                     VerticalAlignment="Center" />
-            </Border>
+            <Image Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                   Width="260" Height="76"
+                   Stretch="Uniform"
+                   HorizontalAlignment="Left"
+                   VerticalAlignment="Top"
+                   Margin="24"
+                   IsVisible="{Binding SelectedTile.ShowCurrentLogo}" />
 
           </Grid>
 
@@ -136,7 +131,7 @@
             <DataTemplate x:DataType="vm:GameTileViewModel">
               <StackPanel Width="{Binding TileWidth}" Spacing="6">
 
-                <Grid Height="36">
+                <Grid Height="46">
                   <TextBlock Text="{Binding Title}"
                              Classes="tileCaption"
                              TextWrapping="NoWrap"
