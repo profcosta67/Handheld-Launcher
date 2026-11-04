@@ -50,17 +50,10 @@
       </Image.Effect>
     </Image>
     <Image x:Name="HeroImage"
-<<<<<<< HEAD
-       anim:ImageBehavior.AnimatedSource="{Binding SelectedTile.BannerImagePath}"
-       Stretch="UniformToFill"
-       Opacity="0.48"
-       IsHitTestVisible="False">
-=======
-           Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
+           anim:ImageBehavior.AnimatedSource="{Binding SelectedTile.BannerImagePath}"
            Stretch="UniformToFill"
            Opacity="0.48"
            IsHitTestVisible="False">
->>>>>>> 6b50390488994743904ad660c78a3cc0a532c2c8
       <Image.Effect>
         <media:BlurEffect Radius="24" />
       </Image.Effect>
@@ -236,7 +229,6 @@
             </Transitions>
           </ScrollViewer.Transitions>
 
-          <!-- Biblioteca Capsule Wide: fileira contínua, sem efeito de roleta/carrossel. -->
           <ItemsControl x:Name="GamesItemsControl"
                         ItemsSource="{Binding Games}"
                         HorizontalAlignment="Left"
@@ -262,17 +254,10 @@
                         PointerPressed="OnTilePointerPressed"
                         DoubleTapped="OnTileDoubleTapped">
                   <Grid>
-<<<<<<< HEAD
-                    <Image anim:ImageBehavior.AnimatedSource="{Binding WideCapsuleImagePath}"
-       Stretch="UniformToFill"
-       HorizontalAlignment="Stretch"
-       VerticalAlignment="Stretch" />
-=======
-                    <Image Source="{Binding WideCapsuleImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                    <Image anim:ImageBehavior.AnimatedSource="{Binding TileImagePath}"
                            Stretch="UniformToFill"
                            HorizontalAlignment="Stretch"
                            VerticalAlignment="Stretch" />
->>>>>>> 6b50390488994743904ad660c78a3cc0a532c2c8
                     <Border Background="#55000000"
                             IsVisible="{Binding ShowEmptyWideCapsulePlaceholder}">
                       <TextBlock Text="{Binding Title}"

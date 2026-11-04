@@ -23,10 +23,7 @@ public partial class SettingsWindow : Window
     private int _tabIndex = 0;
     private int _contentIndex = 0;
     private AccountsWindow? _accountsWindow;
-<<<<<<< HEAD
     private ConnectivityPopupWindow? _connectivityDialog;
-=======
->>>>>>> 6b50390488994743904ad660c78a3cc0a532c2c8
 
     public SettingsWindow()
     {
@@ -57,10 +54,6 @@ public partial class SettingsWindow : Window
 
     private void OnSettingsKeyDown(object? sender, KeyEventArgs e)
     {
-<<<<<<< HEAD
-=======
-        // Não intercepta setas enquanto o usuário está editando texto.
->>>>>>> 6b50390488994743904ad660c78a3cc0a532c2c8
         if (e.Source is TextBox && e.Key is not Key.Escape) return;
 
         GamepadAction? action = e.Key switch
@@ -100,56 +93,36 @@ public partial class SettingsWindow : Window
 
     public bool HandleSettingsGamepadAction(GamepadAction action)
     {
-<<<<<<< HEAD
-        // 🟢 Se o popup estiver aberto, a SettingsWindow ignora e repassa (embora o popup agora tenha seu próprio poller, isso é segurança extra)
         if (_connectivityDialog is { IsVisible: true })
         {
             _connectivityDialog.HandleGamepadAction(action);
             return true;
         }
 
-=======
-        // A janela Contas é um modal filho. Enquanto ela estiver aberta,
-        // todas as entradas do controle devem ir para ela, nunca para a tela pai.
->>>>>>> 6b50390488994743904ad660c78a3cc0a532c2c8
         if (_accountsWindow is { IsVisible: true } accounts)
         {
             DialogGamepadNavigator.Handle(accounts, action);
             return true;
         }
 
-<<<<<<< HEAD
-        if (action == GamepadAction.GameDetails) // Botão X
-=======
-        // X (GameDetails na camada XInput) foi reservado nesta janela para
-        // salvar e fechar, sem alterar o atalho global de detalhes do jogo.
         if (action == GamepadAction.GameDetails)
->>>>>>> 6b50390488994743904ad660c78a3cc0a532c2c8
         {
             ViewModel.SaveTo(_settings);
             Close();
             return true;
         }
 
-<<<<<<< HEAD
-        if (action == GamepadAction.Menu) // Botão Start
+        if (action == GamepadAction.Menu)
         {
             ViewModel.SaveTo(_settings);
             return true;
         }
 
-=======
->>>>>>> 6b50390488994743904ad660c78a3cc0a532c2c8
         var tabs = GetTabButtons();
         if (tabs.Count == 0) return false;
 
         var content = GetContentFocusables();
 
-<<<<<<< HEAD
-=======
-        // Quando uma lista suspensa está aberta, o D-pad navega suas opções
-        // e A confirma/fecha, em vez de alterar o valor sem mostrar a lista.
->>>>>>> 6b50390488994743904ad660c78a3cc0a532c2c8
         if (_focusZone == FocusZone.Content && _contentIndex >= 0 && _contentIndex < content.Count
             && content[_contentIndex] is ComboBox openCombo && openCombo.IsDropDownOpen)
         {
@@ -297,25 +270,7 @@ public partial class SettingsWindow : Window
             .ToList();
     }
 
-<<<<<<< HEAD
     private bool TryChangeValue(List<Control> content, int index, int direction)
-=======
-    // [FIX] Não exclui mais os botões do rodapé. Agora o D-Pad desce
-    // até eles depois de passar por todos os controles da aba.
-    return this.GetVisualDescendants()
-        .OfType<Control>()
-        .Where(c => c.Focusable
-                    && c.IsEffectivelyVisible
-                    && c.IsEffectivelyEnabled
-                    && c != this
-                    && !tabButtons.Contains(c)
-                    && c is ComboBox or Slider or CheckBox or RadioButton or TextBox or Button)
-        .ToList();
-}
-
-    
-        private bool TryChangeValue(List<Control> content, int index, int direction)
->>>>>>> 6b50390488994743904ad660c78a3cc0a532c2c8
     {
         if (index < 0 || index >= content.Count) return false;
         var control = content[index];
@@ -353,24 +308,9 @@ public partial class SettingsWindow : Window
     {
         switch (control)
         {
-<<<<<<< HEAD
             case CheckBox cb: cb.IsChecked = !cb.IsChecked; break;
             case RadioButton rb: rb.IsChecked = true; break;
             case ComboBox combo: combo.IsDropDownOpen = !combo.IsDropDownOpen; break;
-=======
-            // ⚠️ IMPORTANTE: CheckBox e RadioButton herdam de Button — têm que vir PRIMEIRO,
-            // senão o `case Button` os captura e os cases ficam inalcançáveis.
-            case CheckBox cb:
-                cb.IsChecked = !cb.IsChecked;
-                break;
-            case RadioButton rb:
-                rb.IsChecked = true;
-                break;
-            case ComboBox combo:
-                // Primeiro A abre a lista; o próximo A confirma a opção escolhida.
-                combo.IsDropDownOpen = !combo.IsDropDownOpen;
-                break;
->>>>>>> 6b50390488994743904ad660c78a3cc0a532c2c8
             case Slider sl:
                 var step = sl.TickFrequency > 0 ? sl.TickFrequency : (sl.Maximum - sl.Minimum) / 10;
                 sl.Value = sl.Value + step > sl.Maximum ? sl.Minimum : sl.Value + step;
@@ -390,10 +330,6 @@ public partial class SettingsWindow : Window
 
     private void OpenExternalUrlFromDialog(string url)
     {
-<<<<<<< HEAD
-=======
-        // A janela de configurações não pode permanecer Topmost sobre o navegador.
->>>>>>> 6b50390488994743904ad660c78a3cc0a532c2c8
         Topmost = false;
         if (Owner is MainWindow mainWindow)
         {
@@ -402,20 +338,6 @@ public partial class SettingsWindow : Window
         }
         else
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
-<<<<<<< HEAD
-=======
-    }
-
-    private void OnConnectivityShortcutClick(object? sender, RoutedEventArgs e)
-    {
-        ViewModel.CategoryIndex = 7;
-        _tabIndex = 7;
-        _focusZone = FocusZone.Tabs;
-        _contentIndex = 0;
-
-        var tabs = GetTabButtons();
-        if (tabs.Count > _tabIndex) FocusControl(tabs[_tabIndex]);
->>>>>>> 6b50390488994743904ad660c78a3cc0a532c2c8
     }
 
     private void OnCategoryTabClick(object? sender, RoutedEventArgs e)
@@ -549,54 +471,7 @@ public partial class SettingsWindow : Window
         catch { }
     }
 
-<<<<<<< HEAD
     private void OnSavedOkClick(object? sender, RoutedEventArgs e) => ViewModel.DismissSavedMessage();
-=======
-    private void OpenWindowsSettings(string uri)
-    {
-        try
-        {
-            // A janela modal de configurações e o launcher não podem ficar
-            // acima do painel nativo do Windows.
-            Topmost = false;
-            if (Owner is MainWindow mainWindow)
-                mainWindow.OpenWindowsSettings(uri);
-            else
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(uri) { UseShellExecute = true });
-            DebugLog.Write($"[SETTINGS] Solicitada abertura de {uri}.");
-        }
-        catch (Exception ex)
-        {
-            DebugLog.Write($"[SETTINGS] Não foi possível abrir {uri}: {ex.Message}");
-        }
-    }
-
-    private async void OnOpenWifiSettingsClick(object? sender, RoutedEventArgs e)
-    {
-        var dialog = new ConnectivityPopupWindow { Topmost = true };
-        await dialog.ShowDialog(this);
-    }
-
-    private async void OnOpenBluetoothSettingsClick(object? sender, RoutedEventArgs e)
-    {
-        var dialog = new ConnectivityPopupWindow { Topmost = true };
-        await dialog.ShowDialog(this);
-    }
-
-    private void OnOpenReleaseNotesClick(object? sender, RoutedEventArgs e)
-        => OpenWindowsSettings("https://github.com/profcosta67/Handheld-Launcher/tree/main/release-notes");
-
-    private void OnSaveClick(object? sender, RoutedEventArgs e)
-    {
-        ViewModel.SaveTo(_settings);
-        SavedOkButton.Focus();
-    }
-
-    private void OnSavedOkClick(object? sender, RoutedEventArgs e)
-    {
-        ViewModel.DismissSavedMessage();
-    }
->>>>>>> 6b50390488994743904ad660c78a3cc0a532c2c8
 
     public Func<Task<string>>? CheckForUpdates { get; set; }
 
