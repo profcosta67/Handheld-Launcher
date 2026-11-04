@@ -262,9 +262,9 @@ internal static unsafe class GameInputHelper
                 lastHr = hr;
             }
 
-            if (DateTime.UtcNow - lastHeartbeat > TimeSpan.FromSeconds(5))
+            if (DateTime.UtcNow - lastHeartbeat > TimeSpan.FromSeconds(60))
             {
-                DebugLog.Write($"GameInputHelper: vivo — leituras ok={okReads}, falhas={failReads}, último hr=0x{lastHr:X8}");
+                DebugLog.Write($"GameInputHelper: vivo (último minuto) — leituras ok={okReads}, falhas={failReads}, último hr=0x{lastHr:X8}");
                 okReads = 0;
                 failReads = 0;
                 lastHeartbeat = DateTime.UtcNow;
