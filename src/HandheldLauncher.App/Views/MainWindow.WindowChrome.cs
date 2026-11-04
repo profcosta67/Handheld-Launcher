@@ -98,6 +98,9 @@ public partial class MainWindow : Window
             if (WindowState == WindowState.Minimized) { _foregroundFighterTimer?.Stop(); return; }
             if (IsActive) { _foregroundFighterTimer?.Stop(); return; }
             if (_activeDialog != null) { _foregroundFighterTimer?.Stop(); return; }
+            // v0.16.2: idem ao StartTopmostEnforcer — não puxar o launcher pra
+            // frente do Quick Settings aberto.
+            if (_overlayWindow is { IsVisible: true }) return;
 
             // Durante o arranque, outros processos do Windows podem ganhar
             // foco por alguns instantes. Continuamos a tentar por até 16 s;
@@ -125,6 +128,12 @@ public partial class MainWindow : Window
             if (!IsVisible) return;
             if (WindowState == WindowState.Minimized) return;
             if (_activeDialog != null) return;
+            // v0.16.2: com o Quick Settings aberto, não reafirmar o launcher
+            // por cima dele. O overlay usa SWP_NOACTIVATE, então o launcher
+            // continua sendo a janela em foco e passava na checagem abaixo —
+            // os dois "fiscais" de topmost (este, a cada 2s, e o do overlay,
+            // a cada 1s) ficavam se alternando por cima = overlay piscando.
+            if (_overlayWindow is { IsVisible: true }) return;
 
             try
             {

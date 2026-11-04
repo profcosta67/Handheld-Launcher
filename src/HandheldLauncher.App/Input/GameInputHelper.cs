@@ -84,6 +84,7 @@ internal static unsafe class GameInputHelper
                 UseShellExecute = false,
                 CreateNoWindow = true,
             });
+            DebugLog.Write($"GameInputHelper: ajudante iniciado (pid={_helper?.Id.ToString() ?? "null"}).");
         }
         catch (Exception ex)
         {
@@ -123,6 +124,7 @@ internal static unsafe class GameInputHelper
                 while (true)
                 {
                     signal.WaitOne();
+                    DebugLog.Write("GameInputHelper: sinal L3+R3 recebido do ajudante.");
                     onCombo();
                 }
             }
