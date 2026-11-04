@@ -19,30 +19,31 @@ internal static class HealthChecks
 {
     public enum Status { Ok, Info, Warning, Error }
 
-    public sealed record Result(string Title, Status Status, string Summary, string? Hint = null);
+    public sealed record Result(string Title, Status Status, string Summary, string? Hint = null, string? ArticleId = null);
 
     public static Task<IReadOnlyList<Result>> RunAllAsync() => Task.Run<IReadOnlyList<Result>>(() =>
     {
-        var checks = new (string Title, Func<Result> Run)[]
+        // Cada verificação aponta pro artigo do manual (HelpArticles) com a solução.
+        var checks = new (string Title, string ArticleId, Func<Result> Run)[]
         {
-            ("Controle", CheckController),
-            ("Quick Settings com jogo aberto (L3+R3)", CheckGameInputHelper),
-            ("Restauração da última sessão", CheckStartupRestore),
-            ("Atualizações", CheckUpdates),
-            ("Modo de uso", CheckUsageMode),
-            ("Lossless Scaling", CheckLossless),
-            ("Capas dos jogos (SteamGridDB)", CheckSteamGridDb),
-            ("Conta Steam", CheckSteamAccount),
-            ("Emulador Eden", CheckEden),
+            ("Controle", "controle-legion", CheckController),
+            ("Quick Settings com jogo aberto (L3+R3)", "qs-em-jogo", CheckGameInputHelper),
+            ("Restauração da última sessão", "tdp-boot", CheckStartupRestore),
+            ("Atualizações", "atualizacoes-nao-aparece", CheckUpdates),
+            ("Modo de uso", "modo-uso", CheckUsageMode),
+            ("Lossless Scaling", "lossless", CheckLossless),
+            ("Capas dos jogos (SteamGridDB)", "capas", CheckSteamGridDb),
+            ("Conta Steam", "conta-steam", CheckSteamAccount),
+            ("Emulador Eden", "eden", CheckEden),
         };
 
         var results = new List<Result>();
-        foreach (var (title, run) in checks)
+        foreach (var (title, articleId, run) in checks)
         {
             Result result;
             try { result = run(); }
             catch (Exception ex) { result = new Result(title, Status.Warning, $"Não foi possível verificar ({ex.Message})."); }
-            results.Add(result);
+            results.Add(result.ArticleId is null ? result with { ArticleId = articleId } : result);
         }
 
         try
