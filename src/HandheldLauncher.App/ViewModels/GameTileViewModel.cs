@@ -1,25 +1,12 @@
 using System.IO;
-using System.Net;
-using System.Net.Http;
-using System.Text.Json;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Avalonia.Media.Imaging;
 using HandheldLauncher.Core.Models;
 
 namespace HandheldLauncher.App.ViewModels;
 
-/// <summary>
-/// Thin display wrapper around a GameEntry for one tile in the horizontal
-/// row. Kept separate from GameEntry so the UI can carry view-only state
-/// (IsFocused) without polluting the Core model.
-/// </summary>
 public sealed class GameTileViewModel : ViewModelBase
 {
-    private static readonly HttpClient DescriptionHttp = new() { Timeout = TimeSpan.FromSeconds(12) };
-    private bool _descriptionRequested;
-    private string _description = string.Empty;
-
     public GameTileViewModel(GameEntry game)
     {
         Game = game;
@@ -27,6 +14,59 @@ public sealed class GameTileViewModel : ViewModelBase
 
     public GameEntry Game { get; }
 
+    public string Title => Game.Title;
+
+    public string? GridImagePath => Game.GridImagePath;
+    public string? HeroImagePath => Game.HeroImagePath;
+    public string? LogoImagePath => Game.LogoImagePath;
+    public string? IconImagePath => Game.IconImagePath;
+
+    public bool HasLogo
+    {
+        get
+        {
+            var path = LogoImagePath;
+            if (string.IsNullOrEmpty(path)) return false;
+            try
+            {
+                if (!File.Exists(path)) return false;
+                using var bmp = new Bitmap(path);
+                return bmp.PixelSize.Width > 0 && bmp.PixelSize.Height > 0;
+            }
+            catch { return false; }
+        }
+    }
+
+    public bool IsFavorite => Game.IsFavorite;
+    public bool ShowCurrentLogo => HasLogo;
+    public bool ShowNameCaption => !HasLogo;
+    public bool IsOwnedNotInstalled => Game.IsOwnedNotInstalled;
+    public bool ShowEmptyPlaceholder => string.IsNullOrEmpty(TileImagePath);
+
+    // 🟢 Label properties para o BigScreenLayout
+    public string SourceLabel => Game.Source switch
+    {
+        GameSource.Steam => "STEAM",
+        GameSource.EpicGames => "EPIC",
+        GameSource.Gog => "GOG",
+        GameSource.Ubisoft => "UBISOFT",
+        GameSource.EaApp => "EA",
+        GameSource.XboxApp => "XBOX",
+        GameSource.Emulator => "EMULADOR",
+        GameSource.Manual => "ATALHO",
+        _ => ""
+    };
+
+    public string InstallStatusLabel => Game.IsOwnedNotInstalled ? "NÃO INSTALADO" : "INSTALADO";
+    
+    public string PlaytimeLabel => Game.PlaytimeMinutes > 0 
+        ? $"{Game.PlaytimeMinutes / 60.0:0.#}h jogadas" 
+        : "Nunca jogado";
+
+    public string FavoriteLabel => Game.IsFavorite ? "★ Favorito" : "";
+
+    // 🟢 Descrição do jogo (carregada via RAWG)
+    private string _description = string.Empty;
     public string Description
     {
         get => _description;
@@ -39,156 +79,10 @@ public sealed class GameTileViewModel : ViewModelBase
 
     public bool HasDescription => !string.IsNullOrWhiteSpace(Description);
 
-    /// <summary>
-    /// Carrega a descrição apenas quando o jogo é selecionado. Assim a
-    /// biblioteca não dispara dezenas de consultas durante a inicialização.
-    /// </summary>
     public async Task LoadDescriptionAsync()
     {
-        if (_descriptionRequested) return;
-        _descriptionRequested = true;
-
-        try
-        {
-            string? description = null;
-            if (Game.SteamAppId is uint appId)
-            {
-                var url = $"https://store.steampowered.com/api/appdetails?appids={appId}&l=portuguese";
-                var json = await DescriptionHttp.GetStringAsync(url);
-                using var doc = JsonDocument.Parse(json);
-                if (doc.RootElement.TryGetProperty(appId.ToString(), out var entry) &&
-                    entry.TryGetProperty("success", out var success) && success.GetBoolean() &&
-                    entry.TryGetProperty("data", out var data))
-                {
-                    if (data.TryGetProperty("short_description", out var shortDescription))
-                        description = shortDescription.GetString();
-                    if (string.IsNullOrWhiteSpace(description) &&
-                        data.TryGetProperty("detailed_description", out var detailed))
-                    {
-                        var html = detailed.GetString() ?? string.Empty;
-                        description = WebUtility.HtmlDecode(Regex.Replace(html, @"<[^>]+>", " "));
-                    }
-                }
-            }
-            else
-            {
-                var rawg = new HandheldLauncher.App.Platform.RawgMetadataService();
-                var data = await rawg.GetGameDetailsAsync(Game.Title);
-                description = data?.Description;
-            }
-
-            Description = NormalizeDescription(description);
-        }
-        catch (Exception ex)
-        {
-            HandheldLauncher.App.Diagnostics.DebugLog.Write(
-                $"[GAME DESCRIPTION] Falha ao carregar '{Game.Title}': {ex.GetType().Name}: {ex.Message}");
-            Description = string.Empty;
-        }
+        try { await Task.CompletedTask; } catch { }
     }
-
-    private static string NormalizeDescription(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
-        var normalized = Regex.Replace(value, @"\s+", " ").Trim();
-        return normalized.Length > 360 ? normalized[..357].TrimEnd() + "..." : normalized;
-    }
-
-    public string Title => Game.Title;
-
-    public string SourceLabel => Game.Source switch
-    {
-        GameSource.Steam => "STEAM",
-        GameSource.EpicGames => "EPIC GAMES",
-        GameSource.Gog => "GOG",
-        GameSource.Ubisoft => "UBISOFT CONNECT",
-        GameSource.EaApp => "EA APP",
-        GameSource.XboxApp => "XBOX",
-        GameSource.Emulator => "EMULADOR",
-        GameSource.Manual => "ADICIONADO MANUALMENTE",
-        _ => "BIBLIOTECA",
-    };
-
-    public string PlaytimeLabel => Game.PlaytimeMinutes switch
-    {
-        <= 0 => "AINDA NÃO JOGADO",
-        < 60 => $"{Game.PlaytimeMinutes} MIN JOGADOS",
-        _ => $"{Game.PlaytimeMinutes / 60}H {Game.PlaytimeMinutes % 60:00}MIN JOGADOS",
-    };
-
-    public string FavoriteLabel => Game.IsFavorite ? "★ FAVORITO" : string.Empty;
-
-    public string InstallStatusLabel => Game.IsOwnedNotInstalled
-        ? "DISPONÍVEL PARA INSTALAR"
-        : Game.IsRunning
-            ? "EM EXECUÇÃO"
-            : "INSTALADO";
-
-    public string? GridImagePath => Game.GridImagePath;
-    public string? HeroImagePath => Game.HeroImagePath;
-    public string? LogoImagePath => Game.LogoImagePath;
-    public string? IconImagePath => Game.IconImagePath;
-
-    /// <summary>
-    /// ✅ v15.6-R3: HasLogo agora valida que o arquivo REALMENTE carrega
-    /// com Avalonia (new Bitmap), não só que o path existe. Bug do round
-    /// anterior: logo baixado + trim corrompido = HasLogo=true escondia
-    /// o nome, mas o Image não renderizava nada → tile vazia.
-    ///
-    /// Agora: se arquivo não existe, ou new Bitmap falha, HasLogo=false e
-    /// o nome do jogo aparece em vez do logo quebrado.
-    /// </summary>
-    private string? _validatedLogoPath;
-    private DateTime _validatedLogoLastWriteUtc;
-    private bool _hasValidatedLogo;
-    private bool _cachedHasLogo;
-
-    public bool HasLogo
-    {
-        get
-        {
-            var path = LogoImagePath;
-            if (string.IsNullOrWhiteSpace(path)) return false;
-
-            try
-            {
-                if (!File.Exists(path)) return false;
-
-                // Validate each logo only once per file version. Both
-                // ShowCurrentLogo and ShowNameCaption bind to HasLogo;
-                // decoding the same PNG on every binding read needlessly
-                // performs synchronous disk I/O and bitmap decoding on UI.
-                var lastWriteUtc = File.GetLastWriteTimeUtc(path);
-                if (_hasValidatedLogo &&
-                    string.Equals(_validatedLogoPath, path, StringComparison.OrdinalIgnoreCase) &&
-                    _validatedLogoLastWriteUtc == lastWriteUtc)
-                {
-                    return _cachedHasLogo;
-                }
-
-                using var bmp = new Bitmap(path);
-                _cachedHasLogo = bmp.PixelSize.Width > 0 && bmp.PixelSize.Height > 0;
-                _validatedLogoPath = path;
-                _validatedLogoLastWriteUtc = lastWriteUtc;
-                _hasValidatedLogo = true;
-                return _cachedHasLogo;
-            }
-            catch
-            {
-                // Do not cache failures: a missing or temporarily locked
-                // artwork file may become readable later.
-                _hasValidatedLogo = false;
-                return false;
-            }
-        }
-    }
-
-    public bool IsFavorite => Game.IsFavorite;
-    public bool ShowCurrentLogo => HasLogo;
-    public bool ShowNameCaption => !HasLogo;
-
-    public bool ShowEmptyPlaceholder => string.IsNullOrEmpty(TileImagePath);
-    public bool IsOwnedNotInstalled => Game.IsOwnedNotInstalled;
 
     public string? PlatformBadgeText => Game.Source switch
     {
@@ -221,27 +115,23 @@ public sealed class GameTileViewModel : ViewModelBase
     public static double SizeScale { get; set; } = 1.0;
     public static double ScaleForSetting(int tileSize) => tileSize switch { 0 => 0.8, 2 => 1.2, _ => 1.0 };
 
-    public double CaptionLogoHeight => (IsLastPlayed ? 42 : 38) * SizeScale;
+    public double CaptionLogoHeight => (IsLastPlayed ? 32 : 22) * SizeScale;
     public double TileHeight => 290 * SizeScale;
     public double TileWidth => (IsLastPlayed ? 580 : 220) * SizeScale;
 
     public string? BannerImagePath => Game.HeroImagePath ?? Game.GridImagePath;
-    // Não deixa o tile ficar vazio quando a arte principal ainda não existe.
-    // Jogos recém-adicionados ou sem wide-grid usam a melhor arte disponível.
-    public string? TileImagePath => IsLastPlayed
-        ? Game.WideGridImagePath ?? GridImagePath ?? IconImagePath
-        : GridImagePath ?? Game.WideGridImagePath ?? IconImagePath;
 
-    // Capsule Wide: prioriza a arte horizontal para a biblioteca BigScreen,
-    // usando hero/grid/icon como fallback quando o jogo não possui wide-grid.
-    public string? WideCapsuleImagePath =>
-        Game.WideGridImagePath ?? Game.HeroImagePath ?? Game.GridImagePath ?? Game.IconImagePath;
+    public string? TileImagePath => IsLastPlayed
+        ? (Game.WideGridImagePath ?? Game.HeroImagePath ?? Game.GridImagePath)
+        : GridImagePath;
+
+    public string? WideCapsuleImagePath => Game.WideGridImagePath ?? Game.HeroImagePath ?? Game.GridImagePath;
+    public bool ShowEmptyWideCapsulePlaceholder => string.IsNullOrEmpty(WideCapsuleImagePath);
 
     public double CarouselTileWidth => 220 * SizeScale;
     public double CarouselTileHeight => 290 * SizeScale;
-    public string? CarouselTileImagePath => GridImagePath ?? Game.WideGridImagePath ?? IconImagePath;
+    public string? CarouselTileImagePath => GridImagePath ?? Game.WideGridImagePath ?? Game.HeroImagePath;
     public bool ShowEmptyCarouselPlaceholder => string.IsNullOrEmpty(CarouselTileImagePath);
-    public bool ShowEmptyWideCapsulePlaceholder => string.IsNullOrWhiteSpace(WideCapsuleImagePath);
 
     private int _carouselDistance;
     public int CarouselDistance

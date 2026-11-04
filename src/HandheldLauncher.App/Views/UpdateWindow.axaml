@@ -1,13 +1,12 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:HandheldLauncher.App.ViewModels"
+        x:CompileBindings="False"
         x:Class="HandheldLauncher.App.Views.UpdateWindow"
-        x:DataType="vm:MainViewModel"
-        Title="Atualização disponível"
-        Width="460" Height="440"
-        CanResize="False"
+        Title="Atualização Disponível"
+        Width="480" Height="360"
         WindowStartupLocation="CenterOwner"
-        Background="{StaticResource BackgroundBrush}">
+        Topmost="True" 
+        ShowInTaskbar="False">
 
   <!--
     v0.9.6, pedido do usuário ("ajuste fino do instalador e do update, uma

@@ -36,6 +36,9 @@ public partial class OverlayWindow : Window
     private int _currentColor = 0;
     private bool _tdpAppliedOnOpen = false;
 
+    // 🟢 ENFORCER: mantém o overlay sempre no topo enquanto visível
+    private DispatcherTimer? _topmostEnforcer;
+
     private enum SubMenuMode { None, Resolution, RefreshRate, Tdp, Fan, Color, Hud, Volume, Brightness, Capture, Lossless }
     private SubMenuMode _activeSubMenu = SubMenuMode.None;
 
@@ -65,6 +68,7 @@ public partial class OverlayWindow : Window
     private static readonly IntPtr HWND_TOPMOST = new(-1);
     private const uint SWP_NOMOVE = 0x0002;
     private const uint SWP_NOSIZE = 0x0001;
+    private const uint SWP_NOACTIVATE = 0x0010;
     private const uint SWP_SHOWWINDOW = 0x0040;
 
     private IntPtr _gameHwnd = IntPtr.Zero;
@@ -190,6 +194,10 @@ public partial class OverlayWindow : Window
         UpdateFocusVisual();
     }
 
+    /// <summary>
+    /// 🟢 v0.15.2 FIX: re-afirma o topmost sem roubar foco (SWP_NOACTIVATE)
+    /// para evitar o bug de "overlay piscando" — só toca no Z-order.
+    /// </summary>
     public void ForceTopmost()
     {
         if (!OperatingSystem.IsWindows() || !IsVisible) return;
@@ -197,9 +205,28 @@ public partial class OverlayWindow : Window
         {
             var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
             if (handle == IntPtr.Zero) return;
-            SetWindowPos(handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+            SetWindowPos(handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
         }
         catch (Exception ex) { DebugLog.Write($"[OVERLAY] ForceTopmost EXCEPTION: {ex.Message}"); }
+    }
+
+    /// <summary>
+    /// 🟢 v0.15.2 FIX: loop de 1s que re-afirma o topmost enquanto o overlay
+    /// está visível. Resolve o bug "overlay sumindo no jogo" (jogo em fullscreen
+    /// às vezes "rouba" o Z-order do overlay). SWP_NOACTIVATE evita o flicker.
+    /// </summary>
+    private void StartTopmostEnforcer()
+    {
+        if (_topmostEnforcer != null) return;
+        _topmostEnforcer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1000) };
+        _topmostEnforcer.Tick += (_, _) => ForceTopmost();
+        _topmostEnforcer.Start();
+    }
+
+    private void StopTopmostEnforcer()
+    {
+        _topmostEnforcer?.Stop();
+        _topmostEnforcer = null;
     }
 
     public void SetGameHwnd(IntPtr hwnd)
@@ -224,6 +251,9 @@ public partial class OverlayWindow : Window
     {
         base.OnOpened(e);
         DebugLog.Write($"[OVERLAY] OnOpened chamado. Width={Width}, Height={Height}");
+
+        // 🟢 Inicia o enforcer do topmost
+        StartTopmostEnforcer();
 
         // Suspende o processo do JOGO (não do launcher) — input bloqueado
         InputBlockService.BlockGamepadForGame(_gamePid);
@@ -262,7 +292,6 @@ public partial class OverlayWindow : Window
             var wa = screen.WorkingArea;
             var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
 
-            // Mantém o overlay dentro da área útil em telas menores (ex.: handhelds de 7").
             var availableWidth = Math.Max(320, wa.Width / scaling - 40);
             var availableHeight = Math.Max(320, wa.Height / scaling - 40);
             Width = Math.Min(Width, availableWidth);
@@ -286,6 +315,8 @@ public partial class OverlayWindow : Window
 
     public void HideWithUnblock()
     {
+        // 🟢 Para o enforcer antes de esconder
+        StopTopmostEnforcer();
         InputBlockService.UnblockGamepadForGame();
         Hide();
     }
@@ -691,12 +722,9 @@ public partial class OverlayWindow : Window
         var wasVisible = IsVisible;
         try
         {
-            // Oculta o overlay antes da captura para que ele não apareça na própria imagem.
             if (wasVisible) HideWithUnblock();
             await Task.Delay(250);
 
-            // Win+PrintScreen com pequenas pausas: alguns dispositivos ignoram
-            // a sequência quando todos os eventos são enviados no mesmo instante.
             SendKey(VK_LWIN, false);
             await Task.Delay(80);
             SendKey(VK_SNAPSHOT, false);
@@ -800,7 +828,7 @@ public partial class OverlayWindow : Window
             if (wasVisible && !IsAppClosing)
             {
                 Show();
-                InputBlockService.BlockGamepadForGame(_gamePid);   // ← CORRIGIDO: era IntPtr, agora int
+                InputBlockService.BlockGamepadForGame(_gamePid);
                 ForceTopmost();
             }
         }

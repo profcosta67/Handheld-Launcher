@@ -5,6 +5,7 @@
         x:DataType="vm:AddGameViewModel"
         Title="Adicionar jogo"
         Width="560" Height="600"
+        Topmost="True"
         CanResize="False"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource BackgroundBrush}">
