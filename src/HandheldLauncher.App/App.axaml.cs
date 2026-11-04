@@ -144,6 +144,12 @@ public partial class App : Application
                     Avalonia.Threading.Dispatcher.UIThread.Post(() => mainWindow.ToggleOverlay());
                 });
                 mainWindow.InitializeGamepadComboDetection();
+
+                // v0.16.2 (diagnóstico): "retrato" do controle no debug.log ao
+                // abrir e quando os controles conectados mudam — pra investigar
+                // o controle do Legion Go 2 que às vezes só volta abrindo o
+                // Legion Space. Só registra, não muda nada. Ver ControllerDiagnostics.
+                HandheldLauncher.App.Diagnostics.ControllerDiagnostics.StartMonitoring();
                 desktop.Exit += (_, _) => HandheldLauncher.App.Input.GameInputHelper.StopHelperProcess();
             }
 
