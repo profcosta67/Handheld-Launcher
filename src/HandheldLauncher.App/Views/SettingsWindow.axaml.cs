@@ -380,6 +380,17 @@ public partial class SettingsWindow : Window
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
     }
 
+    private void OnConnectivityShortcutClick(object? sender, RoutedEventArgs e)
+    {
+        ViewModel.CategoryIndex = 7;
+        _tabIndex = 7;
+        _focusZone = FocusZone.Tabs;
+        _contentIndex = 0;
+
+        var tabs = GetTabButtons();
+        if (tabs.Count > _tabIndex) FocusControl(tabs[_tabIndex]);
+    }
+
     private void OnCategoryTabClick(object? sender, RoutedEventArgs e)
     {
         if (sender is Button { Tag: string tag } && int.TryParse(tag, out var index))
@@ -557,15 +568,18 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private static void OpenWindowsSettings(string uri)
+    private void OpenWindowsSettings(string uri)
     {
         try
         {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = uri,
-                UseShellExecute = true
-            });
+            // A janela modal de configurações e o launcher não podem ficar
+            // acima do painel nativo do Windows.
+            Topmost = false;
+            if (Owner is MainWindow mainWindow)
+                mainWindow.OpenWindowsSettings(uri);
+            else
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(uri) { UseShellExecute = true });
+            DebugLog.Write($"[SETTINGS] Solicitada abertura de {uri}.");
         }
         catch (Exception ex)
         {
@@ -573,11 +587,17 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private void OnOpenWifiSettingsClick(object? sender, RoutedEventArgs e)
-        => OpenWindowsSettings("ms-settings:network-wifi");
+    private async void OnOpenWifiSettingsClick(object? sender, RoutedEventArgs e)
+    {
+        var dialog = new ConnectivityPopupWindow { Topmost = true };
+        await dialog.ShowDialog(this);
+    }
 
-    private void OnOpenBluetoothSettingsClick(object? sender, RoutedEventArgs e)
-        => OpenWindowsSettings("ms-settings:bluetooth");
+    private async void OnOpenBluetoothSettingsClick(object? sender, RoutedEventArgs e)
+    {
+        var dialog = new ConnectivityPopupWindow { Topmost = true };
+        await dialog.ShowDialog(this);
+    }
 
     private void OnOpenReleaseNotesClick(object? sender, RoutedEventArgs e)
         => OpenWindowsSettings("https://github.com/profcosta67/Handheld-Launcher/tree/main/release-notes");
