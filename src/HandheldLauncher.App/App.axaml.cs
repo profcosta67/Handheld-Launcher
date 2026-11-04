@@ -93,7 +93,10 @@ public partial class App : Application
             if (OperatingSystem.IsWindows())
             {
                 DisplayColorManager.CaptureOriginal();
-                DisplayColorManager.Apply(appSettings.ColorMode);
+                var colorIndex = Math.Clamp(appSettings.ColorMode, 0, DisplayColorManager.ModeNames.Length - 1);
+                var colorOk = DisplayColorManager.Apply(colorIndex);
+                HandheldLauncher.App.Diagnostics.StartupRestoreStatus.Report(
+                    "Cor", $"{DisplayColorManager.ModeNames[colorIndex]}{(colorOk ? " aplicada" : " não aplicada (veja [DisplayColor])")}", colorOk);
                 desktop.Exit += (_, _) => DisplayColorManager.RestoreOriginal();
             }
 
