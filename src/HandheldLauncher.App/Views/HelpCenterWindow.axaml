@@ -1,0 +1,49 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="HandheldLauncher.App.Views.HelpCenterWindow"
+        Title="Central de Ajuda"
+        Width="760" Height="800"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BackgroundBrush}">
+
+  <Window.Styles>
+    <Style Selector="Button.check">
+      <Setter Property="Background" Value="#202536" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="Padding" Value="14" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="FocusAdorner"><Template><Border BorderBrush="#7C5CFC" BorderThickness="3" CornerRadius="14" Margin="-3"/></Template></Setter>
+    </Style>
+    <Style Selector="Button.pill"><Setter Property="FocusAdorner"><Template><Border BorderBrush="#7C5CFC" BorderThickness="3" CornerRadius="16" Margin="-3"/></Template></Setter></Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="Auto,*,Auto" Margin="24">
+
+    <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,14">
+      <TextBlock Text="🩺 Central de Ajuda" FontSize="22" FontWeight="Bold" />
+      <TextBlock Text="Verificação rápida do launcher e do aparelho. Nada aqui muda suas configurações — é só leitura."
+                 Classes="subtle" FontSize="12" TextWrapping="Wrap" />
+      <TextBlock x:Name="TxtSummary" Text="Verificando..." FontSize="13" FontWeight="SemiBold" Margin="0,6,0,0" />
+    </StackPanel>
+
+    <ScrollViewer Grid.Row="1" x:Name="ResultsScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel x:Name="ResultsPanel" Spacing="10" Margin="0,0,10,8" />
+    </ScrollViewer>
+
+    <StackPanel Grid.Row="2" Spacing="10" Margin="0,16,0,0">
+      <TextBlock Text="Em breve aqui: manual com soluções para problemas comuns e o botão Reportar erro."
+                 Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Grid.Column="0" Text="🎮 ↑↓: navegar | A: selecionar | B: fechar" VerticalAlignment="Center" Foreground="#8794AE" FontSize="11" />
+        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+          <Button x:Name="BtnRerun" Classes="pill" Content="🔄 Verificar de novo" Click="OnRerunClick" />
+          <Button Classes="pill" Content="📂 Abrir pasta do log" Click="OnOpenLogFolderClick" />
+          <Button Classes="pill primary" Content="✕ Fechar" Click="OnCloseClick" />
+        </StackPanel>
+      </Grid>
+    </StackPanel>
+  </Grid>
+</Window>

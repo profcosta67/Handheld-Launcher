@@ -573,6 +573,7 @@ public sealed class MainViewModel : ViewModelBase
     public event EventHandler? OpenOverlayRequested;
     public event EventHandler? SystemUpdateRequested;
     public event EventHandler? DriverUpdateRequested;
+    public event EventHandler? HelpCenterRequested; // v0.16.2: Central de Ajuda
 
     public void RequestOpenOverlay() { OpenOverlayRequested?.Invoke(this, EventArgs.Empty); }
 
@@ -963,6 +964,7 @@ public sealed class MainViewModel : ViewModelBase
                 if (RunningGame is not null) Add($"⏹ Fechar: {RunningGame.Title}", CloseRunningGame);
                 Folder("📚 Biblioteca", GlobalMenuPage.Library); Folder("📊 HUD", GlobalMenuPage.Hud);
                 Folder("⚙ Configurações", GlobalMenuPage.Settings); Folder("⚡ Energia", GlobalMenuPage.Power);
+                Add("🩺 Central de Ajuda", () => HelpCenterRequested?.Invoke(this, EventArgs.Empty));
                 Add("⌨ Atalhos de Teclado", OpenShortcutsHelp);
                 Add("ℹ Sobre", OpenAbout); break;
         }
