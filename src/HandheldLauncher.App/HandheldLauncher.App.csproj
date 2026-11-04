@@ -11,7 +11,7 @@
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <RootNamespace>HandheldLauncher.App</RootNamespace>
     <AssemblyName>HandheldLauncher</AssemblyName>
-    <Version>0.15.0</Version>
+    <Version>0.15.1</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 

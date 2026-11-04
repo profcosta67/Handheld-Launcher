@@ -212,17 +212,39 @@ public sealed class ArtworkService : IArtworkService
 
     public async Task<bool> FetchIconAsync(GameEntry game, CancellationToken ct = default)
     {
-        if (!HasApiKey) return false;
-        var image = game.Source == GameSource.Steam && game.SteamAppId is { } appId
-            ? await _client.GetBestIconForSteamAppAsync(appId, ct)
+        if (!HasApiKey)
+        {
+            System.Diagnostics.Debug.WriteLine($"[SGDB ICON] Ignorado '{game.Title}': API key ausente.");
+            return false;
+        }
+
+        var lookup = game.Source == GameSource.Steam && game.SteamAppId is { } appId
+            ? $"Steam AppID {appId}"
+            : $"título '{game.Title}'";
+        System.Diagnostics.Debug.WriteLine($"[SGDB ICON] Buscando ícone de '{game.Title}' por {lookup} na categoria /icons/.");
+
+        var image = game.Source == GameSource.Steam && game.SteamAppId is { } steamAppId
+            ? await _client.GetBestIconForSteamAppAsync(steamAppId, ct)
             : await _client.GetBestIconForTitleAsync(game.Title, ct);
-        if (image is null) return false;
+
+        if (image is null)
+        {
+            System.Diagnostics.Debug.WriteLine($"[SGDB ICON] Nenhum resultado válido para '{game.Title}' ({lookup}).");
+            return false;
+        }
+
         var localPath = await DownloadToCache(image.Url, _cacheDir, $"{game.Id}_icon", ct);
-        if (localPath is null) return false;
+        if (localPath is null)
+        {
+            System.Diagnostics.Debug.WriteLine($"[SGDB ICON] Resultado encontrado, mas falhou ao baixar/validar: '{game.Title}'. URL='{image.Url}'.");
+            return false;
+        }
+
         var data = GetOrCreateOverride(game.Id);
         data.IconImagePath = localPath;
         _store.SaveOverride(game.Id, data);
         game.IconImagePath = localPath;
+        System.Diagnostics.Debug.WriteLine($"[SGDB ICON] Ícone salvo para '{game.Title}': {localPath}");
         return true;
     }
 

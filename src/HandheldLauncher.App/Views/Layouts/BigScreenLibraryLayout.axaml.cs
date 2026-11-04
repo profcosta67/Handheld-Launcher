@@ -40,8 +40,8 @@ public partial class BigScreenLibraryLayout : UserControl, ILibraryLayout
     /// </summary>
     bool ILibraryLayout.SupportsVerticalGrid => false;
 
-    /// <summary>A roleta vive disso: a capa em foco no centro, a fileira correndo por baixo.</summary>
-    bool ILibraryLayout.CentersSelection => true;
+    /// <summary>A seleção acompanha o fluxo natural da biblioteca Capsule Wide, sem recentralização forçada.</summary>
+    bool ILibraryLayout.CentersSelection => false;
 
     // Mesmos repasses do ClassicLibraryLayout — ver comentário lá.
     private MainWindow? Owner => TopLevel.GetTopLevel(this) as MainWindow;
@@ -53,4 +53,11 @@ public partial class BigScreenLibraryLayout : UserControl, ILibraryLayout
     private void OnTileDoubleTapped(object? sender, TappedEventArgs e) => Owner?.HandleTileDoubleTapped(sender, e);
 
     private void OnSubFilterClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => Owner?.HandleSubFilterClick(sender, e);
+
+    private void OnOpenWifiSettingsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        => Owner?.OpenConnectivityPopup();
+
+    private void OnOpenBluetoothSettingsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        => Owner?.OpenConnectivityPopup();
+
 }

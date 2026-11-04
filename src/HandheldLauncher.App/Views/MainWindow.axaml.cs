@@ -68,6 +68,8 @@ public partial class MainWindow : Window
 
     private const int SW_RESTORE = 9;
     private static readonly IntPtr HWND_TOPMOST = new(-1);
+    private static readonly IntPtr HWND_NOTOPMOST = new(-2);
+    private bool _externalSettingsOpen;
     private const uint SWP_NOMOVE = 0x0002;
     private const uint SWP_NOSIZE = 0x0001;
     private const uint SWP_SHOWWINDOW = 0x0040;
@@ -207,7 +209,19 @@ public partial class MainWindow : Window
         };
 
         Closed += (_, _) => UnregisterRestoreHotkeyIfNeeded();
-        Activated += (_, _) => { if (OperatingSystem.IsWindows()) PowerThrottling.DisableForThisProcess(); };
+        Activated += (_, _) =>
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                PowerThrottling.DisableForThisProcess();
+                if (_externalSettingsOpen)
+                {
+                    _externalSettingsOpen = false;
+                    Topmost = true;
+                    DebugLog.Write("[CONNECTIVITY] Launcher retomou o foco; prioridade de janela restaurada.");
+                }
+            }
+        };
     }
 
     private void ForceForeground(bool allowRestore = false, bool forceIfGameRunning = false)
@@ -283,21 +297,16 @@ public partial class MainWindow : Window
             if (IsActive) { _foregroundFighterTimer?.Stop(); return; }
             if (_activeDialog != null) { _foregroundFighterTimer?.Stop(); return; }
 
-            try
+            // Durante o arranque, outros processos do Windows podem ganhar
+            // foco por alguns instantes. Continuamos a tentar por até 16 s;
+            // qualquer interação do usuário cancela as tentativas.
+            ForceForeground(forceIfGameRunning: true);
+
+            if (attempts >= 20)
             {
-                var fg = GetForegroundWindow();
-                var myHandle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
-                if (fg != IntPtr.Zero && myHandle != IntPtr.Zero && fg != myHandle)
-                {
-                    _foregroundFighterTimer?.Stop();
-                    return;
-                }
+                DebugLog.Write($"[STARTUP] Tentativas de foco concluídas. IsActive={IsActive}.");
+                _foregroundFighterTimer?.Stop();
             }
-            catch { }
-
-            ForceForeground();
-
-            if (attempts >= 20) _foregroundFighterTimer?.Stop();
         };
         _foregroundFighterTimer.Start();
         Closed += (_, _) => _foregroundFighterTimer?.Stop();
@@ -1599,4 +1608,43 @@ public partial class MainWindow : Window
         var dialog = new DriverUpdateWindow(); _activeDialog = dialog; dialog.Topmost = true;
         try { await dialog.ShowDialog(this); } finally { _activeDialog = null; }
     }
+
+    public void OpenWindowsSettings(string uri)
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        try
+        {
+            // O launcher é normalmente Topmost. Rebaixa-o antes de abrir
+            // as Configurações do Windows para não cobrir a janela externa.
+            _externalSettingsOpen = true;
+            Topmost = false;
+            var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+            if (handle != IntPtr.Zero)
+                SetWindowPos(handle, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(uri) { UseShellExecute = true });
+            DebugLog.Write($"[CONNECTIVITY] Configurações externas solicitadas: {uri}");
+        }
+        catch (Exception ex)
+        {
+            _externalSettingsOpen = false;
+            DebugLog.Write($"[CONNECTIVITY] Não foi possível abrir {uri}: {ex.Message}");
+            Topmost = true;
+        }
+    }
+
+    public async void OpenConnectivityPopup()
+    {
+        var dialog = new ConnectivityPopupWindow { Topmost = true };
+        _activeDialog = dialog;
+        try { await dialog.ShowDialog(this); }
+        finally { _activeDialog = null; }
+    }
+
+    private void OnOpenWifiSettingsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        => OpenConnectivityPopup();
+
+    private void OnOpenBluetoothSettingsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        => OpenConnectivityPopup();
+
 }

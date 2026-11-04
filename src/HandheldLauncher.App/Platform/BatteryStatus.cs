@@ -64,9 +64,7 @@ public static class BatteryStatus
             if ((status.BatteryFlag & BatteryFlagNoSystemBattery) != 0) return string.Empty;
             if (status.BatteryLifePercent == BatteryLifePercentUnknown) return string.Empty;
 
-            var pluggedIn = status.ACLineStatus == AcLineStatusOnline;
-            var icon = pluggedIn ? "🔌" : "⚡";
-            return $"{icon} {status.BatteryLifePercent}%";
+            return $"{status.BatteryLifePercent}%";
         }
         catch
         {
