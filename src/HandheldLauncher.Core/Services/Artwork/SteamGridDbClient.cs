@@ -216,10 +216,8 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
     {
         if (string.IsNullOrWhiteSpace(value)) return string.Empty;
 
-        // 🟢 Remove sufixos de instância (-001, -002) gerados por emuladores
         value = Regex.Replace(value, @"-\d{3}$", "");
 
-        // 🟢 NOVO: Remove acentos (é -> e, á -> a) para garantir que "Pokémon" e "Pokemon" sejam iguais
         var normalized = value.Normalize(NormalizationForm.FormD);
         var sb = new StringBuilder();
         foreach (var c in normalized)
@@ -228,7 +226,6 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
                 sb.Append(c);
         }
 
-        // Remove pontuação e converte para minúsculas
         var result = new string(sb.ToString()
             .ToLowerInvariant()
             .Select(c => char.IsLetterOrDigit(c) ? c : ' ')

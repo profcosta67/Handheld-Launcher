@@ -2,7 +2,11 @@
 
 Launcher para PCs portáteis e handhelds Windows, reunindo biblioteca de jogos, atalhos, ajustes de hardware e ferramentas de captura em uma interface otimizada para controle.
 
+<<<<<<< HEAD
 **Versão atual:** v0.14.9
+=======
+**Versão atual:** v0.15.1
+>>>>>>> 6b50390488994743904ad660c78a3cc0a532c2c8
 
 ## Funcionalidades
 

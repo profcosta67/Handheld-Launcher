@@ -668,6 +668,10 @@ public sealed class MainViewModel : ViewModelBase
 
         if (string.IsNullOrEmpty(LaunchingGameIconPath)) LaunchingGameIconPath = ResolveFallbackImage(game);
 
+<<<<<<< HEAD
+=======
+        // Se o ícone do SteamGridDB ainda estiver baixando, atualiza o popup assim que chegar.
+>>>>>>> 6b50390488994743904ad660c78a3cc0a532c2c8
         if (string.IsNullOrEmpty(LaunchingGameIconPath) && _artwork.HasApiKey)
             _ = FetchLaunchIconAsync(game);
 
@@ -1069,18 +1073,24 @@ public sealed class MainViewModel : ViewModelBase
 
         if (userInitiated)
         {
+            // O auto-fetch de inicialização pode ainda estar usando o semáforo.
+            // Cancela-o e aguarda a liberação por até 60s; 5s fazia o comando
+            // manual desistir antes de criar o popup personalizado.
             try { _ownedArtworkCts?.Cancel(); } catch { }
-            if (!await _artworkSemaphore.WaitAsync(TimeSpan.FromSeconds(5)))
+            DebugLog.Write("[SGDB] Download manual aguardando a fila atual (até 60s).");
+            if (!await _artworkSemaphore.WaitAsync(TimeSpan.FromSeconds(60)))
             {
-                DebugLog.Write("[SGDB] TIMEOUT esperando lock — abortando");
+                DebugLog.Write("[SGDB] TIMEOUT aguardando fila de artwork após 60s — comando manual não iniciado.");
                 return;
             }
         }
         else
         {
-            if (!await _artworkSemaphore.WaitAsync(0))
+            // O auto-fetch só é disparado uma vez após a inicialização.
+            // Aguarda a fila de downloads existentes em vez de desistir no primeiro conflito.
+            if (!await _artworkSemaphore.WaitAsync(TimeSpan.FromSeconds(60)))
             {
-                DebugLog.Write("[SGDB] ABORT background: outro download em andamento");
+                DebugLog.Write("[SGDB] TIMEOUT background aguardando outro download — abortando com segurança");
                 return;
             }
         }
@@ -1157,6 +1167,15 @@ public sealed class MainViewModel : ViewModelBase
             if (total == 0)
             {
                 DebugLog.Write("[SGDB] Nada a baixar — todas as capas já estão no cache.");
+                modal?.UpdateProgress(0, 0, "Todas as capas já estão atualizadas");
+                modal?.CloseForReal();
+                if (dialogTask is not null) { try { await dialogTask; } catch { } }
+                IsFetchingArtwork = false;
+                _artworkPauseGate.Set();
+                _ownedArtworkCts?.Dispose();
+                _ownedArtworkCts = null;
+                try { _artworkSemaphore.Release(); } catch { }
+                DebugLog.Write("[SGDB] Lock de artwork liberado (nenhuma capa pendente).");
                 return;
             }
 

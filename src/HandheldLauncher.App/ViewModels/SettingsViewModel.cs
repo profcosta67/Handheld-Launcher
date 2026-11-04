@@ -202,7 +202,10 @@ public sealed class SettingsViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsCategoryLosslessActive));
                 OnPropertyChanged(nameof(IsCategoryConnectivityActive));
                 OnPropertyChanged(nameof(IsCategoryNewsActive));
+<<<<<<< HEAD
                 OnPropertyChanged(nameof(SaveButtonText));
+=======
+>>>>>>> 6b50390488994743904ad660c78a3cc0a532c2c8
             }
         }
     }
@@ -216,8 +219,11 @@ public sealed class SettingsViewModel : ViewModelBase
     public bool IsCategoryLosslessActive => _categoryIndex == 6;
     public bool IsCategoryConnectivityActive => _categoryIndex == 7;
     public bool IsCategoryNewsActive => _categoryIndex == 8;
+<<<<<<< HEAD
 
     public string SaveButtonText => IsCategoryNewsActive ? "✕ Fechar" : "✕ Salvar e fechar";
+=======
+>>>>>>> 6b50390488994743904ad660c78a3cc0a532c2c8
 
     private int _fontIndex;
     public int FontIndex { get => _fontIndex; set => SetField(ref _fontIndex, value); }
