@@ -52,6 +52,23 @@ public partial class SettingsWindow : Window
         }, RoutingStrategies.Bubble);
     }
 
+    // v0.16.1: rede de segurança — garante que as configurações sejam
+    // persistidas independente de COMO a janela é fechada (botão "Salvar
+    // e fechar", botão nativo da titlebar, Alt+F4, ou "Back" do gamepad
+    // com o foco na zona de Tabs). Antes, só o clique no botão "Salvar e
+    // fechar" chamava SaveTo(); os outros caminhos de fechamento (em
+    // especial o "Back" do gamepad, o jeito mais natural de sair num
+    // handheld) fechavam a janela sem salvar nada, descartando qualquer
+    // alteração feita — incluindo o toggle "Receber atualizações beta".
+    // SaveTo() já é idempotente (reescreve os mesmos valores do
+    // ViewModel em AppSettings e persiste em disco), então chamá-la de
+    // novo aqui não tem efeito colateral nos caminhos que já salvavam.
+    protected override void OnClosing(WindowClosingEventArgs e)
+    {
+        ViewModel.SaveTo(_settings);
+        base.OnClosing(e);
+    }
+
     private void OnSettingsKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Source is TextBox && e.Key is not Key.Escape) return;
@@ -486,7 +503,6 @@ public partial class SettingsWindow : Window
 
     private void OnSaveAndCloseClick(object? sender, RoutedEventArgs e)
     {
-        if (ViewModel.IsCategoryNewsActive) { Close(); return; }
         ViewModel.SaveTo(_settings);
         Close();
     }

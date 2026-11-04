@@ -217,7 +217,10 @@ public sealed class SettingsViewModel : ViewModelBase
     public bool IsCategoryConnectivityActive => _categoryIndex == 7;
     public bool IsCategoryNewsActive => _categoryIndex == 8;
 
-    public string SaveButtonText => IsCategoryNewsActive ? "✕ Fechar" : "✕ Salvar e fechar";
+    // v0.16.2: antes, a aba Novidades mostrava "✕ Fechar" (e o clique não
+    // salvava) porque era só leitura. Desde a v0.16 ela tem o toggle
+    // "Receber atualizações beta", então o rótulo enganava o usuário.
+    public string SaveButtonText => "✕ Salvar e fechar";
 
     private int _fontIndex;
     public int FontIndex { get => _fontIndex; set => SetField(ref _fontIndex, value); }

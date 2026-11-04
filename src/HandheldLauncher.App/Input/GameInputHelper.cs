@@ -84,6 +84,23 @@ internal static unsafe class GameInputHelper
                 UseShellExecute = false,
                 CreateNoWindow = true,
             });
+            DebugLog.Write($"GameInputHelper: ajudante iniciado (pid={_helper?.Id.ToString() ?? "null"}).");
+
+            // v0.16.2 (diagnóstico): o ajudante loga "rodando" e some sem mais
+            // nenhuma linha. O código de saída diz como ele morreu:
+            // 0 = saiu sozinho; 0xC0000005 = crash nativo (access violation);
+            // 0xE0434352 = exceção .NET não tratada; 0xFFFFFFFF = morto via
+            // Kill() (o próprio StopHelperProcess ao voltar pra biblioteca).
+            if (_helper is not null)
+            {
+                var helper = _helper;
+                helper.EnableRaisingEvents = true;
+                helper.Exited += (_, _) =>
+                {
+                    try { DebugLog.Write($"GameInputHelper: ajudante saiu (pid={helper.Id}, código=0x{helper.ExitCode:X8})."); }
+                    catch { }
+                };
+            }
         }
         catch (Exception ex)
         {
@@ -123,6 +140,7 @@ internal static unsafe class GameInputHelper
                 while (true)
                 {
                     signal.WaitOne();
+                    DebugLog.Write("GameInputHelper: sinal L3+R3 recebido do ajudante.");
                     onCombo();
                 }
             }
@@ -142,6 +160,14 @@ internal static unsafe class GameInputHelper
     public static void RunHelper(string[] args)
     {
         var parentPid = args.Length > 1 && int.TryParse(args[1], out var pid) ? pid : 0;
+
+        // v0.16.2 (diagnóstico): deixar rastro se o ajudante sair por
+        // exceção .NET ou encerramento normal (crash nativo não passa aqui —
+        // nesse caso o launcher registra o código de saída).
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+            DebugLog.Write($"GameInputHelper: exceção não tratada no ajudante: {e.ExceptionObject}");
+        AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+            DebugLog.Write("GameInputHelper: ajudante encerrando (ProcessExit).");
 
         IntPtr gameInput;
         try
@@ -165,31 +191,63 @@ internal static unsafe class GameInputHelper
 
         setFocusPolicy(gameInput, GameInputEnableBackgroundInput);
         DebugLog.Write("GameInputHelper: rodando (entrada em segundo plano ligada)");
+        LogLoadedGameInputModule();
 
         using var signal = new EventWaitHandle(false, EventResetMode.AutoReset, EventName);
         var wasDown = false;
         var lastParentCheck = DateTime.UtcNow;
 
+        // v0.16.2 (diagnóstico): o ajudante sobe e liga a entrada em segundo
+        // plano, mas não detecta L3+R3 com o jogo na frente. Estes contadores
+        // mostram no debug.log se ele está lendo o controle (e o quê), ou se
+        // GetCurrentReading está falhando — sem isso não dá pra saber.
+        var okReads = 0;
+        var failReads = 0;
+        var lastHr = 0;
+        uint lastButtons = 0;
+        var buttonChangesLogged = 0;
+        var lastHeartbeat = DateTime.UtcNow;
+
+        DebugLog.Write($"GameInputHelper: entrando no loop de leitura (pai pid={parentPid}).");
         while (true)
         {
             if (DateTime.UtcNow - lastParentCheck > TimeSpan.FromSeconds(2))
             {
                 lastParentCheck = DateTime.UtcNow;
-                if (!IsAlive(parentPid)) return;
+                if (!IsAlive(parentPid))
+                {
+                    DebugLog.Write($"GameInputHelper: launcher (pid={parentPid}) não está mais vivo — ajudante saindo.");
+                    return;
+                }
             }
 
             IntPtr reading = IntPtr.Zero;
-            if (getCurrentReading(gameInput, GameInputKindGamepad, IntPtr.Zero, &reading) >= 0 && reading != IntPtr.Zero)
+            var hr = getCurrentReading(gameInput, GameInputKindGamepad, IntPtr.Zero, &reading);
+            if (hr >= 0 && reading != IntPtr.Zero)
             {
+                okReads++;
                 var readingTable = *(IntPtr**)reading;
                 var getGamepadState = (delegate* unmanaged[Stdcall]<IntPtr, GamepadState*, byte>)readingTable[SlotGetGamepadState];
                 var release = (delegate* unmanaged[Stdcall]<IntPtr, uint>)readingTable[SlotRelease];
 
                 GamepadState state;
-                var isDown = getGamepadState(reading, &state) != 0
+                var gotState = getGamepadState(reading, &state) != 0;
+                release(reading);
+
+                if (gotState && state.Buttons != lastButtons)
+                {
+                    // Limite pra não inundar o log se alguém ficar apertando tudo.
+                    if (buttonChangesLogged < 60)
+                    {
+                        DebugLog.Write($"GameInputHelper: botões=0x{state.Buttons:X4}");
+                        buttonChangesLogged++;
+                    }
+                    lastButtons = state.Buttons;
+                }
+
+                var isDown = gotState
                              && (state.Buttons & LeftThumbstick) != 0
                              && (state.Buttons & RightThumbstick) != 0;
-                release(reading);
 
                 if (isDown && !wasDown)
                 {
@@ -198,8 +256,45 @@ internal static unsafe class GameInputHelper
                 }
                 wasDown = isDown;
             }
+            else
+            {
+                failReads++;
+                lastHr = hr;
+            }
+
+            if (DateTime.UtcNow - lastHeartbeat > TimeSpan.FromSeconds(60))
+            {
+                DebugLog.Write($"GameInputHelper: vivo (último minuto) — leituras ok={okReads}, falhas={failReads}, último hr=0x{lastHr:X8}");
+                okReads = 0;
+                failReads = 0;
+                lastHeartbeat = DateTime.UtcNow;
+            }
 
             Thread.Sleep(30);
+        }
+    }
+
+    /// <summary>
+    /// v0.16.2 (diagnóstico): qual GameInput.dll foi carregado e a versão
+    /// dele — o runtime do GameInput é atualizado pelo Windows separado do
+    /// launcher, e a API v0 usada aqui pode se comportar diferente.
+    /// </summary>
+    private static void LogLoadedGameInputModule()
+    {
+        try
+        {
+            using var self = Process.GetCurrentProcess();
+            foreach (ProcessModule module in self.Modules)
+            {
+                if (!string.Equals(module.ModuleName, "GameInput.dll", StringComparison.OrdinalIgnoreCase)) continue;
+                DebugLog.Write($"GameInputHelper: GameInput.dll = '{module.FileName}' v{module.FileVersionInfo.FileVersion}");
+                return;
+            }
+            DebugLog.Write("GameInputHelper: GameInput.dll não encontrado entre os módulos carregados.");
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"GameInputHelper: não consegui ler a versão do GameInput.dll ({ex.Message})");
         }
     }
 

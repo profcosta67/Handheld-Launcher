@@ -444,28 +444,45 @@ public partial class MainWindow : Window
 
                 DebugLog.Write($"[OVERLAY] Antes Show: IsVisible={_overlayWindow.IsVisible}, Pos={_overlayWindow.Position}, GameHwnd=0x{gameHwnd:X}");
 
+                // v0.16.1: antes disto, o "flash" na posição errada era evitado
+                // chamando ShowWindow() nativo (SW_HIDE / SW_SHOWNORMAL) por fora
+                // do Avalonia. Isso muda a visibilidade da janela direto no
+                // Windows, sem passar pelo Avalonia — e o OnGamepadTick decide
+                // se o gamepad vai pro overlay ou pro launcher checando
+                // _overlayWindow.IsVisible (a propriedade do Avalonia). Suspeito
+                // de ser a causa do bug intermitente em que o Quick Settings
+                // aparece na frente, mas a navegação continua presa no launcher
+                // atrás: usar Opacity em vez de ShowWindow() nativo evita esconder
+                // a janela "por fora" do Avalonia, então IsVisible fica estável
+                // durante todo o processo de reposicionamento.
+                _overlayWindow.Opacity = 0;
                 _overlayWindow.Show();
 
-                var hwnd = _overlayWindow.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
-                if (hwnd != IntPtr.Zero)
+                // v0.16.2: Show() real (acima) dispara OnOpened da própria
+                // OverlayWindow em TODO open agora — não só no primeiro, como
+                // antes de trocar pro Show()/Opacity real (v0.16.1). OnOpened
+                // já faz seu próprio PositionOnRightEdge()+ForceTopmost() (mais
+                // um retry de 200ms de segurança). Chamar os dois de novo aqui
+                // duplicava o reposicionamento e o ForceTopmost em toda
+                // abertura, competindo em ~200ms um com o outro — isso é o que
+                // causava o overlay "brigando" com o launcher pela frente,
+                // relatado depois do beta.1. Aqui só esperamos (mesma
+                // prioridade de Dispatcher, então entra na fila depois do post
+                // que o OnOpened já fez durante o Show() acima) e restauramos
+                // a opacidade.
+                Dispatcher.UIThread.Post(() =>
                 {
-                    ShowWindow(hwnd, 0);
-
-                    Dispatcher.UIThread.Post(() =>
+                    try
                     {
-                        try
-                        {
-                            _overlayWindow.PositionOnRightEdge();
-                            ShowWindow(hwnd, 1);
-                            _overlayWindow.ForceTopmost();
-                            DebugLog.Write($"[OVERLAY] Reposicionado e mostrado. Pos={_overlayWindow.Position}");
-                        }
-                        catch (Exception ex)
-                        {
-                            DebugLog.Write($"[OVERLAY] PostShow EXCEPTION: {ex.Message}");
-                        }
-                    }, DispatcherPriority.Loaded);
-                }
+                        _overlayWindow.Opacity = 1;
+                        DebugLog.Write($"[OVERLAY] Mostrado (reposicionado pelo OnOpened). Pos={_overlayWindow.Position}, IsVisible={_overlayWindow.IsVisible}");
+                    }
+                    catch (Exception ex)
+                    {
+                        DebugLog.Write($"[OVERLAY] PostShow EXCEPTION: {ex.Message}");
+                        _overlayWindow.Opacity = 1;
+                    }
+                }, DispatcherPriority.Loaded);
 
                 DebugLog.Write($"[OVERLAY] Depois Show: IsVisible={_overlayWindow.IsVisible}, Pos={_overlayWindow.Position}");
             }
