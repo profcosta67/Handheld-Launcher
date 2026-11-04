@@ -134,6 +134,17 @@ public partial class OverlayWindow : Window
             if (OperatingSystem.IsWindows())
             {
                 _fanCurveService = new LenovoFanCurveService();
+                if (_tdpHardwareSupported && !_fanCurveService.IsSupportedModel)
+                {
+                    // TDP continua liberado em qualquer Ryzen Zen 4 Mobile
+                    // (Phoenix/Hawk Point) — não só no Legion Go 2 — pra não
+                    // travar o recurso em aparelhos como ROG Ally/Ally X, que
+                    // usam o mesmo silício. Só avisamos que este modelo
+                    // específico ainda não foi validado, na mesma faixa
+                    // (5W-30W) que ferramentas como RyzenAdj já usam nele.
+                    TxtTdpStatus.Text = "Ainda não validado neste modelo específico; comandos ficam entre 5W e 30W.";
+                    TxtTdpStatus.IsVisible = true;
+                }
                 if (_fanCurveService.TryRead(out _, out var fanReadMessage))
                 {
                     _currentFanMode = string.IsNullOrWhiteSpace(settings.FanMode) ? "Automático" : settings.FanMode;

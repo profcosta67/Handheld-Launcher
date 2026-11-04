@@ -30,17 +30,17 @@ Launcher para PCs portáteis e handhelds Windows, reunindo biblioteca de jogos, 
 
 ## Aparelhos suportados
 
-| Aparelho | Biblioteca, artes, overlay | TDP / ventoinha |
-| --- | --- | --- |
-| Lenovo Legion Go 2 (modelo 8AHP2, Z2/Hawk Point) | Sim | Sim, via [PawnIO](https://pawnio.eu/) |
-| Outros handhelds Windows x64 (ex.: ROG Xbox Ally) | Sim | Ainda não — em desenvolvimento |
+| Aparelho | Biblioteca, artes, overlay | TDP (via PawnIO) | Curva de ventoinha |
+| --- | --- | --- | --- |
+| Lenovo Legion Go 2 (modelo 8AHP2, Z2/Hawk Point) | Sim | Sim, validado | Sim, validado |
+| Outros handhelds com AMD Phoenix/Hawk Point (ex.: ROG Ally, ROG Ally X — Z1/Z1 Extreme) | Sim | Sim, mesma faixa de 5W-30W, mas **ainda não validado nesse modelo específico** — o overlay mostra esse aviso | Não — exclusivo do Legion Go (API própria da Lenovo) |
 
-Fora do TDP e da curva de ventoinha, que dependem de hardware específico, o restante do launcher roda em qualquer PC ou handheld Windows 10/11 x64.
+Fora da curva de ventoinha, que depende de uma API exclusiva da Lenovo, o restante do launcher — incluindo o TDP — roda em qualquer handheld Windows 10/11 x64 com processador AMD Phoenix ou Hawk Point.
 
 ## Requisitos
 
 - Windows 10 ou Windows 11, 64 bits.
-- Para TDP: processador AMD Phoenix ou Hawk Point (o único validado hoje é o Legion Go 2) e o runtime do [PawnIO](https://pawnio.eu/) instalado.
+- Para TDP: processador AMD Phoenix ou Hawk Point (Ryzen Z1/Z1 Extreme/Z2, série 7040/8040 mobile) e o runtime do [PawnIO](https://pawnio.eu/) instalado. Validado no Legion Go 2; em outros modelos os comandos usam a mesma faixa seletiva de 5W-30W, mas sem validação própria ainda.
 
 ## Instalação
 
