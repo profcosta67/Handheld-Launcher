@@ -26,7 +26,7 @@ public static class ThemeManager
     /// Temas de LAYOUT (v0.9.19) — o esqueleto da tela, não a cor. Índice
     /// salvo em AppSettings.LayoutTheme.
     /// </summary>
-    public static readonly string[] LayoutThemeNames = ["Clássico", "Switch"];
+    public static readonly string[] LayoutThemeNames = ["Clássico", "Clean", "BigScreen"];
 
     /// <summary>
     /// Fontes da interface — todas já vêm instaladas no Windows 10/11.
