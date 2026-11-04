@@ -26,13 +26,20 @@ jobs:
       - name: Compilar
         run: dotnet build HandheldLauncher.sln -c Release --no-restore
 
+      # Versão do pacote de teste = o que está em VERSION + "-preview", pra
+      # nunca ficar presa a uma versão antiga (mesma fonte que release.yml usa).
+      - name: Descobrir versão de teste
+        id: ver
+        shell: bash
+        run: echo "version=$(tr -d ' \r\n' < VERSION)-preview" >> "$GITHUB_OUTPUT"
+
       # Pacote independente para testar a interface no handheld.
       # Não usa Velopack e não publica uma versão oficial.
       - name: Publicar pacote portátil de teste (win-x64)
         run: >
           dotnet publish src/HandheldLauncher.App -c Release -r win-x64
           --self-contained true
-          -p:Version=0.14.9-preview
+          -p:Version=${{ steps.ver.outputs.version }}
           -o preview-publish
 
       - name: Preparar FFmpeg (binário fixo e verificado por SHA-256)

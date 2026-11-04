@@ -11,7 +11,12 @@
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <RootNamespace>HandheldLauncher.App</RootNamespace>
     <AssemblyName>HandheldLauncher</AssemblyName>
-    <Version>0.15.5</Version>
+    <!-- Fonte única da versão: o arquivo VERSION na raiz do repo. CI e
+         release.yml também leem desse arquivo (ver -p:Version), então ele
+         nunca precisa ser editado em dois lugares. Um `-p:Version=X` passado
+         na linha de comando (como o CI/release fazem) ainda sobrescreve isto
+         normalmente — é só o valor padrão de build local. -->
+    <Version>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)../../VERSION').Trim())</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
