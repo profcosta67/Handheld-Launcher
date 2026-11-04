@@ -182,7 +182,8 @@ public partial class MainWindow : Window
         {
             _gamepadTimer.Stop();
             RemoveTrayIcon();
-            try { InputBlockService.UnblockGamepadForGame(); } catch { }
+            try { InputBlockService.UnblockGamepadForGame(); }
+            catch (Exception ex) { DebugLog.Write($"[InputBlock] Falha ao desbloquear gamepad no fechamento: {ex.Message}"); }
             if (_overlayWindow != null)
             {
                 _overlayWindow.IsAppClosing = true;
@@ -194,7 +195,8 @@ public partial class MainWindow : Window
 
         Opened += (_, _) =>
         {
-            try { InputBlockService.RecoverOrphanedSuspension(); } catch { }
+            try { InputBlockService.RecoverOrphanedSuspension(); }
+            catch (Exception ex) { DebugLog.Write($"[InputBlock] Falha ao recuperar suspensão órfã na abertura: {ex.Message}"); }
 
             StartTopmostEnforcer();
             RegisterRestoreHotkey();

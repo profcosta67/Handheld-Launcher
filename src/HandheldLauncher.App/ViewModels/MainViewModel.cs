@@ -376,14 +376,16 @@ public sealed class MainViewModel : ViewModelBase
         var last = Interlocked.Read(ref _lastOverlayCycleTicks);
         if (now - last < 500 || Interlocked.CompareExchange(ref _lastOverlayCycleTicks, now, last) != last) return;
         _hud.Preset = (_hud.Preset + 1) % PerformanceHud.PresetNames.Length;
-        try { var settings = AppSettingsStore.Load(); settings.OverlayPreset = _hud.Preset; AppSettingsStore.Save(settings); } catch { }
+        try { var settings = AppSettingsStore.Load(); settings.OverlayPreset = _hud.Preset; AppSettingsStore.Save(settings); }
+        catch (Exception ex) { DebugLog.Write($"[HUD] Falha ao salvar preset do overlay: {ex.Message}"); }
     }
 
     public void SetOverlayPreset(int preset)
     {
         if (_hud is null || !OperatingSystem.IsWindows()) return;
         _hud.Preset = preset;
-        try { var settings = AppSettingsStore.Load(); settings.OverlayPreset = _hud.Preset; AppSettingsStore.Save(settings); } catch { }
+        try { var settings = AppSettingsStore.Load(); settings.OverlayPreset = _hud.Preset; AppSettingsStore.Save(settings); }
+        catch (Exception ex) { DebugLog.Write($"[HUD] Falha ao salvar preset do overlay: {ex.Message}"); }
     }
 
     public void ClearOverlayNow() { if (OperatingSystem.IsWindows()) _hud?.ClearNow(); }
@@ -394,7 +396,8 @@ public sealed class MainViewModel : ViewModelBase
     {
         if (_hud is null || !OperatingSystem.IsWindows()) return;
         _hud.Preset = enabled ? Math.Max(1, _hud.Preset) : 0;
-        try { var settings = AppSettingsStore.Load(); settings.OverlayPreset = _hud.Preset; AppSettingsStore.Save(settings); } catch { }
+        try { var settings = AppSettingsStore.Load(); settings.OverlayPreset = _hud.Preset; AppSettingsStore.Save(settings); }
+        catch (Exception ex) { DebugLog.Write($"[HUD] Falha ao salvar preset do overlay: {ex.Message}"); }
         OnPropertyChanged(nameof(IsPerformanceHudEnabled));
     }
 
@@ -420,7 +423,7 @@ public sealed class MainViewModel : ViewModelBase
             UpdateHudColorMode(settings.ColorMode switch { 1 => "Vívido", 2 => "OLED", 3 => "Noturno", _ => "Padrão" });
             UpdateHudRecordingState(false);
         }
-        catch { }
+        catch (Exception ex) { DebugLog.Write($"[HUD] Falha ao inicializar HUD a partir das configurações: {ex.Message}"); }
     }
 
     private string _batteryStatusText = string.Empty;
@@ -1402,7 +1405,8 @@ public sealed class MainViewModel : ViewModelBase
     {
         if (!IsCoverPickerOpen || _coverPickerGame is null || CoverPickerCandidates.Count == 0) { CloseCoverPicker(); return; }
         var chosen = CoverPickerCandidates[_coverPickerIndex].Candidate; var game = _coverPickerGame; var kind = _coverPickerKind; CloseCoverPicker();
-        try { var applied = kind switch { ArtworkPickerKind.WideGrid => await _artwork.ApplyWideGridCandidateAsync(game, chosen), ArtworkPickerKind.Hero => await _artwork.ApplyHeroCandidateAsync(game, chosen), ArtworkPickerKind.Logo => await _artwork.ApplyLogoCandidateAsync(game, chosen), ArtworkPickerKind.Icon => await _artwork.ApplyIconCandidateAsync(game, chosen), _ => await _artwork.ApplyGridCandidateAsync(game, chosen), }; } catch { }
+        try { var applied = kind switch { ArtworkPickerKind.WideGrid => await _artwork.ApplyWideGridCandidateAsync(game, chosen), ArtworkPickerKind.Hero => await _artwork.ApplyHeroCandidateAsync(game, chosen), ArtworkPickerKind.Logo => await _artwork.ApplyLogoCandidateAsync(game, chosen), ArtworkPickerKind.Icon => await _artwork.ApplyIconCandidateAsync(game, chosen), _ => await _artwork.ApplyGridCandidateAsync(game, chosen), }; }
+        catch (Exception ex) { DebugLog.Write($"[SGDB] Falha ao aplicar capa escolhida para '{game.Title}': {ex.Message}"); }
         Refresh();
     }
 

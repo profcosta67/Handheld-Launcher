@@ -218,12 +218,12 @@ public static class InputBlockService
             if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
             File.WriteAllText(SuspendMarkerPath, pid.ToString());
         }
-        catch { }
+        catch (Exception ex) { DebugLog.Write($"[INPUT-RECOVERY] Falha ao gravar marcador de suspensão (PID {pid}): {ex.Message}"); }
     }
 
     private static void DeleteMarker()
     {
         try { if (File.Exists(SuspendMarkerPath)) File.Delete(SuspendMarkerPath); }
-        catch { }
+        catch (Exception ex) { DebugLog.Write($"[INPUT-RECOVERY] Falha ao remover marcador de suspensão: {ex.Message}"); }
     }
 }

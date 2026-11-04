@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using HandheldLauncher.App.Diagnostics;
 using HandheldLauncher.App.Platform;
 using HandheldLauncher.App.ViewModels;
 using HandheldLauncher.App.Views;
@@ -29,14 +30,16 @@ public partial class App : Application
                 && SteamAccountDetector.FindMostRecent() is { } steamAccount)
             {
                 appSettings.SteamId64 = steamAccount.SteamId64;
-                try { AppSettingsStore.Save(appSettings); } catch { }
+                try { AppSettingsStore.Save(appSettings); }
+                catch (Exception ex) { DebugLog.Write($"[Startup] Falha ao salvar SteamId64 detectado: {ex.Message}"); }
             }
 
             if (string.IsNullOrWhiteSpace(appSettings.EdenExecutablePath)
                 && EdenInstallationDetector.FindExecutable() is { } edenExe)
             {
                 appSettings.EdenExecutablePath = edenExe;
-                try { AppSettingsStore.Save(appSettings); } catch { }
+                try { AppSettingsStore.Save(appSettings); }
+                catch (Exception ex) { DebugLog.Write($"[Startup] Falha ao salvar caminho do Eden detectado: {ex.Message}"); }
             }
 
             var steamScanner = new SteamLibraryScanner();
@@ -69,7 +72,7 @@ public partial class App : Application
                         RtssProfileConfig.TryConfigureGlobalOsd(rtssDir);
                     }
                 }
-                catch { }
+                catch (Exception ex) { DebugLog.Write($"[Startup] Falha ao configurar RTSS/overlay de desempenho: {ex.Message}"); }
             }
 
             var updateService = new UpdateService(appSettings.BetaChannelOptIn);
