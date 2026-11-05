@@ -52,7 +52,7 @@ internal static class HealthChecks
             foreach (var r in results)
                 DebugLog.Write($"[AJUDA] {Label(r.Status)} {r.Title}: {r.Summary}");
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
 
         return results;
     });

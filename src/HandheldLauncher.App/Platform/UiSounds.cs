@@ -58,12 +58,17 @@ internal static class UiSounds
     /// ("Clássico") é o som original já aprovado; os outros são variações
     /// mais discretas, nunca algo chamativo.
     /// </summary>
-    public static readonly string[] PackNames = ["Clássico", "Suave", "Retro", "Future"];
+    // v0.16.4: os bipes antigos (Clássico, Suave, Retro, Future) foram trocados
+    // por 7 estilos novos escolhidos pelo usuário (Wyzowl SFX Kit e Kenney,
+    // CC0 — ver Assets/SONS-LICENCA.txt). A ORDEM importa: o índice salvo em
+    // AppSettings.SoundTheme aponta pra cá, e ThemeManager.LayoutDefaults usa
+    // esses índices.
+    public static readonly string[] PackNames = ["Console", "Toque", "Bolha", "Mecânico", "Marimba", "Botão", "Digital"];
 
     // IMPORTANTE: _volumeFraction precisa ser inicializado ANTES de Packs
     // abaixo — os inicializadores de campo estático executam em ORDEM
     // TEXTUAL dentro do construtor estático implícito, e o load de Packs já
-    // chama LoadClip/RescaleToUnmanaged usando _volumeFraction na hora. Se
+    // chama LoadClip/BuildBuffer usando _volumeFraction na hora. Se
     // esse campo viesse depois no arquivo (como numa versão anterior desta
     // leva), Packs carregaria com volume 0.0 (silêncio) e só se corrigiria
     // se Volume:set algum dia recebesse um valor DIFERENTE do padrão 70 —
@@ -74,17 +79,43 @@ internal static class UiSounds
     private static double _volumeFraction = 0.70;
     private static int _volumePercent = 70;
 
+    // v0.16.4 (beta.16): ganho de reforço aplicado POR CIMA do volume (0-100%).
+    // Os .wav têm pico entre -10 e -4 dBFS (o "mover" é o mais baixo) e, com o
+    // volume em 70%, ficavam ainda mais fracos — o teste de 05/11 mostrou
+    // "tem hora que não sai som". 1.5 (≈ +3,5 dB) deixa o 70% padrão no nível
+    // que o usuário já ouvia e dá folga real pro slider subir; o pico mais alto
+    // (-4 dB) vira -0,5 dB — sem estourar.
+    private const double MakeupGain = 1.5;
+
+    // Respiro de silêncio antes do som quando o aparelho de áudio pode estar
+    // "dormindo" (sem som há > ColdAfterMs): o driver acorda durante o silêncio
+    // em vez de engolir o começo do clique. Só é usado nesse caso — no uso
+    // contínuo (navegando) o som sai na hora.
+    private const int ColdLeadInMs = 70;
+    private const int ColdAfterMs = 2500;
+    // Silêncio no fim: o winmm corta o último bloco de buffer de clipes muito
+    // curtos (11-14 ms); cauda + duração mínima garantem que o clique inteiro toque.
+    private const int TailMs = 30;
+    private const int MinTotalMs = 80;
+
+    private static long _lastPlayTick;
+    private static int _playFailuresLogged;
+    private static readonly HashSet<int> _packLogged = [];
+
     private static readonly SoundSet[] Packs = PackNames
         .Select(name => LoadPack(FileSlug(name)))
         .ToArray();
 
     private static string FileSlug(string packName) => packName switch
     {
-        "Clássico" => "classic",
-        "Suave" => "soft",
-        "Retro" => "retro",
-        "Future" => "future",
-        _ => "classic",
+        "Console" => "console",
+        "Toque" => "toque",
+        "Bolha" => "bolha",
+        "Mecânico" => "mecanico",
+        "Marimba" => "marimba",
+        "Botão" => "botao",
+        "Digital" => "digital",
+        _ => "console",
     };
 
     private static int _pack;
@@ -106,7 +137,7 @@ internal static class UiSounds
     /// 0-100 (v0.9.13, pedido do usuário: "os sons ficaram um pouco alto,
     /// dá aquela estourada no volume máximo"). <c>PlaySound</c> (winmm) não
     /// tem parâmetro de volume — a escala é aplicada direto nas amostras
-    /// PCM de cada som (ver <see cref="RescaleToUnmanaged"/>), ANTES de
+    /// PCM de cada som (ver <see cref="BuildBuffer"/>), ANTES de
     /// copiar pra memória não gerenciada. Padrão 70 (não 100): já começa
     /// mais baixo que o volume "cheio" original pra evitar o estouro
     /// reportado sem precisar regerar os .wav. Trocar em runtime reconstrói
@@ -138,20 +169,35 @@ internal static class UiSounds
 
     private static void Rescale(SoundClip clip)
     {
-        if (clip.Raw.Length == 0) return;
-        var old = clip.Ptr;
-        clip.Ptr = RescaleToUnmanaged(clip.Raw, _volumeFraction);
-        if (old != IntPtr.Zero)
-        {
-            try { Marshal.FreeHGlobal(old); } catch { /* melhor esforço */ }
-        }
+        if (!clip.Loaded) return;
+        var gain = _volumeFraction * MakeupGain;
+        var newHot = BuildBuffer(clip, gain, 0);
+        var newCold = BuildBuffer(clip, gain, ColdLeadInMs);
+        var oldHot = clip.Ptr;
+        var oldCold = clip.ColdPtr;
+        // Troca primeiro, libera depois: um som pode estar tocando AGORA desse
+        // buffer (SND_ASYNC lê da memória em segundo plano). Antes da beta.16
+        // o buffer antigo era liberado na hora — leitura de memória já liberada.
+        clip.Ptr = newHot;
+        clip.ColdPtr = newCold;
+        ScheduleFree(oldHot);
+        ScheduleFree(oldCold);
     }
 
-    public static void PlayMove() => Play(Packs[_pack].Move.Ptr);
+    private static void ScheduleFree(IntPtr ptr)
+    {
+        if (ptr == IntPtr.Zero) return;
+        _ = Task.Delay(TimeSpan.FromSeconds(5)).ContinueWith(_ =>
+        {
+            try { Marshal.FreeHGlobal(ptr); } catch (Exception ex) { DebugLog.Swallowed(ex); }
+        }, TaskScheduler.Default);
+    }
 
-    public static void PlayConfirm() => Play(Packs[_pack].Confirm.Ptr);
+    public static void PlayMove() => Play(Packs[_pack].Move);
 
-    public static void PlayBack() => Play(Packs[_pack].Back.Ptr);
+    public static void PlayConfirm() => Play(Packs[_pack].Confirm);
+
+    public static void PlayBack() => Play(Packs[_pack].Back);
 
     /// <summary>
     /// Ponto único usado por MainWindow.OnGamepadTick pra cobrir biblioteca,
@@ -191,19 +237,98 @@ internal static class UiSounds
         }
     }
 
-    private static void Play(IntPtr soundPtr)
+    private static void Play(SoundClip clip)
     {
-        if (!Enabled || soundPtr == IntPtr.Zero) return;
+        if (!Enabled || !clip.Loaded) return;
 
         try
         {
-            PlaySound(soundPtr, IntPtr.Zero, SndAsync | SndMemory | SndNoDefault);
+            var now = Environment.TickCount64;
+            var cold = now - Interlocked.Exchange(ref _lastPlayTick, now) > ColdAfterMs;
+            var ptr = cold && clip.ColdPtr != IntPtr.Zero ? clip.ColdPtr : clip.Ptr;
+            if (ptr == IntPtr.Zero) return;
+
+            LogFirstUse();
+            PlayPointer(ptr);
         }
-        catch
+        catch (Exception ex)
         {
             // Melhor esforço — nunca travar a navegação por causa de som.
+            DebugLog.Swallowed(ex);
         }
     }
+
+    private static void PlayPointer(IntPtr ptr)
+    {
+        if (!PlaySound(ptr, IntPtr.Zero, SndAsync | SndMemory | SndNoDefault)
+            && Interlocked.Increment(ref _playFailuresLogged) <= 5)
+        {
+            // Sem isso, "não saiu som" não deixava rastro nenhum no debug.log.
+            DebugLog.Write($"[SOM] PlaySound falhou (erro Win32 {Marshal.GetLastWin32Error()}).");
+        }
+    }
+
+    private static void LogFirstUse()
+    {
+        lock (_packLogged)
+        {
+            if (!_packLogged.Add(_pack)) return;
+        }
+        DebugLog.Write($"[SOM] Primeiro som do estilo '{PackNames[_pack]}' — volume {_volumePercent}%, ligado={Enabled}.");
+    }
+
+    // ---- Prévia nas Configurações -------------------------------------------------
+
+    private static Timer? _previewTimer;
+    private static IntPtr _previewPtr;
+    private static readonly object PreviewLock = new();
+
+    /// <summary>
+    /// Toca um exemplo (o som de "confirmar") do estilo/volume que o usuário
+    /// está escolhendo nas Configurações — sem mexer no estilo/volume ativos
+    /// (esses só mudam ao salvar). Espera 180 ms depois da última mudança, pra
+    /// arrastar o slider não metralhar. Antes da beta.16 trocar volume/estilo
+    /// não dava retorno nenhum: parecia que "não responde".
+    /// </summary>
+    public static void Preview(int pack, int volumePercent, bool enabled)
+    {
+        if (!enabled) return;
+        try
+        {
+            lock (PreviewLock)
+            {
+                _previewTimer?.Dispose();
+                _previewTimer = new Timer(_ => PlayPreview(pack, volumePercent), null, 180, Timeout.Infinite);
+            }
+        }
+        catch (Exception ex) { DebugLog.Swallowed(ex); }
+    }
+
+    private static void PlayPreview(int pack, int volumePercent)
+    {
+        try
+        {
+            if (pack < 0 || pack >= Packs.Length) pack = 0;
+            var clip = Packs[pack].Confirm;
+            if (!clip.Loaded) return;
+            var gain = Math.Clamp(volumePercent, 0, 100) / 100.0 * MakeupGain;
+            var ptr = BuildBuffer(clip, gain, ColdLeadInMs);
+            if (ptr == IntPtr.Zero) return;
+
+            IntPtr old;
+            lock (PreviewLock)
+            {
+                old = _previewPtr;
+                _previewPtr = ptr;
+            }
+            Interlocked.Exchange(ref _lastPlayTick, Environment.TickCount64);
+            PlayPointer(ptr);
+            ScheduleFree(old);
+        }
+        catch (Exception ex) { DebugLog.Swallowed(ex); }
+    }
+
+    // ---- Carregamento / montagem dos buffers -------------------------------------
 
     private sealed class SoundSet
     {
@@ -213,16 +338,21 @@ internal static class UiSounds
     }
 
     /// <summary>
-    /// v0.9.13: antes, LoadWav só devolvia o IntPtr já escalado (fixo pra
-    /// sempre). Agora guarda também os bytes ORIGINAIS do .wav (Raw), pra
-    /// <see cref="Rescale"/> poder recalcular o buffer não-gerenciado toda
-    /// vez que o usuário troca o volume em Configurações, sem precisar
-    /// reabrir o arquivo embutido de novo.
+    /// Um som já decodificado: só as amostras PCM de 16 bits (sem cabeçalho),
+    /// mais os dois buffers prontos pra tocar na memória NÃO gerenciada — o
+    /// "quente" (sai na hora) e o "frio" (com respiro de silêncio antes).
+    /// Quando o arquivo não é PCM 16 bits, <see cref="RawFile"/> guarda os bytes
+    /// originais e toca sem escala (melhor tocar do que ficar mudo).
     /// </summary>
     private sealed class SoundClip
     {
-        public byte[] Raw = [];
+        public byte[] Pcm = [];
+        public byte[] RawFile = [];
+        public short Channels = 1;
+        public int SampleRate = 44100;
         public IntPtr Ptr;
+        public IntPtr ColdPtr;
+        public bool Loaded => Ptr != IntPtr.Zero;
     }
 
     private static SoundSet LoadPack(string slug) => new()
@@ -233,13 +363,9 @@ internal static class UiSounds
     };
 
     /// <summary>
-    /// Lê o .wav embutido (recurso do Avalonia), guarda os bytes originais
-    /// e copia a versão já escalada pelo volume atual (<see
-    /// cref="_volumeFraction"/>) pra memória NÃO gerenciada — ver o porquê
-    /// da memória não gerenciada no comentário da classe. Buffer escalado
-    /// nunca liberado no load inicial (só quando um <see cref="Rescale"/>
-    /// posterior troca ele por outro) — são uns KB por som, por um
-    /// processo que já roda a vida toda do app.
+    /// Lê o .wav embutido (recurso do Avalonia), decodifica e monta os buffers
+    /// no volume atual. Ver o porquê da memória não gerenciada no comentário
+    /// da classe.
     /// </summary>
     private static SoundClip LoadClip(string fileName)
     {
@@ -250,8 +376,23 @@ internal static class UiSounds
             using var stream = AssetLoader.Open(uri);
             using var memory = new MemoryStream();
             stream.CopyTo(memory);
-            clip.Raw = memory.ToArray();
-            clip.Ptr = RescaleToUnmanaged(clip.Raw, _volumeFraction);
+            var file = memory.ToArray();
+
+            if (TryParseWav(file, out var channels, out var rate, out var pcm))
+            {
+                clip.Channels = channels;
+                clip.SampleRate = rate;
+                clip.Pcm = pcm;
+            }
+            else
+            {
+                DebugLog.Write($"[SOM] {fileName}: formato não é PCM 16 bits — toca sem escala de volume.");
+                clip.RawFile = file;
+            }
+
+            var gain = _volumeFraction * MakeupGain;
+            clip.Ptr = BuildBuffer(clip, gain, 0);
+            clip.ColdPtr = BuildBuffer(clip, gain, ColdLeadInMs);
         }
         catch (Exception ex)
         {
@@ -261,39 +402,119 @@ internal static class UiSounds
     }
 
     /// <summary>
-    /// Escala as amostras PCM 16-bit do .wav pelo volume (0.0-1.0) e copia
-    /// o resultado pra memória não gerenciada. Nosso próprio gerador
-    /// (scratchpad/gen_sfx_*.py) sempre escreve o cabeçalho WAV canônico de
-    /// 44 bytes (RIFF/WAVEfmt.../data, mono 16-bit) — confere essa
-    /// assinatura antes de tocar nos bytes; se algo não bater (formato
-    /// diferente no futuro), toca o áudio ORIGINAL sem escalar em vez de
-    /// arriscar corromper o som.
+    /// Percorre os "chunks" do .wav até achar "fmt " e "data". Os arquivos
+    /// gerados pelo ffmpeg trazem um chunk "LIST" (metadados) ANTES do "data",
+    /// então o "data" NÃO começa no byte 44. A versão anterior assumia o
+    /// cabeçalho canônico de 44 bytes, não reconhecia nenhum dos 21 arquivos e
+    /// tocava tudo SEM escala — o controle de volume não fazia efeito algum.
     /// </summary>
-    private static IntPtr RescaleToUnmanaged(byte[] wav, double volumeFraction)
+    private static bool TryParseWav(byte[] wav, out short channels, out int sampleRate, out byte[] pcm)
+    {
+        channels = 0;
+        sampleRate = 0;
+        pcm = [];
+        if (wav.Length < 12
+            || wav[0] != 'R' || wav[1] != 'I' || wav[2] != 'F' || wav[3] != 'F'
+            || wav[8] != 'W' || wav[9] != 'A' || wav[10] != 'V' || wav[11] != 'E')
+            return false;
+
+        short format = 0, bits = 0;
+        var haveFormat = false;
+        var pos = 12;
+        while (pos + 8 <= wav.Length)
+        {
+            var id = System.Text.Encoding.ASCII.GetString(wav, pos, 4);
+            var size = BitConverter.ToInt32(wav, pos + 4);
+            var body = pos + 8;
+
+            if (id == "fmt " && body + 16 <= wav.Length)
+            {
+                format = BitConverter.ToInt16(wav, body);
+                channels = BitConverter.ToInt16(wav, body + 2);
+                sampleRate = BitConverter.ToInt32(wav, body + 4);
+                bits = BitConverter.ToInt16(wav, body + 14);
+                haveFormat = true;
+            }
+            else if (id == "data")
+            {
+                var length = size < 0 || body + size > wav.Length ? wav.Length - body : size;
+                if (!haveFormat || format != 1 || bits != 16 || channels < 1 || sampleRate < 8000) return false;
+                var frame = channels * 2;
+                length -= length % frame;
+                if (length <= 0) return false;
+                pcm = new byte[length];
+                Buffer.BlockCopy(wav, body, pcm, 0, length);
+                return true;
+            }
+
+            if (size < 0) break;
+            pos = body + size + (size & 1);
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Monta um .wav canônico (cabeçalho de 44 bytes) na memória NÃO gerenciada:
+    /// [respiro de silêncio] + amostras × ganho + cauda de silêncio (mínimo
+    /// <see cref="MinTotalMs"/> no total). Ganho é limitado ao intervalo de 16
+    /// bits. Se o arquivo não for PCM 16 bits, copia o original sem escala.
+    /// </summary>
+    private static IntPtr BuildBuffer(SoundClip clip, double gain, int leadInMs)
     {
         try
         {
-            if (wav.Length > 44
-                && wav[0] == (byte)'R' && wav[1] == (byte)'I' && wav[2] == (byte)'F' && wav[3] == (byte)'F'
-                && wav[36] == (byte)'d' && wav[37] == (byte)'a' && wav[38] == (byte)'t' && wav[39] == (byte)'a')
+            if (clip.Pcm.Length == 0)
+                return clip.RawFile.Length == 0 ? IntPtr.Zero : CopyToUnmanaged(clip.RawFile);
+
+            var frame = clip.Channels * 2;
+            var leadBytes = clip.SampleRate * leadInMs / 1000 * frame;
+            var dataBytes = clip.Pcm.Length;
+            var minTotal = clip.SampleRate * MinTotalMs / 1000 * frame;
+            var tailBytes = Math.Max(clip.SampleRate * TailMs / 1000 * frame, minTotal - leadBytes - dataBytes);
+            var total = leadBytes + dataBytes + tailBytes;
+
+            var wav = new byte[44 + total];
+            WriteAscii(wav, 0, "RIFF");
+            WriteInt32(wav, 4, 36 + total);
+            WriteAscii(wav, 8, "WAVE");
+            WriteAscii(wav, 12, "fmt ");
+            WriteInt32(wav, 16, 16);
+            WriteInt16(wav, 20, 1);
+            WriteInt16(wav, 22, clip.Channels);
+            WriteInt32(wav, 24, clip.SampleRate);
+            WriteInt32(wav, 28, clip.SampleRate * frame);
+            WriteInt16(wav, 32, (short)frame);
+            WriteInt16(wav, 34, 16);
+            WriteAscii(wav, 36, "data");
+            WriteInt32(wav, 40, total);
+
+            var offset = 44 + leadBytes;
+            for (var i = 0; i + 1 < clip.Pcm.Length; i += 2)
             {
-                var scaled = (byte[])wav.Clone();
-                for (var i = 44; i + 1 < scaled.Length; i += 2)
-                {
-                    var sample = (short)(scaled[i] | (scaled[i + 1] << 8));
-                    var value = Math.Clamp((int)Math.Round(sample * volumeFraction), short.MinValue, short.MaxValue);
-                    scaled[i] = (byte)(value & 0xFF);
-                    scaled[i + 1] = (byte)((value >> 8) & 0xFF);
-                }
-                return CopyToUnmanaged(scaled);
+                var sample = (short)(clip.Pcm[i] | (clip.Pcm[i + 1] << 8));
+                var value = Math.Clamp((int)Math.Round(sample * gain), short.MinValue, short.MaxValue);
+                wav[offset + i] = (byte)(value & 0xFF);
+                wav[offset + i + 1] = (byte)((value >> 8) & 0xFF);
             }
+            return CopyToUnmanaged(wav);
         }
-        catch
+        catch (Exception ex)
         {
-            // Melhor esforço — cai pro áudio original sem escalar abaixo.
+            DebugLog.Swallowed(ex);
+            return IntPtr.Zero;
         }
-        return CopyToUnmanaged(wav);
     }
+
+    private static void WriteAscii(byte[] target, int offset, string text)
+    {
+        for (var i = 0; i < text.Length; i++) target[offset + i] = (byte)text[i];
+    }
+
+    private static void WriteInt32(byte[] target, int offset, int value) =>
+        BitConverter.TryWriteBytes(target.AsSpan(offset, 4), value);
+
+    private static void WriteInt16(byte[] target, int offset, short value) =>
+        BitConverter.TryWriteBytes(target.AsSpan(offset, 2), value);
 
     private static IntPtr CopyToUnmanaged(byte[] bytes)
     {

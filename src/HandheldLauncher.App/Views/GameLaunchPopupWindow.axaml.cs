@@ -20,7 +20,7 @@ public partial class GameLaunchPopupWindow : Window
             GameIcon.IsVisible = true;
             TxtIconFallback.IsVisible = false;
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
     }
 
     public GameLaunchPopupWindow(string title, string? iconPath)
@@ -42,7 +42,7 @@ public partial class GameLaunchPopupWindow : Window
         if (!string.IsNullOrEmpty(iconPath) && System.IO.File.Exists(iconPath))
         {
             try { GameIcon.Source = new Bitmap(iconPath); iconLoaded = true; }
-            catch { }
+            catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
         }
 
         // Fallback: mostra a inicial do jogo se o ícone falhar.

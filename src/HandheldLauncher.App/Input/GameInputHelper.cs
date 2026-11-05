@@ -116,7 +116,7 @@ internal static unsafe class GameInputHelper
                         LastExitAtLocal = DateTime.Now;
                         DebugLog.Write($"GameInputHelper: ajudante saiu (pid={helper.Id}, código=0x{helper.ExitCode:X8}).");
                     }
-                    catch { }
+                    catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
                 };
             }
         }

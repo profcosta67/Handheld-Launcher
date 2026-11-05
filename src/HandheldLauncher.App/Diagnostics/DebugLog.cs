@@ -18,6 +18,31 @@ public static class DebugLog
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "HandheldLauncher", "debug.log");
 
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> SwallowedSites = new();
+
+    /// <summary>
+    /// v0.16.4 (plano da v0.16: "trocar os catch vazios por registro no log"):
+    /// registra uma exceção que o código decidiu ignorar — UMA vez por ponto do
+    /// código (arquivo:linha) por sessão, pra laços que rodam toda hora não
+    /// encherem o log. O comportamento não muda: a exceção continua ignorada.
+    /// </summary>
+    public static void Swallowed(Exception ex,
+        [System.Runtime.CompilerServices.CallerMemberName] string member = "",
+        [System.Runtime.CompilerServices.CallerFilePath] string file = "",
+        [System.Runtime.CompilerServices.CallerLineNumber] int line = 0)
+    {
+        try
+        {
+            var site = $"{Path.GetFileName(file)}:{line}";
+            if (!SwallowedSites.TryAdd(site, 0)) return;
+            Write($"[IGNORADO] {site} ({member}): {ex.GetType().Name}: {ex.Message} (próximas vezes neste ponto não são registradas)");
+        }
+        catch
+        {
+            // O registro nunca pode quebrar quem chamou.
+        }
+    }
+
     public static void Write(string message)
     {
         try

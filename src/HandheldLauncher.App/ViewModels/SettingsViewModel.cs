@@ -301,11 +301,36 @@ public sealed class SettingsViewModel : ViewModelBase
     private bool _freezeGameOnOverlay;
     public bool FreezeGameOnOverlay { get => _freezeGameOnOverlay; set => SetField(ref _freezeGameOnOverlay, value); }
 
+    // v0.16.4: ver AppSettings.FocusOverlayInGame.
+    private bool _focusOverlayInGame;
+    public bool FocusOverlayInGame { get => _focusOverlayInGame; set => SetField(ref _focusOverlayInGame, value); }
+
+    // beta.16: mexer no estilo ou no volume toca um exemplo na hora (antes não
+    // dava retorno nenhum e parecia que "não responde"). _isLoading evita tocar
+    // quando é o próprio LoadFrom preenchendo a tela.
+    private bool _isLoading;
+
     private int _soundThemeIndex;
-    public int SoundThemeIndex { get => _soundThemeIndex; set => SetField(ref _soundThemeIndex, value); }
+    public int SoundThemeIndex
+    {
+        get => _soundThemeIndex;
+        set
+        {
+            if (SetField(ref _soundThemeIndex, value) && !_isLoading)
+                UiSounds.Preview(_soundThemeIndex, (int)Math.Round(_soundVolume), _soundEffects);
+        }
+    }
 
     private double _soundVolume = 70;
-    public double SoundVolume { get => _soundVolume; set => SetField(ref _soundVolume, value); }
+    public double SoundVolume
+    {
+        get => _soundVolume;
+        set
+        {
+            if (SetField(ref _soundVolume, value) && !_isLoading)
+                UiSounds.Preview(_soundThemeIndex, (int)Math.Round(_soundVolume), _soundEffects);
+        }
+    }
 
     private int _colorModeIndex;
     public int ColorModeIndex { get => _colorModeIndex; set => SetField(ref _colorModeIndex, value); }
@@ -403,6 +428,13 @@ public sealed class SettingsViewModel : ViewModelBase
 
     public void LoadFrom(AppSettings settings)
     {
+        _isLoading = true;
+        try { LoadFromCore(settings); }
+        finally { _isLoading = false; }
+    }
+
+    private void LoadFromCore(AppSettings settings)
+    {
         SteamGridDbApiKey = settings.SteamGridDbApiKey ?? string.Empty;
         SteamWebApiKey = settings.SteamWebApiKey ?? string.Empty;
         RawgApiKey = settings.RawgApiKey ?? string.Empty;
@@ -428,6 +460,7 @@ public sealed class SettingsViewModel : ViewModelBase
         SoundEffects = settings.SoundEffects;
         BetaChannelOptIn = settings.BetaChannelOptIn;
         FreezeGameOnOverlay = settings.FreezeGameOnOverlay;
+        FocusOverlayInGame = settings.FocusOverlayInGame;
         SoundThemeIndex = Math.Clamp(settings.SoundTheme, 0, HandheldLauncher.App.Platform.UiSounds.PackNames.Length - 1);
         SoundVolume = Math.Clamp(settings.SoundVolume, 0, 100);
         ColorModeIndex = Math.Clamp(settings.ColorMode, 0, HandheldLauncher.App.Platform.DisplayColorManager.ModeNames.Length - 1);
@@ -471,6 +504,7 @@ public sealed class SettingsViewModel : ViewModelBase
         settings.SoundEffects = SoundEffects;
         settings.BetaChannelOptIn = BetaChannelOptIn;
         settings.FreezeGameOnOverlay = FreezeGameOnOverlay;
+        settings.FocusOverlayInGame = FocusOverlayInGame;
         settings.SoundTheme = Math.Clamp(SoundThemeIndex, 0, HandheldLauncher.App.Platform.UiSounds.PackNames.Length - 1);
         settings.SoundVolume = Math.Clamp((int)Math.Round(SoundVolume), 0, 100);
         settings.ColorMode = Math.Clamp(ColorModeIndex, 0, HandheldLauncher.App.Platform.DisplayColorManager.ModeNames.Length - 1);

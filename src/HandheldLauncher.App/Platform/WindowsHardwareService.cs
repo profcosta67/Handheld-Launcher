@@ -377,8 +377,8 @@ public class WindowsHardwareService : IHardwareService
                 if (!_ffmpegProcess.WaitForExit(5000))
                 {
                     DebugLog.Write("[GRAVADOR] FFmpeg não respondeu em 5s. Forçando encerramento (arquivo pode estar corrompido).");
-                    try { _ffmpegProcess.Kill(entireProcessTree: true); } catch { }
-                    try { _ffmpegProcess.WaitForExit(2000); } catch { }
+                    try { _ffmpegProcess.Kill(entireProcessTree: true); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
+                    try { _ffmpegProcess.WaitForExit(2000); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
                     SetRecordingState(RecordingState.Error);
                     return;
                 }
@@ -394,7 +394,7 @@ public class WindowsHardwareService : IHardwareService
         }
         finally
         {
-            try { _ffmpegProcess?.Dispose(); } catch { }
+            try { _ffmpegProcess?.Dispose(); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
             _ffmpegProcess = null;
         }
 
@@ -478,7 +478,7 @@ public class WindowsHardwareService : IHardwareService
             if (EnumDisplaySettings(null, -1, ref devMode))
                 return $"{devMode.dmPelsWidth}x{devMode.dmPelsHeight} {devMode.dmDisplayFrequency}Hz";
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
         return "--";
     }
 

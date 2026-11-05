@@ -60,6 +60,12 @@ internal static class ProblemReport
                 var content = ReadShared(Path.Combine(DataDir, name));
                 if (content is not null) AddText(zip, name, redactor.Apply(content));
             }
+            // v0.16.4: os 3 relatórios de crash mais recentes, se houver.
+            foreach (var crash in CrashReport.Latest(3))
+            {
+                var content = ReadShared(crash);
+                if (content is not null) AddText(zip, "crashes/" + Path.GetFileName(crash), redactor.Apply(content));
+            }
             var settings = SanitizedSettingsJson();
             if (settings is not null) AddText(zip, "configuracoes.json", redactor.Apply(settings));
         }
@@ -208,7 +214,7 @@ internal static class ProblemReport
             var desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
             if (!string.IsNullOrWhiteSpace(desktop) && Directory.Exists(desktop)) return desktop;
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
         Directory.CreateDirectory(DataDir);
         return DataDir;
     }
@@ -294,12 +300,12 @@ internal static class ProblemReport
                 foreach (var value in new[] { s.SteamGridDbApiKey, s.SteamWebApiKey, s.RawgApiKey, s.SteamId64 })
                     if (!string.IsNullOrWhiteSpace(value) && value.Length >= 6) secrets.Add(value);
             }
-            catch { }
+            catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
 
             string? profile = null, user = null, machine = null;
-            try { profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile); } catch { }
-            try { user = Environment.UserName; } catch { }
-            try { machine = Environment.MachineName; } catch { }
+            try { profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
+            try { user = Environment.UserName; } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
+            try { machine = Environment.MachineName; } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
             return new Redactor(secrets, profile, user, machine);
         }
 

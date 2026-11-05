@@ -138,7 +138,7 @@ public static class LosslessScalingService
                 var pids = new HashSet<uint>();
                 foreach (var p in Process.GetProcessesByName("LosslessScaling"))
                 {
-                    using (p) { try { pids.Add((uint)p.Id); } catch { } }
+                    using (p) { try { pids.Add((uint)p.Id); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); } }
                 }
 
                 if (pids.Count > 0)

@@ -44,11 +44,11 @@ public partial class MainWindow : Window
                     GetWindowThreadProcessId(hWnd, out var pid);
                     results.Add((hWnd, title, pid));
                 }
-                catch { }
+                catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
                 return true;
             }, IntPtr.Zero);
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
         return results;
     }
 
@@ -70,7 +70,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            try { _launchPopup?.Close(); } catch { }
+            try { _launchPopup?.Close(); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
             _launchPopup = null;
             _launchPopupTimer?.Stop();
             _launchPopupTimer = null;
@@ -123,7 +123,7 @@ public partial class MainWindow : Window
         _launchPopupTimer.Tick += (_, _) =>
         {
             _launchPopupTimer?.Stop();
-            try { _launchPopup?.Close(); } catch { }
+            try { _launchPopup?.Close(); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
             _launchPopup = null;
             DebugLog.Write("[POPUP] Fechado após 3s de detecção da janela.");
         };
@@ -198,7 +198,7 @@ public partial class MainWindow : Window
                         }
                     }
                 }
-                catch { }
+                catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
 
                 var windows = GetAllVisibleWindows();
                 bool found = false;
@@ -218,7 +218,7 @@ public partial class MainWindow : Window
                             break;
                         }
                     }
-                    catch { }
+                    catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
                 }
 
                 if (!found && !string.IsNullOrEmpty(exeHint))
@@ -237,7 +237,7 @@ public partial class MainWindow : Window
                                 break;
                             }
                         }
-                        catch { }
+                        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
                     }
                 }
 
@@ -251,7 +251,7 @@ public partial class MainWindow : Window
                         procDead = proc.HasExited;
                     }
                     catch (ArgumentException) { procDead = true; }
-                    catch { }
+                    catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
 
                     if (procDead)
                     {

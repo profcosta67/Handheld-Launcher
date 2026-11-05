@@ -105,7 +105,7 @@ public partial class SettingsWindow : Window
                 Position = new Avalonia.PixelPoint(Position.X, screen.WorkingArea.Y + 20);
             }
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
     }
 
     public bool HandleSettingsGamepadAction(GamepadAction action)
@@ -485,7 +485,7 @@ public partial class SettingsWindow : Window
             else
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://github.com/profcosta67/Handheld-Launcher/tree/main/release-notes") { UseShellExecute = true });
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
     }
 
     private void OnSavedOkClick(object? sender, RoutedEventArgs e) => ViewModel.DismissSavedMessage();

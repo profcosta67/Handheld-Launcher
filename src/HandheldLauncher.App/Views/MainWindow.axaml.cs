@@ -441,13 +441,13 @@ public partial class MainWindow : Window
                 IntPtr gameHwnd = IntPtr.Zero;
                 if (OperatingSystem.IsWindows())
                 {
-                    try { gameHwnd = GetForegroundWindow(); } catch { }
+                    try { gameHwnd = GetForegroundWindow(); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
                 }
 
                 if (_overlayWindow != null && !_overlayWindow.IsLoaded)
                 {
                     DebugLog.Write("[OVERLAY] Janela destruída, recriando.");
-                    try { _overlayWindow.Close(); } catch { }
+                    try { _overlayWindow.Close(); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
                     _overlayWindow = null;
                 }
 
@@ -509,7 +509,7 @@ public partial class MainWindow : Window
                 DebugLog.Write("========== ERRO AO ABRIR OVERLAY ==========");
                 DebugLog.Write(ex.ToString());
                 DebugLog.Write("===========================================");
-                try { _overlayWindow?.Close(); } catch { }
+                try { _overlayWindow?.Close(); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
                 _overlayWindow = null;
             }
         };
@@ -564,7 +564,7 @@ public partial class MainWindow : Window
             var settings = AppSettingsStore.Load();
             if (vm.UpdatesInstalled && !settings.ModeChosen && !settings.KioskMode) Dispatcher.UIThread.Post(() => _ = OpenSettingsDialogAsync(vm), DispatcherPriority.Background);
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
     }
 
     private Window? _activeDialog;

@@ -146,7 +146,7 @@ internal static class WatchdogTask
         }
         finally
         {
-            try { if (xmlPath is not null && File.Exists(xmlPath)) File.Delete(xmlPath); } catch { }
+            try { if (xmlPath is not null && File.Exists(xmlPath)) File.Delete(xmlPath); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
         }
     }
 

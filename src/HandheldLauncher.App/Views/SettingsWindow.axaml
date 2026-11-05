@@ -56,6 +56,7 @@
               <ComboBoxItem Content="Terminal (Consolas)" /><ComboBoxItem Content="Simples (Arial)" />
               <ComboBoxItem Content="Clássica (Times New Roman)" /><ComboBoxItem Content="Legível (Verdana)" />
               <ComboBoxItem Content="Elegante (Trebuchet)" />
+              <ComboBoxItem Content="Limpa (Inter)" /><ComboBoxItem Content="Manuscrita (Ink Free)" />
             </ComboBox>
             <TextBlock Text="Tamanho do texto" FontSize="12" HorizontalAlignment="Center" />
             <ComboBox SelectedIndex="{Binding FontSizeIndex}" Width="440" HorizontalAlignment="Center">
@@ -84,7 +85,7 @@
             <CheckBox IsChecked="{Binding SoundEffects}" Content="Sons ao navegar" HorizontalAlignment="Center" />
             <TextBlock Text="Estilo" FontSize="12" HorizontalAlignment="Center" />
             <ComboBox SelectedIndex="{Binding SoundThemeIndex}" Width="440" HorizontalAlignment="Center" IsEnabled="{Binding SoundEffects}">
-              <ComboBoxItem Content="Clássico" /><ComboBoxItem Content="Suave" /><ComboBoxItem Content="Retro" /><ComboBoxItem Content="Future" />
+              <ComboBoxItem Content="Console" /><ComboBoxItem Content="Toque" /><ComboBoxItem Content="Bolha" /><ComboBoxItem Content="Mecânico" /><ComboBoxItem Content="Marimba" /><ComboBoxItem Content="Botão" /><ComboBoxItem Content="Digital" />
             </ComboBox>
             <TextBlock Text="{Binding SoundVolume, StringFormat='Volume ({0}%)'}" FontSize="12" HorizontalAlignment="Center" />
             <Slider Minimum="0" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" Value="{Binding SoundVolume}" IsEnabled="{Binding SoundEffects}" Width="440" HorizontalAlignment="Center" />
@@ -131,6 +132,8 @@
               <StackPanel Spacing="6">
                 <CheckBox IsChecked="{Binding FreezeGameOnOverlay}" Content="Pausar o jogo com o Quick Settings aberto" />
                 <TextBlock Text="Evita que o gamepad chegue nos dois ao mesmo tempo (overlay e jogo). Desligado por padrão: em jogos online com anti-cheat (EAC, BattlEye, Vanguard), congelar o processo do jogo pode ser detectado e resultar em banimento. Só ative se o jogo for offline/single-player ou você tiver certeza que o anti-cheat não se importa." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+                <CheckBox IsChecked="{Binding FocusOverlayInGame}" Content="Quick Settings pega o foco (o jogo para de receber os botões)" Margin="0,8,0,0" />
+                <TextBlock Text="Sem pausar o jogo e sem risco com anti-cheat. Alguns jogos em tela cheia exclusiva podem minimizar ao perder o foco: se acontecer, desligue." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
               </StackPanel>
             </Border>
           </StackPanel>

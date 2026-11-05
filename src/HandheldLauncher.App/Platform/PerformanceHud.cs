@@ -83,7 +83,7 @@ public sealed class PerformanceHud : IDisposable
             }
             _lastResolutionCheck = DateTime.Now;
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
         return _resolutionText;
     }
 
@@ -109,7 +109,7 @@ public sealed class PerformanceHud : IDisposable
 
     public void ClearNow()
     {
-        try { lock (_rtss) _rtss.ClearOsd(); _isShowing = false; } catch { }
+        try { lock (_rtss) _rtss.ClearOsd(); _isShowing = false; } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
     }
 
     private void Tick()
