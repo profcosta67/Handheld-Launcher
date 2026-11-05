@@ -106,7 +106,10 @@ internal static unsafe class HidComboReader
     [DllImport("user32.dll", SetLastError = true)]
     private static extern uint GetRawInputData(IntPtr rawInput, uint command, IntPtr data, ref uint size, uint headerSize);
 
-    [DllImport("user32.dll", SetLastError = true)]
+    // CharSet.Unicode → GetRawInputDeviceInfoW. Sem isso o .NET chamava a
+    // versão A (ANSI) e o nome do dispositivo vinha "embaralhado" ao ser lido
+    // como UTF-16 (beta.10): o "IG_" não era achado e o HID não disparava.
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode, EntryPoint = "GetRawInputDeviceInfoW")]
     private static extern uint GetRawInputDeviceInfo(IntPtr device, uint command, IntPtr data, ref uint size);
 
     [DllImport("user32.dll", SetLastError = true)]
