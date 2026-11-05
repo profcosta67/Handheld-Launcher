@@ -1,0 +1,13 @@
+Sons de interface (sfx-*.wav) a partir da v0.16.4:
+
+  Interface Sounds (1.0) — criado e distribuído por Kenney (www.kenney.nl)
+  Licença: Creative Commons Zero (CC0 1.0)
+  http://creativecommons.org/publicdomain/zero/1.0/
+
+Ajustes do Handheld Launcher: silêncio inicial cortado, duração limitada,
+volume igualado, convertidos pra 44,1 kHz mono 16 bits.
+
+  Clássico: tick_001 (mover), toggle_002 (confirmar), back_002 (voltar)
+  Suave:    tick_002, select_001, back_001
+  Retro:    glitch_001, pluck_001, drop_001
+  Future:   select_007, maximize_007, minimize_007

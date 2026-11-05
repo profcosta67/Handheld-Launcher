@@ -4,7 +4,7 @@ Mais recente primeiro. Cada versão tem notas completas em [`release-notes/`](re
 Betas não entram aqui: o que eles trazem aparece na versão estável que os junta.
 
 ## [0.16.4] — em preparo
-Controle do Legion travado ao ligar destravado sozinho (abre o Legion Space); opção de o Quick Settings pegar o foco; relatório de crash local; faxina final do plano da v0.16. [Notas](release-notes/0.16.4.md)
+Sons novos (Kenney, CC0); controle do Legion travado ao ligar destravado sozinho (abre o Legion Space); opção de o Quick Settings pegar o foco; relatório de crash local; faxina final do plano da v0.16. [Notas](release-notes/0.16.4.md)
 
 ## [0.16.3] — 2026-11-05
 Central de Ajuda (verificações, manual, reportar erro sem dados pessoais); L3+R3 em qualquer jogo pelo leitor HID; menu e Preferências reorganizados; controle só age com o launcher na frente; atualizações do Windows aparecem de novo; cor, TDP, Quick Settings e Lossless corrigidos. Inclui a 0.16.2, que saiu só como beta. [Notas](release-notes/0.16.3.md)
