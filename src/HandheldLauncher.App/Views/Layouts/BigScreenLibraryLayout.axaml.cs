@@ -43,6 +43,8 @@ public partial class BigScreenLibraryLayout : UserControl, ILibraryLayout
     /// <summary>A seleção acompanha o fluxo natural da biblioteca Capsule Wide, sem recentralização forçada.</summary>
     bool ILibraryLayout.CentersSelection => false;
 
+    CloudGridView ILibraryLayout.CloudGrid => CloudGrid;
+
     // Mesmos repasses do ClassicLibraryLayout — ver comentário lá.
     private MainWindow? Owner => TopLevel.GetTopLevel(this) as MainWindow;
 

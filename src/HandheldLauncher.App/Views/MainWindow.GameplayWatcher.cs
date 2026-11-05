@@ -727,7 +727,7 @@ public partial class MainWindow : Window
             var maxX = Math.Max(0, GameRowScrollViewer.Extent.Width - viewport.Width);
             var maxY = Math.Max(0, GameRowScrollViewer.Extent.Height - viewport.Height);
 
-            if (_verticalLayout)
+            if (IsGridNav)
             {
                 var top = p.Y - 12;
                 var bottom = p.Y + container.Bounds.Height + 12;
@@ -755,7 +755,7 @@ public partial class MainWindow : Window
         }
 
         // Fallback para o caso em que o container ainda não foi realizado pelo ItemsControl.
-        if (_verticalLayout) return;
+        if (IsGridNav) return;
         const double spacing = 28;
         double itemLeft = 0;
         for (var i = 0; i < vm.SelectedIndex; i++)
@@ -773,7 +773,7 @@ public partial class MainWindow : Window
 
     private bool MoveSelectionVertical(MainViewModel vm, int direction)
     {
-        if (!_verticalLayout || vm.SelectedIndex < 0) return false;
+        if (!IsGridNav || vm.SelectedIndex < 0) return false;
         var current = GamesItemsControl.ContainerFromIndex(vm.SelectedIndex);
         if (current is null) return false;
         var currentBounds = current.Bounds;

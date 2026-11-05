@@ -28,6 +28,23 @@ public static class XCloudLauncher
     /// <summary>true depois de abrir — usado pra mostrar "Fechar Xbox Cloud Gaming" no menu.</summary>
     public static bool WasOpened { get; private set; }
 
+    /// <summary>
+    /// v0.18.1: o xCloud está aberto? Além do que esta sessão abriu
+    /// (<see cref="WasOpened"/>), olha o "lockfile" que o Edge mantém na pasta
+    /// do perfil enquanto roda — pega também o caso de o launcher ter sido
+    /// reaberto com o xCloud ainda aberto. Barato (só um File.Exists), dá pra
+    /// chamar ao montar menu.
+    /// </summary>
+    public static bool IsRunning
+    {
+        get
+        {
+            if (WasOpened) return true;
+            try { return File.Exists(Path.Combine(ProfileDir, "lockfile")); }
+            catch { return false; }
+        }
+    }
+
     public static void Open(string url)
     {
         try
@@ -84,9 +101,11 @@ public static class XCloudLauncher
                 }
             }
         }
-        catch (Exception ex) { DebugLog.Write($"[XCLOUD] Falha ao fechar: {ex.Message}"); }
+        catch (Exception ex) { DebugLog.Write($"[XCLOUD] Falha ao fechar (WMI): {ex.Message}"); }
         WasOpened = false;
-        DebugLog.Write($"[XCLOUD] Fechado ({closed} processo(s)).");
+        DebugLog.Write(closed > 0
+            ? $"[XCLOUD] Fechado ({closed} processo(s) do perfil do xCloud)."
+            : $"[XCLOUD] Fechar: nenhum processo do Edge com o perfil {ProfileDir} foi encontrado.");
         return closed;
     }
 }

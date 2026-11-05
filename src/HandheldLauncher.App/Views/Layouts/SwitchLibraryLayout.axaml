@@ -5,6 +5,7 @@
              xmlns:conv="using:HandheldLauncher.App.Converters"
              xmlns:dataConv="using:Avalonia.Data.Converters"
              xmlns:media="using:Avalonia.Media"
+             xmlns:layouts="using:HandheldLauncher.App.Views.Layouts"
              x:Class="HandheldLauncher.App.Views.Layouts.SwitchLibraryLayout"
              x:DataType="vm:MainViewModel">
 
@@ -59,7 +60,10 @@
 
     <Grid RowDefinitions="*,Auto" Margin="28,16,28,16">
 
-      <StackPanel Grid.Row="0" VerticalAlignment="Center" Spacing="16">
+      <!-- v0.18.1: aba Nuvem = grade vertical em tela cheia (no lugar do palco + fileira). -->
+      <layouts:CloudGridView x:Name="CloudGrid" Grid.Row="0" IsVisible="{Binding IsFilterCloudActive}" />
+
+      <StackPanel Grid.Row="0" VerticalAlignment="Center" Spacing="16" IsVisible="{Binding !IsFilterCloudActive}">
 
         <Grid Height="76" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
           <Image Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
@@ -243,7 +247,7 @@
           </Button>
           <Button Grid.Column="3" Classes="switchTab" Classes.active="{Binding IsFilterEmulatorsActive}" Command="{Binding SetFilterEmulatorsCommand}" Margin="4">
             <StackPanel HorizontalAlignment="Center" Spacing="3">
-              <TextBlock Text="🎮" FontSize="19" HorizontalAlignment="Center" />
+              <TextBlock Text="◈" FontSize="19" HorizontalAlignment="Center" />
               <TextBlock Text="Emuladores" />
             </StackPanel>
           </Button>

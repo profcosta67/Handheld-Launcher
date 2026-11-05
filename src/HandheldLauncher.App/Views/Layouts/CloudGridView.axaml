@@ -1,0 +1,60 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:HandheldLauncher.App.ViewModels"
+             xmlns:conv="using:HandheldLauncher.App.Converters"
+             x:Class="HandheldLauncher.App.Views.Layouts.CloudGridView"
+             x:DataType="vm:MainViewModel">
+
+  <!--
+    v0.18.1 (pedido do usuário depois da 0.18.0: "em todos os temas, SOMENTE
+    essa parte da nuvem, deixar a lista em blocos em uma tela só e a rolagem
+    ser vertical"). Grade única, usada pelos 3 layouts (Clássico, Clean,
+    BigScreen) só enquanto a aba Nuvem está aberta — as outras abas não mudam.
+    A MainWindow troca a lista ativa pra esta (ver MainWindow.UpdateCloudGrid),
+    então a navegação ↑/↓/←/→ e a rolagem que acompanha a seleção são as
+    mesmas da grade vertical que já existia.
+  -->
+
+  <UserControl.Resources>
+    <conv:FileToBitmapConverter x:Key="FileToBitmapConverter" />
+  </UserControl.Resources>
+
+  <ScrollViewer x:Name="CloudScroll" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+    <ScrollViewer.Transitions>
+      <Transitions>
+        <VectorTransition Property="Offset" Duration="0:0:0.22" Easing="CubicEaseOut" />
+      </Transitions>
+    </ScrollViewer.Transitions>
+
+    <ItemsControl x:Name="CloudItems" Margin="0,8,0,16">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center" />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:GameTileViewModel">
+          <StackPanel Width="150" Margin="10,10,10,6" Spacing="6">
+            <Border Classes="gameTile"
+                    Classes.focused="{Binding IsFocused}"
+                    Width="150" Height="225"
+                    PointerPressed="OnTilePointerPressed"
+                    DoubleTapped="OnTileDoubleTapped">
+              <Grid>
+                <Image Source="{Binding GridImagePath, Converter={StaticResource FileToBitmapConverter}}" Stretch="UniformToFill" />
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="10" Spacing="6"
+                            IsVisible="{Binding ShowEmptyPlaceholder}">
+                  <TextBlock Text="☁" FontSize="34" HorizontalAlignment="Center" Foreground="{DynamicResource AccentBrush}" />
+                  <TextBlock Text="{Binding Title}" Classes="gameTitle" FontSize="14" TextWrapping="Wrap" TextAlignment="Center" />
+                </StackPanel>
+              </Grid>
+            </Border>
+            <TextBlock Text="{Binding Title}" FontSize="12" TextTrimming="CharacterEllipsis" MaxLines="1"
+                       HorizontalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" />
+          </StackPanel>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+  </ScrollViewer>
+</UserControl>

@@ -3,6 +3,9 @@
 Mais recente primeiro. Cada versão tem notas completas em [`release-notes/`](release-notes/).
 Betas não entram aqui: o que eles trazem aparece na versão estável que os junta.
 
+## [0.18.1] — em preparo (beta)
+Aba Nuvem em grade vertical (só nela, nos três layouts); fechar o Xbox Cloud Gaming pelo Quick Settings (L3+R3 → Y); ícones em todas as abas. [Notas](release-notes/0.18.1.md)
+
 ## [0.18.0] — 2026-11-05
 "Novidades 2.0": página do jogo refeita (tela cheia, toda pelo controle, conquistas, mídia, arquivos, funciona sem internet); Gerenciador de Armazenamento com mover jogo entre discos e limpar cache de shader; Saúde do Aparelho com alertas de temperatura, bateria e espaço; Guardião de suspensão; aba Nuvem com o catálogo do Xbox Cloud Gaming abrindo em tela cheia. [Notas](release-notes/0.18.0.md)
 

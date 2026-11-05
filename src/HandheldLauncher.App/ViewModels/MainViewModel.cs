@@ -1158,7 +1158,7 @@ public sealed class MainViewModel : ViewModelBase
                 // v0.18: o atalho "☁ Xbox Cloud Gaming" saiu daqui (pedido do usuário: "tira
                 // ele do menu") e virou a aba "Nuvem" da biblioteca. Aqui só aparece o
                 // "Fechar", e só enquanto o xCloud aberto pelo launcher estiver rodando.
-                if (XCloudLauncher.WasOpened) Add("⏹ Fechar Xbox Cloud Gaming", () => _ = Task.Run(XCloudLauncher.CloseAll));
+                if (XCloudLauncher.IsRunning) Add("⏹ Fechar Xbox Cloud Gaming", () => _ = Task.Run(XCloudLauncher.CloseAll));
                 Folder("🔄 Atualizações", GlobalMenuPage.Updates);
                 Folder("🛟 Ajuda", GlobalMenuPage.Help); Folder("⚡ Energia", GlobalMenuPage.Power);
                 break;

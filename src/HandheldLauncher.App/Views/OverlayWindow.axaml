@@ -273,7 +273,13 @@
             </ScrollViewer>
 
             <!-- Rodapé Fixo -->
-            <Button Grid.Row="2" Content="Fechar Menu" Click="OnCloseClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,15,0,0" Background="#7C5CFC" Foreground="White" CornerRadius="12" Padding="12" FontWeight="Bold" />
+            <StackPanel Grid.Row="2" Spacing="8" Margin="0,15,0,0">
+                <!-- v0.18.1: fechar o Xbox Cloud Gaming daqui (L3+R3 abre este menu por cima do Edge). Só aparece com o xCloud aberto. -->
+                <Button x:Name="BtnCloseXCloud" Click="OnCloseXCloudClick" IsVisible="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#8B2E2E" Foreground="White" CornerRadius="12" Padding="10" FontWeight="Bold">
+                    <TextBlock Text="⏹ Fechar Xbox Cloud Gaming  (Y)" />
+                </Button>
+                <Button Content="Fechar Menu" Click="OnCloseClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#7C5CFC" Foreground="White" CornerRadius="12" Padding="12" FontWeight="Bold" />
+            </StackPanel>
         </Grid>
     </Border>
 </Window>

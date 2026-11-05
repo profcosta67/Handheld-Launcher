@@ -541,6 +541,10 @@ public partial class MainWindow : Window
             if (e.PropertyName == nameof(MainViewModel.IsFilterAllActive))
                 FadeIn(GamesItemsControl, 220);
 
+            // v0.18.1: aba Nuvem usa a grade vertical própria (ver UpdateCloudGrid).
+            if (e.PropertyName == nameof(MainViewModel.IsFilterCloudActive))
+                UpdateCloudGrid(vm);
+
             if (e.PropertyName == nameof(MainViewModel.IsLaunching))
             {
                 if (vm.IsLaunching && !string.IsNullOrEmpty(vm.LaunchingGameTitle))

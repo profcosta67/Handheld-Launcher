@@ -43,6 +43,8 @@ public partial class SwitchLibraryLayout : UserControl, ILibraryLayout
     /// <summary>A roleta vive disso: a capa em foco no centro, a fileira correndo por baixo.</summary>
     bool ILibraryLayout.CentersSelection => true;
 
+    CloudGridView ILibraryLayout.CloudGrid => CloudGrid;
+
     // Mesmos repasses do ClassicLibraryLayout — ver comentário lá.
     private MainWindow? Owner => TopLevel.GetTopLevel(this) as MainWindow;
 

@@ -91,8 +91,10 @@ public partial class MainWindow : Window
             ThemeManager.ApplyFont(this, settings.UiFont);
             ThemeManager.ApplyFontSize(settings.UiFontSize);
             Classes.Set("noAnim", !settings.Animations);
-            _rowScrollTransitions ??= GameRowScrollViewer.Transitions;
-            GameRowScrollViewer.Transitions = settings.Animations ? _rowScrollTransitions : null;
+            // v0.18.1: sempre a fileira do layout (não a grade da Nuvem, que pode
+            // estar ativa agora e tem as próprias Transitions).
+            _rowScrollTransitions ??= _libraryLayout.GameRowScrollViewer.Transitions;
+            _libraryLayout.GameRowScrollViewer.Transitions = settings.Animations ? _rowScrollTransitions : null;
             UiSounds.Enabled = settings.SoundEffects;
             UiSounds.Pack = settings.SoundTheme;
             UiSounds.Volume = settings.SoundVolume;
@@ -138,12 +140,57 @@ public partial class MainWindow : Window
     {
         if (vertical && !_libraryLayout.SupportsVerticalGrid) return;
         _verticalLayout = vertical;
-        _horizontalPanelTemplate ??= GamesItemsControl.ItemsPanel;
-        GamesItemsControl.ItemsPanel = vertical ? new FuncTemplate<Panel?>(() => new WrapPanel { Orientation = Orientation.Horizontal }) : _horizontalPanelTemplate;
-        GameRowScrollViewer.HorizontalScrollBarVisibility = vertical || !_libraryLayout.SupportsVerticalGrid ? ScrollBarVisibility.Hidden : ScrollBarVisibility.Auto;
-        GameRowScrollViewer.VerticalScrollBarVisibility = vertical ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
-        GameRowScrollViewer.Offset = default;
-        foreach (var container in GamesItemsControl.GetRealizedContainers()) container.Margin = ContainerMargin();
+        // v0.18.1: mexe SEMPRE na fileira do layout — com a aba Nuvem aberta, os
+        // campos GamesItemsControl/GameRowScrollViewer apontam pra grade dela.
+        var items = _libraryLayout.GamesItemsControl;
+        var scroll = _libraryLayout.GameRowScrollViewer;
+        _horizontalPanelTemplate ??= items.ItemsPanel;
+        items.ItemsPanel = vertical ? new FuncTemplate<Panel?>(() => new WrapPanel { Orientation = Orientation.Horizontal }) : _horizontalPanelTemplate;
+        scroll.HorizontalScrollBarVisibility = vertical || !_libraryLayout.SupportsVerticalGrid ? ScrollBarVisibility.Hidden : ScrollBarVisibility.Auto;
+        scroll.VerticalScrollBarVisibility = vertical ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
+        scroll.Offset = default;
+        foreach (var container in items.GetRealizedContainers()) container.Margin = ContainerMargin();
+    }
+
+    // ---- v0.18.1: grade vertical da aba Nuvem -------------------------------------
+    // Pedido do usuário: SÓ na aba Nuvem, em todos os layouts, os jogos em
+    // blocos numa tela só com rolagem vertical. A grade (Layouts/CloudGridView)
+    // existe nos 3 layouts; aqui a MainWindow troca qual lista é "a lista" —
+    // assim navegação ↑/↓/←/→ (MoveSelectionVertical) e rolagem que acompanha a
+    // seleção (ScrollSelectionIntoViewNow) usam a grade, igual ao modo grade
+    // vertical que já existia. Só uma das duas listas recebe os jogos por vez
+    // (a outra fica com ItemsSource nulo), pra não montar ~560 blocos em dobro.
+    private bool _cloudGridActive;
+
+    private bool IsGridNav => _verticalLayout || _cloudGridActive;
+
+    private void UpdateCloudGrid(MainViewModel vm)
+    {
+        try
+        {
+            var active = vm.IsFilterCloudActive;
+            if (active == _cloudGridActive) return;
+            var cloud = _libraryLayout.CloudGrid;
+            if (active)
+            {
+                _libraryLayout.GamesItemsControl.ItemsSource = null;
+                cloud.Items.ItemsSource = vm.Games;
+                GamesItemsControl = cloud.Items;
+                GameRowScrollViewer = cloud.Scroll;
+                cloud.Scroll.Offset = default;
+            }
+            else
+            {
+                cloud.Items.ItemsSource = null;
+                _libraryLayout.GamesItemsControl.ItemsSource = vm.Games;
+                GamesItemsControl = _libraryLayout.GamesItemsControl;
+                GameRowScrollViewer = _libraryLayout.GameRowScrollViewer;
+            }
+            _cloudGridActive = active;
+            DebugLog.Write($"[NUVEM] Grade vertical {(active ? "ligada" : "desligada")}.");
+            ScrollGameRowSelectionIntoView(vm);
+        }
+        catch (Exception ex) { DebugLog.Write($"[NUVEM] Troca de grade falhou: {ex.Message}"); }
     }
 
     private void OnGearMenuClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => (DataContext as MainViewModel)?.ToggleGlobalMenu();
