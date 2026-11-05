@@ -100,5 +100,6 @@ internal static class Program
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
+            .WithInterFont() // v0.16.4: fonte "Limpa (Inter)", do pacote Avalonia.Fonts.Inter
             .LogToTrace();
 }

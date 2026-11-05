@@ -58,7 +58,12 @@ internal static class UiSounds
     /// ("Clássico") é o som original já aprovado; os outros são variações
     /// mais discretas, nunca algo chamativo.
     /// </summary>
-    public static readonly string[] PackNames = ["Clássico", "Suave", "Retro", "Future"];
+    // v0.16.4: os bipes antigos (Clássico, Suave, Retro, Future) foram trocados
+    // por 7 estilos novos escolhidos pelo usuário (Wyzowl SFX Kit e Kenney,
+    // CC0 — ver Assets/SONS-LICENCA.txt). A ORDEM importa: o índice salvo em
+    // AppSettings.SoundTheme aponta pra cá, e ThemeManager.LayoutDefaults usa
+    // esses índices.
+    public static readonly string[] PackNames = ["Console", "Toque", "Bolha", "Mecânico", "Marimba", "Botão", "Digital"];
 
     // IMPORTANTE: _volumeFraction precisa ser inicializado ANTES de Packs
     // abaixo — os inicializadores de campo estático executam em ORDEM
@@ -80,11 +85,14 @@ internal static class UiSounds
 
     private static string FileSlug(string packName) => packName switch
     {
-        "Clássico" => "classic",
-        "Suave" => "soft",
-        "Retro" => "retro",
-        "Future" => "future",
-        _ => "classic",
+        "Console" => "console",
+        "Toque" => "toque",
+        "Bolha" => "bolha",
+        "Mecânico" => "mecanico",
+        "Marimba" => "marimba",
+        "Botão" => "botao",
+        "Digital" => "digital",
+        _ => "console",
     };
 
     private static int _pack;

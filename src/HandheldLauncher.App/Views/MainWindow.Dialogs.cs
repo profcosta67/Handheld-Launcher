@@ -65,6 +65,11 @@ public partial class MainWindow : Window
         bool apply; try { apply = await dialog.ShowDialog<bool>(this); } finally { _activeDialog = null; }
         if (!apply || dialog.SelectedLayout == settings.LayoutTheme) return;
         settings.LayoutTheme = dialog.SelectedLayout;
+        // v0.16.4: o layout novo traz o som e a fonte que combinam com ele.
+        var (font, sound) = ThemeManager.LayoutDefaults(settings.LayoutTheme);
+        settings.UiFont = font;
+        settings.SoundTheme = sound;
+        DebugLog.Write($"OpenLayoutPicker: layout {settings.LayoutTheme} → fonte '{ThemeManager.Fonts[font].Name}', som '{UiSounds.PackNames[sound]}'.");
         try { AppSettingsStore.Save(settings); } catch (Exception ex) { DebugLog.Write($"OpenLayoutPicker: falhou ao salvar: {ex.Message}"); return; }
         if (LauncherRestart.TryStartReplacement()) (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown();
         else DebugLog.Write("OpenLayoutPicker: layout salvo, mas não deu pra reiniciar — vale na próxima abertura.");

@@ -42,7 +42,29 @@ public static class ThemeManager
         ("Clássica (Times New Roman)", "Times New Roman"),
         ("Legível (Verdana)", "Verdana"),
         ("Elegante (Trebuchet)", "Trebuchet MS"),
+        // v0.16.4 (sempre acrescentar no FIM: o índice fica salvo nas configurações)
+        ("Limpa (Inter)", "fonts:Inter#Inter"),
+        ("Manuscrita (Ink Free)", "Ink Free"),
     ];
+
+    public const int FontModerna = 0, FontDivertida = 1, FontGamer = 3, FontLimpa = 9;
+
+    /// <summary>
+    /// v0.16.4 (pedido do usuário): cada layout tem um som e uma fonte que
+    /// combinam. Aplicado só quando o layout é TROCADO (Configurações → Layout
+    /// da tela); depois o usuário muda o que quiser em Preferências.
+    /// Cartoon (Bolha + Divertida) fica reservado pro tema futuro.
+    /// </summary>
+    public static (int Font, int Sound) LayoutDefaults(int layoutTheme) => layoutTheme switch
+    {
+        0 => (FontModerna, 1), // Clássico → Segoe UI + Toque
+        1 => (FontLimpa, 3),   // Clean     → Inter + Mecânico
+        2 => (FontGamer, 0),   // Moderno (BigScreen) → Bahnschrift + Console
+        _ => (FontModerna, 0),
+    };
+
+    /// <summary>Reservado pro futuro tema Cartoon: Comic Sans + Bolha.</summary>
+    public static readonly (int Font, int Sound) CartoonDefaults = (FontDivertida, 2);
 
     public static readonly string[] FontSizeNames = ["Pequeno", "Médio", "Grande"];
 
