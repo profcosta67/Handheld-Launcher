@@ -421,6 +421,8 @@ public partial class MainWindow : Window
         vm.SystemUpdateRequested += (_, _) => _ = OpenSystemUpdateDialogAsync();
         vm.DriverUpdateRequested += (_, _) => _ = OpenDriverUpdateDialogAsync();
         vm.HelpCenterRequested += (_, _) => _ = OpenHelpCenterDialogAsync();
+        vm.DeviceHealthRequested += (_, _) => _ = OpenDeviceHealthDialogAsync(vm);
+        vm.StorageManagerRequested += (_, _) => _ = OpenStorageManagerDialogAsync(vm);
 
         vm.QuitRequested += (_, _) =>
         {

@@ -1,0 +1,78 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:HandheldLauncher.App.ViewModels"
+        x:Class="HandheldLauncher.App.Views.StorageManagerWindow"
+        Title="Gerenciador de Armazenamento"
+        Width="620" Height="700"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BackgroundBrush}">
+
+  <!--
+    v0.18 "Gerenciador de armazenamento" (Fase 1) — 1ª leva: espaço por
+    disco, aviso de pouco espaço e tamanho por jogo (maior pro menor).
+    Mover jogo entre SSD/microSD e limpar cache de shader ainda NÃO estão
+    aqui de propósito — mexem direto com arquivo de instalação/save e
+    merecem uma rodada própria de cuidado (risco real de corromper save se
+    o jogo estiver rodando ou a cópia for interrompida), em vez de entrar
+    junto com a parte só-leitura.
+  -->
+
+  <Grid RowDefinitions="*,Auto" Margin="24">
+    <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+      <StackPanel Spacing="14">
+
+        <TextBlock Text="💾 Gerenciador de Armazenamento" FontSize="20" FontWeight="Bold" />
+        <TextBlock Text="Mover jogos entre discos e limpar cache de shader chegam numa próxima leva — por ora, é só consulta." Classes="subtle" FontSize="12" TextWrapping="Wrap" />
+
+        <Border x:Name="LowSpaceWarning" Background="#2A1B1B" BorderBrush="#C0392B" BorderThickness="1.5" CornerRadius="12" Padding="14" IsVisible="False">
+          <TextBlock x:Name="TxtLowSpaceWarning" Foreground="#FFB3A7" TextWrapping="Wrap" FontWeight="SemiBold" />
+        </Border>
+
+        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="14" Padding="18">
+          <StackPanel Spacing="10">
+            <TextBlock Text="Discos" FontSize="16" FontWeight="Bold" />
+            <ItemsControl x:Name="DriveList">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:DriveRowViewModel">
+                  <StackPanel Spacing="4" Margin="0,0,0,8">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Text="{Binding Label}" FontWeight="Bold" />
+                      <TextBlock Grid.Column="1" Text="{Binding UsageText}" Classes="subtle" FontSize="12" />
+                    </Grid>
+                    <ProgressBar Minimum="0" Maximum="100" Value="{Binding UsedPercent}" Height="10" CornerRadius="5" />
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+
+        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="14" Padding="18">
+          <StackPanel Spacing="10">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Jogos (maior → menor)" FontSize="16" FontWeight="Bold" />
+              <TextBlock x:Name="TxtTotalGamesSize" Grid.Column="1" Classes="subtle" FontSize="12" VerticalAlignment="Center" />
+            </Grid>
+            <ItemsControl x:Name="GameList">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:GameStorageRowViewModel">
+                  <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+                    <TextBlock Text="{Binding Title}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Grid.Column="1" Text="{Binding SizeText}" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock x:Name="TxtNoGames" Text="Nenhum jogo com pasta de instalação conhecida." Classes="subtle" IsVisible="False" />
+          </StackPanel>
+        </Border>
+
+      </StackPanel>
+    </ScrollViewer>
+
+    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,16,0,0">
+      <Button Classes="pill" Content="Fechar" Click="OnCloseClick" />
+    </StackPanel>
+  </Grid>
+</Window>

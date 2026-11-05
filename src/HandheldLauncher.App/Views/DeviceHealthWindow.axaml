@@ -1,0 +1,83 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:HandheldLauncher.App.ViewModels"
+        x:Class="HandheldLauncher.App.Views.DeviceHealthWindow"
+        Title="Saúde do Aparelho"
+        Width="520" Height="580"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BackgroundBrush}">
+
+  <!--
+    v0.18 "Guardião de suspensão" e irmãos (Fase 1): esta é a 1ª leva da
+    aba "Saúde do aparelho" do roadmap — só leitura (temperatura, bateria,
+    disco). Sem alertas ainda (ficam pra depois da v1.0, conforme o plano).
+    Janela simples, sem ViewModel dedicada — os valores são lidos uma vez
+    (síncrono, rápido: WMI + DriveInfo) e escritos direto nos controles,
+    igual vários outros diálogos deste app (ex.: OverlayWindow).
+  -->
+
+  <Grid RowDefinitions="*,Auto" Margin="24">
+    <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+      <StackPanel Spacing="14">
+
+        <TextBlock Text="🌡 Saúde do Aparelho" FontSize="20" FontWeight="Bold" />
+        <TextBlock Text="Só leitura — nenhum ajuste é feito por aqui." Classes="subtle" FontSize="12" />
+
+        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="14" Padding="18">
+          <StackPanel Spacing="8">
+            <TextBlock Text="Temperatura (CPU)" FontSize="16" FontWeight="Bold" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Agora" VerticalAlignment="Center" />
+              <TextBlock x:Name="TxtTempNow" Grid.Column="1" Text="--°C" FontWeight="Bold" FontSize="18" />
+            </Grid>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Pico desde que o launcher abriu" VerticalAlignment="Center" />
+              <TextBlock x:Name="TxtTempPeak" Grid.Column="1" Text="--°C" FontWeight="Bold" FontSize="18" />
+            </Grid>
+          </StackPanel>
+        </Border>
+
+        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="14" Padding="18">
+          <StackPanel Spacing="8">
+            <TextBlock Text="Bateria" FontSize="16" FontWeight="Bold" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Carga atual" VerticalAlignment="Center" />
+              <TextBlock x:Name="TxtBatteryNow" Grid.Column="1" Text="--%" FontWeight="Bold" FontSize="18" />
+            </Grid>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Saúde (capacidade real vs. de fábrica)" VerticalAlignment="Center" TextWrapping="Wrap" />
+              <TextBlock x:Name="TxtBatteryHealth" Grid.Column="1" Text="--" FontWeight="Bold" FontSize="18" Margin="10,0,0,0" />
+            </Grid>
+            <TextBlock x:Name="TxtBatteryHealthNote" Classes="subtle" FontSize="11" TextWrapping="Wrap" IsVisible="False" />
+          </StackPanel>
+        </Border>
+
+        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="14" Padding="18">
+          <StackPanel Spacing="10">
+            <TextBlock Text="Armazenamento" FontSize="16" FontWeight="Bold" />
+            <ItemsControl x:Name="DriveList">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:DriveRowViewModel">
+                  <StackPanel Spacing="4" Margin="0,0,0,8">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Text="{Binding Label}" FontWeight="Bold" />
+                      <TextBlock Grid.Column="1" Text="{Binding UsageText}" Classes="subtle" FontSize="12" />
+                    </Grid>
+                    <ProgressBar Minimum="0" Maximum="100" Value="{Binding UsedPercent}" Height="10" CornerRadius="5" />
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+
+      </StackPanel>
+    </ScrollViewer>
+
+    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,16,0,0">
+      <Button Classes="pill" Content="Atualizar" Click="OnRefreshClick" />
+      <Button Classes="pill" Content="Fechar" Click="OnCloseClick" />
+    </StackPanel>
+  </Grid>
+</Window>

@@ -49,6 +49,13 @@ public sealed class MainViewModel : ViewModelBase
         private set => SetField(ref _cpuTemperature, value);
     }
 
+    // v0.18 "Saúde do aparelho": maior temperatura vista desde que o
+    // launcher abriu (só em memória, zera ao reiniciar). Atualizado junto
+    // da leitura normal de CpuTemperature no _hardwareTimer — nenhuma
+    // leitura extra de sensor, só guarda o maior valor já visto.
+    private double _peakCpuTemperatureC;
+    public string PeakCpuTemperatureText => _peakCpuTemperatureC > 0 ? $"{_peakCpuTemperatureC:F0}°C" : "--°C";
+
     private int _targetTdpWatts = 20;
     private int _realTimeTdpWatts = 0;
 
@@ -145,6 +152,11 @@ public sealed class MainViewModel : ViewModelBase
             {
                 CpuTemperature = $"{temp.Value:F0}°C";
                 if (_hud != null) _hud.CpuTemperature = CpuTemperature;
+                if (temp.Value > _peakCpuTemperatureC)
+                {
+                    _peakCpuTemperatureC = temp.Value;
+                    OnPropertyChanged(nameof(PeakCpuTemperatureText));
+                }
             }
 
             if (_hwInfoService.TryRead(out var hwInfo) && hwInfo is not null)
@@ -575,6 +587,8 @@ public sealed class MainViewModel : ViewModelBase
     public event EventHandler? SystemUpdateRequested;
     public event EventHandler? DriverUpdateRequested;
     public event EventHandler? HelpCenterRequested; // v0.16.2: Central de Ajuda
+    public event EventHandler? DeviceHealthRequested; // v0.18: Saúde do Aparelho
+    public event EventHandler? StorageManagerRequested; // v0.18: Gerenciador de Armazenamento
 
     public void RequestOpenOverlay() { OpenOverlayRequested?.Invoke(this, EventArgs.Empty); }
 
@@ -978,6 +992,11 @@ public sealed class MainViewModel : ViewModelBase
                 // verdade (Preferências) — agora é ação direta, economiza um clique.
                 Add("🎨 TEMAS", () => LayoutPickerRequested?.Invoke(this, EventArgs.Empty));
                 Add("⚙ Configurações", () => SettingsRequested?.Invoke(this, EventArgs.Empty));
+                // v0.18 (pedido do usuário, 05/11): Gerenciador de armazenamento e
+                // Saúde do aparelho, direto no menu raiz junto de TEMAS/Configurações
+                // — são "sobre o aparelho", não pertencem dentro de outra pasta.
+                Add("💾 Armazenamento", () => StorageManagerRequested?.Invoke(this, EventArgs.Empty));
+                Add("🌡 Saúde do Aparelho", () => DeviceHealthRequested?.Invoke(this, EventArgs.Empty));
                 Folder("🔄 Atualizações", GlobalMenuPage.Updates);
                 Folder("🛟 Ajuda", GlobalMenuPage.Help); Folder("⚡ Energia", GlobalMenuPage.Power);
                 break;

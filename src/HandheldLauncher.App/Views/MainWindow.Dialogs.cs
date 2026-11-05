@@ -144,6 +144,25 @@ public partial class MainWindow : Window
         }
     }
 
+    // v0.18 "Saúde do aparelho" / "Gerenciador de armazenamento": mesmo
+    // padrão dos outros diálogos simples (_activeDialog + Topmost) — nenhum
+    // dos dois tem navegação própria de controle, então o
+    // DialogGamepadNavigator genérico (B fecha, A clica, setas movem foco)
+    // já basta.
+    private async Task OpenDeviceHealthDialogAsync(MainViewModel vm)
+    {
+        var dialog = new DeviceHealthWindow(vm) { Topmost = true };
+        _activeDialog = dialog;
+        try { await dialog.ShowDialog(this); } finally { _activeDialog = null; }
+    }
+
+    private async Task OpenStorageManagerDialogAsync(MainViewModel vm)
+    {
+        var dialog = new StorageManagerWindow(vm) { Topmost = true };
+        _activeDialog = dialog;
+        try { await dialog.ShowDialog(this); } finally { _activeDialog = null; }
+    }
+
     public void OpenWindowsSettings(string uri)
     {
         if (!OperatingSystem.IsWindows()) return;
