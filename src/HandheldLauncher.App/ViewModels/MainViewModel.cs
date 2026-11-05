@@ -589,6 +589,7 @@ public sealed class MainViewModel : ViewModelBase
     public event EventHandler? HelpCenterRequested; // v0.16.2: Central de Ajuda
     public event EventHandler? DeviceHealthRequested; // v0.18: Saúde do Aparelho
     public event EventHandler? StorageManagerRequested; // v0.18: Gerenciador de Armazenamento
+    public event EventHandler? XCloudRequested; // v0.18: Modo xCloud
 
     public void RequestOpenOverlay() { OpenOverlayRequested?.Invoke(this, EventArgs.Empty); }
 
@@ -999,6 +1000,17 @@ public sealed class MainViewModel : ViewModelBase
                 // — são "sobre o aparelho", não pertencem dentro de outra pasta.
                 Add("💾 Armazenamento", () => StorageManagerRequested?.Invoke(this, EventArgs.Empty));
                 Add("🌡 Saúde do Aparelho", () => DeviceHealthRequested?.Invoke(this, EventArgs.Empty));
+                // v0.18 (Fase 1, "modo xCloud"): abre o catálogo do Xbox Cloud Gaming
+                // no navegador padrão (não dá pra incorporar na nossa janela sem um
+                // componente de navegador embutido, que é uma dependência nova e
+                // pesada — fora do escopo desta leva). Ver MainWindow.OpenXCloud: tira
+                // o launcher do Topmost e só devolve quando ele volta ao foco.
+                // "Sem controle no momento" (ver backlog): navegar o CATÁLOGO do site
+                // precisa de toque/mouse (a tela do Legion Go 2/Ally é touch) — depois
+                // que o jogo em nuvem começa a rodar, o controle já funciona normal
+                // através da Gamepad API do próprio navegador (mesmo jeito que já
+                // funciona hoje abrindo xbox.com/play manualmente).
+                Add("☁ Xbox Cloud Gaming", () => XCloudRequested?.Invoke(this, EventArgs.Empty));
                 Folder("🔄 Atualizações", GlobalMenuPage.Updates);
                 Folder("🛟 Ajuda", GlobalMenuPage.Help); Folder("⚡ Energia", GlobalMenuPage.Power);
                 break;

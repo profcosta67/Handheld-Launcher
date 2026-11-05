@@ -187,6 +187,40 @@ public partial class MainWindow : Window
         }
     }
 
+    // v0.18 "Modo xCloud" (Fase 1): abre o Xbox Cloud Gaming no navegador
+    // padrão. Mesma lógica de OpenWindowsSettings acima (copiada, não
+    // reaproveitada, pra não mexer no comportamento das Configurações do
+    // Windows): rebaixa o Topmost e só devolve quando o launcher RECEBE O
+    // FOCO de volta (handler Activated + _externalSettingsOpen). NÃO usa
+    // OpenExternalUrl: aquele reafirma o Topmost depois de 3s quando não há
+    // diálogo aberto — aqui isso cobriria o navegador no meio do jogo.
+    // Enquanto o navegador está na frente, OnGamepadTick já ignora os botões
+    // (exceto L3+R3 do Quick Settings), então o A/B do jogo em nuvem não
+    // mexe na biblioteca por trás.
+    private const string XCloudUrl = "https://www.xbox.com/play";
+
+    public void OpenXCloud()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        try
+        {
+            _externalSettingsOpen = true;
+            Topmost = false;
+            var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+            if (handle != IntPtr.Zero)
+                SetWindowPos(handle, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(XCloudUrl) { UseShellExecute = true });
+            DebugLog.Write($"[XCLOUD] Navegador aberto em {XCloudUrl}.");
+        }
+        catch (Exception ex)
+        {
+            _externalSettingsOpen = false;
+            DebugLog.Write($"[XCLOUD] Não foi possível abrir o navegador: {ex.Message}");
+            Topmost = true;
+        }
+    }
+
     public async Task OpenConnectivityPopup()
     {
         var dialog = new ConnectivityPopupWindow { Topmost = true };

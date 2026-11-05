@@ -423,6 +423,8 @@ public partial class MainWindow : Window
         vm.HelpCenterRequested += (_, _) => _ = OpenHelpCenterDialogAsync();
         vm.DeviceHealthRequested += (_, _) => _ = OpenDeviceHealthDialogAsync(vm);
         vm.StorageManagerRequested += (_, _) => _ = OpenStorageManagerDialogAsync(vm);
+        // v0.18 "Modo xCloud" (Fase 1) — ver OpenXCloud em MainWindow.Dialogs.cs.
+        vm.XCloudRequested += (_, _) => OpenXCloud();
 
         vm.QuitRequested += (_, _) =>
         {
