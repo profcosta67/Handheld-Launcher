@@ -305,11 +305,32 @@ public sealed class SettingsViewModel : ViewModelBase
     private bool _focusOverlayInGame;
     public bool FocusOverlayInGame { get => _focusOverlayInGame; set => SetField(ref _focusOverlayInGame, value); }
 
+    // beta.16: mexer no estilo ou no volume toca um exemplo na hora (antes não
+    // dava retorno nenhum e parecia que "não responde"). _isLoading evita tocar
+    // quando é o próprio LoadFrom preenchendo a tela.
+    private bool _isLoading;
+
     private int _soundThemeIndex;
-    public int SoundThemeIndex { get => _soundThemeIndex; set => SetField(ref _soundThemeIndex, value); }
+    public int SoundThemeIndex
+    {
+        get => _soundThemeIndex;
+        set
+        {
+            if (SetField(ref _soundThemeIndex, value) && !_isLoading)
+                UiSounds.Preview(_soundThemeIndex, (int)Math.Round(_soundVolume), _soundEffects);
+        }
+    }
 
     private double _soundVolume = 70;
-    public double SoundVolume { get => _soundVolume; set => SetField(ref _soundVolume, value); }
+    public double SoundVolume
+    {
+        get => _soundVolume;
+        set
+        {
+            if (SetField(ref _soundVolume, value) && !_isLoading)
+                UiSounds.Preview(_soundThemeIndex, (int)Math.Round(_soundVolume), _soundEffects);
+        }
+    }
 
     private int _colorModeIndex;
     public int ColorModeIndex { get => _colorModeIndex; set => SetField(ref _colorModeIndex, value); }
@@ -406,6 +427,13 @@ public sealed class SettingsViewModel : ViewModelBase
     public bool FormEnabled => !HasSavedMessage;
 
     public void LoadFrom(AppSettings settings)
+    {
+        _isLoading = true;
+        try { LoadFromCore(settings); }
+        finally { _isLoading = false; }
+    }
+
+    private void LoadFromCore(AppSettings settings)
     {
         SteamGridDbApiKey = settings.SteamGridDbApiKey ?? string.Empty;
         SteamWebApiKey = settings.SteamWebApiKey ?? string.Empty;
