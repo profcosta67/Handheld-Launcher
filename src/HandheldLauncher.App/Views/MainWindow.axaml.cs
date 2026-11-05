@@ -430,6 +430,15 @@ public partial class MainWindow : Window
         vm.RestartDeviceRequested += (_, _) => RestartDevice();
         vm.ShutdownDeviceRequested += (_, _) => ShutdownDevice();
         vm.RestoreShellRequested += (_, _) => RestoreWindowsShell();
+        vm.RestartLauncherRequested += (_, _) =>
+        {
+            WatchdogGate.MarkDeliberateQuit();
+            vm.ClearOverlayNow();
+            if (_overlayWindow != null) { _overlayWindow.IsAppClosing = true; _overlayWindow.Close(); }
+            RelaunchSelfAfterExit();
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop) desktop.Shutdown();
+            else Close();
+        };
         vm.GameDetailsRequested += (_, game) => _ = OpenGameDetailsDialogAsync(vm, game);
 
         vm.OpenOverlayRequested += (_, _) =>

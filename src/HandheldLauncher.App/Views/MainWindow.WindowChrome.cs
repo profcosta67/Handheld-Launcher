@@ -344,6 +344,44 @@ public partial class MainWindow : Window
 
     private static void TurnOffScreen() { if (!OperatingSystem.IsWindows()) return; try { PostMessage(HwndBroadcast, WmSysCommand, (IntPtr)ScMonitorPower, (IntPtr)2); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); } }
 
+    /// <summary>
+    /// v0.17 (pedido do usuário): "Reiniciar Launcher" (Energia) — reinicia só
+    /// o PROCESSO do launcher, sem tocar no aparelho. Chamado ANTES do
+    /// processo atual sair (ver RestartLauncherRequested em MainWindow.axaml.cs):
+    /// agenda uma nova cópia via cmd.exe, que espera 1s antes de abrir — dando
+    /// tempo do processo atual terminar e liberar o Mutex de instância única
+    /// (SingleInstance), senão a cópia nova só notificaria a antiga (ainda viva)
+    /// e fecharia sem abrir nada.
+    /// </summary>
+    private static void RelaunchSelfAfterExit()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        try
+        {
+            var exe = Environment.ProcessPath;
+            if (string.IsNullOrEmpty(exe))
+            {
+                DebugLog.Write("RelaunchSelfAfterExit: ProcessPath vazio, abortando.");
+                return;
+            }
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = "cmd.exe",
+                Arguments = $"/c timeout /t 1 /nobreak >nul & start \"\" \"{exe}\"",
+                CreateNoWindow = true,
+                UseShellExecute = false,
+                WindowStyle = ProcessWindowStyle.Hidden,
+            };
+            Process.Start(psi);
+            DebugLog.Write("RelaunchSelfAfterExit: relançamento agendado.");
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"RelaunchSelfAfterExit EXCEPTION: {ex.Message}");
+        }
+    }
+
     private static void RestartDevice() { if (!OperatingSystem.IsWindows()) return; RunShutdownExe("/r /f /t 0"); }
 
     private static void ShutdownDevice() { if (!OperatingSystem.IsWindows()) return; RunShutdownExe("/s /f /t 0"); }
