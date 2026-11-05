@@ -153,7 +153,7 @@ internal static class HealthChecks
         }
 
         var hint = UpdateService.IsBetaChannel
-            ? "No canal beta você recebe versões de teste. Pra voltar ao estável, desligue \"Receber atualizações beta\" em Configurações → Novidades, salve e reinicie o launcher."
+            ? "No canal beta você recebe versões de teste. Pra voltar ao estável, desligue \"Receber atualizações beta\" em Configurações → Atualizações, salve e reinicie o launcher."
             : null;
         return new Result(title, Status.Ok, $"Versão {version}, canal {channel}. Última verificação ({when}): {last.Result}.", hint);
     }
@@ -170,13 +170,13 @@ internal static class HealthChecks
         if (settings.AutoRestart && task == false)
         {
             return new Result(title, Status.Warning, $"{mode}, mas a reabertura automática do modo Handheld (tarefa \"HandheldLauncherWatchdog\") não está registrada no Windows.",
-                "Abra Configurações → Modo de uso, escolha Handheld de novo e salve — isso registra a reabertura automática.");
+                "Abra Configurações → Geral, escolha Handheld de novo e salve — isso registra a reabertura automática.");
         }
 
         if (!settings.AutoRestart && task == true)
         {
             return new Result(title, Status.Warning, $"{mode}, mas a reabertura automática do modo Handheld (tarefa \"HandheldLauncherWatchdog\") ainda está registrada no Windows.",
-                "Abra Configurações → Modo de uso, escolha o modo desejado e salve — isso acerta a reabertura automática.");
+                "Abra Configurações → Geral, escolha o modo desejado e salve — isso acerta a reabertura automática.");
         }
 
         // O instalador (InstallTask.ps1) registra uma segunda abertura no login,
@@ -200,7 +200,7 @@ internal static class HealthChecks
         if (string.IsNullOrEmpty(path))
         {
             return new Result(title, Status.Info, "Não encontrado (opcional).",
-                "O Lossless Scaling é vendido na Steam. Depois de instalado, o launcher encontra sozinho na pasta padrão, ou você indica o caminho em Configurações → Lossless Scaling.");
+                "O Lossless Scaling é vendido na Steam. Depois de instalado, o launcher encontra sozinho na pasta padrão, ou você indica o caminho em Configurações → Lossless.");
         }
 
         var running = LosslessScalingService.IsLosslessRunning();
@@ -242,7 +242,7 @@ internal static class HealthChecks
         if (!File.Exists(settings.EdenExecutablePath))
         {
             return new Result(title, Status.Error, "O executável do Eden configurado não existe mais.",
-                $"Caminho salvo: {settings.EdenExecutablePath}. Atualize em Configurações → Emuladores (o Eden pode ter sido movido ou atualizado pra outra pasta).");
+                $"Caminho salvo: {settings.EdenExecutablePath}. Atualize em Configurações → Biblioteca (o Eden pode ter sido movido ou atualizado pra outra pasta).");
         }
 
         var folders = settings.EdenRomFolders ?? new List<string>();
@@ -250,7 +250,7 @@ internal static class HealthChecks
         if (folders.Count == 0)
         {
             return new Result(title, Status.Warning, "Eden encontrado, mas nenhuma pasta de ROMs configurada.",
-                "Adicione a pasta dos jogos em Configurações → Emuladores.");
+                "Adicione a pasta dos jogos em Configurações → Biblioteca.");
         }
         if (missing.Count > 0)
         {

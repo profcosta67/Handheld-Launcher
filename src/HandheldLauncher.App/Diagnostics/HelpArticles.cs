@@ -63,7 +63,7 @@ internal static class HelpArticles
         // ---------------- Atualizações ----------------
         new("atualizacoes-beta", "Atualizações", "Como receber versões beta (ou voltar pra versão oficial)", new[]
         {
-            "Em Configurações → Novidades, marque ou desmarque \"Receber atualizações beta\" e clique em Salvar e fechar.",
+            "Em Configurações → Atualizações, marque ou desmarque \"Receber atualizações beta\" e clique em Salvar e fechar.",
             "A troca só vale depois de reiniciar o launcher.",
             "Atenção: quem está no canal beta não enxerga as versões oficiais, e vice-versa. Pra voltar ao oficial, desmarque, salve e reinicie — o launcher baixa a versão oficial mais recente.",
         }),
@@ -84,10 +84,10 @@ internal static class HelpArticles
         {
             "Handheld (recomendado no aparelho): tela cheia, abre sozinho no login e reabre se fechar.",
             "Uso em PC (Desktop): janela normal, não abre sozinho, e \"Fechar Launcher\" fecha de verdade.",
-            "Troque em Configurações → Modo de uso e salve — isso também liga ou desliga a reabertura automática do modo Handheld.",
+            "Troque em Configurações → Geral e salve — isso também liga ou desliga a reabertura automática do modo Handheld.",
             "Atenção: se o launcher foi instalado pelo instalador (Setup), ele também registra uma abertura no login que vale nos dois modos (tarefa \"HandheldLauncher_Startup\" no Agendador de Tarefas do Windows). A verificação \"Modo de uso\" da Central de Ajuda mostra se ela existe.",
             "Pra usar o Windows por um tempo: menu do launcher → Energia → Fechar Launcher. No modo Handheld, isso segura a reabertura automática até o próximo reinício do aparelho.",
-            "Já Energia → Restaurar Desktop tira o launcher da tela cheia de vez (ele passa a abrir em janela). Pra voltar à tela cheia, escolha Handheld de novo em Configurações → Modo de uso.",
+            "Já Energia → Restaurar Desktop tira o launcher da tela cheia de vez (ele passa a abrir em janela). Pra voltar à tela cheia, escolha Handheld de novo em Configurações → Geral.",
         }),
 
         // ---------------- Biblioteca ----------------
@@ -108,7 +108,7 @@ internal static class HelpArticles
         // ---------------- Lossless ----------------
         new("lossless", "Lossless Scaling", "Usar o Lossless Scaling pelo launcher", new[]
         {
-            "O Lossless Scaling é vendido na Steam. Depois de instalado na pasta padrão, o launcher encontra sozinho; se estiver em outro lugar, indique o caminho em Configurações → Lossless Scaling.",
+            "O Lossless Scaling é vendido na Steam. Depois de instalado na pasta padrão, o launcher encontra sozinho; se estiver em outro lugar, indique o caminho em Configurações → Lossless.",
             "Com o jogo aberto, ative pelo Quick Settings → Lossless. Se o Lossless não estiver aberto, o launcher abre ele em segundo plano antes.",
             "Problema conhecido: na primeira ativação, às vezes aparece uma tela cinza ou o Quick Settings fica no meio da tela. Está em investigação.",
         }),
@@ -116,7 +116,7 @@ internal static class HelpArticles
         // ---------------- Emuladores ----------------
         new("eden", "Emuladores", "Os jogos do Eden não aparecem", new[]
         {
-            "Em Configurações → Emuladores, informe onde está o executável do Eden e as pastas dos jogos (ROMs), e salve.",
+            "Em Configurações → Biblioteca, informe onde está o executável do Eden e as pastas dos jogos (ROMs), e salve.",
             "Se as ROMs estão num cartão de memória ou disco externo, ele precisa estar conectado.",
             "A verificação \"Emulador Eden\" da Central de Ajuda aponta se algum desses caminhos não existe mais.",
         }),
