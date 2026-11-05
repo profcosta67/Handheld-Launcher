@@ -3,7 +3,10 @@
 Mais recente primeiro. Cada versão tem notas completas em [`release-notes/`](release-notes/).
 Betas não entram aqui: o que eles trazem aparece na versão estável que os junta.
 
-## [0.17.0] — em preparo (beta)
+## [0.18.0] — em preparo (beta)
+"Novidades 2.0": página do jogo refeita (tela cheia, toda pelo controle, conquistas, mídia, arquivos, funciona sem internet); Gerenciador de Armazenamento com mover jogo entre discos e limpar cache de shader; Saúde do Aparelho com alertas de temperatura, bateria e espaço; Guardião de suspensão; atalho pro Xbox Cloud Gaming. [Notas](release-notes/0.18.0.md)
+
+## [0.17.0] — 2026-11-05
 Paletas novas (Meia-noite, Crepúsculo, Musgo, Névoa, Alto Contraste) e 9 fontes novas livres; sugestões de fonte por layout atualizadas; base das escalas de tipografia e borda (sem efeito visível ainda); ícones que não faziam sentido (🦆, 🩺 duplicado) corrigidos; botão "Reiniciar Launcher"; overlay que pulava pro centro com o Xbox Game Bar corrigido; barra de status (Wi-Fi/Bluetooth/TDP/bateria/relógio) passa a seguir o tema de cores. Inclui a 0.16.5. [Notas](release-notes/0.17.0.md)
 
 ## [0.16.5] — em preparo
