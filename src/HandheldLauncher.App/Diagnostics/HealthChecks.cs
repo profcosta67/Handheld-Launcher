@@ -104,7 +104,7 @@ internal static class HealthChecks
     private static Result CheckGameInputHelper()
     {
         const string title = "Quick Settings com jogo aberto (L3+R3)";
-        const string knownIssue = "Problema conhecido: em alguns jogos (ex.: Days Gone, Pokémon pelo Eden) o L3+R3 ainda não abre o Quick Settings com o jogo na frente — em investigação. Alternativa: atalho de teclado Ctrl+Alt+O.";
+        const string knownIssue = "Desde a 0.16.3 o launcher também lê o controle direto (HID), o que resolveu os casos conhecidos (Days Gone, Pokémon pelo Eden). Se ainda falhar em algum jogo, use Ctrl+Alt+O e mande o log.";
 
         if (GameInputHelper.IsHelperRunning)
             return new Result(title, Status.Ok, "Detector do jogo ativo agora (há um jogo rodando).", knownIssue);
@@ -149,7 +149,7 @@ internal static class HealthChecks
         if (!last.Ok)
         {
             return new Result(title, Status.Warning, $"Versão {version}, canal {channel}. Última verificação ({when}): {last.Result}.",
-                "Confira a internet. Se persistir, o GitHub pode estar limitando as consultas — tente mais tarde pelo menu Configurações → Verificar atualizações.");
+                "Confira a internet. Se persistir, o GitHub pode estar limitando as consultas — tente mais tarde pelo menu Menu → Atualizações → Verificar launcher.");
         }
 
         var hint = UpdateService.IsBetaChannel

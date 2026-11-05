@@ -268,6 +268,10 @@ internal static class ProblemReport
     {
         private static readonly Regex SteamIdPattern = new(@"7656119\d{10}", RegexOptions.Compiled);
 
+        // v0.16.3: controles Bluetooth aparecem com o endereço do aparelho no
+        // nome do dispositivo HID ("...&REV_0523&c0d6d5e1ea89&IG_00").
+        private static readonly Regex BluetoothAddressPattern = new(@"(?<=&)[0-9a-fA-F]{12}(?=&)", RegexOptions.Compiled);
+
         private readonly List<string> _secrets;
         private readonly string? _profile;
         private readonly string? _user;
@@ -307,6 +311,7 @@ internal static class ProblemReport
                 text = text.Replace(secret, "<chave>", StringComparison.Ordinal);
 
             text = SteamIdPattern.Replace(text, "<steamid>");
+            text = BluetoothAddressPattern.Replace(text, "<bt>");
 
             if (!string.IsNullOrWhiteSpace(_profile) && _profile.Length >= 4)
                 text = text.Replace(_profile, "%USERPROFILE%", StringComparison.OrdinalIgnoreCase);

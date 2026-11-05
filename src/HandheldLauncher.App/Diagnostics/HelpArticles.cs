@@ -28,9 +28,9 @@ internal static class HelpArticles
         new("qs-em-jogo", "Controle", "O Quick Settings não abre com o jogo aberto (L3+R3)", new[]
         {
             "Com um jogo rodando, quem detecta o L3+R3 é um processo auxiliar do launcher que lê o controle em segundo plano.",
-            "Problema conhecido: em alguns jogos (por exemplo Days Gone e Pokémon pelo Eden) o Windows entrega o controle \"em repouso\" pro launcher enquanto o jogo está na frente, e o L3+R3 não é percebido. Está em investigação.",
+            "Desde a 0.16.3 ele lê o controle por dois caminhos, incluindo o HID direto do controle — foi o que resolveu Days Gone e Pokémon pelo Eden, onde o Windows entregava o controle \"em repouso\" pro launcher.",
             "Alternativa que funciona com qualquer jogo: o atalho de teclado Ctrl+Alt+O abre e fecha o Quick Settings.",
-            "Se o jogo usa Steam Input, vale testar desligar (Steam → jogo → Propriedades → Controle) e ver se o L3+R3 passa a funcionar. Conte o resultado — ajuda a investigação.",
+            "Se mesmo assim não abrir em algum jogo, mande o log pelo Reportar erro: ele mostra qual caminho viu (ou não viu) o botão.",
         }),
         new("qs-navegacao", "Controle", "O Quick Settings aparece, mas o controle continua mexendo no launcher", new[]
         {
@@ -69,7 +69,7 @@ internal static class HelpArticles
         }),
         new("atualizacoes-nao-aparece", "Atualizações", "A atualização não aparece", new[]
         {
-            "O launcher procura atualização uns 20 segundos depois de abrir e depois a cada 6 horas. Dá pra procurar na hora em Configurações (menu do launcher) → Verificar atualizações.",
+            "O launcher procura atualização uns 20 segundos depois de abrir e depois a cada 6 horas. Dá pra procurar na hora em Menu → Atualizações → Verificar launcher.",
             "A verificação \"Atualizações\" da Central de Ajuda mostra a versão instalada, o canal (beta ou oficial) e o resultado da última procura — inclusive o erro, se houve.",
             "Se aparecer falha: confira a internet. Às vezes o GitHub limita as consultas por um tempo; tente mais tarde.",
         }),
@@ -87,7 +87,7 @@ internal static class HelpArticles
             "Troque em Configurações → Geral e salve — isso também liga ou desliga a reabertura automática do modo Handheld.",
             "Atenção: se o launcher foi instalado pelo instalador (Setup), ele também registra uma abertura no login que vale nos dois modos (tarefa \"HandheldLauncher_Startup\" no Agendador de Tarefas do Windows). A verificação \"Modo de uso\" da Central de Ajuda mostra se ela existe.",
             "Pra usar o Windows por um tempo: menu do launcher → Energia → Fechar Launcher. No modo Handheld, isso segura a reabertura automática até o próximo reinício do aparelho.",
-            "Já Energia → Restaurar Desktop tira o launcher da tela cheia de vez (ele passa a abrir em janela). Pra voltar à tela cheia, escolha Handheld de novo em Configurações → Geral.",
+            "Já Energia → Sair pro Desktop tira o launcher da tela cheia de vez (ele passa a abrir em janela). Pra voltar à tela cheia, escolha Handheld de novo em Configurações → Geral.",
         }),
 
         // ---------------- Biblioteca ----------------
@@ -110,7 +110,7 @@ internal static class HelpArticles
         {
             "O Lossless Scaling é vendido na Steam. Depois de instalado na pasta padrão, o launcher encontra sozinho; se estiver em outro lugar, indique o caminho em Configurações → Lossless.",
             "Com o jogo aberto, ative pelo Quick Settings → Lossless. Se o Lossless não estiver aberto, o launcher abre ele em segundo plano antes.",
-            "Problema conhecido: na primeira ativação, às vezes aparece uma tela cinza ou o Quick Settings fica no meio da tela. Está em investigação.",
+            "Desde a 0.16.3 a janela principal do Lossless é minimizada sozinha e o Quick Settings volta pra direita se outro programa o mover. Se ainda aparecer tela cinza, mande o log pelo Reportar erro.",
         }),
 
         // ---------------- Emuladores ----------------
