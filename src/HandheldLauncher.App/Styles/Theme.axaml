@@ -389,6 +389,19 @@
     <Setter Property="FontWeight" Value="Bold" />
     <Setter Property="HorizontalContentAlignment" Value="Center" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
+    <!-- v0.17 (05/11): o Background/Foreground acima já resolviam a cor de
+         fundo/ícone, mas faltava isto — sem um FocusAdorner próprio, o botão
+         com foco (navegação por D-pad/teclado) caía no anel de foco padrão
+         do FluentTheme, que usa a cor de destaque do WINDOWS, não a paleta
+         do app. Por isso um dos três ficava "torto" (o anel padrão soma uma
+         margem/formato diferente dos nossos) e com cor fora da paleta
+         escolhida. SettingsWindow e HelpCenterWindow já tinham esse ajuste
+         local; faltava igual aqui. -->
+    <Setter Property="FocusAdorner">
+      <Template>
+        <Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="3" CornerRadius="14" Margin="-3" />
+      </Template>
+    </Setter>
   </Style>
 
   <Style Selector="Button.switchAction:pointerover /template/ ContentPresenter">

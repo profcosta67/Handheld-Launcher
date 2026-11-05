@@ -175,8 +175,16 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
     {
         var normalizedTitle = title.Trim();
         var comparableTitle = NormalizeGameTitle(normalizedTitle);
-        var searchTitle = comparableTitle.Length > 0 ? comparableTitle : normalizedTitle;
-        var url = $"{BaseUrl}/search/autocomplete/{Uri.EscapeDataString(searchTitle)}";
+
+        // v0.17 (05/11, bug reportado como "voltou"): comparableTitle existe
+        // para COMPARAR o nome local com o resultado da SGDB sem distinguir
+        // acento/caixa (ex.: pasta "Pokemon" vs. nome oficial "Pokémon" na
+        // API). Até a v0.15.2 esse MESMO texto sem acento também era usado
+        // como o TERMO DE BUSCA enviado à API — e a busca da SteamGridDB não
+        // acha "Pokémon" a partir de "pokemon" sem o acento. A query precisa
+        // ir com o título original (com acento); só a comparação do
+        // resultado é que deve ignorar acento.
+        var url = $"{BaseUrl}/search/autocomplete/{Uri.EscapeDataString(normalizedTitle)}";
         using var response = await _http.GetAsync(url, ct);
         if (!response.IsSuccessStatusCode)
         {

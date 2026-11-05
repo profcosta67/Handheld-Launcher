@@ -48,6 +48,11 @@
               <ComboBoxItem Content="Vermelho" /><ComboBoxItem Content="Verde" /><ComboBoxItem Content="Laranja" />
               <ComboBoxItem Content="Rosa" /><ComboBoxItem Content="Ciano" /><ComboBoxItem Content="Preto (OLED)" />
               <ComboBoxItem Content="Dourado" /><ComboBoxItem Content="Grafite" />
+              <!-- v0.17 (05/11): faltavam aqui — a lista era fixa no XAML e não
+                   acompanhava ThemeManager.ThemeNames, então as 5 paletas novas
+                   existiam no código mas eram inalcançáveis nesta tela. -->
+              <ComboBoxItem Content="Meia-noite" /><ComboBoxItem Content="Crepúsculo" /><ComboBoxItem Content="Musgo" />
+              <ComboBoxItem Content="Névoa" /><ComboBoxItem Content="Alto Contraste" />
             </ComboBox>
             <TextBlock Text="Fonte" FontSize="12" HorizontalAlignment="Center" />
             <ComboBox SelectedIndex="{Binding FontIndex}" Width="440" HorizontalAlignment="Center">
@@ -57,6 +62,13 @@
               <ComboBoxItem Content="Clássica (Times New Roman)" /><ComboBoxItem Content="Legível (Verdana)" />
               <ComboBoxItem Content="Elegante (Trebuchet)" />
               <ComboBoxItem Content="Limpa (Inter)" /><ComboBoxItem Content="Manuscrita (Ink Free)" />
+              <!-- v0.17 (05/11): mesma causa do bloco de cores acima — 9 fontes
+                   novas no ThemeManager.Fonts que não existiam nesta lista fixa. -->
+              <ComboBoxItem Content="Amigável (Manrope)" /><ComboBoxItem Content="Moderninha (Outfit)" />
+              <ComboBoxItem Content="Técnica (Space Grotesk)" /><ComboBoxItem Content="Neutra (DM Sans)" />
+              <ComboBoxItem Content="Equilibrada (Plus Jakarta Sans)" /><ComboBoxItem Content="Gamer 2 (Chakra Petch)" />
+              <ComboBoxItem Content="Angulosa (Rajdhani)" /><ComboBoxItem Content="Arredondada (Nunito)" />
+              <ComboBoxItem Content="Bolha (Fredoka)" />
             </ComboBox>
             <TextBlock Text="Tamanho do texto" FontSize="12" HorizontalAlignment="Center" />
             <ComboBox SelectedIndex="{Binding FontSizeIndex}" Width="440" HorizontalAlignment="Center">
