@@ -203,6 +203,24 @@ internal static class DisplayColorManager
         }
     }
 
+    /// <summary>
+    /// v0.16.3: reaplica o modo atual. O Windows pode voltar a curva de gama
+    /// ao padrão quando o modo de vídeo muda (resolução/Hz) — sem isso, o modo
+    /// escolhido sumia da tela em silêncio, mas o launcher continuava achando
+    /// que estava aplicado.
+    /// </summary>
+    public static bool ReapplyCurrent()
+    {
+        int mode;
+        lock (Sync)
+        {
+            if (!_captured || _currentMode < 0) return false;
+            mode = _currentMode;
+        }
+        DebugLog.Write($"[DisplayColor] Reaplicando o modo {ModeNames[mode]} (mudança de modo de vídeo).");
+        return Apply(mode, force: true);
+    }
+
     /// <summary>Nomes curtos usados no Quick Settings e no HUD → índice do modo.</summary>
     public static int IndexFromName(string? name) => name switch
     {

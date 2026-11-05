@@ -813,6 +813,12 @@ public partial class OverlayWindow : Window
         {
             _hardwareService.SetDisplayMode(w, h, hz);
             UpdateScreenInfoText();
+
+            // v0.16.3: trocar resolução/Hz pode fazer o Windows voltar a curva
+            // de cor ao padrão; reaplica o modo de cor escolhido depois que a
+            // troca assenta.
+            if (OperatingSystem.IsWindows())
+                DispatcherTimer.RunOnce(() => DisplayColorManager.ReapplyCurrent(), TimeSpan.FromMilliseconds(1500));
         }
     }
 
