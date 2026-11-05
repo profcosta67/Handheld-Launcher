@@ -145,11 +145,35 @@ internal static class UiSounds
         set => _pack = value >= 0 && value < Packs.Length ? value : 0;
     }
 
+    private static bool _enabled = true;
+
     /// <summary>
     /// Ligado por padrão; "Sons de interação" em Configurações → Aparência
     /// deixa desligar (mesmo padrão da opção "Animações" já existente).
+    ///
+    /// v0.17 (05/11): usuário relatou "o som parou de reproduzir" no meio
+    /// de uma sessão, sem nenhuma exceção nem falha do PlaySound no
+    /// debug.log — ou seja, os sons pararam de TOCAR, não de FALHAR. Um
+    /// jeito disso acontecer sem deixar rastro é ApplyAppearance (chamado
+    /// a cada recarga de configurações) reaplicar
+    /// <c>settings.SoundEffects</c> como false por engano (ex.: leitura
+    /// concorrente do appsettings.json devolvendo um objeto zerado).
+    /// Registra só a TRANSIÇÃO (liga→desliga e desliga→liga), não cada
+    /// leitura, pra não logar o resto da sessão à toa — mas é o suficiente
+    /// pra confirmar ou descartar essa hipótese no próximo debug.log.
     /// </summary>
-    public static bool Enabled { get; set; } = true;
+    public static bool Enabled
+    {
+        get => _enabled;
+        set
+        {
+            if (_enabled != value)
+            {
+                DebugLog.Write($"[SOM] Enabled mudou de {_enabled} para {value}.");
+            }
+            _enabled = value;
+        }
+    }
 
     /// <summary>
     /// 0-100 (v0.9.13, pedido do usuário: "os sons ficaram um pouco alto,
