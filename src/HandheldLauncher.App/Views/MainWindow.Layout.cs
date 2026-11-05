@@ -164,6 +164,34 @@ public partial class MainWindow : Window
 
     private bool IsGridNav => _verticalLayout || _cloudGridActive;
 
+    // v0.18.3: busca da aba Nuvem.
+    private bool IsCloudSearchFocused()
+    {
+        try { return _libraryLayout.CloudGrid.Search.IsKeyboardFocusWithin; }
+        catch { return false; }
+    }
+
+    private void BeginCloudSearch()
+    {
+        try
+        {
+            _libraryLayout.CloudGrid.Search.Focus();
+            TouchKeyboard.Show();
+        }
+        catch (Exception ex) { DebugLog.Swallowed(ex); }
+    }
+
+    private void EndCloudSearch()
+    {
+        try
+        {
+            // A grade é focável só pra isso: tirar o foco do campo de texto.
+            _libraryLayout.CloudGrid.Items.Focus();
+            TouchKeyboard.Hide();
+        }
+        catch (Exception ex) { DebugLog.Swallowed(ex); }
+    }
+
     private void UpdateCloudGrid(MainViewModel vm)
     {
         try
@@ -181,6 +209,8 @@ public partial class MainWindow : Window
             }
             else
             {
+                vm.LeaveCloudLetterBar();
+                if (IsCloudSearchFocused()) EndCloudSearch();
                 cloud.Items.ItemsSource = null;
                 _libraryLayout.GamesItemsControl.ItemsSource = vm.Games;
                 GamesItemsControl = _libraryLayout.GamesItemsControl;

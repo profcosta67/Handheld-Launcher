@@ -1,5 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Input;
+using HandheldLauncher.App.Platform;
+using HandheldLauncher.App.ViewModels;
 
 namespace HandheldLauncher.App.Views.Layouts;
 
@@ -19,6 +21,20 @@ public partial class CloudGridView : UserControl
 
     public ItemsControl Items => CloudItems;
     public ScrollViewer Scroll => CloudScroll;
+    public TextBox Search => SearchBox;
+
+    // v0.18.3: busca/letras. Toque no campo abre o teclado de toque (mesmo
+    // padrão das outras telas com campo de texto).
+    private void OnSearchGotFocus(object? sender, GotFocusEventArgs e) => TouchKeyboard.Show();
+
+    private void OnClearClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        => (DataContext as MainViewModel)?.ClearCloudFilters();
+
+    private void OnLetterClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: CloudLetterViewModel letter } && DataContext is MainViewModel vm)
+            vm.SetCloudLetter(letter.Value);
+    }
 
     private MainWindow? Owner => TopLevel.GetTopLevel(this) as MainWindow;
     private void OnTilePointerPressed(object? sender, PointerPressedEventArgs e) => Owner?.HandleTilePointerPressed(sender, e);

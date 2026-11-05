@@ -60,6 +60,16 @@ internal static class TouchKeyboard
         Toggle();
     }
 
+    /// <summary>v0.18.3: fecha o teclado se ele estiver aberto (fim da busca da aba Nuvem).</summary>
+    public static void Hide()
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows() && IsVisible()) Toggle();
+        }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
+    }
+
     /// <summary>Abre/fecha (botão "⌨ Teclado").</summary>
     public static void Toggle()
     {

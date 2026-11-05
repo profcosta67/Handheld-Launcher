@@ -561,6 +561,37 @@ public partial class MainWindow : Window
                     continue;
                 }
 
+                // v0.18.3: aba Nuvem — busca (Y), faixa de letras (X), B limpa o filtro.
+                if (_cloudGridActive && vm.IsFilterCloudActive)
+                {
+                    if (IsCloudSearchFocused()) { EndCloudSearch(); continue; } // qualquer botão encerra a digitação
+
+                    if (vm.IsCloudLetterBarFocused)
+                    {
+                        var leaveToTabs = false;
+                        switch (action)
+                        {
+                            case GamepadAction.MoveLeft: vm.MoveCloudLetterCursor(-1); continue;
+                            case GamepadAction.MoveRight: vm.MoveCloudLetterCursor(1); continue;
+                            case GamepadAction.Confirm: vm.ConfirmCloudLetterCursor(); ScrollGameRowSelectionIntoView(vm); continue;
+                            case GamepadAction.Back: case GamepadAction.GameDetails: case GamepadAction.MoveDown: vm.LeaveCloudLetterBar(); continue;
+                            case GamepadAction.PreviousFilter: case GamepadAction.NextFilter: vm.LeaveCloudLetterBar(); leaveToTabs = true; break;
+                            default: continue;
+                        }
+                        if (!leaveToTabs) continue;
+                    }
+                    else
+                    {
+                        switch (action)
+                        {
+                            case GamepadAction.Downloads: BeginCloudSearch(); continue;
+                            case GamepadAction.GameDetails: vm.ToggleCloudLetterBar(); continue;
+                            case GamepadAction.Back when vm.HasCloudFilter: vm.ClearCloudFilters(); ScrollGameRowSelectionIntoView(vm); continue;
+                            case GamepadAction.MoveUp: if (!MoveSelectionVertical(vm, -1)) vm.ToggleCloudLetterBar(); continue;
+                        }
+                    }
+                }
+
                 if (vm.IsSubFilterRowFocused)
                 {
                     switch (action)
@@ -601,6 +632,15 @@ public partial class MainWindow : Window
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
         if (DataContext is not MainViewModel vm) return;
+
+        // v0.18.3: digitando na busca da aba Nuvem — as teclas são do campo, não
+        // atalhos do launcher (senão "D" abriria Downloads, setas mudariam o jogo...).
+        // Enter/Esc/↓ terminam a busca e voltam pra grade.
+        if (_cloudGridActive && IsCloudSearchFocused())
+        {
+            if (e.Key is Key.Enter or Key.Escape or Key.Down) { EndCloudSearch(); e.Handled = true; }
+            return;
+        }
 
         if (e.Key == Key.F1) { vm.ToggleShortcutsHelp(); e.Handled = true; return; }
         if (vm.IsShortcutsHelpOpen) { vm.CloseShortcutsHelp(); e.Handled = true; return; }

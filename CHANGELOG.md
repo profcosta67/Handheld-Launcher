@@ -3,6 +3,9 @@
 Mais recente primeiro. Cada versão tem notas completas em [`release-notes/`](release-notes/).
 Betas não entram aqui: o que eles trazem aparece na versão estável que os junta.
 
+## [0.18.3] — em preparo (beta)
+Busca por nome (sem acento) e filtro por letra (# A–Z) na aba Nuvem. [Notas](release-notes/0.18.3.md)
+
 ## [0.18.2] — 2026-11-05
 Fim do "vaivém" de atualização entre beta e oficial (só instala versão mais nova que a instalada); aba Nuvem em grade vertical; fechar o Xbox Cloud Gaming pelo Quick Settings (L3+R3 → Y); Nuvem fora da busca automática do SteamGridDB; ícones em todas as abas. Inclui a 0.18.1. [Notas](release-notes/0.18.2.md)
 
