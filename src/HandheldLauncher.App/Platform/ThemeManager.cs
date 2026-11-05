@@ -200,13 +200,32 @@ public static class ThemeManager
         SetBrush(app, "AccentTranslucentBrush", "#40" + palette.Accent.TrimStart('#'));
         SetBrush(app, "BackdropDimBrush", alpha + palette.Background.TrimStart('#'));
 
-        SetBrush(app, "OnAccentBrush", IsLightColor(palette.Accent) ? "#111111" : "#FFFFFF");
+        SetBrush(app, "OnAccentBrush", TextOnAccent(palette.Accent));
     }
 
-    private static bool IsLightColor(string hex)
+    /// <summary>
+    /// Cor do texto sobre o destaque (aba ativa, botão principal). v0.17: antes
+    /// escolhia pela luminosidade da cor (limite 0.6) e deixava branco sobre
+    /// Verde (2,1:1), Rosa (3,0:1) e Azul (3,3:1) — ilegível. Agora fica com
+    /// branco enquanto ele tem contraste de pelo menos 4:1 com o destaque
+    /// (Escuro, Vermelho e Grafite seguem iguais) e troca pro quase-preto quando
+    /// não tem.
+    /// </summary>
+    internal static string TextOnAccent(string accentHex)
     {
-        var c = Color.Parse(hex);
-        return (0.299 * c.R + 0.587 * c.G + 0.114 * c.B) / 255.0 > 0.6;
+        var accent = RelativeLuminance(Color.Parse(accentHex));
+        var whiteContrast = 1.05 / (accent + 0.05);
+        return whiteContrast >= 4.0 ? "#FFFFFF" : "#111111";
+    }
+
+    private static double RelativeLuminance(Color c)
+    {
+        static double Channel(byte v)
+        {
+            var s = v / 255.0;
+            return s <= 0.03928 ? s / 12.92 : Math.Pow((s + 0.055) / 1.055, 2.4);
+        }
+        return 0.2126 * Channel(c.R) + 0.7152 * Channel(c.G) + 0.0722 * Channel(c.B);
     }
 
     private static void SetBrush(Application app, string key, string hex)
