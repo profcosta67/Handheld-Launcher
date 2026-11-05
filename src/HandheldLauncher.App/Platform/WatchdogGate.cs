@@ -58,7 +58,7 @@ internal static class WatchdogGate
 
             if (QuitFlagIsFromThisBoot())
             {
-                DebugLog.Write("[STARTUP] Abertura automática ignorada: o launcher foi fechado de propósito (Fechar launcher / Sair pro Desktop) nesta mesma sessão do Windows.");
+                DebugLog.Write("[STARTUP] Abertura automática ignorada: o launcher foi fechado de propósito (Fechar launcher) nesta mesma sessão do Windows.");
                 return true;
             }
 

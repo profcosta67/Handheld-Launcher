@@ -403,39 +403,6 @@ public partial class MainWindow : Window
         catch (Exception ex) { DebugLog.Write($"RunShutdownExe EXCEPTION ({exe}): {ex.Message} — tentando via shell."); try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe, arguments) { UseShellExecute = true, CreateNoWindow = true }); } catch (Exception shellEx) { DebugLog.Write($"RunShutdownExe FALHOU também via shell: {shellEx.Message}"); } }
     }
 
-    private void RestoreWindowsShell()
-    {
-        if (!OperatingSystem.IsWindows()) return;
-
-        try
-        {
-            WatchdogGate.MarkDeliberateQuit();
-
-            var settings = AppSettingsStore.Load();
-            settings.KioskMode = false;
-            settings.ModeChosen = true;
-            AppSettingsStore.Save(settings);
-            DebugLog.Write("RestoreWindowsShell: Kiosk Mode desativado.");
-
-            var explorerPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
-
-            if (Process.GetProcessesByName("explorer").Length == 0 && File.Exists(explorerPath))
-            {
-                Process.Start(new ProcessStartInfo { FileName = explorerPath, UseShellExecute = true });
-                DebugLog.Write("RestoreWindowsShell: explorer.exe iniciado.");
-            }
-
-            keybd_event(VK_LWIN, 0, 0, UIntPtr.Zero);
-            keybd_event(VK_D, 0, 0, UIntPtr.Zero);
-            keybd_event(VK_D, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-            keybd_event(VK_LWIN, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-            DebugLog.Write("RestoreWindowsShell: Atalho Win+D enviado.");
-
-            Close();
-        }
-        catch (Exception ex) { DebugLog.Write($"RestoreWindowsShell: EXCEPTION {ex.Message}"); }
-    }
-
     private bool IsOurWindowInForeground() { if (!OperatingSystem.IsWindows()) return true; try { var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero; return handle != IntPtr.Zero && GetForegroundWindow() == handle; } catch { return true; } }
 
 }

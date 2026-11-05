@@ -27,7 +27,6 @@ public partial class MainWindow : Window
     [DllImport("user32.dll")] private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
     [DllImport("user32.dll")] private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hWnd);
-    [DllImport("user32.dll")] private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
     [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     [DllImport("user32.dll")] private static extern bool BringWindowToTop(IntPtr hWnd);
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
@@ -53,12 +52,6 @@ public partial class MainWindow : Window
     private const uint SWP_NOSIZE = 0x0001;
 
     private const uint SWP_SHOWWINDOW = 0x0040;
-
-    private const byte VK_LWIN = 0x5B;
-
-    private const byte VK_D = 0x44;
-
-    private const uint KEYEVENTF_KEYUP = 0x0002;
 
     private const int RestoreHotkeyId = 0xB00;
 
@@ -429,7 +422,6 @@ public partial class MainWindow : Window
         vm.TurnOffScreenRequested += (_, _) => TurnOffScreen();
         vm.RestartDeviceRequested += (_, _) => RestartDevice();
         vm.ShutdownDeviceRequested += (_, _) => ShutdownDevice();
-        vm.RestoreShellRequested += (_, _) => RestoreWindowsShell();
         vm.RestartLauncherRequested += (_, _) =>
         {
             WatchdogGate.MarkDeliberateQuit();

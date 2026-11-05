@@ -569,7 +569,6 @@ public sealed class MainViewModel : ViewModelBase
     public event EventHandler? TurnOffScreenRequested;
     public event EventHandler? RestartDeviceRequested;
     public event EventHandler? ShutdownDeviceRequested;
-    public event EventHandler? RestoreShellRequested;
     /// <summary>v0.17 (pedido do usuário): reinicia só o processo do launcher, sem tocar no aparelho.</summary>
     public event EventHandler? RestartLauncherRequested;
     public event EventHandler? OpenOverlayRequested;
@@ -969,7 +968,6 @@ public sealed class MainViewModel : ViewModelBase
                 GlobalMenuTitle = "Energia"; Add("🌙 Desligar tela", () => TurnOffScreenRequested?.Invoke(this, EventArgs.Empty));
                 Add("🔄 Reiniciar", () => RequestPowerConfirm("reiniciar o aparelho", () => RestartDeviceRequested?.Invoke(this, EventArgs.Empty)));
                 Add("⏻ Desligar", () => RequestPowerConfirm("desligar o aparelho", () => ShutdownDeviceRequested?.Invoke(this, EventArgs.Empty)));
-                Add("🖥 Sair pro Desktop", () => RestoreShellRequested?.Invoke(this, EventArgs.Empty));
                 Add("🔁 Reiniciar Launcher", () => RestartLauncherRequested?.Invoke(this, EventArgs.Empty));
                 Add("🚪 Fechar launcher", () => QuitRequested?.Invoke(this, EventArgs.Empty)); break;
 
