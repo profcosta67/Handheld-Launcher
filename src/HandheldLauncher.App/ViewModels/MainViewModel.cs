@@ -877,6 +877,7 @@ public sealed class MainViewModel : ViewModelBase
 
     private async Task FetchLaunchIconAsync(GameEntry game)
     {
+        if (IsCloudEntry(game)) return; // v0.18.2: Nuvem fora do SteamGridDB (ver FetchMissingArtworkCore)
         try
         {
             if (await _artwork.FetchIconAsync(game))
@@ -1377,7 +1378,11 @@ public sealed class MainViewModel : ViewModelBase
             int ok = 0, skipped = 0;
 
             _library.Refresh();
-            var installed = _library.Games.ToList();
+            // v0.18.2 (pedido do usuário): a Nuvem NUNCA entra na busca automática do
+            // SteamGridDB — as capas dela vêm do catálogo da Microsoft, em pasta
+            // própria. Hoje as entradas da Nuvem nem estão em _library.Games; o filtro
+            // é trava extra pra isso não mudar sem querer no futuro.
+            var installed = _library.Games.Where(g => !IsCloudEntry(g)).ToList();
 
             List<GameEntry> ownedEntries = new();
             if (userInitiated && HasSteamWebApiCredentials)
@@ -1585,6 +1590,7 @@ public sealed class MainViewModel : ViewModelBase
 
     private async Task OpenCoverPicker(GameEntry game, ArtworkPickerKind kind)
     {
+        if (IsCloudEntry(game)) return; // v0.18.2: Nuvem fora do SteamGridDB
         CoverPickerTitle = kind switch { ArtworkPickerKind.WideGrid => $"Capas largas e banners · {game.Title}", ArtworkPickerKind.Hero => $"Banner · {game.Title}", ArtworkPickerKind.Logo => $"Logo · {game.Title}", ArtworkPickerKind.Icon => $"Ícone · {game.Title}", _ => $"Capa · {game.Title}", };
         _coverPickerKind = kind; _coverPickerGame = game; _coverPickerIndex = 0; CoverPickerErrorMessage = null; CoverPickerCandidates.Clear(); NotifyCoverPickerResultFlags(); IsCoverPickerLoading = true; IsCoverPickerOpen = true;
         try
