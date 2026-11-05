@@ -960,6 +960,10 @@ public sealed class MainViewModel : ViewModelBase
                 GlobalMenuTitle = "Ajuda";
                 Add("🩺 Central de Ajuda", () => HelpCenterRequested?.Invoke(this, EventArgs.Empty));
                 Add("⌨ Atalhos", OpenShortcutsHelp);
+                // v0.16.3: pro bug do Legion Go 2 em que o controle embutido não
+                // responde depois de ligar (dá pra tocar na tela).
+                Add("🎮 Reiniciar controle", () => System.Threading.Tasks.Task.Run(() =>
+                    HandheldLauncher.App.Diagnostics.ControllerDiagnostics.TryRecoverLenovoController(manual: true)));
                 Add("ℹ Sobre", OpenAbout);
                 break;
 

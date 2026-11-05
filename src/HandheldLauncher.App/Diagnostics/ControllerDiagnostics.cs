@@ -32,6 +32,7 @@ namespace HandheldLauncher.App.Diagnostics;
 internal static class ControllerDiagnostics
 {
     private const string LenovoVid = "VID_17EF";
+    private static int _recoveryAttempted;
     private static readonly TimeSpan StartupDelay = TimeSpan.FromSeconds(8);
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan MinGapBetweenSnapshots = TimeSpan.FromSeconds(30);
@@ -66,6 +67,18 @@ internal static class ControllerDiagnostics
             snapshots++;
             lastSnapshot = DateTime.UtcNow;
 
+            // v0.16.3: bug crônico do Legion Go 2 — às vezes o controle embutido
+            // não responde depois de ligar. Se ainda não há NENHUM controle no
+            // XInput, tenta uma vez reiniciar o controle da Lenovo (como tirar e
+            // pôr de volta). Só age quando não há controle nenhum: nada que
+            // esteja funcionando é tocado.
+            if (last.Length == 0)
+            {
+                Thread.Sleep(TimeSpan.FromSeconds(7));
+                last = ConnectedSlots();
+                if (last.Length == 0) last = TryRecoverLenovoController() ?? last;
+            }
+
             while (snapshots < MaxSnapshotsPerSession)
             {
                 Thread.Sleep(PollInterval);
@@ -84,6 +97,90 @@ internal static class ControllerDiagnostics
         catch (Exception ex)
         {
             DebugLog.Write($"[CONTROLE-DIAG] Monitor parou: {ex.Message}");
+        }
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex LenovoUsbInstance =
+        new(@"USB\\VID_17EF&PID_[0-9A-Fa-f]{4}[^\s|]*", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>
+    /// Reinicia o dispositivo USB do controle da Lenovo via pnputil (precisa do
+    /// launcher rodando como administrador — a tarefa de inicialização do
+    /// instalador já roda assim). Uma vez por sessão. Devolve os slots XInput
+    /// depois da tentativa, ou null se não tentou.
+    /// </summary>
+    internal static string? TryRecoverLenovoController(bool manual = false)
+    {
+        // Automático: uma vez por sessão. Manual (menu Ajuda → Reiniciar
+        // controle): sempre, pra quando o controle aparece no Windows mas não
+        // responde — caso que a checagem automática não enxerga.
+        if (!manual && Interlocked.Exchange(ref _recoveryAttempted, 1) == 1) return null;
+        try
+        {
+            var blocks = LenovoDeviceBlocks("/enum-devices /connected");
+            blocks.AddRange(LenovoDeviceBlocks("/enum-devices /problem"));
+
+            var ids = new List<string>();
+            foreach (var block in blocks)
+                foreach (System.Text.RegularExpressions.Match m in LenovoUsbInstance.Matches(block))
+                    if (!ids.Contains(m.Value, StringComparer.OrdinalIgnoreCase)) ids.Add(m.Value);
+
+            // Preferência: o dispositivo USB "pai" (composto, sem &MI_ e sem &IG_)
+            // reinicia todas as interfaces do controle de uma vez; senão, o
+            // dispositivo compatível com XInput (&IG_).
+            var target = ids.FirstOrDefault(i => !i.Contains("&MI_", StringComparison.OrdinalIgnoreCase) && !i.Contains("&IG_", StringComparison.OrdinalIgnoreCase))
+                         ?? ids.FirstOrDefault(i => i.Contains("&IG_", StringComparison.OrdinalIgnoreCase));
+            if (target is null)
+            {
+                DebugLog.Write("[CONTROLE-RECUPERAR] Nenhum controle e nenhum dispositivo USB da Lenovo pra reiniciar — nada a fazer.");
+                return null;
+            }
+
+            DebugLog.Write(manual
+                ? $"[CONTROLE-RECUPERAR] Pedido manual — reiniciando o controle da Lenovo ({target})."
+                : $"[CONTROLE-RECUPERAR] Nenhum controle no XInput — reiniciando o controle da Lenovo ({target}).");
+            var psi = new ProcessStartInfo("pnputil.exe", $"/restart-device \"{target}\"")
+            {
+                CreateNoWindow = true,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+            using (var process = Process.Start(psi))
+            {
+                if (process is null) return null;
+                var outTask = process.StandardOutput.ReadToEndAsync();
+                var errTask = process.StandardError.ReadToEndAsync();
+                if (!process.WaitForExit(20_000))
+                {
+                    try { process.Kill(); } catch { }
+                    DebugLog.Write("[CONTROLE-RECUPERAR] pnputil /restart-device passou de 20s — abandonado.");
+                    return null;
+                }
+                var output = (outTask.Result + " " + errTask.Result).Replace("\r", " ").Replace("\n", " ").Trim();
+                DebugLog.Write($"[CONTROLE-RECUPERAR] pnputil exit={process.ExitCode}: {output}");
+            }
+
+            for (var i = 0; i < 10; i++)
+            {
+                Thread.Sleep(1000);
+                var slots = ConnectedSlots();
+                if (slots.Length > 0 && !manual)
+                {
+                    DebugLog.Write($"[CONTROLE-RECUPERAR] Controle voltou após reiniciar (slots [{slots}]).");
+                    return slots;
+                }
+            }
+            var after = ConnectedSlots();
+            DebugLog.Write(manual
+                ? $"[CONTROLE-RECUPERAR] Reinício manual concluído (slots [{after}])."
+                : "[CONTROLE-RECUPERAR] O controle não voltou em 10s após reiniciar.");
+            return after;
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[CONTROLE-RECUPERAR] Falhou: {ex.Message}");
+            return null;
         }
     }
 
