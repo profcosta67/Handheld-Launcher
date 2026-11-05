@@ -5,6 +5,7 @@
              xmlns:conv="using:HandheldLauncher.App.Converters"
              xmlns:dataConv="using:Avalonia.Data.Converters"
              xmlns:media="using:Avalonia.Media"
+             xmlns:layouts="using:HandheldLauncher.App.Views.Layouts"
              x:Class="HandheldLauncher.App.Views.Layouts.BigScreenLibraryLayout"
              x:DataType="vm:MainViewModel">
 
@@ -192,7 +193,10 @@
         </StackPanel>
       </Border>
 
-      <Grid Grid.Column="0" Grid.Row="1" RowDefinitions="Auto,Auto,*,Auto" VerticalAlignment="Stretch">
+      <!-- v0.18.1: aba Nuvem = grade vertical em tela cheia (no lugar do destaque + fileira). -->
+      <layouts:CloudGridView x:Name="CloudGrid" Grid.Column="0" Grid.Row="1" Margin="0,12,0,0" IsVisible="{Binding IsFilterCloudActive}" />
+
+      <Grid Grid.Column="0" Grid.Row="1" RowDefinitions="Auto,Auto,*,Auto" VerticalAlignment="Stretch" IsVisible="{Binding !IsFilterCloudActive}">
 
         <Grid Grid.Row="0" Height="132" ColumnDefinitions="*,Auto,*" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
           <Image Grid.Column="1"

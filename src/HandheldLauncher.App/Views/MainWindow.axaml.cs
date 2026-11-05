@@ -541,10 +541,16 @@ public partial class MainWindow : Window
             if (e.PropertyName == nameof(MainViewModel.IsFilterAllActive))
                 FadeIn(GamesItemsControl, 220);
 
+            // v0.18.1: aba Nuvem usa a grade vertical própria (ver UpdateCloudGrid).
+            if (e.PropertyName == nameof(MainViewModel.IsFilterCloudActive))
+                UpdateCloudGrid(vm);
+
             if (e.PropertyName == nameof(MainViewModel.IsLaunching))
             {
                 if (vm.IsLaunching && !string.IsNullOrEmpty(vm.LaunchingGameTitle))
                 {
+                    // v0.18.3 (revisão): aviso de saúde ainda na tela não pode ficar por cima do jogo.
+                    try { _healthPopup?.Close(); } catch (Exception swallowedEx) { DebugLog.Swallowed(swallowedEx); }
                     DebugLog.Write($"[JOGO] '{vm.LaunchingGameTitle}' abriu — minimizando launcher + popup.");
                     if (IsVisible) MinimizeToTray();
                     ShowLaunchPopup(vm.LaunchingGameTitle, vm.LaunchingGameIconPath);

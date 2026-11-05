@@ -22,6 +22,8 @@ public partial class ClassicLibraryLayout : UserControl, ILibraryLayout
     // Assim a navegação por controle mantém o jogo selecionado como referência visual.
     bool ILibraryLayout.CentersSelection => false;
 
+    CloudGridView ILibraryLayout.CloudGrid => CloudGrid;
+
     private MainWindow? Owner => TopLevel.GetTopLevel(this) as MainWindow;
     private void OnAddProgramClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => Owner?.HandleAddProgramClick();
     private void OnTilePointerPressed(object? sender, PointerPressedEventArgs e) => Owner?.HandleTilePointerPressed(sender, e);

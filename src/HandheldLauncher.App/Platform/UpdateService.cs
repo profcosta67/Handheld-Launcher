@@ -170,6 +170,20 @@ public sealed class UpdateService
                 }
             }
 
+            // v0.18.2 — correção do "vaivém" beta ↔ oficial (2ª vez relatado pelo
+            // usuário: "duas instâncias brigando pra atualizar"). Causa: o canal
+            // beta tem AllowVersionDowngrade=true, então logo depois de sair uma
+            // oficial X.Y.Z, a beta mais nova (X.Y.Z-beta.N, que pelo SemVer é
+            // MENOR) era oferecida como "atualização" → o aparelho descia pra
+            // beta → na checagem seguinte o canal oficial oferecia X.Y.Z de novo
+            // → sobe → desce... Regra agora: só aplica o que for MAIS NOVO que a
+            // versão instalada, venha de qual canal vier.
+            if (info is not null && !IsNewerThanInstalled(info, _manager.CurrentVersion))
+            {
+                DebugLog.Write($"[UPDATE] Ignorando {info.TargetFullRelease.Version}: não é mais nova que a instalada ({_manager.CurrentVersion}) — evita o vaivém beta ↔ oficial.");
+                info = null;
+            }
+
             if (info is null)
             {
                 RecordCheck("nenhuma versão nova", ok: true);
@@ -199,6 +213,26 @@ public sealed class UpdateService
     public static LastCheckInfo? LastCheck { get; private set; }
 
     public sealed record LastCheckInfo(DateTime AtLocal, string Result, bool Ok);
+
+    /// <summary>
+    /// v0.18.2: true se a versão oferecida é maior que a instalada. Se não der
+    /// pra comparar (não deveria acontecer — os dois são versões do Velopack),
+    /// mantém o comportamento antigo (aplica) e deixa rastro no log.
+    /// </summary>
+    private static bool IsNewerThanInstalled(UpdateInfo candidate, object? installed)
+    {
+        if (installed is null) return true;
+        try
+        {
+            var a = (IComparable)candidate.TargetFullRelease.Version;
+            return a.CompareTo(installed) > 0;
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[UPDATE] Não consegui comparar {candidate.TargetFullRelease.Version} com a instalada {installed}: {ex.Message}");
+            return true;
+        }
+    }
 
     /// <summary>True se <paramref name="candidate"/> é uma versão maior que <paramref name="current"/>.</summary>
     private static bool IsNewer(UpdateInfo candidate, UpdateInfo current)

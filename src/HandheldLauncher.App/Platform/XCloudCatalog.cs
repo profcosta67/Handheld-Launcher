@@ -113,7 +113,7 @@ public static class XCloudCatalog
                 if (File.Exists(existing)) g.PosterPath = existing;
             }
 
-            SaveCache(games);
+            SaveCache(games, DateTimeOffset.UtcNow);
             DebugLog.Write($"[XCLOUD] Catálogo atualizado: {games.Count} jogos.");
             return games;
         }
@@ -143,12 +143,13 @@ public static class XCloudCatalog
         });
         try { await Task.WhenAll(tasks); }
         catch (OperationCanceledException) { }
-        SaveCache(games);
+        SaveCache(games, fetchedUtc: null); // v0.18.3 (revisão): baixar capa NÃO renova o prazo de 24h da lista
         DebugLog.Write($"[XCLOUD] Capas baixadas: {downloaded} de {missing.Count}.");
         return downloaded;
     }
 
-    private static void SaveCache(IReadOnlyList<XCloudGame> games)
+    /// <param name="fetchedUtc">Quando a LISTA foi baixada; null = mantém a data que já estava salva.</param>
+    private static void SaveCache(IReadOnlyList<XCloudGame> games, DateTimeOffset? fetchedUtc)
     {
         try
         {
@@ -157,7 +158,7 @@ public static class XCloudCatalog
             var tmp = CachePath + ".tmp";
             File.WriteAllText(tmp, JsonSerializer.Serialize(new CacheFile
             {
-                FetchedUtc = games.Count > 0 ? DateTimeOffset.UtcNow : previous?.FetchedUtc ?? default,
+                FetchedUtc = fetchedUtc ?? previous?.FetchedUtc ?? default,
                 Games = games.ToList(),
             }));
             File.Move(tmp, CachePath, overwrite: true);

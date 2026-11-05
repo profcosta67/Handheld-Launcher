@@ -556,6 +556,27 @@ public partial class OverlayWindow : Window
 
     private void OnCloseClick(object? sender, RoutedEventArgs e) => HideWithUnblock();
 
+    // ---- v0.18.1: fechar o Xbox Cloud Gaming pelo Quick Settings ------------------
+    // Relato do usuário: "não consegui fechar o xCloud" — o Edge em tela cheia
+    // não tem botão de fechar e, com ele na frente, o launcher ignora o
+    // controle (de propósito). O Quick Settings (L3+R3) abre por cima de
+    // qualquer coisa, então o botão também mora aqui: Y ou toque.
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == IsVisibleProperty && IsVisible && BtnCloseXCloud is not null)
+            BtnCloseXCloud.IsVisible = XCloudLauncher.IsRunning;
+    }
+
+    private void OnCloseXCloudClick(object? sender, RoutedEventArgs e) => CloseXCloudFromOverlay();
+
+    private void CloseXCloudFromOverlay()
+    {
+        DebugLog.Write("[XCLOUD] Fechar pedido pelo Quick Settings.");
+        HideWithUnblock();
+        _ = Task.Run(XCloudLauncher.CloseAll);
+    }
+
     public void HandleGamepadAction(GamepadAction action)
     {
         if (action == GamepadAction.ToggleQuickSettings) { HideWithUnblock(); return; }
@@ -635,6 +656,7 @@ public partial class OverlayWindow : Window
         {
             case GamepadAction.Back:
             case GamepadAction.GlobalMenu: HideWithUnblock(); break;
+            case GamepadAction.Downloads when BtnCloseXCloud is { IsVisible: true }: CloseXCloudFromOverlay(); break;
             case GamepadAction.MoveUp: _focusIndex = Math.Max(0, _focusIndex - 1); UpdateFocusVisual(); break;
             case GamepadAction.MoveDown: _focusIndex = Math.Min(_sections.Length - 1, _focusIndex + 1); UpdateFocusVisual(); break;
             case GamepadAction.Confirm: EnterSubMenu(); break;

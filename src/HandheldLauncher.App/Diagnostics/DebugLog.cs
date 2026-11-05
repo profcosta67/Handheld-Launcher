@@ -43,23 +43,82 @@ public static class DebugLog
         }
     }
 
+    // v0.18.3 (pente fino de desempenho): antes, CADA linha abria, gravava e
+    // fechava o arquivo na hora, na thread que chamou — quase sempre a da tela.
+    // O controle registra cada aperto/solta/repetição, então navegar segurando
+    // um direcional fazia várias gravações em disco por segundo na thread da
+    // UI (antivírus olhando cada gravação deixa isso ainda mais caro) = os
+    // pequenos engasgos na navegação. Agora a linha entra numa fila (com o
+    // horário do momento, então a ordem e os horários continuam exatos) e uma
+    // thread de fundo grava em lote a cada 200 ms. Flush() grava na hora — usado
+    // na saída do app, em crash e antes de empacotar o log no "reportar erro".
+    private static readonly System.Collections.Concurrent.ConcurrentQueue<string> Pending = new();
+    private static readonly object FileLock = new();
+    private static int _writerStarted;
+
     public static void Write(string message)
     {
         try
         {
-            var dir = Path.GetDirectoryName(LogPath);
-            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+            Pending.Enqueue($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} {message}\n");
+            EnsureWriter();
+        }
+        catch
+        {
+            // Logging must never be the thing that breaks the app.
+        }
+    }
 
-            // v0.9.0: o log não cresce pra sempre — passou de 1 MB, vira
-            // debug.old.log (o anterior é descartado). Ele nunca contém
-            // chaves/senhas, mas não há motivo pra guardar meses de histórico.
-            var info = new FileInfo(LogPath);
-            if (info.Exists && info.Length > 1024 * 1024)
+    private static void EnsureWriter()
+    {
+        if (Interlocked.Exchange(ref _writerStarted, 1) != 0) return;
+        try
+        {
+            AppDomain.CurrentDomain.ProcessExit += (_, _) => Flush();
+            var thread = new Thread(() =>
             {
-                File.Move(LogPath, Path.Combine(dir ?? string.Empty, "debug.old.log"), overwrite: true);
-            }
+                while (true)
+                {
+                    Thread.Sleep(200);
+                    Flush();
+                }
+            })
+            { IsBackground = true, Name = "DebugLog", Priority = ThreadPriority.BelowNormal };
+            thread.Start();
+        }
+        catch
+        {
+            // Sem thread de fundo: cada Write ainda chega no disco via Flush abaixo.
+            _writerStarted = 0;
+            Flush();
+        }
+    }
 
-            File.AppendAllText(LogPath, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} {message}\n");
+    /// <summary>Grava agora tudo que está na fila (saída do app, crash, antes de copiar o log).</summary>
+    public static void Flush()
+    {
+        try
+        {
+            lock (FileLock)
+            {
+                if (Pending.IsEmpty) return;
+                var sb = new System.Text.StringBuilder();
+                while (Pending.TryDequeue(out var line)) sb.Append(line);
+
+                var dir = Path.GetDirectoryName(LogPath);
+                if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+
+                // v0.9.0: o log não cresce pra sempre — passou de 1 MB, vira
+                // debug.old.log (o anterior é descartado). Ele nunca contém
+                // chaves/senhas, mas não há motivo pra guardar meses de histórico.
+                var info = new FileInfo(LogPath);
+                if (info.Exists && info.Length > 1024 * 1024)
+                {
+                    File.Move(LogPath, Path.Combine(dir ?? string.Empty, "debug.old.log"), overwrite: true);
+                }
+
+                File.AppendAllText(LogPath, sb.ToString());
+            }
         }
         catch
         {

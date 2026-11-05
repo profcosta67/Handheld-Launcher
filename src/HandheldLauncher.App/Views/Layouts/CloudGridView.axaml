@@ -1,0 +1,114 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:HandheldLauncher.App.ViewModels"
+             xmlns:conv="using:HandheldLauncher.App.Converters"
+             xmlns:layouts="using:HandheldLauncher.App.Views.Layouts"
+             x:Class="HandheldLauncher.App.Views.Layouts.CloudGridView"
+             x:DataType="vm:MainViewModel">
+
+  <!--
+    v0.18.1 (pedido do usuário depois da 0.18.0: "em todos os temas, SOMENTE
+    essa parte da nuvem, deixar a lista em blocos em uma tela só e a rolagem
+    ser vertical"). Grade única, usada pelos 3 layouts (Clássico, Clean,
+    BigScreen) só enquanto a aba Nuvem está aberta — as outras abas não mudam.
+    A MainWindow troca a lista ativa pra esta (ver MainWindow.UpdateCloudGrid),
+    então a navegação ↑/↓/←/→ e a rolagem que acompanha a seleção são as
+    mesmas da grade vertical que já existia.
+  -->
+
+  <UserControl.Resources>
+    <conv:FileToBitmapConverter x:Key="FileToBitmapConverter" />
+  </UserControl.Resources>
+
+  <UserControl.Styles>
+    <Style Selector="Button.cloudLetter">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinWidth" Value="30" />
+      <Setter Property="Height" Value="30" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Margin" Value="2" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Focusable" Value="False" />
+    </Style>
+    <Style Selector="Button.cloudLetter.active /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}" />
+    </Style>
+    <Style Selector="Button.cloudLetter.cursor /template/ ContentPresenter">
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="BorderBrush" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,Auto,*">
+
+  <!-- v0.18.3: busca (Y) + filtro por letra (X) — só na aba Nuvem. -->
+  <StackPanel Grid.Row="0" Spacing="6" Margin="8,4,8,6">
+    <Grid ColumnDefinitions="*,Auto">
+      <TextBox x:Name="SearchBox" Text="{Binding CloudSearchText, Mode=TwoWay}"
+               Watermark="🔍 Buscar jogo na nuvem  (Y)" MaxWidth="640" HorizontalAlignment="Stretch"
+               GotFocus="OnSearchGotFocus" />
+      <Button Grid.Column="1" Classes="pill" Content="✕ Limpar  (B)" Margin="8,0,0,0" Focusable="False"
+              IsVisible="{Binding HasCloudFilter}" Click="OnClearClick" />
+    </Grid>
+    <ItemsControl ItemsSource="{Binding CloudLetters}" HorizontalAlignment="Center">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" HorizontalAlignment="Center" /></ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:CloudLetterViewModel">
+          <Button Classes="pill cloudLetter" Classes.active="{Binding IsActive}" Classes.cursor="{Binding IsCursor}"
+                  Content="{Binding Label}" Click="OnLetterClick" />
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <TextBlock Text="X escolhe a letra · ←/→ · A aplica" Classes="subtle" FontSize="11" HorizontalAlignment="Center"
+               IsVisible="{Binding IsCloudLetterBarFocused}" />
+  </StackPanel>
+
+  <TextBlock Grid.Row="1" Text="{Binding CloudFilterEmptyText}" Classes="subtle" TextWrapping="Wrap" TextAlignment="Center"
+             HorizontalAlignment="Center" Margin="20,16" IsVisible="{Binding HasCloudFilterEmptyText}" />
+
+  <ScrollViewer x:Name="CloudScroll" Grid.Row="2" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+    <ScrollViewer.Transitions>
+      <Transitions>
+        <VectorTransition Property="Offset" Duration="0:0:0.22" Easing="CubicEaseOut" />
+      </Transitions>
+    </ScrollViewer.Transitions>
+
+    <ItemsControl x:Name="CloudItems" Margin="0,8,0,16" Focusable="True">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center" />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:GameTileViewModel">
+          <StackPanel Width="150" Margin="10,10,10,6" Spacing="6">
+            <Border Classes="gameTile"
+                    Classes.focused="{Binding IsFocused}"
+                    Width="150" Height="225"
+                    PointerPressed="OnTilePointerPressed"
+                    DoubleTapped="OnTileDoubleTapped">
+              <Grid>
+                <layouts:AsyncPosterImage Path="{Binding GridImagePath}" Stretch="UniformToFill" />
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="10" Spacing="6"
+                            IsVisible="{Binding ShowEmptyPlaceholder}">
+                  <TextBlock Text="☁" FontSize="34" HorizontalAlignment="Center" Foreground="{DynamicResource AccentBrush}" />
+                  <TextBlock Text="{Binding Title}" Classes="gameTitle" FontSize="14" TextWrapping="Wrap" TextAlignment="Center" />
+                </StackPanel>
+              </Grid>
+            </Border>
+            <TextBlock Text="{Binding Title}" FontSize="12" TextTrimming="CharacterEllipsis" MaxLines="1"
+                       HorizontalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" />
+          </StackPanel>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+  </ScrollViewer>
+  </Grid>
+</UserControl>

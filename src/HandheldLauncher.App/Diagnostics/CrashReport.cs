@@ -68,6 +68,7 @@ public static class CrashReport
             File.WriteAllText(path, sb.ToString());
 
             DebugLog.Write($"[CRASH] Erro não tratado ({source}) registrado em crashes\\{Path.GetFileName(path)}: {exception?.GetType().Name}: {exception?.Message}");
+            DebugLog.Flush(); // v0.18.3: o log agora grava em lote — num crash, grava já.
             Prune();
         }
         catch

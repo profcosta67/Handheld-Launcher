@@ -60,4 +60,11 @@ internal interface ILibraryLayout
     /// tela inquieta. Ver MainWindow.ScrollSelectionIntoViewNow.
     /// </summary>
     bool CentersSelection { get; }
+
+    /// <summary>
+    /// v0.18.1: grade vertical da aba Nuvem (a mesma nos 3 layouts). A
+    /// MainWindow troca GamesItemsControl/GameRowScrollViewer por ela
+    /// enquanto a aba Nuvem está aberta (ver MainWindow.UpdateCloudGrid).
+    /// </summary>
+    CloudGridView CloudGrid { get; }
 }

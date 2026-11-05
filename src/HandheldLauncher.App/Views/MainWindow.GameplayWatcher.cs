@@ -423,6 +423,28 @@ public partial class MainWindow : Window
     private DateTime _foregroundRegainedAt = DateTime.MinValue;
     private bool _wasOurWindowInForeground = true;
 
+    private static bool DialogOpenedExternalApp(Window dialog) => dialog switch
+    {
+        GameDetailsWindow { OpenedExternalApp: true } => true,
+        StorageManagerWindow { OpenedExternalApp: true } => true,
+        HelpCenterWindow { OpenedExternalApp: true } => true,
+        _ => false,
+    };
+
+    private bool IsDialogOrLauncherInForeground(Window dialog)
+    {
+        if (!OperatingSystem.IsWindows()) return true;
+        try
+        {
+            var fg = GetForegroundWindow();
+            if (fg == IntPtr.Zero) return true;
+            var mine = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+            var dlg = dialog.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+            return fg == mine || fg == dlg;
+        }
+        catch { return true; }
+    }
+
     private void OnGamepadTick(object? sender, EventArgs e)
     {
         try
@@ -432,6 +454,14 @@ public partial class MainWindow : Window
 
             if (_activeDialog is { } dialog)
             {
+                // v0.18.3 (revisão): se o diálogo abriu um app externo (navegador
+                // da loja, Explorer, Steam, Configurações do Windows) e esse app
+                // está NA FRENTE, os botões são do app — não do diálogo escondido
+                // atrás. Antes, A na página do navegador fechava os Detalhes e
+                // abria o jogo por trás; B/X idem, sem o usuário ver.
+                if (actions.Count > 0 && DialogOpenedExternalApp(dialog) && !IsDialogOrLauncherInForeground(dialog))
+                    return;
+
                 foreach (var dialogAction in actions)
                 {
                     UiSounds.PlayForAction(dialogAction);
@@ -561,6 +591,37 @@ public partial class MainWindow : Window
                     continue;
                 }
 
+                // v0.18.3: aba Nuvem — busca (Y), faixa de letras (X), B limpa o filtro.
+                if (_cloudGridActive && vm.IsFilterCloudActive)
+                {
+                    if (IsCloudSearchFocused()) { EndCloudSearch(); continue; } // qualquer botão encerra a digitação
+
+                    if (vm.IsCloudLetterBarFocused)
+                    {
+                        var leaveToTabs = false;
+                        switch (action)
+                        {
+                            case GamepadAction.MoveLeft: vm.MoveCloudLetterCursor(-1); continue;
+                            case GamepadAction.MoveRight: vm.MoveCloudLetterCursor(1); continue;
+                            case GamepadAction.Confirm: vm.ConfirmCloudLetterCursor(); ScrollGameRowSelectionIntoView(vm); continue;
+                            case GamepadAction.Back: case GamepadAction.GameDetails: case GamepadAction.MoveDown: vm.LeaveCloudLetterBar(); continue;
+                            case GamepadAction.PreviousFilter: case GamepadAction.NextFilter: vm.LeaveCloudLetterBar(); leaveToTabs = true; break;
+                            default: continue;
+                        }
+                        if (!leaveToTabs) continue;
+                    }
+                    else
+                    {
+                        switch (action)
+                        {
+                            case GamepadAction.Downloads: BeginCloudSearch(); continue;
+                            case GamepadAction.GameDetails: vm.ToggleCloudLetterBar(); continue;
+                            case GamepadAction.Back when vm.HasCloudFilter: vm.ClearCloudFilters(); ScrollGameRowSelectionIntoView(vm); continue;
+                            case GamepadAction.MoveUp: if (!MoveSelectionVertical(vm, -1)) vm.ToggleCloudLetterBar(); continue;
+                        }
+                    }
+                }
+
                 if (vm.IsSubFilterRowFocused)
                 {
                     switch (action)
@@ -601,6 +662,15 @@ public partial class MainWindow : Window
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
         if (DataContext is not MainViewModel vm) return;
+
+        // v0.18.3: digitando na busca da aba Nuvem — as teclas são do campo, não
+        // atalhos do launcher (senão "D" abriria Downloads, setas mudariam o jogo...).
+        // Enter/Esc/↓ terminam a busca e voltam pra grade.
+        if (_cloudGridActive && IsCloudSearchFocused())
+        {
+            if (e.Key is Key.Enter or Key.Escape or Key.Down) { EndCloudSearch(); e.Handled = true; }
+            return;
+        }
 
         if (e.Key == Key.F1) { vm.ToggleShortcutsHelp(); e.Handled = true; return; }
         if (vm.IsShortcutsHelpOpen) { vm.CloseShortcutsHelp(); e.Handled = true; return; }
@@ -727,7 +797,7 @@ public partial class MainWindow : Window
             var maxX = Math.Max(0, GameRowScrollViewer.Extent.Width - viewport.Width);
             var maxY = Math.Max(0, GameRowScrollViewer.Extent.Height - viewport.Height);
 
-            if (_verticalLayout)
+            if (IsGridNav)
             {
                 var top = p.Y - 12;
                 var bottom = p.Y + container.Bounds.Height + 12;
@@ -755,7 +825,7 @@ public partial class MainWindow : Window
         }
 
         // Fallback para o caso em que o container ainda não foi realizado pelo ItemsControl.
-        if (_verticalLayout) return;
+        if (IsGridNav) return;
         const double spacing = 28;
         double itemLeft = 0;
         for (var i = 0; i < vm.SelectedIndex; i++)
@@ -773,7 +843,7 @@ public partial class MainWindow : Window
 
     private bool MoveSelectionVertical(MainViewModel vm, int direction)
     {
-        if (!_verticalLayout || vm.SelectedIndex < 0) return false;
+        if (!IsGridNav || vm.SelectedIndex < 0) return false;
         var current = GamesItemsControl.ContainerFromIndex(vm.SelectedIndex);
         if (current is null) return false;
         var currentBounds = current.Bounds;

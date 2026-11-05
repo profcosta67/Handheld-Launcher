@@ -59,6 +59,8 @@ public sealed class MainViewModel : ViewModelBase
     /// <summary>v0.18: alertas da Saúde do aparelho (temperatura alta, bateria desgastada, pouco espaço).</summary>
     public HealthAlertService HealthAlerts { get; } = new();
     private DispatcherTimer? _healthCheckTimer;
+    private bool _hardwareReadInFlight;
+    private bool _downloadsScanInFlight;
 
     private int _targetTdpWatts = 20;
     private int _realTimeTdpWatts = 0;
@@ -150,9 +152,19 @@ public sealed class MainViewModel : ViewModelBase
         _ = Task.Run(() => EnsureHwInfoRunning());
 
         _hardwareTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
-        _hardwareTimer.Tick += (_, _) =>
+        _hardwareTimer.Tick += async (_, _) =>
         {
-            var temp = _monitorService.GetCpuTemperature();
+            // v0.18.3 (pente fino de desempenho): ler os sensores (CPU + GPU via
+            // LibreHardwareMonitor) leva de alguns a dezenas de ms e rodava na
+            // thread da tela a cada 2 s — um engasgo periódico na navegação. Agora
+            // lê em segundo plano; se a leitura anterior ainda não terminou, pula.
+            if (_hardwareReadInFlight) return;
+            _hardwareReadInFlight = true;
+            float? temp;
+            try { temp = await Task.Run(() => _monitorService.GetCpuTemperature()); }
+            catch (Exception ex) { DebugLog.Swallowed(ex); temp = null; }
+            finally { _hardwareReadInFlight = false; }
+
             if (temp.HasValue && temp.Value > 0)
             {
                 CpuTemperature = $"{temp.Value:F0}°C";
@@ -632,24 +644,38 @@ public sealed class MainViewModel : ViewModelBase
     private bool _cloudCatalogLoaded;
     private bool _isLoadingCloudCatalog;
     private bool _cloudCatalogFailed;
+    private DateTimeOffset _cloudFetchedUtc; // v0.18.3 (revisão): fica em memória — não relê o catalog.json a cada entrada na aba
 
     private IEnumerable<GameEntry> BuildCloudEntries()
     {
         if (!_cloudCatalogLoaded)
         {
-            _cloudGames = XCloudCatalog.LoadCached(out _);
+            _cloudGames = XCloudCatalog.LoadCached(out _cloudFetchedUtc);
             _cloudCatalogLoaded = true;
         }
 
-        yield return new GameEntry
+        var query = NormalizeForSearch(_cloudSearchText);
+        var filtering = query.Length > 0 || _cloudLetter is not null;
+
+        // O bloco fixo só aparece sem filtro (com filtro, a lista é só de jogos).
+        if (!filtering)
         {
-            Id = CloudHomeId,
-            Title = "Xbox Cloud Gaming",
-            Source = GameSource.XboxApp,
-            LaunchUri = XCloudCatalog.HomeUrl,
-        };
+            yield return new GameEntry
+            {
+                Id = CloudHomeId,
+                Title = "Xbox Cloud Gaming",
+                Source = GameSource.XboxApp,
+                LaunchUri = XCloudCatalog.HomeUrl,
+            };
+        }
         foreach (var g in _cloudGames)
         {
+            if (filtering)
+            {
+                var title = NormalizeForSearch(g.Title);
+                if (query.Length > 0 && !title.Contains(query, StringComparison.Ordinal)) continue;
+                if (_cloudLetter is not null && LetterOf(title) != _cloudLetter) continue;
+            }
             yield return new GameEntry
             {
                 Id = CloudIdPrefix + g.ProductId,
@@ -661,8 +687,141 @@ public sealed class MainViewModel : ViewModelBase
         }
     }
 
+    // ---- v0.18.3: busca e filtro por letra (SÓ na aba Nuvem) ---------------------
+    // Pedido do usuário: "o Xbox é muito jogo" — ~560 títulos. Busca por nome
+    // sem acento/maiúscula ("pokemon" acha "Pokémon") + faixa # A–Z que FILTRA
+    // (mostra só os jogos daquela letra). Os dois juntos valem ao mesmo tempo.
+    private string _cloudSearchText = "";
+    public string CloudSearchText
+    {
+        get => _cloudSearchText;
+        set
+        {
+            if (!SetField(ref _cloudSearchText, value ?? "")) return;
+            OnPropertyChanged(nameof(HasCloudFilter));
+            // Espera parar de digitar (250 ms) antes de remontar a grade.
+            _cloudSearchDebounce ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+            _cloudSearchDebounce.Stop();
+            _cloudSearchDebounce.Tick -= OnCloudSearchDebounce;
+            _cloudSearchDebounce.Tick += OnCloudSearchDebounce;
+            _cloudSearchDebounce.Start();
+        }
+    }
+    private DispatcherTimer? _cloudSearchDebounce;
+    private void OnCloudSearchDebounce(object? sender, EventArgs e)
+    {
+        _cloudSearchDebounce?.Stop();
+        if (_activeFilter == LibraryFilter.Cloud) RebuildGamesFromLibrary();
+    }
+
+    private string? _cloudLetter;
+    public string CloudLetterText => _cloudLetter is null ? "" : $"Letra: {_cloudLetter}";
+    public bool HasCloudFilter => _cloudSearchText.Trim().Length > 0 || _cloudLetter is not null;
+
+    public ObservableCollection<CloudLetterViewModel> CloudLetters { get; } = BuildCloudLetters();
+    private static ObservableCollection<CloudLetterViewModel> BuildCloudLetters()
+    {
+        var list = new ObservableCollection<CloudLetterViewModel> { new("Todos", null), new("#", "#") };
+        for (var c = 'A'; c <= 'Z'; c++) list.Add(new CloudLetterViewModel(c.ToString(), c.ToString()));
+        list[0].IsActive = true;
+        return list;
+    }
+
+    private bool _isCloudLetterBarFocused;
+    public bool IsCloudLetterBarFocused { get => _isCloudLetterBarFocused; private set => SetField(ref _isCloudLetterBarFocused, value); }
+    private int _cloudLetterCursor;
+
+    public void SetCloudLetter(string? letter)
+    {
+        _cloudLetter = letter;
+        foreach (var l in CloudLetters) l.IsActive = l.Value == letter;
+        OnPropertyChanged(nameof(HasCloudFilter));
+        OnPropertyChanged(nameof(CloudLetterText));
+        if (_activeFilter == LibraryFilter.Cloud) RebuildGamesFromLibrary();
+    }
+
+    public void ClearCloudFilters()
+    {
+        _cloudSearchDebounce?.Stop();
+        SetField(ref _cloudSearchText, "", nameof(CloudSearchText));
+        LeaveCloudLetterBar();
+        SetCloudLetter(null);
+    }
+
+    /// <summary>X na aba Nuvem: entra/sai da faixa de letras.</summary>
+    public void ToggleCloudLetterBar()
+    {
+        if (IsCloudLetterBarFocused) { LeaveCloudLetterBar(); return; }
+        var active = CloudLetters.ToList().FindIndex(l => l.IsActive);
+        _cloudLetterCursor = active < 0 ? 0 : active;
+        UpdateCloudLetterCursor();
+        IsCloudLetterBarFocused = true;
+    }
+
+    public void MoveCloudLetterCursor(int delta)
+    {
+        _cloudLetterCursor = Math.Clamp(_cloudLetterCursor + delta, 0, CloudLetters.Count - 1);
+        UpdateCloudLetterCursor();
+    }
+
+    public void ConfirmCloudLetterCursor()
+    {
+        var chosen = CloudLetters[_cloudLetterCursor].Value;
+        LeaveCloudLetterBar();
+        SetCloudLetter(chosen);
+    }
+
+    public void LeaveCloudLetterBar()
+    {
+        IsCloudLetterBarFocused = false;
+        foreach (var l in CloudLetters) l.IsCursor = false;
+    }
+
+    private void UpdateCloudLetterCursor()
+    {
+        for (var i = 0; i < CloudLetters.Count; i++) CloudLetters[i].IsCursor = i == _cloudLetterCursor;
+    }
+
+    private string _cloudFilterEmptyText = "";
+    public string CloudFilterEmptyText { get => _cloudFilterEmptyText; private set { if (SetField(ref _cloudFilterEmptyText, value)) OnPropertyChanged(nameof(HasCloudFilterEmptyText)); } }
+    public bool HasCloudFilterEmptyText => _cloudFilterEmptyText.Length > 0;
+
+    /// <summary>Minúsculas, sem acento, espaços colapsados — "Pokémon  Legends" → "pokemon legends".</summary>
+    private static string NormalizeForSearch(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return "";
+        var decomposed = text.Trim().ToLowerInvariant().Normalize(System.Text.NormalizationForm.FormD);
+        var sb = new System.Text.StringBuilder(decomposed.Length);
+        var lastSpace = false;
+        foreach (var ch in decomposed)
+        {
+            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch) == System.Globalization.UnicodeCategory.NonSpacingMark) continue;
+            if (char.IsWhiteSpace(ch)) { if (!lastSpace) sb.Append(' '); lastSpace = true; continue; }
+            sb.Append(ch);
+            lastSpace = false;
+        }
+        return sb.ToString().Normalize(System.Text.NormalizationForm.FormC);
+    }
+
+    /// <summary>"A"…"Z" pela primeira letra/número do nome (pula aspas, colchetes etc.); número = "#".</summary>
+    private static string? LetterOf(string normalizedTitle)
+    {
+        foreach (var ch in normalizedTitle)
+        {
+            if (char.IsDigit(ch)) return "#";
+            if (ch is >= 'a' and <= 'z') return char.ToUpperInvariant(ch).ToString();
+            if (char.IsLetter(ch)) return "#"; // letra fora de A–Z (ex.: japonês) fica junto do "#"
+        }
+        return null;
+    }
+
+    private DateTime _lastCloudOpenUtc = DateTime.MinValue;
+
     private void OpenCloudEntry(GameEntry game)
     {
+        // v0.18.3 (revisão): A duas vezes enquanto o Edge ainda abre = duas janelas.
+        if (DateTime.UtcNow - _lastCloudOpenUtc < TimeSpan.FromSeconds(4)) return;
+        _lastCloudOpenUtc = DateTime.UtcNow;
         var url = string.IsNullOrWhiteSpace(game.LaunchUri) ? XCloudCatalog.HomeUrl : game.LaunchUri!;
         DebugLog.Write($"[XCLOUD] Abrindo '{game.Title}' → {url}");
         XCloudRequested?.Invoke(this, url);
@@ -671,8 +830,7 @@ public sealed class MainViewModel : ViewModelBase
     private async Task RefreshCloudCatalogAsync()
     {
         if (_isLoadingCloudCatalog) return;
-        _ = XCloudCatalog.LoadCached(out var fetchedUtc);
-        if (_cloudGames.Count > 0 && !XCloudCatalog.IsStale(fetchedUtc))
+        if (_cloudGames.Count > 0 && !XCloudCatalog.IsStale(_cloudFetchedUtc))
         {
             await DownloadCloudPostersAsync();
             return;
@@ -688,6 +846,7 @@ public sealed class MainViewModel : ViewModelBase
             {
                 _cloudGames = fresh;
                 _cloudCatalogLoaded = true;
+                _cloudFetchedUtc = DateTimeOffset.UtcNow;
             }
             else
             {
@@ -723,7 +882,21 @@ public sealed class MainViewModel : ViewModelBase
     // v0.18 Detalhes 2.0: ações da página do jogo. Só repassam pros MESMOS
     // métodos que o menu do jogo já usa (nenhuma lógica nova de lançar/
     // favoritar), pra página e menu nunca se comportarem diferente.
-    public void PlayGameFromDetails(GameEntry game) => OpenGameFromMenu(game);
+    public void PlayGameFromDetails(GameEntry game) { EnsureTileVisible(game); OpenGameFromMenu(game); }
+
+    /// <summary>
+    /// v0.18.3 (revisão): na aba Favoritos, desfavoritar na página do jogo tira
+    /// o bloco da lista na hora — aí Jogar/Mais opções não achavam o bloco e não
+    /// faziam nada. Se o jogo não está na aba atual, vai pra "Todos" (onde ele
+    /// sempre está) antes de agir.
+    /// </summary>
+    private void EnsureTileVisible(GameEntry game)
+    {
+        if (Games.Any(t => t.Game.Id == game.Id)) return;
+        if (game.IsApplication || IsCloudEntry(game)) return;
+        DebugLog.Write($"[DETALHES] '{game.Title}' não está na aba atual — indo pra Todos.");
+        SetFilter(LibraryFilter.All);
+    }
 
     public bool ToggleFavoriteFromDetails(GameEntry game)
     {
@@ -756,6 +929,7 @@ public sealed class MainViewModel : ViewModelBase
 
     public void OpenGameMenuFromDetails(GameEntry game)
     {
+        EnsureTileVisible(game);
         var tile = Games.FirstOrDefault(t => t.Game.Id == game.Id);
         if (tile is null) return;
         SelectedIndex = Games.IndexOf(tile);
@@ -877,6 +1051,7 @@ public sealed class MainViewModel : ViewModelBase
 
     private async Task FetchLaunchIconAsync(GameEntry game)
     {
+        if (IsCloudEntry(game)) return; // v0.18.2: Nuvem fora do SteamGridDB (ver FetchMissingArtworkCore)
         try
         {
             if (await _artwork.FetchIconAsync(game))
@@ -1158,7 +1333,7 @@ public sealed class MainViewModel : ViewModelBase
                 // v0.18: o atalho "☁ Xbox Cloud Gaming" saiu daqui (pedido do usuário: "tira
                 // ele do menu") e virou a aba "Nuvem" da biblioteca. Aqui só aparece o
                 // "Fechar", e só enquanto o xCloud aberto pelo launcher estiver rodando.
-                if (XCloudLauncher.WasOpened) Add("⏹ Fechar Xbox Cloud Gaming", () => _ = Task.Run(XCloudLauncher.CloseAll));
+                if (XCloudLauncher.IsRunning) Add("⏹ Fechar Xbox Cloud Gaming", () => _ = Task.Run(XCloudLauncher.CloseAll));
                 Folder("🔄 Atualizações", GlobalMenuPage.Updates);
                 Folder("🛟 Ajuda", GlobalMenuPage.Help); Folder("⚡ Energia", GlobalMenuPage.Power);
                 break;
@@ -1233,6 +1408,10 @@ public sealed class MainViewModel : ViewModelBase
     {
         if (_activeFilter == LibraryFilter.Cloud)
         {
+            CloudFilterEmptyText = HasCloudFilter && Games.Count == 0 && _cloudGames.Count > 0
+                ? "Nenhum jogo da nuvem com esse filtro. B limpa a busca e a letra."
+                : "";
+            if (HasCloudFilter) { NotInstalledTabMessage = null; return; }
             // Só o bloco fixo na tela = catálogo ainda não chegou.
             NotInstalledTabMessage = Games.Count > 1 ? null
                 : _isLoadingCloudCatalog ? "Carregando o catálogo do Xbox Cloud Gaming..."
@@ -1263,10 +1442,26 @@ public sealed class MainViewModel : ViewModelBase
     public void CloseDownloads() => IsDownloadsOpen = false;
     private readonly Dictionary<string, (long Bytes, DateTime At, double? Speed)> _downloadSamples = new();
 
+    // v0.18.3 (pente fino de desempenho): a varredura lê TODOS os manifestos da
+    // Steam (um arquivo por jogo instalado) e rodava na thread da tela a cada 6 s
+    // com o launcher parado — outro engasgo periódico. Agora lê em segundo plano
+    // e só aplica o resultado na tela; nunca duas varreduras ao mesmo tempo.
     public void RefreshActiveDownloads()
     {
+        if (_downloadsScanInFlight) return;
+        _downloadsScanInFlight = true;
+        _ = RefreshActiveDownloadsCoreAsync();
+    }
+
+    private async Task RefreshActiveDownloadsCoreAsync()
+    {
+        IReadOnlyList<DownloadProgressInfo> downloads;
+        try { downloads = await Task.Run(() => _library.GetActiveDownloads()); }
+        catch (Exception ex) { DebugLog.Swallowed(ex); _downloadsScanInFlight = false; return; }
+        _downloadsScanInFlight = false;
+
         var now = DateTime.UtcNow; ActiveDownloads.Clear();
-        foreach (var download in _library.GetActiveDownloads())
+        foreach (var download in downloads)
         {
             if (_downloadSamples.TryGetValue(download.Title, out var previous))
             {
@@ -1377,7 +1572,11 @@ public sealed class MainViewModel : ViewModelBase
             int ok = 0, skipped = 0;
 
             _library.Refresh();
-            var installed = _library.Games.ToList();
+            // v0.18.2 (pedido do usuário): a Nuvem NUNCA entra na busca automática do
+            // SteamGridDB — as capas dela vêm do catálogo da Microsoft, em pasta
+            // própria. Hoje as entradas da Nuvem nem estão em _library.Games; o filtro
+            // é trava extra pra isso não mudar sem querer no futuro.
+            var installed = _library.Games.Where(g => !IsCloudEntry(g)).ToList();
 
             List<GameEntry> ownedEntries = new();
             if (userInitiated && HasSteamWebApiCredentials)
@@ -1585,6 +1784,7 @@ public sealed class MainViewModel : ViewModelBase
 
     private async Task OpenCoverPicker(GameEntry game, ArtworkPickerKind kind)
     {
+        if (IsCloudEntry(game)) return; // v0.18.2: Nuvem fora do SteamGridDB
         CoverPickerTitle = kind switch { ArtworkPickerKind.WideGrid => $"Capas largas e banners · {game.Title}", ArtworkPickerKind.Hero => $"Banner · {game.Title}", ArtworkPickerKind.Logo => $"Logo · {game.Title}", ArtworkPickerKind.Icon => $"Ícone · {game.Title}", _ => $"Capa · {game.Title}", };
         _coverPickerKind = kind; _coverPickerGame = game; _coverPickerIndex = 0; CoverPickerErrorMessage = null; CoverPickerCandidates.Clear(); NotifyCoverPickerResultFlags(); IsCoverPickerLoading = true; IsCoverPickerOpen = true;
         try

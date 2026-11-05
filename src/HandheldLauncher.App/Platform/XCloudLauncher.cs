@@ -28,6 +28,29 @@ public static class XCloudLauncher
     /// <summary>true depois de abrir — usado pra mostrar "Fechar Xbox Cloud Gaming" no menu.</summary>
     public static bool WasOpened { get; private set; }
 
+    /// <summary>
+    /// v0.18.1: o xCloud está aberto? Além do que esta sessão abriu
+    /// (<see cref="WasOpened"/>), olha o "lockfile" que o Edge mantém na pasta
+    /// do perfil enquanto roda — pega também o caso de o launcher ter sido
+    /// reaberto com o xCloud ainda aberto. Barato (só um File.Exists), dá pra
+    /// chamar ao montar menu.
+    /// </summary>
+    public static bool IsRunning
+    {
+        get
+        {
+            // v0.18.3 (revisão): o "lockfile" é a fonte da verdade (o Edge cria ao
+            // abrir e o Windows apaga quando o processo termina). WasOpened sozinho
+            // ficava "preso" se o usuário fechasse o Edge por conta própria; agora
+            // só cobre os primeiros segundos, antes de o lockfile existir.
+            try { if (File.Exists(Path.Combine(ProfileDir, "lockfile"))) return true; }
+            catch (Exception swallowedEx) { DebugLog.Swallowed(swallowedEx); }
+            return WasOpened && DateTime.UtcNow - _openedAtUtc < TimeSpan.FromSeconds(20);
+        }
+    }
+
+    private static DateTime _openedAtUtc = DateTime.MinValue;
+
     public static void Open(string url)
     {
         try
@@ -41,6 +64,7 @@ public static class XCloudLauncher
             };
             Process.Start(psi);
             WasOpened = true;
+            _openedAtUtc = DateTime.UtcNow;
             DebugLog.Write($"[XCLOUD] Edge (modo app, tela cheia) → {url}");
         }
         catch (Exception ex)
@@ -84,9 +108,11 @@ public static class XCloudLauncher
                 }
             }
         }
-        catch (Exception ex) { DebugLog.Write($"[XCLOUD] Falha ao fechar: {ex.Message}"); }
+        catch (Exception ex) { DebugLog.Write($"[XCLOUD] Falha ao fechar (WMI): {ex.Message}"); }
         WasOpened = false;
-        DebugLog.Write($"[XCLOUD] Fechado ({closed} processo(s)).");
+        DebugLog.Write(closed > 0
+            ? $"[XCLOUD] Fechado ({closed} processo(s) do perfil do xCloud)."
+            : $"[XCLOUD] Fechar: nenhum processo do Edge com o perfil {ProfileDir} foi encontrado.");
         return closed;
     }
 }
