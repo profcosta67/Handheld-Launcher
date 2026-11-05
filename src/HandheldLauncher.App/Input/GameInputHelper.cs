@@ -187,19 +187,48 @@ internal static unsafe class GameInputHelper
         AppDomain.CurrentDomain.ProcessExit += (_, _) =>
             DebugLog.Write("GameInputHelper: ajudante encerrando (ProcessExit).");
 
+        using var signal = new EventWaitHandle(false, EventResetMode.AutoReset, EventName);
+
+        // v0.16.3: dois leitores no ajudante (GameInput + HID). Se os dois
+        // virem o mesmo aperto, o overlay abriria e fecharia na hora — então
+        // um disparo só a cada 600 ms, venha de onde vier.
+        var fireLock = new object();
+        var lastFire = DateTime.MinValue;
+        void Fire(string source)
+        {
+            lock (fireLock)
+            {
+                if (DateTime.UtcNow - lastFire < TimeSpan.FromMilliseconds(600))
+                {
+                    DebugLog.Write($"GameInputHelper: L3+R3 repetido via {source} ignorado (já disparado).");
+                    return;
+                }
+                lastFire = DateTime.UtcNow;
+            }
+            signal.Set();
+        }
+
+        // v0.16.3: leitor HID (Raw Input em segundo plano) — o log do beta.9
+        // mostrou que, com o jogo em foco, o GameInput não entrega botão
+        // nenhum. Ver HidComboReader.
+        try { HidComboReader.Start(() => Fire("HID")); }
+        catch (Exception ex) { DebugLog.Write($"GameInputHelper: leitor HID não iniciou ({ex.Message})"); }
+
         IntPtr gameInput;
         try
         {
             var hr = GameInputCreate(out gameInput);
             if (hr < 0 || gameInput == IntPtr.Zero)
             {
-                DebugLog.Write($"GameInputHelper: GameInputCreate falhou (hr=0x{hr:X8})");
+                DebugLog.Write($"GameInputHelper: GameInputCreate falhou (hr=0x{hr:X8}) — seguindo só com o leitor HID.");
+                WaitForParentOnly(parentPid);
                 return;
             }
         }
         catch (Exception ex)
         {
-            DebugLog.Write($"GameInputHelper: GameInput indisponível ({ex.Message})");
+            DebugLog.Write($"GameInputHelper: GameInput indisponível ({ex.Message}) — seguindo só com o leitor HID.");
+            WaitForParentOnly(parentPid);
             return;
         }
 
@@ -211,7 +240,6 @@ internal static unsafe class GameInputHelper
         DebugLog.Write("GameInputHelper: rodando (entrada em segundo plano ligada)");
         LogLoadedGameInputModule();
 
-        using var signal = new EventWaitHandle(false, EventResetMode.AutoReset, EventName);
         var wasDown = false;
         var lastParentCheck = DateTime.UtcNow;
 
@@ -269,8 +297,8 @@ internal static unsafe class GameInputHelper
 
                 if (isDown && !wasDown)
                 {
-                    DebugLog.Write("GameInputHelper: L3+R3");
-                    signal.Set();
+                    DebugLog.Write($"GameInputHelper: L3+R3 (via GameInput) · em foco: {HidComboReader.ForegroundDescription()}");
+                    Fire("GameInput");
                 }
                 wasDown = isDown;
             }
@@ -282,7 +310,9 @@ internal static unsafe class GameInputHelper
 
             if (DateTime.UtcNow - lastHeartbeat > TimeSpan.FromSeconds(60))
             {
-                DebugLog.Write($"GameInputHelper: vivo (último minuto) — leituras ok={okReads}, falhas={failReads}, último hr=0x{lastHr:X8}");
+                var hidReports = Interlocked.Exchange(ref HidComboReader.ReportsSinceHeartbeat, 0);
+                DebugLog.Write($"GameInputHelper: vivo (último minuto) — leituras ok={okReads}, falhas={failReads}, último hr=0x{lastHr:X8}; " +
+                               $"relatórios HID={hidReports}; em foco: {HidComboReader.ForegroundDescription()}");
                 okReads = 0;
                 failReads = 0;
                 lastHeartbeat = DateTime.UtcNow;
@@ -297,6 +327,26 @@ internal static unsafe class GameInputHelper
     /// dele — o runtime do GameInput é atualizado pelo Windows separado do
     /// launcher, e a API v0 usada aqui pode se comportar diferente.
     /// </summary>
+    /// <summary>
+    /// v0.16.3: sem GameInput, o ajudante continua vivo só pelo leitor HID,
+    /// e sai quando o launcher morre (mesma regra do loop principal).
+    /// </summary>
+    private static void WaitForParentOnly(int parentPid)
+    {
+        var lastHeartbeat = DateTime.UtcNow;
+        while (IsAlive(parentPid))
+        {
+            Thread.Sleep(2000);
+            if (DateTime.UtcNow - lastHeartbeat > TimeSpan.FromSeconds(60))
+            {
+                var hidReports = Interlocked.Exchange(ref HidComboReader.ReportsSinceHeartbeat, 0);
+                DebugLog.Write($"GameInputHelper: vivo (só HID) — relatórios HID={hidReports}; em foco: {HidComboReader.ForegroundDescription()}");
+                lastHeartbeat = DateTime.UtcNow;
+            }
+        }
+        DebugLog.Write($"GameInputHelper: launcher (pid={parentPid}) não está mais vivo — ajudante saindo.");
+    }
+
     private static void LogLoadedGameInputModule()
     {
         try
