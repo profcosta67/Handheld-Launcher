@@ -288,7 +288,7 @@ public partial class OverlayWindow : Window
     {
         if (_topmostEnforcer != null) return;
         _topmostEnforcer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1000) };
-        _topmostEnforcer.Tick += (_, _) => ForceTopmost();
+        _topmostEnforcer.Tick += (_, _) => { ForceTopmost(); GuardPosition(); };
         _topmostEnforcer.Start();
     }
 
@@ -370,6 +370,7 @@ public partial class OverlayWindow : Window
     {
         base.OnOpened(e);
         DebugLog.Write($"[OVERLAY] OnOpened chamado. Width={Width}, Height={Height}");
+        ResetPositionGuardForShow();
         UpdateLsfgStatus();
 
         Dispatcher.UIThread.Post(() =>
@@ -436,6 +437,7 @@ public partial class OverlayWindow : Window
             var y = wa.Y + (wa.Height - heightPx) / 2;
 
             Position = new PixelPoint(x, y);
+            RememberExpectedPosition(new PixelPoint(x, y));
         }
         catch (Exception ex)
         {

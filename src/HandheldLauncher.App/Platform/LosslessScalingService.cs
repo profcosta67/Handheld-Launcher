@@ -85,6 +85,8 @@ public static class LosslessScalingService
     [DllImport("user32.dll")]
     private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
+    [DllImport("user32.dll")] private static extern bool IsIconic(IntPtr hWnd);
+
     private const int SW_MINIMIZE = 6;
 
     [DllImport("user32.dll")]
@@ -145,7 +147,10 @@ public static class LosslessScalingService
                     EnumWindows((hWnd, _) =>
                     {
                         GetWindowThreadProcessId(hWnd, out uint pid);
-                        if (!pids.Contains(pid) || !IsWindowVisible(hWnd)) return true;
+                        // v0.16.3: janela minimizada continua "visível" pro Windows —
+                        // sem pular as minimizadas, o vigia minimizava a mesma janela
+                        // a cada 100 ms por 20 s (141 linhas no log de 05/11).
+                        if (!pids.Contains(pid) || !IsWindowVisible(hWnd) || IsIconic(hWnd)) return true;
                         var title = new System.Text.StringBuilder(256);
                         GetWindowText(hWnd, title, title.Capacity);
                         if (string.Equals(title.ToString(), LosslessMainWindowTitle, StringComparison.Ordinal))
