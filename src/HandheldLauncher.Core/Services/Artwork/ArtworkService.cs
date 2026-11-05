@@ -23,7 +23,7 @@ public sealed class ArtworkService : IArtworkService
         _client = client;
         _store = store;
         _downloadHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-        _downloadHttp.DefaultRequestHeaders.UserAgent.ParseAdd("HandheldLauncher/15.6");
+        _downloadHttp.DefaultRequestHeaders.UserAgent.ParseAdd(AppUserAgent.Value);
         _cacheDir = cacheDirOverride ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "HandheldLauncher", "artwork");

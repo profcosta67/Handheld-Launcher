@@ -32,6 +32,43 @@ internal static class WatchdogTask
 {
     private const string TaskName = "HandheldLauncherWatchdog";
 
+    /// <summary>
+    /// v0.16.2: a tarefa agendada existe? Pra Central de Ajuda conferir se ela
+    /// bate com o modo escolhido. null = não deu pra saber.
+    /// </summary>
+    public static bool? Exists() => Exists(TaskName);
+
+    /// <summary>
+    /// Tarefa criada pelo InstallTask.ps1 do instalador (abre o launcher no
+    /// login com privilégio de administrador, em qualquer modo).
+    /// </summary>
+    public const string InstallerTaskName = "HandheldLauncher_Startup";
+
+    public static bool? Exists(string taskName)
+    {
+        if (!OperatingSystem.IsWindows()) return null;
+        try
+        {
+            var psi = new ProcessStartInfo("schtasks.exe", $"/Query /TN \"{taskName}\"")
+            {
+                CreateNoWindow = true,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+            using var process = Process.Start(psi);
+            if (process is null) return null;
+            _ = process.StandardOutput.ReadToEnd();
+            _ = process.StandardError.ReadToEnd();
+            if (!process.WaitForExit(5000)) return null;
+            return process.ExitCode == 0;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public static bool Apply(bool handheldMode)
     {
         if (!OperatingSystem.IsWindows())

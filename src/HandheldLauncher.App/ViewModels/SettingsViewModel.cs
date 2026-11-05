@@ -194,8 +194,8 @@ public sealed class SettingsViewModel : ViewModelBase
             if (SetField(ref _categoryIndex, value))
             {
                 OnPropertyChanged(nameof(IsCategoryAppearanceActive));
-                OnPropertyChanged(nameof(IsCategoryFoldersActive));
-                OnPropertyChanged(nameof(IsCategoryEmulatorsActive));
+                OnPropertyChanged(nameof(IsCategorySoundsActive));
+                OnPropertyChanged(nameof(IsCategoryLibraryActive));
                 OnPropertyChanged(nameof(IsCategoryModeActive));
                 OnPropertyChanged(nameof(IsCategoryAccountsActive));
                 OnPropertyChanged(nameof(IsCategoryShortcutsActive));
@@ -207,15 +207,20 @@ public sealed class SettingsViewModel : ViewModelBase
         }
     }
 
-    public bool IsCategoryAppearanceActive => _categoryIndex == 0;
-    public bool IsCategoryFoldersActive => _categoryIndex == 1;
-    public bool IsCategoryEmulatorsActive => _categoryIndex == 2;
-    public bool IsCategoryModeActive => _categoryIndex == 3;
-    public bool IsCategoryAccountsActive => _categoryIndex == 4;
-    public bool IsCategoryShortcutsActive => _categoryIndex == 5;
-    public bool IsCategoryLosslessActive => _categoryIndex == 6;
-    public bool IsCategoryConnectivityActive => _categoryIndex == 7;
-    public bool IsCategoryNewsActive => _categoryIndex == 8;
+    // v0.16.3: abas reorganizadas (pedido do usuário) — do mais usado pro
+    // menos usado, nomes curtos. O número é a POSIÇÃO do botão na lista
+    // (SettingsWindow navega pela posição), então tem que bater com o Tag.
+    // Nada foi removido: "Diretórios" + "Emuladores" viraram "Biblioteca" e
+    // os sons saíram de "Aparência" pra aba própria.
+    public bool IsCategoryModeActive => _categoryIndex == 0;          // Geral
+    public bool IsCategoryAppearanceActive => _categoryIndex == 1;    // Aparência
+    public bool IsCategorySoundsActive => _categoryIndex == 2;        // Sons
+    public bool IsCategoryLibraryActive => _categoryIndex == 3;       // Biblioteca
+    public bool IsCategoryShortcutsActive => _categoryIndex == 4;     // Controles
+    public bool IsCategoryLosslessActive => _categoryIndex == 5;      // Lossless
+    public bool IsCategoryAccountsActive => _categoryIndex == 6;      // Contas
+    public bool IsCategoryConnectivityActive => _categoryIndex == 7;  // Rede
+    public bool IsCategoryNewsActive => _categoryIndex == 8;          // Atualizações
 
     // v0.16.2: antes, a aba Novidades mostrava "✕ Fechar" (e o clique não
     // salvava) porque era só leitura. Desde a v0.16 ela tem o toggle

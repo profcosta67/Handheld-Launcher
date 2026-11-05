@@ -121,10 +121,29 @@ jobs:
         shell: pwsh
         run: |
           $tag = "${{ steps.ver.outputs.tag }}"
+          # v0.16.3: a tag aponta pro commit que foi EMPACOTADO (o "ref"
+          # escolhido no formulário), não pro da branch de onde o workflow
+          # foi disparado — no beta.10 a tag ficou no master por isso.
+          $builtSha = (git rev-parse HEAD).Trim()
           gh release view $tag -R $env:GITHUB_REPOSITORY 2>$null | Out-Null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag -R $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Handheld Launcher ${{ steps.ver.outputs.version }} (Beta)" --notes "Build de teste — canal beta. Pode ter bugs que ainda não existem na versão estável." --prerelease
+            gh release create $tag -R $env:GITHUB_REPOSITORY --target $builtSha --title "Handheld Launcher ${{ steps.ver.outputs.version }} (Beta)" --notes "Build de teste — canal beta. Pode ter bugs que ainda não existem na versão estável." --prerelease
           }
+
+          # v0.16.3: espera a release recém-criada aparecer na API antes do
+          # vpk procurar por ela. No beta.8 os dois rodaram no mesmo segundo,
+          # o vpk não achou a release, criou um rascunho próprio e falhou ao
+          # publicar ("tag already_exists"), deixando lixo no GitHub.
+          $visible = $false
+          for ($i = 0; $i -lt 30; $i++) {
+            gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$tag" 2>$null | Out-Null
+            if ($LASTEXITCODE -eq 0) { $visible = $true; break }
+            Start-Sleep -Seconds 2
+          }
+          if (-not $visible) { throw "A release $tag não ficou visível na API em 60s." }
+          # Folga extra: a listagem de releases (usada pelo --merge) pode
+          # demorar um pouco mais que a consulta direta pela tag.
+          Start-Sleep -Seconds 5
 
           # Mesmo --channel do pack acima: o Velopack só sobe/lê
           # releases.beta.json, nunca toca no feed do canal estável.
@@ -134,13 +153,31 @@ jobs:
       - name: Limpar betas antigas (mantém as 3 mais recentes)
         shell: bash
         run: |
+          # v0.16.3: ordena pelo id da release (único e crescente), não pelo
+          # created_at — no GitHub o created_at é a data do COMMIT, então betas
+          # do mesmo commit empatavam e a ordem ficava aleatória. E apaga pelo
+          # id: apagar pelo nome da tag era ambíguo quando duas releases
+          # tinham a mesma tag (caso do beta.8). A tag só é apagada se nenhuma
+          # release mantida usar o mesmo nome. Rascunhos e releases sem
+          # arquivos (restos de publicação que falhou) são sempre apagados e
+          # não ocupam vaga — o workflow tem concurrency, então não há outra
+          # publicação em andamento ao mesmo tempo.
           gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
-            --jq 'sort_by(.created_at) | reverse | .[] | select(.tag_name | test("-beta\\.")) | .tag_name' > beta_tags.txt
+            --jq '[.[] | select(.tag_name | test("-beta\\."))] | sort_by(.id) | reverse | .[] | "\(.id) \(.tag_name) \(.draft) \(.assets | length)"' > beta_releases.txt
           n=0
-          while read -r t; do
-            [ -z "$t" ] && continue
-            n=$((n+1))
-            if [ "$n" -gt 3 ]; then
-              gh release delete "$t" --cleanup-tag --yes -R "$GITHUB_REPOSITORY" || true
+          kept=" "
+          while read -r id t draft assets; do
+            [ -z "$id" ] && continue
+            junk=0
+            if [ "$draft" = "true" ] || [ "$assets" = "0" ]; then junk=1; fi
+            if [ "$junk" -eq 0 ]; then n=$((n+1)); fi
+            if [ "$junk" -eq 0 ] && [ "$n" -le 3 ]; then
+              kept="${kept}${t} "
+              continue
             fi
-          done < beta_tags.txt
+            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/releases/${id}" || true
+            case "$kept" in
+              *" ${t} "*) ;;
+              *) gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${t}" || true ;;
+            esac
+          done < beta_releases.txt

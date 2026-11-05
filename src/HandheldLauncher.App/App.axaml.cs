@@ -93,7 +93,13 @@ public partial class App : Application
             if (OperatingSystem.IsWindows())
             {
                 DisplayColorManager.CaptureOriginal();
-                DisplayColorManager.Apply(appSettings.ColorMode);
+                var colorIndex = Math.Clamp(appSettings.ColorMode, 0, DisplayColorManager.ModeNames.Length - 1);
+                // force: a tela pode ainda estar com o efeito da sessão anterior
+                // (launcher fechado sem restaurar) — sem forçar, o modo "Padrão"
+                // seria considerado já aplicado e a tela ficaria com o efeito.
+                var colorOk = DisplayColorManager.Apply(colorIndex, force: true);
+                HandheldLauncher.App.Diagnostics.StartupRestoreStatus.Report(
+                    "Cor", $"{DisplayColorManager.ModeNames[colorIndex]}{(colorOk ? " aplicada" : " não aplicada (veja [DisplayColor])")}", colorOk);
                 desktop.Exit += (_, _) => DisplayColorManager.RestoreOriginal();
             }
 
@@ -144,6 +150,12 @@ public partial class App : Application
                     Avalonia.Threading.Dispatcher.UIThread.Post(() => mainWindow.ToggleOverlay());
                 });
                 mainWindow.InitializeGamepadComboDetection();
+
+                // v0.16.2 (diagnóstico): "retrato" do controle no debug.log ao
+                // abrir e quando os controles conectados mudam — pra investigar
+                // o controle do Legion Go 2 que às vezes só volta abrindo o
+                // Legion Space. Só registra, não muda nada. Ver ControllerDiagnostics.
+                HandheldLauncher.App.Diagnostics.ControllerDiagnostics.StartMonitoring();
                 desktop.Exit += (_, _) => HandheldLauncher.App.Input.GameInputHelper.StopHelperProcess();
             }
 

@@ -420,7 +420,7 @@ public sealed class MainViewModel : ViewModelBase
         {
             var settings = AppSettingsStore.Load();
             UpdateHudTdpStatus(string.IsNullOrWhiteSpace(settings.TdpMode) ? "Normal" : settings.TdpMode);
-            UpdateHudColorMode(settings.ColorMode switch { 1 => "Vívido", 2 => "OLED", 3 => "Noturno", _ => "Padrão" });
+            UpdateHudColorMode(settings.ColorMode switch { 1 => "Vívido", 2 => "OLED", 3 => "Noturno", 4 => "Confortável", _ => "Padrão" });
             UpdateHudRecordingState(false);
         }
         catch (Exception ex) { DebugLog.Write($"[HUD] Falha ao inicializar HUD a partir das configurações: {ex.Message}"); }
@@ -573,6 +573,7 @@ public sealed class MainViewModel : ViewModelBase
     public event EventHandler? OpenOverlayRequested;
     public event EventHandler? SystemUpdateRequested;
     public event EventHandler? DriverUpdateRequested;
+    public event EventHandler? HelpCenterRequested; // v0.16.2: Central de Ajuda
 
     public void RequestOpenOverlay() { OpenOverlayRequested?.Invoke(this, EventArgs.Empty); }
 
@@ -850,7 +851,7 @@ public sealed class MainViewModel : ViewModelBase
 
     private void UpdateContextMenuSelection() { for (var i = 0; i < ContextMenuItems.Count; i++) ContextMenuItems[i].IsSelected = i == _contextMenuIndex; }
 
-    private enum GlobalMenuPage { Root, Library, Hud, Settings, Power, ConfirmPower }
+    private enum GlobalMenuPage { Root, Library, Hud, Settings, Updates, Help, Power, ConfirmPower }
     private GlobalMenuPage _globalMenuPage = GlobalMenuPage.Root;
     private string _pendingPowerConfirmLabel = string.Empty;
     private Action? _pendingPowerAction;
@@ -916,10 +917,10 @@ public sealed class MainViewModel : ViewModelBase
         switch (_globalMenuPage)
         {
             case GlobalMenuPage.Library:
-                GlobalMenuTitle = "Biblioteca"; Add("🔄 Atualizar Biblioteca", Refresh);
-                if (IsFetchingArtwork) Add("⏳ Baixando capas... (Aguarde)", () => { });
-                else if (!_artwork.HasApiKey) Add("🖼 Atualizar Capas (Configurar API Key)", () => SettingsRequested?.Invoke(this, EventArgs.Empty));
-                else Add("🖼 Atualizar Capas Automático", () =>
+                GlobalMenuTitle = "Biblioteca"; Add("🔄 Recarregar jogos", Refresh);
+                if (IsFetchingArtwork) Add("⏳ Baixando capas…", () => { });
+                else if (!_artwork.HasApiKey) Add("🖼 Capas (falta a chave)", () => SettingsRequested?.Invoke(this, EventArgs.Empty));
+                else Add("🖼 Baixar capas", () =>
                 {
                     DebugLog.Write($"[SGDB] MENU: 'Atualizar Capas Automático' clicado. HasApiKey={_artwork.HasApiKey}, IsFetchingArtwork={IsFetchingArtwork}, Games={_library.Games.Count}");
                     FetchMissingArtwork();
@@ -942,31 +943,53 @@ public sealed class MainViewModel : ViewModelBase
                 break;
 
             case GlobalMenuPage.Settings:
-                GlobalMenuTitle = "Configurações"; Add("⚙ Preferências", () => SettingsRequested?.Invoke(this, EventArgs.Empty)); Add("🎨 Temas", () => LayoutPickerRequested?.Invoke(this, EventArgs.Empty));
-                Add("🔄 Atualizações (Windows + Drivers)", () => SystemUpdateRequested?.Invoke(this, EventArgs.Empty)); Add("🛠 Instalar Driver Manual (.inf)", () => DriverUpdateRequested?.Invoke(this, EventArgs.Empty));
-                if (_updates is { IsInstalled: true } && !IsUpdateReady) Add($"🔄 Verificar atualizações (v{_updates.CurrentVersionText})", () => _ = CheckForUpdatesAsync(userInitiated: true));
+                // v0.16.3: menu reorganizado (pedido do usuário) — nomes curtos que
+                // cabem na largura do menu; nada foi removido. Atualizações e
+                // Ajuda viraram pastas próprias.
+                GlobalMenuTitle = "Configurações"; Add("⚙ Preferências", () => SettingsRequested?.Invoke(this, EventArgs.Empty)); Add("🎨 Layout da tela", () => LayoutPickerRequested?.Invoke(this, EventArgs.Empty));
+                break;
+
+            case GlobalMenuPage.Updates:
+                GlobalMenuTitle = "Atualizações";
+                if (_updates is { IsInstalled: true } && !IsUpdateReady) Add("🔄 Verificar launcher", () => _ = CheckForUpdatesAsync(userInitiated: true));
+                Add("🪟 Windows e drivers", () => SystemUpdateRequested?.Invoke(this, EventArgs.Empty));
+                Add("🛠 Driver manual (.inf)", () => DriverUpdateRequested?.Invoke(this, EventArgs.Empty));
+                break;
+
+            case GlobalMenuPage.Help:
+                GlobalMenuTitle = "Ajuda";
+                Add("🩺 Central de Ajuda", () => HelpCenterRequested?.Invoke(this, EventArgs.Empty));
+                Add("⌨ Atalhos", OpenShortcutsHelp);
+                Add("ℹ Sobre", OpenAbout);
                 break;
 
             case GlobalMenuPage.Power:
                 GlobalMenuTitle = "Energia"; Add("🌙 Desligar tela", () => TurnOffScreenRequested?.Invoke(this, EventArgs.Empty));
-                Add("🔄 Reiniciar o aparelho", () => RequestPowerConfirm("reiniciar o aparelho", () => RestartDeviceRequested?.Invoke(this, EventArgs.Empty)));
-                Add("⏻ Desligar o aparelho", () => RequestPowerConfirm("desligar o aparelho", () => ShutdownDeviceRequested?.Invoke(this, EventArgs.Empty)));
-                Add("🖥 Restaurar Desktop (Sair do Modo Console)", () => RestoreShellRequested?.Invoke(this, EventArgs.Empty));
-                Add("🚪 Fechar Launcher", () => QuitRequested?.Invoke(this, EventArgs.Empty)); break;
+                Add("🔄 Reiniciar", () => RequestPowerConfirm("reiniciar o aparelho", () => RestartDeviceRequested?.Invoke(this, EventArgs.Empty)));
+                Add("⏻ Desligar", () => RequestPowerConfirm("desligar o aparelho", () => ShutdownDeviceRequested?.Invoke(this, EventArgs.Empty)));
+                Add("🖥 Sair pro Desktop", () => RestoreShellRequested?.Invoke(this, EventArgs.Empty));
+                Add("🚪 Fechar launcher", () => QuitRequested?.Invoke(this, EventArgs.Empty)); break;
 
             case GlobalMenuPage.ConfirmPower:
                 GlobalMenuTitle = "Confirmar?"; Folder("❌ Cancelar", GlobalMenuPage.Power); Add($"⚠ Sim, {_pendingPowerConfirmLabel}", () => _pendingPowerAction?.Invoke(), isDanger: true); break;
 
             default:
-                GlobalMenuTitle = "Menu"; Add("🎮 Abrir Quick Settings", () => OpenOverlayRequested?.Invoke(this, EventArgs.Empty));
-                if (IsUpdateReady) Add(RunningGame is null ? $"⬆ Reiniciar pra atualizar (v{PendingUpdateVersion})" : $"⬆ Atualização v{PendingUpdateVersion} pronta — feche o jogo", ApplyUpdate);
-                if (RunningGame is not null) Add($"⏹ Fechar: {RunningGame.Title}", CloseRunningGame);
+                GlobalMenuTitle = "Menu"; Add("🎮 Quick Settings", () => OpenOverlayRequested?.Invoke(this, EventArgs.Empty));
+                if (IsUpdateReady) Add(RunningGame is null ? "⬆ Atualizar agora" : "⬆ Atualização pronta (feche o jogo)", ApplyUpdate);
+                if (RunningGame is not null) Add("⏹ Fechar o jogo", CloseRunningGame);
                 Folder("📚 Biblioteca", GlobalMenuPage.Library); Folder("📊 HUD", GlobalMenuPage.Hud);
-                Folder("⚙ Configurações", GlobalMenuPage.Settings); Folder("⚡ Energia", GlobalMenuPage.Power);
-                Add("⌨ Atalhos de Teclado", OpenShortcutsHelp);
-                Add("ℹ Sobre", OpenAbout); break;
+                Folder("⚙ Configurações", GlobalMenuPage.Settings); Folder("🔄 Atualizações", GlobalMenuPage.Updates);
+                Folder("🩺 Ajuda", GlobalMenuPage.Help); Folder("⚡ Energia", GlobalMenuPage.Power);
+                break;
         }
-        GlobalMenuHint = _globalMenuPage == GlobalMenuPage.Hud ? "No jogo: L3+R3 (ou Ctrl+Alt+O) troca o HUD" : string.Empty;
+        GlobalMenuHint = _globalMenuPage switch
+        {
+            GlobalMenuPage.Hud => "No jogo: L3+R3 (ou Ctrl+Alt+O) troca o HUD",
+            GlobalMenuPage.Updates when _updates is { IsInstalled: true } => $"Versão atual: v{_updates.CurrentVersionText}",
+            GlobalMenuPage.Root when IsUpdateReady => $"Nova versão pronta: v{PendingUpdateVersion}",
+            GlobalMenuPage.Root when RunningGame is not null => $"Jogando: {RunningGame.Title}",
+            _ => string.Empty,
+        };
         OnPropertyChanged(nameof(HasGlobalMenuHint));
     }
 

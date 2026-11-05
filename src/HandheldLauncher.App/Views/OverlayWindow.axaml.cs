@@ -35,6 +35,17 @@ public partial class OverlayWindow : Window
     private string _currentFanMode = "Automático";
     private int _currentColor = 0;
     private bool _tdpAppliedOnOpen = false;
+
+    // v0.16.2: no boot, o firmware/serviço da Lenovo às vezes reaplica os
+    // próprios limites logo depois do launcher (log real: 1ª leitura 20W,
+    // seguintes 45W/37W) e a restauração desistia. Agora tenta de novo
+    // algumas vezes, com intervalo. Estático porque a OverlayWindow é
+    // recriada na primeira abertura do Quick Settings — só uma sequência de
+    // novas tentativas por sessão.
+    private static readonly TimeSpan[] StartupTdpRetryDelays =
+        { TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(30) };
+    private static int _startupTdpRetryRunning;
+    private static volatile bool _startupTdpConfirmed;
     private readonly bool _freezeGameOnOverlay;
 
     // 🟢 ENFORCER: mantém o overlay sempre no topo enquanto visível
@@ -153,19 +164,28 @@ public partial class OverlayWindow : Window
                     if (_currentFanMode != "Automático")
                     {
                         if (_fanCurveService.TryApplyPreset(_currentFanMode, out var startupFanMessage))
+                        {
                             TxtFanStatus.Text = startupFanMessage;
+                            StartupRestoreStatus.Report("Ventoinha", $"{_currentFanMode} aplicada", ok: true);
+                        }
                         else
                         {
+                            StartupRestoreStatus.Report("Ventoinha", $"{_currentFanMode} não aplicou ({startupFanMessage}) — automático mantido", ok: false);
                             _currentFanMode = "Automático";
                             TxtFanStatus.Text = startupFanMessage + " Controle automático mantido.";
                         }
                     }
-                    else TxtFanStatus.Text = fanReadMessage + " Controle automático do firmware ativo.";
+                    else
+                    {
+                        TxtFanStatus.Text = fanReadMessage + " Controle automático do firmware ativo.";
+                        StartupRestoreStatus.Report("Ventoinha", "Automático (firmware)", ok: true);
+                    }
                 }
                 else
                 {
                     _currentFanMode = "Automático";
                     TxtFanStatus.Text = fanReadMessage + " Controle original mantido.";
+                    StartupRestoreStatus.Report("Ventoinha", $"curva não lida ({fanReadMessage}) — controle original mantido", ok: !_fanCurveService.IsSupportedModel);
                 }
                 SetFanButtonVisual(_currentFanMode);
             }
@@ -184,16 +204,27 @@ public partial class OverlayWindow : Window
             {
                 _tdpAppliedOnOpen = true;
                 var savedTdp = string.IsNullOrWhiteSpace(settings.TdpMode) ? "Normal" : settings.TdpMode;
-                _ = Task.Run(() =>
+                _ = Task.Run(async () =>
                 {
                     DebugLog.Write($"[OVERLAY] Re-aplicando TDP salvo na inicialização: {savedTdp}");
+                    // A OverlayWindow é recriada na 1ª abertura do Quick Settings;
+                    // cada aplicação começa "não confirmada", pra uma confirmação
+                    // antiga não impedir as novas tentativas desta.
+                    _startupTdpConfirmed = false;
                     var ok = _hardwareService.SetTdpMode(savedTdp);
                     DebugLog.Write(ok
                         ? $"[OVERLAY] TDP {savedTdp} re-aplicado com sucesso."
                         : $"[OVERLAY] Falha ao re-aplicar TDP {savedTdp}; veja os logs [PawnIO].");
 
                     if (ok)
+                    {
+                        _startupTdpConfirmed = true;
+                        StartupRestoreStatus.Report("TDP", $"{savedTdp} confirmado na 1ª tentativa", ok: true);
                         Dispatcher.UIThread.Post(() => _viewModel.UpdateHudTdpStatus(savedTdp));
+                        return;
+                    }
+
+                    await RetryStartupTdpAsync(savedTdp);
                 });
             }
 
@@ -229,6 +260,7 @@ public partial class OverlayWindow : Window
                 1 => "Vívido",
                 2 => "OLED",
                 3 => "Noturno",
+                4 => "Confortável", // v0.16.2: modo que só existe nas Configurações
                 _ => "Padrão"
             };
             _viewModel.UpdateHudColorMode(initialColorName);
@@ -256,7 +288,7 @@ public partial class OverlayWindow : Window
     {
         if (_topmostEnforcer != null) return;
         _topmostEnforcer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1000) };
-        _topmostEnforcer.Tick += (_, _) => ForceTopmost();
+        _topmostEnforcer.Tick += (_, _) => { ForceTopmost(); GuardPosition(); };
         _topmostEnforcer.Start();
     }
 
@@ -278,6 +310,56 @@ public partial class OverlayWindow : Window
         }
     }
 
+    private async Task RetryStartupTdpAsync(string savedTdp)
+    {
+        if (Interlocked.Exchange(ref _startupTdpRetryRunning, 1) == 1) return;
+        try
+        {
+            for (var attempt = 0; attempt < StartupTdpRetryDelays.Length; attempt++)
+            {
+                await Task.Delay(StartupTdpRetryDelays[attempt]);
+
+                if (_startupTdpConfirmed)
+                {
+                    DebugLog.Write("[OVERLAY] TDP da inicialização já foi confirmado por outra aplicação — novas tentativas encerradas.");
+                    return;
+                }
+
+                // Nunca passar por cima de uma escolha feita no Quick Settings
+                // enquanto esperávamos.
+                var current = AppSettingsStore.Load().TdpMode;
+                if (string.IsNullOrWhiteSpace(current)) current = "Normal";
+                if (!string.Equals(current, savedTdp, StringComparison.Ordinal))
+                {
+                    DebugLog.Write($"[OVERLAY] TDP salvo mudou para {current} durante a espera — tentativa de restaurar {savedTdp} cancelada.");
+                    StartupRestoreStatus.Report("TDP", $"restauração de {savedTdp} cancelada (usuário escolheu {current})", ok: true);
+                    return;
+                }
+
+                DebugLog.Write($"[OVERLAY] Nova tentativa {attempt + 2}/{StartupTdpRetryDelays.Length + 1} de restaurar o TDP {savedTdp}.");
+                if (_hardwareService.SetTdpMode(savedTdp))
+                {
+                    _startupTdpConfirmed = true;
+                    DebugLog.Write($"[OVERLAY] TDP {savedTdp} confirmado na tentativa {attempt + 2}.");
+                    StartupRestoreStatus.Report("TDP", $"{savedTdp} confirmado na {attempt + 2}ª tentativa", ok: true);
+                    Dispatcher.UIThread.Post(() => _viewModel.UpdateHudTdpStatus(savedTdp));
+                    return;
+                }
+            }
+
+            DebugLog.Write($"[OVERLAY] TDP {savedTdp} não confirmou em {StartupTdpRetryDelays.Length + 1} tentativas — o firmware pode estar sobrescrevendo os limites.");
+            StartupRestoreStatus.Report("TDP", $"{savedTdp} NÃO confirmou em {StartupTdpRetryDelays.Length + 1} tentativas", ok: false);
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[OVERLAY] Erro nas novas tentativas de TDP: {ex.Message}");
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _startupTdpRetryRunning, 0);
+        }
+    }
+
     public void SetGamePid(int pid)
     {
         _gamePid = pid;
@@ -288,6 +370,7 @@ public partial class OverlayWindow : Window
     {
         base.OnOpened(e);
         DebugLog.Write($"[OVERLAY] OnOpened chamado. Width={Width}, Height={Height}");
+        ResetPositionGuardForShow();
         UpdateLsfgStatus();
 
         Dispatcher.UIThread.Post(() =>
@@ -354,6 +437,7 @@ public partial class OverlayWindow : Window
             var y = wa.Y + (wa.Height - heightPx) / 2;
 
             Position = new PixelPoint(x, y);
+            RememberExpectedPosition(new PixelPoint(x, y));
         }
         catch (Exception ex)
         {
@@ -731,6 +815,12 @@ public partial class OverlayWindow : Window
         {
             _hardwareService.SetDisplayMode(w, h, hz);
             UpdateScreenInfoText();
+
+            // v0.16.3: trocar resolução/Hz pode fazer o Windows voltar a curva
+            // de cor ao padrão; reaplica o modo de cor escolhido depois que a
+            // troca assenta.
+            if (OperatingSystem.IsWindows())
+                DispatcherTimer.RunOnce(() => DisplayColorManager.ReapplyCurrent(), TimeSpan.FromMilliseconds(1500));
         }
     }
 

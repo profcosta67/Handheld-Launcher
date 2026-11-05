@@ -336,6 +336,11 @@ public partial class MainWindow : Window
         Closed += (_, _) => _batteryTimer?.Stop();
     }
 
+    private bool _inputIgnoredWhileBackground;
+    private DateTime _lastBackgroundInputAt = DateTime.MinValue;
+    private DateTime _foregroundRegainedAt = DateTime.MinValue;
+    private bool _wasOurWindowInForeground = true;
+
     private void OnGamepadTick(object? sender, EventArgs e)
     {
         try
@@ -350,10 +355,20 @@ public partial class MainWindow : Window
                     UiSounds.PlayForAction(dialogAction);
                     if (dialog is SettingsWindow sw && sw.HandleSettingsGamepadAction(dialogAction))
                         continue;
+                    // v0.16.2: Central de Ajuda — LB/RB trocam de aba e B dentro de
+                    // um artigo volta pra lista (em vez de fechar a janela).
+                    if (dialog is HelpCenterWindow hc && hc.HandleGamepadAction(dialogAction))
+                        continue;
                     DialogGamepadNavigator.Handle(dialog, dialogAction);
                 }
                 return;
             }
+
+            // v0.16.3: quando o launcher volta pra frente, anota a hora — o "A"
+            // que fez a troca de janela não pode abrir o jogo selecionado.
+            var ourWindowInForeground = IsOurWindowInForeground();
+            if (ourWindowInForeground && !_wasOurWindowInForeground) _foregroundRegainedAt = DateTime.UtcNow;
+            _wasOurWindowInForeground = ourWindowInForeground;
 
             foreach (var action in actions)
             {
@@ -372,7 +387,34 @@ public partial class MainWindow : Window
                     continue;
                 }
 
-                if (vm.RunningGame is not null && !IsOurWindowInForeground()) continue;
+                // v0.16.3: botões só valem com o launcher NA FRENTE — antes isso só
+                // era checado com jogo rodando. Relato de 05/11: com o app do
+                // Xbox na frente o controle mexia na biblioteca atrás, e o "A"
+                // usado pra trazer o launcher pra frente (botão de alternar do
+                // Legion) já abria o jogo selecionado.
+                if (!ourWindowInForeground)
+                {
+                    if (!_inputIgnoredWhileBackground)
+                    {
+                        _inputIgnoredWhileBackground = true;
+                        DebugLog.Write("[INPUT] Launcher não está na frente — botões ignorados até ele voltar ao foco.");
+                    }
+                    _lastBackgroundInputAt = DateTime.UtcNow;
+                    continue;
+                }
+                if (_inputIgnoredWhileBackground)
+                {
+                    _inputIgnoredWhileBackground = false;
+                    DebugLog.Write("[INPUT] Launcher voltou ao foco — botões liberados.");
+                }
+                // O mesmo aperto que trouxe o launcher pra frente não pode abrir jogo.
+                if (action == GamepadAction.Confirm
+                    && (DateTime.UtcNow - _lastBackgroundInputAt < TimeSpan.FromMilliseconds(600)
+                        || DateTime.UtcNow - _foregroundRegainedAt < TimeSpan.FromMilliseconds(600)))
+                {
+                    DebugLog.Write("[INPUT] 'A' ignorado: foi o aperto que trouxe o launcher pra frente.");
+                    continue;
+                }
                 UiSounds.PlayForAction(action);
 
                 if (vm.IsCoverPickerOpen)

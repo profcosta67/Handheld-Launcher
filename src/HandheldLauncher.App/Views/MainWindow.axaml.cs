@@ -186,6 +186,7 @@ public partial class MainWindow : Window
     // SetGamepadComboDetectionForGame.
 
     private OverlayHotkeyWatcher? _overlayHotkeyWatcher;
+    private OverlayHotkeyWatcher? _inGameXInputObserver; // v0.16.2 diagnóstico (só log)
 
     private bool? _gamepadComboModeIsGame;
 
@@ -295,6 +296,8 @@ public partial class MainWindow : Window
         {
             _overlayHotkeyWatcher?.Dispose();
             _overlayHotkeyWatcher = null;
+            _inGameXInputObserver?.Dispose();
+            _inGameXInputObserver = null;
             GameInputHelper.StopHelperProcess();
         };
     }
@@ -335,9 +338,23 @@ public partial class MainWindow : Window
             _overlayHotkeyWatcher = null;
             GameInputHelper.StartHelperProcess();
             DebugLog.Write("[OVERLAY] Detector de L3+R3: GameInputHelper (jogo rodando).");
+
+            // v0.16.2 (diagnóstico): no Days Gone e no Eden o GameInput entrega
+            // o controle "em repouso" com o jogo em foco, mas antes da v0.16.0
+            // o overlay abria nesses jogos — quando o detector XInput ficava
+            // ligado o tempo todo. Hipótese: era ele que pegava o L3+R3. Este
+            // observador SÓ registra no debug.log o que o XInput vê; nunca abre
+            // o overlay (o detector do jogo continua sendo só o GameInput, pra
+            // não voltar a corrida de toggle que a v0.16.0 removeu).
+            _inGameXInputObserver?.Dispose();
+            _inGameXInputObserver = new OverlayHotkeyWatcher(
+                () => DebugLog.Write("[DIAG] XInput viu L3+R3 com o jogo rodando (só observação — overlay NÃO foi aberto por este detector)."),
+                observeOnly: true);
         }
         else
         {
+            _inGameXInputObserver?.Dispose();
+            _inGameXInputObserver = null;
             GameInputHelper.StopHelperProcess();
             _overlayHotkeyWatcher ??= new OverlayHotkeyWatcher(() =>
             {
@@ -399,6 +416,7 @@ public partial class MainWindow : Window
         vm.SettingsRequested += (_, _) => _ = OpenSettingsDialogAsync(vm);
         vm.SystemUpdateRequested += (_, _) => _ = OpenSystemUpdateDialogAsync();
         vm.DriverUpdateRequested += (_, _) => _ = OpenDriverUpdateDialogAsync();
+        vm.HelpCenterRequested += (_, _) => _ = OpenHelpCenterDialogAsync();
 
         vm.QuitRequested += (_, _) =>
         {
