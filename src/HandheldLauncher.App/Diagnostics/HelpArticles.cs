@@ -87,7 +87,6 @@ internal static class HelpArticles
             "Troque em Configurações → Geral e salve — isso também liga ou desliga a reabertura automática do modo Handheld.",
             "Atenção: se o launcher foi instalado pelo instalador (Setup), ele também registra uma abertura no login que vale nos dois modos (tarefa \"HandheldLauncher_Startup\" no Agendador de Tarefas do Windows). A verificação \"Modo de uso\" da Central de Ajuda mostra se ela existe.",
             "Pra usar o Windows por um tempo: menu do launcher → Energia → Fechar Launcher. No modo Handheld, isso segura a reabertura automática até o próximo reinício do aparelho.",
-            "Já Energia → Sair pro Desktop tira o launcher da tela cheia de vez (ele passa a abrir em janela). Pra voltar à tela cheia, escolha Handheld de novo em Configurações → Geral.",
         }),
 
         // ---------------- Biblioteca ----------------

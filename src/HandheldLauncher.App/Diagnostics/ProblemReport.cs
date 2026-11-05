@@ -127,6 +127,13 @@ internal static class ProblemReport
             sb.AppendLine($"{(entry.Ok ? "[ok]" : "[FALHOU]")} {entry.Item}: {entry.Detail} ({entry.AtLocal:HH:mm:ss})");
         sb.AppendLine();
 
+        if (OperatingSystem.IsWindows())
+        {
+            sb.AppendLine("== Controle (no momento do relatório) ==");
+            sb.Append(ControllerDiagnostics.DescribeNow());
+            sb.AppendLine();
+        }
+
         sb.AppendLine("== Atualizações ==");
         var last = UpdateService.LastCheck;
         sb.AppendLine(last is null ? "(nenhuma verificação ainda)" : $"{last.AtLocal:HH:mm:ss}: {last.Result}");

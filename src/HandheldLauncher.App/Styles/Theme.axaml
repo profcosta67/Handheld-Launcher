@@ -52,6 +52,34 @@
       <CornerRadius x:Key="PillCornerRadius">999</CornerRadius>
       <CornerRadius x:Key="BarCornerRadius">18</CornerRadius>
 
+      <!-- v0.17 — escala de tipografia (8 passos) e de raio (5 passos) do
+           docs/design-audit.md, aprovadas pelo usuário. Isto é a INFRAESTRUTURA
+           da escala: os valores abaixo são os mesmos ~19 tamanhos de fonte e
+           ~13 raios que já existem espalhados pelas telas hoje, só que agora
+           com nome — nenhuma tela muda de aparência só por isto existir. A
+           troca de cada Setter hardcoded (FontSize="11", CornerRadius="12"...)
+           pra um destes tokens é o trabalho de migração tela-a-tela descrito
+           no design-audit (ordem: infraestrutura → telas maiores → menores,
+           testando no device a cada tela, antes de seguir pra próxima).
+           ThemeManager.ApplyFontSize reescala os 8 TypeScaleN pelo mesmo
+           fator de "Pequeno/Médio/Grande" que já reescala os FontSizeXxx
+           acima, então qualquer Setter migrado pra TypeScaleN já funciona
+           com Configurações → Tamanho do texto sem mudança adicional. -->
+      <x:Double x:Key="TypeScale1">11</x:Double>  <!-- legenda / rodapé -->
+      <x:Double x:Key="TypeScale2">12</x:Double>  <!-- texto secundário pequeno -->
+      <x:Double x:Key="TypeScale3">14</x:Double>  <!-- corpo padrão -->
+      <x:Double x:Key="TypeScale4">16</x:Double>  <!-- corpo destacado -->
+      <x:Double x:Key="TypeScale5">18</x:Double>  <!-- subtítulo -->
+      <x:Double x:Key="TypeScale6">22</x:Double>  <!-- cabeçalho de menu -->
+      <x:Double x:Key="TypeScale7">30</x:Double>  <!-- título -->
+      <x:Double x:Key="TypeScale8">36</x:Double>  <!-- título grande / hero -->
+
+      <CornerRadius x:Key="RadiusScale1">4</CornerRadius>   <!-- chip / tag -->
+      <CornerRadius x:Key="RadiusScale2">8</CornerRadius>   <!-- botão pequeno -->
+      <CornerRadius x:Key="RadiusScale3">12</CornerRadius>  <!-- card padrão -->
+      <CornerRadius x:Key="RadiusScale4">16</CornerRadius>  <!-- tile / painel -->
+      <CornerRadius x:Key="RadiusScale5">24</CornerRadius>  <!-- hero / destaque -->
+
     </ResourceDictionary>
   </Styles.Resources>
 
@@ -340,6 +368,43 @@
   </Style>
 
   <Style Selector="Button.iconGhost:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
+  </Style>
+
+  <!-- v0.17: Minimizar/Configurações/Energia na barra de baixo (MainWindow
+       "Bottom bar"). Essa classe nunca teve estilo próprio — sem Setter
+       aqui, os três botões caem no Button padrão do FluentTheme (que segue
+       o RequestedThemeVariant="Dark" fixo do App.axaml), por isso ficavam
+       sempre pretos com ícone branco, ignorando a paleta escolhida
+       (reportado pelo usuário, 05/11). Agora usam os mesmos brushes do
+       tema que o resto da janela. -->
+  <Style Selector="Button.switchAction">
+    <Setter Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
+    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource TileCornerRadius}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Width" Value="40" />
+    <Setter Property="Height" Value="40" />
+    <Setter Property="FontSize" Value="16" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <!-- v0.17 (05/11): o Background/Foreground acima já resolviam a cor de
+         fundo/ícone, mas faltava isto — sem um FocusAdorner próprio, o botão
+         com foco (navegação por D-pad/teclado) caía no anel de foco padrão
+         do FluentTheme, que usa a cor de destaque do WINDOWS, não a paleta
+         do app. Por isso um dos três ficava "torto" (o anel padrão soma uma
+         margem/formato diferente dos nossos) e com cor fora da paleta
+         escolhida. SettingsWindow e HelpCenterWindow já tinham esse ajuste
+         local; faltava igual aqui. -->
+    <Setter Property="FocusAdorner">
+      <Template>
+        <Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="3" CornerRadius="14" Margin="-3" />
+      </Template>
+    </Setter>
+  </Style>
+
+  <Style Selector="Button.switchAction:pointerover /template/ ContentPresenter">
     <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
   </Style>
 

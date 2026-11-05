@@ -344,6 +344,44 @@ public partial class MainWindow : Window
 
     private static void TurnOffScreen() { if (!OperatingSystem.IsWindows()) return; try { PostMessage(HwndBroadcast, WmSysCommand, (IntPtr)ScMonitorPower, (IntPtr)2); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); } }
 
+    /// <summary>
+    /// v0.17 (pedido do usuário): "Reiniciar Launcher" (Energia) — reinicia só
+    /// o PROCESSO do launcher, sem tocar no aparelho. Chamado ANTES do
+    /// processo atual sair (ver RestartLauncherRequested em MainWindow.axaml.cs):
+    /// agenda uma nova cópia via cmd.exe, que espera 1s antes de abrir — dando
+    /// tempo do processo atual terminar e liberar o Mutex de instância única
+    /// (SingleInstance), senão a cópia nova só notificaria a antiga (ainda viva)
+    /// e fecharia sem abrir nada.
+    /// </summary>
+    private static void RelaunchSelfAfterExit()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        try
+        {
+            var exe = Environment.ProcessPath;
+            if (string.IsNullOrEmpty(exe))
+            {
+                DebugLog.Write("RelaunchSelfAfterExit: ProcessPath vazio, abortando.");
+                return;
+            }
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = "cmd.exe",
+                Arguments = $"/c timeout /t 1 /nobreak >nul & start \"\" \"{exe}\"",
+                CreateNoWindow = true,
+                UseShellExecute = false,
+                WindowStyle = ProcessWindowStyle.Hidden,
+            };
+            Process.Start(psi);
+            DebugLog.Write("RelaunchSelfAfterExit: relançamento agendado.");
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"RelaunchSelfAfterExit EXCEPTION: {ex.Message}");
+        }
+    }
+
     private static void RestartDevice() { if (!OperatingSystem.IsWindows()) return; RunShutdownExe("/r /f /t 0"); }
 
     private static void ShutdownDevice() { if (!OperatingSystem.IsWindows()) return; RunShutdownExe("/s /f /t 0"); }
@@ -363,39 +401,6 @@ public partial class MainWindow : Window
             DebugLog.Write($"RunShutdownExe: exit={process.ExitCode} stdout='{stdout.Trim()}' stderr='{stderr.Trim()}'");
         }
         catch (Exception ex) { DebugLog.Write($"RunShutdownExe EXCEPTION ({exe}): {ex.Message} — tentando via shell."); try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe, arguments) { UseShellExecute = true, CreateNoWindow = true }); } catch (Exception shellEx) { DebugLog.Write($"RunShutdownExe FALHOU também via shell: {shellEx.Message}"); } }
-    }
-
-    private void RestoreWindowsShell()
-    {
-        if (!OperatingSystem.IsWindows()) return;
-
-        try
-        {
-            WatchdogGate.MarkDeliberateQuit();
-
-            var settings = AppSettingsStore.Load();
-            settings.KioskMode = false;
-            settings.ModeChosen = true;
-            AppSettingsStore.Save(settings);
-            DebugLog.Write("RestoreWindowsShell: Kiosk Mode desativado.");
-
-            var explorerPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
-
-            if (Process.GetProcessesByName("explorer").Length == 0 && File.Exists(explorerPath))
-            {
-                Process.Start(new ProcessStartInfo { FileName = explorerPath, UseShellExecute = true });
-                DebugLog.Write("RestoreWindowsShell: explorer.exe iniciado.");
-            }
-
-            keybd_event(VK_LWIN, 0, 0, UIntPtr.Zero);
-            keybd_event(VK_D, 0, 0, UIntPtr.Zero);
-            keybd_event(VK_D, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-            keybd_event(VK_LWIN, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-            DebugLog.Write("RestoreWindowsShell: Atalho Win+D enviado.");
-
-            Close();
-        }
-        catch (Exception ex) { DebugLog.Write($"RestoreWindowsShell: EXCEPTION {ex.Message}"); }
     }
 
     private bool IsOurWindowInForeground() { if (!OperatingSystem.IsWindows()) return true; try { var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero; return handle != IntPtr.Zero && GetForegroundWindow() == handle; } catch { return true; } }

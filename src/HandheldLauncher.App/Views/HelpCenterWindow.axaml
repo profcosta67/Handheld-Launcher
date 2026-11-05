@@ -35,7 +35,7 @@
   <Grid RowDefinitions="Auto,*,Auto" Margin="24">
 
     <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,14">
-      <TextBlock Text="🩺 Central de Ajuda" FontSize="22" FontWeight="Bold" />
+      <TextBlock Text="🛟 Central de Ajuda" FontSize="22" FontWeight="Bold" />
       <TextBlock Text="Verificação rápida do launcher e do aparelho, e um manual com soluções. Nada aqui muda suas configurações."
                  Classes="subtle" FontSize="12" TextWrapping="Wrap" />
       <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,10,0,0">

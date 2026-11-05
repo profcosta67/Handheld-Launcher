@@ -43,11 +43,23 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
 
     public bool HasApiKey => !string.IsNullOrWhiteSpace(_apiKey);
 
+    // v0.17 (05/11, bug reportado "logo não baixa/aplica"): os 4 métodos
+    // abaixo compartilhavam GetBestStaticFor...Async, cujo parâmetro
+    // wideOnly tinha padrão `false` (não `null`). Para "grids" isso era
+    // proposital (capas são retrato, altura > largura). Mas logos/ícones
+    // OMITIAM o parâmetro pra "usar o padrão" esperando "sem filtro", e
+    // caíam nesse mesmo `false` — que filtra só imagens com altura MAIOR
+    // que a largura. Logo é sempre mais largo que alto (wordmark), então
+    // praticamente nenhum resultado real de /logos/ passava nesse filtro;
+    // ícones (quase sempre quadrados) também perdiam a maioria. Agora cada
+    // categoria passa o valor certo explicitamente: grids continua
+    // retrato, heroes/wide-grids continuam paisagem, logos/ícones não
+    // filtram por proporção (null).
     public Task<SteamGridDbImage?> GetBestGridForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
-        => GetBestStaticForSteamAppAsync("grids", steamAppId, ct);
+        => GetBestStaticForSteamAppAsync("grids", steamAppId, ct, wideOnly: false);
 
     public Task<SteamGridDbImage?> GetBestGridForTitleAsync(string title, CancellationToken ct = default)
-        => GetBestStaticForTitleAsync("grids", title, ct);
+        => GetBestStaticForTitleAsync("grids", title, ct, wideOnly: false);
 
     public Task<SteamGridDbImage?> GetBestHeroForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
         => GetBestStaticForSteamAppAsync("heroes", steamAppId, ct, wideOnly: true);
@@ -56,16 +68,16 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
         => GetBestStaticForTitleAsync("heroes", title, ct, wideOnly: true);
 
     public Task<SteamGridDbImage?> GetBestLogoForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
-        => GetBestStaticForSteamAppAsync("logos", steamAppId, ct);
+        => GetBestStaticForSteamAppAsync("logos", steamAppId, ct, wideOnly: null);
 
     public Task<SteamGridDbImage?> GetBestLogoForTitleAsync(string title, CancellationToken ct = default)
-        => GetBestStaticForTitleAsync("logos", title, ct);
+        => GetBestStaticForTitleAsync("logos", title, ct, wideOnly: null);
 
     public Task<SteamGridDbImage?> GetBestIconForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
-        => GetBestStaticForSteamAppAsync("icons", steamAppId, ct);
+        => GetBestStaticForSteamAppAsync("icons", steamAppId, ct, wideOnly: null);
 
     public Task<SteamGridDbImage?> GetBestIconForTitleAsync(string title, CancellationToken ct = default)
-        => GetBestStaticForTitleAsync("icons", title, ct);
+        => GetBestStaticForTitleAsync("icons", title, ct, wideOnly: null);
 
     public Task<SteamGridDbImage?> GetBestWideGridForSteamAppAsync(uint steamAppId, CancellationToken ct = default)
         => GetBestStaticForSteamAppAsync("grids", steamAppId, ct, wideOnly: true);
@@ -74,7 +86,7 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
         => GetBestStaticForTitleAsync("grids", title, ct, wideOnly: true);
 
     private async Task<SteamGridDbImage?> GetBestStaticForSteamAppAsync(
-        string category, uint steamAppId, CancellationToken ct, bool wideOnly = false, string extraQuery = "")
+        string category, uint steamAppId, CancellationToken ct, bool? wideOnly = null, string extraQuery = "")
     {
         if (!HasApiKey) return null;
         return (await FetchGridCandidates(
@@ -82,7 +94,7 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
     }
 
     private async Task<SteamGridDbImage?> GetBestStaticForTitleAsync(
-        string category, string title, CancellationToken ct, bool wideOnly = false, string extraQuery = "")
+        string category, string title, CancellationToken ct, bool? wideOnly = null, string extraQuery = "")
     {
         if (!HasApiKey) return null;
         var gameId = await SearchGameId(title, ct);
@@ -175,8 +187,16 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
     {
         var normalizedTitle = title.Trim();
         var comparableTitle = NormalizeGameTitle(normalizedTitle);
-        var searchTitle = comparableTitle.Length > 0 ? comparableTitle : normalizedTitle;
-        var url = $"{BaseUrl}/search/autocomplete/{Uri.EscapeDataString(searchTitle)}";
+
+        // v0.17 (05/11, bug reportado como "voltou"): comparableTitle existe
+        // para COMPARAR o nome local com o resultado da SGDB sem distinguir
+        // acento/caixa (ex.: pasta "Pokemon" vs. nome oficial "Pokémon" na
+        // API). Até a v0.15.2 esse MESMO texto sem acento também era usado
+        // como o TERMO DE BUSCA enviado à API — e a busca da SteamGridDB não
+        // acha "Pokémon" a partir de "pokemon" sem o acento. A query precisa
+        // ir com o título original (com acento); só a comparação do
+        // resultado é que deve ignorar acento.
+        var url = $"{BaseUrl}/search/autocomplete/{Uri.EscapeDataString(normalizedTitle)}";
         using var response = await _http.GetAsync(url, ct);
         if (!response.IsSuccessStatusCode)
         {

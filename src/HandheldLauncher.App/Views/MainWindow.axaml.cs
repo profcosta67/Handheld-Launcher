@@ -27,7 +27,6 @@ public partial class MainWindow : Window
     [DllImport("user32.dll")] private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
     [DllImport("user32.dll")] private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hWnd);
-    [DllImport("user32.dll")] private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
     [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     [DllImport("user32.dll")] private static extern bool BringWindowToTop(IntPtr hWnd);
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
@@ -53,12 +52,6 @@ public partial class MainWindow : Window
     private const uint SWP_NOSIZE = 0x0001;
 
     private const uint SWP_SHOWWINDOW = 0x0040;
-
-    private const byte VK_LWIN = 0x5B;
-
-    private const byte VK_D = 0x44;
-
-    private const uint KEYEVENTF_KEYUP = 0x0002;
 
     private const int RestoreHotkeyId = 0xB00;
 
@@ -410,6 +403,17 @@ public partial class MainWindow : Window
             }
         }
 
+        // v0.18 "Guardião de suspensão": reaplica TDP/ventoinha e devolve o
+        // foco pro jogo quando o Windows acorda da suspensão (pedido do
+        // usuário, 05/11). Start() é idempotente e não faz nada fora do
+        // Windows; parado em Closed, junto dos outros timers desta janela.
+        SuspendGuardianService.Start(() =>
+        {
+            _overlayWindow?.ReapplyAfterSuspendResume();
+            Dispatcher.UIThread.Post(RestoreGameFocusAfterResume);
+        });
+        Closed += (_, _) => SuspendGuardianService.Stop();
+
         vm.AddGameRequested += (_, _) => _ = OpenAddGameDialogAsync(vm);
         vm.EditGameRequested += (_, game) => _ = OpenEditGameDialogAsync(vm, game);
         vm.LayoutPickerRequested += (_, _) => _ = OpenLayoutPickerAsync();
@@ -417,6 +421,12 @@ public partial class MainWindow : Window
         vm.SystemUpdateRequested += (_, _) => _ = OpenSystemUpdateDialogAsync();
         vm.DriverUpdateRequested += (_, _) => _ = OpenDriverUpdateDialogAsync();
         vm.HelpCenterRequested += (_, _) => _ = OpenHelpCenterDialogAsync();
+        vm.DeviceHealthRequested += (_, _) => _ = OpenDeviceHealthDialogAsync(vm);
+        vm.StorageManagerRequested += (_, _) => _ = OpenStorageManagerDialogAsync(vm);
+        // v0.18 "Modo xCloud" (Fase 1) — ver OpenXCloud em MainWindow.Dialogs.cs.
+        vm.XCloudRequested += (_, url) => OpenXCloud(url);
+        // v0.18: alertas da Saúde do aparelho (ver ShowHealthAlertPopup — nunca por cima de jogo).
+        vm.HealthAlerts.AlertRaised += alert => ShowHealthAlertPopup(vm, alert);
 
         vm.QuitRequested += (_, _) =>
         {
@@ -429,7 +439,15 @@ public partial class MainWindow : Window
         vm.TurnOffScreenRequested += (_, _) => TurnOffScreen();
         vm.RestartDeviceRequested += (_, _) => RestartDevice();
         vm.ShutdownDeviceRequested += (_, _) => ShutdownDevice();
-        vm.RestoreShellRequested += (_, _) => RestoreWindowsShell();
+        vm.RestartLauncherRequested += (_, _) =>
+        {
+            WatchdogGate.MarkDeliberateQuit();
+            vm.ClearOverlayNow();
+            if (_overlayWindow != null) { _overlayWindow.IsAppClosing = true; _overlayWindow.Close(); }
+            RelaunchSelfAfterExit();
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop) desktop.Shutdown();
+            else Close();
+        };
         vm.GameDetailsRequested += (_, game) => _ = OpenGameDetailsDialogAsync(vm, game);
 
         vm.OpenOverlayRequested += (_, _) =>

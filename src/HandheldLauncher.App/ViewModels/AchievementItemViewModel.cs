@@ -8,6 +8,9 @@ namespace HandheldLauncher.App.ViewModels;
 /// </summary>
 public sealed class AchievementItemViewModel
 {
+    /// <summary>v0.18: identificador da Steam, usado pra casar a % global e o cache em disco.</summary>
+    public string ApiName { get; init; } = "";
+
     public required string DisplayName { get; init; }
 
     public string? Description { get; init; }
@@ -19,8 +22,15 @@ public sealed class AchievementItemViewModel
 
     public DateTimeOffset? UnlockedAtUtc { get; init; }
 
+    /// <summary>v0.18: % dos jogadores da Steam que têm essa conquista (null = não deu pra consultar).</summary>
+    public double? GlobalPercent { get; init; }
+
     /// <summary>"Desbloqueada em 29/10/2026" / "Desbloqueada" (sem data) / "Bloqueada".</summary>
     public string StatusText => Achieved
         ? (UnlockedAtUtc is { } t ? $"Desbloqueada em {t.ToLocalTime():dd/MM/yyyy}" : "Desbloqueada")
-        : "Bloqueada";
+        : GlobalPercent is { } p ? $"Bloqueada · {p:0.#}% dos jogadores têm" : "Bloqueada";
+
+    public string DescriptionText => string.IsNullOrWhiteSpace(Description) ? "Conquista secreta ou sem descrição." : Description!;
+
+    public double RowOpacity => Achieved ? 1.0 : 0.72;
 }

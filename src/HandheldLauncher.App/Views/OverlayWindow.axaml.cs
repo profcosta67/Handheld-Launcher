@@ -288,7 +288,14 @@ public partial class OverlayWindow : Window
     private void StartTopmostEnforcer()
     {
         if (_topmostEnforcer != null) return;
-        _topmostEnforcer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1000) };
+        // v0.17: era 1000ms. O log do usuário (05/11) confirmou que o Xbox
+        // Game Bar / XBOX app (janelas cheias por cima do jogo) empurra o
+        // overlay pro centro enquanto ele está visível, e o vigia já
+        // devolvia pra direita — só que esperando até 1s pra reagir, tempo
+        // suficiente pro usuário ver o "flash" centralizado. Com 120ms a
+        // correção fica praticamente instantânea (ForceTopmost é só um
+        // SetWindowPos barato, sem custo perceptível em rodar mais vezes).
+        _topmostEnforcer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(120) };
         _topmostEnforcer.Tick += (_, _) => { ForceTopmost(); GuardPosition(); };
         _topmostEnforcer.Start();
     }
@@ -308,6 +315,57 @@ public partial class OverlayWindow : Window
         {
             _lsfgIsActive = false;
             UpdateLsfgButtonState();
+        }
+    }
+
+    // v0.18 "Guardião de suspensão": chamado pelo SuspendGuardianService
+    // quando o Windows acorda da suspensão. Reaplica o TDP e a curva de
+    // ventoinha salvos, do mesmo jeito que já acontecia no boot (ver
+    // construtor acima) — handhelds Windows costumam perder esses ajustes
+    // ao suspender/acordar, voltando pro padrão do firmware. Não usa o
+    // retry com backoff de 10/20/30s do boot (aquilo existe pra uma corrida
+    // específica com o serviço da Lenovo logo depois de o Windows iniciar);
+    // aqui é só uma tentativa e, se falhar, mais uma depois de 5s.
+    public async void ReapplyAfterSuspendResume()
+    {
+        try
+        {
+            var settings = AppSettingsStore.Load();
+
+            if (_tdpHardwareSupported)
+            {
+                var savedTdp = string.IsNullOrWhiteSpace(settings.TdpMode) ? "Normal" : settings.TdpMode;
+                DebugLog.Write($"[SUSPENSAO] Reaplicando TDP salvo: {savedTdp}.");
+                var ok = _hardwareService.SetTdpMode(savedTdp);
+                if (ok)
+                {
+                    DebugLog.Write($"[SUSPENSAO] TDP {savedTdp} reaplicado com sucesso.");
+                    Dispatcher.UIThread.Post(() => _viewModel.UpdateHudTdpStatus(savedTdp));
+                }
+                else
+                {
+                    DebugLog.Write($"[SUSPENSAO] Falha ao reaplicar TDP {savedTdp} — nova tentativa em 5s.");
+                    await Task.Delay(TimeSpan.FromSeconds(5));
+                    var retryOk = _hardwareService.SetTdpMode(savedTdp);
+                    DebugLog.Write(retryOk
+                        ? $"[SUSPENSAO] TDP {savedTdp} reaplicado na 2ª tentativa."
+                        : $"[SUSPENSAO] TDP {savedTdp} NÃO reaplicou após a suspensão (2 tentativas).");
+                    if (retryOk) Dispatcher.UIThread.Post(() => _viewModel.UpdateHudTdpStatus(savedTdp));
+                }
+            }
+
+            if (OperatingSystem.IsWindows() && _fanCurveService != null && _currentFanMode != "Automático")
+            {
+                DebugLog.Write($"[SUSPENSAO] Reaplicando curva de ventoinha: {_currentFanMode}.");
+                if (_fanCurveService.TryApplyPreset(_currentFanMode, out var fanMsg))
+                    DebugLog.Write($"[SUSPENSAO] Ventoinha reaplicada: {fanMsg}.");
+                else
+                    DebugLog.Write($"[SUSPENSAO] Falha ao reaplicar ventoinha após a suspensão: {fanMsg}.");
+            }
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[SUSPENSAO] EXCEPTION em ReapplyAfterSuspendResume: {ex.Message}");
         }
     }
 

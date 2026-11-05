@@ -49,6 +49,17 @@ public sealed class MainViewModel : ViewModelBase
         private set => SetField(ref _cpuTemperature, value);
     }
 
+    // v0.18 "Saúde do aparelho": maior temperatura vista desde que o
+    // launcher abriu (só em memória, zera ao reiniciar). Atualizado junto
+    // da leitura normal de CpuTemperature no _hardwareTimer — nenhuma
+    // leitura extra de sensor, só guarda o maior valor já visto.
+    private double _peakCpuTemperatureC;
+    public string PeakCpuTemperatureText => _peakCpuTemperatureC > 0 ? $"{_peakCpuTemperatureC:F0}°C" : "--°C";
+
+    /// <summary>v0.18: alertas da Saúde do aparelho (temperatura alta, bateria desgastada, pouco espaço).</summary>
+    public HealthAlertService HealthAlerts { get; } = new();
+    private DispatcherTimer? _healthCheckTimer;
+
     private int _targetTdpWatts = 20;
     private int _realTimeTdpWatts = 0;
 
@@ -134,6 +145,7 @@ public sealed class MainViewModel : ViewModelBase
         SetFilterEmulatorsCommand = new RelayCommand(() => SetFilter(LibraryFilter.Emulators));
         SetFilterApplicationsCommand = new RelayCommand(() => SetFilter(LibraryFilter.Applications));
         SetFilterNotInstalledCommand = new RelayCommand(() => SetFilter(LibraryFilter.NotInstalled));
+        SetFilterCloudCommand = new RelayCommand(() => SetFilter(LibraryFilter.Cloud));
 
         _ = Task.Run(() => EnsureHwInfoRunning());
 
@@ -145,6 +157,12 @@ public sealed class MainViewModel : ViewModelBase
             {
                 CpuTemperature = $"{temp.Value:F0}°C";
                 if (_hud != null) _hud.CpuTemperature = CpuTemperature;
+                if (temp.Value > _peakCpuTemperatureC)
+                {
+                    _peakCpuTemperatureC = temp.Value;
+                    OnPropertyChanged(nameof(PeakCpuTemperatureText));
+                }
+                HealthAlerts.OnTemperatureSample(temp.Value);
             }
 
             if (_hwInfoService.TryRead(out var hwInfo) && hwInfo is not null)
@@ -176,6 +194,14 @@ public sealed class MainViewModel : ViewModelBase
             }
         };
         _hardwareTimer.Start();
+
+        // v0.18: bateria e discos — 1ª verificação 1 min depois de abrir (não
+        // atrasa o boot), depois a cada 30 min.
+        DispatcherTimer.RunOnce(() => _ = HealthAlerts.RunPeriodicChecksAsync(), TimeSpan.FromMinutes(1));
+        _healthCheckTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(30) };
+        _healthCheckTimer.Tick += (_, _) => _ = HealthAlerts.RunPeriodicChecksAsync();
+        _healthCheckTimer.Start();
+        HealthAlerts.AlertRaised += _ => { if (IsGlobalMenuOpen) BuildGlobalMenu(); };
 
         RebuildGamesFromLibrary();
         InitializeHudFromSettings();
@@ -241,6 +267,7 @@ public sealed class MainViewModel : ViewModelBase
     public void Dispose()
     {
         _hardwareTimer?.Stop();
+        _healthCheckTimer?.Stop();
         _monitorService.Dispose();
         _hwInfoService.Dispose();
         try { _ownedArtworkCts?.Cancel(); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
@@ -465,9 +492,9 @@ public sealed class MainViewModel : ViewModelBase
     private readonly List<Action> _contextMenuActions = new();
 
     private enum ArtworkPickerKind { Grid, WideGrid, Hero, Logo, Icon }
-    private enum LibraryFilter { All, Favorites, Computer, Emulators, Applications, NotInstalled }
+    private enum LibraryFilter { All, Favorites, Computer, Emulators, Applications, NotInstalled, Cloud }
 
-    private static readonly LibraryFilter[] FilterOrder = { LibraryFilter.Favorites, LibraryFilter.All, LibraryFilter.Computer, LibraryFilter.Emulators, LibraryFilter.Applications, LibraryFilter.NotInstalled };
+    private static readonly LibraryFilter[] FilterOrder = { LibraryFilter.Favorites, LibraryFilter.All, LibraryFilter.Computer, LibraryFilter.Emulators, LibraryFilter.Applications, LibraryFilter.NotInstalled, LibraryFilter.Cloud };
     private LibraryFilter _activeFilter = LibraryFilter.All;
 
     public bool IsFilterAllActive => _activeFilter == LibraryFilter.All;
@@ -476,6 +503,7 @@ public sealed class MainViewModel : ViewModelBase
     public bool IsFilterEmulatorsActive => _activeFilter == LibraryFilter.Emulators;
     public bool IsFilterApplicationsActive => _activeFilter == LibraryFilter.Applications;
     public bool IsFilterNotInstalledActive => _activeFilter == LibraryFilter.NotInstalled;
+    public bool IsFilterCloudActive => _activeFilter == LibraryFilter.Cloud;
 
     public ObservableCollection<SubFilterViewModel> SubFilters { get; } = new();
     public bool HasSubFilters => SubFilters.Count > 0;
@@ -569,11 +597,16 @@ public sealed class MainViewModel : ViewModelBase
     public event EventHandler? TurnOffScreenRequested;
     public event EventHandler? RestartDeviceRequested;
     public event EventHandler? ShutdownDeviceRequested;
-    public event EventHandler? RestoreShellRequested;
+    /// <summary>v0.17 (pedido do usuário): reinicia só o processo do launcher, sem tocar no aparelho.</summary>
+    public event EventHandler? RestartLauncherRequested;
     public event EventHandler? OpenOverlayRequested;
     public event EventHandler? SystemUpdateRequested;
     public event EventHandler? DriverUpdateRequested;
     public event EventHandler? HelpCenterRequested; // v0.16.2: Central de Ajuda
+    public event EventHandler? DeviceHealthRequested; // v0.18: Saúde do Aparelho
+    public event EventHandler? StorageManagerRequested; // v0.18: Gerenciador de Armazenamento
+    /// <summary>v0.18 aba "Nuvem": abrir esta URL do xbox.com/play no Edge em tela cheia (ver MainWindow.OpenXCloud).</summary>
+    public event EventHandler<string>? XCloudRequested;
 
     public void RequestOpenOverlay() { OpenOverlayRequested?.Invoke(this, EventArgs.Empty); }
 
@@ -586,7 +619,97 @@ public sealed class MainViewModel : ViewModelBase
 
     public void ApplyEntryEdits(GameEntry game, string? title, bool isApplication) { _library.SaveEntryEdits(game.Id, title, isApplication); RebuildGamesFromLibrary(); }
 
-    private static bool HasGameDetails(GameEntry game) => !game.IsOwnedNotInstalled && !game.IsApplication;
+    private static bool HasGameDetails(GameEntry game) => !game.IsOwnedNotInstalled && !game.IsApplication && !IsCloudEntry(game);
+
+    // ---- v0.18 aba "Nuvem" (Xbox Cloud Gaming) -------------------------------------
+    // Entradas SINTÉTICAS (como as de "Não instalados"): nunca entram na
+    // biblioteca nem no library.json — existem só enquanto a aba está aberta.
+    private const string CloudIdPrefix = "xcloud_";
+    private const string CloudHomeId = "xcloud_home";
+    public static bool IsCloudEntry(GameEntry game) => game.Id.StartsWith(CloudIdPrefix, StringComparison.Ordinal);
+
+    private IReadOnlyList<XCloudGame> _cloudGames = Array.Empty<XCloudGame>();
+    private bool _cloudCatalogLoaded;
+    private bool _isLoadingCloudCatalog;
+    private bool _cloudCatalogFailed;
+
+    private IEnumerable<GameEntry> BuildCloudEntries()
+    {
+        if (!_cloudCatalogLoaded)
+        {
+            _cloudGames = XCloudCatalog.LoadCached(out _);
+            _cloudCatalogLoaded = true;
+        }
+
+        yield return new GameEntry
+        {
+            Id = CloudHomeId,
+            Title = "Xbox Cloud Gaming",
+            Source = GameSource.XboxApp,
+            LaunchUri = XCloudCatalog.HomeUrl,
+        };
+        foreach (var g in _cloudGames)
+        {
+            yield return new GameEntry
+            {
+                Id = CloudIdPrefix + g.ProductId,
+                Title = g.Title,
+                Source = GameSource.XboxApp,
+                LaunchUri = XCloudCatalog.GamePageUrl(g),
+                GridImagePath = g.PosterPath,
+            };
+        }
+    }
+
+    private void OpenCloudEntry(GameEntry game)
+    {
+        var url = string.IsNullOrWhiteSpace(game.LaunchUri) ? XCloudCatalog.HomeUrl : game.LaunchUri!;
+        DebugLog.Write($"[XCLOUD] Abrindo '{game.Title}' → {url}");
+        XCloudRequested?.Invoke(this, url);
+    }
+
+    private async Task RefreshCloudCatalogAsync()
+    {
+        if (_isLoadingCloudCatalog) return;
+        _ = XCloudCatalog.LoadCached(out var fetchedUtc);
+        if (_cloudGames.Count > 0 && !XCloudCatalog.IsStale(fetchedUtc))
+        {
+            await DownloadCloudPostersAsync();
+            return;
+        }
+
+        _isLoadingCloudCatalog = true;
+        _cloudCatalogFailed = false;
+        UpdateNotInstalledTabMessage();
+        try
+        {
+            var fresh = await Task.Run(() => XCloudCatalog.RefreshAsync());
+            if (fresh is not null)
+            {
+                _cloudGames = fresh;
+                _cloudCatalogLoaded = true;
+            }
+            else
+            {
+                _cloudCatalogFailed = true;
+            }
+        }
+        finally
+        {
+            _isLoadingCloudCatalog = false;
+        }
+        if (_activeFilter == LibraryFilter.Cloud) RebuildGamesFromLibrary();
+        else UpdateNotInstalledTabMessage();
+        await DownloadCloudPostersAsync();
+    }
+
+    private async Task DownloadCloudPostersAsync()
+    {
+        var games = _cloudGames;
+        if (!games.Any(g => g.PosterPath is null && g.PosterUrl is not null)) return;
+        var got = await Task.Run(() => XCloudCatalog.DownloadMissingPostersAsync(games));
+        if (got > 0 && _activeFilter == LibraryFilter.Cloud && ReferenceEquals(games, _cloudGames)) RebuildGamesFromLibrary();
+    }
 
     private void OpenGameDetails(GameEntry game) { CloseContextMenu(); GameDetailsRequested?.Invoke(this, game); }
 
@@ -596,6 +719,48 @@ public sealed class MainViewModel : ViewModelBase
     }
 
     public GameDetailsViewModel CreateGameDetailsViewModel(GameEntry game) => new(game, _steamOwnedGames, _steamAchievements);
+
+    // v0.18 Detalhes 2.0: ações da página do jogo. Só repassam pros MESMOS
+    // métodos que o menu do jogo já usa (nenhuma lógica nova de lançar/
+    // favoritar), pra página e menu nunca se comportarem diferente.
+    public void PlayGameFromDetails(GameEntry game) => OpenGameFromMenu(game);
+
+    public bool ToggleFavoriteFromDetails(GameEntry game)
+    {
+        var desired = !game.IsFavorite;
+        ToggleFavorite(game);
+        // Se a biblioteca foi recarregada com a página aberta, "game" pode ser
+        // uma instância antiga — mantém ela coerente com o que foi salvo.
+        game.IsFavorite = desired;
+        return desired;
+    }
+
+    /// <summary>v0.18 Armazenamento: a biblioteca inteira (não só a aba de filtro aberta agora).</summary>
+    public IReadOnlyList<GameEntry> AllLibraryGames => _library.Games;
+
+    /// <summary>v0.18 Armazenamento: grava os caminhos novos de um jogo manual movido e recarrega a biblioteca.</summary>
+    public bool ApplyMovedManualGame(GameEntry game, string newExecutablePath, string? newWorkingDirectory, string? newLaunchArguments)
+    {
+        // Nunca lança: true = library.json gravado com o caminho novo; false = nada mudou.
+        bool ok;
+        try { ok = _library.UpdateManualGamePaths(game.Id, newExecutablePath, newWorkingDirectory, newLaunchArguments); }
+        catch (Exception ex) { DebugLog.Write($"[MOVER] Erro ao gravar atalho: {ex.Message}"); ok = false; }
+        DebugLog.Write($"[MOVER] Atalho de '{game.Title}' {(ok ? "atualizado" : "NÃO atualizado")} → {newExecutablePath}");
+        if (ok)
+        {
+            try { RebuildGamesFromLibrary(); }
+            catch (Exception ex) { DebugLog.Write($"[MOVER] Recarregar a biblioteca falhou (atalho já gravado): {ex.Message}"); }
+        }
+        return ok;
+    }
+
+    public void OpenGameMenuFromDetails(GameEntry game)
+    {
+        var tile = Games.FirstOrDefault(t => t.Game.Id == game.Id);
+        if (tile is null) return;
+        SelectedIndex = Games.IndexOf(tile);
+        ReopenContextMenu(tile);
+    }
 
     private bool _isCoverPickerOpen;
     public bool IsCoverPickerOpen { get => _isCoverPickerOpen; private set => SetField(ref _isCoverPickerOpen, value); }
@@ -647,6 +812,7 @@ public sealed class MainViewModel : ViewModelBase
     public ICommand SetFilterEmulatorsCommand { get; }
     public ICommand SetFilterApplicationsCommand { get; }
     public ICommand SetFilterNotInstalledCommand { get; }
+    public ICommand SetFilterCloudCommand { get; }
 
     public void MoveNext() => SelectedIndex++;
     public void MovePrevious() => SelectedIndex--;
@@ -656,6 +822,7 @@ public sealed class MainViewModel : ViewModelBase
         if (SelectedTile is null) return;
         var game = SelectedTile.Game;
         if (game.IsOwnedNotInstalled) { if (game.SteamAppId is { } ownedAppId) _launcher.OpenSteamInstaller(ownedAppId); return; }
+        if (IsCloudEntry(game)) { OpenCloudEntry(game); return; }
 
         LaunchingGameTitle = game.Title;
         LaunchingGameIconPath = ResolveIconPath(game);
@@ -748,6 +915,7 @@ public sealed class MainViewModel : ViewModelBase
         void Add(string label, Action action) { ContextMenuItems.Add(new ContextMenuItemViewModel(label)); _contextMenuActions.Add(action); }
         var game = target.Game;
         if (game.IsOwnedNotInstalled) { Add("📥 Instalar", () => OpenGameFromMenu(game)); return; }
+        if (IsCloudEntry(game)) { Add("☁ Jogar na nuvem", () => { CloseContextMenu(); OpenCloudEntry(game); }); return; }
 
         Add("▶ Abrir jogo", () => OpenGameFromMenu(game));
         if (HasGameDetails(game)) Add("ℹ Detalhes do jogo", () => OpenGameDetails(game));
@@ -851,7 +1019,7 @@ public sealed class MainViewModel : ViewModelBase
 
     private void UpdateContextMenuSelection() { for (var i = 0; i < ContextMenuItems.Count; i++) ContextMenuItems[i].IsSelected = i == _contextMenuIndex; }
 
-    private enum GlobalMenuPage { Root, Library, Hud, Settings, Updates, Help, Power, ConfirmPower }
+    private enum GlobalMenuPage { Root, Library, Hud, Updates, Help, Power, ConfirmPower }
     private GlobalMenuPage _globalMenuPage = GlobalMenuPage.Root;
     private string _pendingPowerConfirmLabel = string.Empty;
     private Action? _pendingPowerAction;
@@ -942,13 +1110,6 @@ public sealed class MainViewModel : ViewModelBase
                 else Add("⬇ RTSS: baixar (necessário pro HUD)", _performanceOverlay.OpenDownloadPage);
                 break;
 
-            case GlobalMenuPage.Settings:
-                // v0.16.3: menu reorganizado (pedido do usuário) — nomes curtos que
-                // cabem na largura do menu; nada foi removido. Atualizações e
-                // Ajuda viraram pastas próprias.
-                GlobalMenuTitle = "Configurações"; Add("⚙ Preferências", () => SettingsRequested?.Invoke(this, EventArgs.Empty)); Add("🎨 Layout da tela", () => LayoutPickerRequested?.Invoke(this, EventArgs.Empty));
-                break;
-
             case GlobalMenuPage.Updates:
                 GlobalMenuTitle = "Atualizações";
                 if (_updates is { IsInstalled: true } && !IsUpdateReady) Add("🔄 Verificar launcher", () => _ = CheckForUpdatesAsync(userInitiated: true));
@@ -958,7 +1119,7 @@ public sealed class MainViewModel : ViewModelBase
 
             case GlobalMenuPage.Help:
                 GlobalMenuTitle = "Ajuda";
-                Add("🩺 Central de Ajuda", () => HelpCenterRequested?.Invoke(this, EventArgs.Empty));
+                Add("🛟 Central de Ajuda", () => HelpCenterRequested?.Invoke(this, EventArgs.Empty));
                 Add("⌨ Atalhos", OpenShortcutsHelp);
                 Add("ℹ Sobre", OpenAbout);
                 break;
@@ -967,7 +1128,7 @@ public sealed class MainViewModel : ViewModelBase
                 GlobalMenuTitle = "Energia"; Add("🌙 Desligar tela", () => TurnOffScreenRequested?.Invoke(this, EventArgs.Empty));
                 Add("🔄 Reiniciar", () => RequestPowerConfirm("reiniciar o aparelho", () => RestartDeviceRequested?.Invoke(this, EventArgs.Empty)));
                 Add("⏻ Desligar", () => RequestPowerConfirm("desligar o aparelho", () => ShutdownDeviceRequested?.Invoke(this, EventArgs.Empty)));
-                Add("🖥 Sair pro Desktop", () => RestoreShellRequested?.Invoke(this, EventArgs.Empty));
+                Add("🔁 Reiniciar Launcher", () => RestartLauncherRequested?.Invoke(this, EventArgs.Empty));
                 Add("🚪 Fechar launcher", () => QuitRequested?.Invoke(this, EventArgs.Empty)); break;
 
             case GlobalMenuPage.ConfirmPower:
@@ -978,8 +1139,28 @@ public sealed class MainViewModel : ViewModelBase
                 if (IsUpdateReady) Add(RunningGame is null ? "⬆ Atualizar agora" : "⬆ Atualização pronta (feche o jogo)", ApplyUpdate);
                 if (RunningGame is not null) Add("⏹ Fechar o jogo", CloseRunningGame);
                 Folder("📚 Biblioteca", GlobalMenuPage.Library); Folder("📊 HUD", GlobalMenuPage.Hud);
-                Folder("⚙ Configurações", GlobalMenuPage.Settings); Folder("🔄 Atualizações", GlobalMenuPage.Updates);
-                Folder("🩺 Ajuda", GlobalMenuPage.Help); Folder("⚡ Energia", GlobalMenuPage.Power);
+                // v0.17 (05/11, pedido do usuário): "Layout da tela" virou "TEMAS" e
+                // subiu pro menu raiz (antes só aparecia dentro de Configurações); e
+                // "Configurações" deixou de ser uma pasta com um único item de
+                // verdade (Preferências) — agora é ação direta, economiza um clique.
+                // v0.18 (pedido do usuário, 05/11): "TEMAS" (maiúsculo, plural) virou
+                // "Tema" — mais curto e consistente com o resto dos itens do menu raiz.
+                Add("🎨 Tema", () => LayoutPickerRequested?.Invoke(this, EventArgs.Empty));
+                Add("⚙ Configurações", () => SettingsRequested?.Invoke(this, EventArgs.Empty));
+                // v0.18 (pedido do usuário, 05/11): Gerenciador de armazenamento e
+                // Saúde do aparelho, direto no menu raiz junto de TEMAS/Configurações
+                // — são "sobre o aparelho", não pertencem dentro de outra pasta.
+                Add("💾 Armazenamento", () => StorageManagerRequested?.Invoke(this, EventArgs.Empty));
+                // v0.18: contador de alertas ainda não vistos (zera ao abrir a tela).
+                var unseenAlerts = HealthAlerts.UnseenCount;
+                Add(unseenAlerts > 0 ? $"🌡 Saúde do Aparelho ({unseenAlerts} {(unseenAlerts == 1 ? "alerta" : "alertas")})" : "🌡 Saúde do Aparelho",
+                    () => DeviceHealthRequested?.Invoke(this, EventArgs.Empty));
+                // v0.18: o atalho "☁ Xbox Cloud Gaming" saiu daqui (pedido do usuário: "tira
+                // ele do menu") e virou a aba "Nuvem" da biblioteca. Aqui só aparece o
+                // "Fechar", e só enquanto o xCloud aberto pelo launcher estiver rodando.
+                if (XCloudLauncher.WasOpened) Add("⏹ Fechar Xbox Cloud Gaming", () => _ = Task.Run(XCloudLauncher.CloseAll));
+                Folder("🔄 Atualizações", GlobalMenuPage.Updates);
+                Folder("🛟 Ajuda", GlobalMenuPage.Help); Folder("⚡ Energia", GlobalMenuPage.Power);
                 break;
         }
         GlobalMenuHint = _globalMenuPage switch
@@ -1050,6 +1231,15 @@ public sealed class MainViewModel : ViewModelBase
 
     private void UpdateNotInstalledTabMessage()
     {
+        if (_activeFilter == LibraryFilter.Cloud)
+        {
+            // Só o bloco fixo na tela = catálogo ainda não chegou.
+            NotInstalledTabMessage = Games.Count > 1 ? null
+                : _isLoadingCloudCatalog ? "Carregando o catálogo do Xbox Cloud Gaming..."
+                : _cloudCatalogFailed ? "Não consegui baixar o catálogo de nuvem agora (sem internet?). O bloco \"Xbox Cloud Gaming\" abre o site normalmente."
+                : null;
+            return;
+        }
         if (_activeFilter != LibraryFilter.NotInstalled) { NotInstalledTabMessage = null; return; }
         if (!HasSteamWebApiCredentials) NotInstalledTabMessage = "Configure a Steam Web API key e o SteamID64 na tela de Configurações pra ver aqui os jogos da sua conta que ainda não estão instalados.";
         else if (IsLoadingOwnedGames) NotInstalledTabMessage = "Carregando jogos da sua conta...";
@@ -1463,9 +1653,10 @@ public sealed class MainViewModel : ViewModelBase
     {
         if (_activeFilter == filter) return;
         _activeFilter = filter;
-        OnPropertyChanged(nameof(IsFilterAllActive)); OnPropertyChanged(nameof(IsFilterFavoritesActive)); OnPropertyChanged(nameof(IsFilterComputerActive)); OnPropertyChanged(nameof(IsFilterEmulatorsActive)); OnPropertyChanged(nameof(IsFilterApplicationsActive)); OnPropertyChanged(nameof(IsFilterNotInstalledActive));
+        OnPropertyChanged(nameof(IsFilterAllActive)); OnPropertyChanged(nameof(IsFilterFavoritesActive)); OnPropertyChanged(nameof(IsFilterComputerActive)); OnPropertyChanged(nameof(IsFilterEmulatorsActive)); OnPropertyChanged(nameof(IsFilterApplicationsActive)); OnPropertyChanged(nameof(IsFilterNotInstalledActive)); OnPropertyChanged(nameof(IsFilterCloudActive));
         RebuildSubFilters(); RebuildGamesFromLibrary();
         if (filter == LibraryFilter.NotInstalled) _ = RefreshOwnedGames();
+        if (filter == LibraryFilter.Cloud) _ = RefreshCloudCatalogAsync();
     }
 
     private bool MatchesActiveFilter(GameEntry game) => _activeFilter switch
@@ -1486,6 +1677,11 @@ public sealed class MainViewModel : ViewModelBase
         { 
             foreach (var owned in OwnedNotInstalledGames) 
                 Games.Add(new GameTileViewModel(_library.BuildEntryForOwnedGame(owned), _steamStore)); 
+        }
+        else if (_activeFilter == LibraryFilter.Cloud)
+        {
+            foreach (var entry in BuildCloudEntries())
+                Games.Add(new GameTileViewModel(entry, _steamStore));
         }
         else 
         { 

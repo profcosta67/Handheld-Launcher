@@ -3,6 +3,15 @@
 Mais recente primeiro. Cada versão tem notas completas em [`release-notes/`](release-notes/).
 Betas não entram aqui: o que eles trazem aparece na versão estável que os junta.
 
+## [0.18.0] — 2026-11-05
+"Novidades 2.0": página do jogo refeita (tela cheia, toda pelo controle, conquistas, mídia, arquivos, funciona sem internet); Gerenciador de Armazenamento com mover jogo entre discos e limpar cache de shader; Saúde do Aparelho com alertas de temperatura, bateria e espaço; Guardião de suspensão; aba Nuvem com o catálogo do Xbox Cloud Gaming abrindo em tela cheia. [Notas](release-notes/0.18.0.md)
+
+## [0.17.0] — 2026-11-05
+Paletas novas (Meia-noite, Crepúsculo, Musgo, Névoa, Alto Contraste) e 9 fontes novas livres; sugestões de fonte por layout atualizadas; base das escalas de tipografia e borda (sem efeito visível ainda); ícones que não faziam sentido (🦆, 🩺 duplicado) corrigidos; botão "Reiniciar Launcher"; overlay que pulava pro centro com o Xbox Game Bar corrigido; barra de status (Wi-Fi/Bluetooth/TDP/bateria/relógio) passa a seguir o tema de cores. Inclui a 0.16.5. [Notas](release-notes/0.17.0.md)
+
+## [0.16.5] — em preparo
+Canal beta passa a receber também as versões oficiais (a mais recente vale); launcher que não abria após desligar/ligar com Inicialização Rápida; recuperação do controle do Legion tenta até 3 vezes; relatório de problema com o retrato do controle e eventos do Windows. [Notas](release-notes/0.16.5.md)
+
 ## [0.16.4] — 2026-11-05
 7 estilos de som novos (CC0) e layout que aplica som e fonte combinando; volume dos sons corrigido (não tinha efeito) e cliques curtos que sumiam; tentativa de destravar o controle do Legion ao ligar abrindo o Legion Space (ainda em teste); opção de o Quick Settings pegar o foco; relatório de crash local; faxina final do plano da v0.16. [Notas](release-notes/0.16.4.md)
 

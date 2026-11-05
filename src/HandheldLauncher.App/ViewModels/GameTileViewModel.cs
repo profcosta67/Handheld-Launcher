@@ -73,6 +73,14 @@ public sealed class GameTileViewModel : ViewModelBase
         
         _isLoadingDescription = true;
 
+        // v0.18 aba "Nuvem": entrada sintética do Xbox Cloud Gaming.
+        if (MainViewModel.IsCloudEntry(Game))
+        {
+            Description = "☁ Joga na nuvem pelo Xbox Cloud Gaming (precisa de Game Pass Ultimate). A abre no Edge em tela cheia; o login na conta Microsoft é pedido só na primeira vez.";
+            _isLoadingDescription = false;
+            return;
+        }
+
         // 🟢 Se não for da Steam, coloca fallback
         if (Game.Source != GameSource.Steam || Game.SteamAppId is not { } appId)
         {

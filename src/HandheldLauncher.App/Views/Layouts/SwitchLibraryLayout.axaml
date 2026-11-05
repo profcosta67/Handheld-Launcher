@@ -222,7 +222,7 @@
                  IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
 
       <StackPanel Grid.Row="1" Spacing="8" Margin="0,16,0,0">
-        <Grid ColumnDefinitions="*,*,*,*,*,*">
+        <Grid ColumnDefinitions="*,*,*,*,*,*,*">
           <Button Grid.Column="0" Classes="switchTab" Classes.active="{Binding IsFilterFavoritesActive}" Command="{Binding SetFilterFavoritesCommand}" Margin="4">
             <StackPanel HorizontalAlignment="Center" Spacing="3">
               <TextBlock Text="★" FontSize="19" HorizontalAlignment="Center" />
@@ -257,6 +257,13 @@
             <StackPanel HorizontalAlignment="Center" Spacing="3">
               <TextBlock Text="↓" FontSize="19" HorizontalAlignment="Center" />
               <TextBlock Text="Não instalados" />
+            </StackPanel>
+          </Button>
+          <!-- v0.18: aba Nuvem (Xbox Cloud Gaming) -->
+          <Button Grid.Column="6" Classes="switchTab" Classes.active="{Binding IsFilterCloudActive}" Command="{Binding SetFilterCloudCommand}" Margin="4">
+            <StackPanel HorizontalAlignment="Center" Spacing="3">
+              <TextBlock Text="☁" FontSize="19" HorizontalAlignment="Center" />
+              <TextBlock Text="Nuvem" />
             </StackPanel>
           </Button>
         </Grid>

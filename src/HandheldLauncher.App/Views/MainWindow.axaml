@@ -19,33 +19,15 @@
     <conv:HexColorToBrushConverter x:Key="HexColorToBrushConverter" />
   </Window.Resources>
 
-  <Window.Styles>
-    <Style Selector="Button.switchAction">
-      <Setter Property="Width" Value="46" />
-      <Setter Property="Height" Value="42" />
-      <Setter Property="MinWidth" Value="46" />
-      <Setter Property="MinHeight" Value="42" />
-      <Setter Property="Padding" Value="0" />
-      <Setter Property="Background" Value="#252A36" />
-      <Setter Property="Foreground" Value="#F3F5FA" />
-      <Setter Property="BorderBrush" Value="#424A5D" />
-      <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="12" />
-      <Setter Property="HorizontalContentAlignment" Value="Center" />
-      <Setter Property="VerticalContentAlignment" Value="Center" />
-      <Setter Property="FontSize" Value="{DynamicResource FontSizeMenuHeader}" />
-    </Style>
-    <Style Selector="Button.switchAction:pointerover">
-      <Setter Property="Background" Value="#343C50" />
-      <Setter Property="BorderBrush" Value="#6579E8" />
-    </Style>
-    <Style Selector="Button.switchAction /template/ ContentPresenter">
-      <Setter Property="Background" Value="#252A36" />
-      <Setter Property="Foreground" Value="#F3F5FA" />
-      <Setter Property="BorderBrush" Value="#424A5D" />
-      <Setter Property="BorderThickness" Value="1" />
-    </Style>
-  </Window.Styles>
+  <!-- v0.17 (05/11): existia AQUI um Window.Styles duplicado pro
+       Button.switchAction (cores em hex fixo, inclusive um bloco à parte
+       pro ContentPresenter interno do botão) que sempre ganhava do estilo
+       do tema em Theme.axaml, por ser local à janela — por isso nenhuma das
+       correções de cor dos betas anteriores nunca apareceu de fato nesses
+       3 botões, e o bloco do ContentPresenter sobrepondo cor por cima do
+       próprio botão é o que causava aquele efeito de borda/gradiente nos
+       ícones. Removido: Theme.axaml já cobre Width/Height/CornerRadius/
+       Background/Foreground/FocusAdorner desses botões seguindo a paleta. -->
 
   <Panel>
 
@@ -95,41 +77,41 @@
                   IsVisible="{Binding HasUpdateStatus}"
                   Click="OnUpdateBadgeClick" />
 
-          <Border Background="#1A1F2B" CornerRadius="12" Padding="14,6" VerticalAlignment="Center">
+          <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="12" Padding="14,6" VerticalAlignment="Center">
             <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
 
               <Button Classes="pill" Content="Wi-Fi" FontSize="10" Padding="8,5" Click="OnOpenWifiSettingsClick" ToolTip.Tip="Abrir configurações de Wi-Fi" />
               <Button Classes="pill" Content="Bluetooth" FontSize="10" Padding="8,5" Click="OnOpenBluetoothSettingsClick" ToolTip.Tip="Abrir configurações de Bluetooth" />
-              <Rectangle Width="1" Height="14" Fill="#333A4A" VerticalAlignment="Center" />
+              <Rectangle Width="1" Height="14" Fill="{DynamicResource TextSecondaryBrush}" Opacity="0.3" VerticalAlignment="Center" />
               <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" ToolTip.Tip="{Binding TopBarTdpToolTip}">
                 <TextBlock Text="⚡" Foreground="#FFB84D" FontSize="14" VerticalAlignment="Center"/>
                 <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
-                  <TextBlock Text="{Binding TopBarTdpText}" Foreground="White" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
-                  <TextBlock Text="TDP" Foreground="#888888" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" Margin="2,1,0,0"/>
+                  <TextBlock Text="{Binding TopBarTdpText}" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
+                  <TextBlock Text="TDP" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" Margin="2,1,0,0"/>
                 </StackPanel>
               </StackPanel>
 
-              <Rectangle Width="1" Height="14" Fill="#333A4A" VerticalAlignment="Center" />
+              <Rectangle Width="1" Height="14" Fill="{DynamicResource TextSecondaryBrush}" Opacity="0.3" VerticalAlignment="Center" />
 
               <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" ToolTip.Tip="{Binding TopBarDownloadToolTip}">
                 <Grid VerticalAlignment="Center">
-                  <Button Classes="iconGhost" Content="⇩" FontSize="16" FontWeight="Bold" Click="OnDownloadsShortcutClick" Padding="0" Foreground="#E0E0E0" />
+                  <Button Classes="iconGhost" Content="⇩" FontSize="16" FontWeight="Bold" Click="OnDownloadsShortcutClick" Padding="0" Foreground="{DynamicResource TextPrimaryBrush}" />
                   <Ellipse Width="8" Height="8" Fill="{StaticResource AccentBrush}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,-2,0" IsHitTestVisible="False" IsVisible="{Binding HasActiveDownloads}" />
                 </Grid>
-                <TextBlock Text="{Binding TopBarDownloadPercentText}" Foreground="White" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" IsVisible="{Binding HasActiveDownloads}" />
+                <TextBlock Text="{Binding TopBarDownloadPercentText}" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" IsVisible="{Binding HasActiveDownloads}" />
               </StackPanel>
 
-              <Rectangle Width="1" Height="14" Fill="#333A4A" VerticalAlignment="Center" />
+              <Rectangle Width="1" Height="14" Fill="{DynamicResource TextSecondaryBrush}" Opacity="0.3" VerticalAlignment="Center" />
 
               <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <TextBlock Text="{Binding BatteryStatusText}" FontFamily="Inter" Foreground="#E0E0E0" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding BatteryStatusText}" FontFamily="Inter" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
               </StackPanel>
 
-              <Rectangle Width="1" Height="14" Fill="#333A4A" VerticalAlignment="Center" />
+              <Rectangle Width="1" Height="14" Fill="{DynamicResource TextSecondaryBrush}" Opacity="0.3" VerticalAlignment="Center" />
 
               <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                <TextBlock Text="⏱" FontSize="12" Foreground="#E0E0E0" VerticalAlignment="Center"/>
-                <TextBlock Text="{Binding ClockText}" Foreground="#E0E0E0" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
+                <TextBlock Text="⏱" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding ClockText}" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
               </StackPanel>
 
             </StackPanel>

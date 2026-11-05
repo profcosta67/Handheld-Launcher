@@ -1,0 +1,135 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:HandheldLauncher.App.ViewModels"
+        x:Class="HandheldLauncher.App.Views.StorageManagerWindow"
+        Title="Gerenciador de Armazenamento"
+        Width="660" Height="720"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BackgroundBrush}">
+
+  <!--
+    v0.18 "Gerenciador de armazenamento" (Fase 1).
+    1ª leva: espaço por disco, aviso de pouco espaço, tamanho por jogo.
+    2ª leva (este pacote): mover jogo entre discos e limpar cache de shader.
+    Mover só é feito pelo launcher pra jogo adicionado à mão (copia → confere
+    → atualiza atalho → só então apaga a original); Steam e Xbox vão pro mover
+    oficial deles. Ver Platform/GameMover.cs e Platform/ShaderCacheCleaner.cs.
+    Controle: ↑/↓ escolhe o jogo · A ações do jogo · Y limpar cache · B fecha.
+  -->
+
+  <Window.Styles>
+    <Style Selector="Border.gameRow">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="Margin" Value="0,0,0,4" />
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="Border.gameRow.selected">
+      <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <Style Selector="Button.panelOption.selected">
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <Style Selector="Button.panelOption.selected /template/ ContentPresenter">
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+    </Style>
+  </Window.Styles>
+
+  <Panel>
+    <Grid RowDefinitions="*,Auto" Margin="24">
+      <ScrollViewer x:Name="ContentScroll" Grid.Row="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="14">
+
+          <TextBlock Text="💾 Gerenciador de Armazenamento" FontSize="20" FontWeight="Bold" />
+          <TextBlock Text="↑/↓ escolhe um jogo · A mostra como mover · Y limpa o cache de shader · B fecha" Classes="subtle" FontSize="12" TextWrapping="Wrap" />
+
+          <Border x:Name="LowSpaceWarning" Background="#2A1B1B" BorderBrush="#C0392B" BorderThickness="1.5" CornerRadius="12" Padding="14" IsVisible="False">
+            <TextBlock x:Name="TxtLowSpaceWarning" Foreground="#FFB3A7" TextWrapping="Wrap" FontWeight="SemiBold" />
+          </Border>
+
+          <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="14" Padding="18">
+            <StackPanel Spacing="10">
+              <TextBlock Text="Discos" FontSize="16" FontWeight="Bold" />
+              <ItemsControl x:Name="DriveList">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:DriveRowViewModel">
+                    <StackPanel Spacing="4" Margin="0,0,0,8">
+                      <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="{Binding Label}" FontWeight="Bold" />
+                        <TextBlock Grid.Column="1" Text="{Binding UsageText}" Classes="subtle" FontSize="12" />
+                      </Grid>
+                      <ProgressBar Minimum="0" Maximum="100" Value="{Binding UsedPercent}" Height="10" CornerRadius="5" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+
+          <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="14" Padding="18">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="4">
+                <TextBlock Text="Cache de shader" FontSize="16" FontWeight="Bold" />
+                <TextBlock x:Name="TxtShaderCache" Text="Calculando..." Classes="subtle" FontSize="12" TextWrapping="Wrap" />
+              </StackPanel>
+              <Button x:Name="BtnClearShaderCache" Grid.Column="1" Classes="pill" Content="Y  Limpar" VerticalAlignment="Center" Click="OnClearShaderCacheClick" Focusable="False" />
+            </Grid>
+          </Border>
+
+          <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="14" Padding="18">
+            <StackPanel Spacing="10">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="Jogos (maior → menor)" FontSize="16" FontWeight="Bold" />
+                <TextBlock x:Name="TxtTotalGamesSize" Grid.Column="1" Classes="subtle" FontSize="12" VerticalAlignment="Center" />
+              </Grid>
+              <ItemsControl x:Name="GameList">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:GameStorageRowViewModel">
+                    <Border Classes="gameRow" Classes.selected="{Binding IsSelected}" PointerPressed="OnGameRowPressed" Tag="{Binding}">
+                      <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Spacing="1">
+                          <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Text="{Binding MoveLabel}" Classes="subtle" FontSize="11" />
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" Text="{Binding SizeText}" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" />
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock x:Name="TxtNoGames" Text="Nenhum jogo com pasta conhecida." Classes="subtle" IsVisible="False" />
+            </StackPanel>
+          </Border>
+
+        </StackPanel>
+      </ScrollViewer>
+
+      <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,16,0,0">
+        <Button Classes="pill" Content="Fechar" Click="OnCloseClick" />
+      </StackPanel>
+    </Grid>
+
+    <!-- Painel de ação / confirmação / progresso (por cima da lista). -->
+    <Border x:Name="ActionPanel" IsVisible="False" Background="{DynamicResource BackdropDimBrush}">
+      <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="16" Padding="22" Margin="28"
+              VerticalAlignment="Center" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1">
+        <StackPanel Spacing="12">
+          <TextBlock x:Name="TxtPanelTitle" FontSize="18" FontWeight="Bold" TextWrapping="Wrap" />
+          <TextBlock x:Name="TxtPanelBody" TextWrapping="Wrap" Classes="subtle" />
+          <StackPanel x:Name="PanelProgress" Spacing="6" IsVisible="False">
+            <ProgressBar x:Name="PanelProgressBar" Minimum="0" Maximum="100" Height="10" CornerRadius="5" Foreground="{DynamicResource AccentBrush}" />
+            <TextBlock x:Name="TxtPanelProgress" Classes="subtle" FontSize="12" />
+          </StackPanel>
+          <StackPanel x:Name="PanelOptions" Spacing="8" />
+        </StackPanel>
+      </Border>
+    </Border>
+  </Panel>
+</Window>

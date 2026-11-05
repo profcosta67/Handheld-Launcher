@@ -1,0 +1,28 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="HandheldLauncher.App.Views.HealthAlertPopupWindow"
+        Title="Aviso"
+        Width="420" SizeToContent="Height"
+        SystemDecorations="None"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent"
+        Topmost="True"
+        ShowActivated="False"
+        ShowInTaskbar="False"
+        CanResize="False">
+
+  <!--
+    v0.18 — aviso da Saúde do aparelho. ShowActivated=False: aparece sem
+    tirar o foco do launcher (e o MainWindow nunca mostra isto com jogo
+    aberto). Fecha sozinho em ~7s ou com um toque.
+  -->
+  <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="16"
+          BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1.5" Padding="18"
+          PointerPressed="OnPressed">
+    <StackPanel Spacing="6">
+      <TextBlock x:Name="TxtTitle" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
+      <TextBlock x:Name="TxtMessage" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+      <TextBlock Text="Detalhes em 🌡 Saúde do Aparelho, no menu." FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+    </StackPanel>
+  </Border>
+</Window>
