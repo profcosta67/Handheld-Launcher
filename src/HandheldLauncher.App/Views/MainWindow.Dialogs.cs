@@ -107,11 +107,30 @@ public partial class MainWindow : Window
 
     private async Task OpenGameDetailsDialogAsync(MainViewModel vm, GameEntry game)
     {
-        var dialog = new GameDetailsWindow { DataContext = vm.CreateGameDetailsViewModel(game) };
+        var detailsVm = vm.CreateGameDetailsViewModel(game);
+        var dialog = new GameDetailsWindow { DataContext = detailsVm };
         var settings = AppSettingsStore.Load();
         ThemeManager.ApplyFont(dialog, settings.UiFont); dialog.Topmost = true;
+        // v0.18 Detalhes 2.0: página em tela cheia + ações. Favoritar acontece
+        // com a página aberta; Jogar/Mais opções rodam DEPOIS que ela fecha
+        // (o jogo/menu não pode abrir por baixo de uma janela Topmost).
+        dialog.FitToOwner(this);
+        dialog.FavoriteToggleRequested += () => detailsVm.IsFavorite = vm.ToggleFavoriteFromDetails(game);
+        var wasTopmost = Topmost;
+        dialog.ExternalAppOpening += () => { _topmostEnforcerTimer?.Stop(); Topmost = false; };
         _activeDialog = dialog;
-        try { await dialog.ShowDialog(this); } finally { _activeDialog = null; }
+        try { await dialog.ShowDialog(this); }
+        finally
+        {
+            _activeDialog = null;
+            if (dialog.OpenedExternalApp && IsVisible) Topmost = wasTopmost;
+        }
+
+        switch (dialog.Result)
+        {
+            case GameDetailsWindow.DetailsResult.Play: vm.PlayGameFromDetails(game); break;
+            case GameDetailsWindow.DetailsResult.Options: vm.OpenGameMenuFromDetails(game); break;
+        }
     }
 
     private async Task OpenSystemUpdateDialogAsync()

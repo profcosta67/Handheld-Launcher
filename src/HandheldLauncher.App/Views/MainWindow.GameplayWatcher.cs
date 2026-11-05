@@ -450,6 +450,10 @@ public partial class MainWindow : Window
                         continue;
                     if (dialog is DeviceHealthWindow dh && dh.HandleGamepadAction(dialogAction))
                         continue;
+                    // v0.18 Detalhes 2.0: a página do jogo tem navegação própria
+                    // (A Jogar, X Favoritar, Y ação da seção, LB/RB seções...).
+                    if (dialog is GameDetailsWindow gd && gd.HandleGamepadAction(dialogAction))
+                        continue;
                     DialogGamepadNavigator.Handle(dialog, dialogAction);
                 }
                 return;

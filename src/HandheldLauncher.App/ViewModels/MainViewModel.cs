@@ -613,6 +613,29 @@ public sealed class MainViewModel : ViewModelBase
 
     public GameDetailsViewModel CreateGameDetailsViewModel(GameEntry game) => new(game, _steamOwnedGames, _steamAchievements);
 
+    // v0.18 Detalhes 2.0: ações da página do jogo. Só repassam pros MESMOS
+    // métodos que o menu do jogo já usa (nenhuma lógica nova de lançar/
+    // favoritar), pra página e menu nunca se comportarem diferente.
+    public void PlayGameFromDetails(GameEntry game) => OpenGameFromMenu(game);
+
+    public bool ToggleFavoriteFromDetails(GameEntry game)
+    {
+        var desired = !game.IsFavorite;
+        ToggleFavorite(game);
+        // Se a biblioteca foi recarregada com a página aberta, "game" pode ser
+        // uma instância antiga — mantém ela coerente com o que foi salvo.
+        game.IsFavorite = desired;
+        return desired;
+    }
+
+    public void OpenGameMenuFromDetails(GameEntry game)
+    {
+        var tile = Games.FirstOrDefault(t => t.Game.Id == game.Id);
+        if (tile is null) return;
+        SelectedIndex = Games.IndexOf(tile);
+        ReopenContextMenu(tile);
+    }
+
     private bool _isCoverPickerOpen;
     public bool IsCoverPickerOpen { get => _isCoverPickerOpen; private set => SetField(ref _isCoverPickerOpen, value); }
 
