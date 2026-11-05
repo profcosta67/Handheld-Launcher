@@ -644,12 +644,13 @@ public sealed class MainViewModel : ViewModelBase
     private bool _cloudCatalogLoaded;
     private bool _isLoadingCloudCatalog;
     private bool _cloudCatalogFailed;
+    private DateTimeOffset _cloudFetchedUtc; // v0.18.3 (revisão): fica em memória — não relê o catalog.json a cada entrada na aba
 
     private IEnumerable<GameEntry> BuildCloudEntries()
     {
         if (!_cloudCatalogLoaded)
         {
-            _cloudGames = XCloudCatalog.LoadCached(out _);
+            _cloudGames = XCloudCatalog.LoadCached(out _cloudFetchedUtc);
             _cloudCatalogLoaded = true;
         }
 
@@ -814,8 +815,13 @@ public sealed class MainViewModel : ViewModelBase
         return null;
     }
 
+    private DateTime _lastCloudOpenUtc = DateTime.MinValue;
+
     private void OpenCloudEntry(GameEntry game)
     {
+        // v0.18.3 (revisão): A duas vezes enquanto o Edge ainda abre = duas janelas.
+        if (DateTime.UtcNow - _lastCloudOpenUtc < TimeSpan.FromSeconds(4)) return;
+        _lastCloudOpenUtc = DateTime.UtcNow;
         var url = string.IsNullOrWhiteSpace(game.LaunchUri) ? XCloudCatalog.HomeUrl : game.LaunchUri!;
         DebugLog.Write($"[XCLOUD] Abrindo '{game.Title}' → {url}");
         XCloudRequested?.Invoke(this, url);
@@ -824,8 +830,7 @@ public sealed class MainViewModel : ViewModelBase
     private async Task RefreshCloudCatalogAsync()
     {
         if (_isLoadingCloudCatalog) return;
-        _ = XCloudCatalog.LoadCached(out var fetchedUtc);
-        if (_cloudGames.Count > 0 && !XCloudCatalog.IsStale(fetchedUtc))
+        if (_cloudGames.Count > 0 && !XCloudCatalog.IsStale(_cloudFetchedUtc))
         {
             await DownloadCloudPostersAsync();
             return;
@@ -841,6 +846,7 @@ public sealed class MainViewModel : ViewModelBase
             {
                 _cloudGames = fresh;
                 _cloudCatalogLoaded = true;
+                _cloudFetchedUtc = DateTimeOffset.UtcNow;
             }
             else
             {
@@ -876,7 +882,21 @@ public sealed class MainViewModel : ViewModelBase
     // v0.18 Detalhes 2.0: ações da página do jogo. Só repassam pros MESMOS
     // métodos que o menu do jogo já usa (nenhuma lógica nova de lançar/
     // favoritar), pra página e menu nunca se comportarem diferente.
-    public void PlayGameFromDetails(GameEntry game) => OpenGameFromMenu(game);
+    public void PlayGameFromDetails(GameEntry game) { EnsureTileVisible(game); OpenGameFromMenu(game); }
+
+    /// <summary>
+    /// v0.18.3 (revisão): na aba Favoritos, desfavoritar na página do jogo tira
+    /// o bloco da lista na hora — aí Jogar/Mais opções não achavam o bloco e não
+    /// faziam nada. Se o jogo não está na aba atual, vai pra "Todos" (onde ele
+    /// sempre está) antes de agir.
+    /// </summary>
+    private void EnsureTileVisible(GameEntry game)
+    {
+        if (Games.Any(t => t.Game.Id == game.Id)) return;
+        if (game.IsApplication || IsCloudEntry(game)) return;
+        DebugLog.Write($"[DETALHES] '{game.Title}' não está na aba atual — indo pra Todos.");
+        SetFilter(LibraryFilter.All);
+    }
 
     public bool ToggleFavoriteFromDetails(GameEntry game)
     {
@@ -909,6 +929,7 @@ public sealed class MainViewModel : ViewModelBase
 
     public void OpenGameMenuFromDetails(GameEntry game)
     {
+        EnsureTileVisible(game);
         var tile = Games.FirstOrDefault(t => t.Game.Id == game.Id);
         if (tile is null) return;
         SelectedIndex = Games.IndexOf(tile);

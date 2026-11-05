@@ -549,6 +549,8 @@ public partial class MainWindow : Window
             {
                 if (vm.IsLaunching && !string.IsNullOrEmpty(vm.LaunchingGameTitle))
                 {
+                    // v0.18.3 (revisão): aviso de saúde ainda na tela não pode ficar por cima do jogo.
+                    try { _healthPopup?.Close(); } catch (Exception swallowedEx) { DebugLog.Swallowed(swallowedEx); }
                     DebugLog.Write($"[JOGO] '{vm.LaunchingGameTitle}' abriu — minimizando launcher + popup.");
                     if (IsVisible) MinimizeToTray();
                     ShowLaunchPopup(vm.LaunchingGameTitle, vm.LaunchingGameIconPath);

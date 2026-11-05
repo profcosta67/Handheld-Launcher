@@ -39,11 +39,17 @@ public static class XCloudLauncher
     {
         get
         {
-            if (WasOpened) return true;
-            try { return File.Exists(Path.Combine(ProfileDir, "lockfile")); }
-            catch { return false; }
+            // v0.18.3 (revisão): o "lockfile" é a fonte da verdade (o Edge cria ao
+            // abrir e o Windows apaga quando o processo termina). WasOpened sozinho
+            // ficava "preso" se o usuário fechasse o Edge por conta própria; agora
+            // só cobre os primeiros segundos, antes de o lockfile existir.
+            try { if (File.Exists(Path.Combine(ProfileDir, "lockfile"))) return true; }
+            catch (Exception swallowedEx) { DebugLog.Swallowed(swallowedEx); }
+            return WasOpened && DateTime.UtcNow - _openedAtUtc < TimeSpan.FromSeconds(20);
         }
     }
+
+    private static DateTime _openedAtUtc = DateTime.MinValue;
 
     public static void Open(string url)
     {
@@ -58,6 +64,7 @@ public static class XCloudLauncher
             };
             Process.Start(psi);
             WasOpened = true;
+            _openedAtUtc = DateTime.UtcNow;
             DebugLog.Write($"[XCLOUD] Edge (modo app, tela cheia) → {url}");
         }
         catch (Exception ex)

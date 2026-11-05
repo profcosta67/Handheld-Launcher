@@ -423,6 +423,28 @@ public partial class MainWindow : Window
     private DateTime _foregroundRegainedAt = DateTime.MinValue;
     private bool _wasOurWindowInForeground = true;
 
+    private static bool DialogOpenedExternalApp(Window dialog) => dialog switch
+    {
+        GameDetailsWindow { OpenedExternalApp: true } => true,
+        StorageManagerWindow { OpenedExternalApp: true } => true,
+        HelpCenterWindow { OpenedExternalApp: true } => true,
+        _ => false,
+    };
+
+    private bool IsDialogOrLauncherInForeground(Window dialog)
+    {
+        if (!OperatingSystem.IsWindows()) return true;
+        try
+        {
+            var fg = GetForegroundWindow();
+            if (fg == IntPtr.Zero) return true;
+            var mine = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+            var dlg = dialog.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+            return fg == mine || fg == dlg;
+        }
+        catch { return true; }
+    }
+
     private void OnGamepadTick(object? sender, EventArgs e)
     {
         try
@@ -432,6 +454,14 @@ public partial class MainWindow : Window
 
             if (_activeDialog is { } dialog)
             {
+                // v0.18.3 (revisão): se o diálogo abriu um app externo (navegador
+                // da loja, Explorer, Steam, Configurações do Windows) e esse app
+                // está NA FRENTE, os botões são do app — não do diálogo escondido
+                // atrás. Antes, A na página do navegador fechava os Detalhes e
+                // abria o jogo por trás; B/X idem, sem o usuário ver.
+                if (actions.Count > 0 && DialogOpenedExternalApp(dialog) && !IsDialogOrLauncherInForeground(dialog))
+                    return;
+
                 foreach (var dialogAction in actions)
                 {
                     UiSounds.PlayForAction(dialogAction);
