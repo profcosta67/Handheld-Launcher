@@ -63,6 +63,17 @@ internal static class ShaderCacheCleaner
         foreach (var root in folders)
         {
             if (!Directory.Exists(root)) continue;
+            // Revisão v0.18 (#6): a própria pasta-raiz também não pode ser
+            // junção/link (apontaria pra outro disco/pasta).
+            try
+            {
+                if ((new DirectoryInfo(root).Attributes & FileAttributes.ReparsePoint) != 0)
+                {
+                    DebugLog.Write($"[SHADER] Pulando {root}: é junção/link.");
+                    continue;
+                }
+            }
+            catch (Exception swallowedEx) { DebugLog.Swallowed(swallowedEx); continue; }
             ClearContents(root, ref freed, ref skipped, ct);
         }
         DebugLog.Write($"[SHADER] Limpeza: {DiskUsage.FormatSize(freed)} liberados, {skipped} arquivo(s) em uso pulados.");

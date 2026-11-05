@@ -279,9 +279,11 @@ public partial class StorageManagerWindow : Window
 
     private void OpenSelfMove(GameStorageRowViewModel row, GameEntry game, string source, string explanation)
     {
-        if (_vm?.RunningGame?.Id == game.Id || (game.ExecutablePath is { } exe && !GameMover.IsExecutableFree(exe)))
+        var runningFrom = GameMover.FindProcessRunningFrom(source);
+        if (_vm?.RunningGame?.Id == game.Id || runningFrom is not null || (game.ExecutablePath is { } exe && !GameMover.IsExecutableFree(exe)))
         {
-            ShowPanel(row.Title, "Feche o jogo antes de mover — copiar com ele aberto pode levar arquivos pela metade.", 0, ("Voltar", ClosePanel));
+            var who = runningFrom is not null ? $" (aberto agora: {runningFrom})" : "";
+            ShowPanel(row.Title, $"Feche o jogo antes de mover{who} — copiar com ele aberto pode levar arquivos pela metade.", 0, ("Voltar", ClosePanel));
             return;
         }
         if (row.SizeBytes <= 0)
@@ -339,10 +341,38 @@ public partial class StorageManagerWindow : Window
         {
             var token = _cts.Token;
             var copy = await Task.Run(() => GameMover.CopyAndVerify(source, destinationRoot, progress, token));
+            string? stillRunning = null;
+            string? changedFile = null;
+            if (copy.Success && copy.DestinationFolder is { } checkDest)
+            {
+                // Revisão v0.18 (#1): antes de trocar o atalho, a original não
+                // pode ter mudado durante a cópia nem ter jogo rodando dela.
+                stillRunning = await Task.Run(() => GameMover.FindProcessRunningFrom(source));
+                var snapshot = copy.Snapshot ?? Array.Empty<SourceFileStamp>();
+                if (stillRunning is null && !await Task.Run(() => GameMover.SourceUnchanged(source, snapshot, out changedFile)))
+                    changedFile ??= "?";
+            }
+
             if (!copy.Success || copy.DestinationFolder is not { } dest)
             {
                 title = "O jogo não foi movido";
                 message = copy.Message;
+            }
+            else if (token.IsCancellationRequested)
+            {
+                // Revisão v0.18 (#2): B/fechar chegou depois da última checagem
+                // dentro da cópia — respeita o cancelamento mesmo assim.
+                await Task.Run(() => GameMover.DiscardCopy(dest));
+                title = "O jogo não foi movido";
+                message = "Cancelado. A cópia foi apagada e a original continua intacta.";
+            }
+            else if (stillRunning is not null || changedFile is not null)
+            {
+                await Task.Run(() => GameMover.DiscardCopy(dest));
+                title = "O jogo não foi movido";
+                message = stillRunning is not null
+                    ? $"Algo foi aberto da pasta do jogo durante a cópia ({stillRunning}). A cópia foi descartada e a original continua intacta."
+                    : $"Um arquivo da pasta original mudou durante a cópia (\"{changedFile}\" — talvez um save). A cópia foi descartada e a original continua intacta. Feche o jogo e tente de novo.";
             }
             else
             {
@@ -354,6 +384,9 @@ public partial class StorageManagerWindow : Window
                 var newWd = GameMover.Rebase(game.WorkingDirectory, source, dest);
                 var newArgs = GameMover.RebaseArguments(game.LaunchArguments, source, dest);
 
+                // Revisão v0.18 (#3): ApplyMovedManualGame só devolve true se o
+                // library.json foi gravado de fato (e nunca lança) — então false
+                // garante que o atalho continua apontando pra original.
                 if (!_vm.ApplyMovedManualGame(game, newExe, newWd, newArgs))
                 {
                     await Task.Run(() => GameMover.DiscardCopy(dest));

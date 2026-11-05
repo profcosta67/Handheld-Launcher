@@ -18,7 +18,9 @@ internal enum MoveRoute
 
 internal sealed record MovePlan(MoveRoute Route, string ShortLabel, string Explanation, string? SourceFolder);
 
-internal sealed record CopyResult(bool Success, string Message, string? DestinationFolder, long Bytes);
+internal sealed record SourceFileStamp(string Rel, long Size, DateTime LastWriteUtc);
+
+internal sealed record CopyResult(bool Success, string Message, string? DestinationFolder, long Bytes, IReadOnlyList<SourceFileStamp>? Snapshot = null);
 
 /// <summary>
 /// v0.18 "Gerenciador de armazenamento" — mover jogo entre SSD e microSD.
@@ -94,9 +96,15 @@ internal static class GameMover
                     return new MovePlan(MoveRoute.NotMovable, "Pasta compartilhada",
                         $"A pasta \"{folder}\" também tem \"{other.Title}\". Mover levaria o outro junto e quebraria o atalho dele.", folder);
             }
-            if (!string.IsNullOrWhiteSpace(other.InstallDirectory) && IsSameOrInside(folder, other.InstallDirectory!))
-                return new MovePlan(MoveRoute.NotMovable, "Dentro de outro jogo",
-                    $"Esta pasta fica dentro da instalação de \"{other.Title}\" — mova aquele jogo pela loja dele.", folder);
+            // Revisão v0.18 (#4): jogo manual nunca tem InstallDirectory, então
+            // também compara com a pasta do .exe e a pasta de trabalho do outro
+            // (ex.: D:\Jogos\A\Tools\cfg.exe dentro de D:\Jogos\A\A.exe).
+            foreach (var otherFolder in OtherEntryFolders(other))
+            {
+                if (IsSameOrInside(folder, otherFolder))
+                    return new MovePlan(MoveRoute.NotMovable, "Dentro de outro jogo",
+                        $"Esta pasta fica dentro da pasta de \"{other.Title}\" — mover levaria parte daquele jogo junto.", folder);
+            }
         }
 
         return new MovePlan(MoveRoute.SelfMove, "Mover pelo launcher",
@@ -104,6 +112,82 @@ internal static class GameMover
             folder);
 
         static MovePlan NotMovable(string why) => new(MoveRoute.NotMovable, "Não move por aqui", why, null);
+    }
+
+    private static IEnumerable<string> OtherEntryFolders(GameEntry other)
+    {
+        var candidates = new List<string?> { other.InstallDirectory, other.WorkingDirectory };
+        if (!string.IsNullOrWhiteSpace(other.ExecutablePath))
+        {
+            try { candidates.Add(Path.GetDirectoryName(Path.GetFullPath(other.ExecutablePath))); }
+            catch (Exception swallowedEx) { DebugLog.Swallowed(swallowedEx); }
+        }
+        foreach (var c in candidates)
+        {
+            if (string.IsNullOrWhiteSpace(c)) continue;
+            string full;
+            try { full = Normalize(Path.GetFullPath(c)); } catch { continue; }
+            // Raiz de disco nunca é "pasta de um jogo" — senão um atalho em D:\x.exe
+            // bloquearia todo jogo do disco D.
+            var root = Path.GetPathRoot(full);
+            if (root is null || string.Equals(Normalize(root), full, StringComparison.OrdinalIgnoreCase)) continue;
+            yield return full;
+        }
+    }
+
+    /// <summary>
+    /// Revisão v0.18 (#1): o lock do .exe não basta (o Windows não segura o
+    /// .exe de um jogo aberto contra leitura exclusiva de forma confiável, e
+    /// jogo aberto por fora do launcher não aparece em RunningGame). Procura
+    /// qualquer processo rodando de dentro da pasta.
+    /// </summary>
+    public static string? FindProcessRunningFrom(string folder)
+    {
+        foreach (var p in System.Diagnostics.Process.GetProcesses())
+        {
+            try
+            {
+                var path = p.MainModule?.FileName;
+                if (!string.IsNullOrWhiteSpace(path) && IsSameOrInside(path, folder)) return $"{p.ProcessName} (PID {p.Id})";
+            }
+            catch { /* processo do sistema/sem permissão ou já fechou */ }
+            finally { p.Dispose(); }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Revisão v0.18 (#1): confere, antes de trocar o atalho e apagar a
+    /// original, que nada na pasta original mudou desde a cópia (arquivo novo,
+    /// apagado, tamanho ou data de gravação diferente — ex.: o jogo salvou
+    /// enquanto copiava). Mudou = descarta a cópia, original fica.
+    /// </summary>
+    public static bool SourceUnchanged(string sourceFolder, IReadOnlyList<SourceFileStamp> snapshot, out string? changed)
+    {
+        changed = null;
+        try
+        {
+            var files = new List<(string Rel, long Size)>();
+            var dirs = new List<string>();
+            if (!Enumerate(sourceFolder, sourceFolder, files, dirs, out var link)) { changed = link; return false; }
+            if (files.Count != snapshot.Count) { changed = "quantidade de arquivos"; return false; }
+            var byRel = snapshot.ToDictionary(f => f.Rel, StringComparer.OrdinalIgnoreCase);
+            foreach (var (rel, size) in files)
+            {
+                if (!byRel.TryGetValue(rel, out var before) || before.Size != size
+                    || File.GetLastWriteTimeUtc(Path.Combine(sourceFolder, rel)) != before.LastWriteUtc)
+                {
+                    changed = rel;
+                    return false;
+                }
+            }
+            return true;
+        }
+        catch (Exception ex)
+        {
+            changed = ex.Message;
+            return false;
+        }
     }
 
     /// <summary>Pasta de trabalho, se o .exe estiver dentro dela; senão a pasta do .exe.</summary>
@@ -221,6 +305,7 @@ internal static class GameMover
     public static CopyResult CopyAndVerify(string sourceFolder, string destinationRoot, IProgress<(long Done, long Total)>? progress, CancellationToken ct)
     {
         string? destFolder = null;
+        var createdByUs = false;
         try
         {
             // Lista tudo antes de copiar. Junção/link simbólico dentro da pasta =
@@ -241,6 +326,19 @@ internal static class GameMover
             for (var n = 2; Directory.Exists(destFolder) || File.Exists(destFolder); n++) destFolder = $"{baseDest} ({n})";
 
             Directory.CreateDirectory(destFolder);
+            // Revisão v0.18 (#5): só vira "nossa" (e só aí pode ser apagada na
+            // limpeza) se estiver vazia logo depois de criada. Se já tinha algo
+            // (Directory.Exists deu falso negativo, ou outro programa criou
+            // ao mesmo tempo), não é nossa — aborta sem tocar nela.
+            if (Directory.EnumerateFileSystemEntries(destFolder).Any())
+            {
+                var notOurs = destFolder;
+                destFolder = null;
+                return new CopyResult(false, $"A pasta de destino \"{notOurs}\" já existe com conteúdo. Nada foi alterado.", null, total);
+            }
+            createdByUs = true;
+
+            var stamps = files.Select(f => new SourceFileStamp(f.Rel, f.Size, File.GetLastWriteTimeUtc(Path.Combine(sourceFolder, f.Rel)))).ToList();
             foreach (var rel in dirs) Directory.CreateDirectory(Path.Combine(destFolder, rel));
 
             long done = 0;
@@ -283,17 +381,17 @@ internal static class GameMover
             }
 
             DebugLog.Write($"[MOVER] Cópia conferida: {files.Count} arquivos, {DiskUsage.FormatSize(total)} → {destFolder}");
-            return new CopyResult(true, "", destFolder, total);
+            return new CopyResult(true, "", destFolder, total, stamps);
         }
         catch (OperationCanceledException)
         {
-            if (destFolder is not null) TryDelete(destFolder);
+            if (createdByUs && destFolder is not null) TryDelete(destFolder);
             return new CopyResult(false, "Cancelado. A cópia parcial foi apagada e a original continua intacta.", null, 0);
         }
         catch (Exception ex)
         {
             DebugLog.Write($"[MOVER] Falha na cópia: {ex}");
-            if (destFolder is not null) TryDelete(destFolder);
+            if (createdByUs && destFolder is not null) TryDelete(destFolder);
             return new CopyResult(false, $"A cópia falhou ({ex.Message}). A cópia parcial foi apagada e a original continua intacta.", null, 0);
         }
     }

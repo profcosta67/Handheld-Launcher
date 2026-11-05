@@ -51,26 +51,35 @@ public sealed class GameLibraryStore : IGameLibraryStore
 
     public bool UpdateManualGamePaths(string id, string executablePath, string? workingDirectory, string? launchArguments)
     {
-        LibraryFile data;
+        // Contrato: true SÓ se o library.json novo foi gravado; false = o
+        // arquivo no disco não mudou. Nunca lança (arquivo travado por
+        // antivírus/OneDrive etc. vira false). O cache em memória só é trocado
+        // depois da gravação dar certo.
         try
         {
-            data = File.Exists(_filePath)
+            var data = File.Exists(_filePath)
                 ? JsonSerializer.Deserialize<LibraryFile>(File.ReadAllText(_filePath), JsonOptions) ?? new LibraryFile()
                 : new LibraryFile();
+
+            var entry = data.ManualGames.FirstOrDefault(g => g.Id == id);
+            if (entry is null) return false;
+
+            entry.ExecutablePath = executablePath;
+            entry.WorkingDirectory = workingDirectory;
+            entry.LaunchArguments = launchArguments;
+
+            var dir = Path.GetDirectoryName(_filePath);
+            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+            var tempPath = _filePath + ".tmp";
+            File.WriteAllText(tempPath, JsonSerializer.Serialize(data, JsonOptions));
+            File.Move(tempPath, _filePath, overwrite: true); // troca atômica: ou o antigo ou o novo
+            _cache = data;
+            return true;
         }
-        catch (JsonException)
+        catch (Exception)
         {
             return false;
         }
-
-        var entry = data.ManualGames.FirstOrDefault(g => g.Id == id);
-        if (entry is null) return false;
-
-        entry.ExecutablePath = executablePath;
-        entry.WorkingDirectory = workingDirectory;
-        entry.LaunchArguments = launchArguments;
-        Save(data);
-        return true;
     }
 
     public IReadOnlyDictionary<string, GameMetadataOverride> LoadOverrides() => Load().Overrides;

@@ -179,8 +179,11 @@ public sealed class LibraryService : ILibraryService
     public bool UpdateManualGamePaths(string id, string executablePath, string? workingDirectory, string? launchArguments)
     {
         if (!_store.UpdateManualGamePaths(id, executablePath, workingDirectory, launchArguments)) return false;
+        // Já gravado: daqui em diante o resultado é true mesmo se recarregar falhar
+        // (a próxima abertura do launcher lê o arquivo certo).
         _cachedOverrides = null;
-        Refresh();
+        try { Refresh(); }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[LibraryService] Refresh após mover falhou: {ex.Message}"); }
         return true;
     }
 

@@ -648,9 +648,16 @@ public sealed class MainViewModel : ViewModelBase
     /// <summary>v0.18 Armazenamento: grava os caminhos novos de um jogo manual movido e recarrega a biblioteca.</summary>
     public bool ApplyMovedManualGame(GameEntry game, string newExecutablePath, string? newWorkingDirectory, string? newLaunchArguments)
     {
-        var ok = _library.UpdateManualGamePaths(game.Id, newExecutablePath, newWorkingDirectory, newLaunchArguments);
+        // Nunca lança: true = library.json gravado com o caminho novo; false = nada mudou.
+        bool ok;
+        try { ok = _library.UpdateManualGamePaths(game.Id, newExecutablePath, newWorkingDirectory, newLaunchArguments); }
+        catch (Exception ex) { DebugLog.Write($"[MOVER] Erro ao gravar atalho: {ex.Message}"); ok = false; }
         DebugLog.Write($"[MOVER] Atalho de '{game.Title}' {(ok ? "atualizado" : "NÃO atualizado")} → {newExecutablePath}");
-        if (ok) RebuildGamesFromLibrary();
+        if (ok)
+        {
+            try { RebuildGamesFromLibrary(); }
+            catch (Exception ex) { DebugLog.Write($"[MOVER] Recarregar a biblioteca falhou (atalho já gravado): {ex.Message}"); }
+        }
         return ok;
     }
 
