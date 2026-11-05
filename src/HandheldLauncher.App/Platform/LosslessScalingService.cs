@@ -98,6 +98,82 @@ public static class LosslessScalingService
     [DllImport("user32.dll")]
     private static extern bool IsWindowVisible(IntPtr hWnd);
 
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder lpString, int nMaxCount);
+
+    // v0.16.3 (P2 — "tela cinza" na 1ª ativação): título da janela principal
+    // do Lossless, como aparece no debug.log ([JOGO-WATCHER] Janelas visíveis).
+    private const string LosslessMainWindowTitle = "Lossless Scaling";
+    private static readonly TimeSpan MinimizeWatchTimeout = TimeSpan.FromSeconds(20);
+    private static readonly TimeSpan MinimizeSettleTime = TimeSpan.FromSeconds(3);
+
+    /// <summary>
+    /// v0.16.3 — P2: a janela do Lossless (interface cinza escura) às vezes
+    /// ficava aberta na frente do jogo depois de o launcher abrir o Lossless.
+    /// Log real: "Lossless iniciado" sem o "minimizada" depois. O vigia antigo
+    /// procurava só por 6s, só no processo original e parava na primeira janela
+    /// — falhava se o Lossless demorasse a criar a janela (1ª abertura com jogo
+    /// pesado), se mostrasse uma tela de carregamento antes da principal, ou se
+    /// reiniciasse a si mesmo (o processo original some), e desistia sem log.
+    ///
+    /// Agora: procura por até 20s em qualquer processo LosslessScaling; minimiza
+    /// SÓ janelas visíveis com o título exato da janela principal (nunca a
+    /// janela da imagem escalada, que o frame gen cria); continua 3s depois de
+    /// minimizar pra pegar uma reabertura; e registra quando não achar nada.
+    /// </summary>
+    private static void MinimizeLosslessMainWindow()
+    {
+        try
+        {
+            var started = DateTime.UtcNow;
+            DateTime? lastMinimized = null;
+            var minimizedCount = 0;
+
+            while (DateTime.UtcNow - started < MinimizeWatchTimeout)
+            {
+                if (lastMinimized is { } last && DateTime.UtcNow - last > MinimizeSettleTime) break;
+
+                var pids = new HashSet<uint>();
+                foreach (var p in Process.GetProcessesByName("LosslessScaling"))
+                {
+                    using (p) { try { pids.Add((uint)p.Id); } catch { } }
+                }
+
+                if (pids.Count > 0)
+                {
+                    var targets = new List<IntPtr>();
+                    EnumWindows((hWnd, _) =>
+                    {
+                        GetWindowThreadProcessId(hWnd, out uint pid);
+                        if (!pids.Contains(pid) || !IsWindowVisible(hWnd)) return true;
+                        var title = new System.Text.StringBuilder(256);
+                        GetWindowText(hWnd, title, title.Capacity);
+                        if (string.Equals(title.ToString(), LosslessMainWindowTitle, StringComparison.Ordinal))
+                            targets.Add(hWnd);
+                        return true;
+                    }, IntPtr.Zero);
+
+                    foreach (var hwnd in targets)
+                    {
+                        ShowWindow(hwnd, SW_MINIMIZE);
+                        minimizedCount++;
+                        lastMinimized = DateTime.UtcNow;
+                        DebugLog.Write($"[PATINHO] Janela do Lossless minimizada com sucesso ({(DateTime.UtcNow - started).TotalSeconds:0.0}s após abrir).");
+                    }
+                }
+
+                Thread.Sleep(100);
+            }
+
+            if (minimizedCount == 0)
+                DebugLog.Write($"[PATINHO] Não encontrei a janela principal do Lossless em {MinimizeWatchTimeout.TotalSeconds:0}s — ela pode ter ficado aberta na tela.");
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[PATINHO] Não foi possível minimizar a janela: {ex.Message}");
+        }
+    }
+
     // =====================================================================
     //  API pública
     // =====================================================================
@@ -160,45 +236,11 @@ public static class LosslessScalingService
             });
             DebugLog.Write($"[PATINHO] Lossless iniciado automaticamente: {exe}");
 
-            if (process is not null)
-            {
-                ThreadPool.QueueUserWorkItem(_ =>
-                {
-                    try
-                    {
-                        // FIX P2: Polling mais rápido (100ms) usando EnumWindows se MainWindowHandle falhar
-                        for (int attempt = 0; attempt < 60; attempt++) // 60 * 100ms = 6 segundos
-                        {
-                            if (process.HasExited) break;
-                            
-                            IntPtr hwnd = process.MainWindowHandle;
-                            if (hwnd == IntPtr.Zero)
-                            {
-                                EnumWindows((hWnd, lParam) =>
-                                {
-                                    GetWindowThreadProcessId(hWnd, out uint pid);
-                                    if (pid == process.Id && IsWindowVisible(hWnd))
-                                    {
-                                        hwnd = hWnd;
-                                        return false; // Para o enum
-                                    }
-                                    return true;
-                                }, IntPtr.Zero);
-                            }
-
-                            if (hwnd != IntPtr.Zero)
-                            {
-                                ShowWindow(hwnd, SW_MINIMIZE);
-                                DebugLog.Write("[PATINHO] Janela do Lossless minimizada com sucesso.");
-                                break;
-                            }
-                            Thread.Sleep(100);
-                        }
-                    }
-                    catch (Exception ex) { DebugLog.Write($"[PATINHO] Não foi possível minimizar a janela: {ex.Message}"); }
-                    finally { process.Dispose(); }
-                });
-            }
+            process?.Dispose();
+            // O vigia procura pelo nome do processo, então funciona mesmo se o
+            // Start não devolver o processo (shell reaproveitando instância) ou
+            // se o Lossless reiniciar a si mesmo.
+            ThreadPool.QueueUserWorkItem(_ => MinimizeLosslessMainWindow());
             return true;
         }
         catch (Exception ex)
