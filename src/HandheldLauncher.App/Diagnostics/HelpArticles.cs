@@ -17,7 +17,7 @@ internal static class HelpArticles
         // ---------------- Controle ----------------
         new("controle-legion", "Controle", "O controle do Legion Go 2 não é reconhecido", new[]
         {
-            "Às vezes, ao ligar o aparelho, o Windows não enxerga o controle embutido do Legion Go 2. É um problema conhecido do aparelho, em investigação no launcher.",
+            "Às vezes, ao ligar o aparelho, o controle embutido do Legion Go 2 liga \"travado\": o Windows vê o controle, mas ele não responde. É um problema conhecido do aparelho. Desde a 0.16.4, quando o launcher percebe isso ao abrir, ele abre o Legion Space sozinho, que destrava o controle.",
             "O que costuma resolver:",
             "1. Abrir o Legion Space — normalmente o controle volta logo depois. Pode fechá-lo em seguida.",
             "2. Desencaixar e encaixar de novo os controles.",
