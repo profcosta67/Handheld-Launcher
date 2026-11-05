@@ -852,7 +852,7 @@ public sealed class MainViewModel : ViewModelBase
 
     private void UpdateContextMenuSelection() { for (var i = 0; i < ContextMenuItems.Count; i++) ContextMenuItems[i].IsSelected = i == _contextMenuIndex; }
 
-    private enum GlobalMenuPage { Root, Library, Hud, Settings, Updates, Help, Power, ConfirmPower }
+    private enum GlobalMenuPage { Root, Library, Hud, Updates, Help, Power, ConfirmPower }
     private GlobalMenuPage _globalMenuPage = GlobalMenuPage.Root;
     private string _pendingPowerConfirmLabel = string.Empty;
     private Action? _pendingPowerAction;
@@ -943,13 +943,6 @@ public sealed class MainViewModel : ViewModelBase
                 else Add("⬇ RTSS: baixar (necessário pro HUD)", _performanceOverlay.OpenDownloadPage);
                 break;
 
-            case GlobalMenuPage.Settings:
-                // v0.16.3: menu reorganizado (pedido do usuário) — nomes curtos que
-                // cabem na largura do menu; nada foi removido. Atualizações e
-                // Ajuda viraram pastas próprias.
-                GlobalMenuTitle = "Configurações"; Add("⚙ Preferências", () => SettingsRequested?.Invoke(this, EventArgs.Empty)); Add("🎨 Layout da tela", () => LayoutPickerRequested?.Invoke(this, EventArgs.Empty));
-                break;
-
             case GlobalMenuPage.Updates:
                 GlobalMenuTitle = "Atualizações";
                 if (_updates is { IsInstalled: true } && !IsUpdateReady) Add("🔄 Verificar launcher", () => _ = CheckForUpdatesAsync(userInitiated: true));
@@ -979,7 +972,13 @@ public sealed class MainViewModel : ViewModelBase
                 if (IsUpdateReady) Add(RunningGame is null ? "⬆ Atualizar agora" : "⬆ Atualização pronta (feche o jogo)", ApplyUpdate);
                 if (RunningGame is not null) Add("⏹ Fechar o jogo", CloseRunningGame);
                 Folder("📚 Biblioteca", GlobalMenuPage.Library); Folder("📊 HUD", GlobalMenuPage.Hud);
-                Folder("⚙ Configurações", GlobalMenuPage.Settings); Folder("🔄 Atualizações", GlobalMenuPage.Updates);
+                // v0.17 (05/11, pedido do usuário): "Layout da tela" virou "TEMAS" e
+                // subiu pro menu raiz (antes só aparecia dentro de Configurações); e
+                // "Configurações" deixou de ser uma pasta com um único item de
+                // verdade (Preferências) — agora é ação direta, economiza um clique.
+                Add("🎨 TEMAS", () => LayoutPickerRequested?.Invoke(this, EventArgs.Empty));
+                Add("⚙ Configurações", () => SettingsRequested?.Invoke(this, EventArgs.Empty));
+                Folder("🔄 Atualizações", GlobalMenuPage.Updates);
                 Folder("🛟 Ajuda", GlobalMenuPage.Help); Folder("⚡ Energia", GlobalMenuPage.Power);
                 break;
         }
