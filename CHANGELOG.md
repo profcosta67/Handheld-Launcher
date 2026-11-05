@@ -4,7 +4,7 @@ Mais recente primeiro. Cada versão tem notas completas em [`release-notes/`](re
 Betas não entram aqui: o que eles trazem aparece na versão estável que os junta.
 
 ## [0.17.0] — em preparo (beta)
-Paletas novas (Meia-noite, Crepúsculo, Musgo, Névoa, Alto Contraste) e 9 fontes novas livres; sugestões de fonte por layout atualizadas; base das escalas de tipografia e borda (sem efeito visível ainda); ícones que não faziam sentido (🦆, 🩺 duplicado) corrigidos. Inclui a 0.16.5. [Notas](release-notes/0.17.0.md)
+Paletas novas (Meia-noite, Crepúsculo, Musgo, Névoa, Alto Contraste) e 9 fontes novas livres; sugestões de fonte por layout atualizadas; base das escalas de tipografia e borda (sem efeito visível ainda); ícones que não faziam sentido (🦆, 🩺 duplicado) corrigidos; botão "Reiniciar Launcher"; overlay que pulava pro centro com o Xbox Game Bar corrigido; barra de status (Wi-Fi/Bluetooth/TDP/bateria/relógio) passa a seguir o tema de cores. Inclui a 0.16.5. [Notas](release-notes/0.17.0.md)
 
 ## [0.16.5] — em preparo
 Canal beta passa a receber também as versões oficiais (a mais recente vale); launcher que não abria após desligar/ligar com Inicialização Rápida; recuperação do controle do Legion tenta até 3 vezes; relatório de problema com o retrato do controle e eventos do Windows. [Notas](release-notes/0.16.5.md)
