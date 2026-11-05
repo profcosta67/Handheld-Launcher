@@ -81,7 +81,7 @@ jobs:
 
       - name: Copiar InstallTask.ps1 para o pacote
         if: steps.exists.outputs.skip != 'true'
-        run: Copy-Item "InstallTask.ps1" -Destination "publish/InstallTask.ps1"
+        run: Copy-Item "installer/InstallTask.ps1" -Destination "publish/InstallTask.ps1"
 
       - name: Preparar FFmpeg oficial (versão fixada, hash e licença)
         if: steps.exists.outputs.skip != 'true'

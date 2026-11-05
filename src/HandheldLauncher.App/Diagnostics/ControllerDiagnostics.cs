@@ -79,7 +79,13 @@ internal static class ControllerDiagnostics
             // "controle da Lenovo só no slot ≥ 1 ao ligar" e abrir o Legion
             // Space. TryRecoverLenovoController fica pro diagnóstico.
             if (last.Length > 0 && !last.Split(',').Contains("0"))
+            {
                 DebugLog.Write($"[CONTROLE-DIAG] Atenção: controle só no slot [{last}], nada no slot 0 — padrão do boot ruim do Legion (controle não responde).");
+                // v0.16.4: no teste de 05/11 o que destravou foi abrir o Legion
+                // Space. Só no Legion (dispositivo da Lenovo presente) e só se
+                // ele ainda não estiver aberto.
+                last = TryWakeControllerWithLegionSpace(last) ?? last;
+            }
 
             while (snapshots < MaxSnapshotsPerSession)
             {
@@ -155,7 +161,7 @@ internal static class ControllerDiagnostics
                 var errTask = process.StandardError.ReadToEndAsync();
                 if (!process.WaitForExit(20_000))
                 {
-                    try { process.Kill(); } catch { }
+                    try { process.Kill(); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
                     DebugLog.Write("[CONTROLE-RECUPERAR] pnputil /restart-device passou de 20s — abandonado.");
                     return null;
                 }
@@ -184,6 +190,82 @@ internal static class ControllerDiagnostics
             DebugLog.Write($"[CONTROLE-RECUPERAR] Falhou: {ex.Message}");
             return null;
         }
+    }
+
+    /// <summary>
+    /// v0.16.4: abre o Legion Space (que manda o comando que destrava o
+    /// controle) quando o controle da Lenovo liga travado. Devolve os slots
+    /// depois da tentativa, ou null se não tentou.
+    /// </summary>
+    internal static string? TryWakeControllerWithLegionSpace(string slotsBefore)
+    {
+        try
+        {
+            if (LenovoDeviceBlocks("/enum-devices /connected").Count == 0)
+            {
+                DebugLog.Write("[CONTROLE-RECUPERAR] Nenhum dispositivo da Lenovo — não é o caso do Legion, nada a fazer.");
+                return null;
+            }
+            if (Process.GetProcessesByName("LegionSpace").Length > 0)
+            {
+                DebugLog.Write("[CONTROLE-RECUPERAR] O Legion Space já está aberto — não abro de novo.");
+                return null;
+            }
+
+            var appId = FindLegionSpaceAppId();
+            if (appId is null)
+            {
+                DebugLog.Write("[CONTROLE-RECUPERAR] Não achei o Legion Space instalado (menu Iniciar).");
+                return null;
+            }
+
+            DebugLog.Write($"[CONTROLE-RECUPERAR] Controle travado no slot [{slotsBefore}] — abrindo o Legion Space ({appId}).");
+            // O explorer abre o app com as permissões do usuário, mesmo com o
+            // launcher rodando como administrador.
+            Process.Start(new ProcessStartInfo("explorer.exe", $"shell:AppsFolder\\{appId}") { UseShellExecute = false })?.Dispose();
+
+            for (var i = 0; i < 30; i++)
+            {
+                Thread.Sleep(1000);
+                var slots = ConnectedSlots();
+                if (slots.Split(',').Contains("0"))
+                {
+                    DebugLog.Write($"[CONTROLE-RECUPERAR] Controle destravado {i + 1}s depois de abrir o Legion Space (slots [{slots}]).");
+                    return slots;
+                }
+            }
+            var after = ConnectedSlots();
+            DebugLog.Write($"[CONTROLE-RECUPERAR] Abri o Legion Space, mas o controle continua só em [{after}] depois de 30s.");
+            return after;
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[CONTROLE-RECUPERAR] Falha ao abrir o Legion Space: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>ID do app "Legion Space" no menu Iniciar (Get-StartApps), ou null.</summary>
+    private static string? FindLegionSpaceAppId()
+    {
+        var psi = new ProcessStartInfo("powershell.exe",
+            "-NoProfile -NonInteractive -Command \"Get-StartApps | Where-Object { $_.Name -like '*Legion Space*' } | Select-Object -First 1 -ExpandProperty AppID\"")
+        {
+            CreateNoWindow = true,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        using var process = Process.Start(psi);
+        if (process is null) return null;
+        var output = process.StandardOutput.ReadToEndAsync();
+        if (!process.WaitForExit(15_000))
+        {
+            try { process.Kill(); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
+            return null;
+        }
+        var id = output.Result.Trim();
+        return id.Length == 0 ? null : id;
     }
 
     internal static string ConnectedSlots()
@@ -275,7 +357,7 @@ internal static class ControllerDiagnostics
             var stderrTask = process.StandardError.ReadToEndAsync();
             if (!process.WaitForExit(10_000))
             {
-                try { process.Kill(); } catch { }
+                try { process.Kill(); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
                 DebugLog.Write($"[CONTROLE-DIAG] pnputil {arguments} passou de 10s — ignorado.");
                 return result;
             }

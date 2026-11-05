@@ -301,6 +301,10 @@ public sealed class SettingsViewModel : ViewModelBase
     private bool _freezeGameOnOverlay;
     public bool FreezeGameOnOverlay { get => _freezeGameOnOverlay; set => SetField(ref _freezeGameOnOverlay, value); }
 
+    // v0.16.4: ver AppSettings.FocusOverlayInGame.
+    private bool _focusOverlayInGame;
+    public bool FocusOverlayInGame { get => _focusOverlayInGame; set => SetField(ref _focusOverlayInGame, value); }
+
     private int _soundThemeIndex;
     public int SoundThemeIndex { get => _soundThemeIndex; set => SetField(ref _soundThemeIndex, value); }
 
@@ -428,6 +432,7 @@ public sealed class SettingsViewModel : ViewModelBase
         SoundEffects = settings.SoundEffects;
         BetaChannelOptIn = settings.BetaChannelOptIn;
         FreezeGameOnOverlay = settings.FreezeGameOnOverlay;
+        FocusOverlayInGame = settings.FocusOverlayInGame;
         SoundThemeIndex = Math.Clamp(settings.SoundTheme, 0, HandheldLauncher.App.Platform.UiSounds.PackNames.Length - 1);
         SoundVolume = Math.Clamp(settings.SoundVolume, 0, 100);
         ColorModeIndex = Math.Clamp(settings.ColorMode, 0, HandheldLauncher.App.Platform.DisplayColorManager.ModeNames.Length - 1);
@@ -471,6 +476,7 @@ public sealed class SettingsViewModel : ViewModelBase
         settings.SoundEffects = SoundEffects;
         settings.BetaChannelOptIn = BetaChannelOptIn;
         settings.FreezeGameOnOverlay = FreezeGameOnOverlay;
+        settings.FocusOverlayInGame = FocusOverlayInGame;
         settings.SoundTheme = Math.Clamp(SoundThemeIndex, 0, HandheldLauncher.App.Platform.UiSounds.PackNames.Length - 1);
         settings.SoundVolume = Math.Clamp((int)Math.Round(SoundVolume), 0, 100);
         settings.ColorMode = Math.Clamp(ColorModeIndex, 0, HandheldLauncher.App.Platform.DisplayColorManager.ModeNames.Length - 1);

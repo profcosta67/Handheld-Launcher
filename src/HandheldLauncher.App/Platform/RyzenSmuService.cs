@@ -308,7 +308,7 @@ public sealed class RyzenSmuService : IDisposable
         {
             if (acquired)
             {
-                try { pciMutex?.ReleaseMutex(); } catch (ApplicationException) { }
+                try { pciMutex?.ReleaseMutex(); } catch (ApplicationException swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
             }
             pciMutex?.Dispose();
         }

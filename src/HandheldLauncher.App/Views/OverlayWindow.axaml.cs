@@ -92,6 +92,7 @@ public partial class OverlayWindow : Window
     private const uint SWP_SHOWWINDOW = 0x0040;
 
     private IntPtr _gameHwnd = IntPtr.Zero;
+    private bool _focusTakenFromGame;
 
     [DllImport("user32.dll")] private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
     [StructLayout(LayoutKind.Sequential)] private struct INPUT { public uint type; public InputUnion U; }
@@ -377,6 +378,7 @@ public partial class OverlayWindow : Window
         {
             PositionOnRightEdge();
             ForceTopmost();
+            TakeFocusFromGameIfEnabled();
         }, DispatcherPriority.Loaded);
 
         var retryTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
@@ -450,6 +452,42 @@ public partial class OverlayWindow : Window
         StopTopmostEnforcer();
         InputBlockService.UnblockGamepadForGame();
         Hide();
+        GiveFocusBackToGame();
+    }
+
+    /// <summary>
+    /// v0.16.4 (opção em Preferências → Geral): com um jogo rodando, o QS pega
+    /// o foco ao abrir — a maioria dos jogos para de ler o controle sem foco.
+    /// </summary>
+    private void TakeFocusFromGameIfEnabled()
+    {
+        try
+        {
+            if (_gameHwnd == IntPtr.Zero) return;
+            if (!AppSettingsStore.Load().FocusOverlayInGame) return;
+            Activate();
+            _focusTakenFromGame = true;
+            DebugLog.Write("[OVERLAY] Foco tirado do jogo enquanto o Quick Settings está aberto.");
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[OVERLAY] Não consegui pegar o foco: {ex.Message}");
+        }
+    }
+
+    private void GiveFocusBackToGame()
+    {
+        if (!_focusTakenFromGame) return;
+        _focusTakenFromGame = false;
+        try
+        {
+            if (_gameHwnd != IntPtr.Zero && SetForegroundWindow(_gameHwnd))
+                DebugLog.Write("[OVERLAY] Foco devolvido ao jogo.");
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[OVERLAY] Não consegui devolver o foco ao jogo: {ex.Message}");
+        }
     }
 
     protected override void OnClosing(WindowClosingEventArgs e)
@@ -726,7 +764,7 @@ public partial class OverlayWindow : Window
                     MainScrollViewer.Offset = new Vector(MainScrollViewer.Offset.X, Math.Max(0, targetOffset));
                 }
             }
-            catch { }
+            catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
         }, Avalonia.Threading.DispatcherPriority.Loaded);
     }
 
@@ -1055,7 +1093,7 @@ public partial class OverlayWindow : Window
             if (_gameHwnd != IntPtr.Zero)
             {
                 LosslessScalingService.SetGameHwnd(_gameHwnd);
-                try { SetForegroundWindow(_gameHwnd); } catch { }
+                try { SetForegroundWindow(_gameHwnd); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
                 await Task.Delay(300);
             }
 

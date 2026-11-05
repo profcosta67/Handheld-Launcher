@@ -43,6 +43,12 @@ public class AppSettings
     // InputBlockService.BlockGamepadForGame / OverlayWindow.
     public bool FreezeGameOnOverlay { get; set; } = false;
 
+    // v0.16.4: o Quick Settings pega o foco enquanto está aberto, então o jogo
+    // para de receber os botões (a maioria dos jogos ignora o controle sem
+    // foco). Desligado por padrão: alguns jogos em tela cheia exclusiva
+    // minimizam ao perder o foco — testar jogo por jogo.
+    public bool FocusOverlayInGame { get; set; } = false;
+
     // TDP e outros
     public string TdpMode { get; set; } = "Normal";
     public string FanMode { get; set; } = "Automático";

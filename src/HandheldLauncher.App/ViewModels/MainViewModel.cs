@@ -101,7 +101,7 @@ public sealed class MainViewModel : ViewModelBase
             KeyboardShortcuts.Add(new ShortcutItem("Este painel de ajuda", "F1"));
             KeyboardShortcuts.Add(new ShortcutItem("Abrir Quick Settings", "Ctrl+Alt+O"));
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
     }
 
     public MainViewModel(
@@ -243,7 +243,7 @@ public sealed class MainViewModel : ViewModelBase
         _hardwareTimer?.Stop();
         _monitorService.Dispose();
         _hwInfoService.Dispose();
-        try { _ownedArtworkCts?.Cancel(); } catch { }
+        try { _ownedArtworkCts?.Cancel(); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
         _ownedArtworkCts?.Dispose();
         _artworkSemaphore.Dispose();
         _artworkPauseGate.Dispose();
@@ -669,7 +669,7 @@ public sealed class MainViewModel : ViewModelBase
                 var completed = await Task.WhenAny(fetchTask, Task.Delay(3000));
                 if (completed == fetchTask && await fetchTask) LaunchingGameIconPath = game.IconImagePath;
             }
-            catch { }
+            catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
         }
 
         if (string.IsNullOrEmpty(LaunchingGameIconPath)) LaunchingGameIconPath = ResolveFallbackImage(game);
@@ -720,7 +720,7 @@ public sealed class MainViewModel : ViewModelBase
                 });
             }
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
     }
 
     public void CloseRunningGame() { if (RunningGame is null) return; _launcher.CloseGame(RunningGame); RunningGame = null; }
@@ -1067,7 +1067,7 @@ public sealed class MainViewModel : ViewModelBase
             if (OperatingSystem.IsWindows()) System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = "steam://open/downloads", UseShellExecute = true });
             else if (OperatingSystem.IsLinux()) System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = "xdg-open", Arguments = "steam://open/downloads", UseShellExecute = false, CreateNoWindow = true });
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
     }
 
     public void CloseDownloads() => IsDownloadsOpen = false;
@@ -1127,7 +1127,7 @@ public sealed class MainViewModel : ViewModelBase
 
         if (userInitiated)
         {
-            try { _ownedArtworkCts?.Cancel(); } catch { }
+            try { _ownedArtworkCts?.Cancel(); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
             DebugLog.Write("[SGDB] Download manual aguardando a fila atual (até 60s).");
             if (!await _artworkSemaphore.WaitAsync(TimeSpan.FromSeconds(60)))
             {
@@ -1162,7 +1162,7 @@ public sealed class MainViewModel : ViewModelBase
                 modal.CancelRequested += (_, _) =>
                 {
                     DebugLog.Write("[SGDB] Cancel solicitado pelo usuário");
-                    try { _ownedArtworkCts?.Cancel(); } catch { }
+                    try { _ownedArtworkCts?.Cancel(); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
                     _artworkPauseGate.Set();
                 };
                 modal.PauseToggled += (_, _) =>
@@ -1200,7 +1200,7 @@ public sealed class MainViewModel : ViewModelBase
                     ownedEntries = owned.Select(_library.BuildEntryForOwnedGame).ToList();
                     DebugLog.Write($"[SGDB] Owned games incluídos na checagem: {ownedEntries.Count}");
                 }
-                catch (OperationCanceledException) { }
+                catch (OperationCanceledException swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
                 catch (Exception ex) { DebugLog.Write($"[SGDB] Falha ao carregar owned games: {ex.Message}"); }
             }
 
@@ -1218,12 +1218,12 @@ public sealed class MainViewModel : ViewModelBase
                 DebugLog.Write("[SGDB] Nada a baixar — todas as capas já estão no cache.");
                 modal?.UpdateProgress(0, 0, "Todas as capas já estão atualizadas");
                 modal?.CloseForReal();
-                if (dialogTask is not null) { try { await dialogTask; } catch { } }
+                if (dialogTask is not null) { try { await dialogTask; } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); } }
                 IsFetchingArtwork = false;
                 _artworkPauseGate.Set();
                 _ownedArtworkCts?.Dispose();
                 _ownedArtworkCts = null;
-                try { _artworkSemaphore.Release(); } catch { }
+                try { _artworkSemaphore.Release(); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
                 DebugLog.Write("[SGDB] Lock de artwork liberado (nenhuma capa pendente).");
                 return;
             }
@@ -1314,10 +1314,10 @@ public sealed class MainViewModel : ViewModelBase
             _artworkPauseGate.Set();
             _ownedArtworkCts?.Dispose();
             _ownedArtworkCts = null;
-            try { _artworkSemaphore.Release(); } catch { }
+            try { _artworkSemaphore.Release(); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
             DebugLog.Write("[SGDB] Lock de artwork liberado.");
             modal?.CloseForReal();
-            if (dialogTask is not null) { try { await dialogTask; } catch { } }
+            if (dialogTask is not null) { try { await dialogTask; } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); } }
         }
     }
 
@@ -1379,7 +1379,7 @@ public sealed class MainViewModel : ViewModelBase
             _isFetchingOwnedArtwork = false;
             _ownedArtworkCts?.Dispose();
             _ownedArtworkCts = null;
-            try { _artworkSemaphore.Release(); } catch { }
+            try { _artworkSemaphore.Release(); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
             DebugLog.Write("[SGDB] Owned lock liberado.");
         }
     }

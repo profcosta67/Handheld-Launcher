@@ -145,7 +145,7 @@ public partial class MainWindow : Window
                         return;
                 }
             }
-            catch { }
+            catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
 
             try
             {
@@ -153,7 +153,7 @@ public partial class MainWindow : Window
                 if (handle != IntPtr.Zero)
                     SetWindowPos(handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
             }
-            catch { }
+            catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
         };
         _topmostEnforcerTimer.Start();
         Closed += (_, _) => _topmostEnforcerTimer?.Stop();
@@ -332,7 +332,7 @@ public partial class MainWindow : Window
                 if (handle != IntPtr.Zero)
                     SetWindowPos(handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
             }
-            catch { }
+            catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
 
             DebugLog.Write("[RESTORE] RestoreFromTray concluído.");
         }
@@ -342,7 +342,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private static void TurnOffScreen() { if (!OperatingSystem.IsWindows()) return; try { PostMessage(HwndBroadcast, WmSysCommand, (IntPtr)ScMonitorPower, (IntPtr)2); } catch { } }
+    private static void TurnOffScreen() { if (!OperatingSystem.IsWindows()) return; try { PostMessage(HwndBroadcast, WmSysCommand, (IntPtr)ScMonitorPower, (IntPtr)2); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); } }
 
     private static void RestartDevice() { if (!OperatingSystem.IsWindows()) return; RunShutdownExe("/r /f /t 0"); }
 

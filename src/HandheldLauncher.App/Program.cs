@@ -70,6 +70,7 @@ internal static class Program
         // de responder ao L3+R3 assim que um jogo era aberto.
         if (args.Length > 0 && args[0] == HandheldLauncher.App.Input.GameInputHelper.Argument)
         {
+            HandheldLauncher.App.Diagnostics.CrashReport.Install("ajudante");
             HandheldLauncher.App.Input.GameInputHelper.RunHelper(args);
             return;
         }
@@ -77,6 +78,9 @@ internal static class Program
         // 🟢 CORREÇÃO BUG 1: Se estamos reiniciando (layout picker), espera o
         // processo antigo morrer ANTES de disputar o mutex. Sem isso, o novo
         // processo perde o mutex e sai, deixando o usuário sem launcher.
+        // v0.16.4: relatório de crash local (erros não tratados → arquivo).
+        HandheldLauncher.App.Diagnostics.CrashReport.Install("launcher");
+
         LauncherRestart.WaitForPreviousInstance(args);
 
         // Uma tarefa automática que já esteja em execução não deve abrir

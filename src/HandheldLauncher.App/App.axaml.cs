@@ -22,6 +22,7 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        HandheldLauncher.App.Diagnostics.CrashReport.InstallUiThread();
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var appSettings = AppSettingsStore.Load();

@@ -35,7 +35,7 @@ public partial class UpdateWindow : Window
                 UseShellExecute = true 
             });
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
     }
 
     private void OnUpdateNowClick(object? sender, RoutedEventArgs e)

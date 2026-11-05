@@ -46,7 +46,7 @@ public partial class HelpCenterWindow : Window
     {
         OpenedExternalApp = true;
         Topmost = false;
-        try { ExternalAppOpening?.Invoke(); } catch { }
+        try { ExternalAppOpening?.Invoke(); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
     }
 
     public HelpCenterWindow()
@@ -381,6 +381,6 @@ public partial class HelpCenterWindow : Window
                 Position = new Avalonia.PixelPoint(Position.X, screen.WorkingArea.Y + 20);
             }
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
     }
 }
