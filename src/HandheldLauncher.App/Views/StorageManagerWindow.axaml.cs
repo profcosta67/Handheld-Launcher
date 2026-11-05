@@ -4,9 +4,11 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using HandheldLauncher.App.Diagnostics;
+using HandheldLauncher.App.Input;
 using HandheldLauncher.App.Platform;
 using HandheldLauncher.App.ViewModels;
 using HandheldLauncher.Core.Models;
@@ -44,6 +46,37 @@ public partial class StorageManagerWindow : Window
     }
 
     private void OnCloseClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => Close();
+
+    // v0.18 (relato do usuário: "Barra de rolagem do gerenciamento de
+    // armazenamento não responde" / "A barra de rolagem do jogos parece que
+    // também não está funcionando"): esta janela só tem UM controle focável
+    // de verdade (o botão "Fechar" no rodapé) — todo o conteúdo dentro do
+    // ScrollViewer (TextBlock/Grid/ProgressBar das listas de Discos/Jogos)
+    // não é Focusable, então o DialogGamepadNavigator genérico (que rola a
+    // tela MOVENDO O FOCO pro próximo controle focável) não tem pra onde ir
+    // e ↑/↓ não faziam nada dentro do conteúdo. Mesmo padrão de
+    // HandleSettingsGamepadAction/HandleGamepadAction (Settings/HelpCenter):
+    // interceptado ANTES do navigator genérico em OnGamepadTick — aqui,
+    // MoveUp/MoveDown rolam o ScrollViewer diretamente por um passo fixo;
+    // qualquer outra ação cai (retorno false) pro navigator genérico, que
+    // continua cuidando de Confirm/Back nos botões do rodapé normalmente.
+    private const double GamepadScrollStepPx = 90;
+
+    public bool HandleGamepadAction(GamepadAction action)
+    {
+        switch (action)
+        {
+            case GamepadAction.MoveUp:
+                ContentScroll.Offset = new Vector(ContentScroll.Offset.X, Math.Max(0, ContentScroll.Offset.Y - GamepadScrollStepPx));
+                return true;
+            case GamepadAction.MoveDown:
+                var maxOffset = Math.Max(0, ContentScroll.Extent.Height - ContentScroll.Viewport.Height);
+                ContentScroll.Offset = new Vector(ContentScroll.Offset.X, Math.Min(maxOffset, ContentScroll.Offset.Y + GamepadScrollStepPx));
+                return true;
+            default:
+                return false;
+        }
+    }
 
     private void RefreshDrives()
     {

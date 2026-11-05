@@ -1,8 +1,10 @@
 using System;
 using System.Collections.ObjectModel;
 using System.IO;
+using Avalonia;
 using Avalonia.Controls;
 using HandheldLauncher.App.Diagnostics;
+using HandheldLauncher.App.Input;
 using HandheldLauncher.App.Platform;
 using HandheldLauncher.App.ViewModels;
 using HandheldLauncher.Core.Services;
@@ -39,6 +41,28 @@ public partial class DeviceHealthWindow : Window
 
     private void OnRefreshClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => RefreshAll();
     private void OnCloseClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => Close();
+
+    // v0.18: mesmo problema do StorageManagerWindow (ver comentário lá) —
+    // só "Atualizar"/"Fechar" são focáveis, então ↑/↓ não tinham conteúdo
+    // pra focar/rolar dentro do ScrollViewer. Mesma correção: interceptado
+    // em OnGamepadTick ANTES do DialogGamepadNavigator genérico.
+    private const double GamepadScrollStepPx = 90;
+
+    public bool HandleGamepadAction(GamepadAction action)
+    {
+        switch (action)
+        {
+            case GamepadAction.MoveUp:
+                ContentScroll.Offset = new Vector(ContentScroll.Offset.X, Math.Max(0, ContentScroll.Offset.Y - GamepadScrollStepPx));
+                return true;
+            case GamepadAction.MoveDown:
+                var maxOffset = Math.Max(0, ContentScroll.Extent.Height - ContentScroll.Viewport.Height);
+                ContentScroll.Offset = new Vector(ContentScroll.Offset.X, Math.Min(maxOffset, ContentScroll.Offset.Y + GamepadScrollStepPx));
+                return true;
+            default:
+                return false;
+        }
+    }
 
     private void RefreshAll()
     {

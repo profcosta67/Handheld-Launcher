@@ -441,6 +441,15 @@ public partial class MainWindow : Window
                     // um artigo volta pra lista (em vez de fechar a janela).
                     if (dialog is HelpCenterWindow hc && hc.HandleGamepadAction(dialogAction))
                         continue;
+                    // v0.18 (relato do usuário: barra de rolagem do Gerenciador de
+                    // Armazenamento e da Saúde do Aparelho não respondia ao controle)
+                    // — mesmo padrão acima: essas janelas só têm botão(ões) de rodapé
+                    // focáveis, então MoveUp/MoveDown precisam rolar o ScrollViewer
+                    // direto em vez de tentar mover o foco (que não tem pra onde ir).
+                    if (dialog is StorageManagerWindow sm && sm.HandleGamepadAction(dialogAction))
+                        continue;
+                    if (dialog is DeviceHealthWindow dh && dh.HandleGamepadAction(dialogAction))
+                        continue;
                     DialogGamepadNavigator.Handle(dialog, dialogAction);
                 }
                 return;

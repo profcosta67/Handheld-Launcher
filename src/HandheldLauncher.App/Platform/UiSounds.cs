@@ -103,7 +103,34 @@ internal static class UiSounds
     // diferença de RMS sem distorcer. Pra igualar 100% ainda faltaria
     // regravar o clipe de mover com mais sustentação (fora do escopo de um
     // ajuste de ganho).
+    //
+    // v0.18 (05/11 — usuário ainda relata "som ainda está com o volume dos
+    // direcionais baixo" mesmo com o ajuste acima): medi os 21 arquivos de
+    // TODOS os 7 estilos (não só "console") com um script (peak dB + RMS
+    // dB). Resultado: o PICO do clipe de mover é -10,0 dBFS em TODOS os 7
+    // estilos, sem exceção — ou seja, 2.0 (+6dB) já leva o pico de mover
+    // pra -4,0 dBFS em TODOS eles, exatamente empatado com o pico do
+    // confirm. Subir esse ganho global além disso estouraria o pico (sample
+    // clipping) em QUALQUER estilo — não há mais folga nenhuma por esse
+    // caminho, confirmado com números reais, não só pelo comentário antigo.
+    // O que SOBRA de diferença não é ganho, é DURAÇÃO: o clipe de mover
+    // mede entre ~11ms (bolha) e ~97ms dependendo do estilo, contra 30-300ms
+    // do confirm/back no mesmo estilo — um clique mais curto que ~150-200ms
+    // é percebido pelo ouvido como mais fraco mesmo com a MESMA energia por
+    // amostra, porque o ouvido integra energia ao longo de uma janela de
+    // tempo. Ver <see cref="AppendMoveSustainTail"/> pra a correção disso
+    // (sem precisar regravar nenhum arquivo).
     private const double MoveRoleGain = 2.0;
+
+    // v0.18: cauda sintética SÓ pro clipe de mover (ver comentário de
+    // MoveRoleGain acima) — 2 repetições decrescentes do próprio clipe,
+    // coladas direto depois do fim dele (sem silêncio entre), simulando um
+    // decaimento natural de um clique percussivo e esticando a duração
+    // ativa em até ~3x sem tocar no pico (cada eco entra bem abaixo do
+    // teto: -5,2dB e -11,0dB relativos ao original, então a soma nunca
+    // passa do que o clipe original já atinge).
+    private const double MoveEchoGain1 = 0.55;
+    private const double MoveEchoGain2 = 0.28;
 
     // Respiro de silêncio antes do som quando o aparelho de áudio pode estar
     // "dormindo" (sem som há > ColdAfterMs): o driver acorda durante o silêncio
@@ -395,12 +422,13 @@ internal static class UiSounds
         public IntPtr Ptr;
         public IntPtr ColdPtr;
         public double RoleGain = 1.0;
+        public bool IsMoveRole;
         public bool Loaded => Ptr != IntPtr.Zero;
     }
 
     private static SoundSet LoadPack(string slug) => new()
     {
-        Move = LoadClip($"sfx-{slug}-move.wav", MoveRoleGain),
+        Move = LoadClip($"sfx-{slug}-move.wav", MoveRoleGain, isMoveRole: true),
         Confirm = LoadClip($"sfx-{slug}-confirm.wav"),
         Back = LoadClip($"sfx-{slug}-back.wav"),
     };
@@ -410,9 +438,9 @@ internal static class UiSounds
     /// no volume atual. Ver o porquê da memória não gerenciada no comentário
     /// da classe.
     /// </summary>
-    private static SoundClip LoadClip(string fileName, double roleGain = 1.0)
+    private static SoundClip LoadClip(string fileName, double roleGain = 1.0, bool isMoveRole = false)
     {
-        var clip = new SoundClip { RoleGain = roleGain };
+        var clip = new SoundClip { RoleGain = roleGain, IsMoveRole = isMoveRole };
         try
         {
             var uri = new Uri($"avares://HandheldLauncher/Assets/{fileName}");
@@ -539,12 +567,52 @@ internal static class UiSounds
                 wav[offset + i] = (byte)(value & 0xFF);
                 wav[offset + i + 1] = (byte)((value >> 8) & 0xFF);
             }
+
+            // v0.18 — ver comentário de MoveEchoGain1/2: só o clipe de mover
+            // ganha a cauda sintética, escrita dentro do espaço de silêncio
+            // que já existia (tailBytes já cobre pelo menos MinTotalMs no
+            // total, então normalmente há espaço de sobra pro clipe curto
+            // de mover). Cada eco é truncado se não couber inteiro — nunca
+            // escreve fora do buffer alocado.
+            if (clip.IsMoveRole)
+            {
+                var afterOriginal = offset + dataBytes;
+                var tailAvailable = 44 + total - afterOriginal;
+                AppendMoveEcho(wav, afterOriginal, tailAvailable, clip.Pcm, gain * MoveEchoGain1);
+                AppendMoveEcho(wav, afterOriginal + dataBytes, tailAvailable - dataBytes, clip.Pcm, gain * MoveEchoGain2);
+            }
+
             return CopyToUnmanaged(wav);
         }
         catch (Exception ex)
         {
             DebugLog.Swallowed(ex);
             return IntPtr.Zero;
+        }
+    }
+
+    /// <summary>
+    /// Soma (nunca sobrescreve) uma cópia decaída das amostras do clipe
+    /// original dentro da região de cauda — ver comentário de
+    /// MoveEchoGain1/2. A região de destino já começa zerada (silêncio),
+    /// então "somar" aqui é equivalente a "escrever", mas soma é o que
+    /// deixa a 2ª chamada (eco 2, que começa um clipe de distância da 1ª)
+    /// segura mesmo se algum dia as regiões se sobrepuserem. Satura no
+    /// limite de 16 bits igual o resto do BuildBuffer — nunca estoura o
+    /// buffer, nunca estoura a amostra.
+    /// </summary>
+    private static void AppendMoveEcho(byte[] wav, int startByteOffset, int availableBytes, byte[] pcm, double echoGain)
+    {
+        if (availableBytes <= 0) return;
+        var writable = Math.Min(availableBytes, pcm.Length);
+        writable -= writable % 2;
+        for (var i = 0; i + 1 < writable; i += 2)
+        {
+            var sample = (short)(pcm[i] | (pcm[i + 1] << 8));
+            var existing = (short)(wav[startByteOffset + i] | (wav[startByteOffset + i + 1] << 8));
+            var value = Math.Clamp(existing + (int)Math.Round(sample * echoGain), short.MinValue, short.MaxValue);
+            wav[startByteOffset + i] = (byte)(value & 0xFF);
+            wav[startByteOffset + i + 1] = (byte)((value >> 8) & 0xFF);
         }
     }
 

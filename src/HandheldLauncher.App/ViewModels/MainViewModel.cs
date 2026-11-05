@@ -990,7 +990,9 @@ public sealed class MainViewModel : ViewModelBase
                 // subiu pro menu raiz (antes só aparecia dentro de Configurações); e
                 // "Configurações" deixou de ser uma pasta com um único item de
                 // verdade (Preferências) — agora é ação direta, economiza um clique.
-                Add("🎨 TEMAS", () => LayoutPickerRequested?.Invoke(this, EventArgs.Empty));
+                // v0.18 (pedido do usuário, 05/11): "TEMAS" (maiúsculo, plural) virou
+                // "Tema" — mais curto e consistente com o resto dos itens do menu raiz.
+                Add("🎨 Tema", () => LayoutPickerRequested?.Invoke(this, EventArgs.Empty));
                 Add("⚙ Configurações", () => SettingsRequested?.Invoke(this, EventArgs.Empty));
                 // v0.18 (pedido do usuário, 05/11): Gerenciador de armazenamento e
                 // Saúde do aparelho, direto no menu raiz junto de TEMAS/Configurações

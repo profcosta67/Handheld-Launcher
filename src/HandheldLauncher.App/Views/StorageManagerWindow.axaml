@@ -19,7 +19,7 @@
   -->
 
   <Grid RowDefinitions="*,Auto" Margin="24">
-    <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+    <ScrollViewer x:Name="ContentScroll" Grid.Row="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="14">
 
         <TextBlock Text="💾 Gerenciador de Armazenamento" FontSize="20" FontWeight="Bold" />
