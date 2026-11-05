@@ -35,6 +35,8 @@
     <PackageReference Include="Velopack" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" />
     <PackageReference Include="System.Management" />
+    <!-- v0.18: Guardião de suspensão (SystemEvents.PowerModeChanged). -->
+    <PackageReference Include="Microsoft.Win32.SystemEvents" />
   </ItemGroup>
 
   <ItemGroup>

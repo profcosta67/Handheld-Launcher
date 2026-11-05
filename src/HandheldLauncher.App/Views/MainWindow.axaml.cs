@@ -403,6 +403,17 @@ public partial class MainWindow : Window
             }
         }
 
+        // v0.18 "Guardião de suspensão": reaplica TDP/ventoinha e devolve o
+        // foco pro jogo quando o Windows acorda da suspensão (pedido do
+        // usuário, 05/11). Start() é idempotente e não faz nada fora do
+        // Windows; parado em Closed, junto dos outros timers desta janela.
+        SuspendGuardianService.Start(() =>
+        {
+            _overlayWindow?.ReapplyAfterSuspendResume();
+            Dispatcher.UIThread.Post(RestoreGameFocusAfterResume);
+        });
+        Closed += (_, _) => SuspendGuardianService.Stop();
+
         vm.AddGameRequested += (_, _) => _ = OpenAddGameDialogAsync(vm);
         vm.EditGameRequested += (_, game) => _ = OpenEditGameDialogAsync(vm, game);
         vm.LayoutPickerRequested += (_, _) => _ = OpenLayoutPickerAsync();
