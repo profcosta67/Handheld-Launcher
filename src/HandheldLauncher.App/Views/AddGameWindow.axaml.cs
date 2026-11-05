@@ -1,8 +1,10 @@
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Microsoft.Win32;
 using System.Runtime.Versioning;
+using HandheldLauncher.App.Platform;
 using HandheldLauncher.App.ViewModels;
 using HandheldLauncher.Core.Models;
 
@@ -27,7 +29,21 @@ public partial class AddGameWindow : Window
         ApplicationCheckBox.IsVisible = !isApplication;
         HandheldLauncher.App.Platform.ThemeManager.ApplyFont(this, HandheldLauncher.Core.Services.AppSettingsStore.Load().UiFont);
         DataContext = ViewModel;
+
+        // v0.17 (05/11): mesmo ajuste do EditGameWindow — tocar um TextBox
+        // aqui também abre o teclado virtual (ver SettingsWindow.axaml.cs,
+        // de onde esse padrão veio).
+        AddHandler(PointerPressedEvent, (_, e) => _lastPointerWasTouch = e.Pointer.Type != PointerType.Mouse, RoutingStrategies.Tunnel);
+        AddHandler(GotFocusEvent, (_, e) =>
+        {
+            if (e.Source is TextBox && e.NavigationMethod == NavigationMethod.Pointer && _lastPointerWasTouch)
+            {
+                TouchKeyboard.Show();
+            }
+        }, RoutingStrategies.Bubble);
     }
+
+    private bool _lastPointerWasTouch;
 
     // Construtor vazio para o Avalonia conseguir instanciar via XAML (resolve o warning AVLN3001)
     public AddGameWindow() : this(isApplication: false) { }

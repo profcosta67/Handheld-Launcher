@@ -1,4 +1,6 @@
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using HandheldLauncher.App.Platform;
 
 namespace HandheldLauncher.App.Views;
@@ -25,7 +27,24 @@ public partial class EditGameWindow : Window
 
         TitleBox.Text = currentTitle;
         IsApplicationBox.IsChecked = isApplication;
+
+        // v0.17 (05/11, bug reportado "clico na caixa do nome e o teclado
+        // não aparece"): esse diálogo só abria o teclado virtual pelo botão
+        // "⌨ Teclado" dedicado — clicar/tocar direto na caixa de texto não
+        // fazia nada, diferente de Configurações, que já tinha esse mesmo
+        // padrão (tocar um TextBox abre o teclado). Copiado de
+        // SettingsWindow.axaml.cs pra ficar consistente nos dois.
+        AddHandler(PointerPressedEvent, (_, e) => _lastPointerWasTouch = e.Pointer.Type != PointerType.Mouse, RoutingStrategies.Tunnel);
+        AddHandler(GotFocusEvent, (_, e) =>
+        {
+            if (e.Source is TextBox && e.NavigationMethod == NavigationMethod.Pointer && _lastPointerWasTouch)
+            {
+                TouchKeyboard.Show();
+            }
+        }, RoutingStrategies.Bubble);
     }
+
+    private bool _lastPointerWasTouch;
 
     /// <summary>
     /// Construtor sem parâmetros só pro carregador de XAML do Avalonia

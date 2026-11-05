@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Input;
+using HandheldLauncher.App.Platform;
 using HandheldLauncher.App.ViewModels;
 
 namespace HandheldLauncher.App.Views;
@@ -26,7 +27,21 @@ public partial class AccountsWindow : Window
         DataContext = viewModel;
         _openExternalUrl = openExternalUrl;
         Opened += (_, _) => GridDbKeyBox.Focus(NavigationMethod.Directional);
+
+        // v0.17 (05/11): mesmo ajuste do EditGameWindow/AddGameWindow —
+        // tocar um TextBox aqui também abre o teclado virtual (padrão
+        // original em SettingsWindow.axaml.cs).
+        AddHandler(PointerPressedEvent, (_, e) => _lastPointerWasTouch = e.Pointer.Type != PointerType.Mouse, RoutingStrategies.Tunnel);
+        AddHandler(GotFocusEvent, (_, e) =>
+        {
+            if (e.Source is TextBox && e.NavigationMethod == NavigationMethod.Pointer && _lastPointerWasTouch)
+            {
+                TouchKeyboard.Show();
+            }
+        }, RoutingStrategies.Bubble);
     }
+
+    private bool _lastPointerWasTouch;
 
     private SettingsViewModel ViewModel => (SettingsViewModel)DataContext!;
 
