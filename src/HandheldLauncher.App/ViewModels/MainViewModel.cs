@@ -628,6 +628,18 @@ public sealed class MainViewModel : ViewModelBase
         return desired;
     }
 
+    /// <summary>v0.18 Armazenamento: a biblioteca inteira (não só a aba de filtro aberta agora).</summary>
+    public IReadOnlyList<GameEntry> AllLibraryGames => _library.Games;
+
+    /// <summary>v0.18 Armazenamento: grava os caminhos novos de um jogo manual movido e recarrega a biblioteca.</summary>
+    public bool ApplyMovedManualGame(GameEntry game, string newExecutablePath, string? newWorkingDirectory, string? newLaunchArguments)
+    {
+        var ok = _library.UpdateManualGamePaths(game.Id, newExecutablePath, newWorkingDirectory, newLaunchArguments);
+        DebugLog.Write($"[MOVER] Atalho de '{game.Title}' {(ok ? "atualizado" : "NÃO atualizado")} → {newExecutablePath}");
+        if (ok) RebuildGamesFromLibrary();
+        return ok;
+    }
+
     public void OpenGameMenuFromDetails(GameEntry game)
     {
         var tile = Games.FirstOrDefault(t => t.Game.Id == game.Id);

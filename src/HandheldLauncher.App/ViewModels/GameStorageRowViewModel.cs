@@ -1,24 +1,30 @@
+using HandheldLauncher.Core.Models;
+
 namespace HandheldLauncher.App.ViewModels;
 
 /// <summary>
-/// v0.18 "Gerenciador de armazenamento": uma linha da lista de jogos com
-/// seu tamanho em disco. O tamanho é calculado em segundo plano (pode levar
-/// um tempo pra jogos com muitos arquivos) — a linha nasce com "Calculando…"
-/// e troca pro valor real quando terminar, sem bloquear a tela.
+/// v0.18 "Gerenciador de armazenamento": uma linha da lista de jogos.
+/// SizeText começa em "Calculando..." e é preenchido em segundo plano.
+/// v0.18 (2ª leva): selecionável pelo controle + rótulo de como mover.
 /// </summary>
 public sealed class GameStorageRowViewModel : ViewModelBase
 {
     public string Title { get; init; } = "";
     public string? InstallDirectory { get; init; }
     public string SourceLabel { get; init; } = "";
+    public GameEntry? Game { get; init; }
 
-    private string _sizeText = "Calculando…";
-    public string SizeText
-    {
-        get => _sizeText;
-        set => SetField(ref _sizeText, value);
-    }
+    /// <summary>"Mover pela Steam" / "Mover pelo launcher" / "Não move por aqui"...</summary>
+    public string MoveLabel { get; init; } = "";
 
-    /// <summary>Em bytes — só pra ordenar a lista depois de calculada; não é exibido direto.</summary>
+    /// <summary>Pasta medida/mostrada é a do .exe (jogo manual), não uma pasta de instalação de loja.</summary>
+    public bool IsExecutableFolder { get; init; }
+
     public long SizeBytes { get; set; }
+
+    private string _sizeText = "Calculando...";
+    public string SizeText { get => _sizeText; set => SetField(ref _sizeText, value); }
+
+    private bool _isSelected;
+    public bool IsSelected { get => _isSelected; set => SetField(ref _isSelected, value); }
 }

@@ -176,6 +176,14 @@ public sealed class LibraryService : ILibraryService
         Refresh();
     }
 
+    public bool UpdateManualGamePaths(string id, string executablePath, string? workingDirectory, string? launchArguments)
+    {
+        if (!_store.UpdateManualGamePaths(id, executablePath, workingDirectory, launchArguments)) return false;
+        _cachedOverrides = null;
+        Refresh();
+        return true;
+    }
+
     public void RemoveManualGame(string id)
     {
         _store.RemoveManualGame(id);

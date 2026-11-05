@@ -49,6 +49,30 @@ public sealed class GameLibraryStore : IGameLibraryStore
         Save(data);
     }
 
+    public bool UpdateManualGamePaths(string id, string executablePath, string? workingDirectory, string? launchArguments)
+    {
+        LibraryFile data;
+        try
+        {
+            data = File.Exists(_filePath)
+                ? JsonSerializer.Deserialize<LibraryFile>(File.ReadAllText(_filePath), JsonOptions) ?? new LibraryFile()
+                : new LibraryFile();
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+
+        var entry = data.ManualGames.FirstOrDefault(g => g.Id == id);
+        if (entry is null) return false;
+
+        entry.ExecutablePath = executablePath;
+        entry.WorkingDirectory = workingDirectory;
+        entry.LaunchArguments = launchArguments;
+        Save(data);
+        return true;
+    }
+
     public IReadOnlyDictionary<string, GameMetadataOverride> LoadOverrides() => Load().Overrides;
 
     public void SaveOverride(string gameId, GameMetadataOverride overrideData)

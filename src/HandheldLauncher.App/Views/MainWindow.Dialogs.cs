@@ -178,8 +178,17 @@ public partial class MainWindow : Window
     private async Task OpenStorageManagerDialogAsync(MainViewModel vm)
     {
         var dialog = new StorageManagerWindow(vm) { Topmost = true };
+        // v0.18 (mover jogo): Steam/Configurações do Windows abertas daqui não
+        // podem ficar escondidas atrás do launcher — mesmo padrão da Central de Ajuda.
+        var wasTopmost = Topmost;
+        dialog.ExternalAppOpening += () => { _topmostEnforcerTimer?.Stop(); Topmost = false; };
         _activeDialog = dialog;
-        try { await dialog.ShowDialog(this); } finally { _activeDialog = null; }
+        try { await dialog.ShowDialog(this); }
+        finally
+        {
+            _activeDialog = null;
+            if (dialog.OpenedExternalApp && IsVisible) Topmost = wasTopmost;
+        }
     }
 
     public void OpenWindowsSettings(string uri)

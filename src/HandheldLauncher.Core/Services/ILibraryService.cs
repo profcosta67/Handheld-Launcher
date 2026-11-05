@@ -17,6 +17,9 @@ public interface ILibraryService
     void AddManualGame(GameEntry game);
     void RemoveManualGame(string id);
 
+    /// <summary>v0.18: novos caminhos de um jogo manual movido de disco (ver IGameLibraryStore.UpdateManualGamePaths). Recarrega a biblioteca.</summary>
+    bool UpdateManualGamePaths(string id, string executablePath, string? workingDirectory, string? launchArguments);
+
     void SetCollection(string gameId, string? collection);
     void SetFavorite(string gameId, bool isFavorite);
     void RecordPlaySession(string gameId, TimeSpan duration);

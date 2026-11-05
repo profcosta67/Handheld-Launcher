@@ -37,6 +37,23 @@ public sealed class SteamLibraryScanner : ISteamLibraryScanner
     /// <summary>Pasta da Steam neste PC (ou null) — usada também pelo SteamAccountDetector.</summary>
     public static string? LocateSteamRoot() => FindSteamRoot();
 
+    /// <summary>v0.18: todas as bibliotecas da Steam (raiz + libraryfolders.vdf) — usado pra achar steamapps\shadercache.</summary>
+    public static IReadOnlyList<string> LocateLibraryFolders()
+    {
+        var root = FindSteamRoot();
+        if (root is null) return Array.Empty<string>();
+        var result = new List<string>();
+        try
+        {
+            foreach (var folder in GetLibraryFolders(root)) result.Add(folder);
+        }
+        catch (Exception)
+        {
+            if (result.Count == 0) result.Add(root);
+        }
+        return result;
+    }
+
     public IReadOnlyList<GameEntry> ScanInstalledGames()
     {
         var results = new List<GameEntry>();
