@@ -88,16 +88,22 @@ internal static class UiSounds
     private const double MakeupGain = 1.5;
 
     // v0.16.5 (beta.17 — relato do usuário: "o volume dos sons do botão A/B
-    // Start estão mais altos que do joystick para passar para o lado"). Os
-    // .wav originais (gerados com ffmpeg) já vieram normalizados em picos
-    // DIFERENTES por função: ~-10 dBFS nos cliques de mover e ~-4/-5 dBFS em
-    // confirmar/voltar — um design intencional dos arquivos de origem (menos
-    // "falante" num direcional repetido), mas que o usuário achou longe
-    // demais do volume dos botões. MoveGain reforça só os sons de "mover",
-    // por cima do MakeupGain geral, até ficar perto do nível de
-    // confirmar/voltar (1.8 ≈ +5 dB — sem risco de estourar, só preenche o
-    // espaço que o pico baixo de origem deixava).
-    private const double MoveRoleGain = 1.8;
+    // Start estão mais altos que do joystick para passar para o lado").
+    // v0.17 (beta.18 — usuário ainda ouvia "quase inaudível" mesmo com o
+    // 1.8 abaixo): medi os .wav de verdade (sfx-console-move/confirm/back)
+    // em vez de confiar só no pico. O pico já tinha ficado quase igualado
+    // (move -10,0 dBFS vs confirm -4,0/back -5,0 dBFS — 1.8≈+5,1dB cobria
+    // essa parte), mas o RMS (o que o ouvido percebe como "volume", não o
+    // pico instantâneo) contava outra história: move -27,0 dBFS de RMS
+    // contra -19,2/-19,8 dBFS do confirm/back — quase 8dB de diferença REAL
+    // de energia, e o clipe de mover também é bem mais curto (12ms contra
+    // 31-48ms), o que o ouvido percebe como ainda mais fraco pra uma mesma
+    // energia. 2.0 (+6dB, soma +9,5dB com o MakeupGain) é o máximo que dá
+    // pra subir sem estourar o pico em 0dBFS — fecha a maior parte da
+    // diferença de RMS sem distorcer. Pra igualar 100% ainda faltaria
+    // regravar o clipe de mover com mais sustentação (fora do escopo de um
+    // ajuste de ganho).
+    private const double MoveRoleGain = 2.0;
 
     // Respiro de silêncio antes do som quando o aparelho de áudio pode estar
     // "dormindo" (sem som há > ColdAfterMs): o driver acorda durante o silêncio
