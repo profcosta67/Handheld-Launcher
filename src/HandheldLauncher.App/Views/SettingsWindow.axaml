@@ -244,7 +244,7 @@
 
           <!-- ===== Lossless Scaling ===== -->
           <StackPanel Spacing="12" IsVisible="{Binding IsCategoryLosslessActive}">
-            <TextBlock Text="🦆 Lossless Scaling (Patinho)" FontSize="13" FontWeight="SemiBold" />
+            <TextBlock Text="🖼 Lossless Scaling" FontSize="13" FontWeight="SemiBold" />
             <TextBlock Text="O launcher usa o atalho global (Ctrl+Alt+S) para ativar o Frame Gen na janela do jogo." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
             <TextBlock Text="Caminho do LosslessScaling.exe" Classes="subtle" FontSize="12" Margin="0,8,0,0"/>
             <Grid ColumnDefinitions="*,Auto">

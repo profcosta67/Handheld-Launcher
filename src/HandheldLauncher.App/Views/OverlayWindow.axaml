@@ -202,7 +202,7 @@
                     <!-- Seção: Lossless Scaling -->
                     <Border x:Name="LosslessSection" CornerRadius="12" BorderThickness="2" BorderBrush="Transparent" Padding="10" Background="#1AFFFFFF">
                         <StackPanel Spacing="10">
-                            <TextBlock Text="🦆 Lossless Scaling" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
+                            <TextBlock Text="🖼 Lossless Scaling" Foreground="#7C5CFC" FontWeight="Bold" FontSize="14" />
                             
                             <!-- Status -->
                             <TextBlock x:Name="LsfgStatusText" 

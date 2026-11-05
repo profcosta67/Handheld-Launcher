@@ -20,7 +20,11 @@ public static class ThemeManager
     /// usar o layout Switch com qualquer paleta.
     /// </summary>
     public static readonly string[] ThemeNames =
-        ["Escuro", "Claro", "Azul", "Vermelho", "Verde", "Laranja", "Rosa", "Ciano", "Preto (OLED)", "Dourado", "Grafite"];
+        [
+            "Escuro", "Claro", "Azul", "Vermelho", "Verde", "Laranja", "Rosa", "Ciano", "Preto (OLED)", "Dourado", "Grafite",
+            // v0.17 (aprovadas pelo usuário a partir do comparativo de paletas)
+            "Meia-noite", "Crepúsculo", "Musgo", "Névoa", "Alto Contraste",
+        ];
 
     /// <summary>
     /// Temas de LAYOUT (v0.9.19) — o esqueleto da tela, não a cor. Índice
@@ -45,26 +49,46 @@ public static class ThemeManager
         // v0.16.4 (sempre acrescentar no FIM: o índice fica salvo nas configurações)
         ("Limpa (Inter)", "fonts:Inter#Inter"),
         ("Manuscrita (Ink Free)", "Ink Free"),
+        // v0.17 (aprovadas pelo usuário a partir do comparativo de fontes) —
+        // arquivos embutidos em Assets/Fonts/, OFL (ver FONTES-LICENCA.txt).
+        ("Amigável (Manrope)", "avares://HandheldLauncher/Assets/Fonts#Manrope"),
+        ("Moderninha (Outfit)", "avares://HandheldLauncher/Assets/Fonts#Outfit"),
+        ("Técnica (Space Grotesk)", "avares://HandheldLauncher/Assets/Fonts#Space Grotesk"),
+        ("Neutra (DM Sans)", "avares://HandheldLauncher/Assets/Fonts#DM Sans"),
+        ("Equilibrada (Plus Jakarta Sans)", "avares://HandheldLauncher/Assets/Fonts#Plus Jakarta Sans"),
+        ("Gamer 2 (Chakra Petch)", "avares://HandheldLauncher/Assets/Fonts#Chakra Petch"),
+        ("Angulosa (Rajdhani)", "avares://HandheldLauncher/Assets/Fonts#Rajdhani"),
+        ("Arredondada (Nunito)", "avares://HandheldLauncher/Assets/Fonts#Nunito"),
+        ("Bolha (Fredoka)", "avares://HandheldLauncher/Assets/Fonts#Fredoka"),
     ];
 
     public const int FontModerna = 0, FontDivertida = 1, FontGamer = 3, FontLimpa = 9;
+
+    // v0.17 — índices das fontes novas, usados nas sugestões de layout abaixo.
+    public const int FontManrope = 11, FontOutfit = 12, FontSpaceGrotesk = 13, FontDmSans = 14,
+        FontPlusJakarta = 15, FontChakraPetch2 = 16, FontRajdhani = 17, FontNunito = 18, FontFredoka2 = 19;
 
     /// <summary>
     /// v0.16.4 (pedido do usuário): cada layout tem um som e uma fonte que
     /// combinam. Aplicado só quando o layout é TROCADO (Configurações → Layout
     /// da tela); depois o usuário muda o que quiser em Preferências.
-    /// Cartoon (Bolha + Divertida) fica reservado pro tema futuro.
+    /// v0.17 (aprovado pelo usuário): trocadas pelas sugestões do comparativo —
+    /// Plus Jakarta Sans/Manrope/Chakra Petch combinam melhor com cada layout
+    /// que as fontes de sistema usadas antes.
     /// </summary>
     public static (int Font, int Sound) LayoutDefaults(int layoutTheme) => layoutTheme switch
     {
-        0 => (FontModerna, 1), // Clássico → Segoe UI + Toque
-        1 => (FontLimpa, 3),   // Clean     → Inter + Mecânico
-        2 => (FontGamer, 0),   // Moderno (BigScreen) → Bahnschrift + Console
+        0 => (FontPlusJakarta, 1),   // Clássico → Plus Jakarta Sans + Toque
+        1 => (FontManrope, 3),       // Clean     → Manrope + Mecânico
+        2 => (FontChakraPetch2, 0),  // Moderno (BigScreen) → Chakra Petch + Console
         _ => (FontModerna, 0),
     };
 
-    /// <summary>Reservado pro futuro tema Cartoon: Comic Sans + Bolha.</summary>
-    public static readonly (int Font, int Sound) CartoonDefaults = (FontDivertida, 2);
+    /// <summary>
+    /// Reservado pro futuro tema Cartoon. v0.17: trocado de Comic Sans pra
+    /// Fredoka (aprovado — a sugestão do comparativo pro layout Cartoon).
+    /// </summary>
+    public static readonly (int Font, int Sound) CartoonDefaults = (FontFredoka2, 2);
 
     public static readonly string[] FontSizeNames = ["Pequeno", "Médio", "Grande"];
 
@@ -105,6 +129,18 @@ public static class ThemeManager
             app.Resources["ControlContentThemeFontSize"] = bodySize;
             app.Resources["BodyFontSize"] = bodySize;
             app.Resources["FontSizeNormal"] = baseSize;
+
+            // v0.17 — escala de tipografia nova (ver Theme.axaml): reescala
+            // junto pelo mesmo fator, pra qualquer Setter já migrado pra
+            // TypeScaleN continuar respeitando Pequeno/Médio/Grande.
+            app.Resources["TypeScale1"] = Math.Round(11 * scale);
+            app.Resources["TypeScale2"] = Math.Round(12 * scale);
+            app.Resources["TypeScale3"] = Math.Round(14 * scale);
+            app.Resources["TypeScale4"] = Math.Round(16 * scale);
+            app.Resources["TypeScale5"] = Math.Round(18 * scale);
+            app.Resources["TypeScale6"] = Math.Round(22 * scale);
+            app.Resources["TypeScale7"] = Math.Round(30 * scale);
+            app.Resources["TypeScale8"] = Math.Round(36 * scale);
         }
         catch
         {
@@ -144,6 +180,17 @@ public static class ThemeManager
         new("#0E0C08", "#1A160E", "#262015", "#E5B33E", "#9C7A27", "#FFF8E6", "#B3A584", false),
         // Grafite
         new("#1A1A1A", "#242424", "#2E2E2E", "#E4423F", "#A32E2C", "#FFFFFF", "#ACACAC", false, TileRadius: 10, BarRadius: 10),
+        // v0.17 (aprovadas pelo usuário a partir do comparativo de paletas)
+        // Meia-noite
+        new("#0A0E1A", "#111830", "#1A2347", "#6C8CFF", "#4A63C9", "#EDF1FF", "#9AA6CF", false),
+        // Crepúsculo
+        new("#120D1C", "#1B1428", "#271D3A", "#FF7A59", "#C25A3F", "#FFF3EE", "#B7A5C4", false),
+        // Musgo
+        new("#0E130F", "#151C16", "#1E281F", "#A3E635", "#6FA01F", "#F3F8EC", "#9DAA93", false),
+        // Névoa
+        new("#E9EDF2", "#FFFFFF", "#DDE3EB", "#0F6CBD", "#9CC4E8", "#101820", "#4F5B6B", true),
+        // Alto Contraste
+        new("#000000", "#0D0D0D", "#1A1A1A", "#FFD400", "#8F7700", "#FFFFFF", "#C8C8C8", false, TileRadius: 6, BarRadius: 6),
     ];
 
     public static void ApplyFont(Avalonia.Controls.Window window, int uiFont)

@@ -52,6 +52,34 @@
       <CornerRadius x:Key="PillCornerRadius">999</CornerRadius>
       <CornerRadius x:Key="BarCornerRadius">18</CornerRadius>
 
+      <!-- v0.17 — escala de tipografia (8 passos) e de raio (5 passos) do
+           docs/design-audit.md, aprovadas pelo usuário. Isto é a INFRAESTRUTURA
+           da escala: os valores abaixo são os mesmos ~19 tamanhos de fonte e
+           ~13 raios que já existem espalhados pelas telas hoje, só que agora
+           com nome — nenhuma tela muda de aparência só por isto existir. A
+           troca de cada Setter hardcoded (FontSize="11", CornerRadius="12"...)
+           pra um destes tokens é o trabalho de migração tela-a-tela descrito
+           no design-audit (ordem: infraestrutura → telas maiores → menores,
+           testando no device a cada tela, antes de seguir pra próxima).
+           ThemeManager.ApplyFontSize reescala os 8 TypeScaleN pelo mesmo
+           fator de "Pequeno/Médio/Grande" que já reescala os FontSizeXxx
+           acima, então qualquer Setter migrado pra TypeScaleN já funciona
+           com Configurações → Tamanho do texto sem mudança adicional. -->
+      <x:Double x:Key="TypeScale1">11</x:Double>  <!-- legenda / rodapé -->
+      <x:Double x:Key="TypeScale2">12</x:Double>  <!-- texto secundário pequeno -->
+      <x:Double x:Key="TypeScale3">14</x:Double>  <!-- corpo padrão -->
+      <x:Double x:Key="TypeScale4">16</x:Double>  <!-- corpo destacado -->
+      <x:Double x:Key="TypeScale5">18</x:Double>  <!-- subtítulo -->
+      <x:Double x:Key="TypeScale6">22</x:Double>  <!-- cabeçalho de menu -->
+      <x:Double x:Key="TypeScale7">30</x:Double>  <!-- título -->
+      <x:Double x:Key="TypeScale8">36</x:Double>  <!-- título grande / hero -->
+
+      <CornerRadius x:Key="RadiusScale1">4</CornerRadius>   <!-- chip / tag -->
+      <CornerRadius x:Key="RadiusScale2">8</CornerRadius>   <!-- botão pequeno -->
+      <CornerRadius x:Key="RadiusScale3">12</CornerRadius>  <!-- card padrão -->
+      <CornerRadius x:Key="RadiusScale4">16</CornerRadius>  <!-- tile / painel -->
+      <CornerRadius x:Key="RadiusScale5">24</CornerRadius>  <!-- hero / destaque -->
+
     </ResourceDictionary>
   </Styles.Resources>
 

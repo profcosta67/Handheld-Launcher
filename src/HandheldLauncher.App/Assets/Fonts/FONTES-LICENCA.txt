@@ -1,0 +1,27 @@
+Fontes embutidas no Handheld Launcher (v0.17)
+===============================================
+
+Todas sob a SIL Open Font License 1.1 (OFL), que permite uso, redistribuição
+e modificação livres, inclusive embutidas num aplicativo. Texto completo:
+https://openfontlicense.org
+
+Fontes do sistema (Comic Sans MS, Georgia, Bahnschrift, Consolas, Arial,
+Times New Roman, Verdana, Trebuchet MS, Ink Free, Segoe UI) continuam vindo
+do próprio Windows — nenhum arquivo delas é distribuído aqui.
+
+Fontes embutidas (arquivos .ttf nesta pasta), geradas a partir das fontes
+variáveis oficiais do Google Fonts (repositório google/fonts, branch main),
+instanciadas nos pesos Regular/Bold com o fontTools (varLib.instancer):
+
+- Manrope — The Manrope Project Authors
+- Outfit — Rodrigo Fuenzalida
+- Space Grotesk — Florian Karsten
+- DM Sans — Colophon Foundry / Jonny Pinhorn
+- Plus Jakarta Sans — Tokotype
+- Chakra Petch — Cadson Demak
+- Rajdhani — Indian Type Foundry
+- Nunito — Vernon Adams, Cyreal, Jacques Le Bailly
+- Fredoka — Milena Brandão
+
+(Avalonia.Fonts.Inter cobre a Inter, já usada desde a v0.16.4 — não precisa
+arquivo aqui, vem via pacote NuGet.)

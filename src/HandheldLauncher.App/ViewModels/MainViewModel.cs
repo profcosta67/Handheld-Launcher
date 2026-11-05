@@ -958,7 +958,7 @@ public sealed class MainViewModel : ViewModelBase
 
             case GlobalMenuPage.Help:
                 GlobalMenuTitle = "Ajuda";
-                Add("🩺 Central de Ajuda", () => HelpCenterRequested?.Invoke(this, EventArgs.Empty));
+                Add("🛟 Central de Ajuda", () => HelpCenterRequested?.Invoke(this, EventArgs.Empty));
                 Add("⌨ Atalhos", OpenShortcutsHelp);
                 Add("ℹ Sobre", OpenAbout);
                 break;
@@ -979,7 +979,7 @@ public sealed class MainViewModel : ViewModelBase
                 if (RunningGame is not null) Add("⏹ Fechar o jogo", CloseRunningGame);
                 Folder("📚 Biblioteca", GlobalMenuPage.Library); Folder("📊 HUD", GlobalMenuPage.Hud);
                 Folder("⚙ Configurações", GlobalMenuPage.Settings); Folder("🔄 Atualizações", GlobalMenuPage.Updates);
-                Folder("🩺 Ajuda", GlobalMenuPage.Help); Folder("⚡ Energia", GlobalMenuPage.Power);
+                Folder("🛟 Ajuda", GlobalMenuPage.Help); Folder("⚡ Energia", GlobalMenuPage.Power);
                 break;
         }
         GlobalMenuHint = _globalMenuPage switch

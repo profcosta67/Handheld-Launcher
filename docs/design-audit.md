@@ -81,4 +81,50 @@ símbolos diferentes**. Problemas:
 só onde o ícone ajuda a entender ou a escanear rápido no controle (menu
 global, abas de Configurações, estados ligado/desligado, ações destrutivas).
 Texto sozinho nos itens onde o ícone de hoje só decora sem ajudar. Faz parte
-da mesma varredura tela a tela da seção anterior.
+da mesma varredura tela a tela da seção anterior — a troca pra um conjunto de
+linha único ainda não começou (pede escolher a biblioteca e trocar emoji por
+SVG em cada tela, uma de cada vez).
+
+## v0.17 — implementado nesta leva
+
+Aprovado pelo usuário e feito nesta branch, de uma vez (não tela a tela, por
+serem mudanças aditivas/isoladas, não uma reescrita de telas existentes):
+
+- **5 paletas novas** em `ThemeManager.Palettes`/`ThemeNames`: Meia-noite,
+  Crepúsculo, Musgo, Névoa e Alto Contraste — hex exatos do comparativo
+  publicado. `TextOnAccent` já decide automaticamente a cor do texto sobre o
+  destaque de cada uma (checado nas 16 paletas: nenhuma ficou abaixo de 4:1).
+- **9 fontes novas** embutidas em `Assets/Fonts/` (Manrope, Outfit, Space
+  Grotesk, DM Sans, Plus Jakarta Sans, Chakra Petch, Rajdhani, Nunito,
+  Fredoka) — baixadas do google/fonts, instanciadas Regular/Bold com
+  `fontTools` (a versão variável original resolvia peso errado, ex. "Manrope
+  ExtraLight"), licença OFL documentada em `Assets/Fonts/FONTES-LICENCA.txt`.
+- **Sugestões de layout atualizadas**: Clássico → Plus Jakarta Sans, Clean →
+  Manrope, BigScreen → Chakra Petch, Cartoon (reservado) → Fredoka (antes
+  Segoe UI/Inter/Bahnschrith/Comic Sans). Só afeta quem troca de layout a
+  partir de agora; quem já escolheu fonte em Preferências não é alterado.
+- **Infraestrutura das escalas**: os 8 degraus de letra e os 5 de borda da
+  seção "Proposta de sistema" acima agora existem como recursos nomeados
+  (`TypeScale1..8`, `RadiusScale1..5`) em `Theme.axaml`, e os de letra já
+  reescalam com Pequeno/Médio/Grande (`ThemeManager.ApplyFontSize`). Isto é só
+  a base: nenhuma tela foi migrada pra usar essas chaves ainda — os ~350
+  valores soltos (cor, fonte, tamanho, raio) continuam onde estavam, e trocar
+  cada um é o trabalho tela-a-tela da seção "Ordem de migração", ainda não
+  iniciado.
+- **Ícones "superficiais" corrigidos**: 🦆 (Lossless Scaling, resquício do
+  apelido interno "Patinho") trocado por 🖼 em `SettingsWindow.axaml`,
+  `OverlayWindow.axaml` e no comentário de `SettingsViewModel.cs`; 🩺 (usado
+  em "Central de Ajuda" sem relação clara com estetoscópio) trocado por 🛟 em
+  `MainViewModel.cs` e `HelpCenterWindow.axaml` — mantido só em "Verificações"
+  (diagnóstico, onde o estetoscópio faz sentido).
+- **Levantamento estático de botões clicáveis**: busca em todos os `.axaml`
+  por `Button`/`ToggleButton` sem `Click`, `Command` ou `IsChecked` — e,
+  quando wireado via `x:Name` no code-behind em vez do atributo, confirmado
+  manualmente lá. Nenhum botão sem ligação foi encontrado nesta passada
+  (Conectividade, filtros de biblioteca, download de artwork, atalhos,
+  toggle do Lossless Scaling — todos checados). **Limite importante**: isto é
+  só uma varredura de CÓDIGO (o quê está ligado a quê) — não é uma inspeção
+  visual. Alinhamento, botão cortado, texto vazando ou sobreposição entre
+  temas só aparecem olhando o aparelho de verdade; sem acesso a tela do
+  Windows/Avalonia daqui, essa parte da checagem depende de screenshots do
+  usuário (ideal: uma foto por tema/layout depois do próximo beta).

@@ -357,7 +357,7 @@ public sealed class SettingsViewModel : ViewModelBase
     private string _keyLaunchGame = "Enter";
     public string KeyLaunchGame { get => _keyLaunchGame; set => SetField(ref _keyLaunchGame, value); }
 
-    // 🦆 Caminho do Lossless Scaling
+    // Caminho do Lossless Scaling
     private string _losslessScalingPath = string.Empty;
     public string LosslessScalingPath
     {
