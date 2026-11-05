@@ -288,7 +288,14 @@ public partial class OverlayWindow : Window
     private void StartTopmostEnforcer()
     {
         if (_topmostEnforcer != null) return;
-        _topmostEnforcer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1000) };
+        // v0.17: era 1000ms. O log do usuário (05/11) confirmou que o Xbox
+        // Game Bar / XBOX app (janelas cheias por cima do jogo) empurra o
+        // overlay pro centro enquanto ele está visível, e o vigia já
+        // devolvia pra direita — só que esperando até 1s pra reagir, tempo
+        // suficiente pro usuário ver o "flash" centralizado. Com 120ms a
+        // correção fica praticamente instantânea (ForceTopmost é só um
+        // SetWindowPos barato, sem custo perceptível em rodar mais vezes).
+        _topmostEnforcer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(120) };
         _topmostEnforcer.Tick += (_, _) => { ForceTopmost(); GuardPosition(); };
         _topmostEnforcer.Start();
     }
