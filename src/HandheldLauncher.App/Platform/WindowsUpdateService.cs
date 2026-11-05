@@ -8,14 +8,24 @@ namespace HandheldLauncher.App.Platform;
 
 public class WindowsUpdateService
 {
-    // HRESULTs transitórios (boot, rede subindo, serviço parado)
+    // v0.16.3: o critério antigo "IsInstalled=0 and (Type='Software' or Type='Driver')"
+    // é INVÁLIDO pro Windows Update — o OR só pode ficar no nível de cima
+    // ("(x and y) or (z)"), nunca dentro de um AND. Toda busca dava
+    // 0x80240032 (WU_E_INVALID_CRITERIA) e a lista voltava vazia.
+    // IsHidden=0: não mostrar o que o usuário ocultou no Windows.
+    private const string SearchCriteria =
+        "(IsInstalled=0 and IsHidden=0 and Type='Software') or (IsInstalled=0 and IsHidden=0 and Type='Driver')";
+
+    // Critério inválido é bug, não erro transitório — não adianta tentar de novo.
     private const int WU_E_INVALID_CRITERIA = unchecked((int)0x80240032);
+
+    // HRESULTs transitórios (boot, rede subindo, serviço parado)
     private const int WU_E_SERVICE_STOP     = unchecked((int)0x8024002E);
     private const int WU_E_PT_WINHTTP_NOT_RESOLVED = unchecked((int)0x8024402C);
     private const int WU_E_NOT_READY        = unchecked((int)0x80240438);
 
     private static bool IsTransient(int hr) =>
-        hr == WU_E_INVALID_CRITERIA || hr == WU_E_SERVICE_STOP
+        hr == WU_E_SERVICE_STOP
         || hr == WU_E_PT_WINHTTP_NOT_RESOLVED || hr == WU_E_NOT_READY;
 
     public async Task<List<SystemUpdateItem>> SearchForUpdatesAsync()
@@ -49,7 +59,7 @@ public class WindowsUpdateService
                 Type updateSessionType = Type.GetTypeFromProgID("Microsoft.Update.Session")!;
                 dynamic updateSession = Activator.CreateInstance(updateSessionType)!;
                 dynamic updateSearcher = updateSession.CreateUpdateSearcher();
-                dynamic searchResult = updateSearcher.Search("IsInstalled=0 and (Type='Software' or Type='Driver')");
+                dynamic searchResult = updateSearcher.Search(SearchCriteria);
                 foreach (var update in searchResult.Updates)
                 {
                     items.Add(new SystemUpdateItem
@@ -59,12 +69,15 @@ public class WindowsUpdateService
                         StatusText = "Disponível"
                     });
                 }
+                DebugLog.Write($"[WindowsUpdate] Busca ok: {items.Count} atualização(ões) disponível(is).");
                 return (true, false, items);
             }
             catch (Exception ex)
             {
                 int hr = ex.HResult;
                 bool transient = IsTransient(hr);
+                if (hr == WU_E_INVALID_CRITERIA)
+                    DebugLog.Write("[WindowsUpdate] Critério de busca inválido (bug do launcher).");
                 DebugLog.Write($"[WindowsUpdate] Tentativa falhou (HR=0x{hr:X8}, transitório={transient}): {ex.Message}");
                 return (false, transient, items);
             }
@@ -81,7 +94,7 @@ public class WindowsUpdateService
                 Type updateSessionType = Type.GetTypeFromProgID("Microsoft.Update.Session")!;
                 dynamic updateSession = Activator.CreateInstance(updateSessionType)!;
                 dynamic updateSearcher = updateSession.CreateUpdateSearcher();
-                dynamic searchResult = updateSearcher.Search("IsInstalled=0 and (Type='Software' or Type='Driver')");
+                dynamic searchResult = updateSearcher.Search(SearchCriteria);
 
                 Type updateCollType = Type.GetTypeFromProgID("Microsoft.Update.UpdateColl")!;
                 dynamic updateColl = Activator.CreateInstance(updateCollType)!;
