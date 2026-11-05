@@ -105,7 +105,12 @@ public class WindowsUpdateService
                         updateColl.Add(update);
                 }
 
-                if (updateColl.Count == 0) return false;
+                if (updateColl.Count == 0)
+                {
+                    DebugLog.Write("[WindowsUpdate] Nada pra instalar (os itens escolhidos não estão mais na busca).");
+                    return false;
+                }
+                DebugLog.Write($"[WindowsUpdate] Baixando e instalando {updateColl.Count} item(ns)...");
 
                 onProgress?.Invoke(0, "Baixando atualizações e drivers...");
                 dynamic downloader = updateSession.CreateUpdateDownloader();
@@ -118,6 +123,26 @@ public class WindowsUpdateService
                 dynamic installResult = installer.Install();
 
                 bool rebootRequired = installResult.RebootRequired;
+
+                // v0.16.3: registrar o resultado de cada item. Códigos do
+                // Windows Update: 2 = ok, 3 = ok com erros, 4 = falhou, 5 = abortado.
+                int overall = installResult.ResultCode;
+                DebugLog.Write($"[WindowsUpdate] Instalação terminou: resultado={overall}, reinício necessário={rebootRequired}, itens={updateColl.Count}.");
+                for (int i = 0; i < updateColl.Count; i++)
+                {
+                    try
+                    {
+                        dynamic r = installResult.GetUpdateResult(i);
+                        string title = updateColl.Item(i).Title;
+                        int code = r.ResultCode;
+                        int hr = r.HResult;
+                        DebugLog.Write($"[WindowsUpdate]   '{title}': resultado={code}, hr=0x{hr:X8}");
+                    }
+                    catch (Exception itemEx)
+                    {
+                        DebugLog.Write($"[WindowsUpdate]   item {i}: não consegui ler o resultado ({itemEx.Message})");
+                    }
+                }
                 onProgress?.Invoke(100, rebootRequired
                     ? "Concluído! Reinicie o aparelho para finalizar."
                     : "Concluído! Tudo instalado.");
