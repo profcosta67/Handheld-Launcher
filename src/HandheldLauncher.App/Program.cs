@@ -90,6 +90,7 @@ internal static class Program
 
         if (!SingleInstance.TryAcquire())
         {
+            HandheldLauncher.App.Diagnostics.DebugLog.Write("[STARTUP] Já existe um launcher aberto — esta abertura só avisou a janela existente e saiu.");
             SingleInstance.NotifyExistingInstance();
             return;
         }

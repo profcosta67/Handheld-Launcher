@@ -26,6 +26,11 @@ public sealed class UpdateService
     public const string RepoUrl = "https://github.com/profcosta67/Handheld-Launcher";
 
     private readonly UpdateManager? _manager;
+    // v0.16.5: no canal beta, segundo gerenciador olhando o canal oficial — o
+    // canal beta só enxergava releases.beta.json e deixava quem estava nele
+    // preso numa beta mesmo com a estável (mais nova) já publicada.
+    private readonly UpdateManager? _stableManager;
+    private UpdateManager? _pendingManager;
     private UpdateInfo? _pending;
 
     /// <summary>
@@ -52,6 +57,18 @@ public sealed class UpdateService
             {
                 var options = new UpdateOptions { ExplicitChannel = "beta", AllowVersionDowngrade = true };
                 _manager = new UpdateManager(new GithubSource(RepoUrl, null, prerelease: true), options);
+                try
+                {
+                    // Canal "win" = o oficial (releases.win.json). Sem downgrade:
+                    // só oferece a estável se ela for MAIS NOVA que a instalada.
+                    _stableManager = new UpdateManager(
+                        new GithubSource(RepoUrl, null, prerelease: false),
+                        new UpdateOptions { ExplicitChannel = "win" });
+                }
+                catch (Exception ex)
+                {
+                    DebugLog.Swallowed(ex);
+                }
             }
             else
             {
@@ -135,14 +152,33 @@ public sealed class UpdateService
         try
         {
             var info = await _manager.CheckForUpdatesAsync();
+            var manager = _manager;
+
+            // Canal beta: "o mais recente vale", seja beta ou oficial.
+            if (_stableManager is not null)
+            {
+                UpdateInfo? stableInfo = null;
+                try { stableInfo = await _stableManager.CheckForUpdatesAsync(); }
+                catch (Exception ex) { DebugLog.Write($"[UPDATE] Canal oficial (a partir do beta): {ex.GetType().Name}: {ex.Message}"); }
+
+                if (stableInfo is not null && (info is null || IsNewer(stableInfo, info)))
+                {
+                    DebugLog.Write($"[UPDATE] Canal beta: a versão oficial {stableInfo.TargetFullRelease.Version} é a mais recente"
+                        + (info is null ? "." : $" (a beta mais nova é {info.TargetFullRelease.Version})."));
+                    info = stableInfo;
+                    manager = _stableManager;
+                }
+            }
+
             if (info is null)
             {
                 RecordCheck("nenhuma versão nova", ok: true);
                 return null;
             }
 
-            await _manager.DownloadUpdatesAsync(info);
+            await manager.DownloadUpdatesAsync(info);
             _pending = info;
+            _pendingManager = manager;
             RecordCheck($"versão {PendingVersionText} baixada, pronta pra instalar", ok: true);
             return PendingVersionText;
         }
@@ -163,6 +199,22 @@ public sealed class UpdateService
     public static LastCheckInfo? LastCheck { get; private set; }
 
     public sealed record LastCheckInfo(DateTime AtLocal, string Result, bool Ok);
+
+    /// <summary>True se <paramref name="candidate"/> é uma versão maior que <paramref name="current"/>.</summary>
+    private static bool IsNewer(UpdateInfo candidate, UpdateInfo current)
+    {
+        try
+        {
+            var a = (IComparable)candidate.TargetFullRelease.Version;
+            return a.CompareTo(current.TargetFullRelease.Version) > 0;
+        }
+        catch (Exception ex)
+        {
+            // Sem como comparar, fica com a oficial (a mais segura).
+            DebugLog.Swallowed(ex);
+            return true;
+        }
+    }
 
     private static void RecordCheck(string result, bool ok)
     {
@@ -189,8 +241,9 @@ public sealed class UpdateService
     /// </summary>
     public void ApplyAndRestart()
     {
-        if (_manager is null || _pending is null) return;
-        _manager.WaitExitThenApplyUpdates(_pending, silent: true, restart: true);
+        var manager = _pendingManager ?? _manager;
+        if (manager is null || _pending is null) return;
+        manager.WaitExitThenApplyUpdates(_pending, silent: true, restart: true);
         Environment.Exit(0);
     }
 }

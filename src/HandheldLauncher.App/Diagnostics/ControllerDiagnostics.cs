@@ -33,6 +33,13 @@ internal static class ControllerDiagnostics
 {
     private const string LenovoVid = "VID_17EF";
     private static int _recoveryAttempted;
+
+    // v0.16.5: o auto-wake do Legion Space passa a ser repetido enquanto o
+    // controle seguir travado (até MaxWakeAttempts vezes, com intervalo).
+    private const int MaxWakeAttempts = 3;
+    private static readonly TimeSpan WakeRetryGap = TimeSpan.FromSeconds(75);
+    private static int _wakeAttempts;
+    private static DateTime _lastWakeAtUtc = DateTime.MinValue;
     private static readonly TimeSpan StartupDelay = TimeSpan.FromSeconds(8);
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan MinGapBetweenSnapshots = TimeSpan.FromSeconds(30);
@@ -78,7 +85,7 @@ internal static class ControllerDiagnostics
             // O que resolveu foi abrir o Legion Space. Próximo beta: detectar
             // "controle da Lenovo só no slot ≥ 1 ao ligar" e abrir o Legion
             // Space. TryRecoverLenovoController fica pro diagnóstico.
-            if (last.Length > 0 && !last.Split(',').Contains("0"))
+            if (NeedsWake(last))
             {
                 DebugLog.Write($"[CONTROLE-DIAG] Atenção: controle só no slot [{last}], nada no slot 0 — padrão do boot ruim do Legion (controle não responde).");
                 // v0.16.4: no teste de 05/11 o que destravou foi abrir o Legion
@@ -86,11 +93,29 @@ internal static class ControllerDiagnostics
                 // ele ainda não estiver aberto.
                 last = TryWakeControllerWithLegionSpace(last) ?? last;
             }
+            else
+            {
+                // v0.16.5: antes, quando nada precisava ser feito, o log ficava
+                // mudo — impossível distinguir "não precisou" de "não rodou".
+                DebugLog.Write(last.Length == 0
+                    ? "[CONTROLE-DIAG] Nenhum controle no XInput na abertura — a recuperação automática só age quando o controle aparece fora do slot 0."
+                    : $"[CONTROLE-DIAG] Slot 0 presente (slots [{last}]) — controle normal, nada a recuperar.");
+            }
 
             while (snapshots < MaxSnapshotsPerSession)
             {
                 Thread.Sleep(PollInterval);
                 var now = ConnectedSlots();
+
+                // v0.16.5: o travamento pode aparecer DEPOIS dos 8 s iniciais, ou a
+                // primeira tentativa pode não ter bastado — tenta de novo, com
+                // intervalo e limite.
+                if (NeedsWake(now) && _wakeAttempts < MaxWakeAttempts && DateTime.UtcNow - _lastWakeAtUtc >= WakeRetryGap)
+                {
+                    DebugLog.Write($"[CONTROLE-RECUPERAR] Controle ainda só no slot [{now}] — nova tentativa ({_wakeAttempts + 1}/{MaxWakeAttempts}).");
+                    now = TryWakeControllerWithLegionSpace(now) ?? now;
+                }
+
                 if (now == last) continue;
 
                 DebugLog.Write($"[CONTROLE-DIAG] Slots XInput mudaram: [{last}] → [{now}]");
@@ -107,6 +132,9 @@ internal static class ControllerDiagnostics
             DebugLog.Write($"[CONTROLE-DIAG] Monitor parou: {ex.Message}");
         }
     }
+
+    /// <summary>Há controle no XInput, mas nenhum no slot 0 (o padrão do boot ruim do Legion).</summary>
+    private static bool NeedsWake(string slots) => slots.Length > 0 && !slots.Split(',').Contains("0");
 
     private static readonly System.Text.RegularExpressions.Regex LenovoUsbInstance =
         new(@"USB\\VID_17EF&PID_[0-9A-Fa-f]{4}[^\s|]*", System.Text.RegularExpressions.RegexOptions.Compiled);
@@ -199,6 +227,8 @@ internal static class ControllerDiagnostics
     /// </summary>
     internal static string? TryWakeControllerWithLegionSpace(string slotsBefore)
     {
+        _wakeAttempts++;
+        _lastWakeAtUtc = DateTime.UtcNow;
         try
         {
             if (LenovoDeviceBlocks("/enum-devices /connected").Count == 0)
@@ -208,7 +238,7 @@ internal static class ControllerDiagnostics
             }
             if (Process.GetProcessesByName("LegionSpace").Length > 0)
             {
-                DebugLog.Write("[CONTROLE-RECUPERAR] O Legion Space já está aberto — não abro de novo.");
+                DebugLog.Write($"[CONTROLE-RECUPERAR] O Legion Space já está aberto — não abro de novo (controle só no slot [{slotsBefore}]).");
                 return null;
             }
 
@@ -231,11 +261,13 @@ internal static class ControllerDiagnostics
                 if (slots.Split(',').Contains("0"))
                 {
                     DebugLog.Write($"[CONTROLE-RECUPERAR] Controle destravado {i + 1}s depois de abrir o Legion Space (slots [{slots}]).");
+                    LogWindowsDeviceEvents("depois de abrir o Legion Space", 3);
                     return slots;
                 }
             }
             var after = ConnectedSlots();
             DebugLog.Write($"[CONTROLE-RECUPERAR] Abri o Legion Space, mas o controle continua só em [{after}] depois de 30s.");
+            LogWindowsDeviceEvents("depois de abrir o Legion Space", 3);
             return after;
         }
         catch (Exception ex)
@@ -302,12 +334,120 @@ internal static class ControllerDiagnostics
             foreach (var block in problems)
                 DebugLog.Write($"[CONTROLE-DIAG] Dispositivo Lenovo COM PROBLEMA: {block}");
 
+            LogWindowsDeviceEvents("últimos 30 min", 30);
             DebugLog.Write("[CONTROLE-DIAG] ===== fim do retrato =====");
         }
         catch (Exception ex)
         {
             DebugLog.Write($"[CONTROLE-DIAG] Falha ao tirar o retrato: {ex.Message}");
         }
+    }
+
+    private static void LogWindowsDeviceEvents(string label, int minutes)
+    {
+        try
+        {
+            var lines = WindowsDeviceEvents(minutes);
+            if (lines.Count == 0)
+            {
+                DebugLog.Write($"[CONTROLE-EVENTOS] ({label}) nenhum evento do Windows sobre o dispositivo da Lenovo.");
+                return;
+            }
+            foreach (var line in lines) DebugLog.Write($"[CONTROLE-EVENTOS] ({label}) {line}");
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Swallowed(ex);
+        }
+    }
+
+    /// <summary>
+    /// Eventos recentes do Windows que citam o dispositivo da Lenovo (VID_17EF):
+    /// Kernel-PnP (configuração e gerenciamento) e DriverFrameworks-UserMode.
+    /// Serve pra comparar o que muda quando o Legion Space destrava o controle.
+    /// Até 60 linhas; vazio se não houver (ou se o log do Windows estiver desligado).
+    /// </summary>
+    internal static List<string> WindowsDeviceEvents(int minutes)
+    {
+        var lines = new List<string>();
+        if (!OperatingSystem.IsWindows()) return lines;
+        try
+        {
+            const string template = """
+                $since = (Get-Date).AddMinutes(-__MIN__)
+                foreach ($log in 'Microsoft-Windows-Kernel-PnP/Configuration','Microsoft-Windows-Kernel-PnP/Device Management','Microsoft-Windows-DriverFrameworks-UserMode/Operational') {
+                  $cfg = Get-WinEvent -ListLog $log -ErrorAction SilentlyContinue
+                  if (-not $cfg) { "$log: não existe neste Windows"; continue }
+                  if (-not $cfg.IsEnabled) { "$log: desligado no Windows"; continue }
+                  Get-WinEvent -FilterHashtable @{LogName=$log; StartTime=$since} -ErrorAction SilentlyContinue |
+                    Where-Object { $_.Message -match 'VID_17EF' } |
+                    Sort-Object TimeCreated | Select-Object -First 25 |
+                    ForEach-Object { '{0:HH:mm:ss} {1} id={2} {3}' -f $_.TimeCreated, ($log -replace 'Microsoft-Windows-',''), $_.Id, (($_.Message -replace '\s+',' ').Trim()) }
+                }
+                """;
+            var script = template.Replace("__MIN__", minutes.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            var encoded = Convert.ToBase64String(Encoding.Unicode.GetBytes(script));
+            var psi = new ProcessStartInfo("powershell.exe", $"-NoProfile -NonInteractive -EncodedCommand {encoded}")
+            {
+                CreateNoWindow = true,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                StandardOutputEncoding = Encoding.UTF8,
+            };
+            using var process = Process.Start(psi);
+            if (process is null) return lines;
+            var stdout = process.StandardOutput.ReadToEndAsync();
+            _ = process.StandardError.ReadToEndAsync();
+            if (!process.WaitForExit(25_000))
+            {
+                try { process.Kill(); } catch (Exception swallowedEx) { DebugLog.Swallowed(swallowedEx); }
+                lines.Add("(consulta aos eventos do Windows passou de 25s — ignorada)");
+                return lines;
+            }
+            foreach (var raw in stdout.Result.Replace("\r\n", "\n").Split('\n'))
+            {
+                var line = raw.Trim();
+                if (line.Length == 0) continue;
+                lines.Add(line.Length > 320 ? line[..320] + "…" : line);
+                if (lines.Count >= 60) break;
+            }
+        }
+        catch (Exception ex)
+        {
+            lines.Add($"(não consegui consultar os eventos do Windows: {ex.Message})");
+        }
+        return lines;
+    }
+
+    /// <summary>
+    /// Retrato do controle AGORA, em texto, pro relatório de problema: slots do
+    /// XInput, processos da Lenovo, dispositivos conectados/com problema e
+    /// eventos recentes do Windows. Se o relatório for gerado enquanto o
+    /// controle está travado (antes de abrir o Legion Space), este é o retrato
+    /// do estado ruim.
+    /// </summary>
+    internal static string DescribeNow()
+    {
+        var sb = new StringBuilder();
+        try
+        {
+            sb.AppendLine($"Slots do XInput com controle: [{ConnectedSlots()}]");
+            sb.AppendLine($"Processos 'legion': {DescribeLegionProcesses()}");
+            foreach (var block in LenovoDeviceBlocks("/enum-devices /connected"))
+                sb.AppendLine($"Conectado: {block}");
+            foreach (var block in LenovoDeviceBlocks("/enum-devices /problem"))
+                sb.AppendLine($"COM PROBLEMA: {block}");
+            sb.AppendLine("Eventos do Windows sobre o dispositivo da Lenovo (últimos 30 min):");
+            var events = WindowsDeviceEvents(30);
+            if (events.Count == 0) sb.AppendLine("  (nenhum)");
+            foreach (var line in events) sb.AppendLine("  " + line);
+        }
+        catch (Exception ex)
+        {
+            sb.AppendLine($"(falha ao montar o retrato: {ex.Message})");
+        }
+        return sb.ToString();
     }
 
     internal static string DescribeLegionProcesses()

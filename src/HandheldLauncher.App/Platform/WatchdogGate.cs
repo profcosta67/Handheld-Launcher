@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using HandheldLauncher.App.Diagnostics;
 using HandheldLauncher.Core.Services;
 
 namespace HandheldLauncher.App.Platform;
@@ -49,9 +50,20 @@ internal static class WatchdogGate
             }
 
             var settings = AppSettingsStore.Load();
-            if (!settings.AutoRestart) return true;
+            if (!settings.AutoRestart)
+            {
+                DebugLog.Write("[STARTUP] Abertura automática ignorada: \"Abrir sozinho no login\" está desligado nas Configurações.");
+                return true;
+            }
 
-            return QuitFlagIsFromThisBoot();
+            if (QuitFlagIsFromThisBoot())
+            {
+                DebugLog.Write("[STARTUP] Abertura automática ignorada: o launcher foi fechado de propósito (Fechar launcher / Sair pro Desktop) nesta mesma sessão do Windows.");
+                return true;
+            }
+
+            DebugLog.Write($"[STARTUP] Abertura automática (--watchdog), processo pai: {DescribeParent()}.");
+            return false;
         }
         catch
         {
@@ -66,7 +78,7 @@ internal static class WatchdogGate
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(FlagPath)!);
-            File.WriteAllText(FlagPath, GetBootTimeUtc().ToString("O"));
+            File.WriteAllText(FlagPath, GetSessionStartUtc().ToString("O"));
         }
         catch
         {
@@ -97,11 +109,55 @@ internal static class WatchdogGate
 
         // Hora do boot calculada por TickCount varia alguns ms entre
         // processos — tolerância folgada de 2 minutos.
-        return Math.Abs((GetBootTimeUtc() - flaggedBoot.ToUniversalTime()).TotalMinutes) < 2;
+        return Math.Abs((GetSessionStartUtc() - flaggedBoot.ToUniversalTime()).TotalMinutes) < 2;
     }
 
     private static DateTime GetBootTimeUtc()
         => DateTime.UtcNow - TimeSpan.FromMilliseconds(Environment.TickCount64);
+
+    /// <summary>
+    /// Quando começou a sessão do Windows em que este processo roda (v0.16.5).
+    /// Antes o marcador de "fechei de propósito" usava a hora do boot calculada
+    /// pelo contador de tempo ligado — e esse contador NÃO zera no
+    /// Desligar → Ligar com a Inicialização Rápida do Windows. Fechar o
+    /// launcher, desligar e ligar de novo deixava o marcador "válido" e o
+    /// launcher não abria no login. Agora a referência é a hora de início do
+    /// winlogon.exe DESTA sessão (nasce a cada login, inclusive após a
+    /// Inicialização Rápida). Se não der pra obter, cai pro cálculo antigo —
+    /// e como o marcador gravado e o lido divergem, o launcher abre (o lado
+    /// seguro).
+    /// </summary>
+    private static DateTime GetSessionStartUtc()
+    {
+        try
+        {
+            var sessionId = Process.GetCurrentProcess().SessionId;
+            DateTime? earliest = null;
+            foreach (var process in Process.GetProcessesByName("winlogon"))
+            {
+                try
+                {
+                    if (process.SessionId != sessionId) continue;
+                    var started = process.StartTime.ToUniversalTime();
+                    if (earliest is null || started < earliest) earliest = started;
+                }
+                catch (Exception ex)
+                {
+                    DebugLog.Swallowed(ex);
+                }
+                finally
+                {
+                    process.Dispose();
+                }
+            }
+            if (earliest is not null) return earliest.Value;
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Swallowed(ex);
+        }
+        return GetBootTimeUtc();
+    }
 
     // --- processo pai -----------------------------------------------------
 

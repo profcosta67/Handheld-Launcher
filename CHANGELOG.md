@@ -3,6 +3,9 @@
 Mais recente primeiro. Cada versão tem notas completas em [`release-notes/`](release-notes/).
 Betas não entram aqui: o que eles trazem aparece na versão estável que os junta.
 
+## [0.16.5] — em preparo
+Canal beta passa a receber também as versões oficiais (a mais recente vale); launcher que não abria após desligar/ligar com Inicialização Rápida; recuperação do controle do Legion tenta até 3 vezes; relatório de problema com o retrato do controle e eventos do Windows. [Notas](release-notes/0.16.5.md)
+
 ## [0.16.4] — 2026-11-05
 7 estilos de som novos (CC0) e layout que aplica som e fonte combinando; volume dos sons corrigido (não tinha efeito) e cliques curtos que sumiam; tentativa de destravar o controle do Legion ao ligar abrindo o Legion Space (ainda em teste); opção de o Quick Settings pegar o foco; relatório de crash local; faxina final do plano da v0.16. [Notas](release-notes/0.16.4.md)
 
