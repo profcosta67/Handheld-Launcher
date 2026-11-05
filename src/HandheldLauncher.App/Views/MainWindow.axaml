@@ -19,33 +19,15 @@
     <conv:HexColorToBrushConverter x:Key="HexColorToBrushConverter" />
   </Window.Resources>
 
-  <Window.Styles>
-    <Style Selector="Button.switchAction">
-      <Setter Property="Width" Value="46" />
-      <Setter Property="Height" Value="42" />
-      <Setter Property="MinWidth" Value="46" />
-      <Setter Property="MinHeight" Value="42" />
-      <Setter Property="Padding" Value="0" />
-      <Setter Property="Background" Value="#252A36" />
-      <Setter Property="Foreground" Value="#F3F5FA" />
-      <Setter Property="BorderBrush" Value="#424A5D" />
-      <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="12" />
-      <Setter Property="HorizontalContentAlignment" Value="Center" />
-      <Setter Property="VerticalContentAlignment" Value="Center" />
-      <Setter Property="FontSize" Value="{DynamicResource FontSizeMenuHeader}" />
-    </Style>
-    <Style Selector="Button.switchAction:pointerover">
-      <Setter Property="Background" Value="#343C50" />
-      <Setter Property="BorderBrush" Value="#6579E8" />
-    </Style>
-    <Style Selector="Button.switchAction /template/ ContentPresenter">
-      <Setter Property="Background" Value="#252A36" />
-      <Setter Property="Foreground" Value="#F3F5FA" />
-      <Setter Property="BorderBrush" Value="#424A5D" />
-      <Setter Property="BorderThickness" Value="1" />
-    </Style>
-  </Window.Styles>
+  <!-- v0.17 (05/11): existia AQUI um Window.Styles duplicado pro
+       Button.switchAction (cores em hex fixo, inclusive um bloco à parte
+       pro ContentPresenter interno do botão) que sempre ganhava do estilo
+       do tema em Theme.axaml, por ser local à janela — por isso nenhuma das
+       correções de cor dos betas anteriores nunca apareceu de fato nesses
+       3 botões, e o bloco do ContentPresenter sobrepondo cor por cima do
+       próprio botão é o que causava aquele efeito de borda/gradiente nos
+       ícones. Removido: Theme.axaml já cobre Width/Height/CornerRadius/
+       Background/Foreground/FocusAdorner desses botões seguindo a paleta. -->
 
   <Panel>
 
