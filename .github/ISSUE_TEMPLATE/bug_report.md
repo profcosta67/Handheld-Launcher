@@ -6,7 +6,7 @@ labels: bug
 ---
 
 <!--
-Dica: no launcher, abra Menu → 🩺 Central de Ajuda → 🐞 Reportar erro.
+Dica: no launcher, abra Menu → 🩺 Ajuda → Central de Ajuda → 🐞 Reportar erro.
 Ele gera um .zip na Área de Trabalho com o relatório e o log, já sem
 chaves de API, SteamID, nome de usuário e nome do PC. Arraste o .zip
 pra esta página.

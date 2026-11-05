@@ -2,7 +2,7 @@
 
 Launcher para PCs portáteis e handhelds Windows, reunindo biblioteca de jogos, atalhos, ajustes de hardware e ferramentas de captura em uma interface otimizada para controle.
 
-**Versão atual:** v0.15.5
+[![Release](https://img.shields.io/github/v/release/profcosta67/Handheld-Launcher?label=vers%C3%A3o)](https://github.com/profcosta67/Handheld-Launcher/releases/latest) · [Novidades por versão](CHANGELOG.md) · [Roadmap](docs/roadmap.md) · [Aparelhos](docs/aparelhos.md)
 
 ## Funcionalidades
 
@@ -21,11 +21,17 @@ Launcher para PCs portáteis e handhelds Windows, reunindo biblioteca de jogos, 
 - Controle de volume e brilho.
 - Captura de tela e gravação pelo FFmpeg.
 - Integração com o Lossless Scaling (ativar/desativar e multiplicador).
+- Abre com **L3+R3** (ou Ctrl+Alt+O) inclusive com o jogo em primeiro plano.
+
+### Central de Ajuda
+- **Verificações** do launcher e do aparelho (controle, restauração de TDP/ventoinha/cor, atualizações, Lossless, capas, Eden), cada uma com dica e artigo.
+- **Manual** de problemas e soluções, navegável pelo controle.
+- **Reportar erro**: gera um .zip com relatório e log, sem chaves de API, SteamID, nome de usuário, nome do PC e endereços Bluetooth.
 
 ### Integração com handhelds
 - Navegação por controle e teclado físico, incluindo nas janelas de diálogo.
 - Modo console: o launcher assume o lugar do "Modo Xbox" (Xbox Full Screen Experience) no boot, sem passar pelo desktop.
-- Atualização automática via Velopack + GitHub Releases.
+- Atualização automática via Velopack + GitHub Releases, com **canal beta** opcional (Configurações → Preferências → Atualizações).
 - Ajuste de dimensões do Overlay à área de trabalho disponível.
 
 ## Aparelhos suportados
@@ -67,6 +73,10 @@ Os três layouts reutilizam a mesma infraestrutura de biblioteca e funcionalidad
 - LibreHardwareMonitor
 - FFmpeg
 - PawnIO (TDP, Legion Go 2)
+
+### Como contribuir
+
+Veja [CONTRIBUTING.md](CONTRIBUTING.md): branches, padrão de commit, canal beta e como publicar uma versão.
 
 ### Compilar localmente
 
