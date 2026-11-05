@@ -56,6 +56,10 @@ public sealed class MainViewModel : ViewModelBase
     private double _peakCpuTemperatureC;
     public string PeakCpuTemperatureText => _peakCpuTemperatureC > 0 ? $"{_peakCpuTemperatureC:F0}°C" : "--°C";
 
+    /// <summary>v0.18: alertas da Saúde do aparelho (temperatura alta, bateria desgastada, pouco espaço).</summary>
+    public HealthAlertService HealthAlerts { get; } = new();
+    private DispatcherTimer? _healthCheckTimer;
+
     private int _targetTdpWatts = 20;
     private int _realTimeTdpWatts = 0;
 
@@ -157,6 +161,7 @@ public sealed class MainViewModel : ViewModelBase
                     _peakCpuTemperatureC = temp.Value;
                     OnPropertyChanged(nameof(PeakCpuTemperatureText));
                 }
+                HealthAlerts.OnTemperatureSample(temp.Value);
             }
 
             if (_hwInfoService.TryRead(out var hwInfo) && hwInfo is not null)
@@ -188,6 +193,14 @@ public sealed class MainViewModel : ViewModelBase
             }
         };
         _hardwareTimer.Start();
+
+        // v0.18: bateria e discos — 1ª verificação 1 min depois de abrir (não
+        // atrasa o boot), depois a cada 30 min.
+        DispatcherTimer.RunOnce(() => _ = HealthAlerts.RunPeriodicChecksAsync(), TimeSpan.FromMinutes(1));
+        _healthCheckTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(30) };
+        _healthCheckTimer.Tick += (_, _) => _ = HealthAlerts.RunPeriodicChecksAsync();
+        _healthCheckTimer.Start();
+        HealthAlerts.AlertRaised += _ => { if (IsGlobalMenuOpen) BuildGlobalMenu(); };
 
         RebuildGamesFromLibrary();
         InitializeHudFromSettings();
@@ -253,6 +266,7 @@ public sealed class MainViewModel : ViewModelBase
     public void Dispose()
     {
         _hardwareTimer?.Stop();
+        _healthCheckTimer?.Stop();
         _monitorService.Dispose();
         _hwInfoService.Dispose();
         try { _ownedArtworkCts?.Cancel(); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
@@ -1034,7 +1048,10 @@ public sealed class MainViewModel : ViewModelBase
                 // Saúde do aparelho, direto no menu raiz junto de TEMAS/Configurações
                 // — são "sobre o aparelho", não pertencem dentro de outra pasta.
                 Add("💾 Armazenamento", () => StorageManagerRequested?.Invoke(this, EventArgs.Empty));
-                Add("🌡 Saúde do Aparelho", () => DeviceHealthRequested?.Invoke(this, EventArgs.Empty));
+                // v0.18: contador de alertas ainda não vistos (zera ao abrir a tela).
+                var unseenAlerts = HealthAlerts.UnseenCount;
+                Add(unseenAlerts > 0 ? $"🌡 Saúde do Aparelho ({unseenAlerts} {(unseenAlerts == 1 ? "alerta" : "alertas")})" : "🌡 Saúde do Aparelho",
+                    () => DeviceHealthRequested?.Invoke(this, EventArgs.Empty));
                 // v0.18 (Fase 1, "modo xCloud"): abre o catálogo do Xbox Cloud Gaming
                 // no navegador padrão (não dá pra incorporar na nossa janela sem um
                 // componente de navegador embutido, que é uma dependência nova e

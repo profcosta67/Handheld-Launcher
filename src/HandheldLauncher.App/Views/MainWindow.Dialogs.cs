@@ -170,6 +170,7 @@ public partial class MainWindow : Window
     // já basta.
     private async Task OpenDeviceHealthDialogAsync(MainViewModel vm)
     {
+        vm.HealthAlerts.MarkAllSeen();
         var dialog = new DeviceHealthWindow(vm) { Topmost = true };
         _activeDialog = dialog;
         try { await dialog.ShowDialog(this); } finally { _activeDialog = null; }
@@ -247,6 +248,41 @@ public partial class MainWindow : Window
             DebugLog.Write($"[XCLOUD] Não foi possível abrir o navegador: {ex.Message}");
             Topmost = true;
         }
+    }
+
+    // v0.18 — aviso da Saúde do aparelho. Só aparece com o launcher NA FRENTE,
+    // sem jogo aberto e sem diálogo aberto: um aviso por cima de jogo poderia
+    // tirar o foco dele (ou derrubar tela cheia exclusiva). Quando não dá pra
+    // mostrar, o alerta continua registrado na tela de Saúde e no contador do
+    // menu — só o aviso flutuante é que não aparece.
+    private HealthAlertPopupWindow? _healthPopup;
+
+    private void ShowHealthAlertPopup(MainViewModel vm, HealthAlertItem alert)
+    {
+        try
+        {
+            if (vm.RunningGame is not null || _activeDialog is not null || !IsVisible
+                || WindowState == WindowState.Minimized || !IsOurWindowInForeground())
+            {
+                DebugLog.Write($"[SAUDE] Aviso '{alert.Title}' só registrado (jogo/diálogo aberto ou launcher fora da frente).");
+                return;
+            }
+
+            try { _healthPopup?.Close(); } catch (Exception swallowedEx) { DebugLog.Swallowed(swallowedEx); }
+            var popup = new HealthAlertPopupWindow(alert.Title, alert.Message) { WindowStartupLocation = WindowStartupLocation.Manual };
+            ThemeManager.ApplyFont(popup, AppSettingsStore.Load().UiFont);
+            var screen = Screens.ScreenFromPoint(Position) ?? Screens.Primary;
+            if (screen is not null)
+            {
+                var scale = screen.Scaling > 0 ? screen.Scaling : 1.0;
+                var area = screen.WorkingArea;
+                popup.Position = new PixelPoint(area.Right - (int)((420 + 24) * scale), area.Y + (int)(24 * scale));
+            }
+            _healthPopup = popup;
+            popup.Closed += (_, _) => { if (ReferenceEquals(_healthPopup, popup)) _healthPopup = null; };
+            popup.Show(this);
+        }
+        catch (Exception ex) { DebugLog.Swallowed(ex); }
     }
 
     public async Task OpenConnectivityPopup()

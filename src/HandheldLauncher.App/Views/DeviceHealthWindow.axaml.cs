@@ -33,10 +33,24 @@ public partial class DeviceHealthWindow : Window
         InitializeComponent();
         DriveList.ItemsSource = Drives;
 
+        // v0.18: alertas recentes (a lista vive no HealthAlertService da MainViewModel).
+        if (vm is not null)
+        {
+            AlertList.ItemsSource = vm.HealthAlerts.Recent;
+            TxtNoAlerts.IsVisible = vm.HealthAlerts.Recent.Count == 0;
+            vm.HealthAlerts.Recent.CollectionChanged += OnAlertsChanged;
+            Closed += (_, _) => vm.HealthAlerts.Recent.CollectionChanged -= OnAlertsChanged;
+        }
+
         try { ThemeManager.ApplyFont(this, AppSettingsStore.Load().UiFont); }
         catch (Exception swallowedEx) { DebugLog.Swallowed(swallowedEx); }
 
         RefreshAll();
+    }
+
+    private void OnAlertsChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        if (_vm is not null) TxtNoAlerts.IsVisible = _vm.HealthAlerts.Recent.Count == 0;
     }
 
     private void OnRefreshClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => RefreshAll();
