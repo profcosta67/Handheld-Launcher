@@ -60,3 +60,25 @@ quase-preto. Escuro, Vermelho e Grafite seguem iguais.
   como artifact "Paletas e fontes do Launcher").
 - Quais fontes entram no pacote (cada TTF livre pesa algumas centenas de KB).
 - Aprovar as escalas de letra e de borda.
+
+## Ícones
+
+Hoje são emojis do sistema, escritos à mão em cada tela: **172 usos, 50
+símbolos diferentes**. Problemas:
+
+- **Sem padrão**: alguns itens têm ícone, outros não, sem critério visível.
+- **Sem relação com o que fazem**: o Lossless Scaling usa 🦆 (o apelido
+  "Patinho" interno virou ícone sem querer); "Verificações" e "Central de
+  Ajuda" usam 🩺 (estetoscópio) em dois lugares diferentes sem ligação clara.
+- **Dependem da fonte de emoji do Windows**: cor, traço e peso mudam com a
+  versão do Windows; não acompanham o tema (claro/escuro) nem a cor de
+  destaque escolhida.
+- Os mais usados: → (navegação/seta, 86×), 🟢 (ligado, 27×), 🎮 (controle,
+  9×), ❌/✕ (fechar/cancelar, 23× somados), ⚡ (energia, 7×).
+
+**Proposta**: trocar por um conjunto de ícones de linha (um só estilo, peso
+único, ex. Lucide ou Phosphor — licença livre, SVG, cor controlada pelo tema)
+só onde o ícone ajuda a entender ou a escanear rápido no controle (menu
+global, abas de Configurações, estados ligado/desligado, ações destrutivas).
+Texto sozinho nos itens onde o ícone de hoje só decora sem ajudar. Faz parte
+da mesma varredura tela a tela da seção anterior.
