@@ -72,12 +72,14 @@ internal static class ControllerDiagnostics
             // XInput, tenta uma vez reiniciar o controle da Lenovo (como tirar e
             // pôr de volta). Só age quando não há controle nenhum: nada que
             // esteja funcionando é tocado.
-            if (last.Length == 0)
-            {
-                Thread.Sleep(TimeSpan.FromSeconds(7));
-                last = ConnectedSlots();
-                if (last.Length == 0) last = TryRecoverLenovoController() ?? last;
-            }
+            // Desligado na 0.16.3 estável: no boot ruim de 05/11 o controle
+            // aparecia no slot 1 (não sumia), e o pnputil /restart-device
+            // respondeu 3010 ("precisa reiniciar o sistema") — não resolve.
+            // O que resolveu foi abrir o Legion Space. Próximo beta: detectar
+            // "controle da Lenovo só no slot ≥ 1 ao ligar" e abrir o Legion
+            // Space. TryRecoverLenovoController fica pro diagnóstico.
+            if (last.Length > 0 && !last.Split(',').Contains("0"))
+                DebugLog.Write($"[CONTROLE-DIAG] Atenção: controle só no slot [{last}], nada no slot 0 — padrão do boot ruim do Legion (controle não responde).");
 
             while (snapshots < MaxSnapshotsPerSession)
             {
