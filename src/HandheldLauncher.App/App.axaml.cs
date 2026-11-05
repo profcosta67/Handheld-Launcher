@@ -94,7 +94,10 @@ public partial class App : Application
             {
                 DisplayColorManager.CaptureOriginal();
                 var colorIndex = Math.Clamp(appSettings.ColorMode, 0, DisplayColorManager.ModeNames.Length - 1);
-                var colorOk = DisplayColorManager.Apply(colorIndex);
+                // force: a tela pode ainda estar com o efeito da sessão anterior
+                // (launcher fechado sem restaurar) — sem forçar, o modo "Padrão"
+                // seria considerado já aplicado e a tela ficaria com o efeito.
+                var colorOk = DisplayColorManager.Apply(colorIndex, force: true);
                 HandheldLauncher.App.Diagnostics.StartupRestoreStatus.Report(
                     "Cor", $"{DisplayColorManager.ModeNames[colorIndex]}{(colorOk ? " aplicada" : " não aplicada (veja [DisplayColor])")}", colorOk);
                 desktop.Exit += (_, _) => DisplayColorManager.RestoreOriginal();

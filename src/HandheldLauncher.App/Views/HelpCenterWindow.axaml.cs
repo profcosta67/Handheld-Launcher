@@ -33,6 +33,22 @@ public partial class HelpCenterWindow : Window
     private IReadOnlyList<HealthChecks.Result>? _lastChecks;
     private ProblemReport.Created? _lastReport;
 
+    /// <summary>
+    /// Disparado antes de abrir o Explorer ou o navegador. A Central e o
+    /// launcher ficam "sempre por cima" (modo Handheld), então sem sair da
+    /// frente o Explorer/navegador abriria escondido atrás deles. O MainWindow
+    /// tira o próprio Topmost e devolve quando a Central fecha.
+    /// </summary>
+    public event Action? ExternalAppOpening;
+    public bool OpenedExternalApp { get; private set; }
+
+    private void YieldForExternalApp()
+    {
+        OpenedExternalApp = true;
+        Topmost = false;
+        try { ExternalAppOpening?.Invoke(); } catch { }
+    }
+
     public HelpCenterWindow()
     {
         InitializeComponent();
@@ -284,12 +300,16 @@ public partial class HelpCenterWindow : Window
 
     private void OnShowReportClick(object? sender, RoutedEventArgs e)
     {
-        if (_lastReport is { } report) ProblemReport.RevealInExplorer(report.ZipPath);
+        if (_lastReport is not { } report) return;
+        YieldForExternalApp();
+        ProblemReport.RevealInExplorer(report.ZipPath);
     }
 
     private void OnOpenIssueClick(object? sender, RoutedEventArgs e)
     {
-        if (_lastReport is { } report) ProblemReport.OpenUrl(report.IssueUrl);
+        if (_lastReport is not { } report) return;
+        YieldForExternalApp();
+        ProblemReport.OpenUrl(report.IssueUrl);
     }
 
     private void OnReportBackClick(object? sender, RoutedEventArgs e) => GoBack();
@@ -336,6 +356,7 @@ public partial class HelpCenterWindow : Window
         {
             var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HandheldLauncher");
             Directory.CreateDirectory(folder);
+            YieldForExternalApp();
             Process.Start(new ProcessStartInfo { FileName = folder, UseShellExecute = true });
         }
         catch (Exception ex)

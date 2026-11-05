@@ -169,17 +169,27 @@ internal static class HealthChecks
 
         if (settings.AutoRestart && task == false)
         {
-            return new Result(title, Status.Warning, $"{mode}, mas a abertura automática no login não está registrada no Windows.",
-                "Abra Configurações → Modo de uso, escolha Handheld de novo e salve — isso registra a abertura automática.");
+            return new Result(title, Status.Warning, $"{mode}, mas a reabertura automática do modo Handheld (tarefa \"HandheldLauncherWatchdog\") não está registrada no Windows.",
+                "Abra Configurações → Modo de uso, escolha Handheld de novo e salve — isso registra a reabertura automática.");
         }
 
         if (!settings.AutoRestart && task == true)
         {
-            return new Result(title, Status.Warning, $"{mode}, mas ainda existe uma abertura automática registrada no Windows.",
-                "Abra Configurações → Modo de uso, escolha o modo desejado e salve — isso acerta a abertura automática.");
+            return new Result(title, Status.Warning, $"{mode}, mas a reabertura automática do modo Handheld (tarefa \"HandheldLauncherWatchdog\") ainda está registrada no Windows.",
+                "Abra Configurações → Modo de uso, escolha o modo desejado e salve — isso acerta a reabertura automática.");
         }
 
-        var autoText = task == true ? "abre sozinho no login" : "não abre sozinho";
+        // O instalador (InstallTask.ps1) registra uma segunda abertura no login,
+        // independente do modo escolhido nas Configurações.
+        var installerTask = WatchdogTask.Exists(WatchdogTask.InstallerTaskName) == true;
+
+        if (!settings.KioskMode && installerTask)
+        {
+            return new Result(title, Status.Info, $"{mode}, mas o launcher ainda abre sozinho no login (abertura registrada pelo instalador).",
+                "O instalador registra uma abertura automática que vale nos dois modos. Se não quiser que ele abra no login, desative \"HandheldLauncher_Startup\" no Agendador de Tarefas do Windows.");
+        }
+
+        var autoText = task == true || installerTask ? "abre sozinho no login" : "não abre sozinho";
         return new Result(title, Status.Ok, $"{mode}, {autoText}.");
     }
 

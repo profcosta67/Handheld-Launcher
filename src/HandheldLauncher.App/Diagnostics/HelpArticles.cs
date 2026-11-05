@@ -84,7 +84,8 @@ internal static class HelpArticles
         {
             "Handheld (recomendado no aparelho): tela cheia, abre sozinho no login e reabre se fechar.",
             "Uso em PC (Desktop): janela normal, não abre sozinho, e \"Fechar Launcher\" fecha de verdade.",
-            "Troque em Configurações → Modo de uso e salve — isso também liga ou desliga a abertura automática no Windows.",
+            "Troque em Configurações → Modo de uso e salve — isso também liga ou desliga a reabertura automática do modo Handheld.",
+            "Atenção: se o launcher foi instalado pelo instalador (Setup), ele também registra uma abertura no login que vale nos dois modos (tarefa \"HandheldLauncher_Startup\" no Agendador de Tarefas do Windows). A verificação \"Modo de uso\" da Central de Ajuda mostra se ela existe.",
             "Pra usar o Windows por um tempo: menu do launcher → Energia → Fechar Launcher. No modo Handheld, isso segura a reabertura automática até o próximo reinício do aparelho.",
             "Já Energia → Restaurar Desktop tira o launcher da tela cheia de vez (ele passa a abrir em janela). Pra voltar à tela cheia, escolha Handheld de novo em Configurações → Modo de uso.",
         }),

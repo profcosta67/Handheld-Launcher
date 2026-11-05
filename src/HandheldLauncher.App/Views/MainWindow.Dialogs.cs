@@ -127,7 +127,16 @@ public partial class MainWindow : Window
     private async Task OpenHelpCenterDialogAsync()
     {
         var dialog = new HelpCenterWindow(); _activeDialog = dialog; dialog.Topmost = true;
-        try { await dialog.ShowDialog(this); } finally { _activeDialog = null; }
+        var wasTopmost = Topmost;
+        // Explorer/navegador abertos pela Central não podem ficar escondidos
+        // atrás do launcher "sempre por cima" (modo Handheld).
+        dialog.ExternalAppOpening += () => { _topmostEnforcerTimer?.Stop(); Topmost = false; };
+        try { await dialog.ShowDialog(this); }
+        finally
+        {
+            _activeDialog = null;
+            if (dialog.OpenedExternalApp && IsVisible) Topmost = wasTopmost;
+        }
     }
 
     public void OpenWindowsSettings(string uri)

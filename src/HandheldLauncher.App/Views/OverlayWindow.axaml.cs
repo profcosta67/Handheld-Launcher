@@ -207,6 +207,10 @@ public partial class OverlayWindow : Window
                 _ = Task.Run(async () =>
                 {
                     DebugLog.Write($"[OVERLAY] Re-aplicando TDP salvo na inicialização: {savedTdp}");
+                    // A OverlayWindow é recriada na 1ª abertura do Quick Settings;
+                    // cada aplicação começa "não confirmada", pra uma confirmação
+                    // antiga não impedir as novas tentativas desta.
+                    _startupTdpConfirmed = false;
                     var ok = _hardwareService.SetTdpMode(savedTdp);
                     DebugLog.Write(ok
                         ? $"[OVERLAY] TDP {savedTdp} re-aplicado com sucesso."
