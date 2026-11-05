@@ -87,6 +87,18 @@ internal static class UiSounds
     // (-4 dB) vira -0,5 dB — sem estourar.
     private const double MakeupGain = 1.5;
 
+    // v0.16.5 (beta.17 — relato do usuário: "o volume dos sons do botão A/B
+    // Start estão mais altos que do joystick para passar para o lado"). Os
+    // .wav originais (gerados com ffmpeg) já vieram normalizados em picos
+    // DIFERENTES por função: ~-10 dBFS nos cliques de mover e ~-4/-5 dBFS em
+    // confirmar/voltar — um design intencional dos arquivos de origem (menos
+    // "falante" num direcional repetido), mas que o usuário achou longe
+    // demais do volume dos botões. MoveGain reforça só os sons de "mover",
+    // por cima do MakeupGain geral, até ficar perto do nível de
+    // confirmar/voltar (1.8 ≈ +5 dB — sem risco de estourar, só preenche o
+    // espaço que o pico baixo de origem deixava).
+    private const double MoveRoleGain = 1.8;
+
     // Respiro de silêncio antes do som quando o aparelho de áudio pode estar
     // "dormindo" (sem som há > ColdAfterMs): o driver acorda durante o silêncio
     // em vez de engolir o começo do clique. Só é usado nesse caso — no uso
@@ -170,7 +182,7 @@ internal static class UiSounds
     private static void Rescale(SoundClip clip)
     {
         if (!clip.Loaded) return;
-        var gain = _volumeFraction * MakeupGain;
+        var gain = _volumeFraction * MakeupGain * clip.RoleGain;
         var newHot = BuildBuffer(clip, gain, 0);
         var newCold = BuildBuffer(clip, gain, ColdLeadInMs);
         var oldHot = clip.Ptr;
@@ -352,12 +364,13 @@ internal static class UiSounds
         public int SampleRate = 44100;
         public IntPtr Ptr;
         public IntPtr ColdPtr;
+        public double RoleGain = 1.0;
         public bool Loaded => Ptr != IntPtr.Zero;
     }
 
     private static SoundSet LoadPack(string slug) => new()
     {
-        Move = LoadClip($"sfx-{slug}-move.wav"),
+        Move = LoadClip($"sfx-{slug}-move.wav", MoveRoleGain),
         Confirm = LoadClip($"sfx-{slug}-confirm.wav"),
         Back = LoadClip($"sfx-{slug}-back.wav"),
     };
@@ -367,9 +380,9 @@ internal static class UiSounds
     /// no volume atual. Ver o porquê da memória não gerenciada no comentário
     /// da classe.
     /// </summary>
-    private static SoundClip LoadClip(string fileName)
+    private static SoundClip LoadClip(string fileName, double roleGain = 1.0)
     {
-        var clip = new SoundClip();
+        var clip = new SoundClip { RoleGain = roleGain };
         try
         {
             var uri = new Uri($"avares://HandheldLauncher/Assets/{fileName}");
@@ -390,7 +403,7 @@ internal static class UiSounds
                 clip.RawFile = file;
             }
 
-            var gain = _volumeFraction * MakeupGain;
+            var gain = _volumeFraction * MakeupGain * clip.RoleGain;
             clip.Ptr = BuildBuffer(clip, gain, 0);
             clip.ColdPtr = BuildBuffer(clip, gain, ColdLeadInMs);
         }
