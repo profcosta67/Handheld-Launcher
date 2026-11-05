@@ -150,6 +150,14 @@
                     </StackPanel>
                 </Button>
 
+                <!-- v0.18: Nuvem (Xbox Cloud Gaming) -->
+                <Button Classes="modernTab" Classes.active="{Binding IsFilterCloudActive}" Command="{Binding SetFilterCloudCommand}" ToolTip.Tip="Nuvem (Xbox Cloud Gaming)">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="☁" FontSize="16" VerticalAlignment="Center"/>
+                        <TextBlock Text="Nuvem" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+
                 <!-- Adicionar -->
                 <Button Classes="modernTab accent" Background="#403E9B70" BorderBrush="#FF75D6A2" Foreground="#FF75D6A2" ToolTip.Tip="Adicionar jogo"
                         IsVisible="{Binding IsFilterApplicationsActive}" Click="OnAddProgramClick">

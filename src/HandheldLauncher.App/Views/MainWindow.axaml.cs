@@ -424,7 +424,7 @@ public partial class MainWindow : Window
         vm.DeviceHealthRequested += (_, _) => _ = OpenDeviceHealthDialogAsync(vm);
         vm.StorageManagerRequested += (_, _) => _ = OpenStorageManagerDialogAsync(vm);
         // v0.18 "Modo xCloud" (Fase 1) — ver OpenXCloud em MainWindow.Dialogs.cs.
-        vm.XCloudRequested += (_, _) => OpenXCloud();
+        vm.XCloudRequested += (_, url) => OpenXCloud(url);
         // v0.18: alertas da Saúde do aparelho (ver ShowHealthAlertPopup — nunca por cima de jogo).
         vm.HealthAlerts.AlertRaised += alert => ShowHealthAlertPopup(vm, alert);
 

@@ -145,6 +145,7 @@ public sealed class MainViewModel : ViewModelBase
         SetFilterEmulatorsCommand = new RelayCommand(() => SetFilter(LibraryFilter.Emulators));
         SetFilterApplicationsCommand = new RelayCommand(() => SetFilter(LibraryFilter.Applications));
         SetFilterNotInstalledCommand = new RelayCommand(() => SetFilter(LibraryFilter.NotInstalled));
+        SetFilterCloudCommand = new RelayCommand(() => SetFilter(LibraryFilter.Cloud));
 
         _ = Task.Run(() => EnsureHwInfoRunning());
 
@@ -491,9 +492,9 @@ public sealed class MainViewModel : ViewModelBase
     private readonly List<Action> _contextMenuActions = new();
 
     private enum ArtworkPickerKind { Grid, WideGrid, Hero, Logo, Icon }
-    private enum LibraryFilter { All, Favorites, Computer, Emulators, Applications, NotInstalled }
+    private enum LibraryFilter { All, Favorites, Computer, Emulators, Applications, NotInstalled, Cloud }
 
-    private static readonly LibraryFilter[] FilterOrder = { LibraryFilter.Favorites, LibraryFilter.All, LibraryFilter.Computer, LibraryFilter.Emulators, LibraryFilter.Applications, LibraryFilter.NotInstalled };
+    private static readonly LibraryFilter[] FilterOrder = { LibraryFilter.Favorites, LibraryFilter.All, LibraryFilter.Computer, LibraryFilter.Emulators, LibraryFilter.Applications, LibraryFilter.NotInstalled, LibraryFilter.Cloud };
     private LibraryFilter _activeFilter = LibraryFilter.All;
 
     public bool IsFilterAllActive => _activeFilter == LibraryFilter.All;
@@ -502,6 +503,7 @@ public sealed class MainViewModel : ViewModelBase
     public bool IsFilterEmulatorsActive => _activeFilter == LibraryFilter.Emulators;
     public bool IsFilterApplicationsActive => _activeFilter == LibraryFilter.Applications;
     public bool IsFilterNotInstalledActive => _activeFilter == LibraryFilter.NotInstalled;
+    public bool IsFilterCloudActive => _activeFilter == LibraryFilter.Cloud;
 
     public ObservableCollection<SubFilterViewModel> SubFilters { get; } = new();
     public bool HasSubFilters => SubFilters.Count > 0;
@@ -603,7 +605,8 @@ public sealed class MainViewModel : ViewModelBase
     public event EventHandler? HelpCenterRequested; // v0.16.2: Central de Ajuda
     public event EventHandler? DeviceHealthRequested; // v0.18: Saúde do Aparelho
     public event EventHandler? StorageManagerRequested; // v0.18: Gerenciador de Armazenamento
-    public event EventHandler? XCloudRequested; // v0.18: Modo xCloud
+    /// <summary>v0.18 aba "Nuvem": abrir esta URL do xbox.com/play no Edge em tela cheia (ver MainWindow.OpenXCloud).</summary>
+    public event EventHandler<string>? XCloudRequested;
 
     public void RequestOpenOverlay() { OpenOverlayRequested?.Invoke(this, EventArgs.Empty); }
 
@@ -616,7 +619,97 @@ public sealed class MainViewModel : ViewModelBase
 
     public void ApplyEntryEdits(GameEntry game, string? title, bool isApplication) { _library.SaveEntryEdits(game.Id, title, isApplication); RebuildGamesFromLibrary(); }
 
-    private static bool HasGameDetails(GameEntry game) => !game.IsOwnedNotInstalled && !game.IsApplication;
+    private static bool HasGameDetails(GameEntry game) => !game.IsOwnedNotInstalled && !game.IsApplication && !IsCloudEntry(game);
+
+    // ---- v0.18 aba "Nuvem" (Xbox Cloud Gaming) -------------------------------------
+    // Entradas SINTÉTICAS (como as de "Não instalados"): nunca entram na
+    // biblioteca nem no library.json — existem só enquanto a aba está aberta.
+    private const string CloudIdPrefix = "xcloud_";
+    private const string CloudHomeId = "xcloud_home";
+    public static bool IsCloudEntry(GameEntry game) => game.Id.StartsWith(CloudIdPrefix, StringComparison.Ordinal);
+
+    private IReadOnlyList<XCloudGame> _cloudGames = Array.Empty<XCloudGame>();
+    private bool _cloudCatalogLoaded;
+    private bool _isLoadingCloudCatalog;
+    private bool _cloudCatalogFailed;
+
+    private IEnumerable<GameEntry> BuildCloudEntries()
+    {
+        if (!_cloudCatalogLoaded)
+        {
+            _cloudGames = XCloudCatalog.LoadCached(out _);
+            _cloudCatalogLoaded = true;
+        }
+
+        yield return new GameEntry
+        {
+            Id = CloudHomeId,
+            Title = "Xbox Cloud Gaming",
+            Source = GameSource.XboxApp,
+            LaunchUri = XCloudCatalog.HomeUrl,
+        };
+        foreach (var g in _cloudGames)
+        {
+            yield return new GameEntry
+            {
+                Id = CloudIdPrefix + g.ProductId,
+                Title = g.Title,
+                Source = GameSource.XboxApp,
+                LaunchUri = XCloudCatalog.GamePageUrl(g),
+                GridImagePath = g.PosterPath,
+            };
+        }
+    }
+
+    private void OpenCloudEntry(GameEntry game)
+    {
+        var url = string.IsNullOrWhiteSpace(game.LaunchUri) ? XCloudCatalog.HomeUrl : game.LaunchUri!;
+        DebugLog.Write($"[XCLOUD] Abrindo '{game.Title}' → {url}");
+        XCloudRequested?.Invoke(this, url);
+    }
+
+    private async Task RefreshCloudCatalogAsync()
+    {
+        if (_isLoadingCloudCatalog) return;
+        _ = XCloudCatalog.LoadCached(out var fetchedUtc);
+        if (_cloudGames.Count > 0 && !XCloudCatalog.IsStale(fetchedUtc))
+        {
+            await DownloadCloudPostersAsync();
+            return;
+        }
+
+        _isLoadingCloudCatalog = true;
+        _cloudCatalogFailed = false;
+        UpdateNotInstalledTabMessage();
+        try
+        {
+            var fresh = await Task.Run(() => XCloudCatalog.RefreshAsync());
+            if (fresh is not null)
+            {
+                _cloudGames = fresh;
+                _cloudCatalogLoaded = true;
+            }
+            else
+            {
+                _cloudCatalogFailed = true;
+            }
+        }
+        finally
+        {
+            _isLoadingCloudCatalog = false;
+        }
+        if (_activeFilter == LibraryFilter.Cloud) RebuildGamesFromLibrary();
+        else UpdateNotInstalledTabMessage();
+        await DownloadCloudPostersAsync();
+    }
+
+    private async Task DownloadCloudPostersAsync()
+    {
+        var games = _cloudGames;
+        if (!games.Any(g => g.PosterPath is null && g.PosterUrl is not null)) return;
+        var got = await Task.Run(() => XCloudCatalog.DownloadMissingPostersAsync(games));
+        if (got > 0 && _activeFilter == LibraryFilter.Cloud && ReferenceEquals(games, _cloudGames)) RebuildGamesFromLibrary();
+    }
 
     private void OpenGameDetails(GameEntry game) { CloseContextMenu(); GameDetailsRequested?.Invoke(this, game); }
 
@@ -719,6 +812,7 @@ public sealed class MainViewModel : ViewModelBase
     public ICommand SetFilterEmulatorsCommand { get; }
     public ICommand SetFilterApplicationsCommand { get; }
     public ICommand SetFilterNotInstalledCommand { get; }
+    public ICommand SetFilterCloudCommand { get; }
 
     public void MoveNext() => SelectedIndex++;
     public void MovePrevious() => SelectedIndex--;
@@ -728,6 +822,7 @@ public sealed class MainViewModel : ViewModelBase
         if (SelectedTile is null) return;
         var game = SelectedTile.Game;
         if (game.IsOwnedNotInstalled) { if (game.SteamAppId is { } ownedAppId) _launcher.OpenSteamInstaller(ownedAppId); return; }
+        if (IsCloudEntry(game)) { OpenCloudEntry(game); return; }
 
         LaunchingGameTitle = game.Title;
         LaunchingGameIconPath = ResolveIconPath(game);
@@ -820,6 +915,7 @@ public sealed class MainViewModel : ViewModelBase
         void Add(string label, Action action) { ContextMenuItems.Add(new ContextMenuItemViewModel(label)); _contextMenuActions.Add(action); }
         var game = target.Game;
         if (game.IsOwnedNotInstalled) { Add("📥 Instalar", () => OpenGameFromMenu(game)); return; }
+        if (IsCloudEntry(game)) { Add("☁ Jogar na nuvem", () => { CloseContextMenu(); OpenCloudEntry(game); }); return; }
 
         Add("▶ Abrir jogo", () => OpenGameFromMenu(game));
         if (HasGameDetails(game)) Add("ℹ Detalhes do jogo", () => OpenGameDetails(game));
@@ -1059,17 +1155,10 @@ public sealed class MainViewModel : ViewModelBase
                 var unseenAlerts = HealthAlerts.UnseenCount;
                 Add(unseenAlerts > 0 ? $"🌡 Saúde do Aparelho ({unseenAlerts} {(unseenAlerts == 1 ? "alerta" : "alertas")})" : "🌡 Saúde do Aparelho",
                     () => DeviceHealthRequested?.Invoke(this, EventArgs.Empty));
-                // v0.18 (Fase 1, "modo xCloud"): abre o catálogo do Xbox Cloud Gaming
-                // no navegador padrão (não dá pra incorporar na nossa janela sem um
-                // componente de navegador embutido, que é uma dependência nova e
-                // pesada — fora do escopo desta leva). Ver MainWindow.OpenXCloud: tira
-                // o launcher do Topmost e só devolve quando ele volta ao foco.
-                // "Sem controle no momento" (ver backlog): navegar o CATÁLOGO do site
-                // precisa de toque/mouse (a tela do Legion Go 2/Ally é touch) — depois
-                // que o jogo em nuvem começa a rodar, o controle já funciona normal
-                // através da Gamepad API do próprio navegador (mesmo jeito que já
-                // funciona hoje abrindo xbox.com/play manualmente).
-                Add("☁ Xbox Cloud Gaming", () => XCloudRequested?.Invoke(this, EventArgs.Empty));
+                // v0.18: o atalho "☁ Xbox Cloud Gaming" saiu daqui (pedido do usuário: "tira
+                // ele do menu") e virou a aba "Nuvem" da biblioteca. Aqui só aparece o
+                // "Fechar", e só enquanto o xCloud aberto pelo launcher estiver rodando.
+                if (XCloudLauncher.WasOpened) Add("⏹ Fechar Xbox Cloud Gaming", () => _ = Task.Run(XCloudLauncher.CloseAll));
                 Folder("🔄 Atualizações", GlobalMenuPage.Updates);
                 Folder("🛟 Ajuda", GlobalMenuPage.Help); Folder("⚡ Energia", GlobalMenuPage.Power);
                 break;
@@ -1142,6 +1231,15 @@ public sealed class MainViewModel : ViewModelBase
 
     private void UpdateNotInstalledTabMessage()
     {
+        if (_activeFilter == LibraryFilter.Cloud)
+        {
+            // Só o bloco fixo na tela = catálogo ainda não chegou.
+            NotInstalledTabMessage = Games.Count > 1 ? null
+                : _isLoadingCloudCatalog ? "Carregando o catálogo do Xbox Cloud Gaming..."
+                : _cloudCatalogFailed ? "Não consegui baixar o catálogo de nuvem agora (sem internet?). O bloco \"Xbox Cloud Gaming\" abre o site normalmente."
+                : null;
+            return;
+        }
         if (_activeFilter != LibraryFilter.NotInstalled) { NotInstalledTabMessage = null; return; }
         if (!HasSteamWebApiCredentials) NotInstalledTabMessage = "Configure a Steam Web API key e o SteamID64 na tela de Configurações pra ver aqui os jogos da sua conta que ainda não estão instalados.";
         else if (IsLoadingOwnedGames) NotInstalledTabMessage = "Carregando jogos da sua conta...";
@@ -1555,9 +1653,10 @@ public sealed class MainViewModel : ViewModelBase
     {
         if (_activeFilter == filter) return;
         _activeFilter = filter;
-        OnPropertyChanged(nameof(IsFilterAllActive)); OnPropertyChanged(nameof(IsFilterFavoritesActive)); OnPropertyChanged(nameof(IsFilterComputerActive)); OnPropertyChanged(nameof(IsFilterEmulatorsActive)); OnPropertyChanged(nameof(IsFilterApplicationsActive)); OnPropertyChanged(nameof(IsFilterNotInstalledActive));
+        OnPropertyChanged(nameof(IsFilterAllActive)); OnPropertyChanged(nameof(IsFilterFavoritesActive)); OnPropertyChanged(nameof(IsFilterComputerActive)); OnPropertyChanged(nameof(IsFilterEmulatorsActive)); OnPropertyChanged(nameof(IsFilterApplicationsActive)); OnPropertyChanged(nameof(IsFilterNotInstalledActive)); OnPropertyChanged(nameof(IsFilterCloudActive));
         RebuildSubFilters(); RebuildGamesFromLibrary();
         if (filter == LibraryFilter.NotInstalled) _ = RefreshOwnedGames();
+        if (filter == LibraryFilter.Cloud) _ = RefreshCloudCatalogAsync();
     }
 
     private bool MatchesActiveFilter(GameEntry game) => _activeFilter switch
@@ -1578,6 +1677,11 @@ public sealed class MainViewModel : ViewModelBase
         { 
             foreach (var owned in OwnedNotInstalledGames) 
                 Games.Add(new GameTileViewModel(_library.BuildEntryForOwnedGame(owned), _steamStore)); 
+        }
+        else if (_activeFilter == LibraryFilter.Cloud)
+        {
+            foreach (var entry in BuildCloudEntries())
+                Games.Add(new GameTileViewModel(entry, _steamStore));
         }
         else 
         { 

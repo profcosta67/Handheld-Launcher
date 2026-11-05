@@ -226,9 +226,10 @@ public partial class MainWindow : Window
     // Enquanto o navegador está na frente, OnGamepadTick já ignora os botões
     // (exceto L3+R3 do Quick Settings), então o A/B do jogo em nuvem não
     // mexe na biblioteca por trás.
-    private const string XCloudUrl = "https://www.xbox.com/play";
-
-    public void OpenXCloud()
+    // v0.18 (ajuste pós-beta.24): agora abre pela aba "Nuvem" — a URL é a página
+    // do jogo escolhido (ou o início do xCloud) — no Edge em modo app e tela
+    // cheia (ver Platform/XCloudLauncher), em vez do navegador padrão em janela.
+    public void OpenXCloud(string url)
     {
         if (!OperatingSystem.IsWindows()) return;
         try
@@ -239,8 +240,7 @@ public partial class MainWindow : Window
             if (handle != IntPtr.Zero)
                 SetWindowPos(handle, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
 
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(XCloudUrl) { UseShellExecute = true });
-            DebugLog.Write($"[XCLOUD] Navegador aberto em {XCloudUrl}.");
+            XCloudLauncher.Open(url);
         }
         catch (Exception ex)
         {
