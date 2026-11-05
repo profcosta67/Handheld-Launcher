@@ -8,6 +8,11 @@ public class HardwareMonitorService : IDisposable
 {
     private readonly Computer _computer;
 
+    // v0.18.3: a leitura agora roda numa thread de fundo (ver MainViewModel,
+    // timer de hardware). O Computer do LibreHardwareMonitor não é seguro pra
+    // uso simultâneo, então toda chamada passa por esta trava.
+    private readonly object _sync = new();
+
     public HardwareMonitorService()
     {
         _computer = new Computer
@@ -20,6 +25,7 @@ public class HardwareMonitorService : IDisposable
 
     public void LogAllSensors()
     {
+        lock (_sync)
         foreach (var hardware in _computer.Hardware)
         {
             hardware.Update();
@@ -41,6 +47,8 @@ public class HardwareMonitorService : IDisposable
     }
     public float? GetCpuTemperature()
     {
+        lock (_sync)
+        {
         float? cpuTemp = null;
         float? socTemp = null;
 
@@ -68,10 +76,11 @@ public class HardwareMonitorService : IDisposable
 
         if (cpuTemp.HasValue && cpuTemp.Value > 0) return cpuTemp;
         return socTemp;
+        }
     }
 
     public void Dispose()
     {
-        _computer.Close();
+        lock (_sync) _computer.Close();
     }
 }

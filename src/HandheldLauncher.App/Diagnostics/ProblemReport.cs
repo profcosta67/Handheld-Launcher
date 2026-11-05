@@ -52,6 +52,7 @@ internal static class ProblemReport
         var zipPath = Path.Combine(PickOutputFolder(), $"HandheldLauncher-relatorio-{now:yyyyMMdd-HHmm}.zip");
         if (File.Exists(zipPath)) File.Delete(zipPath);
 
+        DebugLog.Flush(); // v0.18.3: log grava em lote — garante as últimas linhas no pacote.
         using (var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create))
         {
             AddText(zip, "relatorio.txt", redactor.Apply(report));

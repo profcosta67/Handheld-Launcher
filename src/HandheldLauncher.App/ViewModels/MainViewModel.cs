@@ -59,6 +59,8 @@ public sealed class MainViewModel : ViewModelBase
     /// <summary>v0.18: alertas da Saúde do aparelho (temperatura alta, bateria desgastada, pouco espaço).</summary>
     public HealthAlertService HealthAlerts { get; } = new();
     private DispatcherTimer? _healthCheckTimer;
+    private bool _hardwareReadInFlight;
+    private bool _downloadsScanInFlight;
 
     private int _targetTdpWatts = 20;
     private int _realTimeTdpWatts = 0;
@@ -150,9 +152,19 @@ public sealed class MainViewModel : ViewModelBase
         _ = Task.Run(() => EnsureHwInfoRunning());
 
         _hardwareTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
-        _hardwareTimer.Tick += (_, _) =>
+        _hardwareTimer.Tick += async (_, _) =>
         {
-            var temp = _monitorService.GetCpuTemperature();
+            // v0.18.3 (pente fino de desempenho): ler os sensores (CPU + GPU via
+            // LibreHardwareMonitor) leva de alguns a dezenas de ms e rodava na
+            // thread da tela a cada 2 s — um engasgo periódico na navegação. Agora
+            // lê em segundo plano; se a leitura anterior ainda não terminou, pula.
+            if (_hardwareReadInFlight) return;
+            _hardwareReadInFlight = true;
+            float? temp;
+            try { temp = await Task.Run(() => _monitorService.GetCpuTemperature()); }
+            catch (Exception ex) { DebugLog.Swallowed(ex); temp = null; }
+            finally { _hardwareReadInFlight = false; }
+
             if (temp.HasValue && temp.Value > 0)
             {
                 CpuTemperature = $"{temp.Value:F0}°C";
@@ -1409,10 +1421,26 @@ public sealed class MainViewModel : ViewModelBase
     public void CloseDownloads() => IsDownloadsOpen = false;
     private readonly Dictionary<string, (long Bytes, DateTime At, double? Speed)> _downloadSamples = new();
 
+    // v0.18.3 (pente fino de desempenho): a varredura lê TODOS os manifestos da
+    // Steam (um arquivo por jogo instalado) e rodava na thread da tela a cada 6 s
+    // com o launcher parado — outro engasgo periódico. Agora lê em segundo plano
+    // e só aplica o resultado na tela; nunca duas varreduras ao mesmo tempo.
     public void RefreshActiveDownloads()
     {
+        if (_downloadsScanInFlight) return;
+        _downloadsScanInFlight = true;
+        _ = RefreshActiveDownloadsCoreAsync();
+    }
+
+    private async Task RefreshActiveDownloadsCoreAsync()
+    {
+        IReadOnlyList<DownloadProgressInfo> downloads;
+        try { downloads = await Task.Run(() => _library.GetActiveDownloads()); }
+        catch (Exception ex) { DebugLog.Swallowed(ex); _downloadsScanInFlight = false; return; }
+        _downloadsScanInFlight = false;
+
         var now = DateTime.UtcNow; ActiveDownloads.Clear();
-        foreach (var download in _library.GetActiveDownloads())
+        foreach (var download in downloads)
         {
             if (_downloadSamples.TryGetValue(download.Title, out var previous))
             {

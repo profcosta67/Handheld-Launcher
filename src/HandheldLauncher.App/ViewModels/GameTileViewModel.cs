@@ -24,6 +24,15 @@ public sealed class GameTileViewModel : ViewModelBase
     public string? LogoImagePath => Game.LogoImagePath;
     public string? IconImagePath => Game.IconImagePath;
 
+    // v0.18.3 (pente fino de desempenho): antes, cada leitura de HasLogo
+    // DECODIFICAVA a imagem inteira do logo (new Bitmap) só pra saber se era
+    // válida — e ShowCurrentLogo/ShowNameCaption leem isso, então eram 2
+    // decodificações por bloco a cada troca de aba/favoritar (a biblioteca
+    // inteira é recriada nessas horas), tudo na thread da tela. Agora o
+    // resultado fica guardado por arquivo + data de modificação (troca de
+    // logo pelo SteamGridDB muda a data, então continua atualizando sozinho).
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (DateTime LastWriteUtc, bool Valid)> LogoValidityCache = new();
+
     public bool HasLogo
     {
         get
@@ -33,8 +42,17 @@ public sealed class GameTileViewModel : ViewModelBase
             try
             {
                 if (!File.Exists(path)) return false;
-                using var bmp = new Bitmap(path);
-                return bmp.PixelSize.Width > 0 && bmp.PixelSize.Height > 0;
+                var lastWrite = File.GetLastWriteTimeUtc(path);
+                if (LogoValidityCache.TryGetValue(path, out var cached) && cached.LastWriteUtc == lastWrite) return cached.Valid;
+                bool valid;
+                try
+                {
+                    using var bmp = new Bitmap(path);
+                    valid = bmp.PixelSize.Width > 0 && bmp.PixelSize.Height > 0;
+                }
+                catch { valid = false; }
+                LogoValidityCache[path] = (lastWrite, valid);
+                return valid;
             }
             catch { return false; }
         }
