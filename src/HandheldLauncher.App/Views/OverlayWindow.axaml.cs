@@ -678,6 +678,9 @@ public void SetInitialPosition()
     {
         if (action == GamepadAction.ToggleQuickSettings) { HideWithUnblock(); return; }
 
+        // X fecha o Quick Settings mesmo quando um submenu está aberto.
+        if (action == GamepadAction.GameDetails) { HideWithUnblock(); return; }
+
         if (_activeSubMenu == SubMenuMode.TdpCustom)
         {
             HandleTdpCustomAction(action);
