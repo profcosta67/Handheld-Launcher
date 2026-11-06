@@ -506,10 +506,39 @@ public partial class MainWindow : Window
             if (ourWindowInForeground && !_wasOurWindowInForeground) _foregroundRegainedAt = DateTime.UtcNow;
             _wasOurWindowInForeground = ourWindowInForeground;
 
+            // O destino das ações é decidido uma única vez por ciclo de polling.
+            // Antes, se B fechasse o overlay no meio do foreach, ações adicionais
+            // do mesmo relatório podiam cair no launcher atrás dele. Isso também
+            // permitia que um ToggleQuickSettings do mesmo lote reabrisse a janela
+            // durante o fechamento. Enquanto o QS estava visível no início do tick,
+            // todo o lote pertence a ele e nunca vaza para a janela principal.
+            var overlayForThisTick = _overlayWindow;
+            if (overlayForThisTick is { IsVisible: true })
+            {
+                foreach (var overlayAction in actions)
+                {
+                    UiSounds.PlayForAction(overlayAction);
+                    if (overlayAction == GamepadAction.ToggleQuickSettings)
+                    {
+                        ToggleOverlay();
+                        return;
+                    }
+
+                    overlayForThisTick.HandleGamepadAction(overlayAction);
+                    if (!overlayForThisTick.IsVisible)
+                        return; // descarta o restante do lote após fechar o QS
+                }
+                return;
+            }
+
             foreach (var action in actions)
             {
-                if (action == GamepadAction.ToggleQuickSettings) { UiSounds.PlayForAction(action); ToggleOverlay(); continue; }
-                if (_overlayWindow != null && _overlayWindow.IsVisible) { UiSounds.PlayForAction(action); _overlayWindow.HandleGamepadAction(action); continue; }
+                if (action == GamepadAction.ToggleQuickSettings)
+                {
+                    UiSounds.PlayForAction(action);
+                    ToggleOverlay();
+                    return; // o restante deste lote não pertence ao launcher
+                }
 
                 if (vm.IsAboutOpen)
                 {

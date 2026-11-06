@@ -600,9 +600,11 @@ public void SetInitialPosition()
         // −/+ tocado logo antes de fechar: aplica agora, antes de devolver o jogo,
         // em vez de meio segundo depois com o jogo já na frente.
         FlushPendingCustomApply();
+        // A posição inicial é definida antes de Show() no próximo ciclo de abertura.
+        // Não reposicione uma janela ainda visível durante o fechamento: isso cria
+        // uma segunda transição nativa de janela e pode competir com o Hide/foco.
         StopTopmostEnforcer();
         InputBlockService.UnblockGamepadForGame();
-        SetInitialPosition();
         Hide();
         GiveFocusBackToGame();
     }
