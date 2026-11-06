@@ -198,21 +198,59 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
     }
 
     private async Task<int?> SearchGameId(string title, CancellationToken ct)
-    {
-        var normalizedTitle = title.Trim();
+{
+    var normalizedTitle = title.Trim();
+    var tried = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        // v0.18.4: se a grafia sem acento não achar nada, tenta de novo com o
-        // acento (só nas palavras conhecidas — ver AccentVariant). Mesma
-        // comparação nas duas tentativas, então não aceita jogo errado.
+    // 1ª tentativa: título original (sem mexer em nada)
+    if (tried.Add(normalizedTitle))
+    {
         var id = await SearchGameIdOnce(normalizedTitle, ct);
         if (id is not null) return id;
-
-        var variant = AccentVariant(normalizedTitle);
-        if (variant is null) return null;
-        Write($"[SGDB] Tentando de novo com acento: '{variant}'.");
-        return await SearchGameIdOnce(variant, ct);
     }
 
+    // 2ª tentativa: com acento (Pokemon → Pokémon)
+    var accentVariant = AccentVariant(normalizedTitle);
+    if (accentVariant is not null && tried.Add(accentVariant))
+    {
+        Write($"[SGDB] Tentando de novo com acento: '{accentVariant}'.");
+        var id = await SearchGameIdOnce(accentVariant, ct);
+        if (id is not null) return id;
+    }
+
+    // 3ª tentativa: sem caracteres especiais (hífen, dois pontos, ™, ®, etc.)
+    // — o SGDB é chato com pontuação no cadastro oficial. Ex.: biblioteca
+    // guarda "Pokemon Legends Z-A", mas o cadastro é "Pokémon Legends: Z-A";
+    // sem essa variante, a busca com hífen não achava nada.
+    var plainVariant = PlainVariant(accentVariant ?? normalizedTitle);
+    if (plainVariant is not null && tried.Add(plainVariant))
+    {
+        Write($"[SGDB] Tentando de novo sem caracteres especiais: '{plainVariant}'.");
+        var id = await SearchGameIdOnce(plainVariant, ct);
+        if (id is not null) return id;
+    }
+
+    return null;
+}
+
+/// <summary>
+/// Remove pontuação (hífen, dois pontos, ™, ®, underlines) da busca,
+/// preservando letras, números e acentos. O SGDB não acha "Pokemon
+/// Legends Z-A" se o cadastro oficial é "Pokémon Legends: Z-A" — essa
+/// variante normaliza a pontuação pra busca.
+/// </summary>
+internal static string? PlainVariant(string title)
+{
+    if (string.IsNullOrWhiteSpace(title)) return null;
+
+    // Troca qualquer caractere não-alfanumérico (exceto espaço) por espaço
+    var cleaned = Regex.Replace(title, @"[^\w\s]", " ");
+
+    // Colapsa espaços múltiplos em um
+    cleaned = Regex.Replace(cleaned, @"\s+", " ").Trim();
+
+    return string.Equals(cleaned, title, StringComparison.Ordinal) ? null : cleaned;
+}
     /// <summary>
     /// "Pokemon" → "Pokémon" (palavra inteira, qualquer caixa). Nome de arquivo
     /// quase nunca tem acento, e a busca da SteamGridDB não achava "Pokémon"
