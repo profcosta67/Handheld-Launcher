@@ -343,6 +343,17 @@ public partial class MainWindow : Window
                     }
                 }
 
+                // v0.18.4: o processo lançado era só um lançador intermediário e
+                // saiu, e a janela do jogo nunca apareceu em 45s — o jogo não
+                // abriu (ou abriu com um nome de janela que não reconhecemos).
+                // Libera o launcher em vez de ficar escondido pra sempre.
+                if (!found && !_gameWindowSeen && vm.LaunchedProcessExitedEarly && _gameWatcherTicks >= 45)
+                {
+                    DebugLog.Write($"[JOGO-WATCHER] '{gameTitle}': lançador intermediário saiu e a janela do jogo não apareceu em {_gameWatcherTicks}s — liberando launcher.");
+                    vm.NotifyGameExitedExternally();
+                    return;
+                }
+
                 if (!found && !_gameWindowSeen && !_gameWatcherDiagnosticLogged && _gameWatcherTicks >= 10)
                 {
                     _gameWatcherDiagnosticLogged = true;
