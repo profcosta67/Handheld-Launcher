@@ -6,15 +6,24 @@ using System.Threading;
 using System.Runtime.InteropServices;
 using HandheldLauncher.Core.Services;
 using HandheldLauncher.App.Diagnostics;
+using HandheldLauncher.App.Platform.Hardware; // <-- ADICIONE ESTA LINHA
 
 namespace HandheldLauncher.App.Platform;
 
 public enum RecordingState { Stopped, Recording, Error }
 
+
 public class WindowsHardwareService : IHardwareService
 {
+    private readonly DeviceProfile _deviceProfile; 
     private readonly string _ffmpegPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Tools", "ffmpeg.exe");
 
+    public WindowsHardwareService()
+    {
+        _deviceProfile = DeviceDetector.Detect();
+        DebugLog.Write($"[HARDWARE] Perfil detectado: {_deviceProfile.Name} ({_deviceProfile.Id}) | Validado: {_deviceProfile.IsValidated}");
+    }
+    
     private RyzenSmuService? _smu;
     private byte[]? _smuModule;
 
@@ -36,16 +45,17 @@ public class WindowsHardwareService : IHardwareService
     // ==========================================
     // TDP
     // ==========================================
-    private bool InitializePawnIo()
+        private bool InitializePawnIo()
     {
         if (_smu?.IsInitialized == true) return true;
 
         _smu?.Dispose();
         _smu = null;
 
+        // Usa o perfil para logar o aparelho, mas mantém a checagem técnica da CPU
         if (!RyzenSmuService.IsSupportedCpu())
         {
-            DebugLog.Write("[PawnIO] Este processador ainda não possui mapeamento SMU validado. Nenhum comando TDP será enviado.");
+            DebugLog.Write($"[PawnIO] CPU não mapeada para o aparelho {_deviceProfile.Name}. Nenhum comando TDP será enviado.");
             return false;
         }
 
@@ -92,18 +102,20 @@ public class WindowsHardwareService : IHardwareService
         lock (TdpApplyLock) return SetTdpModeCore(mode);
     }
 
-    private bool SetTdpModeCore(string mode)
+        private bool SetTdpModeCore(string mode)
     {
         bool isCustom = HandheldLauncher.Core.Services.TdpProfiles.IsCustom(mode);
-        // v0.18.5: teto do aparelho agora (firmware Lenovo / tabela ASUS /
-        // 30 W), já considerando tomada ou bateria. Só o Personalizado usa.
+
+        // v0.19: Bloqueia TDP Personalizado se o perfil do aparelho não suportar
+        if (isCustom && !_deviceProfile.SupportsCustomTdp)
+        {
+            DebugLog.Write($"[TDP] Perfil {mode} bloqueado: o aparelho {_deviceProfile.Name} não suporta TDP personalizado.");
+            return false;
+        }
+
+        // v0.18.5: teto do aparelho agora (firmware Lenovo / tabela ASUS / 30 W), já considerando tomada ou bateria.
         var limits = isCustom ? DeviceTdpLimits.Current() : null;
 
-        // Perfis: EXATAMENTE como antes da v0.18.5 (decisão do usuário: perfis
-        // não mudam) — os mesmos watts (modo desconhecido = 20 W), o mesmo
-        // valor nos três limites, trava de 30 W, inclusive na bateria.
-        // Personalizado: SPL escolhido + picos na proporção do fabricante,
-        // dentro do teto do aparelho (tomada ou bateria).
         int asked = HandheldLauncher.Core.Services.TdpProfiles.WattsFor(mode) ?? 20;
         int stapmW, slowW, fastW;
         if (isCustom)
@@ -118,6 +130,7 @@ public class WindowsHardwareService : IHardwareService
         DebugLog.Write(isCustom
             ? $"[TDP] Solicitação do perfil {mode}: SPL {stapmW} W / SPPT {slowW} W / FPPT {fastW} W (pedido {asked} W; teto {limits!.SplMax}/{limits.SpptMax}/{limits.FpptMax} W na {(limits.OnAc ? "tomada" : "bateria")}, {limits.Source}). Provider permitido: PawnIO."
             : "[TDP] Solicitação do perfil " + mode + ": " + (stapmW * 1000) + "mW. Provider permitido: PawnIO.");
+        
         if (!InitializePawnIo())
         {
             DebugLog.Write("[TDP] PawnIO não inicializado. Perfil não aplicado; nenhum fallback WinRing0/RyzenAdj será executado.");

@@ -75,11 +75,11 @@ public sealed class GameTileViewModel : ViewModelBase
     public string FavoriteLabel => Game.IsFavorite ? "★ Favorito" : "";
 
     private string _description = string.Empty;
-    public string Description
-    {
-        get => _description;
-        private set { if (SetField(ref _description, value)) OnPropertyChanged(nameof(HasDescription)); }
-    }
+    public string Description 
+{
+    get => System.Net.WebUtility.HtmlDecode(_description);
+    set => _description = value;
+}
     public bool HasDescription => !string.IsNullOrWhiteSpace(Description);
     
     private bool _isLoadingDescription;

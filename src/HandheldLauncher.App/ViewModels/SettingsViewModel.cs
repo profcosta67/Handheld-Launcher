@@ -227,8 +227,23 @@ public sealed class SettingsViewModel : ViewModelBase
     // "Receber atualizações beta", então o rótulo enganava o usuário.
     public string SaveButtonText => "✕ Salvar e fechar";
 
-    private int _fontIndex;
-    public int FontIndex { get => _fontIndex; set => SetField(ref _fontIndex, value); }
+        private int _fontIndex;
+    public int FontIndex 
+    { 
+        get => _fontIndex; 
+        set 
+        {
+            if (SetField(ref _fontIndex, value))
+            {
+                // v0.19: Aplica a fonte dinamicamente na hora.
+                // Fonts é um array de tuplas (Name, Family); usamos Family
+                // quando existir, senão cai no Name.
+                var font = HandheldLauncher.App.Platform.ThemeManager.Fonts[value];
+                var family = !string.IsNullOrWhiteSpace(font.Family) ? font.Family : font.Name;
+                HandheldLauncher.App.Platform.ThemeManager.ApplyFont(family!);
+            }
+        } 
+    }
 
     private string _steamAccountText = string.Empty;
     public string SteamAccountText { get => _steamAccountText; set => SetField(ref _steamAccountText, value); }
@@ -249,7 +264,18 @@ public sealed class SettingsViewModel : ViewModelBase
     }
 
     private int _fontSizeIndex = 1;
-    public int FontSizeIndex { get => _fontSizeIndex; set => SetField(ref _fontSizeIndex, value); }
+    public int FontSizeIndex 
+    { 
+        get => _fontSizeIndex; 
+        set 
+        {
+            if (SetField(ref _fontSizeIndex, value))
+            {
+                // v0.19: Aplica o tamanho dinamicamente na hora
+                HandheldLauncher.App.Platform.ThemeManager.ApplyFontSize(value);
+            }
+        } 
+    }
 
     private int _themeIndex;
     public int ThemeIndex { get => _themeIndex; set => SetField(ref _themeIndex, value); }

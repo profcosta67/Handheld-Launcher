@@ -13,7 +13,7 @@ using HandheldLauncher.App.Diagnostics;
 using HandheldLauncher.App.Platform;
 using HandheldLauncher.App.Input;
 using HandheldLauncher.App.ViewModels;
-
+using HandheldLauncher.App.Platform.Hardware; 
 namespace HandheldLauncher.App.Views;
 
 public partial class OverlayWindow : Window
@@ -127,11 +127,17 @@ public partial class OverlayWindow : Window
 
         ShowActivated = true;
 
-        _tdpHardwareSupported = OperatingSystem.IsWindows()
+                _tdpHardwareSupported = OperatingSystem.IsWindows()
             && RyzenSmuService.IsSupportedPlatform()
             && RyzenSmuService.IsSupportedCpu();
+
+        // v0.19: Usa o DeviceDetector para identificar o aparelho
+        var profile = DeviceDetector.Detect();
+        DebugLog.Write($"[OVERLAY] Perfil detectado: {profile.Name} | Validado: {profile.IsValidated}");
+
         if (!_tdpHardwareSupported)
         {
+            // Hardware totalmente desconhecido: bloqueia tudo
             BtnUltraEco.IsEnabled = false;
             BtnEco.IsEnabled = false;
             BtnNormal.IsEnabled = false;
@@ -140,6 +146,21 @@ public partial class OverlayWindow : Window
             BtnTdpCustom.IsEnabled = false;
             TdpCustomPanel.IsEnabled = false;
             DebugLog.Write("[OVERLAY] Controles TDP desabilitados: este equipamento não está na matriz de hardware validado.");
+        }
+        else if (!profile.IsValidated && profile.Id != "generic")
+        {
+            // CPU suportada, mas aparelho não validado (ex: Legion Go S)
+            // Libera os perfis padrão, mas avisa na tela.
+            _showUnvalidatedNotice = true;
+            TxtTdpStatus.Text = profile.ValidationMessage;
+            TxtTdpStatus.IsVisible = true;
+
+            // Se o perfil não suportar TDP Custom, bloqueia só ele
+            if (!profile.SupportsCustomTdp)
+            {
+                BtnTdpCustom.IsEnabled = false;
+                TdpCustomPanel.IsEnabled = false;
+            }
         }
 
         _sections = new[] {

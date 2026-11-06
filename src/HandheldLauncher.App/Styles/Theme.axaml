@@ -21,122 +21,60 @@
       <SolidColorBrush x:Key="AccentSoftBrush" Color="{StaticResource AccentSoftColor}" />
       <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}" />
       <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryColor}" />
-      <!-- Barras de cima/baixo e véu sobre o fundo borrado — semitransparentes,
-           também trocam com o tema (ThemeManager). -->
       <SolidColorBrush x:Key="BarBrush" Color="#CC12141C" />
-      <!-- Fundo semitransparente na cor de destaque (cabeçalho dos menus). -->
       <SolidColorBrush x:Key="AccentTranslucentBrush" Color="#407C5CFC" />
-      <!-- Texto por cima da cor de destaque (aba ativa) — ThemeManager escolhe claro/escuro. -->
       <SolidColorBrush x:Key="OnAccentBrush" Color="#FFFFFF" />
+      <SolidColorBrush x:Key="BackdropDimBrush" Color="#CC0C0D12" />
+      <SolidColorBrush x:Key="ArtBackdropDimBrush" Color="#CC0C0D12" />
 
-      <!-- Tamanhos de texto (v0.7.1) — DynamicResource nos estilos, pra
-           Configurações → Tamanho do texto valer na hora
-           (ThemeManager.ApplyFontSize sobrescreve em Application.Resources). -->
+      <!-- v0.19: Recurso de Fonte Global para permitir troca dinâmica -->
+      <FontFamily x:Key="GlobalFontFamily">Segoe UI Variable Text, Segoe UI</FontFamily>
+
+      <!-- Tamanhos de texto (v0.7.1) -->
       <x:Double x:Key="FontSizeBase">14</x:Double>
       <x:Double x:Key="FontSizeBody">15</x:Double>
       <x:Double x:Key="FontSizeTitle">30</x:Double>
       <x:Double x:Key="FontSizeSubtle">14</x:Double>
       <x:Double x:Key="FontSizeCaption">11</x:Double>
       <x:Double x:Key="FontSizeMenuHeader">22</x:Double>
-      <SolidColorBrush x:Key="BackdropDimBrush" Color="#CC0C0D12" />
-      <!-- v0.18.4: véu sobre a arte de fundo do layout Clean (ver ThemeManager). -->
-      <SolidColorBrush x:Key="ArtBackdropDimBrush" Color="#CC0C0D12" />
 
-      <!-- Rounded-corner tokens — the look the reference screenshot is built on.
-           TileCornerRadius/BarCornerRadius também são sobrescritos por tema
-           (ThemeManager.Apply, v0.9.13 — tema Switch usa um valor mais
-           "quadrado") — por isso os Setters que os usam abaixo precisam ser
-           DynamicResource, não StaticResource (que fixa o valor na hora do
-           parse e nunca mais muda em runtime). HeroCornerRadius/
-           PillCornerRadius continuam globais, iguais em todo tema. -->
       <CornerRadius x:Key="HeroCornerRadius">24</CornerRadius>
       <CornerRadius x:Key="TileCornerRadius">16</CornerRadius>
       <CornerRadius x:Key="PillCornerRadius">999</CornerRadius>
       <CornerRadius x:Key="BarCornerRadius">18</CornerRadius>
 
-      <!-- v0.17 — escala de tipografia (8 passos) e de raio (5 passos) do
-           docs/design-audit.md, aprovadas pelo usuário. Isto é a INFRAESTRUTURA
-           da escala: os valores abaixo são os mesmos ~19 tamanhos de fonte e
-           ~13 raios que já existem espalhados pelas telas hoje, só que agora
-           com nome — nenhuma tela muda de aparência só por isto existir. A
-           troca de cada Setter hardcoded (FontSize="11", CornerRadius="12"...)
-           pra um destes tokens é o trabalho de migração tela-a-tela descrito
-           no design-audit (ordem: infraestrutura → telas maiores → menores,
-           testando no device a cada tela, antes de seguir pra próxima).
-           ThemeManager.ApplyFontSize reescala os 8 TypeScaleN pelo mesmo
-           fator de "Pequeno/Médio/Grande" que já reescala os FontSizeXxx
-           acima, então qualquer Setter migrado pra TypeScaleN já funciona
-           com Configurações → Tamanho do texto sem mudança adicional. -->
-      <x:Double x:Key="TypeScale1">11</x:Double>  <!-- legenda / rodapé -->
-      <x:Double x:Key="TypeScale2">12</x:Double>  <!-- texto secundário pequeno -->
-      <x:Double x:Key="TypeScale3">14</x:Double>  <!-- corpo padrão -->
-      <x:Double x:Key="TypeScale4">16</x:Double>  <!-- corpo destacado -->
-      <x:Double x:Key="TypeScale5">18</x:Double>  <!-- subtítulo -->
-      <x:Double x:Key="TypeScale6">22</x:Double>  <!-- cabeçalho de menu -->
-      <x:Double x:Key="TypeScale7">30</x:Double>  <!-- título -->
-      <x:Double x:Key="TypeScale8">36</x:Double>  <!-- título grande / hero -->
+      <x:Double x:Key="TypeScale1">11</x:Double>
+      <x:Double x:Key="TypeScale2">12</x:Double>
+      <x:Double x:Key="TypeScale3">14</x:Double>
+      <x:Double x:Key="TypeScale4">16</x:Double>
+      <x:Double x:Key="TypeScale5">18</x:Double>
+      <x:Double x:Key="TypeScale6">22</x:Double>
+      <x:Double x:Key="TypeScale7">30</x:Double>
+      <x:Double x:Key="TypeScale8">36</x:Double>
 
-      <CornerRadius x:Key="RadiusScale1">4</CornerRadius>   <!-- chip / tag -->
-      <CornerRadius x:Key="RadiusScale2">8</CornerRadius>   <!-- botão pequeno -->
-      <CornerRadius x:Key="RadiusScale3">12</CornerRadius>  <!-- card padrão -->
-      <CornerRadius x:Key="RadiusScale4">16</CornerRadius>  <!-- tile / painel -->
-      <CornerRadius x:Key="RadiusScale5">24</CornerRadius>  <!-- hero / destaque -->
+      <CornerRadius x:Key="RadiusScale1">4</CornerRadius>
+      <CornerRadius x:Key="RadiusScale2">8</CornerRadius>
+      <CornerRadius x:Key="RadiusScale3">12</CornerRadius>
+      <CornerRadius x:Key="RadiusScale4">16</CornerRadius>
+      <CornerRadius x:Key="RadiusScale5">24</CornerRadius>
 
     </ResourceDictionary>
   </Styles.Resources>
 
-  <!-- Fonte do projeto inteiro = Comic Sans MS, a pedido do usuário.
-       FontFamily é uma propriedade ATTACHED e INHERITS=true em Avalonia
-       (definida em TextElement, reaproveitada por TextBlock/Button/etc via
-       AddOwner — confirmado lendo o código-fonte real do Avalonia, já que
-       não dá pra compilar aqui pra verificar), então um único Setter aqui
-       em "Window" cobre toda a árvore visual de qualquer janela (MainWindow
-       E AddGameWindow) sem precisar repetir em cada estilo de texto
-       individual. "Comic Sans MS" é uma fonte do próprio Windows (vem
-       instalada por padrão), não precisa ser empacotada — só funciona
-       assim em Windows mesmo, que é a única plataforma que este launcher
-       roda. -->
-  <!-- v0.7.0: fonte padrão passou a ser a do próprio Windows (Segoe UI
-       Variable no Windows 11, Segoe UI no 10) — visual mais profissional,
-       pedido do usuário. A Comic Sans continua como opção "Divertida" nas
-       Configurações (ThemeManager.ApplyFont). -->
+  <!-- Fonte do projeto inteiro -->
   <Style Selector="Window">
-    <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI" />
-    <Setter Property="FontSize" Value="{DynamicResource FontSizeBase}" />
-  </Style>
+  <Setter Property="FontFamily" Value="{DynamicResource GlobalFontFamily}" />
+  <Setter Property="FontSize" Value="{DynamicResource FontSizeBase}" />
+</Style>
 
-  <!-- Row tile. Width/Height live here (not as local attributes in
-       MainWindow.axaml) specifically so the .lastPlayed variant below can
-       override them — a locally-set Width/Height on the element would win
-       over any style setter and the landscape tile would never resize. -->
+  <!-- Row tile -->
   <Style Selector="Border.gameTile">
     <Setter Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
     <Setter Property="CornerRadius" Value="{DynamicResource TileCornerRadius}" />
     <Setter Property="ClipToBounds" Value="True" />
-    <!-- 170/230 → 190/255 na leva anterior → 220/290 nesta leva, a pedido
-         do usuário ("aumente mais o tamanho de todos as capas... deixe
-         mais destacados"), mesma proporção de antes. -->
     <Setter Property="Width" Value="220" />
     <Setter Property="Height" Value="290" />
-    <!-- "Efeito quando passar pro lado entre os jogos" (pedido do
-         usuário): um leve "zoom" na tile que ganha foco, animado em vez de
-         trocar na hora — RenderTransform não é medido no layout, então um
-         escala pequena não empurra as tiles vizinhas, só cresce por cima.
-         Transitions reage a QUALQUER troca de valor da propriedade
-         (inclusive a troca de Setter pela classe .focused abaixo), que é a
-         API documentada do Avalonia pra isso — não dá pra compilar aqui
-         pra confirmar. -->
     <Setter Property="RenderTransform" Value="scale(1.0)" />
-    <!-- CORRIGIDO: era <Style.Transitions> (erro de build real reportado
-         pelo usuário — AVLN2000, "Transitions" não é uma propriedade do
-         próprio Style). Transitions é propriedade do CONTROLE
-         (Animatable/Visual), então dentro de um Style ela se define com
-         um Setter normal, igual Background/Width acima — não com a
-         sintaxe de property-element <Style.Transitions>, que só funciona
-         pra propriedades que pertencem à classe Style em si. Duração
-         aumentada de 0.15s pra 0.18s nesta leva (usuário reportou "não
-         notei a transição") — junto com a escala maior da classe .focused
-         abaixo, fica mais perceptível sem ficar lento/estranho. -->
     <Setter Property="Transitions">
       <Transitions>
         <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18" Easing="CubicEaseOut" />
@@ -147,30 +85,14 @@
   <Style Selector="Border.gameTile.focused">
     <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
     <Setter Property="BorderThickness" Value="3" />
-    <!-- 1.04 → 1.08 nesta leva — usuário reportou "não notei a transição
-         entre os ícones", escala maior deixa o "zoom" de foco bem mais
-         visível. -->
     <Setter Property="RenderTransform" Value="scale(1.08)" />
   </Style>
 
-  <!-- WIDE CAPSULE ("último jogo aberto") — a partir da leva anterior usa
-       uma arte INDEPENDENTE (GameEntry.WideGridImagePath, capa landscape
-       própria), não mais a mesma capa portrait da CAPSULE normal
-       esticada — ver GameTileViewModel.TileImagePath. Height bate com a
-       tile normal pra fileira continuar alinhada; só Width cresce.
-       510 → 620 (leva anterior) → 580 nesta leva — usuário reportou que
-       620 "está pegando o ícone do lado" (encostando/sobrepondo a
-       próxima tile da fileira); reduzido um pouco, e o espaçamento entre
-       tiles também aumentou (ver MainWindow.axaml StackPanel Spacing e
-       MainWindow.axaml.cs ScrollGameRowSelectionIntoView, 14 → 18), as
-       duas coisas juntas resolvem a sobreposição. -->
   <Style Selector="Border.gameTile.lastPlayed">
     <Setter Property="Width" Value="580" />
     <Setter Property="Height" Value="290" />
   </Style>
 
-  <!-- Context menu (Start button) — dim backdrop + a centered card listing
-       actions for whichever tile was focused when it opened. -->
   <Style Selector="Border.contextMenuOverlay">
     <Setter Property="Background" Value="#CC000000" />
   </Style>
@@ -189,11 +111,6 @@
     <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
   </Style>
 
-  <!-- Item destrutivo/irreversível ("Sim, excluir...", "Sim, reiniciar
-       o aparelho...") — pedido do usuário pra deixar a confirmação "mais
-       chamativa" (vermelho) em vez de um item igual aos outros. Texto
-       vermelho sempre; quando também está selecionado, fundo vermelho
-       translúcido no lugar do AccentSoftBrush normal. -->
   <Style Selector="Border.menuItem.danger TextBlock.gameTitle">
     <Setter Property="Foreground" Value="#FF5C5C" />
   </Style>
@@ -203,13 +120,6 @@
     <Setter Property="BorderThickness" Value="1.5" />
   </Style>
 
-  <!-- v0.7.0: cabeçalho dos menus — título centralizado dentro de uma
-       moldura com a cor de destaque (pedido: "destacar o nome do jogo
-       talvez com uma borda e centralizado"). -->
-  <!-- v0.7.1: a moldura (contorno) não agradou — agora é uma faixa com
-       fundo semitransparente na cor do tema, largura total do menu, texto
-       centralizado (pedido: "plano de fundo meio transparente parecido com
-       a cor do tema"). -->
   <Style Selector="Border.menuHeader">
     <Setter Property="Background" Value="{StaticResource AccentTranslucentBrush}" />
     <Setter Property="CornerRadius" Value="14" />
@@ -225,10 +135,6 @@
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
 
-  <!-- Cover/banner picker grid cells. Unlike Border.gameTile above, Width/
-       Height are NOT set here — the XAML sets them locally per-cell, which
-       is fine for this style (no size-varying class like .lastPlayed needs
-       to override it). -->
   <Style Selector="Border.coverCandidate">
     <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
     <Setter Property="CornerRadius" Value="12" />
@@ -241,8 +147,6 @@
     <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
   </Style>
 
-  <!-- Plain dark TextBox so the "Adicionar jogo" form doesn't show up as a
-       jarring white box over the rest of the dark UI. -->
   <Style Selector="TextBox">
     <Setter Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
     <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
@@ -279,10 +183,6 @@
     <Setter Property="FontSize" Value="{DynamicResource FontSizeSubtle}" />
   </Style>
 
-  <!-- Nome em cima das tiles pequenas da fileira (ver MainWindow.axaml) —
-       fonte pequena a pedido do usuário, sempre visível (diferente de
-       TextBlock.gameTitle, que só aparece como placeholder quando não tem
-       nenhuma arte ainda). -->
   <Style Selector="TextBlock.tileCaption">
     <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
     <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}" />
@@ -301,8 +201,6 @@
     <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
   </Style>
 
-  <!-- Abas de filtro (Todos/Favoritos/Steam/Não Steam/Xbox) — mesmo
-       Button.pill por baixo, só troca de cor quando é a aba ativa. -->
   <Style Selector="Button.filterTab.active">
     <Setter Property="Background" Value="{StaticResource AccentBrush}" />
     <Setter Property="Foreground" Value="{StaticResource OnAccentBrush}" />
@@ -313,25 +211,11 @@
     <Setter Property="Foreground" Value="{StaticResource OnAccentBrush}" />
   </Style>
 
-  <!-- Caixinhas de subfiltro (v0.9.18, abas Computador/Emuladores) —
-       menores que as abas de cima de propósito, pra ficar claro na
-       hierarquia visual que são subordinadas a elas.
-       v0.9.19: a COR de cada caixinha (preenchimento/texto/contorno) NÃO
-       vem daqui — vem por binding da própria caixinha, porque é a cor da
-       plataforma dela e um estilo único não saberia qual é (ver
-       SubFilterViewModel.BackgroundHex). O estado "marcada" também saiu
-       daqui junto, por isso não existe mais .marked. Aqui ficou só o que
-       é igual pra todas: tamanho e o cursor do controle. -->
   <Style Selector="Button.subFilter">
     <Setter Property="Padding" Value="12,5" />
     <Setter Property="FontSize" Value="11" />
   </Style>
 
-  <!-- Cursor do controle: sobrescreve o contorno colorido da plataforma
-       (este seletor pega o ContentPresenter do template, que vence o
-       TemplateBinding do BorderBrush vindo do binding local). Contorno e
-       não preenchimento, pra dar pra ver "cursor aqui + ainda não
-       marcada" e "cursor aqui + já marcada" sem os dois se anularem. -->
   <Style Selector="Button.subFilter.cursor">
     <Setter Property="BorderThickness" Value="2" />
     <Setter Property="BorderBrush" Value="{StaticResource TextPrimaryBrush}" />
@@ -342,10 +226,6 @@
     <Setter Property="BorderBrush" Value="{StaticResource TextPrimaryBrush}" />
   </Style>
 
-  <!-- Pill "primária" — mesma forma do Button.pill comum, só com a cor de
-       destaque (igual Button.filterTab.active), pra marcar a ação
-       principal de um diálogo (ex: "Atualizar e reiniciar" na UpdateWindow,
-       v0.9.6) sem precisar inventar um Background solto em cada tela. -->
   <Style Selector="Button.pill.primary">
     <Setter Property="Background" Value="{StaticResource AccentBrush}" />
     <Setter Property="Foreground" Value="{StaticResource OnAccentBrush}" />
@@ -356,12 +236,6 @@
     <Setter Property="Foreground" Value="{StaticResource OnAccentBrush}" />
   </Style>
 
-  <!-- Botão de ícone "fantasma" pra barra de cima — sem fundo/borda por
-       padrão, pra não brigar visualmente com os TextBlocks de bateria/
-       wifi ao lado (que não são clicáveis), só realça levemente no
-       hover/toque. Novo numa leva posterior, pro atalho de Downloads
-       (pedido do usuário: "colocar um atalho lá em cima igual a Steam" —
-       ver MainWindow.axaml "Top bar"). -->
   <Style Selector="Button.iconGhost">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
@@ -373,13 +247,6 @@
     <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
   </Style>
 
-  <!-- v0.17: Minimizar/Configurações/Energia na barra de baixo (MainWindow
-       "Bottom bar"). Essa classe nunca teve estilo próprio — sem Setter
-       aqui, os três botões caem no Button padrão do FluentTheme (que segue
-       o RequestedThemeVariant="Dark" fixo do App.axaml), por isso ficavam
-       sempre pretos com ícone branco, ignorando a paleta escolhida
-       (reportado pelo usuário, 05/11). Agora usam os mesmos brushes do
-       tema que o resto da janela. -->
   <Style Selector="Button.switchAction">
     <Setter Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
     <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
@@ -391,14 +258,6 @@
     <Setter Property="FontWeight" Value="Bold" />
     <Setter Property="HorizontalContentAlignment" Value="Center" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
-    <!-- v0.17 (05/11): o Background/Foreground acima já resolviam a cor de
-         fundo/ícone, mas faltava isto — sem um FocusAdorner próprio, o botão
-         com foco (navegação por D-pad/teclado) caía no anel de foco padrão
-         do FluentTheme, que usa a cor de destaque do WINDOWS, não a paleta
-         do app. Por isso um dos três ficava "torto" (o anel padrão soma uma
-         margem/formato diferente dos nossos) e com cor fora da paleta
-         escolhida. SettingsWindow e HelpCenterWindow já tinham esse ajuste
-         local; faltava igual aqui. -->
     <Setter Property="FocusAdorner">
       <Template>
         <Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="3" CornerRadius="14" Margin="-3" />
@@ -410,9 +269,6 @@
     <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
   </Style>
 
-
-  <!-- v0.6.0: zoom leve ao passar o mouse (pedido do usuário: "colocar o
-       zoom quando passar por cima do ícone"). Mesma transição do foco. -->
   <Style Selector="Border.gameTile:pointerover">
     <Setter Property="RenderTransform" Value="scale(1.05)" />
   </Style>
@@ -420,11 +276,6 @@
     <Setter Property="RenderTransform" Value="scale(1.08)" />
   </Style>
 
-  <!-- v0.8.0 (B1): menus, Downloads, Sobre, seletor de artes e tela
-       "Iniciando" aparecem com fade em vez de surgir secos. Animação de
-       estilo que dispara toda vez que o painel fica visível; só opacidade
-       (a placa de vídeo faz isso quase de graça). Desligada junto com
-       Configurações → Animações (Window.noAnim). -->
   <Style Selector="Window:not(.noAnim) Panel.fadeIn[IsVisible=True]">
     <Style.Animations>
       <Animation Duration="0:0:0.18" Easing="CubicEaseOut">
@@ -438,9 +289,6 @@
     </Style.Animations>
   </Style>
 
-  <!-- Configurações → "Animações" desligado: classe noAnim na janela
-       (MainWindow.ApplyAppearance). Definidos por último pra vencer os de
-       cima (no Avalonia, entre estilos que batem, o declarado depois ganha). -->
   <Style Selector="Window.noAnim Border.gameTile">
     <Setter Property="Transitions">
       <Transitions />

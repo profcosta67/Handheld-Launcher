@@ -100,53 +100,68 @@ public static class ThemeManager
     /// o XAML do launcher era afetado, deixando o texto dos dropdowns
     /// minúsculo mesmo em "Grande".
     /// </summary>
-    public static void ApplyFontSize(int fontSizeIndex)
+    /// 
+    
+    public static void ApplyFont(string fontFamily)
+{
+    var app = Application.Current;
+    if (app is null) return;
+
+    try
     {
-        var app = Application.Current;
-        if (app is null) return;
+        // v0.19: Recurso global que o Quick Settings (e qualquer outra janela)
+        // usa para herdar a fonte dinamicamente.
+        app.Resources["GlobalFontFamily"] = new FontFamily(fontFamily);
 
-        // Escalas mais agressivas: "Grande" agora é 1.30x, não 1.18x.
-        var scale = fontSizeIndex switch { 0 => 0.85, 2 => 1.30, _ => 1.0 };
-        try
-        {
-            var baseSize = Math.Round(16 * scale);
-            var bodySize = Math.Round(17 * scale);
-            var titleSize = Math.Round(32 * scale);
-            var subtleSize = Math.Round(15 * scale);
-            var captionSize = Math.Round(12 * scale);
-            var menuHeaderSize = Math.Round(24 * scale);
-
-            // Tamanhos que o launcher já usa
-            app.Resources["FontSizeBase"] = baseSize;
-            app.Resources["FontSizeBody"] = bodySize;
-            app.Resources["FontSizeTitle"] = titleSize;
-            app.Resources["FontSizeSubtle"] = subtleSize;
-            app.Resources["FontSizeCaption"] = captionSize;
-            app.Resources["FontSizeMenuHeader"] = menuHeaderSize;
-
-            // Sobrescrever o tamanho padrão do TEMA FLUENT
-            // Isso afeta ComboBox, TextBox, Button, CheckBox etc.
-            app.Resources["ControlContentThemeFontSize"] = bodySize;
-            app.Resources["BodyFontSize"] = bodySize;
-            app.Resources["FontSizeNormal"] = baseSize;
-
-            // v0.17 — escala de tipografia nova (ver Theme.axaml): reescala
-            // junto pelo mesmo fator, pra qualquer Setter já migrado pra
-            // TypeScaleN continuar respeitando Pequeno/Médio/Grande.
-            app.Resources["TypeScale1"] = Math.Round(11 * scale);
-            app.Resources["TypeScale2"] = Math.Round(12 * scale);
-            app.Resources["TypeScale3"] = Math.Round(14 * scale);
-            app.Resources["TypeScale4"] = Math.Round(16 * scale);
-            app.Resources["TypeScale5"] = Math.Round(18 * scale);
-            app.Resources["TypeScale6"] = Math.Round(22 * scale);
-            app.Resources["TypeScale7"] = Math.Round(30 * scale);
-            app.Resources["TypeScale8"] = Math.Round(36 * scale);
-        }
-        catch
-        {
-            // Melhor esforço.
-        }
+        // Fonte padrão do tema Fluent (afeta TextBox, ComboBox, etc).
+        app.Resources["ContentControlThemeFontFamily"] = new FontFamily(fontFamily);
     }
+    catch
+    {
+        // Melhor esforço.
+    }
+}
+
+public static void ApplyFontSize(int fontSizeIndex)
+{
+    var app = Application.Current;
+    if (app is null) return;
+
+    var scale = fontSizeIndex switch { 0 => 0.85, 2 => 1.30, _ => 1.0 };
+    try
+    {
+        var baseSize = Math.Round(16 * scale);
+        var bodySize = Math.Round(17 * scale);
+        var titleSize = Math.Round(32 * scale);
+        var subtleSize = Math.Round(15 * scale);
+        var captionSize = Math.Round(12 * scale);
+        var menuHeaderSize = Math.Round(24 * scale);
+
+        app.Resources["FontSizeBase"] = baseSize;
+        app.Resources["FontSizeBody"] = bodySize;
+        app.Resources["FontSizeTitle"] = titleSize;
+        app.Resources["FontSizeSubtle"] = subtleSize;
+        app.Resources["FontSizeCaption"] = captionSize;
+        app.Resources["FontSizeMenuHeader"] = menuHeaderSize;
+
+        app.Resources["ControlContentThemeFontSize"] = bodySize;
+        app.Resources["BodyFontSize"] = bodySize;
+        app.Resources["FontSizeNormal"] = baseSize;
+
+        app.Resources["TypeScale1"] = Math.Round(11 * scale);
+        app.Resources["TypeScale2"] = Math.Round(12 * scale);
+        app.Resources["TypeScale3"] = Math.Round(14 * scale);
+        app.Resources["TypeScale4"] = Math.Round(16 * scale);
+        app.Resources["TypeScale5"] = Math.Round(18 * scale);
+        app.Resources["TypeScale6"] = Math.Round(22 * scale);
+        app.Resources["TypeScale7"] = Math.Round(30 * scale);
+        app.Resources["TypeScale8"] = Math.Round(36 * scale);
+    }
+    catch
+    {
+        // Melhor esforço.
+    }
+}
 
     /// <summary>
     /// TileRadius/BarRadius (v0.9.13).
