@@ -139,26 +139,36 @@
 
   </Grid>
 
-    <!-- Start-button context menu -->
+       <!-- Start-button context menu -->
     <Panel Classes="fadeIn" IsVisible="{Binding IsContextMenuOpen}">
       <Border Classes="contextMenuOverlay" PointerPressed="OnMenuOverlayPressed" />
-      <Border Classes="contextMenuCard" Width="460" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+      
+      <!-- Cartão principal do menu, limitado em altura -->
+      <Border Classes="contextMenuCard" Width="460" Padding="24" MaxHeight="600"
+              HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel Spacing="16">
+          
+          <!-- Cabeçalho do Menu -->
           <Border Classes="menuHeader">
             <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
               <Image Source="{Binding ContextMenuTarget.IconImagePath, Converter={StaticResource FileToBitmapConverter}}" IsVisible="{Binding ContextMenuTarget.IconImagePath, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}" Width="36" Height="36" Stretch="Uniform" VerticalAlignment="Center" />
               <TextBlock Text="{Binding ContextMenuTarget.Title}" Classes="menuHeaderTitle" FontSize="{DynamicResource FontSizeMenuHeader}" TextWrapping="Wrap" MaxWidth="340" />
             </StackPanel>
           </Border>
-          <ItemsControl ItemsSource="{Binding ContextMenuItems}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate x:DataType="vm:ContextMenuItemViewModel">
-                <Border Classes="menuItem" Classes.selected="{Binding IsSelected}" Classes.danger="{Binding IsDanger}" Padding="16,12" Cursor="Hand" PointerPressed="OnContextMenuItemPressed">
-                  <TextBlock Text="{Binding Label}" Classes="gameTitle" FontSize="{DynamicResource FontSizeBody}" />
-                </Border>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
+          
+          <!-- Lista de Itens com Scroll -->
+          <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="400">
+            <ItemsControl ItemsSource="{Binding ContextMenuItems}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ContextMenuItemViewModel">
+                  <Border Classes="menuItem" Classes.selected="{Binding IsSelected}" Classes.danger="{Binding IsDanger}" Padding="16,12" Cursor="Hand" PointerPressed="OnContextMenuItemPressed">
+                    <TextBlock Text="{Binding Label}" Classes="gameTitle" FontSize="{DynamicResource FontSizeBody}" />
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+          
         </StackPanel>
       </Border>
     </Panel>

@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics; // Necessário para o ProcessStartInfo
 using System.Threading;
 using Microsoft.Win32;
 using HandheldLauncher.App.Diagnostics;
@@ -12,24 +13,12 @@ namespace HandheldLauncher.App.Platform;
 /// voltar de suspender — o TDP volta pro padrão do firmware e alguma outra
 /// janela do sistema (Xbox Game Bar, notificação, etc.) fica na frente do
 /// jogo.
-///
-/// Usa Microsoft.Win32.SystemEvents.PowerModeChanged em vez de um hook
-/// manual de WM_POWERBROADCAST: é a API padrão do .NET pra isso, já roda
-/// sua própria thread/janela de mensagens por dentro, sem precisar criar
-/// uma janela nativa só pra isso. Only Windows fires it — em outras
-/// plataformas Start() não faz nada.
 /// </summary>
 public static class SuspendGuardianService
 {
     private static bool _started;
     private static Action? _onResume;
     private static DateTime _lastResumeHandledAtUtc = DateTime.MinValue;
-
-    // Precisa de uma referência guardada — um Timer sem referência pode ser
-    // coletado pelo GC antes de disparar (armadilha clássica do
-    // System.Threading.Timer). Só um resume por vez interessa, então um
-    // campo estático é suficiente; uma troca aqui também cancela o anterior
-    // (ver Dispose em OnPowerModeChanged).
     private static Timer? _resumeDelayTimer;
 
     public static void Start(Action onResume)
@@ -71,10 +60,6 @@ public static class SuspendGuardianService
             DebugLog.Write($"[SUSPENSAO] PowerModeChanged recebido: {e.Mode}.");
             if (e.Mode != PowerModes.Resume) return;
 
-            // Alguns drivers/firmwares disparam Resume mais de uma vez pro
-            // mesmo evento real de acordar — ignora um 2º aviso chegando
-            // menos de 5s depois do primeiro, pra não reaplicar TDP/foco
-            // em duplicidade.
             var now = DateTime.UtcNow;
             if ((now - _lastResumeHandledAtUtc).TotalSeconds < 5)
             {
@@ -85,10 +70,12 @@ public static class SuspendGuardianService
 
             DebugLog.Write("[SUSPENSAO] Aparelho acordou da suspensão — reaplicando TDP e devolvendo foco em 2s.");
 
-            // Espera 2s pro hardware/driver (PawnIO/RyzenSMU, janela do jogo)
-            // voltar a responder antes de agir — acordar não é instantâneo.
-            // Dispose do timer anterior (se ainda não disparou) só por
-            // segurança — o debounce de 5s acima já evita chegar duas vezes.
+            // =======================================================================
+            // AQUI ESTÁ A CHAMADA DO DIAGNÓSTICO DO POWERCFG
+            // =======================================================================
+            LogPowerRequests(); 
+            // =======================================================================
+
             _resumeDelayTimer?.Dispose();
             _resumeDelayTimer = new Timer(_ =>
             {
@@ -99,6 +86,42 @@ public static class SuspendGuardianService
         catch (Exception ex)
         {
             DebugLog.Write($"[SUSPENSAO] EXCEPTION em OnPowerModeChanged: {ex.Message}");
+        }
+    } // <--- ESTA CHAVE ESTAVA FALTANDO NO SEU CÓDIGO
+
+    // =======================================================================
+    // MÉTODO FORA DO ONPOWERMODECHANGED
+    // =======================================================================
+    private static void LogPowerRequests()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = "powercfg",
+                Arguments = "/requests",
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var process = Process.Start(psi);
+            if (process != null)
+            {
+                string output = process.StandardOutput.ReadToEnd();
+                process.WaitForExit();
+                
+                if (string.IsNullOrWhiteSpace(output))
+                    DebugLog.Write("[SUSPENSAO] Diagnóstico powercfg: Nenhum bloqueio de energia detectado.");
+                else
+                    DebugLog.Write("[SUSPENSAO] Diagnóstico powercfg /requests:\n" + output);
+            }
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write("[SUSPENSAO] Falha ao executar powercfg /requests: " + ex.Message);
         }
     }
 }

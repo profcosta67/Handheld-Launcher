@@ -461,14 +461,7 @@ public partial class MainWindow : Window
                 {
                     try { gameHwnd = GetForegroundWindow(); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
                 }
-
-                if (_overlayWindow != null && !_overlayWindow.IsLoaded)
-                {
-                    DebugLog.Write("[OVERLAY] Janela destruída, recriando.");
-                    try { _overlayWindow.Close(); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
-                    _overlayWindow = null;
-                }
-
+                
                // v0.18.6: Em vez de destruir e recriar (o que causava o flash no centro e perda de foco),
 // nós apenas reaproveitamos a mesma janela. O construtor dela já foi chamado no boot.
 if (_overlayWindow == null)

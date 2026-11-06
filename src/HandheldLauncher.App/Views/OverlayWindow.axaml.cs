@@ -461,7 +461,7 @@ public partial class OverlayWindow : Window
         DebugLog.Write($"[OVERLAY] GamePid registrado: {pid}");
     }
 
-    protected override void OnOpened(EventArgs e)
+        protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
         DebugLog.Write($"[OVERLAY] OnOpened chamado. Width={Width}, Height={Height}");
@@ -489,9 +489,13 @@ public partial class OverlayWindow : Window
 
         if (_freezeGameOnOverlay) InputBlockService.BlockGamepadForGame(_gamePid);
 
+        // =========================================================
+        // ESTE BLOCO ESTAVA DUPLICADO. DEIXE APENAS UM ASSIM:
+        // =========================================================
         if (_hardwareService is WindowsHardwareService winSvcForSync)
         {
             _viewModel.UpdateHudRecordingState(winSvcForSync.IsRecording);
+            UpdateRecordButtonState(); 
         }
     }
 
@@ -1055,27 +1059,32 @@ public partial class OverlayWindow : Window
     /// hardware aceitar.
     /// </summary>
     private bool ApplyTdp(string mode)
+{
+    _customApplyTimer?.Stop();
+    if (!_tdpHardwareSupported) return false;
+
+    // 1. Roda o hardware em background (não trava a UI)
+    _ = Task.Run(() =>
     {
-        // Qualquer escolha de TDP cancela um −/+ pendente (senão ele dispararia
-        // depois e sobrescreveria a escolha). O próprio tick já parou o timer
-        // antes de chegar aqui, então isto não atrapalha ele.
-        _customApplyTimer?.Stop();
-        if (!_tdpHardwareSupported) return false;
-        // Aplicar e salvar juntos, sob a mesma trava da reaplicação de fundo
-        // (troca tomada⇄bateria): senão ela podia ler o modo salvo ANTIGO no
-        // meio e reaplicá-lo por cima da escolha nova (revisão).
+        bool success = false;
+        // O lock é mantido dentro da Task para segurança
         lock (WindowsHardwareService.TdpApplyLock)
         {
-            if (!_hardwareService.SetTdpMode(mode))
+            success = _hardwareService.SetTdpMode(mode);
+        }
+
+        // 2. Volta para a UI para atualizar os visuais
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!success)
             {
-                // Hardware recusou: volta o visual pro modo que estava valendo.
-                SetTdpButtonVisual(_currentTdp);
-                return false;
+                SetTdpButtonVisual(_currentTdp); // Reverte o visual
+                return;
             }
 
             SetTdpButtonVisual(mode);
             if (TdpProfiles.IsCustom(mode)) _customWatts = TdpProfiles.WattsFor(mode) ?? _customWatts;
-            // Um único Load+Save pros dois campos (antes eram dois ciclos).
+            
             try
             {
                 var settings = AppSettingsStore.Load();
@@ -1084,11 +1093,15 @@ public partial class OverlayWindow : Window
                 AppSettingsStore.Save(settings);
             }
             catch (Exception ex) { DebugLog.Write($"[OVERLAY] Erro ao salvar TDP {mode}: {ex.Message}"); }
-        }
-        _viewModel.UpdateHudTdpStatus(mode);
-        ApplyFanMode(TdpProfiles.LinkedFanMode(mode));
-        return true;
-    }
+            
+            _viewModel.UpdateHudTdpStatus(mode);
+            ApplyFanMode(TdpProfiles.LinkedFanMode(mode));
+        });
+    });
+
+    return true; // Retorno otimista (a UI não bloqueia)
+}
+
 
     private void SetTdpButtonVisual(string activeMode)
     {
@@ -1482,20 +1495,43 @@ public partial class OverlayWindow : Window
         }
     }
 
-    private void OnRecordClick(object? sender, RoutedEventArgs e)
+        private void OnRecordClick(object? sender, RoutedEventArgs e)
     {
         if (!OperatingSystem.IsWindows()) return;
         if (_hardwareService is WindowsHardwareService winService)
         {
             winService.ToggleScreenRecording();
+            _viewModel.UpdateHudRecordingState(winService.IsRecording);
+            UpdateRecordButtonState(); // <-- Chama o método para atualizar o botão
+        }
+    }
+        private void UpdateRecordButtonState()
+    {
+        if (_hardwareService is WindowsHardwareService winService)
+        {
             bool isRecording = winService.IsRecording;
 
-            _viewModel.UpdateHudRecordingState(isRecording);
-
+            // Atualiza o Botão de Gravar
             if (BtnRecord != null)
             {
-                BtnRecord.Content = isRecording ? "🎥 Parar" : "🎥 Gravar";
-                BtnRecord.Background = isRecording ? new SolidColorBrush(Color.FromRgb(255, 64, 64)) : _inactiveColor;
+                if (isRecording)
+                {
+                    BtnRecord.Content = "⏹ Parar";
+                    BtnRecord.Background = new SolidColorBrush(Color.FromRgb(255, 59, 48)); // Vermelho vivo
+                    BtnRecord.Foreground = Brushes.White;
+                }
+                else
+                {
+                    BtnRecord.Content = "🎥 Gravar";
+                    BtnRecord.Background = _inactiveColor;
+                    BtnRecord.Foreground = Brushes.White;
+                }
+            }
+
+            // Atualiza o Alerta no Cabeçalho (REC)
+            if (RecordingBadge != null)
+            {
+                RecordingBadge.IsVisible = isRecording;
             }
         }
     }
