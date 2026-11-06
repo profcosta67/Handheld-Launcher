@@ -121,7 +121,9 @@
                                 </Grid>
                             </Grid>
                             <!-- v0.18.5: TDP personalizado. Só aparece com o Personalizado ativo.
-                                 Toque: barra ou −/+ (aplica sozinho meio segundo depois de parar).
+                                 Toque: −/+ (aplica sozinho meio segundo depois de parar). A barra só
+                                 MOSTRA o nível: tocável, um deslize pra rolar a lista que começasse
+                                 nela mudaria o TDP sem querer (achado da revisão independente).
                                  Controle: A no Personalizado → ◀ ▶ 1 W, ▲ ▼ 5 W, A aplica, B cancela. -->
                             <Border x:Name="TdpCustomPanel" IsVisible="False" Background="#252A36" CornerRadius="8" Padding="10,8" BorderThickness="2" BorderBrush="Transparent">
                                 <StackPanel Spacing="6">
@@ -130,7 +132,7 @@
                                         <TextBlock x:Name="TdpCustomValueText" Grid.Column="1" Text="20 W" FontSize="20" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         <Button x:Name="BtnTdpPlus" Grid.Column="2" Tag="1" Click="OnTdpCustomStepClick" Content="+" FontSize="18" Width="44" Height="36" Background="#33FFFFFF" Foreground="White" CornerRadius="8" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
                                     </Grid>
-                                    <Slider x:Name="TdpCustomSlider" Minimum="5" Maximum="30" TickFrequency="1" IsSnapToTickEnabled="True" SmallChange="1" LargeChange="5" ValueChanged="OnTdpCustomSliderChanged"/>
+                                    <Slider x:Name="TdpCustomSlider" Minimum="5" Maximum="30" TickFrequency="1" IsSnapToTickEnabled="True" SmallChange="1" LargeChange="5" ValueChanged="OnTdpCustomSliderChanged" IsHitTestVisible="False" Focusable="False"/>
                                     <TextBlock x:Name="TdpCustomHint" Text="5 W a 30 W" FontSize="10" Foreground="#9A9CAB" HorizontalAlignment="Center"/>
                                 </StackPanel>
                             </Border>

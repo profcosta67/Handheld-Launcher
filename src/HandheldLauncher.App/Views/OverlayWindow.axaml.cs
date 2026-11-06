@@ -523,6 +523,9 @@ public partial class OverlayWindow : Window
         // v0.18.5: valor do TDP personalizado em edição pelo controle e não
         // confirmado com A é descartado ao fechar (não fica pendurado pra próxima abertura).
         if (_activeSubMenu == SubMenuMode.TdpCustom) CancelTdpCustomEdit();
+        // −/+ tocado logo antes de fechar: aplica agora, antes de devolver o jogo,
+        // em vez de meio segundo depois com o jogo já na frente.
+        FlushPendingCustomApply();
         StopTopmostEnforcer();
         InputBlockService.UnblockGamepadForGame();
         Hide();
@@ -702,6 +705,7 @@ public partial class OverlayWindow : Window
             case 1: _tempHzIndex = _currentHzIndex; _activeSubMenu = SubMenuMode.RefreshRate; UpdateTempVisuals(); break;
             case 2:
                 if (!_tdpHardwareSupported) return;
+                FlushPendingCustomApply();
                 _tempTdpIndex = TdpProfiles.IsCustom(_currentTdp) ? CustomTdpIndex : Array.IndexOf(TdpProfiles.Presets, _currentTdp);
                 if (_tempTdpIndex < 0) _tempTdpIndex = 2;
                 _activeSubMenu = SubMenuMode.Tdp; UpdateTempVisuals(); break;
@@ -992,9 +996,26 @@ public partial class OverlayWindow : Window
         if (!_tdpHardwareSupported) return;
         if (sender is not Button clickedButton) return;
         var mode = clickedButton.Tag?.ToString() ?? "Normal";
-        // v0.18.5: "Custom" aplica o último valor personalizado e mostra o painel.
-        if (mode == "Custom") mode = TdpProfiles.CustomMode(_customWatts);
+        // Toque durante a edição pelo controle: sai da edição (sem aplicar o
+        // valor dela) antes — senão o direcional continuaria editando um
+        // valor invisível e o próximo A aplicaria por cima do que foi tocado.
+        if (_activeSubMenu == SubMenuMode.TdpCustom) { CancelTdpCustomEdit(); UpdateFocusVisual(); }
+        // v0.18.5: "Custom" aplica o último valor personalizado (o pendente, se
+        // houver um −/+ esperando o meio segundo) e mostra o painel.
+        if (mode == "Custom")
+            mode = TdpProfiles.CustomMode(_customApplyTimer?.IsEnabled == true ? _pendingCustomWatts : _customWatts);
         ApplyTdp(mode);
+    }
+
+    /// <summary>
+    /// Se há um −/+ esperando o meio segundo, aplica agora. Chamado ao fechar o
+    /// Quick Settings e ao entrar no submenu de TDP pelo controle, pra que o
+    /// valor tocado nunca seja aplicado depois, fora de ordem.
+    /// </summary>
+    private void FlushPendingCustomApply()
+    {
+        if (_customApplyTimer?.IsEnabled != true) return;
+        OnCustomApplyTick(_customApplyTimer, EventArgs.Empty);
     }
 
     /// <summary>
@@ -1004,6 +1025,10 @@ public partial class OverlayWindow : Window
     /// </summary>
     private bool ApplyTdp(string mode)
     {
+        // Qualquer escolha de TDP cancela um −/+ pendente (senão ele dispararia
+        // depois e sobrescreveria a escolha). O próprio tick já parou o timer
+        // antes de chegar aqui, então isto não atrapalha ele.
+        _customApplyTimer?.Stop();
         if (!_tdpHardwareSupported) return false;
         if (!_hardwareService.SetTdpMode(mode))
         {
@@ -1013,12 +1038,16 @@ public partial class OverlayWindow : Window
         }
 
         SetTdpButtonVisual(mode);
-        SaveSetting("TdpMode", mode);
-        if (TdpProfiles.IsCustom(mode))
+        if (TdpProfiles.IsCustom(mode)) _customWatts = TdpProfiles.WattsFor(mode) ?? _customWatts;
+        // Um único Load+Save pros dois campos (antes eram dois ciclos).
+        try
         {
-            _customWatts = TdpProfiles.WattsFor(mode) ?? _customWatts;
-            SaveSetting("TdpCustomWatts", _customWatts.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            var settings = AppSettingsStore.Load();
+            settings.TdpMode = mode;
+            if (TdpProfiles.IsCustom(mode)) settings.TdpCustomWatts = _customWatts;
+            AppSettingsStore.Save(settings);
         }
+        catch (Exception ex) { DebugLog.Write($"[OVERLAY] Erro ao salvar TDP {mode}: {ex.Message}"); }
         _viewModel.UpdateHudTdpStatus(mode);
         ApplyFanMode(TdpProfiles.LinkedFanMode(mode));
         return true;
@@ -1119,7 +1148,8 @@ public partial class OverlayWindow : Window
         TdpCustomPanel.BorderBrush = _focusBorderColor;
         TdpCustomHint.Text = "◀ ▶ 1 W · ▲ ▼ 5 W · A aplica · B cancela";
         ShowCustomWatts(_tempCustomWatts);
-        TdpCustomPanel.BringIntoView();
+        // Depois do layout: na 1ª vez o painel acabou de aparecer e ainda não tem tamanho.
+        Dispatcher.UIThread.Post(() => TdpCustomPanel.BringIntoView(), DispatcherPriority.Loaded);
     }
 
     private void HandleTdpCustomAction(GamepadAction action)
@@ -1133,7 +1163,7 @@ public partial class OverlayWindow : Window
             case GamepadAction.Confirm:
                 _activeSubMenu = SubMenuMode.None;
                 DebugLog.Write($"[OVERLAY] TDP personalizado pelo controle: {_tempCustomWatts} W.");
-                if (!ApplyTdp(TdpProfiles.CustomMode(_tempCustomWatts))) SetTdpButtonVisual(_currentTdp);
+                ApplyTdp(TdpProfiles.CustomMode(_tempCustomWatts));
                 ClearTempHighlights();
                 UpdateFocusVisual();
                 UpdatePersistentVisuals();
