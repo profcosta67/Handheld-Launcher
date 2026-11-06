@@ -58,6 +58,8 @@ public partial class App : Application
                  new EdenLibraryScanner(appSettings.EdenExecutablePath, appSettings.EdenRomFolders)]);
             var gameLauncher = new GameLauncher();
 
+            // v0.18.4: resultado da busca da SteamGridDB no debug.log (antes só ia pro Debug.WriteLine).
+            SteamGridDbClient.Log = HandheldLauncher.App.Diagnostics.DebugLog.Write;
             var gridDbClient = new SteamGridDbClient(appSettings.SteamGridDbApiKey);
             var artworkService = new ArtworkService(gridDbClient, libraryStore);
 
