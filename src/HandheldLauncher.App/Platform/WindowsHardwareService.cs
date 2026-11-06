@@ -509,19 +509,31 @@ public class WindowsHardwareService : IHardwareService
     private const int CDS_TEST = 0x02;
     private const int DISP_CHANGE_SUCCESSFUL = 0;
 
+    private string? _cachedDisplayInfo;
+    private DateTime _cachedDisplayInfoAt = DateTime.MinValue;
+
     public string GetDisplayInfo()
+{
+    if (!OperatingSystem.IsWindows()) return "Mac / Linux";
+    
+    // v0.19: Cache de 5 segundos (info de tela não muda toda hora)
+    if (_cachedDisplayInfo != null && (DateTime.Now - _cachedDisplayInfoAt).TotalSeconds < 5)
+        return _cachedDisplayInfo;
+    
+    try
     {
-        if (!OperatingSystem.IsWindows()) return "Mac / Linux";
-        try
+        var devMode = new DEVMODE { dmDeviceName = new string(new char[32]) };
+        devMode.dmSize = (short)Marshal.SizeOf(devMode);
+        if (EnumDisplaySettings(null, -1, ref devMode))
         {
-            var devMode = new DEVMODE { dmDeviceName = new string(new char[32]) };
-            devMode.dmSize = (short)Marshal.SizeOf(devMode);
-            if (EnumDisplaySettings(null, -1, ref devMode))
-                return $"{devMode.dmPelsWidth}x{devMode.dmPelsHeight} {devMode.dmDisplayFrequency}Hz";
+            _cachedDisplayInfo = $"{devMode.dmPelsWidth}x{devMode.dmPelsHeight} {devMode.dmDisplayFrequency}Hz";
+            _cachedDisplayInfoAt = DateTime.Now;
+            return _cachedDisplayInfo;
         }
-        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
-        return "--";
     }
+    catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
+    return "--";
+}
 
     public void SetDisplayMode(int width, int height, int refreshRate)
     {

@@ -75,7 +75,7 @@
 
     <Image x:Name="HeroBackImage" Stretch="UniformToFill" IsHitTestVisible="False">
       <Image.Effect>
-        <media:BlurEffect Radius="46" />
+        <media:BlurEffect Radius="12" />
       </Image.Effect>
     </Image>
     <Image x:Name="HeroImage"
@@ -84,7 +84,7 @@
            Opacity="0.48"
            IsHitTestVisible="False">
       <Image.Effect>
-        <media:BlurEffect Radius="24" />
+        <media:BlurEffect Radius="8" />
       </Image.Effect>
     </Image>
 
@@ -271,13 +271,13 @@
                            FontSize="11"
                            FontWeight="Bold" />
               </StackPanel>
-              <TextBlock Text="{Binding SelectedTile.Description}"
-                         Foreground="#FFD1D8E8"
-                         FontSize="12"
-                         TextWrapping="Wrap"
-                         MaxHeight="38"
-                         TextTrimming="CharacterEllipsis"
-                         IsVisible="{Binding SelectedTile.HasDescription}" />
+              <TextBlock Text="{Binding SelectedTile.Description, Converter={x:Static conv:HtmlDecodeConverter.Instance}}"
+                          Foreground="#FFD1D8E8"
+                          FontSize="12"
+                          TextWrapping="Wrap"
+                          MaxHeight="38"
+                          TextTrimming="CharacterEllipsis"
+                          IsVisible="{Binding SelectedTile.HasDescription}" />
             </StackPanel>
           </Grid>
         </Border>

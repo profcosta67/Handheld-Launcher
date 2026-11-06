@@ -67,7 +67,7 @@ public sealed class GamepadPoller
             var actions = new List<GamepadAction>();
             UpdateActiveSlot();
 
-            if ((DateTime.Now - _lastDiag).TotalSeconds >= 3)
+            if ((DateTime.Now - _lastDiag).TotalSeconds >= 60)
             {
                 _lastDiag = DateTime.Now;
                 var slotInfo = _activeSlot >= 0 ? _activeSlot.ToString() : "none";
@@ -87,6 +87,30 @@ public sealed class GamepadPoller
             IsConnected = true;
             var buttons = (XInput.Buttons)state.Gamepad.wButtons;
             var prevButtons = _previousButtons[_activeSlot];
+
+            // =========================================================
+            // v0.19: OTIMIZAÇÃO DE PERFORMANCE (Early Return)
+            // =========================================================
+            bool buttonsChanged = buttons != prevButtons;
+            bool sticksMoving = Math.Abs(state.Gamepad.sThumbLX) > StickPressDeadzone ||
+                                Math.Abs(state.Gamepad.sThumbLY) > StickPressDeadzone ||
+                                Math.Abs(state.Gamepad.sThumbRX) > StickPressDeadzone ||
+                                Math.Abs(state.Gamepad.sThumbRY) > StickPressDeadzone;
+
+            // Verifica se alguma direção ainda está "engajada" e precisa ser solta
+            bool anyDirectionActive = _leftState[_activeSlot].IsActive ||
+                                      _rightState[_activeSlot].IsActive ||
+                                      _upState[_activeSlot].IsActive ||
+                                      _downState[_activeSlot].IsActive;
+
+            // Se nada mudou, os analógicos estão parados E nenhuma direção está travada...
+            if (!buttonsChanged && !sticksMoving && !anyDirectionActive)
+            {
+                return actions; // Pula todo o processamento pesado
+            }
+            // =========================================================
+            // FIM DA OTIMIZAÇÃO
+            // =========================================================
 
             // Botões de face
             if (WasJustPressed(buttons, prevButtons, XInput.Buttons.Start))          actions.Add(GamepadAction.GlobalMenu);

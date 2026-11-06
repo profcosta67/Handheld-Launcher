@@ -184,27 +184,53 @@ public partial class MainWindow : Window
     private bool? _gamepadComboModeIsGame;
 
     public MainWindow()
+{
+    InitializeComponent();
+
+    ApplyLayoutTheme();
+
+    GamesItemsControl.ContainerPrepared += (_, e) => e.Container.Margin = ContainerMargin();
+
+    HeroImage.PropertyChanged += OnHeroImageChanged;
+
+    AddHandler(KeyDownEvent, OnWindowKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+
+    _gamepadTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
+    _gamepadTimer.Tick += OnGamepadTick;
+    _gamepadTimer.Start();
+
+    // v0.19: Otimização de energia. Colocado AQUI, DEPOIS do timer existir.
+    // Pausa a leitura do controle quando o launcher está na bandeja (minimizado)
+    // e retoma quando ele volta a ficar visível.
+    this.PropertyChanged += (s, e) =>
     {
-        InitializeComponent();
-
-        ApplyLayoutTheme();
-
-        GamesItemsControl.ContainerPrepared += (_, e) => e.Container.Margin = ContainerMargin();
-
-        HeroImage.PropertyChanged += OnHeroImageChanged;
-
-        AddHandler(KeyDownEvent, OnWindowKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
-
-        _gamepadTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
-        _gamepadTimer.Tick += OnGamepadTick;
-        _gamepadTimer.Start();
-
-        Closing += (_, _) => DebugLog.Write("[STARTUP] Fechamento detectado.");
-
-        Closed += (_, _) =>
+        if (e.Property == IsVisibleProperty)
         {
-            _gamepadTimer.Stop();
-            RemoveTrayIcon();
+            if (IsVisible)
+            {
+                if (!_gamepadTimer.IsEnabled)
+                {
+                    _gamepadTimer.Start();
+                    DebugLog.Write("[PERF] Launcher visível. Timer do gamepad LIGADO.");
+                }
+            }
+            else
+            {
+                if (_gamepadTimer.IsEnabled)
+                {
+                    _gamepadTimer.Stop();
+                    DebugLog.Write("[PERF] Launcher minimizado/escondido. Timer do gamepad PAUSADO.");
+                }
+            }
+        }
+    };
+
+    Closing += (_, _) => DebugLog.Write("[STARTUP] Fechamento detectado.");
+
+    Closed += (_, _) =>
+    {
+        _gamepadTimer.Stop();
+        RemoveTrayIcon();
             try { InputBlockService.UnblockGamepadForGame(); }
             catch (Exception ex) { DebugLog.Write($"[InputBlock] Falha ao desbloquear gamepad no fechamento: {ex.Message}"); }
             if (_overlayWindow != null)
