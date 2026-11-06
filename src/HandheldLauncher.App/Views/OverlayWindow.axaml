@@ -112,7 +112,7 @@
                                             <TextBlock Text="Boost" FontSize="10" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
-                                    <Button x:Name="BtnTdpCustom" Grid.Column="2" Tag="Custom" ToolTip.Tip="Personalizado • 5 a 30 W" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="4,0,0,0" Padding="4" Height="46" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                                    <Button x:Name="BtnTdpCustom" Grid.Column="2" Tag="Custom" ToolTip.Tip="Personalizado • até o limite do aparelho" Click="OnTdpClick" Background="#252A36" Foreground="White" CornerRadius="8" Margin="4,0,0,0" Padding="4" Height="46" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
                                         <StackPanel Orientation="Vertical" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
                                             <TextBlock Text="🎚" FontSize="16" HorizontalAlignment="Center"/>
                                             <TextBlock x:Name="TdpCustomButtonText" Text="Person." FontSize="10" HorizontalAlignment="Center"/>
@@ -132,8 +132,9 @@
                                         <TextBlock x:Name="TdpCustomValueText" Grid.Column="1" Text="20 W" FontSize="20" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         <Button x:Name="BtnTdpPlus" Grid.Column="2" Tag="1" Click="OnTdpCustomStepClick" Content="+" FontSize="18" Width="44" Height="36" Background="#33FFFFFF" Foreground="White" CornerRadius="8" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
                                     </Grid>
+                                    <TextBlock x:Name="TdpCustomPeaksText" Text="" FontSize="11" Foreground="#C8C8D0" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"/>
                                     <Slider x:Name="TdpCustomSlider" Minimum="5" Maximum="30" TickFrequency="1" IsSnapToTickEnabled="True" SmallChange="1" LargeChange="5" ValueChanged="OnTdpCustomSliderChanged" IsHitTestVisible="False" Focusable="False"/>
-                                    <TextBlock x:Name="TdpCustomHint" Text="5 W a 30 W" FontSize="10" Foreground="#9A9CAB" HorizontalAlignment="Center"/>
+                                    <TextBlock x:Name="TdpCustomHint" Text="" FontSize="10" Foreground="#9A9CAB" HorizontalAlignment="Center"/>
                                 </StackPanel>
                             </Border>
                             <TextBlock x:Name="TxtTdpStatus" Text="" Foreground="#B8B8C0" FontSize="11" TextWrapping="Wrap" TextAlignment="Center" Margin="0,4,0,0" IsVisible="False"/>

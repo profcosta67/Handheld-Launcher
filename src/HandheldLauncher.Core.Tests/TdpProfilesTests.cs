@@ -20,9 +20,10 @@ public class TdpProfilesTests
     }
 
     [Theory]
-    [InlineData("Custom:2", 5)]     // abaixo da trava
-    [InlineData("Custom:150", 30)]  // acima da trava
+    [InlineData("Custom:2", 5)]     // abaixo do piso
+    [InlineData("Custom:150", 55)]  // acima do teto absoluto de sanidade
     [InlineData("Custom:-4", 5)]
+    [InlineData("Custom:35", 35)]   // acima de 30 agora é válido (teto real vem do aparelho)
     public void WattsFor_CustomIsClampedToSafetyRange(string mode, int expected)
     {
         Assert.Equal(expected, TdpProfiles.WattsFor(mode));
@@ -42,7 +43,7 @@ public class TdpProfilesTests
     [Theory]
     [InlineData(18, "Custom:18")]
     [InlineData(1, "Custom:5")]
-    [InlineData(99, "Custom:30")]
+    [InlineData(99, "Custom:55")]
     public void CustomMode_RoundTripsAndClamps(int watts, string expected)
     {
         Assert.Equal(expected, TdpProfiles.CustomMode(watts));

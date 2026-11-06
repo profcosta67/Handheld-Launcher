@@ -13,7 +13,8 @@ namespace HandheldLauncher.App.Platform;
 /// TDP access through the official PawnIO RyzenSMU module.
 /// Esta versão flexibiliza a checagem de DMI e CodeName para permitir
 /// que o Ryzen Z2 (Hawk Point) rode sem bloqueios falsos, mantendo a
-/// trava de segurança de Watts (5W a 30W).
+/// trava de segurança de Watts (5 W a 30 W nos perfis; no personalizado,
+/// o teto do aparelho — DeviceTdpLimits — e nunca acima de 55 W).
 /// </summary>
 public sealed class RyzenSmuService : IDisposable
 {
@@ -202,7 +203,27 @@ public sealed class RyzenSmuService : IDisposable
         }
     }
 
+    // Teto absoluto de sanidade (mW), independente de qualquer tabela/firmware.
+    // Igual a TdpLimits.AbsoluteMaxWatts.
+    private const uint AbsoluteMaxMilliwatts = 55000;
+
+    /// <summary>
+    /// Perfis fixos (UltraEco…Boost): o mesmo valor nos três limites, com a
+    /// trava de sempre (5–30 W). Comportamento idêntico ao de antes da v0.18.5.
+    /// </summary>
     public bool SetPowerLimits(uint limitMilliwatts)
+        => SetPowerLimits(limitMilliwatts, limitMilliwatts, limitMilliwatts,
+                          maxStapmMilliwatts: 30000, maxSlowMilliwatts: 30000, maxFastMilliwatts: 30000);
+
+    /// <summary>
+    /// v0.18.5 (TDP personalizado com o teto real do aparelho): STAPM/SPL,
+    /// Slow PPT/SPPT e Fast PPT/FPPT separados, cada um com o teto informado
+    /// pelo aparelho (DeviceTdpLimits). Recusa se qualquer valor estiver
+    /// abaixo de 5 W, acima do teto dele, acima de 55 W (sanidade), ou fora da
+    /// ordem STAPM ≤ Slow ≤ Fast.
+    /// </summary>
+    public bool SetPowerLimits(uint stapmMilliwatts, uint slowMilliwatts, uint fastMilliwatts,
+                               uint maxStapmMilliwatts, uint maxSlowMilliwatts, uint maxFastMilliwatts)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (!_initialized)
@@ -217,11 +238,16 @@ public sealed class RyzenSmuService : IDisposable
         }
         
         // TRAVA DE SEGURANÇA MÁXIMA E MÍNIMA:
-        // O Legion Go 2 e a maioria dos handhelds Zen 4 opera entre 5W e 30W.
-        // Isso impede que alguém digite 150W e queime o aparelho.
-        if (limitMilliwatts < 5000 || limitMilliwatts > 30000)
+        // Piso 5 W; teto = o do aparelho pra cada limite (perfis: 30 W, como
+        // sempre), e nunca acima de 55 W. Isso impede que alguém mande 150 W
+        // e queime o aparelho, e que um valor passe do que o fabricante permite.
+        bool InRange(uint value, uint max) => value >= 5000 && value <= max && max <= AbsoluteMaxMilliwatts;
+        if (!InRange(stapmMilliwatts, maxStapmMilliwatts)
+            || !InRange(slowMilliwatts, maxSlowMilliwatts)
+            || !InRange(fastMilliwatts, maxFastMilliwatts)
+            || stapmMilliwatts > slowMilliwatts || slowMilliwatts > fastMilliwatts)
         {
-            DebugLog.Write($"[PawnIO] Limite TDP fora da faixa permitida (5W-30W): {limitMilliwatts}mW. BLOQUEADO POR SEGURANÇA.");
+            DebugLog.Write($"[PawnIO] Limites TDP fora da faixa permitida: STAPM={stapmMilliwatts}mW (máx {maxStapmMilliwatts}), Slow={slowMilliwatts}mW (máx {maxSlowMilliwatts}), Fast={fastMilliwatts}mW (máx {maxFastMilliwatts}). BLOQUEADO POR SEGURANÇA.");
             return false;
         }
 
@@ -237,15 +263,19 @@ public sealed class RyzenSmuService : IDisposable
                 return false;
             }
 
-            bool stapmCommand = SendMp1Command(SetStapmCommand, limitMilliwatts);
-            bool fastCommand = SendMp1Command(SetFastPptCommand, limitMilliwatts);
-            bool slowCommand = SendMp1Command(SetSlowPptCommand, limitMilliwatts);
+            bool stapmCommand = SendMp1Command(SetStapmCommand, stapmMilliwatts);
+            bool fastCommand = SendMp1Command(SetFastPptCommand, fastMilliwatts);
+            bool slowCommand = SendMp1Command(SetSlowPptCommand, slowMilliwatts);
 
-            DebugLog.Write($"[PawnIO] MP1 commands: STAPM={stapmCommand}, FastPPT={fastCommand}, SlowPPT={slowCommand}, alvo={limitMilliwatts}mW.");
+            DebugLog.Write(stapmMilliwatts == slowMilliwatts && slowMilliwatts == fastMilliwatts
+                ? $"[PawnIO] MP1 commands: STAPM={stapmCommand}, FastPPT={fastCommand}, SlowPPT={slowCommand}, alvo={stapmMilliwatts}mW."
+                : $"[PawnIO] MP1 commands: STAPM={stapmCommand}, FastPPT={fastCommand}, SlowPPT={slowCommand}, alvos STAPM={stapmMilliwatts}mW / Slow={slowMilliwatts}mW / Fast={fastMilliwatts}mW.");
             if (!stapmCommand || !fastCommand || !slowCommand)
                 return false;
 
-            float targetWatts = limitMilliwatts / 1000f;
+            float targetWatts = stapmMilliwatts / 1000f;
+            float fastTargetWatts = fastMilliwatts / 1000f;
+            float slowTargetWatts = slowMilliwatts / 1000f;
             float stapmRead = 0f, fastRead = 0f, slowRead = 0f;
             bool confirmed = false;
             int consecutiveMatches = 0;
@@ -260,8 +290,8 @@ public sealed class RyzenSmuService : IDisposable
                 {
                     // Se o Fast e Slow estiverem no alvo, consideramos aplicado.
                     // (O STAPM às vezes fica travado pelo EC no Legion Go)
-                    bool matchesTarget = Math.Abs(fastRead - targetWatts) <= readbackToleranceWatts
-                        && Math.Abs(slowRead - targetWatts) <= readbackToleranceWatts;
+                    bool matchesTarget = Math.Abs(fastRead - fastTargetWatts) <= readbackToleranceWatts
+                        && Math.Abs(slowRead - slowTargetWatts) <= readbackToleranceWatts;
 
                     if (Math.Abs(stapmRead - targetWatts) > readbackToleranceWatts)
                     {
@@ -271,7 +301,7 @@ public sealed class RyzenSmuService : IDisposable
                     consecutiveMatches = matchesTarget ? consecutiveMatches + 1 : 0;
                     confirmed = consecutiveMatches >= requiredConsecutiveMatches;
 
-                    DebugLog.Write($"[PawnIO] Read-back {attempt}/{maxReadAttempts}: STAPM={stapmRead:F2}W, FastPPT={fastRead:F2}W, SlowPPT={slowRead:F2}W; alvo={targetWatts:F1}W; sequência={consecutiveMatches}/{requiredConsecutiveMatches}; confirmado={confirmed}.");
+                    DebugLog.Write($"[PawnIO] Read-back {attempt}/{maxReadAttempts}: STAPM={stapmRead:F2}W, FastPPT={fastRead:F2}W, SlowPPT={slowRead:F2}W; alvo={targetWatts:F1}/{slowTargetWatts:F1}/{fastTargetWatts:F1}W; sequência={consecutiveMatches}/{requiredConsecutiveMatches}; confirmado={confirmed}.");
                     if (confirmed) break;
                 }
                 else
@@ -284,7 +314,7 @@ public sealed class RyzenSmuService : IDisposable
             }
 
             if (!confirmed)
-                DebugLog.Write($"[PawnIO] Limites não convergiram para {targetWatts:F1}W. Último read-back: STAPM={stapmRead:F2}W, FastPPT={fastRead:F2}W, SlowPPT={slowRead:F2}W.");
+                DebugLog.Write($"[PawnIO] Limites não convergiram para {targetWatts:F1}/{slowTargetWatts:F1}/{fastTargetWatts:F1}W. Último read-back: STAPM={stapmRead:F2}W, FastPPT={fastRead:F2}W, SlowPPT={slowRead:F2}W.");
 
             return confirmed;
         }

@@ -82,11 +82,29 @@ public class WindowsHardwareService : IHardwareService
     {
         if (!OperatingSystem.IsWindows()) return false;
 
-        // v0.18.5: perfis + personalizado ("Custom:18") vêm de TdpProfiles.
-        // Modo desconhecido continua caindo em 20 W, como antes.
-        int tdpLimit = (HandheldLauncher.Core.Services.TdpProfiles.WattsFor(mode) ?? 20) * 1000;
+        // v0.18.5: teto do aparelho agora (firmware Lenovo / tabela ASUS /
+        // 30 W), já considerando tomada ou bateria.
+        var limits = DeviceTdpLimits.Current();
+        bool isCustom = HandheldLauncher.Core.Services.TdpProfiles.IsCustom(mode);
 
-        DebugLog.Write("[TDP] Solicitação do perfil " + mode + ": " + tdpLimit + "mW. Provider permitido: PawnIO.");
+        // Perfis: os mesmos watts de sempre (modo desconhecido = 20 W), o
+        // mesmo valor nos três limites, só baixados se a BATERIA permitir
+        // menos que isso (ex.: Boost 30 W num Ally fora da tomada → 25 W).
+        // Personalizado: SPL escolhido + picos na proporção do fabricante.
+        int asked = HandheldLauncher.Core.Services.TdpProfiles.WattsFor(mode) ?? 20;
+        int stapmW, slowW, fastW;
+        if (isCustom)
+        {
+            (stapmW, slowW, fastW) = limits.PeaksFor(asked);
+        }
+        else
+        {
+            stapmW = slowW = fastW = Math.Min(asked, limits.SplMax);
+        }
+
+        DebugLog.Write(isCustom || stapmW != asked
+            ? $"[TDP] Solicitação do perfil {mode}: SPL {stapmW} W / SPPT {slowW} W / FPPT {fastW} W (pedido {asked} W; teto {limits.SplMax}/{limits.SpptMax}/{limits.FpptMax} W na {(limits.OnAc ? "tomada" : "bateria")}, {limits.Source}). Provider permitido: PawnIO."
+            : "[TDP] Solicitação do perfil " + mode + ": " + (stapmW * 1000) + "mW. Provider permitido: PawnIO.");
         if (!InitializePawnIo())
         {
             DebugLog.Write("[TDP] PawnIO não inicializado. Perfil não aplicado; nenhum fallback WinRing0/RyzenAdj será executado.");
@@ -95,10 +113,13 @@ public class WindowsHardwareService : IHardwareService
 
         try
         {
-            bool applied = _smu!.SetPowerLimits((uint)tdpLimit);
+            bool applied = isCustom
+                ? _smu!.SetPowerLimits((uint)stapmW * 1000, (uint)slowW * 1000, (uint)fastW * 1000,
+                                       (uint)limits.SplMax * 1000, (uint)limits.SpptMax * 1000, (uint)limits.FpptMax * 1000)
+                : _smu!.SetPowerLimits((uint)stapmW * 1000); // perfis: caminho e trava (30 W) de sempre
             DebugLog.Write(applied
-                ? "[TDP] PawnIO aceitou os três comandos para " + tdpLimit + "mW. Confirme os limites efetivos pelos sensores do hardware."
-                : "[TDP] PawnIO não confirmou todos os comandos para " + tdpLimit + "mW.");
+                ? $"[TDP] PawnIO aceitou os três comandos ({stapmW}/{slowW}/{fastW} W). Confirme os limites efetivos pelos sensores do hardware."
+                : $"[TDP] PawnIO não confirmou todos os comandos ({stapmW}/{slowW}/{fastW} W).");
             return applied;
         }
         catch (Exception ex)

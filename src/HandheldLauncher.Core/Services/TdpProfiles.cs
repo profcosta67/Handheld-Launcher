@@ -14,14 +14,16 @@ namespace HandheldLauncher.Core.Services;
 /// porque só repassam o texto. Uma versão antiga que leia "Custom:18" cai no
 /// padrão dela (20 W), que é seguro.
 ///
-/// Faixa do personalizado = a mesma trava de segurança do RyzenSmuService
-/// (5 W a 30 W). Valor fora disso é ajustado pra dentro aqui, antes de chegar
-/// no hardware, e o RyzenSmuService continua bloqueando por conta própria.
+/// Faixa: aqui só o piso (5 W) e o teto ABSOLUTO de sanidade (55 W). O teto
+/// de verdade é o do aparelho no momento (TdpLimits — firmware/tabela, tomada
+/// ou bateria) e é aplicado no WindowsHardwareService/RyzenSmuService, que
+/// continua bloqueando por conta própria qualquer coisa fora do permitido.
 /// </summary>
 public static class TdpProfiles
 {
     public const int MinWatts = 5;
-    public const int MaxWatts = 30;
+    /// <summary>Teto absoluto (sanidade). O teto real do aparelho vem de TdpLimits.</summary>
+    public const int MaxWatts = TdpLimits.AbsoluteMaxWatts;
     public const int DefaultCustomWatts = 20;
     public const string CustomPrefix = "Custom:";
 
