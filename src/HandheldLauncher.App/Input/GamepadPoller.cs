@@ -60,6 +60,15 @@ public sealed class GamepadPoller
         public DateTime ReleasedAt;              // último release confirmado (para cooldown)
     }
 
+    /// <summary>
+    /// Magnitude absoluta de um eixo XInput como int.
+    /// IMPORTANTE: o cast pra int ANTES do Math.Abs é obrigatório — sThumb* são short e
+    /// short.MinValue (-32768) não tem oposto positivo representável em short
+    /// (OverflowException "Negating the minimum value of a twos complement number is invalid").
+    /// O cast promove pra int, que cabe ±32768 sem estourar.
+    /// </summary>
+    private static int AbsAxis(short value) => Math.Abs((int)value);
+
     public IReadOnlyList<GamepadAction> Poll()
     {
         try
@@ -92,10 +101,11 @@ public sealed class GamepadPoller
             // v0.19: OTIMIZAÇÃO DE PERFORMANCE (Early Return)
             // =========================================================
             bool buttonsChanged = buttons != prevButtons;
-            bool sticksMoving = Math.Abs(state.Gamepad.sThumbLX) > StickPressDeadzone ||
-                                Math.Abs(state.Gamepad.sThumbLY) > StickPressDeadzone ||
-                                Math.Abs(state.Gamepad.sThumbRX) > StickPressDeadzone ||
-                                Math.Abs(state.Gamepad.sThumbRY) > StickPressDeadzone;
+            // v0.19.1-fix: AbsAxis promove pra int antes do Math.Abs (evita OverflowException em sThumb == short.MinValue).
+            bool sticksMoving = AbsAxis(state.Gamepad.sThumbLX) > StickPressDeadzone ||
+                                AbsAxis(state.Gamepad.sThumbLY) > StickPressDeadzone ||
+                                AbsAxis(state.Gamepad.sThumbRX) > StickPressDeadzone ||
+                                AbsAxis(state.Gamepad.sThumbRY) > StickPressDeadzone;
 
             // Verifica se alguma direção ainda está "engajada" e precisa ser solta
             bool anyDirectionActive = _leftState[_activeSlot].IsActive ||

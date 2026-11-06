@@ -19,6 +19,7 @@ namespace HandheldLauncher.App.ViewModels;
 
 public sealed class MainViewModel : ViewModelBase
 {
+    private readonly SessionTrackerService _sessionTracker = new();
     private readonly ILibraryService _library;
     private readonly IGameLauncher _launcher;
     private readonly IArtworkService _artwork;
@@ -1022,7 +1023,10 @@ public sealed class MainViewModel : ViewModelBase
         {
             LaunchedProcessExitedEarly = false;
             _launcher.Launch(game);
-            RunningGame = game;
+                        RunningGame = game;
+            var settings = AppSettingsStore.Load();
+            var tdpMode = settings?.TdpMode ?? "Auto";
+            _sessionTracker.StartSession(game.Title, tdpMode);
             _library.MarkLaunched(game.Id);
             ReorderLastPlayedFirst();
             SelectedIndex = 0;
@@ -1066,11 +1070,24 @@ public sealed class MainViewModel : ViewModelBase
         catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
     }
 
-    public void CloseRunningGame() { if (RunningGame is null) return; _launcher.CloseGame(RunningGame); RunningGame = null; }
-    public void NotifyGameExitedExternally()
+        public void CloseRunningGame()
+    {
+        if (RunningGame is null) return;
+        var game = RunningGame;
+        _launcher.CloseGame(game);
+        // Re-checa: se CloseGame disparou GameExited de forma síncrona,
+        // HandleGameExited já limpou RunningGame e encerrou a sessão.
+        if (RunningGame?.Id == game.Id)
+        {
+            _sessionTracker.EndSession(game.Title);
+            RunningGame = null;
+        }
+    }    
+        public void NotifyGameExitedExternally()
     {
         if (RunningGame is null) return;
         DebugLog.Write($"[JOGO] '{RunningGame.Title}' liberado externamente — limpando RunningGame.");
+        _sessionTracker.EndSession(RunningGame.Title);
         RunningGame = null;
     }
 
@@ -1936,7 +1953,7 @@ public sealed class MainViewModel : ViewModelBase
     /// </summary>
     public bool LaunchedProcessExitedEarly { get; private set; }
 
-    private void HandleGameExited(GameExitedEventArgs e)
+       private void HandleGameExited(GameExitedEventArgs e)
     {
         try
         {
@@ -1948,7 +1965,11 @@ public sealed class MainViewModel : ViewModelBase
             }
 
             _library.RecordPlaySession(e.Game.Id, e.Duration);
-            if (RunningGame?.Id == e.Game.Id) RunningGame = null;
+            if (RunningGame?.Id == e.Game.Id)
+            {
+                _sessionTracker.EndSession(e.Game.Title);
+                RunningGame = null;
+            }
             Refresh();
         }
         catch (Exception ex) { DebugLog.Write($"[JOGO] Falha ao tratar saída de '{e.Game.Title}': {ex}"); }
