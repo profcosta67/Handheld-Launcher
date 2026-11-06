@@ -78,32 +78,45 @@ public class WindowsHardwareService : IHardwareService
         }
     }
 
+    /// <summary>
+    /// v0.18.5 (revisão): uma aplicação de TDP por vez no app inteiro. Antes já
+    /// havia chamadas em paralelo (inicialização, volta da suspensão, toque) e
+    /// a troca tomada⇄bateria somou mais uma. Quem precisa "ler o modo salvo e
+    /// aplicar" sem ser atropelado também segura esta trava (reentrante).
+    /// </summary>
+    public static readonly object TdpApplyLock = new();
+
     public bool SetTdpMode(string mode)
     {
         if (!OperatingSystem.IsWindows()) return false;
+        lock (TdpApplyLock) return SetTdpModeCore(mode);
+    }
 
-        // v0.18.5: teto do aparelho agora (firmware Lenovo / tabela ASUS /
-        // 30 W), já considerando tomada ou bateria.
-        var limits = DeviceTdpLimits.Current();
+    private bool SetTdpModeCore(string mode)
+    {
         bool isCustom = HandheldLauncher.Core.Services.TdpProfiles.IsCustom(mode);
+        // v0.18.5: teto do aparelho agora (firmware Lenovo / tabela ASUS /
+        // 30 W), já considerando tomada ou bateria. Só o Personalizado usa.
+        var limits = isCustom ? DeviceTdpLimits.Current() : null;
 
-        // Perfis: os mesmos watts de sempre (modo desconhecido = 20 W), o
-        // mesmo valor nos três limites, só baixados se a BATERIA permitir
-        // menos que isso (ex.: Boost 30 W num Ally fora da tomada → 25 W).
-        // Personalizado: SPL escolhido + picos na proporção do fabricante.
+        // Perfis: EXATAMENTE como antes da v0.18.5 (decisão do usuário: perfis
+        // não mudam) — os mesmos watts (modo desconhecido = 20 W), o mesmo
+        // valor nos três limites, trava de 30 W, inclusive na bateria.
+        // Personalizado: SPL escolhido + picos na proporção do fabricante,
+        // dentro do teto do aparelho (tomada ou bateria).
         int asked = HandheldLauncher.Core.Services.TdpProfiles.WattsFor(mode) ?? 20;
         int stapmW, slowW, fastW;
         if (isCustom)
         {
-            (stapmW, slowW, fastW) = limits.PeaksFor(asked);
+            (stapmW, slowW, fastW) = limits!.PeaksFor(asked);
         }
         else
         {
-            stapmW = slowW = fastW = Math.Min(asked, limits.SplMax);
+            stapmW = slowW = fastW = asked;
         }
 
-        DebugLog.Write(isCustom || stapmW != asked
-            ? $"[TDP] Solicitação do perfil {mode}: SPL {stapmW} W / SPPT {slowW} W / FPPT {fastW} W (pedido {asked} W; teto {limits.SplMax}/{limits.SpptMax}/{limits.FpptMax} W na {(limits.OnAc ? "tomada" : "bateria")}, {limits.Source}). Provider permitido: PawnIO."
+        DebugLog.Write(isCustom
+            ? $"[TDP] Solicitação do perfil {mode}: SPL {stapmW} W / SPPT {slowW} W / FPPT {fastW} W (pedido {asked} W; teto {limits!.SplMax}/{limits.SpptMax}/{limits.FpptMax} W na {(limits.OnAc ? "tomada" : "bateria")}, {limits.Source}). Provider permitido: PawnIO."
             : "[TDP] Solicitação do perfil " + mode + ": " + (stapmW * 1000) + "mW. Provider permitido: PawnIO.");
         if (!InitializePawnIo())
         {
@@ -115,7 +128,7 @@ public class WindowsHardwareService : IHardwareService
         {
             bool applied = isCustom
                 ? _smu!.SetPowerLimits((uint)stapmW * 1000, (uint)slowW * 1000, (uint)fastW * 1000,
-                                       (uint)limits.SplMax * 1000, (uint)limits.SpptMax * 1000, (uint)limits.FpptMax * 1000)
+                                       (uint)limits!.SplMax * 1000, (uint)limits.SpptMax * 1000, (uint)limits.FpptMax * 1000)
                 : _smu!.SetPowerLimits((uint)stapmW * 1000); // perfis: caminho e trava (30 W) de sempre
             DebugLog.Write(applied
                 ? $"[TDP] PawnIO aceitou os três comandos ({stapmW}/{slowW}/{fastW} W). Confirme os limites efetivos pelos sensores do hardware."

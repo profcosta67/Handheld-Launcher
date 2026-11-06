@@ -38,7 +38,7 @@ public static class DeviceTdpLimits
 
     private static readonly object Sync = new();
     private static readonly Dictionary<bool, TdpLimits> Cache = new();
-    private static (string Manufacturer, string BoardProduct)? _dmi;
+    private static (string Manufacturer, string BoardProduct, string ProductVersion)? _dmi;
 
     /// <summary>Limites agora (tomada ou bateria). Nunca lança; no pior caso, fallback 30 W.</summary>
     public static TdpLimits Current() => For(IsOnAcPower());
@@ -48,24 +48,35 @@ public static class DeviceTdpLimits
         lock (Sync)
         {
             if (Cache.TryGetValue(onAc, out var cached)) return cached;
-            var limits = Detect(onAc);
-            Cache[onAc] = limits;
+            var (limits, cacheable) = Detect(onAc);
+            // Revisão: só guarda resultado definitivo (detectou, ou aparelho
+            // sabidamente sem limite conhecido). Falha passageira — WMI da
+            // Lenovo ainda não pronta logo depois do boot — tenta de novo na
+            // próxima aplicação em vez de ficar em 30 W a sessão inteira.
+            if (cacheable) Cache[onAc] = limits;
             DebugLog.Write($"[TDP-LIMITES] {(onAc ? "Tomada" : "Bateria")}: SPL {limits.SplMin}–{limits.SplMax} W, SPPT até {limits.SpptMax} W, FPPT até {limits.FpptMax} W — fonte: {limits.Source}.");
             return limits;
         }
     }
 
-    private static TdpLimits Detect(bool onAc)
+    private static (TdpLimits Limits, bool Cacheable) Detect(bool onAc)
     {
-        if (!OperatingSystem.IsWindows()) return TdpLimits.Fallback(onAc);
+        if (!OperatingSystem.IsWindows()) return (TdpLimits.Fallback(onAc), true);
         try
         {
-            var (manufacturer, board) = ReadDmi();
+            var dmi = ReadDmi();
+            if (dmi is null) return (TdpLimits.Fallback(onAc), false); // DMI falhou: tenta de novo depois
+            var (manufacturer, board, productVersion) = dmi.Value;
 
-            if (manufacturer.Contains("LENOVO", StringComparison.OrdinalIgnoreCase))
+            // Só a família Legion Go (Go, Go 2, Go S): a interface da Lenovo
+            // também existe em notebooks Legion, que não são o alvo aqui.
+            // Mesmo critério do driver do Linux (DMI_PRODUCT_VERSION "Legion Go…").
+            if (manufacturer.Contains("LENOVO", StringComparison.OrdinalIgnoreCase)
+                && productVersion.Contains("Legion Go", StringComparison.OrdinalIgnoreCase))
             {
                 var lenovo = TryReadLenovoFirmware(onAc);
-                if (lenovo is not null) return lenovo;
+                if (lenovo is not null) return (lenovo, true);
+                return (TdpLimits.Fallback(onAc), false); // firmware não respondeu agora: não guarda
             }
 
             if (manufacturer.Contains("ASUS", StringComparison.OrdinalIgnoreCase))
@@ -75,19 +86,20 @@ public static class DeviceTdpLimits
                     || board.StartsWith("RC72", StringComparison.OrdinalIgnoreCase))
                 {
                     var model = board.StartsWith("RC72", StringComparison.OrdinalIgnoreCase) ? "ROG Ally X" : "ROG Ally";
-                    return onAc
+                    return (onAc
                         ? new TdpLimits(7, 30, 43, 53, onAc, $"tabela {model} ({board}), tomada")
-                        : new TdpLimits(7, 25, 30, 35, onAc, $"tabela {model} ({board}), bateria");
+                        : new TdpLimits(7, 25, 30, 35, onAc, $"tabela {model} ({board}), bateria"), true);
                 }
             }
 
-            DebugLog.Write($"[TDP-LIMITES] Aparelho sem limite conhecido (fabricante='{manufacturer}', placa='{board}') — usando 5–30 W.");
+            DebugLog.Write($"[TDP-LIMITES] Aparelho sem limite conhecido (fabricante='{manufacturer}', placa='{board}', versão='{productVersion}') — usando 5–30 W.");
+            return (TdpLimits.Fallback(onAc), true);
         }
         catch (Exception ex)
         {
-            DebugLog.Write($"[TDP-LIMITES] Falha ao detectar limites: {ex.Message} — usando 5–30 W.");
+            DebugLog.Write($"[TDP-LIMITES] Falha ao detectar limites: {ex.Message} — usando 5–30 W por agora.");
+            return (TdpLimits.Fallback(onAc), false);
         }
-        return TdpLimits.Fallback(onAc);
     }
 
     private static TdpLimits? TryReadLenovoFirmware(bool onAc)
@@ -139,10 +151,11 @@ public static class DeviceTdpLimits
         }
     }
 
-    private static (string Manufacturer, string BoardProduct) ReadDmi()
+    /// <summary>Fabricante, placa e versão do produto. Null se a leitura falhar (não guarda falha).</summary>
+    private static (string Manufacturer, string BoardProduct, string ProductVersion)? ReadDmi()
     {
         if (_dmi is { } known) return known;
-        string manufacturer = string.Empty, board = string.Empty;
+        string manufacturer = string.Empty, board = string.Empty, version = string.Empty;
         try
         {
             using var cs = new ManagementObjectSearcher("SELECT Manufacturer FROM Win32_ComputerSystem");
@@ -151,9 +164,18 @@ public static class DeviceTdpLimits
             using var bb = new ManagementObjectSearcher("SELECT Product FROM Win32_BaseBoard");
             using var bbResults = bb.Get();
             foreach (ManagementObject o in bbResults) using (o) { board = Convert.ToString(o["Product"])?.Trim() ?? string.Empty; break; }
+            // Lenovo guarda o nome comercial aqui ("Legion Go 2 8AHP2", "Legion Go S 8ARP1").
+            using var csp = new ManagementObjectSearcher("SELECT Version FROM Win32_ComputerSystemProduct");
+            using var cspResults = csp.Get();
+            foreach (ManagementObject o in cspResults) using (o) { version = Convert.ToString(o["Version"])?.Trim() ?? string.Empty; break; }
         }
-        catch (Exception ex) { DebugLog.Write($"[TDP-LIMITES] Falha ao ler DMI: {ex.Message}"); }
-        _dmi = (manufacturer, board);
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[TDP-LIMITES] Falha ao ler DMI: {ex.Message}");
+            return null;
+        }
+        if (string.IsNullOrEmpty(manufacturer)) return null;
+        _dmi = (manufacturer, board, version);
         return _dmi.Value;
     }
 
@@ -183,7 +205,10 @@ public static class DeviceTdpLimits
         try
         {
             if (!GetSystemPowerStatus(out var status)) return false;
-            if ((status.BatteryFlag & 128) != 0) return true; // sem bateria
+            // 128 = sem bateria (conta como tomada). 255 = DESCONHECIDO — também
+            // tem o bit 128 ligado, então precisa ser excluído antes (revisão:
+            // logo depois do boot o Ally na bateria recebia o teto da tomada).
+            if (status.BatteryFlag != 255 && (status.BatteryFlag & 128) != 0) return true;
             return status.ACLineStatus == 1;
         }
         catch { return false; }

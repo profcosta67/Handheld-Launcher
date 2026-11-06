@@ -64,6 +64,8 @@ public partial class OverlayWindow : Window
     // tomada ou bateria. Atualizado quando muda a fonte de energia.
     private TdpLimits _tdpLimits = TdpLimits.Fallback(onAc: true);
     private bool? _lastOnAc;
+    private bool _tdpCustomEdited; // edição pelo controle: mexeu no valor?
+    private bool _showUnvalidatedNotice;
     private SubMenuMode _activeSubMenu = SubMenuMode.None;
 
     private int _currentResIndex = 0;
@@ -160,9 +162,16 @@ public partial class OverlayWindow : Window
             _freezeGameOnOverlay = settings.FreezeGameOnOverlay;
             if (_tdpHardwareSupported)
             {
-                _lastOnAc = DeviceTdpLimits.IsOnAcPower();
-                _tdpLimits = DeviceTdpLimits.For(_lastOnAc.Value);
+                var onAc = DeviceTdpLimits.IsOnAcPower();
+                _lastOnAc = onAc;
                 StartPowerSourceWatch();
+                // Consulta WMI fora da thread da tela (revisão); até voltar, a
+                // faixa mostrada é a de sempre (5–30 W).
+                _ = Task.Run(() =>
+                {
+                    var limits = DeviceTdpLimits.For(onAc);
+                    Dispatcher.UIThread.Post(() => OnTdpLimitsChanged(limits));
+                });
             }
             UpdateTdpRangeUi();
             // O valor salvo é o PEDIDO do usuário (pode passar do teto da
@@ -182,7 +191,8 @@ public partial class OverlayWindow : Window
                     // usam o mesmo silício. Só avisamos que este modelo
                     // específico ainda não foi validado, na mesma faixa
                     // (5W-30W) que ferramentas como RyzenAdj já usam nele.
-                    TxtTdpStatus.Text = "Ainda não validado neste modelo específico; comandos ficam entre 5W e 30W.";
+                    _showUnvalidatedNotice = true;
+                    TxtTdpStatus.Text = UnvalidatedNoticeText();
                     TxtTdpStatus.IsVisible = true;
                 }
                 if (_fanCurveService.TryRead(out _, out var fanReadMessage))
@@ -1043,24 +1053,30 @@ public partial class OverlayWindow : Window
         // antes de chegar aqui, então isto não atrapalha ele.
         _customApplyTimer?.Stop();
         if (!_tdpHardwareSupported) return false;
-        if (!_hardwareService.SetTdpMode(mode))
+        // Aplicar e salvar juntos, sob a mesma trava da reaplicação de fundo
+        // (troca tomada⇄bateria): senão ela podia ler o modo salvo ANTIGO no
+        // meio e reaplicá-lo por cima da escolha nova (revisão).
+        lock (WindowsHardwareService.TdpApplyLock)
         {
-            // Hardware recusou: volta o visual pro modo que estava valendo.
-            SetTdpButtonVisual(_currentTdp);
-            return false;
-        }
+            if (!_hardwareService.SetTdpMode(mode))
+            {
+                // Hardware recusou: volta o visual pro modo que estava valendo.
+                SetTdpButtonVisual(_currentTdp);
+                return false;
+            }
 
-        SetTdpButtonVisual(mode);
-        if (TdpProfiles.IsCustom(mode)) _customWatts = TdpProfiles.WattsFor(mode) ?? _customWatts;
-        // Um único Load+Save pros dois campos (antes eram dois ciclos).
-        try
-        {
-            var settings = AppSettingsStore.Load();
-            settings.TdpMode = mode;
-            if (TdpProfiles.IsCustom(mode)) settings.TdpCustomWatts = _customWatts;
-            AppSettingsStore.Save(settings);
+            SetTdpButtonVisual(mode);
+            if (TdpProfiles.IsCustom(mode)) _customWatts = TdpProfiles.WattsFor(mode) ?? _customWatts;
+            // Um único Load+Save pros dois campos (antes eram dois ciclos).
+            try
+            {
+                var settings = AppSettingsStore.Load();
+                settings.TdpMode = mode;
+                if (TdpProfiles.IsCustom(mode)) settings.TdpCustomWatts = _customWatts;
+                AppSettingsStore.Save(settings);
+            }
+            catch (Exception ex) { DebugLog.Write($"[OVERLAY] Erro ao salvar TDP {mode}: {ex.Message}"); }
         }
-        catch (Exception ex) { DebugLog.Write($"[OVERLAY] Erro ao salvar TDP {mode}: {ex.Message}"); }
         _viewModel.UpdateHudTdpStatus(mode);
         ApplyFanMode(TdpProfiles.LinkedFanMode(mode));
         return true;
@@ -1099,9 +1115,11 @@ public partial class OverlayWindow : Window
         if (TdpCustomPeaksText != null)
         {
             var source = _tdpLimits.OnAc ? "tomada" : "bateria";
-            TdpCustomPeaksText.Text = spl < watts
-                ? $"Na {source} o limite é {_tdpLimits.SplMax} W → aplicado {spl} / {sppt} / {fppt} W (SPL / SPPT / FPPT)"
-                : $"SPL {spl} W · picos SPPT {sppt} W / FPPT {fppt} W";
+            TdpCustomPeaksText.Text = spl > watts
+                ? $"Mínimo do aparelho é {_tdpLimits.SplMin} W → aplicado {spl} / {sppt} / {fppt} W (SPL / SPPT / FPPT)"
+                : spl < watts
+                    ? $"Na {source} o limite é {_tdpLimits.SplMax} W → aplicado {spl} / {sppt} / {fppt} W (SPL / SPPT / FPPT)"
+                    : $"SPL {spl} W · picos SPPT {sppt} W / FPPT {fppt} W";
         }
         var sliderValue = _tdpLimits.ClampSpl(watts);
         if (TdpCustomSlider != null && (int)Math.Round(TdpCustomSlider.Value) != sliderValue)
@@ -1135,52 +1153,88 @@ public partial class OverlayWindow : Window
         => $"{_tdpLimits.SplMin} W a {_tdpLimits.SplMax} W na {(_tdpLimits.OnAc ? "tomada" : "bateria")}"
            + (_tdpLimits.IsFallback ? " (limite do aparelho desconhecido)" : "");
 
-    // Tomada ⇄ bateria: o teto muda (ex.: Ally 30 → 25 W). Reaplica o TDP salvo
-    // já com o novo teto (a escolha salva não muda) e atualiza a faixa da barra.
+    private string UnvalidatedNoticeText()
+        => $"Ainda não validado neste modelo específico; perfis até 30 W, Personalizado entre {_tdpLimits.SplMin} W e {_tdpLimits.SplMax} W ({_tdpLimits.Source}).";
+
+    /// <summary>Novo teto (detecção concluída ou troca tomada⇄bateria): atualiza a tela.</summary>
+    private void OnTdpLimitsChanged(TdpLimits limits)
+    {
+        _tdpLimits = limits;
+        UpdateTdpRangeUi();
+        if (_showUnvalidatedNotice && TxtTdpStatus != null) TxtTdpStatus.Text = UnvalidatedNoticeText();
+        if (_activeSubMenu == SubMenuMode.TdpCustom)
+        {
+            // Editando pelo controle: mantém o número em edição, só dentro da faixa nova.
+            _tempCustomWatts = _tdpLimits.ClampSpl(_tempCustomWatts);
+            ShowCustomWatts(_tempCustomWatts);
+        }
+        else if (TdpProfiles.IsCustom(_currentTdp))
+        {
+            ShowCustomWatts(TdpProfiles.WattsFor(_currentTdp) ?? _customWatts);
+        }
+    }
+
+    // Tomada ⇄ bateria: o teto do Personalizado muda (ex.: Ally 30 → 25 W).
+    // Uma inscrição só no app inteiro, apontando pra janela do Quick Settings
+    // mais recente (revisão: a janela criada no boot é trocada por outra na
+    // 1ª abertura e só fica escondida — com inscrição própria, as duas
+    // reaplicavam o TDP em dobro).
+    private static OverlayWindow? s_powerWatchOwner;
+    private static bool s_powerWatchSubscribed;
+
     private void StartPowerSourceWatch()
     {
-        if (!OperatingSystem.IsWindows()) return;
+        s_powerWatchOwner = this;
+        if (!OperatingSystem.IsWindows() || s_powerWatchSubscribed) return;
         try
         {
-            Microsoft.Win32.SystemEvents.PowerModeChanged += OnPowerSourceMaybeChanged;
-            Closed += (_, _) =>
+            Microsoft.Win32.SystemEvents.PowerModeChanged += (_, e) =>
             {
-                try { Microsoft.Win32.SystemEvents.PowerModeChanged -= OnPowerSourceMaybeChanged; }
-                catch (Exception swallowedEx) { DebugLog.Swallowed(swallowedEx); }
+                if (e.Mode == Microsoft.Win32.PowerModes.StatusChange) s_powerWatchOwner?.OnPowerSourceMaybeChanged();
             };
+            s_powerWatchSubscribed = true;
         }
         catch (Exception ex) { DebugLog.Write($"[TDP-LIMITES] Não deu pra acompanhar tomada/bateria: {ex.Message}"); }
     }
 
-    private void OnPowerSourceMaybeChanged(object? sender, Microsoft.Win32.PowerModeChangedEventArgs e)
+    private void OnPowerSourceMaybeChanged()
     {
-        if (e.Mode != Microsoft.Win32.PowerModes.StatusChange) return; // Resume é do Guardião
         try
         {
             var onAc = DeviceTdpLimits.IsOnAcPower();
             if (_lastOnAc == onAc) return; // mudou só o % da bateria
             _lastOnAc = onAc;
-            var limits = DeviceTdpLimits.For(onAc);
-            DebugLog.Write($"[TDP-LIMITES] Agora na {(onAc ? "tomada" : "bateria")} — teto SPL {limits.SplMax} W. Reaplicando o TDP salvo.");
+            var previous = _tdpLimits;
 
-            Dispatcher.UIThread.Post(() =>
-            {
-                _tdpLimits = limits;
-                UpdateTdpRangeUi();
-                if (TdpProfiles.IsCustom(_currentTdp)) ShowCustomWatts(TdpProfiles.WattsFor(_currentTdp) ?? _customWatts);
-            });
-
-            // Fora da thread da tela, como a reaplicação depois da suspensão.
-            _ = Task.Run(() =>
+            // Tudo fora da thread da tela: consulta WMI (1ª vez) + SMU.
+            _ = Task.Run(async () =>
             {
                 try
                 {
-                    var saved = AppSettingsStore.Load().TdpMode;
-                    if (string.IsNullOrWhiteSpace(saved)) saved = "Normal";
-                    var ok = _hardwareService.SetTdpMode(saved);
-                    DebugLog.Write(ok
-                        ? $"[TDP-LIMITES] TDP {saved} reaplicado após troca de energia."
-                        : $"[TDP-LIMITES] Falha ao reaplicar TDP {saved} após troca de energia.");
+                    var limits = DeviceTdpLimits.For(onAc);
+                    Dispatcher.UIThread.Post(() => OnTdpLimitsChanged(limits));
+
+                    // Espera o firmware/EC terminar a troca dele (como na volta da suspensão).
+                    await Task.Delay(TimeSpan.FromSeconds(2));
+
+                    lock (WindowsHardwareService.TdpApplyLock)
+                    {
+                        // Lê o modo salvo DENTRO da trava: uma escolha feita agora
+                        // pelo toque não é atropelada pelo valor antigo.
+                        var saved = AppSettingsStore.Load().TdpMode;
+                        // Perfis não dependem de tomada/bateria (decisão do usuário):
+                        // só o Personalizado precisa ser reaplicado, e só se o que
+                        // vai pro hardware mudou.
+                        if (!TdpProfiles.IsCustom(saved)) return;
+                        var asked = TdpProfiles.WattsFor(saved) ?? TdpProfiles.DefaultCustomWatts;
+                        if (previous.PeaksFor(asked) == limits.PeaksFor(asked)) return;
+
+                        DebugLog.Write($"[TDP-LIMITES] Agora na {(onAc ? "tomada" : "bateria")} — teto SPL {limits.SplMax} W. Reaplicando {saved}.");
+                        var ok = _hardwareService.SetTdpMode(saved);
+                        DebugLog.Write(ok
+                            ? $"[TDP-LIMITES] {saved} reaplicado após troca de energia."
+                            : $"[TDP-LIMITES] Falha ao reaplicar {saved} após troca de energia.");
+                    }
                 }
                 catch (Exception ex) { DebugLog.Write($"[TDP-LIMITES] EXCEPTION ao reaplicar após troca de energia: {ex.Message}"); }
             });
@@ -1208,10 +1262,18 @@ public partial class OverlayWindow : Window
     private void OnTdpCustomStepClick(object? sender, RoutedEventArgs e)
     {
         if (!_tdpHardwareSupported || sender is not Button { Tag: string tag } || !int.TryParse(tag, out var step)) return;
-        var current = TdpCustomSlider is null ? _customWatts : (int)Math.Round(TdpCustomSlider.Value);
-        var watts = _tdpLimits.ClampSpl(current + step);
+        // Revisão: parte do valor ESCOLHIDO (salvo/pendente/em edição), não da
+        // barra — na bateria a barra fica no teto (25) e um + gravava 25 por
+        // cima de um 30 salvo. Com o escolhido acima do teto de agora, o + não
+        // faz nada e o − desce a partir do teto.
+        int current;
+        if (_activeSubMenu == SubMenuMode.TdpCustom) current = _tempCustomWatts;
+        else if (_customApplyTimer?.IsEnabled == true) current = _pendingCustomWatts;
+        else current = TdpProfiles.IsCustom(_currentTdp) ? TdpProfiles.WattsFor(_currentTdp) ?? _customWatts : _customWatts;
+        if (step > 0 && current >= _tdpLimits.SplMax) return;
+        var watts = _tdpLimits.ClampSpl(_tdpLimits.ClampSpl(current) + step);
         ShowCustomWatts(watts);
-        if (_activeSubMenu == SubMenuMode.TdpCustom) { _tempCustomWatts = watts; return; }
+        if (_activeSubMenu == SubMenuMode.TdpCustom) { _tempCustomWatts = watts; _tdpCustomEdited = true; return; }
         ScheduleCustomApply(watts);
     }
 
@@ -1245,6 +1307,7 @@ public partial class OverlayWindow : Window
         // Começa do valor salvo, já dentro da faixa de agora (na bateria um
         // 35 W salvo vira 25 W aqui, senão o primeiro ◀ pularia de 35 pra 25).
         _tempCustomWatts = _tdpLimits.ClampSpl(TdpProfiles.IsCustom(_currentTdp) ? TdpProfiles.WattsFor(_currentTdp) ?? _customWatts : _customWatts);
+        _tdpCustomEdited = false;
         BtnTdpCustom.Background = _activeColor;
         TdpCustomPanel.IsVisible = true;
         TdpCustomPanel.BorderBrush = _focusBorderColor;
@@ -1258,14 +1321,19 @@ public partial class OverlayWindow : Window
     {
         switch (action)
         {
-            case GamepadAction.MoveLeft: _tempCustomWatts = _tdpLimits.ClampSpl(_tempCustomWatts - 1); ShowCustomWatts(_tempCustomWatts); break;
-            case GamepadAction.MoveRight: _tempCustomWatts = _tdpLimits.ClampSpl(_tempCustomWatts + 1); ShowCustomWatts(_tempCustomWatts); break;
-            case GamepadAction.MoveUp: _tempCustomWatts = _tdpLimits.ClampSpl(_tempCustomWatts + 5); ShowCustomWatts(_tempCustomWatts); break;
-            case GamepadAction.MoveDown: _tempCustomWatts = _tdpLimits.ClampSpl(_tempCustomWatts - 5); ShowCustomWatts(_tempCustomWatts); break;
+            case GamepadAction.MoveLeft: _tempCustomWatts = _tdpLimits.ClampSpl(_tempCustomWatts - 1); _tdpCustomEdited = true; ShowCustomWatts(_tempCustomWatts); break;
+            case GamepadAction.MoveRight: _tempCustomWatts = _tdpLimits.ClampSpl(_tempCustomWatts + 1); _tdpCustomEdited = true; ShowCustomWatts(_tempCustomWatts); break;
+            case GamepadAction.MoveUp: _tempCustomWatts = _tdpLimits.ClampSpl(_tempCustomWatts + 5); _tdpCustomEdited = true; ShowCustomWatts(_tempCustomWatts); break;
+            case GamepadAction.MoveDown: _tempCustomWatts = _tdpLimits.ClampSpl(_tempCustomWatts - 5); _tdpCustomEdited = true; ShowCustomWatts(_tempCustomWatts); break;
             case GamepadAction.Confirm:
                 _activeSubMenu = SubMenuMode.None;
-                DebugLog.Write($"[OVERLAY] TDP personalizado pelo controle: {_tempCustomWatts} W.");
-                ApplyTdp(TdpProfiles.CustomMode(_tempCustomWatts));
+                // A sem mexer = "quero o Personalizado que já escolhi": aplica o
+                // valor salvo, não o cortado pela bateria (revisão).
+                var chosen = _tdpCustomEdited
+                    ? _tempCustomWatts
+                    : (TdpProfiles.IsCustom(_currentTdp) ? TdpProfiles.WattsFor(_currentTdp) ?? _customWatts : _customWatts);
+                DebugLog.Write($"[OVERLAY] TDP personalizado pelo controle: {chosen} W{(_tdpCustomEdited ? "" : " (sem alteração)")}.");
+                ApplyTdp(TdpProfiles.CustomMode(chosen));
                 ClearTempHighlights();
                 UpdateFocusVisual();
                 UpdatePersistentVisuals();
