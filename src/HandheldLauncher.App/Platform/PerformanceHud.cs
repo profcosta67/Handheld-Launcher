@@ -20,7 +20,8 @@ public sealed class PerformanceHud : IDisposable
     public string CpuTemperature { get; set; } = "--°C";
     public string TdpStatusText { get; set; } = "";
     public string ColorModeText { get; set; } = "";
-    public string RealTdpText { get; set; } = ""; // Novo campo para o consumo real (Ex: "22 W")
+    public string RealTdpText { get; set; } = "";
+    public string RealGpuWatts { get; set; } = "";
 
     private volatile bool _isRecording;
     public bool IsRecording { get => _isRecording; set => _isRecording = value; }
@@ -135,7 +136,8 @@ public sealed class PerformanceHud : IDisposable
                 var text = HudFormatter.Format(
                     preset, frames, metrics, _frameTimeHistory,
                     CpuTemperature, GetResolutionInfo(),
-                    TdpStatusText, RealTdpText, recIndicator, ColorModeText);
+                    TdpStatusText, RealTdpText, recIndicator, ColorModeText,
+                    RealGpuWatts);
                 written = _rtss.WriteOsd(text);
             }
 
@@ -175,10 +177,12 @@ internal static class HudFormatter
         int preset, FrameStats? frames, MetricsSnapshot m,
         IReadOnlyCollection<double>? frameTimeHistoryMs = null,
         string? cpuTemp = null, string? resolution = null,
-        string? tdpStatus = null, string? realTdp = null, string? recIndicator = null, string? colorMode = null)
+        string? tdpStatus = null, string? realTdp = null,
+        string? recIndicator = null, string? colorMode = null,
+        string? realGpuWatts = null)
     {
         var groups = new List<string>();
-        
+
         // ORDEM: FPS -> TEMP -> BAT -> (Resto) -> RES -> HORA -> REC
         switch (preset)
         {
@@ -194,7 +198,7 @@ internal static class HudFormatter
                 AddBattery(groups, m, false);
                 groups.Add(Group("GPU", GpuColor, Percent(m.GpuPercent)));
                 groups.Add(Group("CPU", CpuColor, Percent(m.CpuPercent)));
-                AddTdpGroup(groups, tdpStatus, realTdp);
+                AddPowerGroups(groups, tdpStatus, realTdp, realGpuWatts);
                 AddResolutionGroup(groups, resolution, colorMode);
                 break;
 
@@ -206,34 +210,38 @@ internal static class HudFormatter
                 groups.Add(Group("CPU", CpuColor, Percent(m.CpuPercent) + (m.CpuMhz is { } mhz ? " " + Value(mhz.ToString("0", Inv)) + Unit("MHz") : string.Empty)));
                 if (m.VramGb is { } vram) groups.Add(Group("VRAM", VramColor, Value(vram.ToString("0.0", Inv)) + Unit("GB")));
                 groups.Add(Group("RAM", RamColor, Value(m.RamUsedGb.ToString("0.0", Inv)) + Unit("/" + m.RamTotalGb.ToString("0", Inv) + "GB")));
-                AddTdpGroup(groups, tdpStatus, realTdp);
+                AddPowerGroups(groups, tdpStatus, realTdp, realGpuWatts);
                 if (FrameTimeRange(frameTimeHistoryMs) is { Length: > 0 } frameRange) groups.Add(Group("FRAME", FrameColor, frameRange));
                 AddResolutionGroup(groups, resolution, colorMode);
                 break;
         }
-        
+
         groups.Add(Color(ClockColor, DateTime.Now.ToString("HH:mm", Inv)));
         if (!string.IsNullOrEmpty(recIndicator)) groups.Add(Color(RecColor, recIndicator));
 
         return string.Join(GroupSeparator, groups);
     }
 
-    private static void AddTdpGroup(List<string> groups, string? tdpStatus, string? realTdp)
+    // v0.20 — mostra CPU W e GPU W quando o HWiNFO fornece; cai pro TDP-alvo se não vier.
+    private static void AddPowerGroups(List<string> groups, string? tdpStatus, string? realCpuWatts, string? realGpuWatts)
     {
-        if (string.IsNullOrEmpty(tdpStatus)) return;
+        var cpu = ParseWatts(realCpuWatts) ?? ParseWatts(tdpStatus);
+        if (cpu is { } c) groups.Add(Group("CPU", CpuColor, Value(c.ToString(Inv)) + Unit("W")));
+        if (ParseWatts(realGpuWatts) is { } g) groups.Add(Group("GPU", GpuColor, Value(g.ToString(Inv)) + Unit("W")));
+    }
 
-        // Mostra somente o limite configurado em watts, sem o nome do perfil.
+    private static int? ParseWatts(string? text)
+    {
+        if (string.IsNullOrEmpty(text)) return null;
         var match = System.Text.RegularExpressions.Regex.Match(
-            tdpStatus, @"(\d+)\s*W",
+            text, @"(\d+)\s*W",
             System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-        if (!match.Success) return;
-
-        groups.Add(Group("TDP", TdpColor, Value(match.Groups[1].Value) + Unit("W")));
+        return match.Success && int.TryParse(match.Groups[1].Value, out var v) ? v : null;
     }
 
     private static void AddTemp(List<string> groups, string? cpuTemp)
     {
-        if (!string.IsNullOrEmpty(cpuTemp) && cpuTemp != "--°C") 
+        if (!string.IsNullOrEmpty(cpuTemp) && cpuTemp != "--°C")
             groups.Add(Group("TEMP", TempColor, Value(cpuTemp.Replace("°C", "")) + Unit("°C")));
     }
 

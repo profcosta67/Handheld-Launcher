@@ -21,6 +21,78 @@ public sealed class HWiNFOSharedMemoryService : IDisposable
     public sealed record Reading(string SensorName, string Name, string Unit, double Value, double Min, double Max, double Average, uint Type);
     public sealed record Snapshot(DateTime PollTime, uint PollingPeriodMs, IReadOnlyList<Reading> Readings);
 
+public sealed record HardwareMetrics(
+    double? CpuPackageWatts,
+    double? GpuWatts,
+    double? CpuTempC,
+    double? GpuTempC);
+
+// Bounds de sanidade: HWiNFO entrega lixo quando o sensor produtor
+// (ex.: app que alimenta o RTSS) crasha — -2147483648W já apareceu em log.
+private static bool IsSaneWatts(double v) => v >= 0 && v <= 150;
+private static bool IsSaneTemp(double v)  => v >= 0 && v <= 120;
+
+/// <summary>
+/// Extrai CPU/GPU watts e temperaturas de um Snapshot já lido.
+/// Puro — não faz I/O, não toca o MemoryMappedFile. Chame depois do TryRead.
+/// Os matchers são por "hint" (Contains), não match exato: cobre Intel
+/// (Package Power), AMD (PPT / CPU Package Power) e GPUs (GPU Power / TGP).
+/// </summary>
+public static HardwareMetrics ExtractMetrics(Snapshot snapshot)
+{
+    double? cpuW = null, gpuW = null, cpuT = null, gpuT = null;
+    var unit = StringComparison.OrdinalIgnoreCase;
+
+    foreach (var r in snapshot.Readings)
+    {
+        var name = r.Name;
+        var v = r.Value;
+
+        if (cpuW is null
+            && r.Unit.Equals("W", unit)
+            && (name.Contains("CPU Package Power", unit)
+                || name.Equals("Package Power", unit)
+                || name.Equals("PPT", unit)
+                || name.Contains("CPU Power", unit))
+            && IsSaneWatts(v))
+        {
+            cpuW = v; continue;
+        }
+
+        if (gpuW is null
+            && r.Unit.Equals("W", unit)
+            && (name.Contains("GPU Package Power", unit)
+                || name.Contains("GPU Power", unit)
+                || name.Equals("GPU TGP", unit)
+                || name.Equals("Board Power Draw", unit))
+            && IsSaneWatts(v))
+        {
+            gpuW = v; continue;
+        }
+
+        if (cpuT is null
+            && r.Unit.Equals("°C", unit)
+            && (name.Contains("CPU (Tctl", unit)
+                || name.Contains("CPU (Tdie", unit)
+                || name.Equals("CPU Package", unit)
+                || name.Equals("Core Max", unit))
+            && IsSaneTemp(v))
+        {
+            cpuT = v; continue;
+        }
+
+        if (gpuT is null
+            && r.Unit.Equals("°C", unit)
+            && (name.Contains("GPU Temperature", unit) || name.Equals("GPU Temp", unit))
+            && IsSaneTemp(v))
+        {
+            gpuT = v;
+        }
+    }
+
+    return new HardwareMetrics(cpuW, gpuW, cpuT, gpuT);
+}
+
     public bool TryRead(out Snapshot? snapshot)
     {
         snapshot = null;

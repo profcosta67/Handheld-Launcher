@@ -65,12 +65,20 @@ public sealed class MainViewModel : ViewModelBase
 
     private int _targetTdpWatts = 20;
     private int _realTimeTdpWatts = 0;
+    private int _realTimeGpuWatts = 0;
+    private int _currentFps = 0;   // opcional: HWiNFO expõe FPS do RTSS como sensor
 
     public string TopBarTdpText => _targetTdpWatts > 0 ? $"{_targetTdpWatts} W" : "-- W";
-    public string TopBarTdpToolTip => _realTimeTdpWatts > 0
-        ? $"Alvo: {_targetTdpWatts} W | Consumo Real: {_realTimeTdpWatts} W"
-        : $"TDP Configurado: {_targetTdpWatts} W";
-
+    public string TopBarTdpToolTip
+{
+    get
+    {
+        var parts = new System.Collections.Generic.List<string> { $"Alvo: {_targetTdpWatts} W" };
+        if (_realTimeTdpWatts > 0) parts.Add($"CPU: {_realTimeTdpWatts} W");
+        if (_realTimeGpuWatts > 0) parts.Add($"GPU: {_realTimeGpuWatts} W");
+        return parts.Count == 1 ? $"TDP Configurado: {_targetTdpWatts} W" : string.Join(" | ", parts);
+    }
+}
     private bool _isShortcutsHelpOpen;
     public bool IsShortcutsHelpOpen
     {
@@ -152,13 +160,11 @@ public sealed class MainViewModel : ViewModelBase
 
         _ = Task.Run(() => EnsureHwInfoRunning());
 
-        _hardwareTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+                _hardwareTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         _hardwareTimer.Tick += async (_, _) =>
         {
-            // v0.18.3 (pente fino de desempenho): ler os sensores (CPU + GPU via
-            // LibreHardwareMonitor) leva de alguns a dezenas de ms e rodava na
-            // thread da tela a cada 2 s — um engasgo periódico na navegação. Agora
-            // lê em segundo plano; se a leitura anterior ainda não terminou, pula.
+            // v0.18.3: leitura de CPU fora da thread da tela; se a anterior
+            // ainda não terminou, pula este tick.
             if (_hardwareReadInFlight) return;
             _hardwareReadInFlight = true;
             float? temp;
@@ -178,21 +184,35 @@ public sealed class MainViewModel : ViewModelBase
                 HealthAlerts.OnTemperatureSample(temp.Value);
             }
 
+            // v0.20 — Watts CPU/GPU via HWiNFO Shared Memory. ExtractMetrics
+            // faz matching por hint + bounds; HUD só atualiza quando muda.
             if (_hwInfoService.TryRead(out var hwInfo) && hwInfo is not null)
             {
                 _hwInfoWasAvailable = true;
                 if (hwInfo.PollTime != _lastHwInfoPollTime)
                 {
                     _lastHwInfoPollTime = hwInfo.PollTime;
-                    foreach (var reading in hwInfo.Readings)
+                    var metrics = HWiNFOSharedMemoryService.ExtractMetrics(hwInfo);
+                    var changed = false;
+
+                    if (metrics.CpuPackageWatts is { } cpuW)
                     {
-                        var label = reading.Name;
-                        if (label.Contains("Package Power", StringComparison.OrdinalIgnoreCase) ||
-                            label.Contains("CPU Package Power", StringComparison.OrdinalIgnoreCase))
+                        var v = (int)Math.Round(cpuW);
+                        if (v != _realTimeTdpWatts) { _realTimeTdpWatts = v; changed = true; }
+                    }
+                    if (metrics.GpuWatts is { } gpuW)
+                    {
+                        var v = (int)Math.Round(gpuW);
+                        if (v != _realTimeGpuWatts) { _realTimeGpuWatts = v; changed = true; }
+                    }
+
+                    if (changed)
+                    {
+                        OnPropertyChanged(nameof(TopBarTdpToolTip));
+                        if (_hud != null)
                         {
-                            _realTimeTdpWatts = (int)reading.Value;
-                            OnPropertyChanged(nameof(TopBarTdpToolTip));
-                            if (_hud != null) _hud.RealTdpText = $"{_realTimeTdpWatts} W";
+                            if (metrics.CpuPackageWatts.HasValue) _hud.RealTdpText  = $"{_realTimeTdpWatts} W";
+                            if (metrics.GpuWatts.HasValue)        _hud.RealGpuWatts = $"{_realTimeGpuWatts} W";
                         }
                     }
                 }
@@ -201,8 +221,9 @@ public sealed class MainViewModel : ViewModelBase
             {
                 _hwInfoWasAvailable = false;
                 _realTimeTdpWatts = 0;
+                _realTimeGpuWatts = 0;
                 OnPropertyChanged(nameof(TopBarTdpToolTip));
-                if (_hud != null) _hud.RealTdpText = "";
+                if (_hud != null) { _hud.RealTdpText = ""; _hud.RealGpuWatts = ""; }
                 DebugLog.Write("[HWiNFO] Shared Memory deixou de fornecer dados.");
             }
         };
