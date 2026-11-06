@@ -56,7 +56,7 @@
       </Image.Effect>
     </Image>
 
-    <Border Background="{DynamicResource BackdropDimBrush}" IsHitTestVisible="False" />
+    <Border Background="{DynamicResource ArtBackdropDimBrush}" IsHitTestVisible="False" />
 
     <Grid RowDefinitions="*,Auto" Margin="28,16,28,16">
 

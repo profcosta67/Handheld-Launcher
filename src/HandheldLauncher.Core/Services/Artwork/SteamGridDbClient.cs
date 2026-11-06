@@ -183,9 +183,50 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
         return await FetchGridCandidates($"{BaseUrl}/grids/game/{gameId}?types={type}", ct, wideOnly: true);
     }
 
+    /// <summary>
+    /// v0.18.4: o resultado da busca (termo, casou com quê, ou por que não
+    /// casou) ia só pro Debug.WriteLine, que não chega no debug.log, então
+    /// não dava pra saber pelo log por que um jogo ficou sem capa. O App liga
+    /// isto no DebugLog.
+    /// </summary>
+    public static Action<string>? Log { get; set; }
+
+    private static void Write(string message)
+    {
+        System.Diagnostics.Debug.WriteLine(message);
+        try { Log?.Invoke(message); } catch { /* log nunca derruba a busca */ }
+    }
+
     private async Task<int?> SearchGameId(string title, CancellationToken ct)
     {
         var normalizedTitle = title.Trim();
+
+        // v0.18.4: se a grafia sem acento não achar nada, tenta de novo com o
+        // acento (só nas palavras conhecidas — ver AccentVariant). Mesma
+        // comparação nas duas tentativas, então não aceita jogo errado.
+        var id = await SearchGameIdOnce(normalizedTitle, ct);
+        if (id is not null) return id;
+
+        var variant = AccentVariant(normalizedTitle);
+        if (variant is null) return null;
+        Write($"[SGDB] Tentando de novo com acento: '{variant}'.");
+        return await SearchGameIdOnce(variant, ct);
+    }
+
+    /// <summary>
+    /// "Pokemon" → "Pokémon" (palavra inteira, qualquer caixa). Nome de arquivo
+    /// quase nunca tem acento, e a busca da SteamGridDB não achava "Pokémon"
+    /// a partir de "Pokemon" (bug reportado na v0.17). Null se não houver o
+    /// que trocar.
+    /// </summary>
+    internal static string? AccentVariant(string title)
+    {
+        var replaced = Regex.Replace(title, @"\bpokemon\b", "Pokémon", RegexOptions.IgnoreCase);
+        return string.Equals(replaced, title, StringComparison.Ordinal) ? null : replaced;
+    }
+
+    private async Task<int?> SearchGameIdOnce(string normalizedTitle, CancellationToken ct)
+    {
         var comparableTitle = NormalizeGameTitle(normalizedTitle);
 
         // v0.17 (05/11, bug reportado como "voltou"): comparableTitle existe
@@ -200,7 +241,7 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
         using var response = await _http.GetAsync(url, ct);
         if (!response.IsSuccessStatusCode)
         {
-            System.Diagnostics.Debug.WriteLine($"[SGDB] Search '{normalizedTitle}' failed: HTTP {(int)response.StatusCode}.");
+            Write($"[SGDB] Busca '{normalizedTitle}' falhou: HTTP {(int)response.StatusCode}.");
             return null;
         }
 
@@ -208,7 +249,7 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
         var results = payload?.Data;
         if (results is null || results.Count == 0)
         {
-            System.Diagnostics.Debug.WriteLine($"[SGDB] No game match for '{normalizedTitle}'.");
+            Write($"[SGDB] Busca '{normalizedTitle}': nenhum resultado.");
             return null;
         }
 
@@ -222,13 +263,30 @@ public sealed class SteamGridDbClient : ISteamGridDbClient, IDisposable
                     candidate.Contains(comparableTitle, StringComparison.Ordinal));
         });
 
+        // v0.18.4: nome de UMA palavra só ("Pokemon", que é o que sobra de
+        // "Pokemon NSP.nsp") cabe dentro de vários jogos diferentes ("Pokémon
+        // Scarlet", "Pokémon Legends: Arceus"...). Se mais de um resultado
+        // contém o nome e nenhum é igual, não dá pra saber qual é — melhor
+        // ficar sem capa do que pôr a capa de outro jogo. Com um resultado só,
+        // continua aceitando como antes.
+        if (exact is null && partial is not null && !comparableTitle.Contains(' '))
+        {
+            var containing = results.Count(x => NormalizeGameTitle(x.Name).Contains(comparableTitle, StringComparison.Ordinal));
+            if (containing > 1)
+            {
+                Write($"[SGDB] Busca '{normalizedTitle}': nome curto demais, {containing} jogos diferentes servem — sem capa automática (edite o nome do jogo).");
+                return null;
+            }
+        }
+
         if (partial is null)
         {
-            System.Diagnostics.Debug.WriteLine($"[SGDB] Ambiguous autocomplete for '{normalizedTitle}'; refusing unrelated first result.");
+            var names = string.Join(" | ", results.Take(5).Select(r => r.Name));
+            Write($"[SGDB] Busca '{normalizedTitle}': nenhum resultado bate com o nome (vieram: {names}).");
             return null;
         }
 
-        System.Diagnostics.Debug.WriteLine($"[SGDB] Matched '{normalizedTitle}' to '{partial.Name}' (id={partial.Id}).");
+        Write($"[SGDB] Busca '{normalizedTitle}' → '{partial.Name}' (id={partial.Id}).");
         return partial.Id;
     }
 

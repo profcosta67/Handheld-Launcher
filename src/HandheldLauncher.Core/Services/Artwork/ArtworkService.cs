@@ -42,6 +42,17 @@ public sealed class ArtworkService : IArtworkService
 
     public bool HasApiKey => _client.HasApiKey;
 
+    /// <summary>
+    /// v0.18.4: termo de busca na SteamGridDB. Jogo de emulador sem nome editado
+    /// usa o nome do arquivo como título, então tira a sujeira do arquivo
+    /// (ver RomTitleCleaner). Nome editado pelo usuário vai como está.
+    /// Outras lojas não mudam.
+    /// </summary>
+    internal static string SearchTitleFor(GameEntry game)
+        => game.Source == GameSource.Emulator && string.IsNullOrWhiteSpace(game.TitleOverride)
+            ? RomTitleCleaner.Clean(game.Title)
+            : game.Title;
+
     public void ReloadSettings()
     {
         var settings = AppSettingsStore.Load();
@@ -164,7 +175,7 @@ public sealed class ArtworkService : IArtworkService
         if (!HasApiKey) return false;
         var image = game.Source == GameSource.Steam && game.SteamAppId is { } appId
             ? await _client.GetBestGridForSteamAppAsync(appId, ct)
-            : await _client.GetBestGridForTitleAsync(game.Title, ct);
+            : await _client.GetBestGridForTitleAsync(SearchTitleFor(game), ct);
         if (image is null) return false;
         var localPath = await DownloadToCache(image.Url, _cacheDir, $"{game.Id}_grid", ct);
         if (localPath is null) return false;
@@ -180,7 +191,7 @@ public sealed class ArtworkService : IArtworkService
         if (!HasApiKey) return false;
         var image = game.Source == GameSource.Steam && game.SteamAppId is { } appId
             ? await _client.GetBestHeroForSteamAppAsync(appId, ct)
-            : await _client.GetBestHeroForTitleAsync(game.Title, ct);
+            : await _client.GetBestHeroForTitleAsync(SearchTitleFor(game), ct);
         if (image is null) return false;
         var localPath = await DownloadToCache(image.Url, _cacheDir, $"{game.Id}_hero", ct);
         if (localPath is null) return false;
@@ -196,7 +207,7 @@ public sealed class ArtworkService : IArtworkService
         if (!HasApiKey) return false;
         var image = game.Source == GameSource.Steam && game.SteamAppId is { } appId
             ? await _client.GetBestLogoForSteamAppAsync(appId, ct)
-            : await _client.GetBestLogoForTitleAsync(game.Title, ct);
+            : await _client.GetBestLogoForTitleAsync(SearchTitleFor(game), ct);
         if (image is null) return false;
         var localPath = await DownloadToCache(image.Url, _cacheDir, $"{game.Id}_logo", ct);
         if (localPath is null) return false;
@@ -213,7 +224,7 @@ public sealed class ArtworkService : IArtworkService
         if (!HasApiKey) return false;
         var image = game.Source == GameSource.Steam && game.SteamAppId is { } appId
             ? await _client.GetBestIconForSteamAppAsync(appId, ct)
-            : await _client.GetBestIconForTitleAsync(game.Title, ct);
+            : await _client.GetBestIconForTitleAsync(SearchTitleFor(game), ct);
         if (image is null) return false;
         var localPath = await DownloadToCache(image.Url, _cacheDir, $"{game.Id}_icon", ct);
         if (localPath is null) return false;
@@ -229,7 +240,7 @@ public sealed class ArtworkService : IArtworkService
         if (!HasApiKey) return false;
         var image = game.Source == GameSource.Steam && game.SteamAppId is { } appId
             ? await _client.GetBestWideGridForSteamAppAsync(appId, ct)
-            : await _client.GetBestWideGridForTitleAsync(game.Title, ct);
+            : await _client.GetBestWideGridForTitleAsync(SearchTitleFor(game), ct);
         if (image is null) return false;
         var localPath = await DownloadToCache(image.Url, _cacheDir, $"{game.Id}_widegrid", ct);
         if (localPath is null) return false;
@@ -244,42 +255,42 @@ public sealed class ArtworkService : IArtworkService
         => FetchCandidatesCoreAsync(game, animatedOnly, ct, async () =>
             game.Source == GameSource.Steam && game.SteamAppId is { } appId
                 ? await _client.GetGridCandidatesForSteamAppAsync(appId, animatedOnly, ct)
-                : await _client.GetGridCandidatesForTitleAsync(game.Title, animatedOnly, ct),
+                : await _client.GetGridCandidatesForTitleAsync(SearchTitleFor(game), animatedOnly, ct),
             $"{game.Id}_grid_candidate");
 
     public Task<IReadOnlyList<ArtworkCandidate>> GetHeroCandidatesAsync(GameEntry game, bool animatedOnly = false, CancellationToken ct = default)
         => FetchCandidatesCoreAsync(game, animatedOnly, ct, async () =>
             game.Source == GameSource.Steam && game.SteamAppId is { } appId
                 ? await _client.GetHeroCandidatesForSteamAppAsync(appId, animatedOnly, ct)
-                : await _client.GetHeroCandidatesForTitleAsync(game.Title, animatedOnly, ct),
+                : await _client.GetHeroCandidatesForTitleAsync(SearchTitleFor(game), animatedOnly, ct),
             $"{game.Id}_hero_candidate");
 
     public Task<IReadOnlyList<ArtworkCandidate>> GetLogoCandidatesAsync(GameEntry game, bool animatedOnly = false, CancellationToken ct = default)
         => FetchCandidatesCoreAsync(game, animatedOnly, ct, async () =>
             game.Source == GameSource.Steam && game.SteamAppId is { } appId
                 ? await _client.GetLogoCandidatesForSteamAppAsync(appId, animatedOnly, ct)
-                : await _client.GetLogoCandidatesForTitleAsync(game.Title, animatedOnly, ct),
+                : await _client.GetLogoCandidatesForTitleAsync(SearchTitleFor(game), animatedOnly, ct),
             $"{game.Id}_logo_candidate");
 
     public Task<IReadOnlyList<ArtworkCandidate>> GetIconCandidatesAsync(GameEntry game, bool animatedOnly = false, CancellationToken ct = default)
         => FetchCandidatesCoreAsync(game, animatedOnly, ct, async () =>
             game.Source == GameSource.Steam && game.SteamAppId is { } appId
                 ? await _client.GetIconCandidatesForSteamAppAsync(appId, animatedOnly, ct)
-                : await _client.GetIconCandidatesForTitleAsync(game.Title, animatedOnly, ct),
+                : await _client.GetIconCandidatesForTitleAsync(SearchTitleFor(game), animatedOnly, ct),
             $"{game.Id}_icon_candidate");
 
     public Task<IReadOnlyList<ArtworkCandidate>> GetWideGridCandidatesAsync(GameEntry game, bool animatedOnly = false, CancellationToken ct = default)
         => FetchCandidatesCoreAsync(game, animatedOnly, ct, async () =>
             game.Source == GameSource.Steam && game.SteamAppId is { } appId
                 ? await _client.GetWideGridCandidatesForSteamAppAsync(appId, animatedOnly, ct)
-                : await _client.GetWideGridCandidatesForTitleAsync(game.Title, animatedOnly, ct),
+                : await _client.GetWideGridCandidatesForTitleAsync(SearchTitleFor(game), animatedOnly, ct),
             $"{game.Id}_widegrid_candidate");
 
     public Task<IReadOnlyList<ArtworkCandidate>> GetWideArtworkCandidatesAsync(GameEntry game, bool animatedOnly = false, CancellationToken ct = default)
         => FetchCandidatesCoreAsync(game, animatedOnly, ct, async () =>
             game.Source == GameSource.Steam && game.SteamAppId is { } appId
                 ? await _client.GetWideGridCandidatesForSteamAppAsync(appId, animatedOnly, ct)
-                : await _client.GetWideGridCandidatesForTitleAsync(game.Title, animatedOnly, ct),
+                : await _client.GetWideGridCandidatesForTitleAsync(SearchTitleFor(game), animatedOnly, ct),
             $"{game.Id}_widegrid_candidate");
 
     private async Task<IReadOnlyList<ArtworkCandidate>> FetchCandidatesCoreAsync(

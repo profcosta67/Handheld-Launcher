@@ -246,6 +246,13 @@ public static class ThemeManager
         SetBrush(app, "BarBrush", alpha + palette.Surface.TrimStart('#'));
         SetBrush(app, "AccentTranslucentBrush", "#40" + palette.Accent.TrimStart('#'));
         SetBrush(app, "BackdropDimBrush", alpha + palette.Background.TrimStart('#'));
+        // v0.18.4 (bug "tema Clean com fundo preto em todos os jogos"): no Clean
+        // a ÚNICA arte da tela é o fundo desfocado, e ele fica embaixo do
+        // BackdropDimBrush — que nas paletas pretas (Preto/OLED, Alto
+        // Contraste) é 100% opaco, então a arte sumia. O véu da arte de fundo
+        // agora tem brush próprio, nunca 100%: as paletas pretas usam o mesmo
+        // 80% das outras. As barras e o resto do OLED continuam preto de verdade.
+        SetBrush(app, "ArtBackdropDimBrush", "#CC" + palette.Background.TrimStart('#'));
 
         SetBrush(app, "OnAccentBrush", TextOnAccent(palette.Accent));
     }

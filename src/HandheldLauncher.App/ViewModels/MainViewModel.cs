@@ -442,7 +442,7 @@ public sealed class MainViewModel : ViewModelBase
 
     public void UpdateHudTdpStatus(string mode)
     {
-        var watts = mode switch { "UltraEco" => 8, "Eco" => 15, "Normal" => 20, "Desempenho" => 25, "Boost" => 30, _ => 0 };
+        var watts = HandheldLauncher.Core.Services.TdpProfiles.WattsFor(mode) ?? 0; // v0.18.5: inclui o personalizado
         _targetTdpWatts = watts;
         OnPropertyChanged(nameof(TopBarTdpText));
         OnPropertyChanged(nameof(TopBarTdpToolTip));
@@ -1020,6 +1020,7 @@ public sealed class MainViewModel : ViewModelBase
 
         try
         {
+            LaunchedProcessExitedEarly = false;
             _launcher.Launch(game);
             RunningGame = game;
             _library.MarkLaunched(game.Id);
@@ -1911,5 +1912,45 @@ public sealed class MainViewModel : ViewModelBase
         if (index > 0) Games.Move(index, 0);
     }
 
-    private void OnGameExited(object? sender, GameExitedEventArgs e) { _library.RecordPlaySession(e.Game.Id, e.Duration); if (RunningGame?.Id == e.Game.Id) RunningGame = null; Refresh(); }
+    /// <summary>
+    /// v0.18.4 (crash "Call from invalid thread" ao fechar/abrir jogo — nos logs
+    /// desde 05/11 de manhã: Pokémon/Eden ao fechar, PvZ do Game Pass ao abrir):
+    /// GameExited vem do Process.Exited, que roda numa thread do pool, não na
+    /// da tela. Limpar RunningGame ali disparava o PropertyChanged da
+    /// MainWindow fora da thread da tela (lê IsVisible, restaura da bandeja) e
+    /// o Avalonia derrubava o app. Agora tudo roda na thread da tela.
+    /// </summary>
+    private void OnGameExited(object? sender, GameExitedEventArgs e)
+        => Dispatcher.UIThread.Post(() => HandleGameExited(e));
+
+    // Processo lançado que sai em menos que isso não é o jogo: é um lançador
+    // intermediário (jogo do Game Pass abre pelo gamelaunchhelper, que sai na
+    // hora e deixa o jogo rodando). Antes isso limpava RunningGame meio
+    // segundo depois de abrir, com o jogo ainda na tela.
+    private static readonly TimeSpan IntermediateLauncherExit = TimeSpan.FromSeconds(15);
+
+    /// <summary>
+    /// v0.18.4: o processo lançado saiu cedo e o jogo ficou a cargo do vigia de
+    /// janela (igual jogo da Steam). A MainWindow usa isto pra liberar o
+    /// launcher se a janela do jogo nunca aparecer.
+    /// </summary>
+    public bool LaunchedProcessExitedEarly { get; private set; }
+
+    private void HandleGameExited(GameExitedEventArgs e)
+    {
+        try
+        {
+            if (RunningGame?.Id == e.Game.Id && e.Duration < IntermediateLauncherExit)
+            {
+                LaunchedProcessExitedEarly = true;
+                DebugLog.Write($"[JOGO] Processo lançado por '{e.Game.Title}' saiu em {e.Duration.TotalSeconds:F1}s — tratado como lançador intermediário; o vigia de janela decide quando o jogo fechou.");
+                return;
+            }
+
+            _library.RecordPlaySession(e.Game.Id, e.Duration);
+            if (RunningGame?.Id == e.Game.Id) RunningGame = null;
+            Refresh();
+        }
+        catch (Exception ex) { DebugLog.Write($"[JOGO] Falha ao tratar saída de '{e.Game.Title}': {ex}"); }
+    }
 }
