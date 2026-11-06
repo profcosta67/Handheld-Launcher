@@ -594,6 +594,7 @@ public void SetInitialPosition()
 }
     public void HideWithUnblock()
     {
+        DebugLog.Write($"[OVERLAY-CLOSE] origem=HideWithUnblock fullscreen-contexto; overlay={TryGetPlatformHandle()?.Handle}, game={_gameHwnd}, foreground={GetForegroundWindow()}, visible={IsVisible}, submenu={_activeSubMenu}, focoJogo={_focusTakenFromGame}");
         // v0.18.5: valor do TDP personalizado em edição pelo controle e não
         // confirmado com A é descartado ao fechar (não fica pendurado pra próxima abertura).
         if (_activeSubMenu == SubMenuMode.TdpCustom) CancelTdpCustomEdit();
@@ -676,6 +677,9 @@ public void SetInitialPosition()
     public void HandleGamepadAction(GamepadAction action)
     {
         if (action == GamepadAction.ToggleQuickSettings) { HideWithUnblock(); return; }
+
+        // X fecha o Quick Settings mesmo quando um submenu está aberto.
+        if (action == GamepadAction.GameDetails) { HideWithUnblock(); return; }
 
         if (_activeSubMenu == SubMenuMode.TdpCustom)
         {
@@ -762,15 +766,31 @@ public void SetInitialPosition()
         }
 
         switch (action)
-{
+        {
+            // Na tela principal, B não fecha o Quick Settings: ele fica reservado
+            // para voltar dentro dos submenus. Isso evita confundir Back com fechar.
             case GamepadAction.Back:
-            case GamepadAction.GlobalMenu: 
-        HideWithUnblock(); 
-        break;
-            case GamepadAction.Downloads when BtnCloseXCloud is { IsVisible: true }: CloseXCloudFromOverlay(); break;
-            case GamepadAction.MoveUp: _focusIndex = Math.Max(0, _focusIndex - 1); UpdateFocusVisual(); break;
-            case GamepadAction.MoveDown: _focusIndex = Math.Min(_sections.Length - 1, _focusIndex + 1); UpdateFocusVisual(); break;
-            case GamepadAction.Confirm: EnterSubMenu(); break;
+                break;
+            // X (GameDetails no mapeamento XInput) fecha o overlay em qualquer tela.
+            case GamepadAction.GameDetails:
+            case GamepadAction.GlobalMenu:
+                HideWithUnblock();
+                break;
+            case GamepadAction.Downloads when BtnCloseXCloud is { IsVisible: true }:
+                CloseXCloudFromOverlay();
+                break;
+            case GamepadAction.MoveUp:
+                _focusIndex = Math.Max(0, _focusIndex - 1);
+                UpdateFocusVisual();
+                break;
+            case GamepadAction.MoveDown:
+                _focusIndex = Math.Min(_sections.Length, _focusIndex + 1);
+                UpdateFocusVisual();
+                break;
+            case GamepadAction.Confirm:
+                if (_focusIndex == _sections.Length) HideWithUnblock();
+                else EnterSubMenu();
+                break;
         }
     }
 
@@ -911,14 +931,20 @@ public void SetInitialPosition()
 
     private void UpdateFocusVisual()
     {
-        for (int i = 0; i < _sections.Length; i++) _sections[i].BorderBrush = (i == _focusIndex) ? _focusBorderColor : Brushes.Transparent;
+        for (int i = 0; i < _sections.Length; i++)
+            _sections[i].BorderBrush = (i == _focusIndex) ? _focusBorderColor : Brushes.Transparent;
+
+        // O botão do rodapé é o último item da navegação do controle.
+        if (BtnCloseMenu != null)
+            BtnCloseMenu.Background = _focusIndex == _sections.Length ? _activeColor : _inactiveColor;
+
         ScrollToFocusedSection();
     }
 
     private void ScrollToFocusedSection()
     {
         if (MainScrollViewer == null || _sections.Length == 0) return;
-        if (_focusIndex < 0 || _focusIndex >= _sections.Length) return;
+        if (_focusIndex < 0 || _focusIndex > _sections.Length) return;
 
         if (_scrollPending) return;
         _scrollPending = true;
@@ -928,6 +954,16 @@ public void SetInitialPosition()
             _scrollPending = false;
             try
             {
+                // O índice depois da última seção representa "Fechar Menu",
+                // que fica no rodapé fixo, abaixo da área rolável.
+                if (_focusIndex == _sections.Length)
+                {
+                    MainScrollViewer.Offset = new Vector(
+                        MainScrollViewer.Offset.X,
+                        Math.Max(0, MainScrollViewer.Extent.Height - MainScrollViewer.Viewport.Height));
+                    return;
+                }
+
                 var focused = _sections[_focusIndex];
 
                 double itemTop = focused.Bounds.Y;
