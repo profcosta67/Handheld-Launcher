@@ -489,10 +489,11 @@ public partial class OverlayWindow : Window
     base.OnOpened(e);
     DebugLog.Write($"[OVERLAY] OnOpened chamado. Width={Width}, Height={Height}");
     
-    // 🟢 A MÁGICA: Posiciona de forma síncrona ANTES da tela renderizar
-    PositionOnRightEdge(); 
-    
+    // Reposiciona sem alternar SW_HIDE/SW_SHOW durante OnOpened.
+    PositionOnRightEdge();
+
     ResetPositionGuardForShow();
+    StartTopmostEnforcer();
     UpdateLsfgStatus();
     
     // O resto continua igual...
@@ -537,10 +538,11 @@ public partial class OverlayWindow : Window
             var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
             if (handle != IntPtr.Zero)
             {
-                // 🟢 1. Esconde a janela (SW_HIDE), move pro canto direito, e SÓ ENTÃO mostra (SW_SHOW)
-                SetWindowPos(handle, HWND_TOPMOST, x, y, widthPx, heightPx, SWP_HIDEWINDOW);
-                SetWindowPos(handle, HWND_TOPMOST, x, y, widthPx, heightPx, SWP_SHOWWINDOW);
-                DebugLog.Write($"[OVERLAY] Fix anti-flash: movido para {x},{y}");
+                // Move a janela sem ocultá-la. O ciclo Hide/Show aqui
+                // podia competir com o ciclo de vida do Avalonia e deixá-la presa.
+                Position = new PixelPoint(x, y);
+                SetWindowPos(handle, HWND_TOPMOST, x, y, widthPx, heightPx, SWP_NOACTIVATE);
+                DebugLog.Write($"[OVERLAY] Reposicionado sem ocultar: {x},{y}");
             }
         }
         else
