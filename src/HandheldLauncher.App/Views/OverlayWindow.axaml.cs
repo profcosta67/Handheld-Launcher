@@ -14,6 +14,7 @@ using HandheldLauncher.App.Platform;
 using HandheldLauncher.App.Input;
 using HandheldLauncher.App.ViewModels;
 using HandheldLauncher.App.Platform.Hardware; 
+
 namespace HandheldLauncher.App.Views;
 
 public partial class OverlayWindow : Window
@@ -104,7 +105,8 @@ public partial class OverlayWindow : Window
     private const uint SWP_NOSIZE = 0x0001;
     private const uint SWP_NOACTIVATE = 0x0010;
     private const uint SWP_SHOWWINDOW = 0x0040;
-
+    private const uint SWP_HIDEWINDOW = 0x0080;
+    
     private IntPtr _gameHwnd = IntPtr.Zero;
     private bool _focusTakenFromGame;
 
@@ -483,42 +485,23 @@ public partial class OverlayWindow : Window
     }
 
         protected override void OnOpened(EventArgs e)
+{
+    base.OnOpened(e);
+    DebugLog.Write($"[OVERLAY] OnOpened chamado. Width={Width}, Height={Height}");
+    
+    // 🟢 A MÁGICA: Posiciona de forma síncrona ANTES da tela renderizar
+    PositionOnRightEdge(); 
+    
+    ResetPositionGuardForShow();
+    UpdateLsfgStatus();
+    
+    // O resto continua igual...
+    Dispatcher.UIThread.Post(() =>
     {
-        base.OnOpened(e);
-        DebugLog.Write($"[OVERLAY] OnOpened chamado. Width={Width}, Height={Height}");
-        ResetPositionGuardForShow();
-        UpdateLsfgStatus();
-
-        Dispatcher.UIThread.Post(() =>
-        {
-            PositionOnRightEdge();
-            ForceTopmost();
-            TakeFocusFromGameIfEnabled();
-        }, DispatcherPriority.Loaded);
-
-        var retryTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
-        retryTimer.Tick += (_, _) =>
-        {
-            retryTimer.Stop();
-            PositionOnRightEdge();
-            ForceTopmost();
-            UpdateLsfgStatus();
-        };
-        retryTimer.Start();
-
-        StartTopmostEnforcer();
-
-        if (_freezeGameOnOverlay) InputBlockService.BlockGamepadForGame(_gamePid);
-
-        // =========================================================
-        // ESTE BLOCO ESTAVA DUPLICADO. DEIXE APENAS UM ASSIM:
-        // =========================================================
-        if (_hardwareService is WindowsHardwareService winSvcForSync)
-        {
-            _viewModel.UpdateHudRecordingState(winSvcForSync.IsRecording);
-            UpdateRecordButtonState(); 
-        }
-    }
+        ForceTopmost();
+        TakeFocusFromGameIfEnabled();
+    }, DispatcherPriority.Loaded);
+}
 
     private void UpdateLsfgStatus()
     {
@@ -533,12 +516,11 @@ public partial class OverlayWindow : Window
     try
     {
         var screen = Screens.Primary ?? Screens.All.FirstOrDefault();
-        if (screen == null) { DebugLog.Write("[OVERLAY] PositionOnRightEdge: screen null"); return; }
+        if (screen == null) return;
 
         var wa = screen.WorkingArea;
         var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
 
-        // Usa Width/Height do XAML, com fallback seguro para evitar 0 ou NaN
         double actualWidth = (Width > 0 && !double.IsNaN(Width)) ? Width : (Bounds.Width > 0 ? Bounds.Width : 440);
         double actualHeight = (Height > 0 && !double.IsNaN(Height)) ? Height : (Bounds.Height > 0 ? Bounds.Height : 850);
 
@@ -555,8 +537,10 @@ public partial class OverlayWindow : Window
             var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
             if (handle != IntPtr.Zero)
             {
-                // SWP_SHOWWINDOW move e mostra a janela no mesmo frame, sem o Windows tentar centralizar
+                // 🟢 1. Esconde a janela (SW_HIDE), move pro canto direito, e SÓ ENTÃO mostra (SW_SHOW)
+                SetWindowPos(handle, HWND_TOPMOST, x, y, widthPx, heightPx, SWP_HIDEWINDOW);
                 SetWindowPos(handle, HWND_TOPMOST, x, y, widthPx, heightPx, SWP_SHOWWINDOW);
+                DebugLog.Write($"[OVERLAY] Fix anti-flash: movido para {x},{y}");
             }
         }
         else
@@ -572,6 +556,40 @@ public partial class OverlayWindow : Window
     }
 }
 
+
+/// <summary>
+/// Define a posição inicial ANTES do Show(), para o Windows já criar a janela
+/// no lugar certo. Evita o flash no centro/esquerda.
+/// </summary>
+public void SetInitialPosition()
+{
+    try
+    {
+        var screen = Screens.Primary ?? Screens.All.FirstOrDefault();
+        if (screen == null) return;
+
+        var wa = screen.WorkingArea;
+        var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
+        
+        // Width/Height vêm do XAML (440x850). Se por algum motivo estiverem
+        // NaN, usamos o fallback dos Bounds.
+        double w = (Width > 0 && !double.IsNaN(Width)) ? Width : 440;
+        double h = (Height > 0 && !double.IsNaN(Height)) ? Height : 850;
+
+        var widthPx = (int)(w * scaling);
+        var heightPx = (int)(h * scaling);
+
+        var x = wa.X + wa.Width - widthPx - 20;
+        var y = wa.Y + (wa.Height - heightPx) / 2;
+
+        Position = new PixelPoint(x, y);
+        DebugLog.Write($"[OVERLAY] SetInitialPosition: {x},{y} (tamanho {widthPx}x{heightPx})");
+    }
+    catch (Exception ex)
+    {
+        DebugLog.Write($"[OVERLAY] SetInitialPosition EXCEPTION: {ex.Message}");
+    }
+}
     public void HideWithUnblock()
     {
         // v0.18.5: valor do TDP personalizado em edição pelo controle e não
@@ -582,6 +600,7 @@ public partial class OverlayWindow : Window
         FlushPendingCustomApply();
         StopTopmostEnforcer();
         InputBlockService.UnblockGamepadForGame();
+        SetInitialPosition();
         Hide();
         GiveFocusBackToGame();
     }

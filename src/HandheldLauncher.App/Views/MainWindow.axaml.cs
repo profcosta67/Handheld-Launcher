@@ -517,6 +517,7 @@ _overlayWindow.SetGamePid(_detectedGamePid);
                 // a janela "por fora" do Avalonia, então IsVisible fica estável
                 // durante todo o processo de reposicionamento.
                 _overlayWindow.Opacity = 0;
+                _overlayWindow.SetInitialPosition(); 
                 _overlayWindow.Show();
 
                 // v0.16.2: Show() real (acima) dispara OnOpened da própria
