@@ -469,14 +469,20 @@ public partial class MainWindow : Window
                     _overlayWindow = null;
                 }
 
-                if (_overlayWindow == null)
-                {
-                    DebugLog.Write("[OVERLAY] Criando nova OverlayWindow.");
-                    _overlayWindow = new OverlayWindow(vm);
-                }
+               // v0.18.6: Em vez de destruir e recriar (o que causava o flash no centro e perda de foco),
+// nós apenas reaproveitamos a mesma janela. O construtor dela já foi chamado no boot.
+if (_overlayWindow == null)
+{
+    DebugLog.Write("[OVERLAY] Criando nova OverlayWindow (primeira vez).");
+    _overlayWindow = new OverlayWindow(vm);
+}
+else
+{
+    DebugLog.Write("[OVERLAY] Reutilizando OverlayWindow existente.");
+}
 
-                _overlayWindow.SetGameHwnd(gameHwnd);
-                _overlayWindow.SetGamePid(_detectedGamePid);
+_overlayWindow.SetGameHwnd(gameHwnd);
+_overlayWindow.SetGamePid(_detectedGamePid);
 
                 DebugLog.Write($"[OVERLAY] Antes Show: IsVisible={_overlayWindow.IsVisible}, Pos={_overlayWindow.Position}, GameHwnd=0x{gameHwnd:X}");
 

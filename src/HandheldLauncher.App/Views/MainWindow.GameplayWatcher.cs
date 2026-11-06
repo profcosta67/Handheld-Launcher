@@ -587,7 +587,11 @@ public partial class MainWindow : Window
                         case GamepadAction.MoveDown: vm.MoveGlobalMenuSelection(1); break;
                         case GamepadAction.Confirm: vm.ConfirmGlobalMenuSelection(); break;
                         case GamepadAction.Back: vm.GlobalMenuBack(); break;
-                        case GamepadAction.GlobalMenu: vm.CloseGlobalMenu(); break;
+                        case GamepadAction.GlobalMenu: 
+                            vm.CloseGlobalMenu(); 
+                            // v0.18.6: Recupera o foco
+                            ForceForeground(allowRestore: true, forceIfGameRunning: true);
+                            break;
                     }
                     continue;
                 }
@@ -657,7 +661,11 @@ public partial class MainWindow : Window
                     case GamepadAction.Confirm: _ = vm.LaunchSelected(); ScrollGameRowSelectionIntoView(vm); break;
                     case GamepadAction.Back: vm.CloseRunningGame(); break;
                     case GamepadAction.Menu: vm.ToggleContextMenu(); break;
-                    case GamepadAction.GlobalMenu: vm.ToggleGlobalMenu(); break;
+                    case GamepadAction.GlobalMenu:
+                        vm.ToggleGlobalMenu();
+                        // v0.18.6: Força o launcher a voltar pra frente caso o Windows abra o Menu Iniciar/Task View
+                        ForceForeground(allowRestore: true, forceIfGameRunning: true);
+                        break;
                     case GamepadAction.PreviousFilter: vm.CyclePreviousFilter(); break;
                     case GamepadAction.NextFilter: vm.CycleNextFilter(); break;
                     case GamepadAction.GameDetails: vm.OpenGameDetailsForSelected(); break;

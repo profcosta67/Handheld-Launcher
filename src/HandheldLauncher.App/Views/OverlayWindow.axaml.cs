@@ -125,7 +125,7 @@ public partial class OverlayWindow : Window
         _viewModel = viewModel;
         InitializeComponent();
 
-        ShowActivated = false;
+        ShowActivated = true;
 
         _tdpHardwareSupported = OperatingSystem.IsWindows()
             && RyzenSmuService.IsSupportedPlatform()
@@ -504,42 +504,48 @@ public partial class OverlayWindow : Window
     }
 
     public void PositionOnRightEdge()
+{
+    try
     {
-        try
+        var screen = Screens.Primary ?? Screens.All.FirstOrDefault();
+        if (screen == null) { DebugLog.Write("[OVERLAY] PositionOnRightEdge: screen null"); return; }
+
+        var wa = screen.WorkingArea;
+        var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
+
+        // Usa Width/Height do XAML, com fallback seguro para evitar 0 ou NaN
+        double actualWidth = (Width > 0 && !double.IsNaN(Width)) ? Width : (Bounds.Width > 0 ? Bounds.Width : 440);
+        double actualHeight = (Height > 0 && !double.IsNaN(Height)) ? Height : (Bounds.Height > 0 ? Bounds.Height : 850);
+
+        var widthPx = (int)(actualWidth * scaling);
+        var heightPx = (int)(actualHeight * scaling);
+
+        if (widthPx <= 0 || heightPx <= 0) return;
+
+        var x = wa.X + wa.Width - widthPx - 20;
+        var y = wa.Y + (wa.Height - heightPx) / 2;
+
+        if (OperatingSystem.IsWindows())
         {
-            var screen = Screens.Primary ?? Screens.All.FirstOrDefault();
-            if (screen == null) { DebugLog.Write("[OVERLAY] PositionOnRightEdge: screen null"); return; }
-
-            var wa = screen.WorkingArea;
-            var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
-
-            double actualWidth = 0;
-            double actualHeight = 0;
-
-            if (Bounds.Width > 0 && !double.IsNaN(Bounds.Width)) { actualWidth = Bounds.Width; actualHeight = Bounds.Height; }
-            else if (ClientSize.Width > 0) { actualWidth = ClientSize.Width; actualHeight = ClientSize.Height; }
-            else if (Width > 0 && !double.IsNaN(Width)) { actualWidth = Width; actualHeight = Height; }
-            else { actualWidth = 480; actualHeight = 600; }
-
-            if (double.IsNaN(Width) || Width <= 0) Width = actualWidth;
-            if (double.IsNaN(Height) || Height <= 0) Height = actualHeight;
-
-            var widthPx = (int)(actualWidth * scaling);
-            var heightPx = (int)(actualHeight * scaling);
-
-            if (widthPx <= 0 || heightPx <= 0) return;
-
-            var x = wa.X + wa.Width - widthPx - 20;
-            var y = wa.Y + (wa.Height - heightPx) / 2;
-
+            var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+            if (handle != IntPtr.Zero)
+            {
+                // SWP_SHOWWINDOW move e mostra a janela no mesmo frame, sem o Windows tentar centralizar
+                SetWindowPos(handle, HWND_TOPMOST, x, y, widthPx, heightPx, SWP_SHOWWINDOW);
+            }
+        }
+        else
+        {
             Position = new PixelPoint(x, y);
-            RememberExpectedPosition(new PixelPoint(x, y));
         }
-        catch (Exception ex)
-        {
-            DebugLog.Write($"[OVERLAY] PositionOnRightEdge EXCEPTION: {ex.Message}");
-        }
+        
+        RememberExpectedPosition(new PixelPoint(x, y));
     }
+    catch (Exception ex)
+    {
+        DebugLog.Write($"[OVERLAY] PositionOnRightEdge EXCEPTION: {ex.Message}");
+    }
+}
 
     public void HideWithUnblock()
     {
@@ -708,9 +714,11 @@ public partial class OverlayWindow : Window
         }
 
         switch (action)
-        {
+{
             case GamepadAction.Back:
-            case GamepadAction.GlobalMenu: HideWithUnblock(); break;
+            case GamepadAction.GlobalMenu: 
+        HideWithUnblock(); 
+        break;
             case GamepadAction.Downloads when BtnCloseXCloud is { IsVisible: true }: CloseXCloudFromOverlay(); break;
             case GamepadAction.MoveUp: _focusIndex = Math.Max(0, _focusIndex - 1); UpdateFocusVisual(); break;
             case GamepadAction.MoveDown: _focusIndex = Math.Min(_sections.Length - 1, _focusIndex + 1); UpdateFocusVisual(); break;
