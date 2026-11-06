@@ -442,7 +442,7 @@ public sealed class MainViewModel : ViewModelBase
 
     public void UpdateHudTdpStatus(string mode)
     {
-        var watts = mode switch { "UltraEco" => 8, "Eco" => 15, "Normal" => 20, "Desempenho" => 25, "Boost" => 30, _ => 0 };
+        var watts = HandheldLauncher.Core.Services.TdpProfiles.WattsFor(mode) ?? 0; // v0.18.5: inclui o personalizado
         _targetTdpWatts = watts;
         OnPropertyChanged(nameof(TopBarTdpText));
         OnPropertyChanged(nameof(TopBarTdpToolTip));

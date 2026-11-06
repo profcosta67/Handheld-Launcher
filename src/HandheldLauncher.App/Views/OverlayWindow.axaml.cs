@@ -51,7 +51,15 @@ public partial class OverlayWindow : Window
     // 🟢 ENFORCER: mantém o overlay sempre no topo enquanto visível
     private DispatcherTimer? _topmostEnforcer;
 
-    private enum SubMenuMode { None, Resolution, RefreshRate, Tdp, Fan, Color, Hud, Volume, Brightness, Capture, Lossless }
+    private enum SubMenuMode { None, Resolution, RefreshRate, Tdp, TdpCustom, Fan, Color, Hud, Volume, Brightness, Capture, Lossless }
+
+    // v0.18.5: TDP personalizado. Índice 5 do submenu de TDP = botão Personalizado.
+    private const int CustomTdpIndex = 5;
+    private int _customWatts = TdpProfiles.DefaultCustomWatts;   // último valor escolhido (salvo em TdpCustomWatts)
+    private int _tempCustomWatts = TdpProfiles.DefaultCustomWatts; // valor em edição pelo controle (só aplica no A)
+    private bool _suppressCustomSlider;
+    private DispatcherTimer? _customApplyTimer;
+    private int _pendingCustomWatts;
     private SubMenuMode _activeSubMenu = SubMenuMode.None;
 
     private int _currentResIndex = 0;
@@ -123,6 +131,8 @@ public partial class OverlayWindow : Window
             BtnNormal.IsEnabled = false;
             BtnDesempenho.IsEnabled = false;
             BtnBoost.IsEnabled = false;
+            BtnTdpCustom.IsEnabled = false;
+            TdpCustomPanel.IsEnabled = false;
             DebugLog.Write("[OVERLAY] Controles TDP desabilitados: este equipamento não está na matriz de hardware validado.");
         }
 
@@ -144,6 +154,9 @@ public partial class OverlayWindow : Window
         {
             var settings = AppSettingsStore.Load();
             _freezeGameOnOverlay = settings.FreezeGameOnOverlay;
+            _customWatts = TdpProfiles.IsCustom(settings.TdpMode)
+                ? TdpProfiles.WattsFor(settings.TdpMode) ?? TdpProfiles.DefaultCustomWatts
+                : TdpProfiles.ClampWatts(settings.TdpCustomWatts);
             SetTdpButtonVisual(string.IsNullOrEmpty(settings.TdpMode) ? "Normal" : settings.TdpMode);
             if (OperatingSystem.IsWindows())
             {
@@ -507,6 +520,9 @@ public partial class OverlayWindow : Window
 
     public void HideWithUnblock()
     {
+        // v0.18.5: valor do TDP personalizado em edição pelo controle e não
+        // confirmado com A é descartado ao fechar (não fica pendurado pra próxima abertura).
+        if (_activeSubMenu == SubMenuMode.TdpCustom) CancelTdpCustomEdit();
         StopTopmostEnforcer();
         InputBlockService.UnblockGamepadForGame();
         Hide();
@@ -580,6 +596,19 @@ public partial class OverlayWindow : Window
     public void HandleGamepadAction(GamepadAction action)
     {
         if (action == GamepadAction.ToggleQuickSettings) { HideWithUnblock(); return; }
+
+        if (_activeSubMenu == SubMenuMode.TdpCustom)
+        {
+            HandleTdpCustomAction(action);
+            return;
+        }
+
+        // v0.18.5: A no botão Personalizado não aplica direto — abre o ajuste de watts.
+        if (_activeSubMenu == SubMenuMode.Tdp && action == GamepadAction.Confirm && _tempTdpIndex == CustomTdpIndex)
+        {
+            EnterTdpCustomEdit();
+            return;
+        }
 
         if (_activeSubMenu != SubMenuMode.None)
         {
@@ -673,8 +702,7 @@ public partial class OverlayWindow : Window
             case 1: _tempHzIndex = _currentHzIndex; _activeSubMenu = SubMenuMode.RefreshRate; UpdateTempVisuals(); break;
             case 2:
                 if (!_tdpHardwareSupported) return;
-                string[] tdps = { "UltraEco", "Eco", "Normal", "Desempenho", "Boost" };
-                _tempTdpIndex = Array.IndexOf(tdps, _currentTdp);
+                _tempTdpIndex = TdpProfiles.IsCustom(_currentTdp) ? CustomTdpIndex : Array.IndexOf(TdpProfiles.Presets, _currentTdp);
                 if (_tempTdpIndex < 0) _tempTdpIndex = 2;
                 _activeSubMenu = SubMenuMode.Tdp; UpdateTempVisuals(); break;
             case 3:
@@ -705,7 +733,7 @@ public partial class OverlayWindow : Window
         {
             case SubMenuMode.Resolution: _tempResIndex = Math.Clamp(_tempResIndex + direction, 0, _resolutionButtons.Length - 1); UpdateTempVisuals(); break;
             case SubMenuMode.RefreshRate: _tempHzIndex = Math.Clamp(_tempHzIndex + direction, 0, _refreshButtons.Length - 1); UpdateTempVisuals(); break;
-            case SubMenuMode.Tdp: _tempTdpIndex = Math.Clamp(_tempTdpIndex + direction, 0, 4); UpdateTempVisuals(); break;
+            case SubMenuMode.Tdp: _tempTdpIndex = Math.Clamp(_tempTdpIndex + direction, 0, CustomTdpIndex); UpdateTempVisuals(); break;
             case SubMenuMode.Fan: _tempFanIndex = Math.Clamp(_tempFanIndex + direction, 0, 4); UpdateTempVisuals(); break;
             case SubMenuMode.Color: _tempColorIndex = Math.Clamp(_tempColorIndex + direction, 0, 3); UpdateTempVisuals(); break;
             case SubMenuMode.Hud: _tempHudIndex = Math.Clamp(_tempHudIndex + direction, 0, 3); UpdateTempVisuals(); break;
@@ -723,16 +751,9 @@ public partial class OverlayWindow : Window
             case SubMenuMode.Resolution: _currentResIndex = _tempResIndex; ApplyDisplayMode(); break;
             case SubMenuMode.RefreshRate: _currentHzIndex = _tempHzIndex; ApplyDisplayMode(); break;
             case SubMenuMode.Tdp:
-                string[] tdpModes = { "UltraEco", "Eco", "Normal", "Desempenho", "Boost" };
-                string newTdp = tdpModes[_tempTdpIndex];
-                if (_hardwareService.SetTdpMode(newTdp))
-                {
-                    SetTdpButtonVisual(newTdp);
-                    SaveSetting("TdpMode", newTdp);
-                    _viewModel.UpdateHudTdpStatus(newTdp);
-                    var linkedFanMode = newTdp switch { "UltraEco" or "Eco" => "Silencioso", "Normal" => "Normal", "Desempenho" => "Desempenho", "Boost" => "Boost", _ => "Automático" };
-                    ApplyFanMode(linkedFanMode);
-                }
+                // Índice 5 (Personalizado) é tratado antes, em HandleGamepadAction.
+                if (_tempTdpIndex >= 0 && _tempTdpIndex < TdpProfiles.Presets.Length)
+                    ApplyTdp(TdpProfiles.Presets[_tempTdpIndex]);
                 break;
             case SubMenuMode.Fan:
                 string[] fanModes = { "Automático", "Silencioso", "Normal", "Desempenho", "Boost" };
@@ -876,6 +897,7 @@ public partial class OverlayWindow : Window
             BtnNormal.Background = _tempTdpIndex == 2 ? _activeColor : _inactiveColor;
             BtnDesempenho.Background = _tempTdpIndex == 3 ? _activeColor : _inactiveColor;
             BtnBoost.Background = _tempTdpIndex == 4 ? _activeColor : _inactiveColor;
+            BtnTdpCustom.Background = _tempTdpIndex == CustomTdpIndex ? _activeColor : _inactiveColor;
         }
         else if (_activeSubMenu == SubMenuMode.Fan)
         {
@@ -970,14 +992,36 @@ public partial class OverlayWindow : Window
         if (!_tdpHardwareSupported) return;
         if (sender is not Button clickedButton) return;
         var mode = clickedButton.Tag?.ToString() ?? "Normal";
-        if (_hardwareService.SetTdpMode(mode))
+        // v0.18.5: "Custom" aplica o último valor personalizado e mostra o painel.
+        if (mode == "Custom") mode = TdpProfiles.CustomMode(_customWatts);
+        ApplyTdp(mode);
+    }
+
+    /// <summary>
+    /// v0.18.5: um caminho só pra aplicar TDP (toque, controle, personalizado) —
+    /// mesmo comportamento de antes: só muda visual/salva/HUD/ventoinha se o
+    /// hardware aceitar.
+    /// </summary>
+    private bool ApplyTdp(string mode)
+    {
+        if (!_tdpHardwareSupported) return false;
+        if (!_hardwareService.SetTdpMode(mode))
         {
-            SetTdpButtonVisual(mode);
-            SaveSetting("TdpMode", mode);
-            _viewModel.UpdateHudTdpStatus(mode);
-            var linkedFanMode = mode switch { "UltraEco" or "Eco" => "Silencioso", "Normal" => "Normal", "Desempenho" => "Desempenho", "Boost" => "Boost", _ => "Automático" };
-            ApplyFanMode(linkedFanMode);
+            // Hardware recusou: volta o visual pro modo que estava valendo.
+            SetTdpButtonVisual(_currentTdp);
+            return false;
         }
+
+        SetTdpButtonVisual(mode);
+        SaveSetting("TdpMode", mode);
+        if (TdpProfiles.IsCustom(mode))
+        {
+            _customWatts = TdpProfiles.WattsFor(mode) ?? _customWatts;
+            SaveSetting("TdpCustomWatts", _customWatts.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+        _viewModel.UpdateHudTdpStatus(mode);
+        ApplyFanMode(TdpProfiles.LinkedFanMode(mode));
+        return true;
     }
 
     private void SetTdpButtonVisual(string activeMode)
@@ -987,7 +1031,125 @@ public partial class OverlayWindow : Window
         if (BtnNormal != null) BtnNormal.Background = activeMode == "Normal" ? _activeColor : _inactiveColor;
         if (BtnDesempenho != null) BtnDesempenho.Background = activeMode == "Desempenho" ? _activeColor : _inactiveColor;
         if (BtnBoost != null) BtnBoost.Background = activeMode == "Boost" ? _activeColor : _inactiveColor;
+        var isCustom = TdpProfiles.IsCustom(activeMode);
+        if (BtnTdpCustom != null) BtnTdpCustom.Background = isCustom ? _activeColor : _inactiveColor;
+        if (TdpCustomButtonText != null) TdpCustomButtonText.Text = isCustom ? $"{TdpProfiles.WattsFor(activeMode)} W" : "Person.";
+        if (TdpCustomPanel != null)
+        {
+            TdpCustomPanel.IsVisible = isCustom;
+            TdpCustomPanel.BorderBrush = Brushes.Transparent;
+        }
+        if (TdpCustomHint != null) TdpCustomHint.Text = "5 W a 30 W";
+        if (isCustom) ShowCustomWatts(TdpProfiles.WattsFor(activeMode) ?? _customWatts);
         _currentTdp = activeMode;
+    }
+
+    // ===== v0.18.5: TDP personalizado =====
+
+    /// <summary>Mostra o valor na barra e no texto sem disparar aplicação.</summary>
+    private void ShowCustomWatts(int watts)
+    {
+        watts = TdpProfiles.ClampWatts(watts);
+        if (TdpCustomValueText != null) TdpCustomValueText.Text = $"{watts} W";
+        if (TdpCustomSlider != null && (int)Math.Round(TdpCustomSlider.Value) != watts)
+        {
+            _suppressCustomSlider = true;
+            try { TdpCustomSlider.Value = watts; }
+            finally { _suppressCustomSlider = false; }
+        }
+    }
+
+    // Toque/mouse na barra: aplica meio segundo depois de parar de mexer,
+    // pra não mandar dezenas de comandos pro hardware enquanto arrasta.
+    private void OnTdpCustomSliderChanged(object? sender, RangeBaseValueChangedEventArgs e)
+    {
+        if (_isInitializing || _suppressCustomSlider || !_tdpHardwareSupported) return;
+        var watts = TdpProfiles.ClampWatts((int)Math.Round(e.NewValue));
+        if (_activeSubMenu == SubMenuMode.TdpCustom)
+        {
+            // Editando pelo controle: só mostra; aplica no A.
+            _tempCustomWatts = watts;
+            if (TdpCustomValueText != null) TdpCustomValueText.Text = $"{watts} W";
+            return;
+        }
+        if (TdpCustomValueText != null) TdpCustomValueText.Text = $"{watts} W";
+        ScheduleCustomApply(watts);
+    }
+
+    private void OnTdpCustomStepClick(object? sender, RoutedEventArgs e)
+    {
+        if (!_tdpHardwareSupported || sender is not Button { Tag: string tag } || !int.TryParse(tag, out var step)) return;
+        var current = TdpCustomSlider is null ? _customWatts : (int)Math.Round(TdpCustomSlider.Value);
+        var watts = TdpProfiles.ClampWatts(current + step);
+        ShowCustomWatts(watts);
+        if (_activeSubMenu == SubMenuMode.TdpCustom) { _tempCustomWatts = watts; return; }
+        ScheduleCustomApply(watts);
+    }
+
+    private void ScheduleCustomApply(int watts)
+    {
+        if (_customApplyTimer is null)
+        {
+            _customApplyTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+            _customApplyTimer.Tick += OnCustomApplyTick;
+        }
+        _customApplyTimer.Stop();
+        _pendingCustomWatts = watts;
+        _customApplyTimer.Start();
+    }
+
+    private void OnCustomApplyTick(object? sender, EventArgs e)
+    {
+        _customApplyTimer?.Stop();
+        var watts = _pendingCustomWatts;
+        var mode = TdpProfiles.CustomMode(watts);
+        if (mode == _currentTdp) return;
+        DebugLog.Write($"[OVERLAY] TDP personalizado pelo toque: {watts} W.");
+        ApplyTdp(mode);
+    }
+
+    private void EnterTdpCustomEdit()
+    {
+        if (!_tdpHardwareSupported) return;
+        _customApplyTimer?.Stop();
+        _activeSubMenu = SubMenuMode.TdpCustom;
+        _tempCustomWatts = TdpProfiles.IsCustom(_currentTdp) ? TdpProfiles.WattsFor(_currentTdp) ?? _customWatts : _customWatts;
+        BtnTdpCustom.Background = _activeColor;
+        TdpCustomPanel.IsVisible = true;
+        TdpCustomPanel.BorderBrush = _focusBorderColor;
+        TdpCustomHint.Text = "◀ ▶ 1 W · ▲ ▼ 5 W · A aplica · B cancela";
+        ShowCustomWatts(_tempCustomWatts);
+        TdpCustomPanel.BringIntoView();
+    }
+
+    private void HandleTdpCustomAction(GamepadAction action)
+    {
+        switch (action)
+        {
+            case GamepadAction.MoveLeft: _tempCustomWatts = TdpProfiles.ClampWatts(_tempCustomWatts - 1); ShowCustomWatts(_tempCustomWatts); break;
+            case GamepadAction.MoveRight: _tempCustomWatts = TdpProfiles.ClampWatts(_tempCustomWatts + 1); ShowCustomWatts(_tempCustomWatts); break;
+            case GamepadAction.MoveUp: _tempCustomWatts = TdpProfiles.ClampWatts(_tempCustomWatts + 5); ShowCustomWatts(_tempCustomWatts); break;
+            case GamepadAction.MoveDown: _tempCustomWatts = TdpProfiles.ClampWatts(_tempCustomWatts - 5); ShowCustomWatts(_tempCustomWatts); break;
+            case GamepadAction.Confirm:
+                _activeSubMenu = SubMenuMode.None;
+                DebugLog.Write($"[OVERLAY] TDP personalizado pelo controle: {_tempCustomWatts} W.");
+                if (!ApplyTdp(TdpProfiles.CustomMode(_tempCustomWatts))) SetTdpButtonVisual(_currentTdp);
+                ClearTempHighlights();
+                UpdateFocusVisual();
+                UpdatePersistentVisuals();
+                break;
+            case GamepadAction.Back:
+                CancelTdpCustomEdit();
+                UpdateFocusVisual();
+                break;
+        }
+    }
+
+    private void CancelTdpCustomEdit()
+    {
+        _activeSubMenu = SubMenuMode.None;
+        ClearTempHighlights();
+        UpdatePersistentVisuals(); // volta painel/barra/botões pro modo que está valendo
     }
 
     private void OnFanClick(object? sender, RoutedEventArgs e) { if (sender is Button button) ApplyFanMode(button.Tag?.ToString() ?? "Automático"); }
@@ -1291,6 +1453,7 @@ public partial class OverlayWindow : Window
             var settings = AppSettingsStore.Load();
             switch (key) {
                 case "TdpMode": settings.TdpMode = value; break;
+                case "TdpCustomWatts": settings.TdpCustomWatts = int.Parse(value, System.Globalization.CultureInfo.InvariantCulture); break;
                 case "FanMode": settings.FanMode = value; break;
                 case "ColorMode": settings.ColorMode = int.Parse(value); break;
                 case "OverlayPreset": settings.OverlayPreset = int.Parse(value); break;

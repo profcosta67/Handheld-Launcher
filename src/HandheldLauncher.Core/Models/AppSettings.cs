@@ -51,6 +51,8 @@ public class AppSettings
 
     // TDP e outros
     public string TdpMode { get; set; } = "Normal";
+    /// <summary>v0.18.5: último valor do TDP personalizado (W), lembrado mesmo depois de voltar pra um perfil.</summary>
+    public int TdpCustomWatts { get; set; } = 20;
     public string FanMode { get; set; } = "Automático";
     public int Volume { get; set; } = 70;
     public int Brightness { get; set; } = 80;

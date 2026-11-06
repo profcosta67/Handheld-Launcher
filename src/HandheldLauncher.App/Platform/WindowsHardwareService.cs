@@ -82,15 +82,9 @@ public class WindowsHardwareService : IHardwareService
     {
         if (!OperatingSystem.IsWindows()) return false;
 
-        int tdpLimit = mode switch
-        {
-            "UltraEco" => 8000,
-            "Eco" => 15000,
-            "Normal" => 20000,
-            "Desempenho" => 25000,
-            "Boost" => 30000,
-            _ => 20000
-        };
+        // v0.18.5: perfis + personalizado ("Custom:18") vêm de TdpProfiles.
+        // Modo desconhecido continua caindo em 20 W, como antes.
+        int tdpLimit = (HandheldLauncher.Core.Services.TdpProfiles.WattsFor(mode) ?? 20) * 1000;
 
         DebugLog.Write("[TDP] Solicitação do perfil " + mode + ": " + tdpLimit + "mW. Provider permitido: PawnIO.");
         if (!InitializePawnIo())
