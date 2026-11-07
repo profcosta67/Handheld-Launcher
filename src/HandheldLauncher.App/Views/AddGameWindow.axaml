@@ -3,58 +3,64 @@
         xmlns:vm="using:HandheldLauncher.App.ViewModels"
         x:Class="HandheldLauncher.App.Views.AddGameWindow"
         x:DataType="vm:AddGameViewModel"
-        Title="Adicionar jogo"
-        Width="560" Height="600"
+        Title="Adicionar Jogo ou Programa"
+        Width="600" Height="680"
         Topmost="True"
         CanResize="False"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource BackgroundBrush}">
 
-  <!--
-    Plain dialog, keyboard/mouse-driven on purpose (dev-time + eventual
-    tela de configurações territory) — unlike the main window, this one
-    isn't meant to be driven by the gamepad yet.
-  -->
+  <Window.Styles>
+    <Style Selector="TextBlock.header">
+      <Setter Property="FontSize" Value="16"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+      <Setter Property="Margin" Value="0,16,0,8"/>
+    </Style>
+    <Style Selector="TextBlock.label">
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+      <Setter Property="Margin" Value="0,0,0,4"/>
+    </Style>
+  </Window.Styles>
 
   <Grid RowDefinitions="*,Auto" Margin="24">
     <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
-    <StackPanel Spacing="12">
-      <TextBlock Text="Nome do programa ou jogo" Classes="subtle" />
-      <Button Content="Buscar programas instalados no Windows" Click="OnSearchInstalledClick" HorizontalAlignment="Stretch" />
-      <ListBox x:Name="InstalledProgramsList" Height="150" IsVisible="False" SelectionChanged="OnInstalledProgramSelectionChanged">
-        <ListBox.ItemTemplate>
-          <DataTemplate x:DataType="vm:InstalledProgramOption">
-            <StackPanel Spacing="2" Margin="4">
-              <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
-              <TextBlock Text="{Binding ExecutablePath}" Classes="subtle" FontSize="11" />
-            </StackPanel>
-          </DataTemplate>
-        </ListBox.ItemTemplate>
-      </ListBox>
-      <TextBox Text="{Binding Title}" Watermark="Ex: Hollow Knight" />
+      <StackPanel Spacing="4">
 
-      <TextBlock Text="Executável" Classes="subtle" Margin="0,8,0,0" />
-      <Grid ColumnDefinitions="*,Auto">
-        <TextBox Grid.Column="0" Text="{Binding ExecutablePath}" Watermark="C:\Jogos\jogo.exe" />
-        <Button Grid.Column="1" Classes="pill" Content="..." Click="OnBrowseClick" Margin="8,0,0,0" />
-      </Grid>
+        <!-- Card: Informações Básicas -->
+        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="12" Padding="16" Margin="0,0,0,12">
+          <StackPanel Spacing="12">
+            <TextBlock Text="Nome do Jogo" Classes="header" Margin="0,0,0,4"/>
+            <TextBox Text="{Binding Title}" Watermark="Ex: Hollow Knight" Height="40" FontSize="14"/>
+            <CheckBox Content="É um jogo do Xbox app / Game Pass" IsChecked="{Binding IsXboxSource}" Margin="0,4,0,0"/>
+            <CheckBox Content="Adicionar como Programa (não aparece na biblioteca de jogos)" IsChecked="{Binding IsApplication}" Margin="0,4,0,0"/>
+          </StackPanel>
+        </Border>
 
-      <TextBlock Text="Argumentos (opcional)" Classes="subtle" Margin="0,8,0,0" />
-      <TextBox Text="{Binding LaunchArguments}" Watermark="--fullscreen" />
+        <!-- Card: Execução -->
+        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="12" Padding="16" Margin="0,0,0,12">
+          <StackPanel Spacing="12">
+            <TextBlock Text="Arquivo Executável" Classes="header" Margin="0,0,0,4"/>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBox Grid.Column="0" Text="{Binding ExecutablePath}" Watermark="C:\Jogos\jogo.exe" Height="40" FontSize="14"/>
+              <Button Grid.Column="1" Classes="pill" Content="Procurar..." Click="OnBrowseClick" Margin="8,0,0,0" Height="40"/>
+            </Grid>
+            
+            <TextBlock Text="Argumentos (opcional)" Classes="header" Margin="0,8,0,4"/>
+            <TextBox Text="{Binding LaunchArguments}" Watermark="Ex: --fullscreen" Height="40" FontSize="14"/>
 
-      <TextBlock Text="Pasta de trabalho (opcional)" Classes="subtle" Margin="0,8,0,0" />
-      <TextBox Text="{Binding WorkingDirectory}" Watermark="Em branco = pasta do executável" />
+            <TextBlock Text="Pasta de trabalho (opcional)" Classes="header" Margin="0,8,0,4"/>
+            <TextBox Text="{Binding WorkingDirectory}" Watermark="Em branco = pasta do executável" Height="40" FontSize="14"/>
+          </StackPanel>
+        </Border>
 
-      <CheckBox x:Name="ApplicationCheckBox" Content="Adicionar na aba Programas (não como jogo)" IsChecked="{Binding IsApplication}" Margin="0,8,0,0" />
-      <CheckBox Content="É um jogo do Xbox app / Game Pass"
-                IsChecked="{Binding IsXboxSource}"
-                Margin="0,8,0,0" />
-    </StackPanel>
+      </StackPanel>
     </ScrollViewer>
 
-    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,20,0,0">
-      <Button Classes="pill" Content="Cancelar" Click="OnCancelClick" />
-      <Button Classes="pill" Content="Adicionar" Click="OnAddClick" IsEnabled="{Binding CanSave}" />
+    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12" Margin="0,20,0,0">
+      <Button Classes="pill" Content="Cancelar" Click="OnCancelClick" Width="120" Height="44" FontSize="14"/>
+      <Button Classes="pill primary" Content="Salvar Jogo" Click="OnAddClick" IsEnabled="{Binding CanSave}" Width="160" Height="44" FontSize="14" FontWeight="Bold"/>
     </StackPanel>
   </Grid>
 </Window>

@@ -1,21 +1,12 @@
+using System;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Layout;
+using HandheldLauncher.App.ViewModels;
 
 namespace HandheldLauncher.App.Views.Layouts;
 
-/// <summary>
-/// Tema de layout "Switch" (v0.9.20) — ver o comentário dentro do .axaml
-/// pra referência combinada com o usuário e pro que é deliberadamente
-/// diferente do layout Clássico.
-///
-/// <para>
-/// Note que não tem NADA de lógica aqui: todo o comportamento (navegação
-/// pelo controle, scroll, lançar jogo, menus, transição do banner) vem da
-/// MainWindow, que acha os quatro controles deste layout por
-/// <see cref="ILibraryLayout"/>. Trocar de tema de layout não troca
-/// comportamento nenhum de propósito — só a disposição.
-/// </para>
-/// </summary>
 public partial class SwitchLibraryLayout : UserControl, ILibraryLayout
 {
     public SwitchLibraryLayout()
@@ -24,35 +15,43 @@ public partial class SwitchLibraryLayout : UserControl, ILibraryLayout
     }
 
     ItemsControl ILibraryLayout.GamesItemsControl => GamesItemsControl;
-
     ScrollViewer ILibraryLayout.GameRowScrollViewer => GameRowScrollViewer;
-
     Image ILibraryLayout.HeroImage => HeroImage;
-
     Image ILibraryLayout.HeroBackImage => HeroBackImage;
 
-    /// <summary>
-    /// Fileira horizontal sempre. A grade vertical
-    /// (AppSettings.VerticalLayout) não faz sentido nesta disposição — o
-    /// palco ocupa a maior parte da tela e a fileira de ícones é a
-    /// identidade do tema — então a MainWindow nem tenta trocar o
-    /// ItemsPanel aqui (ver ApplyLayoutMode).
-    /// </summary>
+    // 🟢 MUDANÇA: Tema Clean é carrossel por natureza (ScaleTransform/Opacity por distância).
+    // Em grade vertical, o zoom das capas fica errado e o scroll não faz sentido.
+    // Bloqueado aqui — Clássico e BigScreen continuam aceitando grade vertical.
     bool ILibraryLayout.SupportsVerticalGrid => false;
 
-    /// <summary>A roleta vive disso: a capa em foco no centro, a fileira correndo por baixo.</summary>
     bool ILibraryLayout.CentersSelection => true;
-
     CloudGridView ILibraryLayout.CloudGrid => CloudGrid;
 
-    // Mesmos repasses do ClassicLibraryLayout — ver comentário lá.
+    public void SetVertical(bool vertical)
+    {
+        if (vertical)
+        {
+            GameOuterPanel.Orientation = Orientation.Vertical;
+            GameOuterPanel.HorizontalAlignment = HorizontalAlignment.Left;
+            GameRowScrollViewer.Height = double.NaN;
+            GameRowScrollViewer.VerticalAlignment = VerticalAlignment.Top;
+            AddProgramButton.Margin = new Thickness(0, 28, 0, 0);
+            AddProgramButton.HorizontalAlignment = HorizontalAlignment.Left;
+        }
+        else
+        {
+            GameOuterPanel.Orientation = Orientation.Horizontal;
+            GameOuterPanel.HorizontalAlignment = HorizontalAlignment.Center;
+            GameRowScrollViewer.Height = 460;
+            GameRowScrollViewer.VerticalAlignment = VerticalAlignment.Center;
+            AddProgramButton.Margin = new Thickness(60, 0, 0, 0);
+            AddProgramButton.HorizontalAlignment = HorizontalAlignment.Left;
+        }
+    }
+
     private MainWindow? Owner => TopLevel.GetTopLevel(this) as MainWindow;
-
     private void OnAddProgramClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => Owner?.HandleAddProgramClick();
-
     private void OnTilePointerPressed(object? sender, PointerPressedEventArgs e) => Owner?.HandleTilePointerPressed(sender, e);
-
     private void OnTileDoubleTapped(object? sender, TappedEventArgs e) => Owner?.HandleTileDoubleTapped(sender, e);
-
     private void OnSubFilterClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => Owner?.HandleSubFilterClick(sender, e);
 }

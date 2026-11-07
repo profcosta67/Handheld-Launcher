@@ -1,0 +1,112 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:HandheldLauncher.App.ViewModels"
+             xmlns:conv="using:HandheldLauncher.App.Converters"
+             xmlns:dataConv="using:Avalonia.Data.Converters"
+             x:Class="HandheldLauncher.App.Views.Layouts.GameHubView"
+             x:DataType="vm:MainViewModel">
+
+    <UserControl.Resources>
+        <conv:FileToBitmapConverter x:Key="FileToBitmapConverter" />
+        <conv:HexColorToBrushConverter x:Key="HexColorToBrushConverter" />
+    </UserControl.Resources>
+
+    <Border Background="{DynamicResource BarBrush}" 
+            CornerRadius="{DynamicResource BarCornerRadius}" 
+            Margin="0,10,0,0" 
+            Padding="24,16"
+            BorderBrush="{DynamicResource SurfaceRaisedBrush}" 
+            BorderThickness="1"
+            IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
+        
+        <Grid ColumnDefinitions="320, 1, *, 160" VerticalAlignment="Center">
+            
+            <!-- 1. Identidade do Jogo -->
+            <StackPanel Grid.Column="0" Spacing="6" Margin="0,0,20,0">
+                <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <Border Width="40" Height="40" CornerRadius="8" Background="#33232B3B" ClipToBounds="True">
+                        <Image Source="{Binding SelectedTile.IconImagePath, Converter={StaticResource FileToBitmapConverter}}" Stretch="Uniform" Margin="4" />
+                    </Border>
+                    <TextBlock Text="{Binding SelectedTile.Title}" 
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               FontSize="20" 
+                               FontWeight="Bold" 
+                               TextTrimming="CharacterEllipsis" 
+                               MaxWidth="250"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+                
+                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                    <Border Background="{Binding SelectedTile.PlatformBadgeColorHex, Converter={StaticResource HexColorToBrushConverter}}" CornerRadius="4" Padding="6,2" IsVisible="{Binding SelectedTile.HasPlatformBadge}">
+                        <TextBlock Text="{Binding SelectedTile.PlatformBadgeText}" Foreground="White" FontSize="10" FontWeight="Bold"/>
+                    </Border>
+                    <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="4" Padding="6,2">
+                        <TextBlock Text="{Binding SelectedTile.InstallStatusLabel}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" FontWeight="Bold"/>
+                    </Border>
+                    <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding SelectedTile.IsFavorite}" VerticalAlignment="Center">
+                        <TextBlock Text="★" Foreground="#FFFFC45C" FontSize="14" VerticalAlignment="Center"/>
+                        <TextBlock Text="Favorito" Foreground="#FFFFC45C" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- Divisor -->
+            <Rectangle Grid.Column="1" Width="1" Fill="{DynamicResource TextSecondaryBrush}" Opacity="0.15" Margin="0,0,20,0" />
+
+            <!-- 2. Estatísticas e Descrição -->
+            <StackPanel Grid.Column="2" Spacing="6" VerticalAlignment="Center">
+
+                <!-- ⭐ Nota da Steam -->
+                <StackPanel Orientation="Horizontal" Spacing="8"
+                            IsVisible="{Binding SelectedTile.HasReviewData}">
+                    <TextBlock Text="{Binding SelectedTile.StarsString}"
+                               FontSize="15"
+                               Foreground="#FFC83D"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding SelectedTile.ReviewLabel}"
+                               FontSize="11"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Linha de estatísticas -->
+                <StackPanel Orientation="Horizontal" Spacing="16">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Text="⏱️" FontSize="14" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding SelectedTile.PlaytimeLabel}"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                   FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- Gênero (real, vem da Steam) -->
+                    <StackPanel Orientation="Horizontal" Spacing="4"
+                                IsVisible="{Binding SelectedTile.HasGenre}">
+                        <TextBlock Text="🏷️" FontSize="14" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding SelectedTile.Genre}"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                   FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <TextBlock Text="{Binding SelectedTile.Description, Converter={x:Static conv:HtmlDecodeConverter.Instance}}" 
+                           Foreground="{DynamicResource TextSecondaryBrush}" 
+                           FontSize="12" 
+                           TextWrapping="Wrap" 
+                           MaxLines="2" 
+                           TextTrimming="CharacterEllipsis" 
+                           IsVisible="{Binding SelectedTile.HasDescription}" 
+                           Margin="0,4,0,0"/>
+            </StackPanel>
+
+            <!-- 3. Botão Jogar -->
+            <Button Grid.Column="3" 
+                    Classes="switchAction" 
+                    Content="JOGAR (A)" 
+                    HorizontalAlignment="Right" 
+                    VerticalAlignment="Center"
+                    Width="140" Height="46" 
+                    FontWeight="Bold" 
+                    FontSize="14" />
+        </Grid>
+    </Border>
+</UserControl>

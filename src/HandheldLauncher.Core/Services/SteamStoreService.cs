@@ -11,15 +11,17 @@ namespace HandheldLauncher.Core.Services;
 public class SteamStoreService
 {
     private readonly HttpClient _http;
-    // 🟢 Cache em memória para não bater na API da Steam a cada troca de tile
+
+    // Cache de metadados (descrição, gênero, dev)
     private readonly Dictionary<uint, GameMetadata> _cache = new();
+
+    // 🟢 NOVO — cache de reviews (nota/estrelas)
+    private readonly Dictionary<uint, SteamReviewSummary?> _reviewCache = new();
 
     public SteamStoreService()
     {
         _http = new HttpClient();
-        // Versão lida do assembly (que por sua vez vem do arquivo VERSION na
-        // raiz, via HandheldLauncher.App.csproj) em vez de fixa no código —
-        // evita repetir o número e ele ficar desatualizado como "15.6" estava.
+
         var version = Assembly.GetEntryAssembly()?
             .GetCustomAttributes(typeof(AssemblyInformationalVersionAttribute), false)
             .OfType<AssemblyInformationalVersionAttribute>()
@@ -27,6 +29,7 @@ public class SteamStoreService
         _http.DefaultRequestHeaders.UserAgent.ParseAdd($"HandheldLauncher/{version}");
     }
 
+    // ========== METADADOS (descrição, gênero, dev) ==========
     public async Task<GameMetadata?> FetchMetadataAsync(uint appId)
     {
         if (_cache.TryGetValue(appId, out var cached))
@@ -34,26 +37,28 @@ public class SteamStoreService
 
         try
         {
-            // Pede em inglês por padrão (a API não tem português pra maioria dos jogos novos)
             var url = $"https://store.steampowered.com/api/appdetails?appids={appId}&l=english";
             var response = await _http.GetStringAsync(url);
-            
+
             using var doc = JsonDocument.Parse(response);
             if (doc.RootElement.TryGetProperty(appId.ToString(), out var gameObj) &&
                 gameObj.TryGetProperty("success", out var success) && success.GetBoolean())
             {
                 var data = gameObj.GetProperty("data");
-                
+
                 var meta = new GameMetadata
                 {
-                    Description = data.TryGetProperty("detailed_description", out var desc) ? desc.GetString() ?? "" : "",
-                    ShortDescription = data.TryGetProperty("short_description", out var shortDesc) ? shortDesc.GetString() ?? "" : "",
-                    Developer = data.TryGetProperty("developers", out var devs) && devs.GetArrayLength() > 0 ? devs[0].GetString() ?? "" : "",
-                    Genres = data.TryGetProperty("genres", out var genres) ? string.Join(", ", GetGenres(genres)) : ""
+                    Description      = data.TryGetProperty("detailed_description", out var desc)      ? desc.GetString()      ?? "" : "",
+                    ShortDescription = data.TryGetProperty("short_description",    out var shortDesc) ? shortDesc.GetString() ?? "" : "",
+                    Developer        = data.TryGetProperty("developers", out var devs) && devs.GetArrayLength() > 0
+                                        ? devs[0].GetString() ?? "" : "",
+                    Genres           = data.TryGetProperty("genres", out var genres)
+                                        ? string.Join(", ", GetGenres(genres)) : ""
                 };
 
-                // Remove tags HTML (como <b> e <br>) da descrição detalhada
-                meta.Description = System.Text.RegularExpressions.Regex.Replace(meta.Description ?? "", "<.*?>", string.Empty);
+                // Remove tags HTML (<b>, <br>, etc.)
+                meta.Description = System.Text.RegularExpressions.Regex.Replace(
+                    meta.Description ?? "", "<.*?>", string.Empty);
 
                 _cache[appId] = meta;
                 return meta;
@@ -66,6 +71,78 @@ public class SteamStoreService
         return null;
     }
 
+    // ========== 🟢 NOVO — REVIEWS (nota, estrelas) ==========
+    public async Task<SteamReviewSummary?> FetchReviewSummaryAsync(uint appId)
+{
+    if (_reviewCache.TryGetValue(appId, out var cached))
+        return cached;
+
+    try
+    {
+        // 🟢 NOVO ENDPOINT OFICIAL (pós-outubro/2026)
+        var baseUrl = "https://api.steampowered.com/IUserReviewsService/GetAppReviews/v1/";
+        
+        // Os parâmetros agora vão dentro de um JSON (input_json)
+        var inputJson = new
+        {
+            appid = appId,
+            filter = 1, // 1 = "Most Recent" (evita depender de janelas de data)
+            languages = new[] { "all" },
+            purchase_type = 1, // 1 = "All" (inclui chaves de terceiros)
+            num_per_page = 0 // 0 = retorna apenas o sumário (mais leve)
+        };
+
+        var jsonString = System.Text.Json.JsonSerializer.Serialize(inputJson);
+        var url = $"{baseUrl}?input_json={Uri.EscapeDataString(jsonString)}";
+        
+        Console.WriteLine($"[STEAM-REVIEWS] GET {url}");
+
+        var response = await _http.GetStringAsync(url);
+        
+        using var doc = JsonDocument.Parse(response);
+        var root = doc.RootElement;
+
+        // A nova API não tem "success"; ela retorna um objeto "response"
+        if (!root.TryGetProperty("response", out var responseObj) ||
+            !responseObj.TryGetProperty("query_summary", out var qs))
+        {
+            Console.WriteLine($"[STEAM-REVIEWS] query_summary ausente na resposta.");
+            _reviewCache[appId] = null;
+            return null;
+        }
+
+        int total = qs.TryGetProperty("total_reviews", out var tr) ? tr.GetInt32() : 0;
+        int positive = qs.TryGetProperty("total_positive", out var tp) ? tp.GetInt32() : 0;
+
+        if (total == 0)
+        {
+            _reviewCache[appId] = null;
+            return null;
+        }
+
+        int pct = (int)Math.Round(positive * 100.0 / total);
+        var summary = new SteamReviewSummary
+        {
+            Percentage = pct,
+            TotalReviews = total,
+            PositiveReviews = positive,
+            ScoreDescription = qs.TryGetProperty("review_score_desc", out var d) ? d.GetString() ?? "" : "",
+            StarRating = Math.Clamp((int)Math.Round(pct / 20.0), 1, 5),
+        };
+
+        _reviewCache[appId] = summary;
+        Console.WriteLine($"[STEAM-REVIEWS] OK → {summary.Percentage}% ({summary.ScoreDescription}) ⭐{summary.StarRating}");
+        return summary;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[STEAM-REVIEWS] EXCEPTION: {ex.Message}");
+        System.Diagnostics.Debug.WriteLine($"[STEAM] Falha ao buscar reviews: {ex.Message}");
+        _reviewCache[appId] = null;
+        return null;
+    }
+}
+
     private static string[] GetGenres(JsonElement genres)
     {
         var result = new string[genres.GetArrayLength()];
@@ -77,10 +154,24 @@ public class SteamStoreService
     }
 }
 
+// ========== MODELOS ==========
+
 public class GameMetadata
 {
     public string? Description { get; set; }
     public string? ShortDescription { get; set; }
     public string? Developer { get; set; }
     public string? Genres { get; set; }
+     public int? IgdbRating { get; set; }
+}
+
+// 🟢 NOVO — resumo de reviews da Steam
+public sealed class SteamReviewSummary
+{
+    public int Percentage { get; init; }              // 0..100
+    public int TotalReviews { get; init; }
+    public int PositiveReviews { get; init; }
+    public string ScoreDescription { get; init; } = ""; // "Overwhelmingly Positive", etc.
+    public int StarRating { get; init; }              // 1..5
+    public bool HasEnoughReviews => TotalReviews >= 10;
 }

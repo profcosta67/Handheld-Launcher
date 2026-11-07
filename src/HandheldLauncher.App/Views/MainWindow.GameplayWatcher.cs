@@ -18,6 +18,8 @@ using HandheldLauncher.App.ViewModels;
 using HandheldLauncher.App.Views.Layouts;
 using HandheldLauncher.Core.Models;
 using HandheldLauncher.Core.Services;
+using Avalonia.VisualTree; 
+using Avalonia.LogicalTree;
 
 namespace HandheldLauncher.App.Views;
 
@@ -65,6 +67,40 @@ public partial class MainWindow : Window
     private int _detectedGamePid = 0;
 
     private string _lastLoggedExeHint = string.Empty;
+   private bool _addButtonFocused;
+
+private Button? GetAddProgramButton()
+{
+    if (_libraryLayout is not Control control) return null;
+    return FindButtonByName(control, "AddProgramButton");
+}
+
+private static Button? FindButtonByName(Visual root, string name)
+{
+    if (root is Button btn && btn.Name == name) return btn;
+    foreach (var child in root.GetVisualChildren())
+    {
+        var found = FindButtonByName(child, name);
+        if (found is not null) return found;
+    }
+    return null;
+}
+
+private void SetAddButtonFocused(bool focused)
+{
+    _addButtonFocused = focused;
+    var addBtn = GetAddProgramButton();
+    if (addBtn is null) return;
+    
+    if (focused) 
+    {
+        addBtn.Classes.Add("addFocused");
+    }
+    else
+    {
+        addBtn.Classes.Remove("addFocused");
+    }
+}
 
     private void ShowLaunchPopup(string title, string? iconPath)
     {
@@ -111,7 +147,7 @@ public partial class MainWindow : Window
             DebugLog.Write($"[POPUP] Aberto: '{title}' (watchdog 90s iniciado)");
         }
         catch (Exception ex) { DebugLog.Write($"[POPUP] EXCEPTION: {ex.Message}"); }
-    }
+    }  
 
     private void CloseLaunchPopupWithGrace()
     {
@@ -584,6 +620,7 @@ public partial class MainWindow : Window
 
                 if (vm.IsCoverPickerOpen)
                 {
+
                     switch (action)
                     {
                         case GamepadAction.MoveLeft: vm.MoveCoverPickerSelection(-1); ScrollCoverPickerSelectionIntoView(vm); break;
@@ -680,11 +717,54 @@ public partial class MainWindow : Window
                     }
                 }
 
+                // =========================================================
+// v0.21.0 — Foco do controle no botão "+" (Adicionar programa)
+// =========================================================
+// =========================================================
+// v0.21.0 — Foco do controle no botão "+" (Adicionar programa)
+// =========================================================
+if (_addButtonFocused)
+{
+    switch (action)
+    {
+        case GamepadAction.Confirm:
+            SetAddButtonFocused(false);
+            HandleAddProgramClick();
+            continue;
+        case GamepadAction.MoveLeft:
+        case GamepadAction.Back:
+        case GamepadAction.Menu:
+        case GamepadAction.MoveUp:
+        case GamepadAction.MoveDown:
+        case GamepadAction.MoveRight:
+        case GamepadAction.PreviousFilter:
+        case GamepadAction.NextFilter:
+        case GamepadAction.GameDetails:
+        case GamepadAction.Downloads:
+            SetAddButtonFocused(false);
+            // cai no switch principal abaixo (que trata a ação normalmente)
+            break;
+    }
+}
+
                 switch (action)
                 {
                     case GamepadAction.Downloads: vm.ToggleDownloads(); break;
                     case GamepadAction.MoveLeft: vm.MovePrevious(); ScrollGameRowSelectionIntoView(vm); break;
-                    case GamepadAction.MoveRight: vm.MoveNext(); ScrollGameRowSelectionIntoView(vm); break;
+                   case GamepadAction.MoveRight:
+    // v0.21.0: se está no último jogo da aba Programas, vai pro botão "+"
+    if (vm.IsFilterApplicationsActive && !_addButtonFocused)
+    {
+        var games = vm.Games;
+        if (games.Count > 0 && vm.SelectedTile == games[games.Count - 1])
+        {
+            SetAddButtonFocused(true);
+            break;
+        }
+    }
+    vm.MoveNext();
+    ScrollGameRowSelectionIntoView(vm);
+    break;
                     case GamepadAction.MoveUp: if (!MoveSelectionVertical(vm, -1)) vm.FocusSubFilterRow(); break;
                     case GamepadAction.MoveDown: MoveSelectionVertical(vm, 1); break;
                     case GamepadAction.Confirm: _ = vm.LaunchSelected(); ScrollGameRowSelectionIntoView(vm); break;

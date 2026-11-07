@@ -49,7 +49,33 @@ public sealed class SettingsViewModel : ViewModelBase
 
     public bool HasSteamWebApiKey => !string.IsNullOrWhiteSpace(_steamWebApiKey);
     public string SteamWebApiStatusText => HasSteamWebApiKey ? "configurado ✓" : "não configurado";
+// 🟢 IGDB (Twitch) — Client ID + Client Secret
+private string _igdbClientId = "";
+public string IgdbClientId
+{
+    get => _igdbClientId;
+    set
+    {
+        if (SetField(ref _igdbClientId, value))
+            OnPropertyChanged(nameof(IgdbApiStatusText));
+    }
+}
 
+private string _igdbClientSecret = "";
+public string IgdbClientSecret
+{
+    get => _igdbClientSecret;
+    set
+    {
+        if (SetField(ref _igdbClientSecret, value))
+            OnPropertyChanged(nameof(IgdbApiStatusText));
+    }
+}
+
+public string IgdbApiStatusText =>
+    (!string.IsNullOrWhiteSpace(_igdbClientId) && !string.IsNullOrWhiteSpace(_igdbClientSecret))
+        ? "configurado ✓"
+        : "não configurado";
     private string _rawgApiKey = string.Empty;
     public string RawgApiKey
     {
@@ -464,6 +490,8 @@ public sealed class SettingsViewModel : ViewModelBase
         SteamGridDbApiKey = settings.SteamGridDbApiKey ?? string.Empty;
         SteamWebApiKey = settings.SteamWebApiKey ?? string.Empty;
         RawgApiKey = settings.RawgApiKey ?? string.Empty;
+        IgdbClientId = settings.IgdbClientId ?? "";
+IgdbClientSecret = settings.IgdbClientSecret ?? "";
 
         var detected = SteamAccountDetector.FindMostRecent();
         _steamPersonaName = detected?.PersonaName;
@@ -509,6 +537,8 @@ public sealed class SettingsViewModel : ViewModelBase
         settings.SteamGridDbApiKey = string.IsNullOrWhiteSpace(SteamGridDbApiKey) ? null : SteamGridDbApiKey.Trim();
         settings.SteamWebApiKey = string.IsNullOrWhiteSpace(SteamWebApiKey) ? null : SteamWebApiKey.Trim();
         settings.RawgApiKey = string.IsNullOrWhiteSpace(RawgApiKey) ? string.Empty : RawgApiKey.Trim();
+            settings.IgdbClientId = IgdbClientId;
+    settings.IgdbClientSecret = IgdbClientSecret;
         settings.SteamId64 = string.IsNullOrWhiteSpace(SteamId64) ? null : SteamId64.Trim();
         settings.XboxScanFolders = XboxScanFoldersText
             .Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)

@@ -144,6 +144,7 @@ public partial class MainWindow : Window
     private bool _trayIconAdded;
 
     private readonly GamepadPoller _gamepad = new();
+    private readonly IgdbService _igdbService = new IgdbService("", "");
 
     private readonly DispatcherTimer _gamepadTimer;
 
@@ -589,14 +590,20 @@ _overlayWindow.SetGamePid(_detectedGamePid);
         StartBatteryMonitor(vm);
         StartDownloadsRefreshTimer(vm);
 
-        vm.PropertyChanged += (_, e) =>
+                vm.PropertyChanged += (_, e) =>
         {
+            if (e.PropertyName == nameof(MainViewModel.IsFilterApplicationsActive))
+            {
+                // v0.21.0: trocar de aba sempre sai do modo "Adicionar"
+                if (_addButtonFocused) SetAddButtonFocused(false);
+            }
+
             if (e.PropertyName == nameof(MainViewModel.IsFilterAllActive))
                 FadeIn(GamesItemsControl, 220);
 
-            // v0.18.1: aba Nuvem usa a grade vertical própria (ver UpdateCloudGrid).
             if (e.PropertyName == nameof(MainViewModel.IsFilterCloudActive))
                 UpdateCloudGrid(vm);
+            // ... resto igual
 
             if (e.PropertyName == nameof(MainViewModel.IsLaunching))
             {

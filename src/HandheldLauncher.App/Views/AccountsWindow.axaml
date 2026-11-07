@@ -4,29 +4,10 @@
         x:Class="HandheldLauncher.App.Views.AccountsWindow"
         x:DataType="vm:SettingsViewModel"
         Title="Contas e chaves de API"
-        Width="520" Height="520"
+        Width="520" Height="700"
         CanResize="False"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource BackgroundBrush}">
-
-  <!--
-    v0.9.5, pedido do usuário: a tela principal de Configurações só mostra
-    STATUS ("configurado ✓"/"não configurado"), nunca o valor — quem quer
-    ver/editar a chave de verdade entra aqui de propósito (botão "Gerenciar
-    contas e chaves de API"). Mesma SettingsViewModel do caller (passada no
-    construtor, não uma cópia) — editar aqui já reflete na tela principal
-    na hora, mas só grava em disco quando o usuário clicar "Salvar" lá,
-    igual antes. Além do "degrau extra" pra chegar aqui, os campos também
-    ficam mascarados (PasswordChar) por padrão — "proteção de visualização"
-    pedida — com um botão 👁 por campo pra revelar só quando precisar
-    (colar/confirmar a chave), sem precisar de nenhum estado na ViewModel
-    (é só UI, resolvido no code-behind).
-
-    v0.14: entrou o bloco RAWG API key (metadados de jogos que NÃO são da
-    Steam — Xbox, emuladores, atalhos). Fica depois do SteamID64 de
-    propósito: os 3 blocos Steam ficam agrupados, e a RAWG é um serviço
-    separado, então fecha a lista antes do aviso final.
-  -->
 
   <Grid RowDefinitions="*,Auto" Margin="24">
     <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
@@ -61,6 +42,20 @@
           <Button Grid.Column="1" Classes="pill" Content="👁" Padding="12,6" Margin="6,0,0,0" Click="OnToggleRawgVisibilityClick" ToolTip.Tip="Mostrar/ocultar" />
         </Grid>
         <Button Classes="pill" Content="Obter chave da RAWG (abre o site oficial)" Click="OnGetRawgKeyClick" HorizontalAlignment="Left" />
+
+        <!-- 🟢 NOVO: IGDB (Twitch) — 2 campos: Client ID + Client Secret -->
+        <TextBlock Text="IGDB Client ID (Twitch — metadados de jogos fora da Steam)" Classes="subtle" Margin="0,16,0,0" />
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBox x:Name="IgdbIdBox" Grid.Column="0" Text="{Binding IgdbClientId}" PasswordChar="•" Watermark="Cole aqui o Client ID do IGDB (dev.twitch.tv/console/apps)" />
+          <Button Grid.Column="1" Classes="pill" Content="👁" Padding="12,6" Margin="6,0,0,0" Click="OnToggleIgdbIdVisibilityClick" ToolTip.Tip="Mostrar/ocultar" />
+        </Grid>
+
+        <TextBlock Text="IGDB Client Secret" Classes="subtle" Margin="0,8,0,0" />
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBox x:Name="IgdbSecretBox" Grid.Column="0" Text="{Binding IgdbClientSecret}" PasswordChar="•" Watermark="Cole aqui o Client Secret do IGDB" />
+          <Button Grid.Column="1" Classes="pill" Content="👁" Padding="12,6" Margin="6,0,0,0" Click="OnToggleIgdbSecretVisibilityClick" ToolTip.Tip="Mostrar/ocultar" />
+        </Grid>
+        <Button Classes="pill" Content="Obter credenciais do IGDB (abre o Dev Console da Twitch)" Click="OnGetIgdbKeyClick" HorizontalAlignment="Left" />
 
         <TextBlock Text="O launcher nunca pede nem guarda a senha da Steam. As chaves ficam criptografadas neste PC (só o seu usuário do Windows consegue ler)."
                    Classes="subtle" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0" />

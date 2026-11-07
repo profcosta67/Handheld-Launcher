@@ -21,9 +21,6 @@ using HandheldLauncher.Core.Services;
 
 namespace HandheldLauncher.App.Views;
 
-// Parte da MainWindow: tema/layout da biblioteca, aparência (fonte, animações,
-// tile size) e os cliques dos botões da topbar/menu.
-// Extraído de MainWindow.axaml.cs (v0.16) — nenhuma mudança de comportamento.
 public partial class MainWindow : Window
 {
     private bool AnimationsEnabled => !Classes.Contains("noAnim");
@@ -48,9 +45,7 @@ public partial class MainWindow : Window
     }
 
     private void OnContextMenuItemPressed(object? sender, PointerPressedEventArgs e) { if (DataContext is MainViewModel vm && sender is Control { DataContext: ContextMenuItemViewModel item }) { vm.ActivateContextMenuItem(item); e.Handled = true; } }
-
     private void OnGlobalMenuItemPressed(object? sender, PointerPressedEventArgs e) { if (DataContext is MainViewModel vm && sender is Control { DataContext: ContextMenuItemViewModel item }) { vm.ActivateGlobalMenuItem(item); e.Handled = true; } }
-
     private void OnCoverCandidatePressed(object? sender, PointerPressedEventArgs e) { if (DataContext is MainViewModel vm && sender is Control { DataContext: ArtworkCandidateViewModel candidate }) { vm.ActivateCoverCandidate(candidate); e.Handled = true; } }
 
     private void OnMenuOverlayPressed(object? sender, PointerPressedEventArgs e)
@@ -64,24 +59,18 @@ public partial class MainWindow : Window
     }
 
     private void OnAboutOverlayPressed(object? sender, PointerPressedEventArgs e) => (DataContext as MainViewModel)?.CloseAbout();
-
     private void OnOpenSteamDownloadsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => (DataContext as MainViewModel)?.OpenSteamDownloads();
-
     private void OnShortcutsHelpClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => (DataContext as MainViewModel)?.OpenShortcutsHelp();
-
     private void OnShortcutsOverlayPressed(object? sender, PointerPressedEventArgs e) => (DataContext as MainViewModel)?.CloseShortcutsHelp();
-
     private void OnShortcutsCloseClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => (DataContext as MainViewModel)?.CloseShortcutsHelp();
 
     private bool _verticalLayout;
-
     private bool _layoutInitialized;
-
     private ITemplate<Panel?>? _horizontalPanelTemplate;
-
     private Transitions? _rowScrollTransitions;
 
-    private Thickness ContainerMargin() => _verticalLayout ? new Thickness(0, 0, 18, 24) : default;
+    // v0.21: espaçamento uniforme entre cards — 28px (mesmo do Spacing do StackPanel horizontal).
+    private Thickness ContainerMargin() => _verticalLayout ? new Thickness(0, 0, 28, 28) : default;
 
     private void ApplyAppearance(MainViewModel vm, AppSettings settings)
     {
@@ -91,8 +80,6 @@ public partial class MainWindow : Window
             ThemeManager.ApplyFont(this, settings.UiFont);
             ThemeManager.ApplyFontSize(settings.UiFontSize);
             Classes.Set("noAnim", !settings.Animations);
-            // v0.18.1: sempre a fileira do layout (não a grade da Nuvem, que pode
-            // estar ativa agora e tem as próprias Transitions).
             _rowScrollTransitions ??= _libraryLayout.GameRowScrollViewer.Transitions;
             _libraryLayout.GameRowScrollViewer.Transitions = settings.Animations ? _rowScrollTransitions : null;
             UiSounds.Enabled = settings.SoundEffects;
@@ -120,14 +107,12 @@ public partial class MainWindow : Window
             layout = settings.LayoutTheme switch
             {
                 2 => new Layouts.BigScreenLibraryLayout(),
-                1 => new Layouts.SwitchLibraryLayout(), // índice legado mantido para instalações existentes (agora chamado Clean)
+                1 => new Layouts.SwitchLibraryLayout(),
                 _ => new Layouts.ClassicLibraryLayout()
             };
         }
         catch (Exception ex) { DebugLog.Write($"ApplyLayoutTheme: falhou ao ler settings, usando Clássico. {ex}"); layout = new Layouts.ClassicLibraryLayout(); }
         _libraryLayout = (ILibraryLayout)layout;
-        // BigScreen has its own compact status header; hide the generic
-        // application bar there to avoid duplicating the clock/battery row.
         TopBar.IsVisible = layoutTheme != 2;
         GamesItemsControl = _libraryLayout.GamesItemsControl;
         GameRowScrollViewer = _libraryLayout.GameRowScrollViewer;
@@ -140,57 +125,33 @@ public partial class MainWindow : Window
     {
         if (vertical && !_libraryLayout.SupportsVerticalGrid) return;
         _verticalLayout = vertical;
-        // v0.18.1: mexe SEMPRE na fileira do layout — com a aba Nuvem aberta, os
-        // campos GamesItemsControl/GameRowScrollViewer apontam pra grade dela.
+
         var items = _libraryLayout.GamesItemsControl;
         var scroll = _libraryLayout.GameRowScrollViewer;
         _horizontalPanelTemplate ??= items.ItemsPanel;
-        items.ItemsPanel = vertical ? new FuncTemplate<Panel?>(() => new WrapPanel { Orientation = Orientation.Horizontal }) : _horizontalPanelTemplate;
-        scroll.HorizontalScrollBarVisibility = vertical || !_libraryLayout.SupportsVerticalGrid ? ScrollBarVisibility.Hidden : ScrollBarVisibility.Auto;
+
+        items.ItemsPanel = vertical
+            ? new FuncTemplate<Panel?>(() => new WrapPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top })
+            : _horizontalPanelTemplate;
+
+        // 🟢 CRÍTICO: Disabled força o ScrollViewer a passar largura do viewport pro conteúdo.
+        // Com Hidden, o WrapPanel recebe largura infinita e NUNCA quebra linha.
+        scroll.HorizontalScrollBarVisibility = vertical ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Auto;
         scroll.VerticalScrollBarVisibility = vertical ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
         scroll.Offset = default;
+
         foreach (var container in items.GetRealizedContainers()) container.Margin = ContainerMargin();
+
+        // 🟢 NOVO: avisa o layout pra ajustar o container externo (WrapPanel Horizontal↔Vertical).
+        _libraryLayout.SetVertical(vertical);
     }
 
-    // ---- v0.18.1: grade vertical da aba Nuvem -------------------------------------
-    // Pedido do usuário: SÓ na aba Nuvem, em todos os layouts, os jogos em
-    // blocos numa tela só com rolagem vertical. A grade (Layouts/CloudGridView)
-    // existe nos 3 layouts; aqui a MainWindow troca qual lista é "a lista" —
-    // assim navegação ↑/↓/←/→ (MoveSelectionVertical) e rolagem que acompanha a
-    // seleção (ScrollSelectionIntoViewNow) usam a grade, igual ao modo grade
-    // vertical que já existia. Só uma das duas listas recebe os jogos por vez
-    // (a outra fica com ItemsSource nulo), pra não montar ~560 blocos em dobro.
     private bool _cloudGridActive;
-
     private bool IsGridNav => _verticalLayout || _cloudGridActive;
 
-    // v0.18.3: busca da aba Nuvem.
-    private bool IsCloudSearchFocused()
-    {
-        try { return _libraryLayout.CloudGrid.Search.IsKeyboardFocusWithin; }
-        catch { return false; }
-    }
-
-    private void BeginCloudSearch()
-    {
-        try
-        {
-            _libraryLayout.CloudGrid.Search.Focus();
-            TouchKeyboard.Show();
-        }
-        catch (Exception ex) { DebugLog.Swallowed(ex); }
-    }
-
-    private void EndCloudSearch()
-    {
-        try
-        {
-            // A grade é focável só pra isso: tirar o foco do campo de texto.
-            _libraryLayout.CloudGrid.Items.Focus();
-            TouchKeyboard.Hide();
-        }
-        catch (Exception ex) { DebugLog.Swallowed(ex); }
-    }
+    private bool IsCloudSearchFocused() { try { return _libraryLayout.CloudGrid.Search.IsKeyboardFocusWithin; } catch { return false; } }
+    private void BeginCloudSearch() { try { _libraryLayout.CloudGrid.Search.Focus(); TouchKeyboard.Show(); } catch (Exception ex) { DebugLog.Swallowed(ex); } }
+    private void EndCloudSearch() { try { _libraryLayout.CloudGrid.Items.Focus(); TouchKeyboard.Hide(); } catch (Exception ex) { DebugLog.Swallowed(ex); } }
 
     private void UpdateCloudGrid(MainViewModel vm)
     {
@@ -224,15 +185,9 @@ public partial class MainWindow : Window
     }
 
     private void OnGearMenuClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => (DataContext as MainViewModel)?.ToggleGlobalMenu();
-
     private void OnDownloadsShortcutClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => (DataContext as MainViewModel)?.ToggleDownloads();
-
     private void OnMinimizeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => MinimizeToTray();
-
     private void OnPowerMenuClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => (DataContext as MainViewModel)?.TogglePowerMenu();
-
     private void OnCloseGameClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => (DataContext as MainViewModel)?.CloseRunningGame();
-
     private void OnCloseDownloadsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => (DataContext as MainViewModel)?.CloseDownloads();
-
 }

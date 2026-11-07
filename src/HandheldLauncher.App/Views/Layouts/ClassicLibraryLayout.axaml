@@ -14,214 +14,103 @@
     <conv:HexColorToBrushConverter x:Key="HexColorToBrushConverter" />
   </UserControl.Resources>
 
-    <Grid RowDefinitions="Auto,Auto,*" Margin="24,20,24,20">
+  <UserControl.Styles>
+    <Style Selector="Button.addGhostCard">
+      <Setter Property="Width" Value="180" />
+      <Setter Property="Height" Value="250" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="Background" Value="#40151515" />
+      <Setter Property="BorderBrush" Value="#66FFFFFF" />
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="Margin" Value="28,0,0,0" />
+      <Setter Property="Focusable" Value="True" />
+    </Style>
+    <Style Selector="Button.addGhostCard:focus, Button.addGhostCard.addFocused">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="Background" Value="#60151925" />
+    </Style>
+  </UserControl.Styles>
 
-      <Border Grid.Row="0" Classes="heroBanner" Height="380" Margin="0,0,0,20" IsVisible="{Binding !IsFilterCloudActive}">
-        <Grid>
-          <Grid IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
-
-            <Image Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
-                   Stretch="UniformToFill"
-                   Opacity="0.3"
-                   IsHitTestVisible="False">
-              <Image.Effect>
-                <media:BlurEffect Radius="10" />
-              </Image.Effect>
-            </Image>
-
-            <Image x:Name="HeroBackImage" Stretch="Uniform" IsHitTestVisible="False" />
-            <Image x:Name="HeroImage"
-                   anim:ImageBehavior.AnimatedSource="{Binding SelectedTile.BannerImagePath}"
-                   Stretch="Uniform" />
-
-            <Border IsHitTestVisible="False">
-              <Border.Background>
-                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
-                  <GradientStop Color="#1A1A1A" Offset="0.0" />
-                  <GradientStop Color="Transparent" Offset="0.10" />
-                  <GradientStop Color="Transparent" Offset="0.90" />
-                  <GradientStop Color="#1A1A1A" Offset="1.0" />
-                </LinearGradientBrush>
-              </Border.Background>
-            </Border>
-
-            <TextBlock Text="{Binding SelectedTile.Title}"
-                       Classes="heroTitle"
-                       TextWrapping="Wrap"
-                       TextAlignment="Center"
-                       VerticalAlignment="Center"
-                       HorizontalAlignment="Center"
-                       Margin="20"
-                       IsVisible="{Binding SelectedTile.BannerImagePath, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
-
-            <Image Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
-                   Width="260" Height="76"
-                   Stretch="Uniform"
-                   HorizontalAlignment="Left"
-                   VerticalAlignment="Top"
-                   Margin="24"
-                   IsVisible="{Binding SelectedTile.ShowCurrentLogo}" />
-
-          </Grid>
-
-          <TextBlock Text="Nenhum jogo encontrado ainda.&#10;Adicione um jogo manualmente para começar."
-                     Classes="subtle"
-                     TextWrapping="Wrap"
-                     TextAlignment="Center"
-                     VerticalAlignment="Center"
-                     HorizontalAlignment="Center"
-                     Margin="24"
-                     IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
+  <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="24,20,24,20">
+    <Border Grid.Row="0" Classes="heroBanner" Height="320" Margin="0,0,0,20" IsVisible="{Binding !IsFilterCloudActive}">
+      <Grid>
+        <Grid IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
+          <Image Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}" Stretch="UniformToFill" Opacity="0.3" IsHitTestVisible="False"><Image.Effect><media:BlurEffect Radius="10" /></Image.Effect></Image>
+          <Image x:Name="HeroBackImage" Stretch="Uniform" IsHitTestVisible="False" />
+          <Image x:Name="HeroImage" anim:ImageBehavior.AnimatedSource="{Binding SelectedTile.BannerImagePath}" Stretch="Uniform" />
+          <Border IsHitTestVisible="False">
+            <Border.Background><LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%"><GradientStop Color="#1A1A1A" Offset="0.0" /><GradientStop Color="Transparent" Offset="0.10" /><GradientStop Color="Transparent" Offset="0.90" /><GradientStop Color="#1A1A1A" Offset="1.0" /></LinearGradientBrush></Border.Background>
+          </Border>
+          <TextBlock Text="{Binding SelectedTile.Title}" Classes="heroTitle" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="20" IsVisible="{Binding SelectedTile.BannerImagePath, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
+          <Image Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}" Width="260" Height="76" Stretch="Uniform" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="24" IsVisible="{Binding SelectedTile.ShowCurrentLogo}" />
         </Grid>
-      </Border>
+        <TextBlock Text="Nenhum jogo encontrado ainda.&#10;Adicione um jogo manualmente para começar." Classes="subtle" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="24" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
+      </Grid>
+    </Border>
 
-      <StackPanel Grid.Row="1" Spacing="16" Margin="0,0,0,20">
-        <Grid ColumnDefinitions="*,*,*,*,*,*,*">
-          <Button Grid.Column="0" CornerRadius="12" Classes="pill filterTab" Classes.active="{Binding IsFilterFavoritesActive}" Content="★ Favoritos" Command="{Binding SetFilterFavoritesCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,5,0" FontSize="13" />
-          <Button Grid.Column="1" CornerRadius="12" Classes="pill filterTab" Classes.active="{Binding IsFilterAllActive}" Content="▦ Todos" Command="{Binding SetFilterAllCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" FontSize="13" />
-          <Button Grid.Column="2" CornerRadius="12" Classes="pill filterTab" Classes.active="{Binding IsFilterComputerActive}" Content="⌨ Computador" Command="{Binding SetFilterComputerCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" FontSize="13" />
-          <Button Grid.Column="3" CornerRadius="12" Classes="pill filterTab" Classes.active="{Binding IsFilterEmulatorsActive}" Content="◈ Emuladores" Command="{Binding SetFilterEmulatorsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" FontSize="13" />
-          <Button Grid.Column="4" CornerRadius="12" Classes="pill filterTab" Classes.active="{Binding IsFilterApplicationsActive}" Content="▣ Programas" Command="{Binding SetFilterApplicationsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" FontSize="13" />
-          <Button Grid.Column="5" CornerRadius="12" Classes="pill filterTab" Classes.active="{Binding IsFilterNotInstalledActive}" Content="↓ Não instalados" Command="{Binding SetFilterNotInstalledCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" FontSize="13" />
-          <Button Grid.Column="6" CornerRadius="12" Classes="pill filterTab" Classes.active="{Binding IsFilterCloudActive}" Content="☁ Nuvem" Command="{Binding SetFilterCloudCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,0,0" FontSize="13" />
-        </Grid>
+    <StackPanel Grid.Row="1" Spacing="16" Margin="0,0,0,10">
+      <Grid ColumnDefinitions="*,*,*,*,*,*,*">
+        <Button Grid.Column="0" CornerRadius="12" Classes="pill filterTab" Classes.active="{Binding IsFilterFavoritesActive}" Content="★ Favoritos" Command="{Binding SetFilterFavoritesCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,5,0" FontSize="13" />
+        <Button Grid.Column="1" CornerRadius="12" Classes="pill filterTab" Classes.active="{Binding IsFilterAllActive}" Content="▦ Todos" Command="{Binding SetFilterAllCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" FontSize="13" />
+        <Button Grid.Column="2" CornerRadius="12" Classes="pill filterTab" Classes.active="{Binding IsFilterComputerActive}" Content="⌨ Computador" Command="{Binding SetFilterComputerCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" FontSize="13" />
+        <Button Grid.Column="3" CornerRadius="12" Classes="pill filterTab" Classes.active="{Binding IsFilterEmulatorsActive}" Content="◈ Emuladores" Command="{Binding SetFilterEmulatorsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" FontSize="13" />
+        <Button Grid.Column="4" CornerRadius="12" Classes="pill filterTab" Classes.active="{Binding IsFilterApplicationsActive}" Content="▣ Programas" Command="{Binding SetFilterApplicationsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" FontSize="13" />
+        <Button Grid.Column="5" CornerRadius="12" Classes="pill filterTab" Classes.active="{Binding IsFilterNotInstalledActive}" Content="↓ Não instalados" Command="{Binding SetFilterNotInstalledCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,5,0" FontSize="13" />
+        <Button Grid.Column="6" CornerRadius="12" Classes="pill filterTab" Classes.active="{Binding IsFilterCloudActive}" Content="☁ Nuvem" Command="{Binding SetFilterCloudCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5,0,0,0" FontSize="13" />
+      </Grid>
 
-        <Button Content="＋  Adicionar programa"
-                HorizontalAlignment="Center"
-                MinWidth="220"
-                Margin="4,2,4,0"
-                IsVisible="{Binding IsFilterApplicationsActive}"
-                Click="OnAddProgramClick" />
+      <ItemsControl ItemsSource="{Binding SubFilters}" IsVisible="{Binding HasSubFilters}" HorizontalAlignment="Center">
+        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel Orientation="Horizontal" HorizontalAlignment="Center" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:SubFilterViewModel">
+            <Button Classes="pill subFilter" Classes.cursor="{Binding IsCursor}" Content="{Binding Label}" Click="OnSubFilterClick" Background="{Binding BackgroundHex, Converter={StaticResource HexColorToBrushConverter}}" Foreground="{Binding ForegroundHex, Converter={StaticResource HexColorToBrushConverter}}" BorderBrush="{Binding AccentHex, Converter={StaticResource HexColorToBrushConverter}}" BorderThickness="2" Margin="4,0" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
 
-        <ItemsControl ItemsSource="{Binding SubFilters}" IsVisible="{Binding HasSubFilters}" HorizontalAlignment="Center">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center" />
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="vm:SubFilterViewModel">
-              <Button Classes="pill subFilter"
-                      Classes.cursor="{Binding IsCursor}"
-                      Content="{Binding Label}"
-                      Click="OnSubFilterClick"
-                      Background="{Binding BackgroundHex, Converter={StaticResource HexColorToBrushConverter}}"
-                      Foreground="{Binding ForegroundHex, Converter={StaticResource HexColorToBrushConverter}}"
-                      BorderBrush="{Binding AccentHex, Converter={StaticResource HexColorToBrushConverter}}"
-                      BorderThickness="2"
-                      Margin="4,0" />
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </StackPanel>
+    <layouts:CloudGridView x:Name="CloudGrid" Grid.Row="2" IsVisible="{Binding IsFilterCloudActive}" />
 
-      <!-- v0.18.1: aba Nuvem = grade vertical em tela cheia (no lugar do banner + fileira). -->
-      <layouts:CloudGridView x:Name="CloudGrid" Grid.Row="2" IsVisible="{Binding IsFilterCloudActive}" />
+    <ScrollViewer x:Name="GameRowScrollViewer" Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" PointerWheelChanged="OnGameRowPointerWheelChanged" IsVisible="{Binding !IsFilterCloudActive}">
+      <ScrollViewer.Transitions><Transitions><VectorTransition Property="Offset" Duration="0:0:0.28" Easing="CubicEaseOut" /></Transitions></ScrollViewer.Transitions>
 
-      <ScrollViewer x:Name="GameRowScrollViewer" Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" PointerWheelChanged="OnGameRowPointerWheelChanged" IsVisible="{Binding !IsFilterCloudActive}">
-        <ScrollViewer.Transitions>
-          <Transitions>
-            <VectorTransition Property="Offset" Duration="0:0:0.28" Easing="CubicEaseOut" />
-          </Transitions>
-        </ScrollViewer.Transitions>
-
+      <!-- v0.21: StackPanel → WrapPanel para suportar layout vertical (empilha botão + jogo embaixo) -->
+      <WrapPanel x:Name="GameOuterPanel" Orientation="Horizontal" Margin="0,0,28,0" VerticalAlignment="Top">
         <ItemsControl x:Name="GamesItemsControl" ItemsSource="{Binding Games}">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <StackPanel Orientation="Horizontal" Spacing="28" />
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-
+          <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="28" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:GameTileViewModel">
               <StackPanel Width="{Binding TileWidth}" Spacing="6">
-
                 <Grid Height="46">
-                  <TextBlock Text="{Binding Title}"
-                             Classes="tileCaption"
-                             TextWrapping="NoWrap"
-                             TextTrimming="CharacterEllipsis"
-                             TextAlignment="Left"
-                             HorizontalAlignment="Left"
-                             VerticalAlignment="Center"
-                             IsVisible="{Binding ShowNameCaption}" />
-
-                  <Image Source="{Binding LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
-                         Width="190"
-                         Height="{Binding CaptionLogoHeight}"
-                         Stretch="Uniform"
-                         HorizontalAlignment="Left"
-                         VerticalAlignment="Center"
-                         IsVisible="{Binding ShowCurrentLogo}" />
+                  <TextBlock Text="{Binding Title}" Classes="tileCaption" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" TextAlignment="Left" HorizontalAlignment="Left" VerticalAlignment="Center" IsVisible="{Binding ShowNameCaption}" />
+                  <Image Source="{Binding LogoImagePath, Converter={StaticResource FileToBitmapConverter}}" Width="190" Height="{Binding CaptionLogoHeight}" Stretch="Uniform" HorizontalAlignment="Left" VerticalAlignment="Center" IsVisible="{Binding ShowCurrentLogo}" />
                 </Grid>
 
-                <Border Classes="gameTile"
-                        Classes.focused="{Binding IsFocused}"
-                        Classes.lastPlayed="{Binding IsLastPlayed}"
-                        Width="{Binding TileWidth}"
-                        Height="{Binding TileHeight}"
-                        PointerPressed="OnTilePointerPressed"
-                        DoubleTapped="OnTileDoubleTapped">
+                <Border Classes="gameTile" Classes.focused="{Binding IsFocused}" Classes.lastPlayed="{Binding IsLastPlayed}" Width="{Binding TileWidth}" Height="{Binding TileHeight}" PointerPressed="OnTilePointerPressed" DoubleTapped="OnTileDoubleTapped">
                   <Grid>
                     <Image anim:ImageBehavior.AnimatedSource="{Binding TileImagePath}" Stretch="Uniform" />
-
-                    <Border Background="#99383838"
-                            IsHitTestVisible="False"
-                            IsVisible="{Binding IsOwnedNotInstalled}" />
-
-                    <TextBlock Text="{Binding Title}"
-                               Classes="gameTitle"
-                               TextWrapping="Wrap"
-                               TextAlignment="Center"
-                               VerticalAlignment="Center"
-                               HorizontalAlignment="Center"
-                               Margin="10"
-                               IsVisible="{Binding ShowEmptyPlaceholder}" />
-
-                    <Border Background="{Binding PlatformBadgeColorHex, Converter={StaticResource HexColorToBrushConverter}}"
-                            CornerRadius="4"
-                            Padding="5,2"
-                            HorizontalAlignment="Right"
-                            VerticalAlignment="Top"
-                            Margin="8"
-                            IsVisible="{Binding HasPlatformBadge}">
-                      <TextBlock Text="{Binding PlatformBadgeText}" FontSize="10" FontWeight="Bold" Foreground="White" />
-                    </Border>
-
-                    <TextBlock Text="★"
-                               Foreground="{DynamicResource AccentBrush}"
-                               FontSize="18"
-                               HorizontalAlignment="Right"
-                               VerticalAlignment="Bottom"
-                               Margin="8"
-                               IsVisible="{Binding IsFavorite}" />
-
-                    <Border Background="#CC000000"
-                            CornerRadius="4"
-                            Padding="6,3"
-                            HorizontalAlignment="Left"
-                            VerticalAlignment="Bottom"
-                            Margin="8"
-                            IsVisible="{Binding IsOwnedNotInstalled}">
-                      <TextBlock Text="⇩ Instalar" FontSize="11" Foreground="White" />
-                    </Border>
+                    <Border Background="#99383838" IsHitTestVisible="False" IsVisible="{Binding IsOwnedNotInstalled}" />
+                    <TextBlock Text="{Binding Title}" Classes="gameTitle" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="10" IsVisible="{Binding ShowEmptyPlaceholder}" />
+                    <Border Background="{Binding PlatformBadgeColorHex, Converter={StaticResource HexColorToBrushConverter}}" CornerRadius="4" Padding="5,2" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8" IsVisible="{Binding HasPlatformBadge}"><TextBlock Text="{Binding PlatformBadgeText}" FontSize="10" FontWeight="Bold" Foreground="White" /></Border>
+                    <TextBlock Text="★" Foreground="{DynamicResource AccentBrush}" FontSize="18" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="8" IsVisible="{Binding IsFavorite}" />
+                    <Border Background="#CC000000" CornerRadius="4" Padding="6,3" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="8" IsVisible="{Binding IsOwnedNotInstalled}"><TextBlock Text="⇩ Instalar" FontSize="11" Foreground="White" /></Border>
                   </Grid>
                 </Border>
               </StackPanel>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
-      </ScrollViewer>
 
-      <TextBlock Grid.Row="2"
-                 Text="{Binding NotInstalledTabMessage}"
-                 Classes="subtle"
-                 TextWrapping="Wrap"
-                 TextAlignment="Center"
-                 HorizontalAlignment="Center"
-                 VerticalAlignment="Top"
-                 Margin="40,30,40,0"
-                 MaxWidth="600"
-                 IsVisible="{Binding HasNotInstalledTabMessage}" />
-    </Grid>
+        <Button x:Name="AddProgramButton" Classes="addGhostCard" Click="OnAddProgramClick" IsVisible="{Binding IsFilterApplicationsActive}" VerticalAlignment="Top">
+          <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
+            <TextBlock Text="＋" FontSize="36" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+            <TextBlock Text="Adicionar Jogo" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+          </StackPanel>
+        </Button>
+      </WrapPanel>
+    </ScrollViewer>
+
+    <TextBlock Grid.Row="2" Text="{Binding NotInstalledTabMessage}" Classes="subtle" TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="40,30,40,0" MaxWidth="600" IsVisible="{Binding HasNotInstalledTabMessage}" />
+    <layouts:GameHubView Grid.Row="3" />
+  </Grid>
 </UserControl>

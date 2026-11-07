@@ -2,6 +2,7 @@ using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Layout;      // 🟢 ADICIONADO: pra resolver "Orientation" não existe
 using HandheldLauncher.App.ViewModels;
 
 namespace HandheldLauncher.App.Views.Layouts;
@@ -18,11 +19,28 @@ public partial class ClassicLibraryLayout : UserControl, ILibraryLayout
     Image ILibraryLayout.HeroImage => HeroImage;
     Image ILibraryLayout.HeroBackImage => HeroBackImage;
     bool ILibraryLayout.SupportsVerticalGrid => true;
-    // Usa o mesmo acompanhamento centralizado do layout Switch.
-    // Assim a navegação por controle mantém o jogo selecionado como referência visual.
     bool ILibraryLayout.CentersSelection => false;
-
     CloudGridView ILibraryLayout.CloudGrid => CloudGrid;
+
+    public void SetVertical(bool vertical)
+    {
+        if (vertical)
+        {
+            GameOuterPanel.Orientation = Orientation.Vertical;
+            GameOuterPanel.Margin = new Thickness(0);
+            GameOuterPanel.HorizontalAlignment = HorizontalAlignment.Left;
+            AddProgramButton.Margin = new Thickness(0, 28, 0, 0);
+            AddProgramButton.HorizontalAlignment = HorizontalAlignment.Left;
+        }
+        else
+        {
+            GameOuterPanel.Orientation = Orientation.Horizontal;
+            GameOuterPanel.Margin = new Thickness(0, 0, 28, 0);
+            GameOuterPanel.HorizontalAlignment = HorizontalAlignment.Left;
+            AddProgramButton.Margin = new Thickness(28, 0, 0, 0);
+            AddProgramButton.HorizontalAlignment = HorizontalAlignment.Left;
+        }
+    }
 
     private MainWindow? Owner => TopLevel.GetTopLevel(this) as MainWindow;
     private void OnAddProgramClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => Owner?.HandleAddProgramClick();

@@ -4,7 +4,7 @@
         x:Class="HandheldLauncher.App.Views.SettingsWindow"
         x:DataType="vm:SettingsViewModel"
         Title="Configurações"
-        Width="780" Height="860"
+        Width="820" Height="860"
         CanResize="False"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource BackgroundBrush}">
@@ -12,241 +12,271 @@
   <Window.Styles>
     <Style Selector="ComboBox"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="3" CornerRadius="10" Margin="-4"/></Template></Setter></Style>
     <Style Selector="TextBox"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="3" CornerRadius="10" Margin="-4"/></Template></Setter></Style>
-    <Style Selector="CheckBox"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="3" CornerRadius="10" Margin="-4"/></Template></Setter></Style>
+    <Style Selector="ToggleSwitch"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="3" CornerRadius="10" Margin="-4"/></Template></Setter></Style>
     <Style Selector="RadioButton"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="3" CornerRadius="10" Margin="-4"/></Template></Setter></Style>
     <Style Selector="Slider"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="3" CornerRadius="16" Margin="-4"/></Template></Setter></Style>
     <Style Selector="Button.categoryTab"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="3" CornerRadius="16" Margin="-3"/></Template></Setter></Style>
+    
+    <Style Selector="Border.settingsCard">
+      <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}"/>
+      <Setter Property="CornerRadius" Value="12"/>
+      <Setter Property="Padding" Value="16"/>
+      <Setter Property="Margin" Value="0,0,0,12"/>
+    </Style>
+    <Style Selector="TextBlock.sectionTitle">
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+      <Setter Property="Margin" Value="0,0,0,12"/>
+    </Style>
   </Window.Styles>
 
   <Panel>
   <Grid RowDefinitions="*,Auto" Margin="24" IsEnabled="{Binding FormEnabled}">
-    <Grid Grid.Row="0" ColumnDefinitions="170,*">
+    <Grid Grid.Row="0" ColumnDefinitions="190,*">
         
       <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Spacing="8" Margin="0,0,14,8">
-          <TextBlock Text="CONFIGURAÇÕES" FontSize="10" FontWeight="Bold" Opacity="0.55" Margin="8,0,0,6" />
-          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryModeActive}" Content="Geral" Tag="0" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
-          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAppearanceActive}" Content="Aparência" Tag="1" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
-          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategorySoundsActive}" Content="Sons" Tag="2" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
-          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryLibraryActive}" Content="Biblioteca" Tag="3" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
-          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryShortcutsActive}" Content="Controles" Tag="4" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
-          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryLosslessActive}" Content="Lossless" Tag="5" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
-          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAccountsActive}" Content="Contas" Tag="6" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
-          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryConnectivityActive}" Content="Rede" Tag="7" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
-          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryNewsActive}" Content="Atualizações" Tag="8" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="12,12" />
+        <StackPanel Spacing="6" Margin="0,0,16,8">
+          <TextBlock Text="CONFIGURAÇÕES" FontSize="11" FontWeight="Bold" Opacity="0.5" Margin="8,0,0,8" />
+          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryModeActive}" Content="Geral" Tag="0" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
+          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAppearanceActive}" Content="Aparência" Tag="1" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
+          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategorySoundsActive}" Content="Sons" Tag="2" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
+          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryLibraryActive}" Content="Biblioteca" Tag="3" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
+          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryShortcutsActive}" Content="Controles" Tag="4" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
+          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryLosslessActive}" Content="Lossless" Tag="5" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
+          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAccountsActive}" Content="Contas" Tag="6" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
+          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryConnectivityActive}" Content="Rede" Tag="7" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
+          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryNewsActive}" Content="Atualizações" Tag="8" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
         </StackPanel>
       </ScrollViewer>
       
       <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-        <StackPanel Spacing="12">
+        <StackPanel Spacing="4">
           
-          <!-- ===== Aparência ===== -->
-          <StackPanel Spacing="12" IsVisible="{Binding IsCategoryAppearanceActive}">
-            <TextBlock Text="Cores" FontSize="12" HorizontalAlignment="Center" />
-            <ComboBox SelectedIndex="{Binding ThemeIndex}" Width="440" HorizontalAlignment="Center">
-              <ComboBoxItem Content="Escuro" /><ComboBoxItem Content="Claro" /><ComboBoxItem Content="Azul" />
-              <ComboBoxItem Content="Vermelho" /><ComboBoxItem Content="Verde" /><ComboBoxItem Content="Laranja" />
-              <ComboBoxItem Content="Rosa" /><ComboBoxItem Content="Ciano" /><ComboBoxItem Content="Preto (OLED)" />
-              <ComboBoxItem Content="Dourado" /><ComboBoxItem Content="Grafite" />
-              <!-- v0.17 (05/11): faltavam aqui — a lista era fixa no XAML e não
-                   acompanhava ThemeManager.ThemeNames, então as 5 paletas novas
-                   existiam no código mas eram inalcançáveis nesta tela. -->
-              <ComboBoxItem Content="Meia-noite" /><ComboBoxItem Content="Crepúsculo" /><ComboBoxItem Content="Musgo" />
-              <ComboBoxItem Content="Névoa" /><ComboBoxItem Content="Alto Contraste" />
-            </ComboBox>
-            <TextBlock Text="Fonte" FontSize="12" HorizontalAlignment="Center" />
-            <ComboBox SelectedIndex="{Binding FontIndex}" Width="440" HorizontalAlignment="Center">
-              <ComboBoxItem Content="Moderna (Segoe UI)" /><ComboBoxItem Content="Divertida (Comic Sans)" />
-              <ComboBoxItem Content="Formal (Georgia)" /><ComboBoxItem Content="Gamer (Bahnschrift)" />
-              <ComboBoxItem Content="Terminal (Consolas)" /><ComboBoxItem Content="Simples (Arial)" />
-              <ComboBoxItem Content="Clássica (Times New Roman)" /><ComboBoxItem Content="Legível (Verdana)" />
-              <ComboBoxItem Content="Elegante (Trebuchet)" />
-              <ComboBoxItem Content="Limpa (Inter)" /><ComboBoxItem Content="Manuscrita (Ink Free)" />
-              <!-- v0.17 (05/11): mesma causa do bloco de cores acima — 9 fontes
-                   novas no ThemeManager.Fonts que não existiam nesta lista fixa. -->
-              <ComboBoxItem Content="Amigável (Manrope)" /><ComboBoxItem Content="Moderninha (Outfit)" />
-              <ComboBoxItem Content="Técnica (Space Grotesk)" /><ComboBoxItem Content="Neutra (DM Sans)" />
-              <ComboBoxItem Content="Equilibrada (Plus Jakarta Sans)" /><ComboBoxItem Content="Gamer 2 (Chakra Petch)" />
-              <ComboBoxItem Content="Angulosa (Rajdhani)" /><ComboBoxItem Content="Arredondada (Nunito)" />
-              <ComboBoxItem Content="Bolha (Fredoka)" />
-            </ComboBox>
-            <TextBlock Text="Tamanho do texto" FontSize="12" HorizontalAlignment="Center" />
-            <ComboBox SelectedIndex="{Binding FontSizeIndex}" Width="440" HorizontalAlignment="Center">
-              <ComboBoxItem Content="Pequeno" /><ComboBoxItem Content="Médio" /><ComboBoxItem Content="Grande" />
-            </ComboBox>
-            <TextBlock Text="Tamanho das capas" FontSize="12" HorizontalAlignment="Center" />
-            <ComboBox SelectedIndex="{Binding TileSizeIndex}" Width="440" HorizontalAlignment="Center">
-              <ComboBoxItem Content="Pequeno" /><ComboBoxItem Content="Médio" /><ComboBoxItem Content="Grande" />
-            </ComboBox>
-            <TextBlock Text="Layout da biblioteca" FontSize="12" HorizontalAlignment="Center" />
-            <ComboBox SelectedIndex="{Binding LayoutIndex}" Width="440" HorizontalAlignment="Center">
-              <ComboBoxItem Content="Fileira horizontal (rola pros lados)" />
-              <ComboBoxItem Content="Grade vertical (rola pra cima e pra baixo)" />
-            </ComboBox>
-            <CheckBox IsChecked="{Binding Animations}" Content="Animações (zoom e rolagem suave)" HorizontalAlignment="Center" />
-            <TextBlock Text="Cor da tela (experimental)" FontSize="12" HorizontalAlignment="Center" />
-            <ComboBox SelectedIndex="{Binding ColorModeIndex}" Width="440" HorizontalAlignment="Center">
-              <ComboBoxItem Content="Padrão" /><ComboBoxItem Content="Vívido" /><ComboBoxItem Content="OLED (contraste alto)" />
-              <ComboBoxItem Content="Noturno (luz quente)" /><ComboBoxItem Content="Confortável" />
-            </ComboBox>
-            <TextBlock Text="Ajusta a cor da tela inteira (fora do launcher também) enquanto ele estiver aberto. Se a tela ficar estranha depois de trocar, feche e abra o launcher de novo." Classes="subtle" FontSize="11" TextWrapping="Wrap" TextAlignment="Center" Width="440" HorizontalAlignment="Center" />
+          <!-- Aparência -->
+          <StackPanel Spacing="0" IsVisible="{Binding IsCategoryAppearanceActive}">
+            <Border Classes="settingsCard">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Cores e Fontes" Classes="sectionTitle" />
+                <TextBlock Text="Tema do Launcher" Classes="label"/>
+                <ComboBox SelectedIndex="{Binding ThemeIndex}" HorizontalAlignment="Stretch" Height="36">
+                  <ComboBoxItem Content="Escuro" /><ComboBoxItem Content="Claro" /><ComboBoxItem Content="Azul" />
+                  <ComboBoxItem Content="Vermelho" /><ComboBoxItem Content="Verde" /><ComboBoxItem Content="Laranja" />
+                  <ComboBoxItem Content="Rosa" /><ComboBoxItem Content="Ciano" /><ComboBoxItem Content="Preto (OLED)" />
+                  <ComboBoxItem Content="Dourado" /><ComboBoxItem Content="Grafite" /><ComboBoxItem Content="Meia-noite" />
+                  <ComboBoxItem Content="Crepúsculo" /><ComboBoxItem Content="Musgo" /><ComboBoxItem Content="Névoa" />
+                  <ComboBoxItem Content="Alto Contraste" />
+                </ComboBox>
+
+                <TextBlock Text="Fonte do Sistema" Classes="label" Margin="0,8,0,4"/>
+                <ComboBox SelectedIndex="{Binding FontIndex}" HorizontalAlignment="Stretch" Height="36">
+                  <ComboBoxItem Content="Moderna (Segoe UI)" /><ComboBoxItem Content="Divertida (Comic Sans)" />
+                  <ComboBoxItem Content="Formal (Georgia)" /><ComboBoxItem Content="Gamer (Bahnschrift)" />
+                  <ComboBoxItem Content="Terminal (Consolas)" /><ComboBoxItem Content="Simples (Arial)" />
+                  <ComboBoxItem Content="Clássica (Times New Roman)" /><ComboBoxItem Content="Legível (Verdana)" />
+                  <ComboBoxItem Content="Elegante (Trebuchet)" /><ComboBoxItem Content="Limpa (Inter)" />
+                  <ComboBoxItem Content="Manuscrita (Ink Free)" /><ComboBoxItem Content="Amigável (Manrope)" />
+                  <ComboBoxItem Content="Moderninha (Outfit)" /><ComboBoxItem Content="Técnica (Space Grotesk)" />
+                  <ComboBoxItem Content="Neutra (DM Sans)" /><ComboBoxItem Content="Equilibrada (Plus Jakarta Sans)" />
+                  <ComboBoxItem Content="Gamer 2 (Chakra Petch)" /><ComboBoxItem Content="Angulosa (Rajdhani)" />
+                  <ComboBoxItem Content="Arredondada (Nunito)" /><ComboBoxItem Content="Bolha (Fredoka)" />
+                </ComboBox>
+                
+                <Grid ColumnDefinitions="*,*" Margin="0,8,0,0">
+                  <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                    <TextBlock Text="Tamanho do Texto" Classes="label"/>
+                    <ComboBox SelectedIndex="{Binding FontSizeIndex}" HorizontalAlignment="Stretch" Height="36">
+                      <ComboBoxItem Content="Pequeno" /><ComboBoxItem Content="Médio" /><ComboBoxItem Content="Grande" />
+                    </ComboBox>
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" Margin="6,0,0,0">
+                    <TextBlock Text="Tamanho das Capas" Classes="label"/>
+                    <ComboBox SelectedIndex="{Binding TileSizeIndex}" HorizontalAlignment="Stretch" Height="36">
+                      <ComboBoxItem Content="Pequeno" /><ComboBoxItem Content="Médio" /><ComboBoxItem Content="Grande" />
+                    </ComboBox>
+                  </StackPanel>
+                </Grid>
+              </StackPanel>
+            </Border>
+
+            <Border Classes="settingsCard">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Layout e Comportamento" Classes="sectionTitle" />
+                <TextBlock Text="Layout da Biblioteca" Classes="label"/>
+                <ComboBox SelectedIndex="{Binding LayoutIndex}" HorizontalAlignment="Stretch" Height="36">
+                  <ComboBoxItem Content="Fileira horizontal (rola pros lados)" />
+                  <ComboBoxItem Content="Grade vertical (rola pra cima e pra baixo)" />
+                </ComboBox>
+                <ToggleSwitch IsChecked="{Binding Animations}" Content="Animações (zoom e rolagem suave)" Margin="0,8,0,0" />
+                
+                <TextBlock Text="Cor da Tela (Experimental)" Classes="label" Margin="0,8,0,4"/>
+                <ComboBox SelectedIndex="{Binding ColorModeIndex}" HorizontalAlignment="Stretch" Height="36">
+                  <ComboBoxItem Content="Padrão" /><ComboBoxItem Content="Vívido" /><ComboBoxItem Content="OLED (contraste alto)" />
+                  <ComboBoxItem Content="Noturno (luz quente)" /><ComboBoxItem Content="Confortável" />
+                </ComboBox>
+                <TextBlock Text="Ajusta a cor da tela inteira (fora do launcher também) enquanto ele estiver aberto." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
           </StackPanel>
 
-          <!-- ===== Sons (v0.16.3: saiu de Aparência) ===== -->
-          <StackPanel Spacing="12" IsVisible="{Binding IsCategorySoundsActive}">
-            <CheckBox IsChecked="{Binding SoundEffects}" Content="Sons ao navegar" HorizontalAlignment="Center" />
-            <TextBlock Text="Estilo" FontSize="12" HorizontalAlignment="Center" />
-            <ComboBox SelectedIndex="{Binding SoundThemeIndex}" Width="440" HorizontalAlignment="Center" IsEnabled="{Binding SoundEffects}">
-              <ComboBoxItem Content="Console" /><ComboBoxItem Content="Toque" /><ComboBoxItem Content="Bolha" /><ComboBoxItem Content="Mecânico" /><ComboBoxItem Content="Marimba" /><ComboBoxItem Content="Botão" /><ComboBoxItem Content="Digital" />
-            </ComboBox>
-            <TextBlock Text="{Binding SoundVolume, StringFormat='Volume ({0}%)'}" FontSize="12" HorizontalAlignment="Center" />
-            <Slider Minimum="0" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" Value="{Binding SoundVolume}" IsEnabled="{Binding SoundEffects}" Width="440" HorizontalAlignment="Center" />
-            <TextBlock Text="Toca ao mover, confirmar e voltar pelo controle." Classes="subtle" FontSize="11" TextWrapping="Wrap" TextAlignment="Center" Width="440" HorizontalAlignment="Center" />
+          <!-- Sons -->
+          <StackPanel Spacing="0" IsVisible="{Binding IsCategorySoundsActive}">
+            <Border Classes="settingsCard">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Efeitos Sonoros" Classes="sectionTitle" />
+                <ToggleSwitch IsChecked="{Binding SoundEffects}" Content="Sons ao navegar pelo controle" />
+                
+                <TextBlock Text="Estilo do Som" Classes="label" Margin="0,8,0,4"/>
+                <ComboBox SelectedIndex="{Binding SoundThemeIndex}" HorizontalAlignment="Stretch" IsEnabled="{Binding SoundEffects}" Height="36">
+                  <ComboBoxItem Content="Console" /><ComboBoxItem Content="Toque" /><ComboBoxItem Content="Bolha" />
+                  <ComboBoxItem Content="Mecânico" /><ComboBoxItem Content="Marimba" /><ComboBoxItem Content="Botão" /><ComboBoxItem Content="Digital" />
+                </ComboBox>
+                
+                <TextBlock Text="{Binding SoundVolume, StringFormat='Volume dos Efeitos ({0}%)'}" Classes="label" Margin="0,8,0,4"/>
+                <Slider Minimum="0" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" Value="{Binding SoundVolume}" IsEnabled="{Binding SoundEffects}" />
+              </StackPanel>
+            </Border>
           </StackPanel>
 
-          <!-- ===== Biblioteca (v0.16.3: Diretórios + Emuladores) ===== -->
-          <StackPanel Spacing="12" IsVisible="{Binding IsCategoryLibraryActive}">
-            <TextBlock Text="Xbox app" FontSize="13" FontWeight="SemiBold" />
-            <TextBlock Text="Pastas extras com jogos (uma por linha)" Classes="subtle" FontSize="12" />
-            <TextBox Text="{Binding XboxScanFoldersText}" Watermark="C:\Xbox&#10;D:\Xbox" AcceptsReturn="True" Height="80" TextWrapping="Wrap" />
+          <!-- Biblioteca -->
+          <StackPanel Spacing="0" IsVisible="{Binding IsCategoryLibraryActive}">
+            <Border Classes="settingsCard">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Xbox App" Classes="sectionTitle" />
+                <TextBlock Text="Pastas extras com jogos (uma por linha)" Classes="label" />
+                <TextBox Text="{Binding XboxScanFoldersText}" Watermark="C:\Xbox&#10;D:\Xbox" AcceptsReturn="True" Height="80" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+
+            <Border Classes="settingsCard">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Eden (Emulador de Switch)" Classes="sectionTitle" />
+                <TextBlock Text="Caminho do eden.exe" Classes="label" />
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBox Grid.Column="0" Text="{Binding EdenExecutablePath}" Watermark="C:\Eden Emu\eden.exe" Height="36" />
+                  <Button Grid.Column="1" Classes="pill" Content="Procurar…" Click="OnBrowseEdenClick" Margin="8,0,0,0" />
+                </Grid>
+                <TextBlock Text="{Binding EdenStatusText}" Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+                
+                <TextBlock Text="Pastas de ROMs (uma por linha)" Classes="label" Margin="0,8,0,4" />
+                <TextBox Text="{Binding EdenRomFoldersText}" Watermark="D:\Roms\Switch" AcceptsReturn="True" Height="60" TextWrapping="Wrap" />
+                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,4">
+                  <Button Classes="pill" Content="+ Adicionar pasta…" Click="OnAddRomFolderClick" />
+                  <Button Classes="pill" Content="Testar agora" Click="OnTestEdenScanClick" />
+                </StackPanel>
+                <TextBlock Text="{Binding EdenScanResultText}" IsVisible="{Binding HasEdenScanResult}" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource AccentBrush}" />
+                <TextBlock Text="Formatos: .nsp, .xci, .nsz, .xcz. DLCs são ignorados. Mudanças só valem após reiniciar o launcher." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
           </StackPanel>
 
-          <!-- ===== Emuladores ===== -->
-          <StackPanel Spacing="12" IsVisible="{Binding IsCategoryLibraryActive}" Margin="0,8,0,0">
-            <TextBlock Text="Eden (emulador de Switch)" FontSize="13" FontWeight="SemiBold" />
-            <TextBlock Text="Onde está o eden.exe" Classes="subtle" FontSize="12" />
-            <Grid ColumnDefinitions="*,Auto">
-              <TextBox Grid.Column="0" Text="{Binding EdenExecutablePath}" Watermark="C:\Eden Emu\eden.exe" Margin="0,0,8,0" />
-              <Button Grid.Column="1" Classes="pill" Content="Procurar…" Click="OnBrowseEdenClick" />
-            </Grid>
-            <TextBlock Text="{Binding EdenStatusText}" Classes="subtle" FontSize="11" TextWrapping="Wrap" />
-            <TextBlock Text="Pastas das ROMs (uma por linha)" Classes="subtle" FontSize="12" Margin="0,8,0,0" />
-            <TextBox Text="{Binding EdenRomFoldersText}" Watermark="D:\Roms\Switch" AcceptsReturn="True" Height="80" TextWrapping="Wrap" />
-            <StackPanel Orientation="Horizontal" Spacing="8">
-              <Button Classes="pill" Content="+ Adicionar pasta…" Click="OnAddRomFolderClick" />
-              <Button Classes="pill" Content="Testar agora" Click="OnTestEdenScanClick" />
-            </StackPanel>
-            <TextBlock Text="{Binding EdenScanResultText}" IsVisible="{Binding HasEdenScanResult}" FontSize="11" TextWrapping="Wrap" />
-            <TextBlock Text="As subpastas também são procuradas. Formatos reconhecidos: .nsp, .xci, .nsz, .xcz. DLC e arquivos de atualização são ignorados — eles não abrem como jogo. Os jogos aparecem na biblioteca junto dos outros e abrem direto no Eden em tela cheia." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
-            <TextBlock Text="Mudanças aqui só valem na biblioteca depois de fechar e abrir o launcher. O 'Testar agora' escaneia com o que está nas caixas acima, sem precisar salvar nem reiniciar." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
-          </StackPanel>
+          <!-- Geral -->
+          <StackPanel Spacing="0" IsVisible="{Binding IsCategoryModeActive}">
+            <Border Classes="settingsCard">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Modo de Uso" Classes="sectionTitle" />
+                <RadioButton GroupName="Modo" IsChecked="{Binding IsHandheldMode}" Content="Handheld (Tela Cheia)" Margin="0,4,0,0"/>
+                <TextBlock Text="Recomendado no aparelho. Abre sozinho e reabre se fechar." Classes="subtle" FontSize="11" Margin="28,0,0,8" />
+                
+                <RadioButton GroupName="Modo" IsChecked="{Binding IsDesktopMode}" Content="Uso em PC (Janela)" />
+                <TextBlock Text="Janela normal. Não abre sozinho, e 'Sair' fecha de verdade." Classes="subtle" FontSize="11" Margin="28,0,0,8" />
+              </StackPanel>
+            </Border>
 
-          <!-- ===== Geral (antes "Modo de uso") ===== -->
-          <StackPanel Spacing="12" IsVisible="{Binding IsCategoryModeActive}">
-            <TextBlock Text="Modo de uso" FontSize="13" FontWeight="SemiBold" />
-            <RadioButton GroupName="Modo" IsChecked="{Binding IsHandheldMode}" Content="Handheld (tela cheia)" />
-            <TextBlock Text="Recomendado no aparelho. Abre sozinho no login e reabre se fechar." Classes="subtle" FontSize="11" TextWrapping="Wrap" Margin="28,-8,0,0" />
-            <RadioButton GroupName="Modo" IsChecked="{Binding IsDesktopMode}" Content="Uso em PC (janela)" />
-            <TextBlock Text="Janela normal. Não abre sozinho, e 'Sair' fecha de verdade." Classes="subtle" FontSize="11" TextWrapping="Wrap" Margin="28,-8,0,0" />
-            <TextBlock Text="No modo Handheld, 'Sair' (menu Energia) segura a reabertura até reiniciar o aparelho. Abrir pelo atalho sempre funciona." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
-
-            <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="12" Padding="14">
-              <StackPanel Spacing="6">
-                <CheckBox IsChecked="{Binding FreezeGameOnOverlay}" Content="Pausar o jogo com o Quick Settings aberto" />
-                <TextBlock Text="Evita que o gamepad chegue nos dois ao mesmo tempo (overlay e jogo). Desligado por padrão: em jogos online com anti-cheat (EAC, BattlEye, Vanguard), congelar o processo do jogo pode ser detectado e resultar em banimento. Só ative se o jogo for offline/single-player ou você tiver certeza que o anti-cheat não se importa." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
-                <CheckBox IsChecked="{Binding FocusOverlayInGame}" Content="Quick Settings pega o foco (o jogo para de receber os botões)" Margin="0,8,0,0" />
+            <Border Classes="settingsCard">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Overlay (Quick Settings)" Classes="sectionTitle" />
+                <ToggleSwitch IsChecked="{Binding FreezeGameOnOverlay}" Content="Pausar o jogo com o Quick Settings aberto" />
+                <TextBlock Text="Evita que o gamepad chegue nos dois. Desligado por padrão: em jogos online com anti-cheat (EAC, BattlEye), congelar o processo pode resultar em banimento." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+                
+                <ToggleSwitch IsChecked="{Binding FocusOverlayInGame}" Content="Quick Settings pega o foco (jogo para de receber botões)" Margin="0,8,0,0" />
                 <TextBlock Text="Sem pausar o jogo e sem risco com anti-cheat. Alguns jogos em tela cheia exclusiva podem minimizar ao perder o foco: se acontecer, desligue." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
               </StackPanel>
             </Border>
           </StackPanel>
 
-          <!-- ===== Contas ===== -->
-          <StackPanel Spacing="12" IsVisible="{Binding IsCategoryAccountsActive}">
-            <StackPanel Spacing="2">
-              <TextBlock FontSize="12"><Run Text="SteamGridDB (capas): " /><Run Text="{Binding SteamGridDbStatusText}" /></TextBlock>
-              <TextBlock FontSize="12"><Run Text="Steam Web API (downloads): " /><Run Text="{Binding SteamWebApiStatusText}" /></TextBlock>
-              <TextBlock FontSize="12"><Run Text="Conta Steam (SteamID64): " /><Run Text="{Binding SteamIdStatusText}" /></TextBlock>
-              <TextBlock FontSize="12"><Run Text="RAWG API (metadados extras): " /><Run Text="{Binding RawgApiStatusText}" /></TextBlock>
-            </StackPanel>
-            <Button Classes="pill" Content="🔒 Gerenciar contas e chaves de API" Click="OnManageAccountsClick" HorizontalAlignment="Left" />
-            <TextBlock Text="O launcher nunca pede nem guarda a senha da Steam. As chaves ficam criptografadas neste PC (só o seu usuário do Windows consegue ler)." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+          <!-- Contas -->
+          <StackPanel Spacing="0" IsVisible="{Binding IsCategoryAccountsActive}">
+            <Border Classes="settingsCard">
+              <StackPanel Spacing="6">
+                <TextBlock Text="Status das Contas" Classes="sectionTitle" />
+                <TextBlock FontSize="12"><Run Text="SteamGridDB (capas): " /><Run Text="{Binding SteamGridDbStatusText}" /></TextBlock>
+                <TextBlock FontSize="12"><Run Text="Steam Web API (downloads): " /><Run Text="{Binding SteamWebApiStatusText}" /></TextBlock>
+                <TextBlock FontSize="12"><Run Text="Conta Steam (SteamID64): " /><Run Text="{Binding SteamIdStatusText}" /></TextBlock>
+                <TextBlock FontSize="12"><Run Text="RAWG API (metadados): " /><Run Text="{Binding RawgApiStatusText}" /></TextBlock>
+                <TextBlock FontSize="12"><Run Text="IGDB (Twitch): " /><Run Text="{Binding IgdbApiStatusText}" /></TextBlock>
+                
+                <Button Classes="pill primary" Content="🔒 Gerenciar contas e chaves de API" Click="OnManageAccountsClick" HorizontalAlignment="Left" Margin="0,12,0,0" />
+                <TextBlock Text="As chaves ficam criptografadas neste PC." Classes="subtle" FontSize="11" Margin="0,8,0,0" />
+              </StackPanel>
+            </Border>
           </StackPanel>
 
-          <!-- ===== Atalhos ===== -->
-          <StackPanel Spacing="14" IsVisible="{Binding IsCategoryShortcutsActive}">
-            <TextBlock Text="Atalhos do launcher" FontSize="16" FontWeight="SemiBold" />
-            <TextBlock Text="Consulta rápida dos comandos disponíveis. Os atalhos são fixos nesta versão." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
-            <Border Background="#14251D" BorderBrush="#347A50" BorderThickness="1.5" CornerRadius="12" Padding="14">
+          <!-- Atalhos -->
+          <StackPanel Spacing="0" IsVisible="{Binding IsCategoryShortcutsActive}">
+            <Border Background="#14251D" BorderBrush="#347A50" BorderThickness="1.5" CornerRadius="12" Padding="16" Margin="0,0,0,12">
               <StackPanel Spacing="10">
-                <TextBlock Text="🎮 CONTROLE" FontSize="12" FontWeight="Bold" Foreground="#75D99A" />
+                <TextBlock Text="🎮 CONTROLE" FontSize="13" FontWeight="Bold" Foreground="#75D99A" />
                 <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Navegar na biblioteca" Foreground="#D6F5E0"/><TextBlock Grid.Column="1" Text="D-Pad" FontWeight="Bold" Foreground="#8FE3AC"/></Grid>
                 <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Confirmar / Abrir jogo" Foreground="#D6F5E0"/><TextBlock Grid.Column="1" Text="A" FontWeight="Bold" Foreground="#8FE3AC"/></Grid>
                 <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Voltar / Fechar" Foreground="#D6F5E0"/><TextBlock Grid.Column="1" Text="B" FontWeight="Bold" Foreground="#8FE3AC"/></Grid>
                 <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Opções do jogo" Foreground="#D6F5E0"/><TextBlock Grid.Column="1" Text="Select" FontWeight="Bold" Foreground="#8FE3AC"/></Grid>
                 <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Menu global" Foreground="#D6F5E0"/><TextBlock Grid.Column="1" Text="Start" FontWeight="Bold" Foreground="#8FE3AC"/></Grid>
-                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Filtro anterior" Foreground="#D6F5E0"/><TextBlock Grid.Column="1" Text="LB" FontWeight="Bold" Foreground="#8FE3AC"/></Grid>
-                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Próximo filtro" Foreground="#D6F5E0"/><TextBlock Grid.Column="1" Text="RB" FontWeight="Bold" Foreground="#8FE3AC"/></Grid>
-                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Downloads" Foreground="#D6F5E0"/><TextBlock Grid.Column="1" Text="Y" FontWeight="Bold" Foreground="#8FE3AC"/></Grid>
-                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Detalhes do jogo" Foreground="#D6F5E0"/><TextBlock Grid.Column="1" Text="X" FontWeight="Bold" Foreground="#8FE3AC"/></Grid>
-                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Quick Settings" Foreground="#D6F5E0"/><TextBlock Grid.Column="1" Text="L3 + R3" FontWeight="Bold" Foreground="#8FE3AC"/></Grid>
+                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Filtros (Anterior/Próximo)" Foreground="#D6F5E0"/><TextBlock Grid.Column="1" Text="LB / RB" FontWeight="Bold" Foreground="#8FE3AC"/></Grid>
               </StackPanel>
             </Border>
-            <Border Background="#1D1B30" BorderBrush="#7054C7" BorderThickness="1.5" CornerRadius="12" Padding="14">
+            <Border Background="#1D1B30" BorderBrush="#7054C7" BorderThickness="1.5" CornerRadius="12" Padding="16">
               <StackPanel Spacing="10">
-                <TextBlock Text="⌨ TECLADO" FontSize="12" FontWeight="Bold" Foreground="#B9A5FF" />
+                <TextBlock Text="⌨ TECLADO" FontSize="13" FontWeight="Bold" Foreground="#B9A5FF" />
                 <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Navegar na biblioteca" Foreground="#E6E0FF"/><TextBlock Grid.Column="1" Text="← ↑ ↓ →" FontWeight="Bold" Foreground="#C6B5FF"/></Grid>
                 <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Abrir jogo selecionado" Foreground="#E6E0FF"/><TextBlock Grid.Column="1" Text="Enter" FontWeight="Bold" Foreground="#C6B5FF"/></Grid>
-                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Filtro anterior" Foreground="#E6E0FF"/><TextBlock Grid.Column="1" Text="Q" FontWeight="Bold" Foreground="#C6B5FF"/></Grid>
-                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Próximo filtro" Foreground="#E6E0FF"/><TextBlock Grid.Column="1" Text="E" FontWeight="Bold" Foreground="#C6B5FF"/></Grid>
-                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Downloads" Foreground="#E6E0FF"/><TextBlock Grid.Column="1" Text="D" FontWeight="Bold" Foreground="#C6B5FF"/></Grid>
-                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Opções do jogo" Foreground="#E6E0FF"/><TextBlock Grid.Column="1" Text="Space" FontWeight="Bold" Foreground="#C6B5FF"/></Grid>
+                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Menu de opções do jogo" Foreground="#E6E0FF"/><TextBlock Grid.Column="1" Text="Space" FontWeight="Bold" Foreground="#C6B5FF"/></Grid>
                 <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Menu global" Foreground="#E6E0FF"/><TextBlock Grid.Column="1" Text="Escape" FontWeight="Bold" Foreground="#C6B5FF"/></Grid>
-                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Fechar jogo" Foreground="#E6E0FF"/><TextBlock Grid.Column="1" Text="Ctrl + W" FontWeight="Bold" Foreground="#C6B5FF"/></Grid>
-                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Ajuda de atalhos" Foreground="#E6E0FF"/><TextBlock Grid.Column="1" Text="F1" FontWeight="Bold" Foreground="#C6B5FF"/></Grid>
               </StackPanel>
             </Border>
           </StackPanel>
 
-          <!-- ===== Conectividade (Agora abre popup moderno) ===== -->
-          <StackPanel Spacing="14" IsVisible="{Binding IsCategoryConnectivityActive}">
-            <TextBlock Text="Conectividade do dispositivo" FontSize="16" FontWeight="SemiBold" />
-            <TextBlock Text="Abra os painéis nativos do Windows para conectar redes, escolher dispositivos e gerenciar pareamentos. O launcher não altera rádios em segundo plano." Classes="subtle" FontSize="12" TextWrapping="Wrap" />
-            
-            <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="14" Padding="18">
+          <!-- Conectividade -->
+          <StackPanel Spacing="0" IsVisible="{Binding IsCategoryConnectivityActive}">
+            <Border Classes="settingsCard">
               <Grid ColumnDefinitions="*,Auto">
-                <StackPanel Spacing="6">
-                  <TextBlock Text="Wi-Fi" FontSize="17" FontWeight="Bold" />
-                  <TextBlock Text="Conectar a uma rede, esquecer redes salvas e configurar propriedades da conexão." Classes="subtle" TextWrapping="Wrap" />
+                <StackPanel Spacing="4">
+                  <TextBlock Text="Wi-Fi" FontSize="16" FontWeight="Bold" />
+                  <TextBlock Text="Conectar a uma rede ou esquecer redes salvas." Classes="subtle" TextWrapping="Wrap" />
                 </StackPanel>
-                <Button Grid.Column="1" Classes="pill primary" Content="Abrir Wi-Fi do Windows" Click="OnOpenWifiSettingsClick" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Classes="pill primary" Content="Abrir Wi-Fi" Click="OnOpenWifiSettingsClick" VerticalAlignment="Center" />
               </Grid>
             </Border>
-            
-            <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="14" Padding="18">
+            <Border Classes="settingsCard">
               <Grid ColumnDefinitions="*,Auto">
-                <StackPanel Spacing="6">
-                  <TextBlock Text="Bluetooth" FontSize="17" FontWeight="Bold" />
-                  <TextBlock Text="Ligar ou desligar o Bluetooth, parear controles, fones e outros acessórios." Classes="subtle" TextWrapping="Wrap" />
+                <StackPanel Spacing="4">
+                  <TextBlock Text="Bluetooth" FontSize="16" FontWeight="Bold" />
+                  <TextBlock Text="Parear controles, fones e outros acessórios." Classes="subtle" TextWrapping="Wrap" />
                 </StackPanel>
-                <Button Grid.Column="1" Classes="pill primary" Content="Abrir Bluetooth do Windows" Click="OnOpenBluetoothSettingsClick" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Classes="pill primary" Content="Abrir Bluetooth" Click="OnOpenBluetoothSettingsClick" VerticalAlignment="Center" />
               </Grid>
             </Border>
           </StackPanel>
 
-          <!-- ===== Atualizações (antes "Novidades") ===== -->
-          <StackPanel Spacing="12" IsVisible="{Binding IsCategoryNewsActive}">
-            <TextBlock Text="Novidades do Handheld Launcher" FontSize="18" FontWeight="Bold" />
-            <TextBlock Text="Resumo das versões recentes. Esta lista acompanha as notas de versão publicadas no projeto." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
-
-            <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="12" Padding="14">
-              <StackPanel Spacing="6">
-                <CheckBox IsChecked="{Binding BetaChannelOptIn}" Content="Receber atualizações beta" />
-                <TextBlock Text="Versões de teste, antes de virarem lançamento oficial — podem ter bugs novos. Precisa reiniciar o launcher pra valer. Pode desativar quando quiser." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+          <!-- Atualizações -->
+          <StackPanel Spacing="0" IsVisible="{Binding IsCategoryNewsActive}">
+            <Border Classes="settingsCard">
+              <StackPanel Spacing="8">
+                <ToggleSwitch IsChecked="{Binding BetaChannelOptIn}" Content="Receber atualizações beta" />
+                <TextBlock Text="Versões de teste, antes de virarem lançamento oficial. Pode desativar quando quiser." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
               </StackPanel>
             </Border>
-
             <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoadingReleases}" Height="4" Margin="0,10" />
-            
             <ItemsControl ItemsSource="{Binding ReleaseHistory}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:GitHubRelease">
-                  <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="12" Padding="14" Margin="0,0,0,10">
+                  <Border Classes="settingsCard">
                     <StackPanel Spacing="8">
                       <StackPanel Orientation="Horizontal" Spacing="12">
                         <TextBlock Text="{Binding TagName}" FontSize="17" FontWeight="Bold" Foreground="#75D99A"/>
                         <TextBlock Text="{Binding Name}" Foreground="#BFA9FF" VerticalAlignment="Center" FontWeight="SemiBold"/>
                       </StackPanel>
-                      <TextBlock Text="{Binding Body}" TextWrapping="Wrap" FontSize="12" Foreground="#D1D8E8" />
+                      <TextBlock Text="{Binding Body}" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
                     </StackPanel>
                   </Border>
                 </DataTemplate>
@@ -254,16 +284,19 @@
             </ItemsControl>
           </StackPanel>
 
-          <!-- ===== Lossless Scaling ===== -->
-          <StackPanel Spacing="12" IsVisible="{Binding IsCategoryLosslessActive}">
-            <TextBlock Text="🖼 Lossless Scaling" FontSize="13" FontWeight="SemiBold" />
-            <TextBlock Text="O launcher usa o atalho global (Ctrl+Alt+S) para ativar o Frame Gen na janela do jogo." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
-            <TextBlock Text="Caminho do LosslessScaling.exe" Classes="subtle" FontSize="12" Margin="0,8,0,0"/>
-            <Grid ColumnDefinitions="*,Auto">
-              <TextBox Grid.Column="0" Text="{Binding LosslessScalingPath}" Watermark="Ex: C:\Steam\steamapps\common\Lossless Scaling\LosslessScaling.exe" Margin="0,0,8,0" />
-              <Button Grid.Column="1" Classes="pill" Content="Procurar…" Click="OnBrowseLosslessClick" />
-            </Grid>
-            <TextBlock Text="Se o app estiver na Steam, ele é detectado automaticamente. Se você moveu ou comprou em outro lugar, aponte o caminho aqui." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+          <!-- Lossless Scaling -->
+          <StackPanel Spacing="0" IsVisible="{Binding IsCategoryLosslessActive}">
+            <Border Classes="settingsCard">
+              <StackPanel Spacing="8">
+                <TextBlock Text="🖼 Lossless Scaling" Classes="sectionTitle" />
+                <TextBlock Text="Caminho do LosslessScaling.exe" Classes="label"/>
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBox Grid.Column="0" Text="{Binding LosslessScalingPath}" Watermark="C:\Steam\...\LosslessScaling.exe" Height="36" />
+                  <Button Grid.Column="1" Classes="pill" Content="Procurar…" Click="OnBrowseLosslessClick" Margin="8,0,0,0"/>
+                </Grid>
+                <TextBlock Text="Se o app estiver na Steam, ele é detectado automaticamente." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
           </StackPanel>
 
         </StackPanel>
@@ -276,7 +309,7 @@
         <TextBlock Grid.Column="0" Text="🎮 Start: Salvar | X: Salvar e Fechar" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" />
         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
           <Button Classes="pill" Content="⌨ Teclado" Click="OnKeyboardClick" />
-          <Button Classes="pill primary" Content="{Binding SaveButtonText}" Click="OnSaveAndCloseClick" />
+          <Button Classes="pill primary" Content="{Binding SaveButtonText}" Click="OnSaveAndCloseClick" Height="40" Width="160" />
         </StackPanel>
       </Grid>
     </StackPanel>

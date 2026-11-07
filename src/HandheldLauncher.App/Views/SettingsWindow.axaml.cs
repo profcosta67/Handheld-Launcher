@@ -52,17 +52,6 @@ public partial class SettingsWindow : Window
         }, RoutingStrategies.Bubble);
     }
 
-    // v0.16.1: rede de segurança — garante que as configurações sejam
-    // persistidas independente de COMO a janela é fechada (botão "Salvar
-    // e fechar", botão nativo da titlebar, Alt+F4, ou "Back" do gamepad
-    // com o foco na zona de Tabs). Antes, só o clique no botão "Salvar e
-    // fechar" chamava SaveTo(); os outros caminhos de fechamento (em
-    // especial o "Back" do gamepad, o jeito mais natural de sair num
-    // handheld) fechavam a janela sem salvar nada, descartando qualquer
-    // alteração feita — incluindo o toggle "Receber atualizações beta".
-    // SaveTo() já é idempotente (reescreve os mesmos valores do
-    // ViewModel em AppSettings e persiste em disco), então chamá-la de
-    // novo aqui não tem efeito colateral nos caminhos que já salvavam.
     protected override void OnClosing(WindowClosingEventArgs e)
     {
         ViewModel.SaveTo(_settings);
@@ -283,7 +272,7 @@ public partial class SettingsWindow : Window
         return this.GetVisualDescendants()
             .OfType<Control>()
             .Where(c => c.Focusable && c.IsEffectivelyVisible && c.IsEffectivelyEnabled && c != this && !tabButtons.Contains(c)
-                        && c is ComboBox or Slider or CheckBox or RadioButton or TextBox or Button)
+                        && c is ComboBox or Slider or ToggleSwitch or RadioButton or TextBox or Button)
             .ToList();
     }
 
@@ -318,6 +307,13 @@ public partial class SettingsWindow : Window
             FocusControl(siblings[next]);
             return true;
         }
+
+        if (control is ToggleSwitch ts)
+        {
+            ts.IsChecked = !ts.IsChecked;
+            return true;
+        }
+
         return false;
     }
 
@@ -325,7 +321,7 @@ public partial class SettingsWindow : Window
     {
         switch (control)
         {
-            case CheckBox cb: cb.IsChecked = !cb.IsChecked; break;
+            case ToggleSwitch ts: ts.IsChecked = !ts.IsChecked; break;
             case RadioButton rb: rb.IsChecked = true; break;
             case ComboBox combo: combo.IsDropDownOpen = !combo.IsDropDownOpen; break;
             case Slider sl:
@@ -473,19 +469,6 @@ public partial class SettingsWindow : Window
         _connectivityDialog = dialog;
         try { await dialog.ShowDialog(this); }
         finally { _connectivityDialog = null; }
-    }
-
-    private void OnOpenReleaseNotesClick(object? sender, RoutedEventArgs e)
-    {
-        try
-        {
-            Topmost = false;
-            if (Owner is MainWindow mainWindow)
-                mainWindow.OpenWindowsSettings("https://github.com/profcosta67/Handheld-Launcher/tree/main/release-notes");
-            else
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://github.com/profcosta67/Handheld-Launcher/tree/main/release-notes") { UseShellExecute = true });
-        }
-        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
     }
 
     private void OnSavedOkClick(object? sender, RoutedEventArgs e) => ViewModel.DismissSavedMessage();

@@ -6,17 +6,10 @@ using HandheldLauncher.App.ViewModels;
 
 namespace HandheldLauncher.App.Views;
 
-/// <summary>
-/// Diálogo "Gerenciar contas e chaves de API", aberto a partir de
-/// SettingsWindow (botão 🔒). Ver comentário no .axaml pra decisão de
-/// design (mesma ViewModel do caller, sem Save próprio, campos mascarados
-/// por padrão).
-/// </summary>
 public partial class AccountsWindow : Window
 {
     private readonly Action<string>? _openExternalUrl;
-    // Só pro designer/casos sem parâmetro — SettingsWindow sempre usa o
-    // outro construtor, passando a MESMA ViewModel (não uma cópia).
+
     public AccountsWindow() : this(new SettingsViewModel())
     {
     }
@@ -28,9 +21,6 @@ public partial class AccountsWindow : Window
         _openExternalUrl = openExternalUrl;
         Opened += (_, _) => GridDbKeyBox.Focus(NavigationMethod.Directional);
 
-        // v0.17 (05/11): mesmo ajuste do EditGameWindow/AddGameWindow —
-        // tocar um TextBox aqui também abre o teclado virtual (padrão
-        // original em SettingsWindow.axaml.cs).
         AddHandler(PointerPressedEvent, (_, e) => _lastPointerWasTouch = e.Pointer.Type != PointerType.Mouse, RoutingStrategies.Tunnel);
         AddHandler(GotFocusEvent, (_, e) =>
         {
@@ -51,25 +41,23 @@ public partial class AccountsWindow : Window
 
     private void OnGetGridDbKeyClick(object? sender, RoutedEventArgs e) => OpenUrl("https://www.steamgriddb.com/profile/preferences/api");
 
-    // v0.14: botão "Obter chave" do bloco RAWG — aponta pra doc oficial.
     private void OnGetRawgKeyClick(object? sender, RoutedEventArgs e) => OpenUrl("https://rawg.io/apidocs");
+
+    // 🟢 NOVO: IGDB (Twitch) — abre o console de dev onde se cria o Client ID/Secret
+    private void OnGetIgdbKeyClick(object? sender, RoutedEventArgs e) => OpenUrl("https://dev.twitch.tv/console/apps");
 
     private void OpenUrl(string url)
     {
         try
         {
-            // Retira o modal e seu owner da camada Topmost antes de chamar o navegador.
             Topmost = false;
             if (Owner is Window owner) owner.Topmost = false;
             if (_openExternalUrl is not null) _openExternalUrl(url);
             else System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
         }
-        catch { /* Melhor esforço; o log central registra falhas quando há MainWindow. */ }
+        catch { /* Melhor esforço */ }
     }
 
-    // "Proteção de visualização" pedida pelo usuário: mascarado (•) por
-    // padrão, 👁 alterna pra texto puro — só estado de UI, por isso vive
-    // aqui e não na ViewModel (zera sempre que a tela reabre, de propósito).
     private static void ToggleMask(TextBox box) => box.PasswordChar = box.PasswordChar == default ? '•' : default;
 
     private void OnToggleGridDbVisibilityClick(object? sender, RoutedEventArgs e) => ToggleMask(GridDbKeyBox);
@@ -78,8 +66,12 @@ public partial class AccountsWindow : Window
 
     private void OnToggleSteamIdVisibilityClick(object? sender, RoutedEventArgs e) => ToggleMask(SteamIdBox);
 
-    // v0.14: máscara do campo RAWG.
     private void OnToggleRawgVisibilityClick(object? sender, RoutedEventArgs e) => ToggleMask(RawgKeyBox);
+
+    // 🟢 NOVO: toggles do IGDB (2 campos)
+    private void OnToggleIgdbIdVisibilityClick(object? sender, RoutedEventArgs e) => ToggleMask(IgdbIdBox);
+
+    private void OnToggleIgdbSecretVisibilityClick(object? sender, RoutedEventArgs e) => ToggleMask(IgdbSecretBox);
 
     private void OnCloseClick(object? sender, RoutedEventArgs e) => Close();
 }

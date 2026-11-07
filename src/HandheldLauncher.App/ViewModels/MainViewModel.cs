@@ -28,9 +28,11 @@ public sealed class MainViewModel : ViewModelBase
     private readonly PerformanceHud? _hud;
     private readonly ISteamOwnedGamesClient? _steamOwnedGames;
     private readonly ISteamAchievementsClient? _steamAchievements;
+   
     
     // 🟢 Instância única do SteamStoreService
     private readonly SteamStoreService _steamStore = new();
+    private readonly IgdbService _igdbService;
 
     private readonly HardwareMonitorService _monitorService = new();
     private readonly HWiNFOSharedMemoryService _hwInfoService = new();
@@ -135,10 +137,17 @@ public sealed class MainViewModel : ViewModelBase
         PerformanceHud? hud = null,
         ISteamOwnedGamesClient? steamOwnedGames = null,
         ISteamAchievementsClient? steamAchievements = null)
+        
     {
         _library = library; _launcher = launcher; _artwork = artwork;
         _performanceOverlay = performanceOverlay; _updates = updates; _hud = hud;
         _steamOwnedGames = steamOwnedGames; _steamAchievements = steamAchievements;
+        // 🟢 Carrega as chaves do IGDB salvas pelo usuário
+var _savedSettingsForIgdb = HandheldLauncher.Core.Services.AppSettingsStore.Load();
+_igdbService = new IgdbService(
+    _savedSettingsForIgdb.IgdbClientId ?? "",
+    _savedSettingsForIgdb.IgdbClientSecret ?? ""
+);
         _launcher.GameExited += OnGameExited;
 
         Games = new ObservableCollection<GameTileViewModel>();
@@ -324,16 +333,19 @@ public sealed class MainViewModel : ViewModelBase
         }
     }
 
-    private GameTileViewModel? _selectedTile;
-    public GameTileViewModel? SelectedTile
+   private GameTileViewModel? _selectedTile;
+public GameTileViewModel? SelectedTile
+{
+    get => _selectedTile;
+    private set
     {
-        get => _selectedTile;
-        private set
+        if (SetField(ref _selectedTile, value) && value is not null)
         {
-            if (SetField(ref _selectedTile, value) && value is not null)
-                _ = value.LoadDescriptionAsync(); // 🟢 Chama a descrição
+            _ = value.LoadDescriptionAsync();
+            _ = value.LoadReviewAsync();   // 🟢 NOVO
         }
     }
+}
 
     private string _updateStatusText = string.Empty;
     public string UpdateStatusText
@@ -1908,34 +1920,40 @@ public sealed class MainViewModel : ViewModelBase
     public void ReloadTiles() { var selected = SelectedIndex; RebuildGamesFromLibrary(); if (selected >= 0 && Games.Count > 0) SelectedIndex = Math.Min(selected, Games.Count - 1); }
 
     private void RebuildGamesFromLibrary()
+{
+    var previouslySelectedId = SelectedTile?.Game.Id;
+    Games.Clear();
+
+    if (_activeFilter == LibraryFilter.NotInstalled)
     {
-        var previouslySelectedId = SelectedTile?.Game.Id;
-        Games.Clear();
-        
-        if (_activeFilter == LibraryFilter.NotInstalled) 
-        { 
-            foreach (var owned in OwnedNotInstalledGames) 
-                Games.Add(new GameTileViewModel(_library.BuildEntryForOwnedGame(owned), _steamStore)); 
-        }
-        else if (_activeFilter == LibraryFilter.Cloud)
+        foreach (var owned in OwnedNotInstalledGames)
         {
-            foreach (var entry in BuildCloudEntries())
-                Games.Add(new GameTileViewModel(entry, _steamStore));
+            var entry = _library.BuildEntryForOwnedGame(owned);
+            Games.Add(new GameTileViewModel(entry, _steamStore, _igdbService));
         }
-        else 
-        { 
-            foreach (var game in _library.Games) 
-            { 
-                if (MatchesActiveFilter(game)) 
-                    Games.Add(new GameTileViewModel(game, _steamStore)); // 🟢 Passa o _steamStore
-            } 
-        }
-        
-        ReorderLastPlayedFirst(); UpdateNotInstalledTabMessage();
-        var restoredIndex = previouslySelectedId is null ? 0 : Math.Max(0, Games.ToList().FindIndex(t => t.Game.Id == previouslySelectedId));
-        SelectedIndex = Games.Count > 0 ? restoredIndex : -1;
-        if (Games.Count > 0) SelectedTile = Games[SelectedIndex];
     }
+    else if (_activeFilter == LibraryFilter.Cloud)
+    {
+        foreach (var entry in BuildCloudEntries())
+            Games.Add(new GameTileViewModel(entry, _steamStore, _igdbService));
+    }
+    else
+    {
+        foreach (var game in _library.Games)
+        {
+            if (MatchesActiveFilter(game))
+                Games.Add(new GameTileViewModel(game, _steamStore, _igdbService));
+        }
+    }
+
+    ReorderLastPlayedFirst();
+    UpdateNotInstalledTabMessage();
+    var restoredIndex = previouslySelectedId is null
+        ? 0
+        : Math.Max(0, Games.ToList().FindIndex(t => t.Game.Id == previouslySelectedId));
+    SelectedIndex = Games.Count > 0 ? restoredIndex : -1;
+    if (Games.Count > 0) SelectedTile = Games[SelectedIndex];
+}
 
     private void UpdateFocus() { for (var i = 0; i < Games.Count; i++) { Games[i].IsFocused = i == _selectedIndex; Games[i].CarouselDistance = i - _selectedIndex; } }
 

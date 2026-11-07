@@ -2,19 +2,20 @@ using System.IO;
 using System.Threading.Tasks;
 using Avalonia.Media.Imaging;
 using HandheldLauncher.Core.Models;
-using HandheldLauncher.Core.Services; // 🟢 ADICIONADO
+using HandheldLauncher.Core.Services;
 
 namespace HandheldLauncher.App.ViewModels;
 
 public sealed class GameTileViewModel : ViewModelBase
 {
-    private readonly SteamStoreService _steamStore; // 🟢 INJEÇÃO
+    private readonly SteamStoreService _steamStore;
+    private readonly IgdbService _igdb;
 
-    // 🟢 Construtor agora exige o serviço
-    public GameTileViewModel(GameEntry game, SteamStoreService steamStore) 
+    public GameTileViewModel(GameEntry game, SteamStoreService steamStore, IgdbService igdb) 
     { 
         Game = game; 
         _steamStore = steamStore;
+        _igdb = igdb;
     }
 
     public GameEntry Game { get; }
@@ -24,13 +25,6 @@ public sealed class GameTileViewModel : ViewModelBase
     public string? LogoImagePath => Game.LogoImagePath;
     public string? IconImagePath => Game.IconImagePath;
 
-    // v0.18.3 (pente fino de desempenho): antes, cada leitura de HasLogo
-    // DECODIFICAVA a imagem inteira do logo (new Bitmap) só pra saber se era
-    // válida — e ShowCurrentLogo/ShowNameCaption leem isso, então eram 2
-    // decodificações por bloco a cada troca de aba/favoritar (a biblioteca
-    // inteira é recriada nessas horas), tudo na thread da tela. Agora o
-    // resultado fica guardado por arquivo + data de modificação (troca de
-    // logo pelo SteamGridDB muda a data, então continua atualizando sozinho).
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (DateTime LastWriteUtc, bool Valid)> LogoValidityCache = new();
 
     public bool HasLogo
@@ -76,22 +70,44 @@ public sealed class GameTileViewModel : ViewModelBase
 
     private string _description = string.Empty;
     public string Description 
-{
-    get => System.Net.WebUtility.HtmlDecode(_description);
-    set => _description = value;
-}
+    {
+        get => System.Net.WebUtility.HtmlDecode(_description);
+        set
+        {
+            if (SetField(ref _description, value))
+                OnPropertyChanged(nameof(HasDescription));
+        }
+    }
+    
     public bool HasDescription => !string.IsNullOrWhiteSpace(Description);
-    
+
+    private string _genre = "";
+    public string Genre => _genre;
+    public bool HasGenre => !string.IsNullOrWhiteSpace(_genre);
+
+    private SteamReviewSummary? _review;
+    private bool _reviewLoaded;
+
+    public bool HasReviewData => _review is not null && _review.HasEnoughReviews;
+    public int  ReviewStars    => _review?.StarRating ?? 0;
+    public string StarsString => _review is null
+        ? ""
+        : new string('★', _review.StarRating) + new string('☆', 5 - _review.StarRating);
+    public string ReviewLabel  => _review is null
+        ? "Sem análise ainda"
+        : $"{_review.Percentage}% — {_review.ScoreDescription}";
+    public string ReviewCountLabel => _review is null
+        ? ""
+        : $"{_review.TotalReviews:N0} análises";
+
     private bool _isLoadingDescription;
-    
-    public async Task LoadDescriptionAsync() 
-    { 
-        // 🟢 Se já carregou ou está carregando, não faz nada
+
+    public async Task LoadDescriptionAsync()
+    {
         if (HasDescription || _isLoadingDescription) return;
-        
+
         _isLoadingDescription = true;
 
-        // v0.18 aba "Nuvem": entrada sintética do Xbox Cloud Gaming.
         if (MainViewModel.IsCloudEntry(Game))
         {
             Description = "☁ Joga na nuvem pelo Xbox Cloud Gaming (precisa de Game Pass Ultimate). A abre no Edge em tela cheia; o login na conta Microsoft é pedido só na primeira vez.";
@@ -99,36 +115,82 @@ public sealed class GameTileViewModel : ViewModelBase
             return;
         }
 
-        // 🟢 Se não for da Steam, coloca fallback
-        if (Game.Source != GameSource.Steam || Game.SteamAppId is not { } appId)
+        if (Game.Source == GameSource.Steam && Game.SteamAppId is { } appId)
         {
-            Description = "Informações detalhadas indisponíveis para este jogo.";
-            _isLoadingDescription = false;
-            return;
+            try
+            {
+                var meta = await _steamStore.FetchMetadataAsync(appId);
+                if (meta is not null)
+                {
+                    Description = !string.IsNullOrWhiteSpace(meta.Description)
+                        ? meta.Description
+                        : meta.ShortDescription ?? "";
+
+                    _genre = meta.Genres ?? "";
+                    OnPropertyChanged(nameof(Genre));
+                    OnPropertyChanged(nameof(HasGenre));
+                }
+            }
+            catch { }
         }
+        else
+        {
+            try
+            {
+                var meta = await _igdb.SearchGameAsync(Title);
+                if (meta is not null)
+                {
+                    Description = !string.IsNullOrWhiteSpace(meta.Description)
+                        ? meta.Description
+                        : "Informações indisponíveis.";
+
+                    _genre = meta.Genres ?? "";
+                    OnPropertyChanged(nameof(Genre));
+                    OnPropertyChanged(nameof(HasGenre));
+
+                    if (meta.IgdbRating.HasValue)
+                    {
+                        int pct = meta.IgdbRating.Value;
+                        _review = new SteamReviewSummary
+                        {
+                            Percentage = pct,
+                            TotalReviews = 999,
+                            PositiveReviews = 0,
+                            ScoreDescription = "IGDB Rating",
+                            StarRating = System.Math.Clamp((int)System.Math.Round(pct / 20.0), 1, 5)
+                        };
+                        
+                        OnPropertyChanged(nameof(HasReviewData));
+                        OnPropertyChanged(nameof(ReviewStars));
+                        OnPropertyChanged(nameof(StarsString));
+                        OnPropertyChanged(nameof(ReviewLabel));
+                        OnPropertyChanged(nameof(ReviewCountLabel));
+                    }
+                }
+            }
+            catch { }
+        }
+
+        _isLoadingDescription = false;
+    }
+
+    public async Task LoadReviewAsync()
+    {
+        if (_reviewLoaded) return;
+        _reviewLoaded = true;
+
+        if (Game.Source != GameSource.Steam || Game.SteamAppId is not { } appId) return;
 
         try
         {
-            var meta = await _steamStore.FetchMetadataAsync(appId);
-            if (meta is not null)
-            {
-                Description = !string.IsNullOrWhiteSpace(meta.Description) 
-                    ? meta.Description 
-                    : meta.ShortDescription ?? "";
-            }
-            else
-            {
-                Description = "Não foi possível carregar a descrição no momento.";
-            }
+            _review = await _steamStore.FetchReviewSummaryAsync(appId);
+            OnPropertyChanged(nameof(HasReviewData));
+            OnPropertyChanged(nameof(ReviewStars));
+            OnPropertyChanged(nameof(StarsString));
+            OnPropertyChanged(nameof(ReviewLabel));
+            OnPropertyChanged(nameof(ReviewCountLabel));
         }
-        catch 
-        {
-            Description = "Erro ao carregar descrição.";
-        }
-        finally
-        {
-            _isLoadingDescription = false;
-        }
+        catch { }
     }
 
     public string? PlatformBadgeText => Game.Source switch
@@ -166,8 +228,8 @@ public sealed class GameTileViewModel : ViewModelBase
         => ExistsOrNull(Game.WideGridImagePath) ?? ExistsOrNull(Game.HeroImagePath) ?? ExistsOrNull(Game.GridImagePath);
     public bool ShowEmptyWideCapsulePlaceholder => string.IsNullOrEmpty(WideCapsuleImagePath);
 
-    public double CarouselTileWidth => 220 * SizeScale;
-    public double CarouselTileHeight => 290 * SizeScale;
+    public double CarouselTileWidth => 200 * SizeScale;
+    public double CarouselTileHeight => 300 * SizeScale;
     public string? CarouselTileImagePath => ExistsOrNull(GridImagePath) ?? ExistsOrNull(Game.WideGridImagePath) ?? ExistsOrNull(Game.HeroImagePath);
     public bool ShowEmptyCarouselPlaceholder => string.IsNullOrEmpty(CarouselTileImagePath);
 
@@ -188,9 +250,11 @@ public sealed class GameTileViewModel : ViewModelBase
     }
 
     private int ClampedDistance => System.Math.Min(System.Math.Abs(_carouselDistance), 4);
-    public double CarouselScale => 1.42 - ClampedDistance * 0.16;
-    public double CarouselOffsetY => ClampedDistance * ClampedDistance * 14.0;
-    public double CarouselOpacity => 1.0 - ClampedDistance * 0.14;
+
+    // 🟢 ARCO SUAVE: 18 → 10 (cards das pontas descem menos)
+    public double CarouselScale => 1.0 - ClampedDistance * 0.12; 
+    public double CarouselOffsetY => ClampedDistance * ClampedDistance * 10.0; 
+    public double CarouselOpacity => 1.0 - ClampedDistance * 0.15;
     public int CarouselZIndex => 100 - ClampedDistance;
 
     private bool _isFocused;
