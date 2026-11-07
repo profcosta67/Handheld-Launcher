@@ -1,4 +1,6 @@
+using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Media.Imaging;
 using HandheldLauncher.Core.Models;
@@ -10,12 +12,14 @@ public sealed class GameTileViewModel : ViewModelBase
 {
     private readonly SteamStoreService _steamStore;
     private readonly IgdbService _igdb;
+    private readonly ISteamOwnedGamesClient? _steamOwnedGames; // 🟢 NOVO
 
-    public GameTileViewModel(GameEntry game, SteamStoreService steamStore, IgdbService igdb) 
+    public GameTileViewModel(GameEntry game, SteamStoreService steamStore, IgdbService igdb, ISteamOwnedGamesClient? steamOwnedGames = null) 
     { 
         Game = game; 
         _steamStore = steamStore;
         _igdb = igdb;
+        _steamOwnedGames = steamOwnedGames; // 🟢 NOVO
     }
 
     public GameEntry Game { get; }
@@ -65,8 +69,39 @@ public sealed class GameTileViewModel : ViewModelBase
         GameSource.Emulator => "EMULADOR", GameSource.Manual => "ATALHO", _ => ""
     };
     public string InstallStatusLabel => Game.IsOwnedNotInstalled ? "NÃO INSTALADO" : "INSTALADO";
-    public string PlaytimeLabel => Game.PlaytimeMinutes > 0 ? $"{Game.PlaytimeMinutes / 60.0:0.#}h jogadas" : "Nunca jogado";
+    
+    // 🟢 NOVO: Lógica de Tempo Jogado Total (Steam + Launcher)
+    private long _steamPlaytimeMinutes;
+    public string PlaytimeLabel => GetTotalPlaytimeText();
+    
+    private string GetTotalPlaytimeText()
+    {
+        var totalMinutes = Math.Max(_steamPlaytimeMinutes, Game.PlaytimeMinutes);
+        if (totalMinutes <= 0) return "Nunca jogado";
+        return $"{totalMinutes / 60.0:0.#}h jogadas";
+    }
+
     public string FavoriteLabel => Game.IsFavorite ? "★ Favorito" : "";
+
+    // 🟢 Ajustado para mostrar se tem tempo (Steam ou Local) OU se nunca foi jogado
+    public bool HasLastPlayed => Game.LastPlayedUtc.HasValue;
+    public bool ShowPlaytime => _steamPlaytimeMinutes > 0 || Game.PlaytimeMinutes > 0 || !HasLastPlayed;
+
+    public string LastPlayedLabel
+    {
+        get
+        {
+            if (Game.LastPlayedUtc is not { } lastPlayed) return "";
+            var diff = DateTimeOffset.UtcNow - lastPlayed;
+
+            if (diff.TotalMinutes < 60) return "Jogado agora há pouco";
+            if (diff.TotalHours < 24) return "Jogado hoje";
+            if (diff.TotalHours < 48) return "Jogado ontem";
+            if (diff.TotalDays < 30) return $"Jogado há {(int)diff.TotalDays} dias";
+            
+            return $"Jogado em {lastPlayed.LocalDateTime:dd/MM/yyyy}";
+        }
+    }
 
     private string _description = string.Empty;
     public string Description 
@@ -99,6 +134,14 @@ public sealed class GameTileViewModel : ViewModelBase
     public string ReviewCountLabel => _review is null
         ? ""
         : $"{_review.TotalReviews:N0} análises";
+
+    // 🏆 Lógica de Conquistas
+    private bool _achievementsLoaded;
+    private int _achievementsEarned;
+    private int _achievementsTotal;
+
+    public bool HasAchievements => _achievementsTotal > 0;
+    public string AchievementBadgeLabel => $" {_achievementsEarned}/{_achievementsTotal}";
 
     private bool _isLoadingDescription;
 
@@ -191,6 +234,52 @@ public sealed class GameTileViewModel : ViewModelBase
             OnPropertyChanged(nameof(ReviewCountLabel));
         }
         catch { }
+
+        // 🟢 Carrega as conquistas e o tempo da Steam junto com a review
+        await LoadAchievementsAsync();
+        await LoadSteamPlaytimeAsync();
+    }
+
+    public async Task LoadAchievementsAsync()
+    {
+        if (_achievementsLoaded) return;
+        _achievementsLoaded = true;
+
+        if (Game.Source != GameSource.Steam || Game.SteamAppId is not { } appId) return;
+
+        try
+        {
+            var result = await _steamStore.GetAchievementsAsync(appId);
+            if (result is not null && result.Achievements is not null && result.Achievements.Count > 0)
+            {
+                _achievementsTotal = result.Achievements.Count;
+                _achievementsEarned = result.Achievements.Count(a => a.Achieved);
+                
+                OnPropertyChanged(nameof(HasAchievements));
+                OnPropertyChanged(nameof(AchievementBadgeLabel));
+            }
+        }
+        catch { }
+    }
+
+    // 🟢 NOVO: Busca o tempo jogado na Steam
+    public async Task LoadSteamPlaytimeAsync()
+    {
+        if (_steamPlaytimeMinutes > 0 || _steamOwnedGames is null) return;
+        if (Game.Source != GameSource.Steam || Game.SteamAppId is not { } appId) return;
+
+        try
+        {
+            var owned = await _steamOwnedGames.GetOwnedGamesAsync();
+            var match = owned.FirstOrDefault(g => g.AppId == appId);
+            if (match != null)
+            {
+                _steamPlaytimeMinutes = match.PlaytimeMinutes;
+                OnPropertyChanged(nameof(PlaytimeLabel));
+                OnPropertyChanged(nameof(ShowPlaytime));
+            }
+        }
+        catch { }
     }
 
     public string? PlatformBadgeText => Game.Source switch
@@ -251,7 +340,6 @@ public sealed class GameTileViewModel : ViewModelBase
 
     private int ClampedDistance => System.Math.Min(System.Math.Abs(_carouselDistance), 4);
 
-    // 🟢 ARCO SUAVE: 18 → 10 (cards das pontas descem menos)
     public double CarouselScale => 1.0 - ClampedDistance * 0.12; 
     public double CarouselOffsetY => ClampedDistance * ClampedDistance * 10.0; 
     public double CarouselOpacity => 1.0 - ClampedDistance * 0.15;

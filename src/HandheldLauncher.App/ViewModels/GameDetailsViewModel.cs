@@ -8,17 +8,6 @@ using HandheldLauncher.Core.Services;
 
 namespace HandheldLauncher.App.ViewModels;
 
-/// <summary>
-/// Página de detalhes do jogo. v0.9.11 nasceu como janela de consulta;
-/// v0.18 "Detalhes 2.0" (Fase 2 do roadmap) vira a central do jogo:
-/// cabeçalho com ações, faixa de informações e 5 seções navegáveis por
-/// LB/RB (Visão geral, Conquistas, Mídia, Desempenho, Arquivos), com cache
-/// em disco pra funcionar sem internet depois da primeira visita.
-///
-/// Tudo o que a versão anterior mostrava continua aqui (capa/banner/logo,
-/// horas jogadas, desenvolvedora/gêneros/lançamento, descrição, conquistas
-/// com progresso, fallback RAWG pra jogos fora da Steam) — só reorganizado.
-/// </summary>
 public sealed class GameDetailsViewModel : ViewModelBase
 {
     private static readonly HttpClient IconHttp = new() { Timeout = TimeSpan.FromSeconds(15) };
@@ -35,7 +24,7 @@ public sealed class GameDetailsViewModel : ViewModelBase
             StoreHttp.DefaultRequestHeaders.UserAgent.ParseAdd($"{AppUserAgent.Value} (Windows; C#)");
             StoreHttp.DefaultRequestHeaders.Accept.ParseAdd("application/json");
         }
-        catch { /* melhor esforço */ }
+        catch { }
     }
 
     private static readonly string IconCacheDir = Path.Combine(
@@ -73,13 +62,10 @@ public sealed class GameDetailsViewModel : ViewModelBase
     public string? BannerImagePath => Game.HeroImagePath ?? Game.WideGridImagePath;
     public string? LogoImagePath => Game.LogoImagePath;
 
-    // ---- Estado geral -------------------------------------------------------------
-
     private bool _isLoading = true;
     public bool IsLoading { get => _isLoading; private set => SetField(ref _isLoading, value); }
 
     private string _dataSourceNote = "";
-    /// <summary>"Atualizado agora" / "Sem conexão — dados salvos em 03/11" etc.</summary>
     public string DataSourceNote { get => _dataSourceNote; private set => SetField(ref _dataSourceNote, value); }
 
     private bool _isFavorite;
@@ -90,8 +76,6 @@ public sealed class GameDetailsViewModel : ViewModelBase
     }
     public string FavoriteLabel => IsFavorite ? "Desfavoritar" : "Favoritar";
     public string FavoriteBadge => IsFavorite ? "★ Favorito" : "";
-
-    // ---- Seções (LB/RB) -------------------------------------------------------------
 
     private int _sectionIndex;
     public int SectionIndex
@@ -117,11 +101,6 @@ public sealed class GameDetailsViewModel : ViewModelBase
     public bool IsPerformanceSection => SectionIndex == 3;
     public bool IsFilesSection => SectionIndex == 4;
 
-    /// <summary>
-    /// Ação do botão Y na seção atual. O plano previa "Y = Receita do jogo",
-    /// mas Receitas só existem na v0.20 — até lá o Y faz a ação útil da seção
-    /// (abrir trailer/página da loja em Mídia, abrir a pasta em Arquivos).
-    /// </summary>
     public string SectionActionLabel => SectionIndex switch
     {
         2 when HasTrailerOrStorePage => HasTrailer ? "Ver trailer na loja" : "Abrir página na loja",
@@ -129,8 +108,6 @@ public sealed class GameDetailsViewModel : ViewModelBase
         _ => "",
     };
     public bool HasSectionAction => SectionActionLabel.Length > 0;
-
-    // ---- Faixa de informações ---------------------------------------------------
 
     public string PlatformText { get; private set; } = "";
     public string LastPlayedText { get; private set; } = "";
@@ -142,10 +119,7 @@ public sealed class GameDetailsViewModel : ViewModelBase
     private string _sizeText = "Calculando...";
     public string SizeText { get => _sizeText; private set => SetField(ref _sizeText, value); }
 
-    // ---- Visão geral --------------------------------------------------------------
-
     private string _playtimeText = "Carregando horas jogadas...";
-    /// <summary>Horas da Steam (mantido da versão anterior; usado em Desempenho).</summary>
     public string PlaytimeText { get => _playtimeText; private set => SetField(ref _playtimeText, value); }
 
     private string _description = "";
@@ -164,8 +138,6 @@ public sealed class GameDetailsViewModel : ViewModelBase
 
     public ObservableCollection<DetailsTagItem> Tags { get; }
 
-    // ---- Conquistas ---------------------------------------------------------------
-
     private string _achievementsStatusText = "Carregando conquistas...";
     public string AchievementsStatusText { get => _achievementsStatusText; private set => SetField(ref _achievementsStatusText, value); }
 
@@ -173,14 +145,10 @@ public sealed class GameDetailsViewModel : ViewModelBase
     public double AchievementProgress { get => _achievementProgress; private set => SetField(ref _achievementProgress, value); }
 
     public ObservableCollection<AchievementItemViewModel> Achievements { get; }
-
-    /// <summary>As 3 bloqueadas que mais jogadores já têm — "as mais próximas", em destaque no topo.</summary>
     public ObservableCollection<AchievementItemViewModel> NextAchievements { get; }
 
     private bool _hasNextAchievements;
     public bool HasNextAchievements { get => _hasNextAchievements; private set => SetField(ref _hasNextAchievements, value); }
-
-    // ---- Mídia --------------------------------------------------------------------
 
     public ObservableCollection<DetailsImageItem> Screenshots { get; }
 
@@ -197,15 +165,11 @@ public sealed class GameDetailsViewModel : ViewModelBase
     public bool HasTrailerOrStorePage => Game.SteamAppId.HasValue;
     public string? StorePageUrl => Game.SteamAppId is { } id ? $"https://store.steampowered.com/app/{id}" : null;
 
-    // ---- Arquivos -----------------------------------------------------------------
-
     public string GameFolderText { get; private set; } = "";
     public string? GameFolderPath { get; private set; }
     public bool CanOpenGameFolder => GameFolderPath is not null && Directory.Exists(GameFolderPath);
     public string SaveFolderText { get; private set; } = "";
     public string SaveFolderHint { get; private set; } = "";
-
-    // ==================================================================================
 
     private void BuildStaticInfo()
     {
@@ -225,9 +189,6 @@ public sealed class GameDetailsViewModel : ViewModelBase
         LauncherPlaytimeText = Game.PlaytimeMinutes > 0 ? FormatDuration(Game.PlaytimeMinutes) : "Nenhuma sessão medida ainda";
         TotalPlaytimeText = Game.PlaytimeMinutes > 0 ? FormatDuration(Game.PlaytimeMinutes) : "—";
 
-        // Pasta do jogo: InstallDirectory é a única que é com certeza "a pasta
-        // do jogo" (vem do scanner da loja). Pra jogo adicionado à mão, a pasta
-        // do .exe pode ser só uma subpasta (bin\x64) — mostra, mas avisa.
         if (!string.IsNullOrWhiteSpace(Game.InstallDirectory))
         {
             GameFolderPath = Game.InstallDirectory;
@@ -251,7 +212,7 @@ public sealed class GameDetailsViewModel : ViewModelBase
         else
         {
             SaveFolderText = "Não identificada automaticamente";
-            SaveFolderHint = "Cada jogo salva num lugar diferente — os mais comuns são Documentos, Documentos\\My Games e %AppData%. A Central de saves (sincronizar entre aparelhos) fica pra uma versão futura.";
+            SaveFolderHint = "Cada jogo salva num lugar diferente — os mais comuns são Documentos, Documentos\\My Games e %AppData%.";
         }
     }
 
@@ -294,8 +255,6 @@ public sealed class GameDetailsViewModel : ViewModelBase
         return null;
     }
 
-    // ---- Carregamento ---------------------------------------------------------------
-
     private async Task LoadAsync()
     {
         var cache = GameDetailsCache.Load(Game.Id);
@@ -307,8 +266,6 @@ public sealed class GameDetailsViewModel : ViewModelBase
 
         try
         {
-            DebugLog.Write($"[GameDetails] LoadAsync início: Title='{Game.Title}', cache={(cache is null ? "nenhum" : cache.StoreFetchedUtc.ToString("dd/MM"))}, lojaVencida={storeStale}");
-
             if (Game.SteamAppId.HasValue)
             {
                 var appId = Game.SteamAppId.Value;
@@ -334,7 +291,6 @@ public sealed class GameDetailsViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            DebugLog.Write($"[GameDetails] EXCEPTION em LoadAsync: {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}");
             anyFailed = true;
         }
         finally
@@ -354,8 +310,6 @@ public sealed class GameDetailsViewModel : ViewModelBase
 
         if (Screenshots.Count == 0 && Game.SteamAppId.HasValue && MediaStatusText == "Carregando mídia...")
             MediaStatusText = "Sem capturas de tela na loja para este jogo.";
-
-        DebugLog.Write($"[GameDetails] LoadAsync fim: Description.Len={Description.Length}, Tags={Tags.Count}, Shots={Screenshots.Count}, Conquistas={Achievements.Count}, Playtime='{PlaytimeText}'");
     }
 
     private void ApplyCache(GameDetailsCacheData cache)
@@ -421,7 +375,6 @@ public sealed class GameDetailsViewModel : ViewModelBase
         GameDetailsCache.Save(Game.Id, data);
     }
 
-    /// <returns>true = baixou; false = falhou; null = não precisou.</returns>
     private async Task<bool?> LoadSteamStoreDataAsync(uint appId)
     {
         try
@@ -434,7 +387,6 @@ public sealed class GameDetailsViewModel : ViewModelBase
             if (!doc.RootElement.TryGetProperty(appId.ToString(), out var entry)) return false;
             if (!entry.TryGetProperty("success", out var success) || !success.GetBoolean())
             {
-                // Jogo fora da loja (removido/região): não é falha de rede.
                 MediaStatusText = "Este jogo não tem página ativa na loja da Steam.";
                 _storeFetchedUtc = DateTimeOffset.UtcNow;
                 return true;
@@ -507,12 +459,11 @@ public sealed class GameDetailsViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            DebugLog.Write($"[GameDetails] EXCEPTION em LoadSteamStoreDataAsync: {ex.GetType().Name}: {ex.Message}");
             return false;
         }
     }
 
-    private async Task<bool?> LoadAchievementsAsync(uint appId)
+        private async Task<bool?> LoadAchievementsAsync(uint appId)
     {
         if (_achievements is null || !_achievements.HasCredentials)
         {
@@ -538,9 +489,11 @@ public sealed class GameDetailsViewModel : ViewModelBase
             var totalCount = result.Achievements.Count;
             var unlockedCount = result.Achievements.Count(a => a.Achieved);
 
+            // 🟢 AQUI: Usa o motivo do erro se a Steam recusar o acesso
             AchievementsStatusText = result.PlayerDataUnavailable
-                ? $"{totalCount} conquistas — seu progresso não está visível (perfil ou \"Detalhes do jogo\" privados na Steam)."
+                ? $"{totalCount} conquistas — {result.PlayerDataUnavailableReason}"
                 : $"{unlockedCount} de {totalCount} conquistadas";
+                
             AchievementProgress = totalCount > 0 ? (double)unlockedCount / totalCount * 100 : 0;
 
             var items = new List<AchievementItemViewModel>();
@@ -571,11 +524,6 @@ public sealed class GameDetailsViewModel : ViewModelBase
         }
     }
 
-    /// <summary>
-    /// % global de cada conquista (endpoint público da Steam, sem chave).
-    /// Usado só pra ordenar/destacar "as mais próximas" — falhar aqui não
-    /// afeta mais nada.
-    /// </summary>
     private static async Task<Dictionary<string, double>> LoadGlobalPercentagesAsync(uint appId)
     {
         var map = new Dictionary<string, double>(StringComparer.Ordinal);
@@ -597,17 +545,12 @@ public sealed class GameDetailsViewModel : ViewModelBase
                 map[name] = value;
             }
         }
-        catch (Exception ex)
-        {
-            DebugLog.Write($"[GameDetails] % global de conquistas indisponível: {ex.Message}");
-        }
+        catch { }
         return map;
     }
 
     private void SetAchievements(List<AchievementItemViewModel> items)
     {
-        // Desbloqueadas primeiro (mais recentes no topo); depois as bloqueadas,
-        // das que mais gente tem pras mais raras.
         var ordered = items
             .Where(a => a.Achieved).OrderByDescending(a => a.UnlockedAtUtc ?? DateTimeOffset.MinValue)
             .Concat(items.Where(a => !a.Achieved).OrderByDescending(a => a.GlobalPercent ?? -1))
@@ -670,7 +613,6 @@ public sealed class GameDetailsViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            DebugLog.Write($"[GameDetails] EXCEPTION em LoadRawgDataAsync: {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}");
             if (string.IsNullOrWhiteSpace(Description)) Description = "Não foi possível consultar a RAWG agora.";
             return false;
         }
@@ -699,8 +641,6 @@ public sealed class GameDetailsViewModel : ViewModelBase
     private void ApplySteamPlaytime(long steamMinutes)
     {
         PlaytimeText = FormatPlaytime(steamMinutes);
-        // A Steam já conta as sessões abertas pelo launcher; o maior dos dois
-        // é o "total" mais honesto.
         var total = Math.Max(steamMinutes, Game.PlaytimeMinutes);
         TotalPlaytimeText = total > 0 ? FormatDuration(total) : "—";
     }
@@ -770,7 +710,6 @@ public sealed class GameDetailsViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            DebugLog.Write($"[GameDetails] Captura {index} não baixou: {ex.Message}");
             var existing = Path.Combine(GameDetailsCache.MediaDir, $"{appId}_{index}.jpg");
             return File.Exists(existing) ? existing : null;
         }

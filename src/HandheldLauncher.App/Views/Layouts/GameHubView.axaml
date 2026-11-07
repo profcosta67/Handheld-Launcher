@@ -71,14 +71,25 @@
 
                 <!-- Linha de estatísticas -->
                 <StackPanel Orientation="Horizontal" Spacing="16">
-                    <StackPanel Orientation="Horizontal" Spacing="4">
+                    
+                    <!-- ⏱️ Tempo de Jogo -->
+                    <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding SelectedTile.ShowPlaytime}">
                         <TextBlock Text="⏱️" FontSize="14" VerticalAlignment="Center"/>
                         <TextBlock Text="{Binding SelectedTile.PlaytimeLabel}"
                                    Foreground="{DynamicResource TextPrimaryBrush}"
                                    FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     </StackPanel>
 
-                    <!-- Gênero (real, vem da Steam) -->
+                    <!-- 🕒 Última Sessão -->
+                    <StackPanel Orientation="Horizontal" Spacing="4"
+                                IsVisible="{Binding SelectedTile.HasLastPlayed}">
+                        <TextBlock Text="🕒" FontSize="14" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding SelectedTile.LastPlayedLabel}"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                   FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- 🏷️ Gênero -->
                     <StackPanel Orientation="Horizontal" Spacing="4"
                                 IsVisible="{Binding SelectedTile.HasGenre}">
                         <TextBlock Text="🏷️" FontSize="14" VerticalAlignment="Center"/>
@@ -86,8 +97,18 @@
                                    Foreground="{DynamicResource TextPrimaryBrush}"
                                    FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     </StackPanel>
+
+                    <!-- Adicione isso na linha de estatísticas (junto com tempo, última sessão e gênero) -->
+                <StackPanel Orientation="Horizontal" Spacing="4"
+                            IsVisible="{Binding SelectedTile.HasAchievements}">
+                    <TextBlock Text="🏆" FontSize="11"/>
+                    <TextBlock Text="{Binding SelectedTile.AchievementBadgeLabel}" FontSize="11"
+                            Foreground="{DynamicResource TextMuted}"/>
+                </StackPanel>
+                    
                 </StackPanel>
 
+                <!-- Descrição -->
                 <TextBlock Text="{Binding SelectedTile.Description, Converter={x:Static conv:HtmlDecodeConverter.Instance}}" 
                            Foreground="{DynamicResource TextSecondaryBrush}" 
                            FontSize="12" 
