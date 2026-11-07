@@ -92,7 +92,7 @@ public static class AppSettingsStore
         }
     }
 
-    private static string? Unprotect(string? value)
+        private static string? Unprotect(string? value)
     {
         if (value is null || !value.StartsWith(ProtectedPrefix, StringComparison.Ordinal)) return value;
 
@@ -108,8 +108,10 @@ public static class AppSettingsStore
             var bytes = ProtectedData.Unprotect(Convert.FromBase64String(value[ProtectedPrefix.Length..]), Entropy, DataProtectionScope.CurrentUser);
             return Encoding.UTF8.GetString(bytes);
         }
-        catch
+        catch (Exception ex)
         {
+            // 🟢 NOVO: Loga o erro para sabermos que a chave foi perdida
+            LogError("Falha ao descriptografar a chave de API. O usuário do Windows pode ter mudado (Admin vs Normal).", ex);
             return null;
         }
     }
