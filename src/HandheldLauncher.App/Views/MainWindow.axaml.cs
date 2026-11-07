@@ -483,9 +483,43 @@ public partial class MainWindow : Window
                 DebugLog.Write("[OVERLAY] Handler disparado.");
 
                 IntPtr gameHwnd = IntPtr.Zero;
+                int gamePid = 0;
                 if (OperatingSystem.IsWindows())
                 {
-                    try { gameHwnd = GetForegroundWindow(); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
+                    try
+                    {
+                        // Nunca presumir que a janela em foreground é o jogo:
+                        // em fullscreen o overlay/launcher/Xbox podem ser o foreground.
+                        if (vm.RunningGame is not null)
+                        {
+                            var detected = FindGameWindow(vm.RunningGame);
+                            if (detected.Found && detected.Hwnd != IntPtr.Zero)
+                            {
+                                gameHwnd = detected.Hwnd;
+                                gamePid = checked((int)detected.Pid);
+                            }
+                        }
+
+                        // Fallback apenas para uma janela externa válida, nunca para
+                        // uma janela pertencente ao próprio Launcher.
+                        if (gameHwnd == IntPtr.Zero)
+                        {
+                            var foreground = GetForegroundWindow();
+                            if (foreground != IntPtr.Zero)
+                            {
+                                GetWindowThreadProcessId(foreground, out var foregroundPid);
+                                if (foregroundPid != 0 && foregroundPid != (uint)Environment.ProcessId)
+                                {
+                                    gameHwnd = foreground;
+                                    gamePid = checked((int)foregroundPid);
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        DebugLog.Write($"[OVERLAY] Falha ao identificar HWND real do jogo: {ex.Message}");
+                    }
                 }
                 
                // v0.18.6: Em vez de destruir e recriar (o que causava o flash no centro e perda de foco),
@@ -501,7 +535,7 @@ else
 }
 
 _overlayWindow.SetGameHwnd(gameHwnd);
-_overlayWindow.SetGamePid(_detectedGamePid);
+_overlayWindow.SetGamePid(gamePid);
 
                 DebugLog.Write($"[OVERLAY] Antes Show: IsVisible={_overlayWindow.IsVisible}, Pos={_overlayWindow.Position}, GameHwnd=0x{gameHwnd:X}");
 
