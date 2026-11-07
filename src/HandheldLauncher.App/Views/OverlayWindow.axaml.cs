@@ -99,6 +99,15 @@ public partial class OverlayWindow : Window
     [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
+    private const int GWL_EXSTYLE = -20;
+    private const int WS_EX_NOACTIVATE = 0x08000000;
+    private const int WS_EX_TOOLWINDOW = 0x00000080;
 
     private static readonly IntPtr HWND_TOPMOST = new(-1);
     private const uint SWP_NOMOVE = 0x0002;
@@ -127,7 +136,7 @@ public partial class OverlayWindow : Window
         _viewModel = viewModel;
         InitializeComponent();
 
-        ShowActivated = true;
+        ShowActivated = false;
 
                 _tdpHardwareSupported = OperatingSystem.IsWindows()
             && RyzenSmuService.IsSupportedPlatform()
@@ -488,18 +497,28 @@ public partial class OverlayWindow : Window
 {
     base.OnOpened(e);
     DebugLog.Write($"[OVERLAY] OnOpened chamado. Width={Width}, Height={Height}");
-    
-    // 🟢 A MÁGICA: Posiciona de forma síncrona ANTES da tela renderizar
-    PositionOnRightEdge(); 
-    
+
+    // v0.20.x — overlay não-ativável: não rouba foco do jogo em fullscreen.
+    // Elimina o ciclo "jogo reativa → Windows recentraliza overlay em 740,175".
+    if (OperatingSystem.IsWindows())
+    {
+        var h = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+        if (h != IntPtr.Zero)
+        {
+            var ex = GetWindowLong(h, GWL_EXSTYLE);
+            SetWindowLong(h, GWL_EXSTYLE, ex | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);
+            DebugLog.Write($"[OVERLAY] WS_EX_NOACTIVATE|WS_EX_TOOLWINDOW aplicados (ex=0x{ex:X8}).");
+        }
+    }
+
+    PositionOnRightEdge();
     ResetPositionGuardForShow();
     UpdateLsfgStatus();
-    
-    // O resto continua igual...
+
     Dispatcher.UIThread.Post(() =>
     {
         ForceTopmost();
-        TakeFocusFromGameIfEnabled();
+        // TakeFocusFromGameIfEnabled(); // desativado: overlay não-ativável
     }, DispatcherPriority.Loaded);
 }
 
@@ -610,35 +629,16 @@ public void SetInitialPosition()
     /// o foco ao abrir — a maioria dos jogos para de ler o controle sem foco.
     /// </summary>
     private void TakeFocusFromGameIfEnabled()
-    {
-        try
-        {
-            if (_gameHwnd == IntPtr.Zero) return;
-            if (!AppSettingsStore.Load().FocusOverlayInGame) return;
-            Activate();
-            _focusTakenFromGame = true;
-            DebugLog.Write("[OVERLAY] Foco tirado do jogo enquanto o Quick Settings está aberto.");
-        }
-        catch (Exception ex)
-        {
-            DebugLog.Write($"[OVERLAY] Não consegui pegar o foco: {ex.Message}");
-        }
-    }
-
+{
+    // Desativado: overlay abre com WS_EX_NOACTIVATE — XInput continua
+    // chegando ao GamepadPoller sem depender do foco de janela.
+}
     private void GiveFocusBackToGame()
-    {
-        if (!_focusTakenFromGame) return;
-        _focusTakenFromGame = false;
-        try
-        {
-            if (_gameHwnd != IntPtr.Zero && SetForegroundWindow(_gameHwnd))
-                DebugLog.Write("[OVERLAY] Foco devolvido ao jogo.");
-        }
-        catch (Exception ex)
-        {
-            DebugLog.Write($"[OVERLAY] Não consegui devolver o foco ao jogo: {ex.Message}");
-        }
-    }
+{
+    // Desativado: nunca tiramos o foco do jogo (WS_EX_NOACTIVATE), então
+    // não há o que devolver. Deixar aqui mexeria no fullscreen do jogo
+    // e é justamente o gatilho do bug de recentralização em 740,175.
+}
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {
