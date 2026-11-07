@@ -19,6 +19,9 @@ namespace HandheldLauncher.App.Views;
 
 public partial class OverlayWindow : Window
 {
+    // 🟢 NOVO: Evento para avisar o MainWindow a ligar/desligar o timer do controle
+    public static event Action<bool>? OnOverlayVisibilityChanged;
+
     private bool _lsfgIsActive = false;
     private int _gamePid = 0;
 
@@ -104,7 +107,6 @@ public partial class OverlayWindow : Window
     private const uint SWP_HIDEWINDOW = 0x0080;
     
     private IntPtr _gameHwnd = IntPtr.Zero;
-    private bool _focusTakenFromGame;
 
     [DllImport("user32.dll")] private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
     [StructLayout(LayoutKind.Sequential)] private struct INPUT { public uint type; public InputUnion U; }
@@ -458,6 +460,9 @@ public partial class OverlayWindow : Window
             }
         }
 
+        // 🟢 NOVO: Avisa o MainWindow para ligar o timer do controle
+        OnOverlayVisibilityChanged?.Invoke(true);
+
         // Posiciona apenas uma vez
         PositionOnRightEdge();
         ResetPositionGuardForShow();
@@ -552,30 +557,17 @@ public partial class OverlayWindow : Window
 
     public void HideWithUnblock()
     {
-        DebugLog.Write($"[OVERLAY-CLOSE] origem=HideWithUnblock fullscreen-contexto; overlay={TryGetPlatformHandle()?.Handle}, game={_gameHwnd}, foreground={GetForegroundWindow()}, visible={IsVisible}, submenu={_activeSubMenu}, focoJogo={_focusTakenFromGame}");
+        DebugLog.Write($"[OVERLAY-CLOSE] origem=HideWithUnblock fullscreen-contexto; overlay={TryGetPlatformHandle()?.Handle}, game={_gameHwnd}, foreground={GetForegroundWindow()}, visible={IsVisible}, submenu={_activeSubMenu}");
         
         if (_activeSubMenu == SubMenuMode.TdpCustom) CancelTdpCustomEdit();
         FlushPendingCustomApply();
         
         StopTopmostEnforcer();
-        InputBlockService.UnblockGamepadForGame();
-        
-        // A posição é tratada na abertura (PositionOnRightEdge). 
-        // Não chamar SetInitialPosition aqui para evitar transições nativas.
+             
         Hide();
-        GiveFocusBackToGame();
-    }
 
-    private void TakeFocusFromGameIfEnabled()
-    {
-        // Desativado: overlay abre com WS_EX_NOACTIVATE — XInput continua
-        // chegando ao GamepadPoller sem depender do foco de janela.
-    }
-
-    private void GiveFocusBackToGame()
-    {
-        // Desativado: nunca tiramos o foco do jogo (WS_EX_NOACTIVATE), então
-        // não há o que devolver.
+        // 🟢 NOVO: Avisa o MainWindow para desligar o timer do controle (se o launcher ainda estiver escondido)
+        OnOverlayVisibilityChanged?.Invoke(false);
     }
 
     protected override void OnClosing(WindowClosingEventArgs e)
@@ -690,8 +682,6 @@ public partial class OverlayWindow : Window
 
         switch (action)
         {
-            // 🟢 Revertido: B volta a fechar o Quick Settings na tela principal.
-            // A causa raiz do bug (janela roubando foco) já foi corrigida.
             case GamepadAction.Back:
             case GamepadAction.GlobalMenu:
                 HideWithUnblock();
@@ -1514,12 +1504,12 @@ public partial class OverlayWindow : Window
                 }
             }
 
-            if (_gameHwnd != IntPtr.Zero)
-            {
-                LosslessScalingService.SetGameHwnd(_gameHwnd);
-                try { SetForegroundWindow(_gameHwnd); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
-                await Task.Delay(300);
-            }
+        //    if (_gameHwnd != IntPtr.Zero)
+        //    {
+        //        LosslessScalingService.SetGameHwnd(_gameHwnd);
+        //        try { SetForegroundWindow(_gameHwnd); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
+        //       await Task.Delay(300);
+        //   }
 
             if (LsfgStatusText != null) LsfgStatusText.Text = "Enviando atalho...";
 

@@ -183,61 +183,88 @@ public partial class MainWindow : Window
 
     private bool? _gamepadComboModeIsGame;
 
-    public MainWindow()
-{
-    InitializeComponent();
-
-    ApplyLayoutTheme();
-
-    GamesItemsControl.ContainerPrepared += (_, e) => e.Container.Margin = ContainerMargin();
-
-    HeroImage.PropertyChanged += OnHeroImageChanged;
-
-    AddHandler(KeyDownEvent, OnWindowKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
-
-    _gamepadTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
-    _gamepadTimer.Tick += OnGamepadTick;
-    _gamepadTimer.Start();
-
-    // v0.19: Otimização de energia. Colocado AQUI, DEPOIS do timer existir.
-    // Pausa a leitura do controle quando o launcher está na bandeja (minimizado)
-    // e retoma quando ele volta a ficar visível.
-    this.PropertyChanged += (s, e) =>
+       public MainWindow()
     {
-        if (e.Property == IsVisibleProperty)
+        InitializeComponent();
+
+        ApplyLayoutTheme();
+
+        GamesItemsControl.ContainerPrepared += (_, e) => e.Container.Margin = ContainerMargin();
+
+        HeroImage.PropertyChanged += OnHeroImageChanged;
+
+        AddHandler(KeyDownEvent, OnWindowKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+
+        _gamepadTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
+        _gamepadTimer.Tick += OnGamepadTick;
+        _gamepadTimer.Start();
+
+        // v0.19: Otimização de energia.
+        this.PropertyChanged += (s, e) =>
         {
-            if (IsVisible)
+            if (e.Property == IsVisibleProperty)
+            {
+                if (IsVisible)
+                {
+                    if (!_gamepadTimer.IsEnabled)
+                    {
+                        _gamepadTimer.Start();
+                        DebugLog.Write("[PERF] Launcher visível. Timer do gamepad LIGADO.");
+                    }
+                }
+                else
+                {
+                    if (_gamepadTimer.IsEnabled)
+                    {
+                        _gamepadTimer.Stop();
+                        DebugLog.Write("[PERF] Launcher minimizado/escondido. Timer do gamepad PAUSADO.");
+                    }
+                }
+            }
+        };
+
+        // 🟢 Escuta o Quick Settings (OverlayWindow)
+        OverlayWindow.OnOverlayVisibilityChanged += (isOverlayVisible) =>
+        {
+            if (isOverlayVisible)
             {
                 if (!_gamepadTimer.IsEnabled)
                 {
                     _gamepadTimer.Start();
-                    DebugLog.Write("[PERF] Launcher visível. Timer do gamepad LIGADO.");
+                    DebugLog.Write("[PERF] Quick Settings abriu. Timer do gamepad LIGADO.");
                 }
             }
             else
             {
-                if (_gamepadTimer.IsEnabled)
+                if (IsVisible) // Se a Home está na tela
+                {
+                    Activate(); // Devolve o foco
+                    DebugLog.Write("[PERF] Quick Settings fechou. Launcher re-focado para navegação.");
+                }
+                else if (_gamepadTimer.IsEnabled) // Se está num jogo
                 {
                     _gamepadTimer.Stop();
-                    DebugLog.Write("[PERF] Launcher minimizado/escondido. Timer do gamepad PAUSADO.");
+                    DebugLog.Write("[PERF] Quick Settings fechou. Timer do gamepad PAUSADO (jogo em foco).");
                 }
             }
-        }
-    };
+        };
 
-    Closing += (_, _) => DebugLog.Write("[STARTUP] Fechamento detectado.");
+        Closing += (_, _) => DebugLog.Write("[STARTUP] Fechamento detectado.");
 
-    Closed += (_, _) =>
-    {
-        _gamepadTimer.Stop();
-        RemoveTrayIcon();
+        Closed += (_, _) =>
+        {
+            _gamepadTimer.Stop();
+            RemoveTrayIcon();
             try { InputBlockService.UnblockGamepadForGame(); }
             catch (Exception ex) { DebugLog.Write($"[InputBlock] Falha ao desbloquear gamepad no fechamento: {ex.Message}"); }
+            
             if (_overlayWindow != null)
             {
                 _overlayWindow.IsAppClosing = true;
                 _overlayWindow.Close();
             }
+            
+            UnregisterRestoreHotkeyIfNeeded();
         };
 
         DataContextChanged += OnDataContextChanged;
@@ -259,7 +286,6 @@ public partial class MainWindow : Window
             KeyDown += (_, _) => StopForegroundFighter();
         };
 
-        Closed += (_, _) => UnregisterRestoreHotkeyIfNeeded();
         Activated += (_, _) =>
         {
             if (OperatingSystem.IsWindows())
@@ -274,6 +300,7 @@ public partial class MainWindow : Window
             }
         };
     }
+    
 
     public void ToggleOverlay()
     {
