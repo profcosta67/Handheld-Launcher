@@ -113,12 +113,6 @@ public partial class OverlayWindow : Window
         public uint dwFlags;
     }
 
-    [StructLayout(LayoutKind.Sequential)]
-    private struct RECT
-    {
-        public int Left, Top, Right, Bottom;
-    }
-
     /// <summary>
     /// Obtém a área de trabalho do monitor onde o jogo está aberto.
     /// O HWND do próprio overlay é usado como alternativa quando não há jogo.
