@@ -99,6 +99,11 @@ public partial class OverlayWindow : Window
     [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] private static extern bool IsWindow(IntPtr hWnd);
+    [DllImport("user32.dll")] private static extern bool BringWindowToTop(IntPtr hWnd);
+    [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+    [DllImport("kernel32.dll")] private static extern uint GetCurrentThreadId();
+    [DllImport("user32.dll")] private static extern bool AttachThreadInput(uint attach, uint attachTo, bool attachInput);
 
     private static readonly IntPtr HWND_TOPMOST = new(-1);
     private const uint SWP_NOMOVE = 0x0002;
@@ -632,17 +637,55 @@ public void SetInitialPosition()
 
     private void GiveFocusBackToGame()
     {
-        if (!_focusTakenFromGame) return;
+        // Show() pode ativar o overlay mesmo quando a preferência "pegar foco"
+        // está desligada. Portanto, restaurar o jogo não pode depender dessa flag.
         _focusTakenFromGame = false;
-        try
+        if (!OperatingSystem.IsWindows() || _gameHwnd == IntPtr.Zero) return;
+
+        // Executar depois que Hide() terminar de processar a transição nativa.
+        Dispatcher.UIThread.Post(() =>
         {
-            if (_gameHwnd != IntPtr.Zero && SetForegroundWindow(_gameHwnd))
-                DebugLog.Write("[OVERLAY] Foco devolvido ao jogo.");
-        }
-        catch (Exception ex)
-        {
-            DebugLog.Write($"[OVERLAY] Não consegui devolver o foco ao jogo: {ex.Message}");
-        }
+            try
+            {
+                var overlayHwnd = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+                if (_gameHwnd == IntPtr.Zero || _gameHwnd == overlayHwnd || !IsWindow(_gameHwnd))
+                {
+                    DebugLog.Write($"[OVERLAY-FOCUS] HWND do jogo inválido; game=0x{_gameHwnd:X}, overlay=0x{overlayHwnd:X}.");
+                    return;
+                }
+
+                GetWindowThreadProcessId(_gameHwnd, out var targetPid);
+                if (_gamePid > 0 && targetPid != (uint)_gamePid)
+                {
+                    DebugLog.Write($"[OVERLAY-FOCUS] PID não confere; hwnd=0x{_gameHwnd:X}, esperado={_gamePid}, atual={targetPid}.");
+                    return;
+                }
+
+                var foreground = GetForegroundWindow();
+                var foregroundThread = foreground != IntPtr.Zero
+                    ? GetWindowThreadProcessId(foreground, out _)
+                    : 0;
+                var currentThread = GetCurrentThreadId();
+                var attached = foregroundThread != 0 && foregroundThread != currentThread
+                    && AttachThreadInput(foregroundThread, currentThread, true);
+
+                try
+                {
+                    BringWindowToTop(_gameHwnd);
+                    var activated = SetForegroundWindow(_gameHwnd);
+                    var after = GetForegroundWindow();
+                    DebugLog.Write($"[OVERLAY-FOCUS] Retorno solicitado: hwnd=0x{_gameHwnd:X}, pid={targetPid}, SetForeground={activated}, foregroundAntes=0x{foreground:X}, depois=0x{after:X}.");
+                }
+                finally
+                {
+                    if (attached) AttachThreadInput(foregroundThread, currentThread, false);
+                }
+            }
+            catch (Exception ex)
+            {
+                DebugLog.Write($"[OVERLAY-FOCUS] Erro ao devolver foco: {ex.GetType().Name}: {ex.Message}");
+            }
+        }, DispatcherPriority.Background);
     }
 
     protected override void OnClosing(WindowClosingEventArgs e)
