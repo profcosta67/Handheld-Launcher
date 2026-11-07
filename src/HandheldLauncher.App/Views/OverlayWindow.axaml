@@ -326,7 +326,7 @@
                 <Button x:Name="BtnCloseXCloud" Click="OnCloseXCloudClick" IsVisible="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#8B2E2E" Foreground="White" CornerRadius="12" Padding="10" FontWeight="Bold">
                     <TextBlock Text="⏹ Fechar Xbox Cloud Gaming  (Y)" />
                 </Button>
-                <Button Content="Fechar Menu" Click="OnCloseClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#7C5CFC" Foreground="White" CornerRadius="12" Padding="12" FontWeight="Bold" />
+                <Button x:Name="BtnCloseMenu" Content="Fechar Menu  (X)" Click="OnCloseClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#252A36" Foreground="White" CornerRadius="12" Padding="12" FontWeight="Bold" />
             </StackPanel>
         </Grid>
     </Border>

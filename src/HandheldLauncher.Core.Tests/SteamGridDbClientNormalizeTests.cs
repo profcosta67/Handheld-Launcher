@@ -16,10 +16,10 @@ public class SteamGridDbClientNormalizeTests
     [InlineData("HOLLOW KNIGHT", "hollow knight")] // case
     [InlineData("Hollow-Knight", "hollow knight")] // punctuation becomes space
     [InlineData("Hollow:  Knight!!", "hollow knight")] // multiple punctuation collapses
-     [InlineData("Pokemon Legends Z-A", "Pokemon Legends Z A")]
-    [InlineData("Pokemon Legends: Z-A", "Pokemon Legends Z A")]
-    [InlineData("Marvel's Spider-Man", "Marvel s Spider Man")]
-    [InlineData("Plants vs. Zombies", "Plants vs Zombies")]
+     [InlineData("Pokemon Legends Z-A", "pokemon legends z a")]
+    [InlineData("Pokemon Legends: Z-A", "pokemon legends z a")]
+    [InlineData("Marvel's Spider-Man", "marvel s spider man")]
+    [InlineData("Plants vs. Zombies", "plants vs zombies")]
     public void NormalizeGameTitle_LowercasesAndStripsPunctuation(string input, string expected)
     {
         Assert.Equal(expected, SteamGridDbClient.NormalizeGameTitle(input));

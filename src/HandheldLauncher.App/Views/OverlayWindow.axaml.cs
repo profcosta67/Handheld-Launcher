@@ -37,12 +37,6 @@ public partial class OverlayWindow : Window
     private int _currentColor = 0;
     private bool _tdpAppliedOnOpen = false;
 
-    // v0.16.2: no boot, o firmware/serviço da Lenovo às vezes reaplica os
-    // próprios limites logo depois do launcher (log real: 1ª leitura 20W,
-    // seguintes 45W/37W) e a restauração desistia. Agora tenta de novo
-    // algumas vezes, com intervalo. Estático porque a OverlayWindow é
-    // recriada na primeira abertura do Quick Settings — só uma sequência de
-    // novas tentativas por sessão.
     private static readonly TimeSpan[] StartupTdpRetryDelays =
         { TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(30) };
     private static int _startupTdpRetryRunning;
@@ -54,18 +48,15 @@ public partial class OverlayWindow : Window
 
     private enum SubMenuMode { None, Resolution, RefreshRate, Tdp, TdpCustom, Fan, Color, Hud, Volume, Brightness, Capture, Lossless }
 
-    // v0.18.5: TDP personalizado. Índice 5 do submenu de TDP = botão Personalizado.
     private const int CustomTdpIndex = 5;
-    private int _customWatts = TdpProfiles.DefaultCustomWatts;   // último valor escolhido (salvo em TdpCustomWatts)
-    private int _tempCustomWatts = TdpProfiles.DefaultCustomWatts; // valor em edição pelo controle (só aplica no A)
+    private int _customWatts = TdpProfiles.DefaultCustomWatts;
+    private int _tempCustomWatts = TdpProfiles.DefaultCustomWatts;
     private bool _suppressCustomSlider;
     private DispatcherTimer? _customApplyTimer;
     private int _pendingCustomWatts;
-    // v0.18.5: teto do aparelho agora (firmware Lenovo / tabela ASUS / 30 W),
-    // tomada ou bateria. Atualizado quando muda a fonte de energia.
     private TdpLimits _tdpLimits = TdpLimits.Fallback(onAc: true);
     private bool? _lastOnAc;
-    private bool _tdpCustomEdited; // edição pelo controle: mexeu no valor?
+    private bool _tdpCustomEdited;
     private bool _showUnvalidatedNotice;
     private SubMenuMode _activeSubMenu = SubMenuMode.None;
 
@@ -81,9 +72,8 @@ public partial class OverlayWindow : Window
     private int _tempHudIndex = 0;
     private int _tempCaptureIndex = 0;
 
-    // 🟢 Lossless: índice 0 = botão toggle, índice 1 = multiplicador
     private int _tempLosslessIndex = 0;
-    private int _currentMultiplierIndex = 0; // 0 = 2x, 1 = 3x, 2 = 4x
+    private int _currentMultiplierIndex = 0;
     private int _tempMultiplierIndex = 0;
 
     private readonly MainViewModel _viewModel;
@@ -93,17 +83,14 @@ public partial class OverlayWindow : Window
     private Button[] _refreshButtons = null!;
     private Button[] _multiplierButtons = null!;
 
-    // 🟢 FIX: Controla se um scroll está pendente para evitar fila dupla
     private bool _scrollPending = false;
 
     [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+    
+    [DllImport("user32.dll", SetLastError = true)] private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+    [DllImport("user32.dll", SetLastError = true)] private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
 
     private const int GWL_EXSTYLE = -20;
     private const int WS_EX_NOACTIVATE = 0x08000000;
@@ -136,19 +123,18 @@ public partial class OverlayWindow : Window
         _viewModel = viewModel;
         InitializeComponent();
 
+        // 🟢 ETAPA 1: Overlay não-ativável (não rouba foco do jogo)
         ShowActivated = false;
 
-                _tdpHardwareSupported = OperatingSystem.IsWindows()
+        _tdpHardwareSupported = OperatingSystem.IsWindows()
             && RyzenSmuService.IsSupportedPlatform()
             && RyzenSmuService.IsSupportedCpu();
 
-        // v0.19: Usa o DeviceDetector para identificar o aparelho
         var profile = DeviceDetector.Detect();
         DebugLog.Write($"[OVERLAY] Perfil detectado: {profile.Name} | Validado: {profile.IsValidated}");
 
         if (!_tdpHardwareSupported)
         {
-            // Hardware totalmente desconhecido: bloqueia tudo
             BtnUltraEco.IsEnabled = false;
             BtnEco.IsEnabled = false;
             BtnNormal.IsEnabled = false;
@@ -160,13 +146,10 @@ public partial class OverlayWindow : Window
         }
         else if (!profile.IsValidated && profile.Id != "generic")
         {
-            // CPU suportada, mas aparelho não validado (ex: Legion Go S)
-            // Libera os perfis padrão, mas avisa na tela.
             _showUnvalidatedNotice = true;
             TxtTdpStatus.Text = profile.ValidationMessage;
             TxtTdpStatus.IsVisible = true;
 
-            // Se o perfil não suportar TDP Custom, bloqueia só ele
             if (!profile.SupportsCustomTdp)
             {
                 BtnTdpCustom.IsEnabled = false;
@@ -197,8 +180,6 @@ public partial class OverlayWindow : Window
                 var onAc = DeviceTdpLimits.IsOnAcPower();
                 _lastOnAc = onAc;
                 StartPowerSourceWatch();
-                // Consulta WMI fora da thread da tela (revisão); até voltar, a
-                // faixa mostrada é a de sempre (5–30 W).
                 _ = Task.Run(() =>
                 {
                     var limits = DeviceTdpLimits.For(onAc);
@@ -206,8 +187,6 @@ public partial class OverlayWindow : Window
                 });
             }
             UpdateTdpRangeUi();
-            // O valor salvo é o PEDIDO do usuário (pode passar do teto da
-            // bateria — o hardware recebe o valor já limitado; ver ShowCustomWatts).
             _customWatts = TdpProfiles.IsCustom(settings.TdpMode)
                 ? TdpProfiles.WattsFor(settings.TdpMode) ?? TdpProfiles.DefaultCustomWatts
                 : TdpProfiles.ClampWatts(settings.TdpCustomWatts);
@@ -217,12 +196,6 @@ public partial class OverlayWindow : Window
                 _fanCurveService = new LenovoFanCurveService();
                 if (_tdpHardwareSupported && !_fanCurveService.IsSupportedModel)
                 {
-                    // TDP continua liberado em qualquer Ryzen Zen 4 Mobile
-                    // (Phoenix/Hawk Point) — não só no Legion Go 2 — pra não
-                    // travar o recurso em aparelhos como ROG Ally/Ally X, que
-                    // usam o mesmo silício. Só avisamos que este modelo
-                    // específico ainda não foi validado, na mesma faixa
-                    // (5W-30W) que ferramentas como RyzenAdj já usam nele.
                     _showUnvalidatedNotice = true;
                     TxtTdpStatus.Text = UnvalidatedNoticeText();
                     TxtTdpStatus.IsVisible = true;
@@ -263,12 +236,7 @@ public partial class OverlayWindow : Window
                 TxtFanStatus.Text = "Controle de curva disponível no Windows para o Legion Go 2 (8AHP2).";
                 SetFanButtonVisual("Automático");
             }
-            // v0.16: re-aplica o TDP salvo já na construção da janela (não só
-            // quando o usuário abre o Quick Settings pela primeira vez), pro
-            // aparelho voltar com o último perfil mesmo que ele nunca abra o
-            // overlay depois de reiniciar/desligar o console. Mesma lógica que
-            // já existia em OnOpened, só que agora roda em paralelo com a
-            // restauração da curva de ventoinha acima, no boot do launcher.
+            
             if (!_tdpAppliedOnOpen && _tdpHardwareSupported)
             {
                 _tdpAppliedOnOpen = true;
@@ -276,9 +244,6 @@ public partial class OverlayWindow : Window
                 _ = Task.Run(async () =>
                 {
                     DebugLog.Write($"[OVERLAY] Re-aplicando TDP salvo na inicialização: {savedTdp}");
-                    // A OverlayWindow é recriada na 1ª abertura do Quick Settings;
-                    // cada aplicação começa "não confirmada", pra uma confirmação
-                    // antiga não impedir as novas tentativas desta.
                     _startupTdpConfirmed = false;
                     var ok = _hardwareService.SetTdpMode(savedTdp);
                     DebugLog.Write(ok
@@ -329,7 +294,7 @@ public partial class OverlayWindow : Window
                 1 => "Vívido",
                 2 => "OLED",
                 3 => "Noturno",
-                4 => "Confortável", // v0.16.2: modo que só existe nas Configurações
+                4 => "Confortável",
                 _ => "Padrão"
             };
             _viewModel.UpdateHudColorMode(initialColorName);
@@ -356,13 +321,6 @@ public partial class OverlayWindow : Window
     private void StartTopmostEnforcer()
     {
         if (_topmostEnforcer != null) return;
-        // v0.17: era 1000ms. O log do usuário (05/11) confirmou que o Xbox
-        // Game Bar / XBOX app (janelas cheias por cima do jogo) empurra o
-        // overlay pro centro enquanto ele está visível, e o vigia já
-        // devolvia pra direita — só que esperando até 1s pra reagir, tempo
-        // suficiente pro usuário ver o "flash" centralizado. Com 120ms a
-        // correção fica praticamente instantânea (ForceTopmost é só um
-        // SetWindowPos barato, sem custo perceptível em rodar mais vezes).
         _topmostEnforcer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(120) };
         _topmostEnforcer.Tick += (_, _) => { ForceTopmost(); GuardPosition(); };
         _topmostEnforcer.Start();
@@ -386,14 +344,6 @@ public partial class OverlayWindow : Window
         }
     }
 
-    // v0.18 "Guardião de suspensão": chamado pelo SuspendGuardianService
-    // quando o Windows acorda da suspensão. Reaplica o TDP e a curva de
-    // ventoinha salvos, do mesmo jeito que já acontecia no boot (ver
-    // construtor acima) — handhelds Windows costumam perder esses ajustes
-    // ao suspender/acordar, voltando pro padrão do firmware. Não usa o
-    // retry com backoff de 10/20/30s do boot (aquilo existe pra uma corrida
-    // específica com o serviço da Lenovo logo depois de o Windows iniciar);
-    // aqui é só uma tentativa e, se falhar, mais uma depois de 5s.
     public async void ReapplyAfterSuspendResume()
     {
         try
@@ -452,8 +402,6 @@ public partial class OverlayWindow : Window
                     return;
                 }
 
-                // Nunca passar por cima de uma escolha feita no Quick Settings
-                // enquanto esperávamos.
                 var current = AppSettingsStore.Load().TdpMode;
                 if (string.IsNullOrWhiteSpace(current)) current = "Normal";
                 if (!string.Equals(current, savedTdp, StringComparison.Ordinal))
@@ -493,34 +441,34 @@ public partial class OverlayWindow : Window
         DebugLog.Write($"[OVERLAY] GamePid registrado: {pid}");
     }
 
-        protected override void OnOpened(EventArgs e)
-{
-    base.OnOpened(e);
-    DebugLog.Write($"[OVERLAY] OnOpened chamado. Width={Width}, Height={Height}");
-
-    // v0.20.x — overlay não-ativável: não rouba foco do jogo em fullscreen.
-    // Elimina o ciclo "jogo reativa → Windows recentraliza overlay em 740,175".
-    if (OperatingSystem.IsWindows())
+    protected override void OnOpened(EventArgs e)
     {
-        var h = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
-        if (h != IntPtr.Zero)
+        base.OnOpened(e);
+        DebugLog.Write($"[OVERLAY] OnOpened chamado. Width={Width}, Height={Height}");
+
+        // 🟢 ETAPA 1: Aplica estilo de janela não-ativável
+        if (OperatingSystem.IsWindows())
         {
-            var ex = GetWindowLong(h, GWL_EXSTYLE);
-            SetWindowLong(h, GWL_EXSTYLE, ex | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);
-            DebugLog.Write($"[OVERLAY] WS_EX_NOACTIVATE|WS_EX_TOOLWINDOW aplicados (ex=0x{ex:X8}).");
+            var h = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+            if (h != IntPtr.Zero)
+            {
+                var ex = GetWindowLong(h, GWL_EXSTYLE);
+                SetWindowLong(h, GWL_EXSTYLE, ex | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);
+                DebugLog.Write($"[OVERLAY] WS_EX_NOACTIVATE|WS_EX_TOOLWINDOW aplicados (ex=0x{ex:X8}).");
+            }
         }
+
+        // Posiciona apenas uma vez
+        PositionOnRightEdge();
+        ResetPositionGuardForShow();
+        StartTopmostEnforcer();
+        UpdateLsfgStatus();
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            ForceTopmost();
+        }, DispatcherPriority.Loaded);
     }
-
-    PositionOnRightEdge();
-    ResetPositionGuardForShow();
-    UpdateLsfgStatus();
-
-    Dispatcher.UIThread.Post(() =>
-    {
-        ForceTopmost();
-        // TakeFocusFromGameIfEnabled(); // desativado: overlay não-ativável
-    }, DispatcherPriority.Loaded);
-}
 
     private void UpdateLsfgStatus()
     {
@@ -531,114 +479,104 @@ public partial class OverlayWindow : Window
     }
 
     public void PositionOnRightEdge()
-{
-    try
     {
-        var screen = Screens.Primary ?? Screens.All.FirstOrDefault();
-        if (screen == null) return;
-
-        var wa = screen.WorkingArea;
-        var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
-
-        double actualWidth = (Width > 0 && !double.IsNaN(Width)) ? Width : (Bounds.Width > 0 ? Bounds.Width : 440);
-        double actualHeight = (Height > 0 && !double.IsNaN(Height)) ? Height : (Bounds.Height > 0 ? Bounds.Height : 850);
-
-        var widthPx = (int)(actualWidth * scaling);
-        var heightPx = (int)(actualHeight * scaling);
-
-        if (widthPx <= 0 || heightPx <= 0) return;
-
-        var x = wa.X + wa.Width - widthPx - 20;
-        var y = wa.Y + (wa.Height - heightPx) / 2;
-
-        if (OperatingSystem.IsWindows())
+        try
         {
-            var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
-            if (handle != IntPtr.Zero)
+            var screen = Screens.Primary ?? Screens.All.FirstOrDefault();
+            if (screen == null) return;
+
+            var wa = screen.WorkingArea;
+            var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
+
+            double actualWidth = (Width > 0 && !double.IsNaN(Width)) ? Width : (Bounds.Width > 0 ? Bounds.Width : 440);
+            double actualHeight = (Height > 0 && !double.IsNaN(Height)) ? Height : (Bounds.Height > 0 ? Bounds.Height : 850);
+
+            var widthPx = (int)(actualWidth * scaling);
+            var heightPx = (int)(actualHeight * scaling);
+
+            if (widthPx <= 0 || heightPx <= 0) return;
+
+            var x = wa.X + wa.Width - widthPx - 20;
+            var y = wa.Y + (wa.Height - heightPx) / 2;
+
+            if (OperatingSystem.IsWindows())
             {
-                // 🟢 1. Esconde a janela (SW_HIDE), move pro canto direito, e SÓ ENTÃO mostra (SW_SHOW)
-                SetWindowPos(handle, HWND_TOPMOST, x, y, widthPx, heightPx, SWP_HIDEWINDOW);
-                SetWindowPos(handle, HWND_TOPMOST, x, y, widthPx, heightPx, SWP_SHOWWINDOW);
-                DebugLog.Write($"[OVERLAY] Fix anti-flash: movido para {x},{y}");
+                var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+                if (handle != IntPtr.Zero)
+                {
+                    Position = new PixelPoint(x, y);
+                    SetWindowPos(handle, HWND_TOPMOST, x, y, widthPx, heightPx, SWP_NOACTIVATE);
+                    DebugLog.Write($"[OVERLAY] Reposicionado sem ocultar: {x},{y}");
+                }
             }
+            else
+            {
+                Position = new PixelPoint(x, y);
+            }
+            
+            RememberExpectedPosition(new PixelPoint(x, y));
         }
-        else
+        catch (Exception ex)
         {
-            Position = new PixelPoint(x, y);
+            DebugLog.Write($"[OVERLAY] PositionOnRightEdge EXCEPTION: {ex.Message}");
         }
-        
-        RememberExpectedPosition(new PixelPoint(x, y));
     }
-    catch (Exception ex)
+
+    public void SetInitialPosition()
     {
-        DebugLog.Write($"[OVERLAY] PositionOnRightEdge EXCEPTION: {ex.Message}");
+        try
+        {
+            var screen = Screens.Primary ?? Screens.All.FirstOrDefault();
+            if (screen == null) return;
+
+            var wa = screen.WorkingArea;
+            var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
+            
+            double w = (Width > 0 && !double.IsNaN(Width)) ? Width : 440;
+            double h = (Height > 0 && !double.IsNaN(Height)) ? Height : 850;
+
+            var widthPx = (int)(w * scaling);
+            var heightPx = (int)(h * scaling);
+
+            var x = wa.X + wa.Width - widthPx - 20;
+            var y = wa.Y + (wa.Height - heightPx) / 2;
+
+            Position = new PixelPoint(x, y);
+            DebugLog.Write($"[OVERLAY] SetInitialPosition: {x},{y} (tamanho {widthPx}x{heightPx})");
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[OVERLAY] SetInitialPosition EXCEPTION: {ex.Message}");
+        }
     }
-}
 
-
-/// <summary>
-/// Define a posição inicial ANTES do Show(), para o Windows já criar a janela
-/// no lugar certo. Evita o flash no centro/esquerda.
-/// </summary>
-public void SetInitialPosition()
-{
-    try
-    {
-        var screen = Screens.Primary ?? Screens.All.FirstOrDefault();
-        if (screen == null) return;
-
-        var wa = screen.WorkingArea;
-        var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
-        
-        // Width/Height vêm do XAML (440x850). Se por algum motivo estiverem
-        // NaN, usamos o fallback dos Bounds.
-        double w = (Width > 0 && !double.IsNaN(Width)) ? Width : 440;
-        double h = (Height > 0 && !double.IsNaN(Height)) ? Height : 850;
-
-        var widthPx = (int)(w * scaling);
-        var heightPx = (int)(h * scaling);
-
-        var x = wa.X + wa.Width - widthPx - 20;
-        var y = wa.Y + (wa.Height - heightPx) / 2;
-
-        Position = new PixelPoint(x, y);
-        DebugLog.Write($"[OVERLAY] SetInitialPosition: {x},{y} (tamanho {widthPx}x{heightPx})");
-    }
-    catch (Exception ex)
-    {
-        DebugLog.Write($"[OVERLAY] SetInitialPosition EXCEPTION: {ex.Message}");
-    }
-}
     public void HideWithUnblock()
     {
-        // v0.18.5: valor do TDP personalizado em edição pelo controle e não
-        // confirmado com A é descartado ao fechar (não fica pendurado pra próxima abertura).
+        DebugLog.Write($"[OVERLAY-CLOSE] origem=HideWithUnblock fullscreen-contexto; overlay={TryGetPlatformHandle()?.Handle}, game={_gameHwnd}, foreground={GetForegroundWindow()}, visible={IsVisible}, submenu={_activeSubMenu}, focoJogo={_focusTakenFromGame}");
+        
         if (_activeSubMenu == SubMenuMode.TdpCustom) CancelTdpCustomEdit();
-        // −/+ tocado logo antes de fechar: aplica agora, antes de devolver o jogo,
-        // em vez de meio segundo depois com o jogo já na frente.
         FlushPendingCustomApply();
+        
         StopTopmostEnforcer();
         InputBlockService.UnblockGamepadForGame();
-        SetInitialPosition();
+        
+        // A posição é tratada na abertura (PositionOnRightEdge). 
+        // Não chamar SetInitialPosition aqui para evitar transições nativas.
         Hide();
         GiveFocusBackToGame();
     }
 
-    /// <summary>
-    /// v0.16.4 (opção em Preferências → Geral): com um jogo rodando, o QS pega
-    /// o foco ao abrir — a maioria dos jogos para de ler o controle sem foco.
-    /// </summary>
     private void TakeFocusFromGameIfEnabled()
-{
-    // Desativado: overlay abre com WS_EX_NOACTIVATE — XInput continua
-    // chegando ao GamepadPoller sem depender do foco de janela.
-}
+    {
+        // Desativado: overlay abre com WS_EX_NOACTIVATE — XInput continua
+        // chegando ao GamepadPoller sem depender do foco de janela.
+    }
+
     private void GiveFocusBackToGame()
-{
-    // Desativado: nunca tiramos o foco do jogo (WS_EX_NOACTIVATE), então
-    // não há o que devolver. Deixar aqui mexeria no fullscreen do jogo
-    // e é justamente o gatilho do bug de recentralização em 740,175.
-}
+    {
+        // Desativado: nunca tiramos o foco do jogo (WS_EX_NOACTIVATE), então
+        // não há o que devolver.
+    }
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {
@@ -648,11 +586,6 @@ public void SetInitialPosition()
 
     private void OnCloseClick(object? sender, RoutedEventArgs e) => HideWithUnblock();
 
-    // ---- v0.18.1: fechar o Xbox Cloud Gaming pelo Quick Settings ------------------
-    // Relato do usuário: "não consegui fechar o xCloud" — o Edge em tela cheia
-    // não tem botão de fechar e, com ele na frente, o launcher ignora o
-    // controle (de propósito). O Quick Settings (L3+R3) abre por cima de
-    // qualquer coisa, então o botão também mora aqui: Y ou toque.
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
@@ -679,7 +612,6 @@ public void SetInitialPosition()
             return;
         }
 
-        // v0.18.5: A no botão Personalizado não aplica direto — abre o ajuste de watts.
         if (_activeSubMenu == SubMenuMode.Tdp && action == GamepadAction.Confirm && _tempTdpIndex == CustomTdpIndex)
         {
             EnterTdpCustomEdit();
@@ -688,7 +620,6 @@ public void SetInitialPosition()
 
         if (_activeSubMenu != SubMenuMode.None)
         {
-            // 🟢 Tratamento especial para o Lossless (navegação interna toggle ⇄ multiplicador)
             if (_activeSubMenu == SubMenuMode.Lossless)
             {
                 switch (action)
@@ -758,15 +689,28 @@ public void SetInitialPosition()
         }
 
         switch (action)
-{
+        {
+            // 🟢 Revertido: B volta a fechar o Quick Settings na tela principal.
+            // A causa raiz do bug (janela roubando foco) já foi corrigida.
             case GamepadAction.Back:
-            case GamepadAction.GlobalMenu: 
-        HideWithUnblock(); 
-        break;
-            case GamepadAction.Downloads when BtnCloseXCloud is { IsVisible: true }: CloseXCloudFromOverlay(); break;
-            case GamepadAction.MoveUp: _focusIndex = Math.Max(0, _focusIndex - 1); UpdateFocusVisual(); break;
-            case GamepadAction.MoveDown: _focusIndex = Math.Min(_sections.Length - 1, _focusIndex + 1); UpdateFocusVisual(); break;
-            case GamepadAction.Confirm: EnterSubMenu(); break;
+            case GamepadAction.GlobalMenu:
+                HideWithUnblock();
+                break;
+            case GamepadAction.Downloads when BtnCloseXCloud is { IsVisible: true }:
+                CloseXCloudFromOverlay();
+                break;
+            case GamepadAction.MoveUp:
+                _focusIndex = Math.Max(0, _focusIndex - 1);
+                UpdateFocusVisual();
+                break;
+            case GamepadAction.MoveDown:
+                _focusIndex = Math.Min(_sections.Length, _focusIndex + 1);
+                UpdateFocusVisual();
+                break;
+            case GamepadAction.Confirm:
+                if (_focusIndex == _sections.Length) HideWithUnblock();
+                else EnterSubMenu();
+                break;
         }
     }
 
@@ -819,7 +763,7 @@ public void SetInitialPosition()
             case SubMenuMode.Volume: if (VolumeSlider != null) VolumeSlider.Value = Math.Clamp(VolumeSlider.Value + (direction * 5), 0, 100); break;
             case SubMenuMode.Brightness: if (BrightnessSlider != null) BrightnessSlider.Value = Math.Clamp(BrightnessSlider.Value + (direction * 5), 0, 100); break;
             case SubMenuMode.Capture: _tempCaptureIndex = Math.Clamp(_tempCaptureIndex + direction, 0, 1); UpdateTempVisuals(); break;
-            case SubMenuMode.Lossless: break; // tratado em HandleGamepadAction
+            case SubMenuMode.Lossless: break;
         }
     }
 
@@ -830,7 +774,6 @@ public void SetInitialPosition()
             case SubMenuMode.Resolution: _currentResIndex = _tempResIndex; ApplyDisplayMode(); break;
             case SubMenuMode.RefreshRate: _currentHzIndex = _tempHzIndex; ApplyDisplayMode(); break;
             case SubMenuMode.Tdp:
-                // Índice 5 (Personalizado) é tratado antes, em HandleGamepadAction.
                 if (_tempTdpIndex >= 0 && _tempTdpIndex < TdpProfiles.Presets.Length)
                     ApplyTdp(TdpProfiles.Presets[_tempTdpIndex]);
                 break;
@@ -872,7 +815,6 @@ public void SetInitialPosition()
         }
     }
 
-    // 🟢 Atualiza visual dos 3 botões de multiplicador
     private void UpdateMultiplierVisual()
     {
         if (_multiplierButtons == null) return;
@@ -883,7 +825,6 @@ public void SetInitialPosition()
         }
     }
 
-    // 🟢 Handler de clique do mouse nos botões de multiplicador
     private void OnMultiplierClick(object? sender, RoutedEventArgs e)
     {
         if (sender is not Button clickedButton) return;
@@ -907,14 +848,19 @@ public void SetInitialPosition()
 
     private void UpdateFocusVisual()
     {
-        for (int i = 0; i < _sections.Length; i++) _sections[i].BorderBrush = (i == _focusIndex) ? _focusBorderColor : Brushes.Transparent;
+        for (int i = 0; i < _sections.Length; i++)
+            _sections[i].BorderBrush = (i == _focusIndex) ? _focusBorderColor : Brushes.Transparent;
+
+        if (BtnCloseMenu != null)
+            BtnCloseMenu.Background = _focusIndex == _sections.Length ? _activeColor : _inactiveColor;
+
         ScrollToFocusedSection();
     }
 
     private void ScrollToFocusedSection()
     {
         if (MainScrollViewer == null || _sections.Length == 0) return;
-        if (_focusIndex < 0 || _focusIndex >= _sections.Length) return;
+        if (_focusIndex < 0 || _focusIndex > _sections.Length) return;
 
         if (_scrollPending) return;
         _scrollPending = true;
@@ -924,6 +870,14 @@ public void SetInitialPosition()
             _scrollPending = false;
             try
             {
+                if (_focusIndex == _sections.Length)
+                {
+                    MainScrollViewer.Offset = new Vector(
+                        MainScrollViewer.Offset.X,
+                        Math.Max(0, MainScrollViewer.Extent.Height - MainScrollViewer.Viewport.Height));
+                    return;
+                }
+
                 var focused = _sections[_focusIndex];
 
                 double itemTop = focused.Bounds.Y;
@@ -1008,7 +962,6 @@ public void SetInitialPosition()
             if (LsfgMultiplierBorder != null)
                 LsfgMultiplierBorder.BorderBrush = _tempLosslessIndex == 1 ? _activeColor : Brushes.Transparent;
 
-            // Atualiza os 3 botões de multiplicador
             if (_multiplierButtons != null)
             {
                 for (int i = 0; i < _multiplierButtons.Length; i++)
@@ -1035,9 +988,6 @@ public void SetInitialPosition()
             _hardwareService.SetDisplayMode(w, h, hz);
             UpdateScreenInfoText();
 
-            // v0.16.3: trocar resolução/Hz pode fazer o Windows voltar a curva
-            // de cor ao padrão; reaplica o modo de cor escolhido depois que a
-            // troca assenta.
             if (OperatingSystem.IsWindows())
                 DispatcherTimer.RunOnce(() => DisplayColorManager.ReapplyCurrent(), TimeSpan.FromMilliseconds(1500));
         }
@@ -1071,77 +1021,58 @@ public void SetInitialPosition()
         if (!_tdpHardwareSupported) return;
         if (sender is not Button clickedButton) return;
         var mode = clickedButton.Tag?.ToString() ?? "Normal";
-        // Toque durante a edição pelo controle: sai da edição (sem aplicar o
-        // valor dela) antes — senão o direcional continuaria editando um
-        // valor invisível e o próximo A aplicaria por cima do que foi tocado.
         if (_activeSubMenu == SubMenuMode.TdpCustom) { CancelTdpCustomEdit(); UpdateFocusVisual(); }
-        // v0.18.5: "Custom" aplica o último valor personalizado (o pendente, se
-        // houver um −/+ esperando o meio segundo) e mostra o painel.
         if (mode == "Custom")
             mode = TdpProfiles.CustomMode(_customApplyTimer?.IsEnabled == true ? _pendingCustomWatts : _customWatts);
         ApplyTdp(mode);
     }
 
-    /// <summary>
-    /// Se há um −/+ esperando o meio segundo, aplica agora. Chamado ao fechar o
-    /// Quick Settings e ao entrar no submenu de TDP pelo controle, pra que o
-    /// valor tocado nunca seja aplicado depois, fora de ordem.
-    /// </summary>
     private void FlushPendingCustomApply()
     {
         if (_customApplyTimer?.IsEnabled != true) return;
         OnCustomApplyTick(_customApplyTimer, EventArgs.Empty);
     }
 
-    /// <summary>
-    /// v0.18.5: um caminho só pra aplicar TDP (toque, controle, personalizado) —
-    /// mesmo comportamento de antes: só muda visual/salva/HUD/ventoinha se o
-    /// hardware aceitar.
-    /// </summary>
     private bool ApplyTdp(string mode)
-{
-    _customApplyTimer?.Stop();
-    if (!_tdpHardwareSupported) return false;
-
-    // 1. Roda o hardware em background (não trava a UI)
-    _ = Task.Run(() =>
     {
-        bool success = false;
-        // O lock é mantido dentro da Task para segurança
-        lock (WindowsHardwareService.TdpApplyLock)
-        {
-            success = _hardwareService.SetTdpMode(mode);
-        }
+        _customApplyTimer?.Stop();
+        if (!_tdpHardwareSupported) return false;
 
-        // 2. Volta para a UI para atualizar os visuais
-        Dispatcher.UIThread.Post(() =>
+        _ = Task.Run(() =>
         {
-            if (!success)
+            bool success = false;
+            lock (WindowsHardwareService.TdpApplyLock)
             {
-                SetTdpButtonVisual(_currentTdp); // Reverte o visual
-                return;
+                success = _hardwareService.SetTdpMode(mode);
             }
 
-            SetTdpButtonVisual(mode);
-            if (TdpProfiles.IsCustom(mode)) _customWatts = TdpProfiles.WattsFor(mode) ?? _customWatts;
-            
-            try
+            Dispatcher.UIThread.Post(() =>
             {
-                var settings = AppSettingsStore.Load();
-                settings.TdpMode = mode;
-                if (TdpProfiles.IsCustom(mode)) settings.TdpCustomWatts = _customWatts;
-                AppSettingsStore.Save(settings);
-            }
-            catch (Exception ex) { DebugLog.Write($"[OVERLAY] Erro ao salvar TDP {mode}: {ex.Message}"); }
-            
-            _viewModel.UpdateHudTdpStatus(mode);
-            ApplyFanMode(TdpProfiles.LinkedFanMode(mode));
+                if (!success)
+                {
+                    SetTdpButtonVisual(_currentTdp);
+                    return;
+                }
+
+                SetTdpButtonVisual(mode);
+                if (TdpProfiles.IsCustom(mode)) _customWatts = TdpProfiles.WattsFor(mode) ?? _customWatts;
+                
+                try
+                {
+                    var settings = AppSettingsStore.Load();
+                    settings.TdpMode = mode;
+                    if (TdpProfiles.IsCustom(mode)) settings.TdpCustomWatts = _customWatts;
+                    AppSettingsStore.Save(settings);
+                }
+                catch (Exception ex) { DebugLog.Write($"[OVERLAY] Erro ao salvar TDP {mode}: {ex.Message}"); }
+                
+                _viewModel.UpdateHudTdpStatus(mode);
+                ApplyFanMode(TdpProfiles.LinkedFanMode(mode));
+            });
         });
-    });
 
-    return true; // Retorno otimista (a UI não bloqueia)
-}
-
+        return true;
+    }
 
     private void SetTdpButtonVisual(string activeMode)
     {
@@ -1163,15 +1094,10 @@ public void SetInitialPosition()
         _currentTdp = activeMode;
     }
 
-    // ===== v0.18.5: TDP personalizado =====
-
-    /// <summary>Mostra o valor na barra e no texto sem disparar aplicação.</summary>
     private void ShowCustomWatts(int watts)
     {
         watts = TdpProfiles.ClampWatts(watts);
         if (TdpCustomValueText != null) TdpCustomValueText.Text = $"{watts} W";
-        // O que vai pro hardware: SPL limitado ao teto de agora + picos na
-        // proporção do fabricante (TdpLimits.PeaksFor).
         var (spl, sppt, fppt) = _tdpLimits.PeaksFor(watts);
         if (TdpCustomPeaksText != null)
         {
@@ -1191,7 +1117,6 @@ public void SetInitialPosition()
         }
     }
 
-    /// <summary>Faixa da barra e texto de rodapé conforme o teto atual do aparelho.</summary>
     private void UpdateTdpRangeUi()
     {
         if (TdpCustomSlider != null)
@@ -1217,7 +1142,6 @@ public void SetInitialPosition()
     private string UnvalidatedNoticeText()
         => $"Ainda não validado neste modelo específico; perfis até 30 W, Personalizado entre {_tdpLimits.SplMin} W e {_tdpLimits.SplMax} W ({_tdpLimits.Source}).";
 
-    /// <summary>Novo teto (detecção concluída ou troca tomada⇄bateria): atualiza a tela.</summary>
     private void OnTdpLimitsChanged(TdpLimits limits)
     {
         _tdpLimits = limits;
@@ -1225,7 +1149,6 @@ public void SetInitialPosition()
         if (_showUnvalidatedNotice && TxtTdpStatus != null) TxtTdpStatus.Text = UnvalidatedNoticeText();
         if (_activeSubMenu == SubMenuMode.TdpCustom)
         {
-            // Editando pelo controle: mantém o número em edição, só dentro da faixa nova.
             _tempCustomWatts = _tdpLimits.ClampSpl(_tempCustomWatts);
             ShowCustomWatts(_tempCustomWatts);
         }
@@ -1235,11 +1158,6 @@ public void SetInitialPosition()
         }
     }
 
-    // Tomada ⇄ bateria: o teto do Personalizado muda (ex.: Ally 30 → 25 W).
-    // Uma inscrição só no app inteiro, apontando pra janela do Quick Settings
-    // mais recente (revisão: a janela criada no boot é trocada por outra na
-    // 1ª abertura e só fica escondida — com inscrição própria, as duas
-    // reaplicavam o TDP em dobro).
     private static OverlayWindow? s_powerWatchOwner;
     private static bool s_powerWatchSubscribed;
 
@@ -1263,11 +1181,10 @@ public void SetInitialPosition()
         try
         {
             var onAc = DeviceTdpLimits.IsOnAcPower();
-            if (_lastOnAc == onAc) return; // mudou só o % da bateria
+            if (_lastOnAc == onAc) return;
             _lastOnAc = onAc;
             var previous = _tdpLimits;
 
-            // Tudo fora da thread da tela: consulta WMI (1ª vez) + SMU.
             _ = Task.Run(async () =>
             {
                 try
@@ -1275,17 +1192,11 @@ public void SetInitialPosition()
                     var limits = DeviceTdpLimits.For(onAc);
                     Dispatcher.UIThread.Post(() => OnTdpLimitsChanged(limits));
 
-                    // Espera o firmware/EC terminar a troca dele (como na volta da suspensão).
                     await Task.Delay(TimeSpan.FromSeconds(2));
 
                     lock (WindowsHardwareService.TdpApplyLock)
                     {
-                        // Lê o modo salvo DENTRO da trava: uma escolha feita agora
-                        // pelo toque não é atropelada pelo valor antigo.
                         var saved = AppSettingsStore.Load().TdpMode;
-                        // Perfis não dependem de tomada/bateria (decisão do usuário):
-                        // só o Personalizado precisa ser reaplicado, e só se o que
-                        // vai pro hardware mudou.
                         if (!TdpProfiles.IsCustom(saved)) return;
                         var asked = TdpProfiles.WattsFor(saved) ?? TdpProfiles.DefaultCustomWatts;
                         if (previous.PeaksFor(asked) == limits.PeaksFor(asked)) return;
@@ -1303,15 +1214,12 @@ public void SetInitialPosition()
         catch (Exception ex) { DebugLog.Write($"[TDP-LIMITES] EXCEPTION em PowerModeChanged: {ex.Message}"); }
     }
 
-    // Toque/mouse na barra: aplica meio segundo depois de parar de mexer,
-    // pra não mandar dezenas de comandos pro hardware enquanto arrasta.
     private void OnTdpCustomSliderChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (_isInitializing || _suppressCustomSlider || !_tdpHardwareSupported) return;
         var watts = _tdpLimits.ClampSpl((int)Math.Round(e.NewValue));
         if (_activeSubMenu == SubMenuMode.TdpCustom)
         {
-            // Editando pelo controle: só mostra; aplica no A.
             _tempCustomWatts = watts;
             if (TdpCustomValueText != null) TdpCustomValueText.Text = $"{watts} W";
             return;
@@ -1323,10 +1231,6 @@ public void SetInitialPosition()
     private void OnTdpCustomStepClick(object? sender, RoutedEventArgs e)
     {
         if (!_tdpHardwareSupported || sender is not Button { Tag: string tag } || !int.TryParse(tag, out var step)) return;
-        // Revisão: parte do valor ESCOLHIDO (salvo/pendente/em edição), não da
-        // barra — na bateria a barra fica no teto (25) e um + gravava 25 por
-        // cima de um 30 salvo. Com o escolhido acima do teto de agora, o + não
-        // faz nada e o − desce a partir do teto.
         int current;
         if (_activeSubMenu == SubMenuMode.TdpCustom) current = _tempCustomWatts;
         else if (_customApplyTimer?.IsEnabled == true) current = _pendingCustomWatts;
@@ -1365,8 +1269,6 @@ public void SetInitialPosition()
         if (!_tdpHardwareSupported) return;
         _customApplyTimer?.Stop();
         _activeSubMenu = SubMenuMode.TdpCustom;
-        // Começa do valor salvo, já dentro da faixa de agora (na bateria um
-        // 35 W salvo vira 25 W aqui, senão o primeiro ◀ pularia de 35 pra 25).
         _tempCustomWatts = _tdpLimits.ClampSpl(TdpProfiles.IsCustom(_currentTdp) ? TdpProfiles.WattsFor(_currentTdp) ?? _customWatts : _customWatts);
         _tdpCustomEdited = false;
         BtnTdpCustom.Background = _activeColor;
@@ -1374,7 +1276,6 @@ public void SetInitialPosition()
         TdpCustomPanel.BorderBrush = _focusBorderColor;
         TdpCustomHint.Text = "◀ ▶ 1 W · ▲ ▼ 5 W · A aplica · B cancela";
         ShowCustomWatts(_tempCustomWatts);
-        // Depois do layout: na 1ª vez o painel acabou de aparecer e ainda não tem tamanho.
         Dispatcher.UIThread.Post(() => TdpCustomPanel.BringIntoView(), DispatcherPriority.Loaded);
     }
 
@@ -1388,8 +1289,6 @@ public void SetInitialPosition()
             case GamepadAction.MoveDown: _tempCustomWatts = _tdpLimits.ClampSpl(_tempCustomWatts - 5); _tdpCustomEdited = true; ShowCustomWatts(_tempCustomWatts); break;
             case GamepadAction.Confirm:
                 _activeSubMenu = SubMenuMode.None;
-                // A sem mexer = "quero o Personalizado que já escolhi": aplica o
-                // valor salvo, não o cortado pela bateria (revisão).
                 var chosen = _tdpCustomEdited
                     ? _tempCustomWatts
                     : (TdpProfiles.IsCustom(_currentTdp) ? TdpProfiles.WattsFor(_currentTdp) ?? _customWatts : _customWatts);
@@ -1410,7 +1309,7 @@ public void SetInitialPosition()
     {
         _activeSubMenu = SubMenuMode.None;
         ClearTempHighlights();
-        UpdatePersistentVisuals(); // volta painel/barra/botões pro modo que está valendo
+        UpdatePersistentVisuals();
     }
 
     private void OnFanClick(object? sender, RoutedEventArgs e) { if (sender is Button button) ApplyFanMode(button.Tag?.ToString() ?? "Automático"); }
@@ -1535,29 +1434,29 @@ public void SetInitialPosition()
         }
     }
 
-        private void OnRecordClick(object? sender, RoutedEventArgs e)
+    private void OnRecordClick(object? sender, RoutedEventArgs e)
     {
         if (!OperatingSystem.IsWindows()) return;
         if (_hardwareService is WindowsHardwareService winService)
         {
             winService.ToggleScreenRecording();
             _viewModel.UpdateHudRecordingState(winService.IsRecording);
-            UpdateRecordButtonState(); // <-- Chama o método para atualizar o botão
+            UpdateRecordButtonState();
         }
     }
-        private void UpdateRecordButtonState()
+    
+    private void UpdateRecordButtonState()
     {
         if (_hardwareService is WindowsHardwareService winService)
         {
             bool isRecording = winService.IsRecording;
 
-            // Atualiza o Botão de Gravar
             if (BtnRecord != null)
             {
                 if (isRecording)
                 {
                     BtnRecord.Content = "⏹ Parar";
-                    BtnRecord.Background = new SolidColorBrush(Color.FromRgb(255, 59, 48)); // Vermelho vivo
+                    BtnRecord.Background = new SolidColorBrush(Color.FromRgb(255, 59, 48));
                     BtnRecord.Foreground = Brushes.White;
                 }
                 else
@@ -1568,7 +1467,6 @@ public void SetInitialPosition()
                 }
             }
 
-            // Atualiza o Alerta no Cabeçalho (REC)
             if (RecordingBadge != null)
             {
                 RecordingBadge.IsVisible = isRecording;
