@@ -1,10 +1,9 @@
-# Compila a solução a cada envio pro GitHub. Também gera um pacote portátil
-# de teste para PRs e branches de desenvolvimento, sem criar Release nem atualizar instalações existentes.
+# Compila e gera instaladores beta isolados para testar PRs, sem publicar Release nem atualizar instalações existentes.
 name: Build
 
 on:
   push:
-    branches: [master, main, 'design/**', 'feature/**', 'recovery/**']
+    branches: [master, main, 'design/**', 'feature/**', 'recovery/**', 'fix/**']
   pull_request:
 
 permissions:
@@ -13,6 +12,8 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      VPK_VERSION: 1.2.161
     steps:
       - uses: actions/checkout@v4
 
@@ -29,15 +30,11 @@ jobs:
       - name: Testes (HandheldLauncher.Core.Tests)
         run: dotnet test src/HandheldLauncher.Core.Tests -c Release --no-build --verbosity normal
 
-      # Versão do pacote de teste = o que está em VERSION + "-preview", pra
-      # nunca ficar presa a uma versão antiga (mesma fonte que release.yml usa).
       - name: Descobrir versão de teste
         id: ver
         shell: bash
         run: echo "version=$(tr -d ' \r\n' < VERSION)-preview" >> "$GITHUB_OUTPUT"
 
-      # Pacote independente para testar a interface no handheld.
-      # Não usa Velopack e não publica uma versão oficial.
       - name: Publicar pacote portátil de teste (win-x64)
         run: >
           dotnet publish src/HandheldLauncher.App -c Release -r win-x64
@@ -45,22 +42,56 @@ jobs:
           -p:Version=${{ steps.ver.outputs.version }}
           -o preview-publish
 
-      - name: Preparar FFmpeg (binário fixo e verificado por SHA-256)
+      - name: Preparar FFmpeg
         shell: pwsh
         run: ./scripts/Prepare-FFmpeg.ps1 -OutputDirectory "preview-publish/Tools"
 
-      - name: Preparar módulo PawnIO oficial (hash fixo)
+      - name: Preparar módulo PawnIO oficial
         shell: pwsh
         run: ./scripts/Prepare-PawnIO.ps1 -OutputDirectory "preview-publish/Tools"
 
-      - name: Compactar pacote de teste
+      - name: Compactar pacote portátil
         shell: pwsh
         run: Compress-Archive -Path preview-publish/* -DestinationPath HandheldLauncher-preview-win-x64.zip -Force
 
-      - name: Disponibilizar download do pacote de teste
+      # Gera o mesmo instalador Velopack usado nas versões oficiais,
+      # mas somente como artefato de CI: não cria Release nem feed de atualização.
+      - name: Copiar InstallTask.ps1
+        run: Copy-Item "installer/InstallTask.ps1" -Destination "preview-publish/InstallTask.ps1"
+
+      - name: Instalar vpk
+        run: dotnet tool install -g vpk --version ${{ env.VPK_VERSION }}
+
+      - name: Gerar instalador beta (Velopack)
+        shell: pwsh
+        run: |
+          $notesFile = "release-notes/${{ steps.ver.outputs.version }}.md"
+          $packArgs = @(
+            "pack",
+            "--packId", "HandheldLauncher",
+            "--packTitle", "Handheld Launcher",
+            "--packVersion", "${{ steps.ver.outputs.version }}",
+            "--packDir", "preview-publish",
+            "--mainExe", "HandheldLauncher.exe",
+            "--icon", "src/HandheldLauncher.App/Assets/app-icon.ico",
+            "--splashProgressColor", "#7C5CFC"
+          )
+          if (Test-Path $notesFile) { $packArgs += @("--releaseNotes", $notesFile) }
+          & vpk @packArgs
+          if ($LASTEXITCODE -ne 0) { throw "Velopack falhou ao gerar o instalador beta." }
+
+      - name: Disponibilizar pacote portátil
         uses: actions/upload-artifact@v4
         with:
-          name: HandheldLauncher-preview-win-x64
+          name: HandheldLauncher-preview-portable-win-x64
           path: HandheldLauncher-preview-win-x64.zip
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Disponibilizar instalador beta
+        uses: actions/upload-artifact@v4
+        with:
+          name: HandheldLauncher-beta-installer-win-x64
+          path: Releases/*
           if-no-files-found: error
           retention-days: 14
