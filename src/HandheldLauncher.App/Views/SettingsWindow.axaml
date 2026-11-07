@@ -107,6 +107,11 @@
                   <ComboBoxItem Content="Fileira horizontal (rola pros lados)" />
                   <ComboBoxItem Content="Grade vertical (rola pra cima e pra baixo)" />
                 </ComboBox>
+                <!-- 🟢 AVISO DO TEMA CLEAN: agora no lugar certo! -->
+                <TextBlock Text="O tema Clean usa o carrossel (fileira) por padrão e ignora a grade vertical." 
+                           IsVisible="{Binding IsCleanThemeActive}" 
+                           Classes="subtle" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                           
                 <ToggleSwitch IsChecked="{Binding Animations}" Content="Animações (zoom e rolagem suave)" Margin="0,8,0,0" />
                 
                 <TextBlock Text="Cor da Tela (Experimental)" Classes="label" Margin="0,8,0,4"/>

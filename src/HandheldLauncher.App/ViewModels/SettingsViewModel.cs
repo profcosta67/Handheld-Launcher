@@ -49,33 +49,35 @@ public sealed class SettingsViewModel : ViewModelBase
 
     public bool HasSteamWebApiKey => !string.IsNullOrWhiteSpace(_steamWebApiKey);
     public string SteamWebApiStatusText => HasSteamWebApiKey ? "configurado ✓" : "não configurado";
-// 🟢 IGDB (Twitch) — Client ID + Client Secret
-private string _igdbClientId = "";
-public string IgdbClientId
-{
-    get => _igdbClientId;
-    set
-    {
-        if (SetField(ref _igdbClientId, value))
-            OnPropertyChanged(nameof(IgdbApiStatusText));
-    }
-}
 
-private string _igdbClientSecret = "";
-public string IgdbClientSecret
-{
-    get => _igdbClientSecret;
-    set
+    // 🟢 IGDB (Twitch) — Client ID + Client Secret
+    private string _igdbClientId = "";
+    public string IgdbClientId
     {
-        if (SetField(ref _igdbClientSecret, value))
-            OnPropertyChanged(nameof(IgdbApiStatusText));
+        get => _igdbClientId;
+        set
+        {
+            if (SetField(ref _igdbClientId, value))
+                OnPropertyChanged(nameof(IgdbApiStatusText));
+        }
     }
-}
 
-public string IgdbApiStatusText =>
-    (!string.IsNullOrWhiteSpace(_igdbClientId) && !string.IsNullOrWhiteSpace(_igdbClientSecret))
-        ? "configurado ✓"
-        : "não configurado";
+    private string _igdbClientSecret = "";
+    public string IgdbClientSecret
+    {
+        get => _igdbClientSecret;
+        set
+        {
+            if (SetField(ref _igdbClientSecret, value))
+                OnPropertyChanged(nameof(IgdbApiStatusText));
+        }
+    }
+
+    public string IgdbApiStatusText =>
+        (!string.IsNullOrWhiteSpace(_igdbClientId) && !string.IsNullOrWhiteSpace(_igdbClientSecret))
+            ? "configurado ✓"
+            : "não configurado";
+
     private string _rawgApiKey = string.Empty;
     public string RawgApiKey
     {
@@ -233,11 +235,6 @@ public string IgdbApiStatusText =>
         }
     }
 
-    // v0.16.3: abas reorganizadas (pedido do usuário) — do mais usado pro
-    // menos usado, nomes curtos. O número é a POSIÇÃO do botão na lista
-    // (SettingsWindow navega pela posição), então tem que bater com o Tag.
-    // Nada foi removido: "Diretórios" + "Emuladores" viraram "Biblioteca" e
-    // os sons saíram de "Aparência" pra aba própria.
     public bool IsCategoryModeActive => _categoryIndex == 0;          // Geral
     public bool IsCategoryAppearanceActive => _categoryIndex == 1;    // Aparência
     public bool IsCategorySoundsActive => _categoryIndex == 2;        // Sons
@@ -248,12 +245,9 @@ public string IgdbApiStatusText =>
     public bool IsCategoryConnectivityActive => _categoryIndex == 7;  // Rede
     public bool IsCategoryNewsActive => _categoryIndex == 8;          // Atualizações
 
-    // v0.16.2: antes, a aba Novidades mostrava "✕ Fechar" (e o clique não
-    // salvava) porque era só leitura. Desde a v0.16 ela tem o toggle
-    // "Receber atualizações beta", então o rótulo enganava o usuário.
     public string SaveButtonText => "✕ Salvar e fechar";
 
-        private int _fontIndex;
+    private int _fontIndex;
     public int FontIndex 
     { 
         get => _fontIndex; 
@@ -261,9 +255,6 @@ public string IgdbApiStatusText =>
         {
             if (SetField(ref _fontIndex, value))
             {
-                // v0.19: Aplica a fonte dinamicamente na hora.
-                // Fonts é um array de tuplas (Name, Family); usamos Family
-                // quando existir, senão cai no Name.
                 var font = HandheldLauncher.App.Platform.ThemeManager.Fonts[value];
                 var family = !string.IsNullOrWhiteSpace(font.Family) ? font.Family : font.Name;
                 HandheldLauncher.App.Platform.ThemeManager.ApplyFont(family!);
@@ -297,7 +288,6 @@ public string IgdbApiStatusText =>
         {
             if (SetField(ref _fontSizeIndex, value))
             {
-                // v0.19: Aplica o tamanho dinamicamente na hora
                 HandheldLauncher.App.Platform.ThemeManager.ApplyFontSize(value);
             }
         } 
@@ -315,6 +305,7 @@ public string IgdbApiStatusText =>
             if (SetField(ref _layoutThemeIndex, value))
             {
                 OnPropertyChanged(nameof(LayoutThemeButtonText));
+                OnPropertyChanged(nameof(IsCleanThemeActive)); // 🟢 Avisa a UI pra atualizar o texto de aviso
             }
         }
     }
@@ -333,7 +324,25 @@ public string IgdbApiStatusText =>
     public int TileSizeIndex { get => _tileSizeIndex; set => SetField(ref _tileSizeIndex, value); }
 
     private int _layoutIndex;
-    public int LayoutIndex { get => _layoutIndex; set => SetField(ref _layoutIndex, value); }
+    public int LayoutIndex
+    {
+        get => _layoutIndex;
+        set
+        {
+            if (SetField(ref _layoutIndex, value))
+            {
+                // 🟢 TRAVA DE SEGURANÇA: Se o tema Clean estiver ativo, força horizontal (0).
+                if (value == 1 && IsCleanThemeActive) 
+                {
+                    _layoutIndex = 0; // Força horizontal
+                    OnPropertyChanged(nameof(LayoutIndex));
+                }
+            }
+        }
+    }
+
+    // 🟢 Verifica se o índice 1 (Clean) está selecionado no LayoutTheme
+    public bool IsCleanThemeActive => LayoutThemeIndex == 1;
 
     private bool _animations = true;
     public bool Animations { get => _animations; set => SetField(ref _animations, value); }
@@ -341,25 +350,15 @@ public string IgdbApiStatusText =>
     private bool _soundEffects = true;
     public bool SoundEffects { get => _soundEffects; set => SetField(ref _soundEffects, value); }
 
-    // v0.16: opt-in pro canal beta do Velopack — ver AppSettings.BetaChannelOptIn
-    // e UpdateService. Só tem efeito depois de reiniciar o launcher (o
-    // UpdateService é montado uma vez, na abertura do app).
     private bool _betaChannelOptIn;
     public bool BetaChannelOptIn { get => _betaChannelOptIn; set => SetField(ref _betaChannelOptIn, value); }
 
-    // v0.16: opt-in pra congelar o jogo enquanto o Quick Settings está aberto
-    // — ver AppSettings.FreezeGameOnOverlay e InputBlockService. Lido direto
-    // pelo OverlayWindow a cada vez que abre, não precisa reiniciar.
     private bool _freezeGameOnOverlay;
     public bool FreezeGameOnOverlay { get => _freezeGameOnOverlay; set => SetField(ref _freezeGameOnOverlay, value); }
 
-    // v0.16.4: ver AppSettings.FocusOverlayInGame.
     private bool _focusOverlayInGame;
     public bool FocusOverlayInGame { get => _focusOverlayInGame; set => SetField(ref _focusOverlayInGame, value); }
 
-    // beta.16: mexer no estilo ou no volume toca um exemplo na hora (antes não
-    // dava retorno nenhum e parecia que "não responde"). _isLoading evita tocar
-    // quando é o próprio LoadFrom preenchendo a tela.
     private bool _isLoading;
 
     private int _soundThemeIndex;
@@ -409,7 +408,6 @@ public string IgdbApiStatusText =>
     private string _keyLaunchGame = "Enter";
     public string KeyLaunchGame { get => _keyLaunchGame; set => SetField(ref _keyLaunchGame, value); }
 
-    // Caminho do Lossless Scaling
     private string _losslessScalingPath = string.Empty;
     public string LosslessScalingPath
     {
@@ -430,7 +428,6 @@ public string IgdbApiStatusText =>
         try
         {
             using var client = new HttpClient();
-            // User-Agent obrigatório para a API do GitHub não bloquear
             client.DefaultRequestHeaders.Add("User-Agent", "Handheld-Launcher");
             
             var response = await client.GetAsync("https://api.github.com/repos/profcosta67/Handheld-Launcher/releases?per_page=10");
@@ -443,7 +440,6 @@ public string IgdbApiStatusText =>
                 {
                     foreach (var r in releases)
                     {
-                        // Limpa o Markdown básico para ficar legível na tela
                         var cleanBody = r.Body?.Replace("### ", "").Replace("## ", "").Replace("**", "").Replace("- ", "• ") ?? "";
                         r.Body = cleanBody;
                         ReleaseHistory.Add(r);
@@ -451,10 +447,7 @@ public string IgdbApiStatusText =>
                 }
             }
         }
-        catch
-        {
-            // Se falhar (sem internet), não faz nada, deixa a tela vazia.
-        }
+        catch { }
         finally
         {
             IsLoadingReleases = false;
@@ -491,7 +484,7 @@ public string IgdbApiStatusText =>
         SteamWebApiKey = settings.SteamWebApiKey ?? string.Empty;
         RawgApiKey = settings.RawgApiKey ?? string.Empty;
         IgdbClientId = settings.IgdbClientId ?? "";
-IgdbClientSecret = settings.IgdbClientSecret ?? "";
+        IgdbClientSecret = settings.IgdbClientSecret ?? "";
 
         var detected = SteamAccountDetector.FindMostRecent();
         _steamPersonaName = detected?.PersonaName;
@@ -537,8 +530,8 @@ IgdbClientSecret = settings.IgdbClientSecret ?? "";
         settings.SteamGridDbApiKey = string.IsNullOrWhiteSpace(SteamGridDbApiKey) ? null : SteamGridDbApiKey.Trim();
         settings.SteamWebApiKey = string.IsNullOrWhiteSpace(SteamWebApiKey) ? null : SteamWebApiKey.Trim();
         settings.RawgApiKey = string.IsNullOrWhiteSpace(RawgApiKey) ? string.Empty : RawgApiKey.Trim();
-            settings.IgdbClientId = IgdbClientId;
-    settings.IgdbClientSecret = IgdbClientSecret;
+        settings.IgdbClientId = IgdbClientId;
+        settings.IgdbClientSecret = IgdbClientSecret;
         settings.SteamId64 = string.IsNullOrWhiteSpace(SteamId64) ? null : SteamId64.Trim();
         settings.XboxScanFolders = XboxScanFoldersText
             .Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
