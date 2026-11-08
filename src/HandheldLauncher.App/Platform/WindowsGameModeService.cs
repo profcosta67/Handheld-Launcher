@@ -15,13 +15,12 @@ namespace HandheldLauncher.App.Platform
         private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
         private const string AppName = "HandheldLauncher";
 
-        // --- PARTE 1: INSTALAÇÃO DO OMNICONSOLE ---
+        // --- PARTE 1: INSTALAÇÃO E CONFIGURAÇÃO DO OMNICONSOLE ---
 
-                public async Task<bool> EnableOmniConsoleAsync()
+        public async Task<bool> EnableOmniConsoleAsync()
         {
             try
             {
-                // 1. Verifica se a pasta e os arquivos existem antes de qualquer coisa
                 if (!Directory.Exists(_omniConsolePath))
                     throw new DirectoryNotFoundException($"A pasta do OmniConsole não existe no build: {_omniConsolePath}");
 
@@ -34,25 +33,27 @@ namespace HandheldLauncher.App.Platform
                 if (!File.Exists(msixPath))
                     throw new FileNotFoundException($"O arquivo de instalação não foi encontrado em: {msixPath}");
 
-                // 2. Executa a instalação
-                // ATENÇÃO: Este método precisa que o App rode como Administrador!
+                // 2. Executa a instalação (Requer Admin)
                 EnableDeveloperMode();
                 InstallCertificate(certPath);
                 await InstallMsixAsync(msixPath);
                 
+                // 3. Descobre o ID do pacote e registra
                 string aumid = await GetOmniConsoleAumidAsync();
                 if (string.IsNullOrEmpty(aumid)) 
                     throw new Exception("AUMID do OmniConsole não encontrado após a instalação.");
 
                 RegisterAsHomeApp(aumid);
-                ConfigureOmniConsole();
+                
+                // 4. Fecha o OmniConsole (se o Windows abriu ele sozinho) e injeta as configurações
+                KillOmniConsoleProcess();
+                ConfigureOmniConsole(aumid);
 
                 DebugLog.Write("[GAME MODE] OmniConsole instalado e configurado com sucesso.");
                 return true;
             }
             catch (Exception ex)
             {
-                // Agora o erro vai pro log com detalhes exatos
                 DebugLog.Write($"[GAME MODE] Falha crítica: {ex.GetType().Name} - {ex.Message}");
                 return false;
             }
@@ -72,14 +73,13 @@ namespace HandheldLauncher.App.Platform
             store.Add(cert);
         }
 
-                        private async Task InstallMsixAsync(string msixPath)
+        private async Task InstallMsixAsync(string msixPath)
         {
             var process = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
                     FileName = "powershell.exe",
-                    // O -ErrorAction Stop força o PowerShell a cuspir o erro real
                     Arguments = $"-NoProfile -ExecutionPolicy Bypass -Command \"Add-AppxPackage -Path '{msixPath}' -ErrorAction Stop\"",
                     UseShellExecute = false,
                     CreateNoWindow = true,
@@ -89,23 +89,18 @@ namespace HandheldLauncher.App.Platform
             };
             
             process.Start();
-            
-            // Lê a saída e o erro do PowerShell
             string output = await process.StandardOutput.ReadToEndAsync();
             string error = await process.StandardError.ReadToEndAsync();
-            
             await process.WaitForExitAsync();
 
-            // Se o PowerShell retornar erro, nós jogamos a mensagem dele para o C#
             if (process.ExitCode != 0 || !string.IsNullOrWhiteSpace(error))
             {
-                throw new Exception($"O Windows bloqueou a instalação do MSIX. Erro do PowerShell: {error.Trim()}");
+                throw new Exception($"O Windows bloqueou a instalação do MSIX. Erro: {error.Trim()}");
             }
         }
 
         private async Task<string> GetOmniConsoleAumidAsync()
         {
-            // Descobre o ID real do pacote instalado
             var process = new Process
             {
                 StartInfo = new ProcessStartInfo
@@ -127,27 +122,67 @@ namespace HandheldLauncher.App.Platform
         {
             using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\GamingConfiguration", true);
             key?.SetValue("GamingHomeApp", aumid);
+
+            // Força o Windows a iniciar no Modo Xbox em vez do Desktop
+            using var shellKey = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows NT\CurrentVersion\Winlogon", true);
+            if (shellKey != null)
+            {
+                // O padrão é "explorer.exe". O FSE usa "Xbox.exe" ou "GameBar.exe" (depende da versão do Windows).
+                // O valor exato para o FSE pode variar, mas geralmente é algo como "XboxPcApp.exe" 
+                // ou via a chave de GamingConfiguration.
+                // Deixar essa chave intocada se não tivermos certeza absoluta, senão o Windows pode não bootar.
+            }
         }
 
-        private void ConfigureOmniConsole()
+        // --- MÉTODOS NOVOS PARA AUTOMAÇÃO TOTAL ---
+
+        private void KillOmniConsoleProcess()
         {
+            try
+            {
+                // Se o MSIX abrir sozinho após a instalação, precisamos matá-lo para editar os arquivos
+                foreach (var process in Process.GetProcessesByName("OmniConsole"))
+                {
+                    process.Kill();
+                    process.WaitForExit(2000);
+                }
+            }
+            catch { /* Ignora se não estiver rodando */ }
+        }
+
+        private void ConfigureOmniConsole(string aumid)
+        {
+            // O AUMID tem o formato: "PackageFamilyName!AppId"
+            // Nós extraímos apenas o "PackageFamilyName" para achar a pasta virtualizada
+            string packageFamilyName = aumid.Split('!')[0];
+
+            // Caminho correto da pasta MSIX (Sandbox do Windows)
             string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            string omniConfigDir = Path.Combine(localAppData, "OmniConsole");
+            string omniConfigDir = Path.Combine(localAppData, "Packages", packageFamilyName, "LocalState");
+            
             Directory.CreateDirectory(omniConfigDir);
             
             string configFile = Path.Combine(omniConfigDir, "platforms.json");
             string launcherExe = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "HandheldLauncher.exe");
 
+            // Estrutura do JSON que o OmniConsole espera
             var config = new
             {
                 DefaultPlatform = "HandheldLauncher",
                 Platforms = new[] {
-                    new { Name = "HandheldLauncher", Path = launcherExe, Arguments = "" }
+                    new { 
+                        Name = "HandheldLauncher", 
+                        Path = launcherExe, 
+                        Arguments = "", 
+                        IsEnabled = true 
+                    }
                 }
             };
 
             string jsonConfig = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(configFile, jsonConfig);
+            
+            DebugLog.Write($"[GAME MODE] Configuracao automatica do OmniConsole injetada em: {configFile}");
         }
 
         // --- PARTE 2: INICIAR NO BOOT ---
@@ -163,7 +198,6 @@ namespace HandheldLauncher.App.Platform
                     if (!string.IsNullOrEmpty(exePath))
                         key?.SetValue(AppName, $"\"{exePath}\"");
                     
-                    // Desativa o Xbox FSE original (opcional se usarmos o Omni)
                     using var gameBarKey = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\GameBar", writable: true);
                     gameBarKey?.SetValue("AutoGameModeEnabled", 0, RegistryValueKind.DWord);
                 }
