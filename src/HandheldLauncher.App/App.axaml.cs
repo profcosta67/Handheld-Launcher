@@ -21,12 +21,10 @@ public partial class App : Application
     }
 
     public override void OnFrameworkInitializationCompleted()
+{
+    if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
     {
-        HandheldLauncher.App.Diagnostics.CrashReport.InstallUiThread();
-        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-        {
-            var appSettings = AppSettingsStore.Load();
-
+        var appSettings = AppSettingsStore.Load();
             if (string.IsNullOrWhiteSpace(appSettings.SteamId64)
                 && SteamAccountDetector.FindMostRecent() is { } steamAccount)
             {
@@ -42,7 +40,7 @@ public partial class App : Application
                 try { AppSettingsStore.Save(appSettings); }
                 catch (Exception ex) { DebugLog.Write($"[Startup] Falha ao salvar caminho do Eden detectado: {ex.Message}"); }
             }
-
+            
             var steamScanner = new SteamLibraryScanner();
             var xboxFolderScanner = appSettings.XboxScanFolders.Count > 0
                 ? new XboxFolderScanner(appSettings.XboxScanFolders)
@@ -168,7 +166,13 @@ public partial class App : Application
             }
 
             desktop.MainWindow = mainWindow;
-        }
+    
+                    // 🟢 Aplica o tema Cartoon na MainWindow se for o tema atual
+            if (appSettings.Theme == 16)
+            {
+                mainWindow.Classes.Add("cartoon");
+            }
+    }    
 
         base.OnFrameworkInitializationCompleted();
     }

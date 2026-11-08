@@ -3,9 +3,7 @@
 
   <Styles.Resources>
     <ResourceDictionary>
-
-      <!-- Palette — a neutral violet accent, deliberately not ROG red or
-           Legion blue, since this launcher runs on both. Swap freely. -->
+      <!-- Cores base (o ThemeManager sobrescreve essas) -->
       <Color x:Key="BackgroundColor">#0C0D12</Color>
       <Color x:Key="SurfaceColor">#181A22</Color>
       <Color x:Key="SurfaceRaisedColor">#222531</Color>
@@ -27,10 +25,8 @@
       <SolidColorBrush x:Key="BackdropDimBrush" Color="#CC0C0D12" />
       <SolidColorBrush x:Key="ArtBackdropDimBrush" Color="#CC0C0D12" />
 
-      <!-- v0.19: Recurso de Fonte Global para permitir troca dinâmica -->
       <FontFamily x:Key="GlobalFontFamily">Segoe UI Variable Text, Segoe UI</FontFamily>
 
-      <!-- Tamanhos de texto (v0.7.1) -->
       <x:Double x:Key="FontSizeBase">14</x:Double>
       <x:Double x:Key="FontSizeBody">15</x:Double>
       <x:Double x:Key="FontSizeTitle">30</x:Double>
@@ -57,15 +53,37 @@
       <CornerRadius x:Key="RadiusScale3">12</CornerRadius>
       <CornerRadius x:Key="RadiusScale4">16</CornerRadius>
       <CornerRadius x:Key="RadiusScale5">24</CornerRadius>
-
     </ResourceDictionary>
   </Styles.Resources>
 
-  <!-- Fonte do projeto inteiro -->
   <Style Selector="Window">
-  <Setter Property="FontFamily" Value="{DynamicResource GlobalFontFamily}" />
-  <Setter Property="FontSize" Value="{DynamicResource FontSizeBase}" />
-</Style>
+    <Setter Property="FontFamily" Value="{DynamicResource GlobalFontFamily}" />
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeBase}" />
+  </Style>
+
+  <!-- 🟢 INÍCIO DOS ESTILOS CARTOON (Bordas Grossas) -->
+  <Style Selector=".cartoon Button.pill, .cartoon Button.filterTab, .cartoon Button.switchAction">
+    <Setter Property="BorderThickness" Value="3" />
+    <Setter Property="BorderBrush" Value="Black" />
+    <Setter Property="FontWeight" Value="Bold" />
+  </Style>
+  
+  <Style Selector=".cartoon Border.gameTile">
+    <Setter Property="BorderThickness" Value="4" />
+    <Setter Property="BorderBrush" Value="Black" />
+    <Setter Property="BoxShadow" Value="4 4 0 0 Black" />
+  </Style>
+
+  <Style Selector=".cartoon Border.contextMenuCard, .cartoon Border.menuHeader">
+    <Setter Property="BorderThickness" Value="3" />
+    <Setter Property="BorderBrush" Value="Black" />
+  </Style>
+
+  <Style Selector=".cartoon TextBox">
+    <Setter Property="BorderThickness" Value="3" />
+    <Setter Property="BorderBrush" Value="Black" />
+  </Style>
+  <!-- 🟢 FIM DOS ESTILOS CARTOON -->
 
   <!-- Row tile -->
   <Style Selector="Border.gameTile">

@@ -41,6 +41,12 @@ if (Test-Path $settingsFile) {
     }
 }
 
+# Executa o comando para preparar o sistema silenciosamente
+# Verifica se precisa de elevação
+if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Warning "A instalação do Modo Jogo requer privilégios de Administrador."
+}
+
 # Ativa o modo console
 $settings["KioskMode"] = $true
 $settings["ModeChosen"] = $true

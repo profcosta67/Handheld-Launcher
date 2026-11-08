@@ -1,6 +1,8 @@
+using System;
 using System.Collections.ObjectModel;
 using System.Net.Http;
 using System.Text.Json;
+using System.Threading.Tasks;
 using HandheldLauncher.App.Platform;
 using HandheldLauncher.Core.Models;
 using HandheldLauncher.Core.Services;
@@ -145,7 +147,7 @@ public sealed class SettingsViewModel : ViewModelBase
             if (string.IsNullOrWhiteSpace(_edenExecutablePath)) return "Não configurado — nenhum jogo do Eden vai aparecer na biblioteca.";
             try
             {
-                return File.Exists(_edenExecutablePath) ? "Encontrado ✓" : "Esse arquivo não existe — confira o caminho.";
+                return System.IO.File.Exists(_edenExecutablePath) ? "Encontrado ✓" : "Esse arquivo não existe — confira o caminho.";
             }
             catch { return "Caminho inválido — confira."; }
         }
@@ -293,7 +295,7 @@ public sealed class SettingsViewModel : ViewModelBase
         } 
     }
 
-  private int _themeIndex;
+    private int _themeIndex;
     public int ThemeIndex 
     { 
         get => _themeIndex; 
@@ -381,6 +383,44 @@ public sealed class SettingsViewModel : ViewModelBase
         {
             if (SetField(ref _soundThemeIndex, value) && !_isLoading)
                 UiSounds.Preview(_soundThemeIndex, (int)Math.Round(_soundVolume), _soundEffects);
+        }
+    }
+
+    // ===== MODO JOGO (OMNICONSOLE + BOOT) =====
+    private bool _isGameModeEnabled;
+    public bool IsGameModeEnabled
+    {
+        get => _isGameModeEnabled;
+        set 
+        { 
+            if (SetField(ref _isGameModeEnabled, value))
+            {
+                _ = ApplyGameModeAsync(value);
+            }
+        }
+    }
+
+     private async Task ApplyGameModeAsync(bool enable)
+    {
+        if (enable)
+        {
+            var service = new WindowsGameModeService();
+            bool success = await service.EnableOmniConsoleAsync();
+            
+            if (success)
+            {
+                WindowsGameModeService.SetLauncherOnBoot(true);
+            }
+            else
+            {
+                IsGameModeEnabled = false; // Reverte
+                // Vamos mostrar a mensagem no textinho de salvar para o usuário ver na hora
+                SavedMessage = "Erro ao ativar o Modo Jogo. Verifique se o launcher está rodando como Administrador ou veja o debug.log.";
+            }
+        }
+        else
+        {
+            WindowsGameModeService.SetLauncherOnBoot(false);
         }
     }
 
@@ -505,6 +545,10 @@ public sealed class SettingsViewModel : ViewModelBase
         EdenExecutablePath = settings.EdenExecutablePath ?? string.Empty;
         EdenRomFoldersText = string.Join(Environment.NewLine, settings.EdenRomFolders);
         IsHandheldMode = settings.KioskMode;
+        
+        // Carrega o estado do Modo Jogo salvo
+        _isGameModeEnabled = settings.GameModeEnabled;
+
         SteamAccountText = detected is null
             ? "Nenhuma conta Steam encontrada neste PC."
             : $"Conta Steam deste PC: {detected.PersonaName} ({detected.SteamId64})";
@@ -555,6 +599,10 @@ public sealed class SettingsViewModel : ViewModelBase
         settings.KioskMode = IsHandheldMode;
         settings.AutoRestart = IsHandheldMode;
         settings.ModeChosen = true;
+        
+        // Salva o estado do Modo Jogo
+        settings.GameModeEnabled = IsGameModeEnabled;
+
         settings.Theme = Math.Clamp(ThemeIndex, 0, HandheldLauncher.App.Platform.ThemeManager.ThemeNames.Length - 1);
         settings.LayoutTheme = Math.Clamp(LayoutThemeIndex, 0, HandheldLauncher.App.Platform.ThemeManager.LayoutThemeNames.Length - 1);
         settings.UiFont = Math.Clamp(FontIndex, 0, HandheldLauncher.App.Platform.ThemeManager.Fonts.Length - 1);

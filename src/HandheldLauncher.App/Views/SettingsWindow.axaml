@@ -52,6 +52,20 @@
       
       <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
         <StackPanel Spacing="4">
+
+        <!-- Exemplo dentro do seu SettingsView.axaml -->
+<StackPanel Spacing="16" Margin="0,20,0,0">
+    <TextBlock Text="Modo Jogo" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+    
+    <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+        <!-- O ToggleSwitch controla a propriedade no seu ViewModel -->
+        <ToggleSwitch IsChecked="{Binding IsGameModeEnabled}" />
+        <TextBlock Text="Iniciar no Windows como Modo Jogo (Substituir Xbox FSE)" VerticalAlignment="Center"/>
+    </StackPanel>
+    
+    <TextBlock Text="Instala o OmniConsole automaticamente e define o Launcher como tela inicial." 
+               FontSize="12" Opacity="0.6" TextWrapping="Wrap" Margin="0, -8, 0, 0"/>
+</StackPanel>
           
           <!-- Aparência -->
           <StackPanel Spacing="0" IsVisible="{Binding IsCategoryAppearanceActive}">
