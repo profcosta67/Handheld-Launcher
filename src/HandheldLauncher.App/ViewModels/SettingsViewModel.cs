@@ -293,9 +293,21 @@ public sealed class SettingsViewModel : ViewModelBase
         } 
     }
 
-    private int _themeIndex;
-    public int ThemeIndex { get => _themeIndex; set => SetField(ref _themeIndex, value); }
-
+  private int _themeIndex;
+    public int ThemeIndex 
+    { 
+        get => _themeIndex; 
+        set 
+        {
+            if (SetField(ref _themeIndex, value))
+            {
+                // 🟢 CORREÇÃO: Aplica o tema na hora e avisa a UI
+                HandheldLauncher.App.Platform.ThemeManager.Apply(value);
+                OnPropertyChanged(nameof(IsCleanThemeActive)); 
+            }
+        } 
+    }
+    
     private int _layoutThemeIndex;
     public int LayoutThemeIndex
     {

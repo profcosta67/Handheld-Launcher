@@ -265,7 +265,12 @@ internal static class DisplayColorManager
         var ramp = NewRamp();
         for (var i = 0; i < 256; i++)
         {
-            var value = (ushort)(i * 257);
+            // 🟢 CORREÇÃO: Curva sRGB (Gamma 2.2) em vez de Linear.
+            // A curva linear deixa a tela com aspecto esbranquiçado/lavado.
+            double x = i / 255.0;
+            double y = Math.Pow(x, 2.2); 
+            var value = (ushort)Math.Round(y * 65535.0);
+            
             ramp.Red[i] = ramp.Green[i] = ramp.Blue[i] = value;
         }
         return ramp;
