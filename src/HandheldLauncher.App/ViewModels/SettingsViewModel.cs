@@ -303,7 +303,6 @@ public sealed class SettingsViewModel : ViewModelBase
         {
             if (SetField(ref _themeIndex, value))
             {
-                // 🟢 CORREÇÃO: Aplica o tema na hora e avisa a UI
                 HandheldLauncher.App.Platform.ThemeManager.Apply(value);
                 OnPropertyChanged(nameof(IsCleanThemeActive)); 
             }
@@ -319,7 +318,7 @@ public sealed class SettingsViewModel : ViewModelBase
             if (SetField(ref _layoutThemeIndex, value))
             {
                 OnPropertyChanged(nameof(LayoutThemeButtonText));
-                OnPropertyChanged(nameof(IsCleanThemeActive)); // 🟢 Avisa a UI pra atualizar o texto de aviso
+                OnPropertyChanged(nameof(IsCleanThemeActive));
             }
         }
     }
@@ -345,17 +344,15 @@ public sealed class SettingsViewModel : ViewModelBase
         {
             if (SetField(ref _layoutIndex, value))
             {
-                // 🟢 TRAVA DE SEGURANÇA: Se o tema Clean estiver ativo, força horizontal (0).
                 if (value == 1 && IsCleanThemeActive) 
                 {
-                    _layoutIndex = 0; // Força horizontal
+                    _layoutIndex = 0;
                     OnPropertyChanged(nameof(LayoutIndex));
                 }
             }
         }
     }
 
-    // 🟢 Verifica se o índice 1 (Clean) está selecionado no LayoutTheme
     public bool IsCleanThemeActive => LayoutThemeIndex == 1;
 
     private bool _animations = true;
@@ -367,11 +364,9 @@ public sealed class SettingsViewModel : ViewModelBase
     private bool _betaChannelOptIn;
     public bool BetaChannelOptIn { get => _betaChannelOptIn; set => SetField(ref _betaChannelOptIn, value); }
 
-    private bool _freezeGameOnOverlay;
-    public bool FreezeGameOnOverlay { get => _freezeGameOnOverlay; set => SetField(ref _freezeGameOnOverlay, value); }
-
-    private bool _focusOverlayInGame;
-    public bool FocusOverlayInGame { get => _focusOverlayInGame; set => SetField(ref _focusOverlayInGame, value); }
+    // 🟢 NOVO: Substitui o FreezeGameOnOverlay e o GameModeEnabled
+    private bool _isolateControllerOnOverlay = true;
+    public bool IsolateControllerOnOverlay { get => _isolateControllerOnOverlay; set => SetField(ref _isolateControllerOnOverlay, value); }
 
     private bool _isLoading;
 
@@ -386,21 +381,6 @@ public sealed class SettingsViewModel : ViewModelBase
         }
     }
 
-    // ===== MODO JOGO  =====
-    private bool _isGameModeEnabled;
-    public bool IsGameModeEnabled
-    {
-        get => _isGameModeEnabled;
-        set 
-        { 
-            if (SetField(ref _isGameModeEnabled, value))
-            {
-                WindowsGameModeService.SetLauncherOnBoot(value);
-            }
-        }
-    }
-
-     
     private double _soundVolume = 70;
     public double SoundVolume
     {
@@ -522,9 +502,6 @@ public sealed class SettingsViewModel : ViewModelBase
         EdenExecutablePath = settings.EdenExecutablePath ?? string.Empty;
         EdenRomFoldersText = string.Join(Environment.NewLine, settings.EdenRomFolders);
         IsHandheldMode = settings.KioskMode;
-        
-        // Carrega o estado do Modo Jogo salvo
-        _isGameModeEnabled = settings.GameModeEnabled;
 
         SteamAccountText = detected is null
             ? "Nenhuma conta Steam encontrada neste PC."
@@ -539,8 +516,10 @@ public sealed class SettingsViewModel : ViewModelBase
         Animations = settings.Animations;
         SoundEffects = settings.SoundEffects;
         BetaChannelOptIn = settings.BetaChannelOptIn;
-        FreezeGameOnOverlay = settings.FreezeGameOnOverlay;
-        FocusOverlayInGame = settings.FocusOverlayInGame;
+        
+        // 🟢 NOVO: Carrega o estado do isolamento
+        IsolateControllerOnOverlay = settings.IsolateControllerOnOverlay;
+        
         SoundThemeIndex = Math.Clamp(settings.SoundTheme, 0, HandheldLauncher.App.Platform.UiSounds.PackNames.Length - 1);
         SoundVolume = Math.Clamp(settings.SoundVolume, 0, 100);
         ColorModeIndex = Math.Clamp(settings.ColorMode, 0, HandheldLauncher.App.Platform.DisplayColorManager.ModeNames.Length - 1);
@@ -577,8 +556,8 @@ public sealed class SettingsViewModel : ViewModelBase
         settings.AutoRestart = IsHandheldMode;
         settings.ModeChosen = true;
         
-        // Salva o estado do Modo Jogo
-        settings.GameModeEnabled = IsGameModeEnabled;
+        // 🟢 NOVO: Salva o estado do isolamento
+        settings.IsolateControllerOnOverlay = IsolateControllerOnOverlay;
 
         settings.Theme = Math.Clamp(ThemeIndex, 0, HandheldLauncher.App.Platform.ThemeManager.ThemeNames.Length - 1);
         settings.LayoutTheme = Math.Clamp(LayoutThemeIndex, 0, HandheldLauncher.App.Platform.ThemeManager.LayoutThemeNames.Length - 1);
@@ -589,8 +568,7 @@ public sealed class SettingsViewModel : ViewModelBase
         settings.Animations = Animations;
         settings.SoundEffects = SoundEffects;
         settings.BetaChannelOptIn = BetaChannelOptIn;
-        settings.FreezeGameOnOverlay = FreezeGameOnOverlay;
-        settings.FocusOverlayInGame = FocusOverlayInGame;
+        
         settings.SoundTheme = Math.Clamp(SoundThemeIndex, 0, HandheldLauncher.App.Platform.UiSounds.PackNames.Length - 1);
         settings.SoundVolume = Math.Clamp((int)Math.Round(SoundVolume), 0, 100);
         settings.ColorMode = Math.Clamp(ColorModeIndex, 0, HandheldLauncher.App.Platform.DisplayColorManager.ModeNames.Length - 1);

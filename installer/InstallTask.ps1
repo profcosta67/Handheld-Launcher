@@ -24,6 +24,23 @@ if (-not (Test-Path $exePath)) {
     Write-Host "OK: Tarefa Agendada criada com sucesso."
 }
 
+# --- Instalação do HidHide ---
+$hidHideInstaller = Join-Path $PSScriptRoot "Tools\HidHide_1.5.230_x64.exe"
+$hidHideMarker = "HKLM:\SOFTWARE\Nefarius Software Solutions\HidHide"
+
+# Verifica se o HidHide já está instalado para evitar reinstalações
+if (-not (Test-Path $hidHideMarker)) {
+    if (Test-Path $hidHideInstaller) {
+        Write-Host "Instalando HidHide..."
+        Start-Process -FilePath $hidHideInstaller -ArgumentList "/exenoui /qn /norestart" -Wait -NoNewWindow
+    } else {
+        Write-Warning "Instalador do HidHide não encontrado em: $hidHideInstaller"
+    }
+} else {
+    Write-Host "HidHide já está instalado."
+}
+# --- Fim da instalação do HidHide ---
+
 # 2. Ativa o KioskMode no arquivo de configuracoes
 $settingsDir = Join-Path $env:APPDATA "HandheldLauncher"
 $settingsFile = Join-Path $settingsDir "settings.json"

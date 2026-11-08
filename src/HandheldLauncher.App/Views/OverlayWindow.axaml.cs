@@ -14,18 +14,19 @@ using HandheldLauncher.App.Platform;
 using HandheldLauncher.App.Input;
 using HandheldLauncher.App.ViewModels;
 using HandheldLauncher.App.Platform.Hardware; 
+using HandheldLauncher.Services.HidHide;
 
 namespace HandheldLauncher.App.Views;
 
 public partial class OverlayWindow : Window
 {
-    // 🟢 NOVO: Evento para avisar o MainWindow a ligar/desligar o timer do controle
     public static event Action<bool>? OnOverlayVisibilityChanged;
 
     private bool _lsfgIsActive = false;
     private int _gamePid = 0;
 
     private readonly IHardwareService _hardwareService;
+    private readonly IHidHideService _hidHideService;
     private readonly IBrush _activeColor = new SolidColorBrush(Color.FromRgb(124, 92, 252));
     private readonly IBrush _inactiveColor = new SolidColorBrush(Color.FromRgb(37, 42, 54));
     private readonly IBrush _focusBorderColor = new SolidColorBrush(Color.FromRgb(124, 92, 252));
@@ -44,9 +45,7 @@ public partial class OverlayWindow : Window
         { TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(30) };
     private static int _startupTdpRetryRunning;
     private static volatile bool _startupTdpConfirmed;
-    private readonly bool _freezeGameOnOverlay;
 
-    // 🟢 ENFORCER: mantém o overlay sempre no topo enquanto visível
     private DispatcherTimer? _topmostEnforcer;
 
     private enum SubMenuMode { None, Resolution, RefreshRate, Tdp, TdpCustom, Fan, Color, Hud, Volume, Brightness, Capture, Lossless }
@@ -120,12 +119,12 @@ public partial class OverlayWindow : Window
     private const ushort VK_LWIN = 0x5B;
     private const ushort VK_SNAPSHOT = 0x2C;
 
-    public OverlayWindow(MainViewModel viewModel)
+    public OverlayWindow(MainViewModel viewModel, IHidHideService hidHideService)
     {
         _viewModel = viewModel;
+        _hidHideService = hidHideService;
         InitializeComponent();
 
-        // 🟢 ETAPA 1: Overlay não-ativável (não rouba foco do jogo)
         ShowActivated = false;
 
         _tdpHardwareSupported = OperatingSystem.IsWindows()
@@ -176,7 +175,7 @@ public partial class OverlayWindow : Window
         try
         {
             var settings = AppSettingsStore.Load();
-            _freezeGameOnOverlay = settings.FreezeGameOnOverlay;
+            
             if (_tdpHardwareSupported)
             {
                 var onAc = DeviceTdpLimits.IsOnAcPower();
@@ -448,7 +447,13 @@ public partial class OverlayWindow : Window
         base.OnOpened(e);
         DebugLog.Write($"[OVERLAY] OnOpened chamado. Width={Width}, Height={Height}");
 
-        // 🟢 ETAPA 1: Aplica estilo de janela não-ativável
+        // 🟢 INTEGRAÇÃO HIDHIDE (B7): Esconde o controle apenas se o toggle estiver ligado
+        if (_gamePid > 0 && AppSettingsStore.Load().IsolateControllerOnOverlay)
+        {
+            try { _hidHideService.HideControllerForProcess(_gamePid); }
+            catch (Exception ex) { DebugLog.Write($"[OVERLAY] Erro ao esconder controle: {ex.Message}"); }
+        }
+
         if (OperatingSystem.IsWindows())
         {
             var h = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
@@ -460,10 +465,8 @@ public partial class OverlayWindow : Window
             }
         }
 
-        // 🟢 NOVO: Avisa o MainWindow para ligar o timer do controle
         OnOverlayVisibilityChanged?.Invoke(true);
 
-        // Posiciona apenas uma vez
         PositionOnRightEdge();
         ResetPositionGuardForShow();
         StartTopmostEnforcer();
@@ -566,7 +569,13 @@ public partial class OverlayWindow : Window
              
         Hide();
 
-        // 🟢 NOVO: Avisa o MainWindow para desligar o timer do controle (se o launcher ainda estiver escondido)
+        // 🟢 INTEGRAÇÃO HIDHIDE (B7): Devolve o controle para o jogo
+        if (_gamePid > 0 && AppSettingsStore.Load().IsolateControllerOnOverlay)
+        {
+            try { _hidHideService.RestoreControllerForProcess(_gamePid); }
+            catch (Exception ex) { DebugLog.Write($"[OVERLAY] Erro ao restaurar controle: {ex.Message}"); }
+        }
+
         OnOverlayVisibilityChanged?.Invoke(false);
     }
 
@@ -1418,7 +1427,6 @@ public partial class OverlayWindow : Window
             if (wasVisible && !IsAppClosing)
             {
                 Show();
-                if (_freezeGameOnOverlay) InputBlockService.BlockGamepadForGame(_gamePid);
                 ForceTopmost();
             }
         }
@@ -1484,7 +1492,7 @@ public partial class OverlayWindow : Window
                 if (!LosslessScalingService.TryLaunchLossless())
                 {
                     if (LsfgStatusText != null) LsfgStatusText.Text = "❌ Falha ao iniciar Lossless";
-                    if (wasVisible) { Show(); if (_freezeGameOnOverlay) InputBlockService.BlockGamepadForGame(_gamePid); ForceTopmost(); }
+                    if (wasVisible) { Show(); ForceTopmost(); }
                     return;
                 }
 
@@ -1498,18 +1506,10 @@ public partial class OverlayWindow : Window
                 if (wasVisible && !IsAppClosing)
                 {
                     Show();
-                    if (_freezeGameOnOverlay) InputBlockService.BlockGamepadForGame(_gamePid);
                     ForceTopmost();
                     await Task.Delay(300);
                 }
             }
-
-        //    if (_gameHwnd != IntPtr.Zero)
-        //    {
-        //        LosslessScalingService.SetGameHwnd(_gameHwnd);
-        //        try { SetForegroundWindow(_gameHwnd); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
-        //       await Task.Delay(300);
-        //   }
 
             if (LsfgStatusText != null) LsfgStatusText.Text = "Enviando atalho...";
 
@@ -1537,7 +1537,6 @@ public partial class OverlayWindow : Window
             if (!IsVisible && !IsAppClosing)
             {
                 Show();
-                if (_freezeGameOnOverlay) InputBlockService.BlockGamepadForGame(_gamePid);
                 ForceTopmost();
             }
         }

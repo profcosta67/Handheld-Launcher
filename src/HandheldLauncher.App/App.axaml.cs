@@ -10,6 +10,8 @@ using HandheldLauncher.App.ViewModels;
 using HandheldLauncher.App.Views;
 using HandheldLauncher.Core.Services;
 using HandheldLauncher.Core.Services.Artwork;
+using HandheldLauncher.Services.HidHide;
+using Nefarius.Drivers.HidHide;
 
 namespace HandheldLauncher.App;
 
@@ -21,10 +23,10 @@ public partial class App : Application
     }
 
     public override void OnFrameworkInitializationCompleted()
-{
-    if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
     {
-        var appSettings = AppSettingsStore.Load();
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            var appSettings = AppSettingsStore.Load();
             if (string.IsNullOrWhiteSpace(appSettings.SteamId64)
                 && SteamAccountDetector.FindMostRecent() is { } steamAccount)
             {
@@ -40,7 +42,7 @@ public partial class App : Application
                 try { AppSettingsStore.Save(appSettings); }
                 catch (Exception ex) { DebugLog.Write($"[Startup] Falha ao salvar caminho do Eden detectado: {ex.Message}"); }
             }
-            
+
             var steamScanner = new SteamLibraryScanner();
             var xboxFolderScanner = appSettings.XboxScanFolders.Count > 0
                 ? new XboxFolderScanner(appSettings.XboxScanFolders)
@@ -78,6 +80,40 @@ public partial class App : Application
 
             var updateService = new UpdateService(appSettings.BetaChannelOptIn);
 
+            // =====================================================================
+            // v0.23.2 (B2/B3): Inicializa o serviço HidHide e busca o controle físico
+            // =====================================================================
+            DebugLog.Write("[HidHide] Tentando instanciar o serviço...");
+            var hidHideService = new HidHideService(new HidHideControlService());
+            
+            DebugLog.Write("[HidHide] Chamando Initialize()...");
+            
+            hidHideService.Initialize(); 
+
+
+                                    // ================= TESTE TEMPORÁRIO B5 =================
+                                                // Pega o PID de um jogo rodando (substitua "notepad" pelo nome de um jogo, ex: "DaysGone" ou "FarCry6")
+                                                var testProcess = System.Diagnostics.Process.GetProcessesByName("notepad").FirstOrDefault();
+                                                if (testProcess != null)
+                                                {
+                                                    HandheldLauncher.App.Diagnostics.DebugLog.Write($"[TESTE B5] Bloqueando controle para o processo: {testProcess.ProcessName} (PID: {testProcess.Id})");
+                                                    hidHideService.HideControllerForProcess(testProcess.Id);
+                                                }
+                                                // =======================================================
+
+            
+               // TESTE DO BUG DO LEGION: Força o reset do driver logo na abertura
+            // ATENÇÃO: Isso vai desconectar e reconectar o controle. Se o HidHide estiver ativo,
+            // o controle vai "piscar" no Windows.
+            System.Threading.Tasks.Task.Run(async () => 
+            {
+                await System.Threading.Tasks.Task.Delay(3000); // Espera 3s pra dar tempo do app abrir
+                hidHideService.ForceRestartController();
+            });
+
+            desktop.Exit += (_, _) => hidHideService.Dispose();
+            // =====================================================================
+
             PerformanceHud? performanceHud = null;
             if (OperatingSystem.IsWindows())
             {
@@ -107,10 +143,10 @@ public partial class App : Application
             var mainViewModel = new MainViewModel(libraryService, gameLauncher, artworkService, performanceOverlay, updateService, performanceHud,
                 steamOwnedGamesClient, steamAchievementsClient);
             desktop.Exit += (_, _) => mainViewModel.Dispose();
-            var mainWindow = new MainWindow
-            {
-                DataContext = mainViewModel,
-            };
+           var mainWindow = new MainWindow(mainViewModel, hidHideService)
+{
+    DataContext = mainViewModel,
+};
 
             // 🟢 v0.15.4: Inicia o Lossless Scaling em segundo plano (minimizado)
             // pra ficar pronto pra receber o atalho Ctrl+Alt+S quando o usuário clicar no toggle do Overlay.
@@ -166,13 +202,13 @@ public partial class App : Application
             }
 
             desktop.MainWindow = mainWindow;
-    
-                    // 🟢 Aplica o tema Cartoon na MainWindow se for o tema atual
+
+            // 🟢 Aplica o tema Cartoon na MainWindow se for o tema atual
             if (appSettings.Theme == 16)
             {
                 mainWindow.Classes.Add("cartoon");
             }
-    }    
+        }
 
         base.OnFrameworkInitializationCompleted();
     }

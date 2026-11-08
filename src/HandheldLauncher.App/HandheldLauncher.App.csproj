@@ -26,6 +26,12 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup>
+  <None Update="Tools\HidHide_1.5.230_x64.exe">
+    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+  </None>
+</ItemGroup>
+
     <ItemGroup>
     <PackageReference Include="LibreHardwareMonitorLib" />
     <PackageReference Include="AnimatedImage.Avalonia" />
@@ -38,6 +44,8 @@
     <PackageReference Include="Avalonia.Themes.Fluent" />
     <PackageReference Include="Avalonia.Fonts.Inter" />
     <PackageReference Include="Avalonia.Diagnostics" Condition="'$(Configuration)' == 'Debug'" />
+    <PackageReference Include="Nefarius.Drivers.HidHide" />
+    <PackageReference Include="Nefarius.Utilities.DeviceManagement" />
     <PackageReference Include="Velopack" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" />
     <PackageReference Include="System.Management" />

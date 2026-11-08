@@ -3,7 +3,9 @@ namespace HandheldLauncher.Core.Models;
 public class AppSettings
 {
     public bool HwInfoDisabled { get; set; }
-    public bool GameModeEnabled { get; set; }
+      // 🟢 NOVO: Substitui o FreezeGameOnOverlay e o GameModeEnabled
+    public bool IsolateControllerOnOverlay { get; set; } = true;
+   public bool GameModeEnabled { get; set; } = true;
     public string RawgApiKey { get; set; } = string.Empty;
     public int Theme { get; set; } = 0;
     public int LayoutTheme { get; set; } = 0;

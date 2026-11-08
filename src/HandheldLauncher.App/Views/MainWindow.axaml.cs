@@ -84,6 +84,7 @@ public partial class MainWindow : Window
     private const uint WmSysCommand = 0x0112;
 
     private const int ScMonitorPower = 0xF170;
+    private readonly HandheldLauncher.Services.HidHide.IHidHideService _hidHideService;
 
     private static readonly IntPtr HwndBroadcast = new(0xffff);
 
@@ -184,8 +185,9 @@ public partial class MainWindow : Window
 
     private bool? _gamepadComboModeIsGame;
 
-       public MainWindow()
-    {
+        public MainWindow(MainViewModel viewModel, HandheldLauncher.Services.HidHide.IHidHideService hidHideService)
+{
+    _hidHideService = hidHideService;
         InitializeComponent();
 
         ApplyLayoutTheme();
@@ -448,7 +450,7 @@ public partial class MainWindow : Window
             try
             {
                 DebugLog.Write("[OVERLAY] Criando OverlayWindow na inicialização (restaura TDP/ventoinha).");
-                _overlayWindow = new OverlayWindow(vm);
+                _overlayWindow = new OverlayWindow(vm, _hidHideService); // 🟢 ALTERADO AQUI
             }
             catch (Exception ex)
             {
@@ -521,7 +523,7 @@ public partial class MainWindow : Window
 if (_overlayWindow == null)
 {
     DebugLog.Write("[OVERLAY] Criando nova OverlayWindow (primeira vez).");
-    _overlayWindow = new OverlayWindow(vm);
+    _overlayWindow = new OverlayWindow(vm, _hidHideService); // 🟢 ALTERADO AQUI
 }
 else
 {

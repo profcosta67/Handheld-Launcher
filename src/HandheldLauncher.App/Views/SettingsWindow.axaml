@@ -14,7 +14,7 @@
     <Style Selector="TextBox"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="3" CornerRadius="10" Margin="-4"/></Template></Setter></Style>
     <Style Selector="ToggleSwitch"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="3" CornerRadius="10" Margin="-4"/></Template></Setter></Style>
     <Style Selector="RadioButton"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="3" CornerRadius="10" Margin="-4"/></Template></Setter></Style>
-    <Style Selector="Slider"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="16" Margin="-4"/></Template></Setter></Style>
+    <Style Selector="Slider"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="3" CornerRadius="16" Margin="-4"/></Template></Setter></Style>
     <Style Selector="Button.categoryTab"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="3" CornerRadius="16" Margin="-3"/></Template></Setter></Style>
     
     <Style Selector="Border.settingsCard">
@@ -188,23 +188,20 @@
               </StackPanel>
             </Border>
 
-            <!-- 🟢 BLOCO DO MODO JOGO MOVIDO PARA CÁ E CORRIGIDO -->
-            <Border Classes="settingsCard">
-              <StackPanel Spacing="8">
-                <TextBlock Text="Modo Jogo (Boot)" Classes="sectionTitle" />
-                <ToggleSwitch IsChecked="{Binding IsGameModeEnabled}" Content="Iniciar no Windows como Modo Jogo" />
-                <TextBlock Text="Substitui a inicialização do Xbox FSE (Game Bar) pelo Handheld Launcher ao ligar o aparelho." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
-              </StackPanel>
-            </Border>
-
+            <!-- 🟢 NOVO BLOCO DO OVERLAY (LIVRE DE FREEZE) -->
             <Border Classes="settingsCard">
               <StackPanel Spacing="8">
                 <TextBlock Text="Overlay (Quick Settings)" Classes="sectionTitle" />
-                <ToggleSwitch IsChecked="{Binding FreezeGameOnOverlay}" Content="Pausar o jogo com o Quick Settings aberto" />
-                <TextBlock Text="Evita que o gamepad chegue nos dois. Desligado por padrão: em jogos online com anti-cheat (EAC, BattlEye), congelar o processo pode resultar em banimento." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
                 
-                <ToggleSwitch IsChecked="{Binding FocusOverlayInGame}" Content="Quick Settings pega o foco (jogo para de receber botões)" Margin="0,8,0,0" />
-                <TextBlock Text="Sem pausar o jogo e sem risco com anti-cheat. Alguns jogos em tela cheia exclusiva podem minimizar ao perder o foco: se acontecer, desligue." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+                <ToggleSwitch IsChecked="{Binding IsolateControllerOnOverlay}">
+                    <ToggleSwitch.Content>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Isolar controle no Overlay (HidHide)" FontWeight="SemiBold" Foreground="White"/>
+                            <TextBlock Text="Esconde o controle físico do jogo enquanto o Quick Settings está aberto. O jogo continua rodando no fundo, mas não recebe comandos duplicados. Recomendado para evitar banimentos em anti-cheat." 
+                                       TextWrapping="Wrap" Foreground="Gray" FontSize="11" MaxWidth="450"/>
+                        </StackPanel>
+                    </ToggleSwitch.Content>
+                </ToggleSwitch>
               </StackPanel>
             </Border>
           </StackPanel>

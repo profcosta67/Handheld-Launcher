@@ -4,6 +4,7 @@ using System.IO;
 using Avalonia;
 using HandheldLauncher.App.Platform;
 using Velopack;
+using HandheldLauncher.Services.HidHide;
 
 namespace HandheldLauncher.App;
 

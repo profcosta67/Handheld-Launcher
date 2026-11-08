@@ -29,6 +29,7 @@ namespace HandheldLauncher.App.Platform
                         gameBarKey.SetValue("ShowStartupPanel", 0, RegistryValueKind.DWord);
                     }
 
+                    // Desativa o Game DVR (opcional, evita conflito de overlays)
                     using var gameDvrKey = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\GameDVR", writable: true);
                     if (gameDvrKey != null)
                     {
