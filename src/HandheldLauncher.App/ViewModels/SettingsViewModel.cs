@@ -386,7 +386,7 @@ public sealed class SettingsViewModel : ViewModelBase
         }
     }
 
-    // ===== MODO JOGO (OMNICONSOLE + BOOT) =====
+    // ===== MODO JOGO  =====
     private bool _isGameModeEnabled;
     public bool IsGameModeEnabled
     {
@@ -395,35 +395,12 @@ public sealed class SettingsViewModel : ViewModelBase
         { 
             if (SetField(ref _isGameModeEnabled, value))
             {
-                _ = ApplyGameModeAsync(value);
+                WindowsGameModeService.SetLauncherOnBoot(value);
             }
         }
     }
 
-     private async Task ApplyGameModeAsync(bool enable)
-    {
-        if (enable)
-        {
-            var service = new WindowsGameModeService();
-            bool success = await service.EnableOmniConsoleAsync();
-            
-            if (success)
-            {
-                WindowsGameModeService.SetLauncherOnBoot(true);
-            }
-            else
-            {
-                IsGameModeEnabled = false; // Reverte
-                // Vamos mostrar a mensagem no textinho de salvar para o usuário ver na hora
-                SavedMessage = "Erro ao ativar o Modo Jogo. Verifique se o launcher está rodando como Administrador ou veja o debug.log.";
-            }
-        }
-        else
-        {
-            WindowsGameModeService.SetLauncherOnBoot(false);
-        }
-    }
-
+     
     private double _soundVolume = 70;
     public double SoundVolume
     {

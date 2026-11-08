@@ -55,12 +55,7 @@
     <ProjectReference Include="..\HandheldLauncher.Core\HandheldLauncher.Core.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-  <Content Include="Assets\OmniConsole\*">
-    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-  </Content>
-</ItemGroup>
-
+  
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
   </ItemGroup>
@@ -71,10 +66,5 @@
     </None>
   </ItemGroup>
 
-    <ItemGroup>
-    <None Update="Assets\OmniConsole\*">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
+   
 </Project>
