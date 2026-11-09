@@ -3,8 +3,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Security;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.Text;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 
@@ -26,12 +27,57 @@ public partial class MainWindow : Window
 
     private static async Task<string> RunConnectivityCommandAsync(string file, string arguments)
     {
-        using var process = new Process { StartInfo = new ProcessStartInfo(file, arguments) { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true } };
+        using var process = new Process
+        {
+            StartInfo = new ProcessStartInfo(file, arguments)
+            {
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+                StandardOutputEncoding = Encoding.UTF8,
+                StandardErrorEncoding = Encoding.UTF8
+            }
+        };
         process.Start();
-        var output = process.StandardOutput.ReadToEndAsync();
-        var error = process.StandardError.ReadToEndAsync();
+        var outputTask = process.StandardOutput.ReadToEndAsync();
+        var errorTask = process.StandardError.ReadToEndAsync();
         await process.WaitForExitAsync();
-        return (await output) + Environment.NewLine + (await error);
+        var output = await outputTask;
+        var error = await errorTask;
+        if (process.ExitCode != 0)
+            throw new InvalidOperationException($"{file} terminou com código {process.ExitCode}: {error.Trim()} {output.Trim()}".Trim());
+        return output;
+    }
+
+    private static string ReadNetshValue(string output, string key)
+    {
+        foreach (var line in output.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None))
+        {
+            var separator = line.IndexOf(':');
+            if (separator <= 0) continue;
+            if (line.Substring(0, separator).Trim().Equals(key, StringComparison.OrdinalIgnoreCase))
+                return line.Substring(separator + 1).Trim();
+        }
+        return string.Empty;
+    }
+
+    private static IReadOnlyList<string> ParseNetshSsids(string output)
+    {
+        var result = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var line in output.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None))
+        {
+            var trimmed = line.Trim();
+            if (!trimmed.StartsWith("SSID ", StringComparison.OrdinalIgnoreCase)) continue;
+            var separator = trimmed.IndexOf(':');
+            if (separator < 0) continue;
+            var label = trimmed.Substring(0, separator).Trim();
+            if (label.Length < 5 || !int.TryParse(label.Substring(5).Trim(), out _)) continue;
+            var name = trimmed.Substring(separator + 1).Trim();
+            if (name.Length > 0 && seen.Add(name)) result.Add(name);
+        }
+        return result;
     }
 
     private async Task RefreshDrawerWifiAsync()
@@ -41,15 +87,16 @@ public partial class MainWindow : Window
             DrawerWifiStatus.Text = "Procurando redes Wi-Fi...";
             DrawerWifiNetworks.Items.Clear();
             var current = await RunConnectivityCommandAsync("netsh.exe", "wlan show interfaces");
-            var ssid = Regex.Match(current, @"(?im)^\s*SSID\s*:\s*(.+)$");
-            DrawerWifiStatus.Text = ssid.Success && !string.IsNullOrWhiteSpace(ssid.Groups[1].Value) ? "Conectado a " + ssid.Groups[1].Value.Trim() : "Não conectado";
-            var networks = await RunConnectivityCommandAsync("netsh.exe", "wlan show networks mode=bssid");
-            foreach (Match match in Regex.Matches(networks, @"(?im)^\s*SSID\s+\d+\s*:\s*(.*)$"))
-            {
-                var name = match.Groups[1].Value.Trim();
-                if (!string.IsNullOrWhiteSpace(name) && !DrawerWifiNetworks.Items.Contains(name)) DrawerWifiNetworks.Items.Add(name);
-            }
-            if (DrawerWifiNetworks.Items.Count == 0) DrawerWifiNetworks.Items.Add("Nenhuma rede encontrada");
+            var connected = ReadNetshValue(current, "SSID");
+            DrawerWifiStatus.Text = !string.IsNullOrWhiteSpace(connected) && !connected.Equals("N/A", StringComparison.OrdinalIgnoreCase)
+                ? "Conectado a " + connected : "Não conectado";
+
+            // Uma linha por SSID, sem duplicar o mesmo nome por ponto de acesso.
+            var networks = await RunConnectivityCommandAsync("netsh.exe", "wlan show networks mode=Bssid");
+            foreach (var name in ParseNetshSsids(networks))
+                DrawerWifiNetworks.Items.Add(name);
+            if (DrawerWifiNetworks.Items.Count == 0)
+                DrawerWifiNetworks.Items.Add("Nenhuma rede encontrada");
         }
         catch (Exception ex) { DrawerWifiStatus.Text = "Falha ao consultar Wi-Fi"; DrawerConnectivityFeedback.Text = ex.Message; }
     }
@@ -60,10 +107,12 @@ public partial class MainWindow : Window
         {
             DrawerBluetoothStatus.Text = "Buscando dispositivos pareados...";
             DrawerBluetoothDevices.Items.Clear();
-            const string script = "Get-PnpDevice -Class Bluetooth -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'OK' -and $_.FriendlyName -notmatch 'Enumerator|Microsoft|Generic|Service|Attribute' } | Select-Object -ExpandProperty FriendlyName";
+            // Não exigir Status=OK: periféricos pareados podem estar desconectados.
+            const string script = "$ErrorActionPreference='Stop'; Get-PnpDevice -Class Bluetooth | Where-Object { $_.FriendlyName -and $_.FriendlyName -notmatch 'Enumerator|Microsoft Bluetooth|Generic Access|Service Discovery' } | Sort-Object FriendlyName -Unique | ForEach-Object { '{0} [{1}]' -f $_.FriendlyName,$_.Status }";
             var output = await RunConnectivityCommandAsync("powershell.exe", "-NoProfile -Command \"" + script + "\"");
-            foreach (var line in output.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct()) DrawerBluetoothDevices.Items.Add(line);
-            DrawerBluetoothStatus.Text = DrawerBluetoothDevices.Items.Count == 0 ? "Nenhum dispositivo pareado encontrado" : DrawerBluetoothDevices.Items.Count + " dispositivo(s) disponível(is)";
+            foreach (var line in output.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => !string.IsNullOrWhiteSpace(s)))
+                DrawerBluetoothDevices.Items.Add(line);
+            DrawerBluetoothStatus.Text = DrawerBluetoothDevices.Items.Count == 0 ? "Nenhum dispositivo Bluetooth encontrado" : DrawerBluetoothDevices.Items.Count + " dispositivo(s) detectado(s)";
         }
         catch (Exception ex) { DrawerBluetoothStatus.Text = "Falha ao consultar Bluetooth"; DrawerConnectivityFeedback.Text = ex.Message; }
     }
