@@ -437,27 +437,14 @@ public partial class MainWindow : Window
                 _overlayWindow.SetGameHwnd(gameHwnd);
                 _overlayWindow.SetGamePid(_detectedGamePid);
 
-                DebugLog.Write($"[OVERLAY] Antes Show: IsVisible={_overlayWindow.IsVisible}, Pos={_overlayWindow.Position}, GameHwnd=0x{gameHwnd:X}");
+                                DebugLog.Write($"[OVERLAY] Antes Show: IsVisible={_overlayWindow.IsVisible}, Pos={_overlayWindow.Position}, GameHwnd=0x{gameHwnd:X}");
 
                 _overlayWindow.Opacity = 0;
                 _overlayWindow.SetInitialPosition(); 
                 _overlayWindow.Show();
 
-                _overlayWindow.Activate();
-                if (OperatingSystem.IsWindows())
-                {
-                    try
-                    {
-                        var hwnd = _overlayWindow.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
-                        if (hwnd != IntPtr.Zero)
-                        {
-                            SetForegroundWindow(hwnd);
-                            BringWindowToTop(hwnd);
-                            DebugLog.Write("[OVERLAY] Forçou o foco da janela (Fullscreen Fix).");
-                        }
-                    }
-                    catch (Exception ex) { DebugLog.Write($"[OVERLAY] Falha ao forçar foco: {ex.Message}"); }
-                }
+                // 🟢 REMOVIDO: O bloco que forçava Activate() e SetForegroundWindow()
+                // O WS_EX_NOACTIVATE dentro da OverlayWindow já garante que ela apareça por cima sem roubar o foco.
 
                 Dispatcher.UIThread.Post(() =>
                 {
