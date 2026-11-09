@@ -91,7 +91,10 @@ public partial class MainWindow : Window
             DrawerWifiStatus.Text = !string.IsNullOrWhiteSpace(connected) && !connected.Equals("N/A", StringComparison.OrdinalIgnoreCase)
                 ? "Conectado a " + connected : "Não conectado";
 
-            // Uma linha por SSID, sem duplicar o mesmo nome por ponto de acesso.
+            // Solicita uma varredura real antes de consultar o cache de redes do Windows.
+            // O comando show networks sozinho pode retornar apenas a rede já conectada.
+            await RunConnectivityCommandAsync("netsh.exe", "wlan scan");
+            await Task.Delay(1800);
             var networks = await RunConnectivityCommandAsync("netsh.exe", "wlan show networks mode=Bssid");
             foreach (var name in ParseNetshSsids(networks))
                 DrawerWifiNetworks.Items.Add(name);
