@@ -436,6 +436,7 @@
               <Button Content="Gerenciar dispositivo selecionado" Classes="pill" Click="OnDrawerManageBluetoothClick"/>
             </StackPanel>
           </Border>
+          <Button Grid.Row="3" Content="✈  Modo Avião — abrir configurações do Windows" Classes="pill" HorizontalAlignment="Stretch" Click="OnDrawerAirplaneModeClick" Margin="0,14,0,0"/>
           <TextBlock Grid.Row="4" x:Name="DrawerConnectivityFeedback" Text="As ações de Wi-Fi são executadas diretamente pelo Launcher." FontSize="11" Foreground="#9BA8C4" TextWrapping="Wrap" Margin="0,14,0,0"/>
         </Grid>
       </Border>
