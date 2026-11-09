@@ -1,0 +1,102 @@
+name: Beta Build
+
+on:
+  push:
+    branches: ['fix/**', 'beta/**']
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  beta:
+    runs-on: windows-latest
+    env:
+      VPK_VERSION: 1.2.161
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restaurar pacotes
+        run: dotnet restore HandheldLauncher.sln
+
+      - name: Compilar
+        run: dotnet build HandheldLauncher.sln -c Release --no-restore
+
+      - name: Testes
+        run: dotnet test src/HandheldLauncher.Core.Tests -c Release --no-build --verbosity normal
+
+      - name: Definir versão beta isolada
+        id: ver
+        shell: bash
+        run: |
+          BASE="$(tr -d ' \r\n' < VERSION)"
+          BASE="${BASE%%-*}"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE"
+          PATCH=$((PATCH + 1))
+          VERSION="$MAJOR.$MINOR.$PATCH-beta.${GITHUB_RUN_NUMBER}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Beta isolada: $VERSION"
+
+      - name: Publicar pacote Windows
+        run: >
+          dotnet publish src/HandheldLauncher.App -c Release -r win-x64
+          --self-contained true
+          -p:Version=${{ steps.ver.outputs.version }}
+          -p:TreatWarningsAsErrors=false
+          -o beta-publish
+
+      - name: Preparar PawnIO oficial (módulo + instalador verificados)
+        shell: pwsh
+        run: ./scripts/Prepare-PawnIO.ps1 -OutputDirectory "beta-publish/Tools"
+
+      - name: Preparar FFmpeg oficial
+        shell: pwsh
+        run: ./scripts/Prepare-FFmpeg.ps1 -OutputDirectory "beta-publish/Tools"
+
+      - name: Incluir tarefa do instalador
+        run: Copy-Item "installer/InstallTask.ps1" -Destination "beta-publish/InstallTask.ps1"
+
+      - name: Instalar Velopack
+        run: dotnet tool install -g vpk --version ${{ env.VPK_VERSION }}
+
+      - name: Gerar instalador beta
+        shell: pwsh
+        run: |
+          $packArgs = @(
+            "pack",
+            "--packId", "HandheldLauncher",
+            "--packTitle", "Handheld Launcher Beta",
+            "--packVersion", "${{ steps.ver.outputs.version }}",
+            "--packDir", "beta-publish",
+            "--mainExe", "HandheldLauncher.exe",
+            "--icon", "src/HandheldLauncher.App/Assets/app-icon.ico",
+            "--splashProgressColor", "#7C5CFC"
+          )
+          & vpk @packArgs
+          if ($LASTEXITCODE -ne 0) { throw "Velopack falhou ao gerar o instalador beta." }
+
+      - name: Compactar pacote portátil
+        shell: pwsh
+        run: Compress-Archive -Path beta-publish/* -DestinationPath HandheldLauncher-beta-portable-win-x64.zip -Force
+
+      - name: Disponibilizar instalador beta (sem criar Release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: HandheldLauncher-beta-installer-${{ steps.ver.outputs.version }}
+          path: Releases/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Disponibilizar pacote portátil
+        uses: actions/upload-artifact@v4
+        with:
+          name: HandheldLauncher-beta-portable-${{ steps.ver.outputs.version }}
+          path: HandheldLauncher-beta-portable-win-x64.zip
+          if-no-files-found: error
+          retention-days: 14

@@ -46,7 +46,8 @@
           <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryLosslessActive}" Content="Lossless" Tag="5" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
           <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAccountsActive}" Content="Contas" Tag="6" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
           <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryConnectivityActive}" Content="Rede" Tag="7" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
-          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryNewsActive}" Content="Atualizações" Tag="8" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
+          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategorySyncthingActive}" Content="Syncthing" Tag="8" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
+          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryNewsActive}" Content="Atualizações" Tag="9" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
         </StackPanel>
       </ScrollViewer>
       
@@ -250,19 +251,6 @@
           <!-- Conectividade -->
           <StackPanel Spacing="0" IsVisible="{Binding IsCategoryConnectivityActive}">
             
-            <!-- 🟢 SYNC (S4) -->
-            <Border Classes="settingsCard">
-              <StackPanel Spacing="8">
-                <TextBlock Text="Sincronização (Syncthing)" Classes="sectionTitle" />
-                <ToggleSwitch IsChecked="{Binding SyncthingEnabled}" Content="Ativar sincronização em segundo plano" />
-                <TextBlock Text="Mantém seus saves e configurações sincronizados entre o Legion Go e o PC. O Syncthing roda silenciosamente em segundo plano." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
-                
-                <Button Classes="pill primary" Content="⚙️ Configurar Pastas de Sincronização" Click="OnOpenSyncthingWebUiClick" HorizontalAlignment="Left" Margin="0,8,0,0" />
-                <TextBlock Text="Abre o painel do Syncthing no navegador para você escolher quais pastas (saves) deseja compartilhar." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
-              </StackPanel>
-            </Border>
-            <!-- FIM DO BLOCO SYNC -->
-
             <Border Classes="settingsCard">
               <Grid ColumnDefinitions="*,Auto">
                 <StackPanel Spacing="4">
@@ -280,6 +268,81 @@
                 </StackPanel>
                 <Button Grid.Column="1" Classes="pill primary" Content="Abrir Bluetooth" Click="OnOpenBluetoothSettingsClick" VerticalAlignment="Center" />
               </Grid>
+            </Border>
+          </StackPanel>
+
+          <!-- Syncthing: gerenciamento integrado pela API local -->
+          <StackPanel Spacing="0" IsVisible="{Binding IsCategorySyncthingActive}">
+            <Border Classes="settingsCard">
+              <StackPanel Spacing="10">
+                <TextBlock Text="Sincronização de arquivos" Classes="sectionTitle" />
+                <ToggleSwitch IsChecked="{Binding SyncthingEnabled}" Content="Ativar Syncthing em segundo plano" />
+                <TextBlock Text="{Binding SyncthingStatusText}" Classes="subtle" TextWrapping="Wrap" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Button Classes="pill primary" Content="Atualizar painel" Click="OnRefreshSyncthingClick" />
+                  <Button Classes="pill" Content="Verificar pastas" Click="OnScanSyncthingClick" />
+                  <Button Classes="pill" Content="Pausar dispositivos" Click="OnPauseSyncthingDevicesClick" />
+                  <Button Classes="pill" Content="Retomar dispositivos" Click="OnResumeSyncthingDevicesClick" />
+                  <Button Classes="pill" Content="Reiniciar serviço" Click="OnRestartSyncthingClick" />
+                </StackPanel>
+                <TextBlock Text="O painel consulta a API local do Syncthing. A chave é lida diretamente do arquivo de configuração e não é exibida." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+            <Border Classes="settingsCard">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Dispositivos" Classes="sectionTitle" />
+                <TextBlock Text="{Binding SyncthingDevicesText}" TextWrapping="Wrap" FontSize="12" />
+              </StackPanel>
+            </Border>
+            <Border Classes="settingsCard">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Pastas sincronizadas" Classes="sectionTitle" />
+                <TextBlock Text="{Binding SyncthingFoldersText}" TextWrapping="Wrap" FontSize="12" />
+              </StackPanel>
+            </Border>
+            <Border Classes="settingsCard">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Controle de pasta" Classes="sectionTitle" />
+                <TextBox Text="{Binding SyncthingFolderActionId}" Watermark="ID da pasta para pausar ou retomar" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Button Classes="pill" Content="Pausar pasta" Click="OnPauseSyncthingFolderClick" />
+                  <Button Classes="pill" Content="Retomar pasta" Click="OnResumeSyncthingFolderClick" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+            <Border Classes="settingsCard">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Adicionar dispositivo remoto" Classes="sectionTitle" />
+                <TextBox Text="{Binding SyncthingNewDeviceName}" Watermark="Nome do dispositivo" />
+                <TextBox Text="{Binding SyncthingNewDeviceId}" Watermark="ID Syncthing (8 grupos de 7 caracteres)" />
+                <Button Classes="pill primary" Content="Adicionar dispositivo" Click="OnAddSyncthingDeviceClick" HorizontalAlignment="Left" />
+                <TextBlock Text="O outro aparelho também precisa aceitar o vínculo e compartilhar as pastas." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+            <Border Classes="settingsCard">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Adicionar pasta local" Classes="sectionTitle" />
+                <TextBox Text="{Binding SyncthingNewFolderLabel}" Watermark="Nome da pasta" />
+                <TextBox Text="{Binding SyncthingNewFolderId}" Watermark="ID único (ex.: saves-legion)" />
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBox Grid.Column="0" Text="{Binding SyncthingNewFolderPath}" Watermark="Caminho da pasta local" />
+                  <Button Grid.Column="1" Classes="pill" Content="Procurar…" Click="OnBrowseSyncthingFolderClick" Margin="8,0,0,0" />
+                </Grid>
+                <TextBox Text="{Binding SyncthingNewFolderDeviceIds}" Watermark="IDs dos dispositivos (opcional; separados por vírgula)" />
+                <Button Classes="pill primary" Content="Adicionar pasta" Click="OnAddSyncthingFolderClick" HorizontalAlignment="Left" />
+                <TextBlock Text="Informe IDs de dispositivos já cadastrados para compartilhar a pasta. Se deixar vazio, ela ficará apenas neste aparelho." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+            <Border Classes="settingsCard">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Remover configuração" Classes="sectionTitle" />
+                <TextBox Text="{Binding SyncthingRemoveId}" Watermark="ID exato do dispositivo ou da pasta" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Button Classes="pill" Content="Remover dispositivo" Click="OnRemoveSyncthingDeviceClick" />
+                  <Button Classes="pill" Content="Remover pasta" Click="OnRemoveSyncthingFolderClick" />
+                </StackPanel>
+                <TextBlock Text="Remover uma pasta da lista não apaga os arquivos locais. A remoção do dispositivo encerra o vínculo neste aparelho." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+              </StackPanel>
             </Border>
           </StackPanel>
 

@@ -46,6 +46,8 @@ public partial class SettingsWindow : Window
             FitToScreen(); 
             FocusActiveTab(); 
             await ViewModel.LoadReleaseNotesAsync();
+            if (ViewModel.SyncthingEnabled)
+                await ViewModel.RefreshSyncthingAsync();
         };
 
         AddHandler(PointerPressedEvent, (_, e) => _lastPointerWasTouch = e.Pointer.Type != PointerType.Mouse, RoutingStrategies.Tunnel);
@@ -462,7 +464,60 @@ public partial class SettingsWindow : Window
 
     private void OnKeyboardClick(object? sender, RoutedEventArgs e) => TouchKeyboard.Toggle();
 
-      private void OnOpenSyncthingWebUiClick(object? sender, RoutedEventArgs e)
+      private async void OnAddSyncthingDeviceClick(object? sender, RoutedEventArgs e)
+        => await ViewModel.AddSyncthingDeviceAsync();
+
+    private async void OnAddSyncthingFolderClick(object? sender, RoutedEventArgs e)
+        => await ViewModel.AddSyncthingFolderAsync();
+
+    private async void OnPauseSyncthingFolderClick(object? sender, RoutedEventArgs e)
+        => await ViewModel.SetSyncthingFolderPausedAsync(true);
+
+    private async void OnResumeSyncthingFolderClick(object? sender, RoutedEventArgs e)
+        => await ViewModel.SetSyncthingFolderPausedAsync(false);
+
+    private async void OnRemoveSyncthingDeviceClick(object? sender, RoutedEventArgs e)
+        => await ViewModel.RemoveSyncthingDeviceAsync();
+
+    private async void OnRemoveSyncthingFolderClick(object? sender, RoutedEventArgs e)
+        => await ViewModel.RemoveSyncthingFolderAsync();
+
+    private async void OnBrowseSyncthingFolderClick(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = "Selecione a pasta que será sincronizada",
+                AllowMultiple = false
+            });
+            var folder = folders.FirstOrDefault();
+            var path = folder?.TryGetLocalPath();
+            if (!string.IsNullOrWhiteSpace(path))
+                ViewModel.SyncthingNewFolderPath = path;
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[SETTINGS] Falha ao selecionar pasta do Syncthing: {ex.Message}");
+        }
+    }
+
+    private async void OnRefreshSyncthingClick(object? sender, RoutedEventArgs e)
+        => await ViewModel.RefreshSyncthingAsync();
+
+    private async void OnScanSyncthingClick(object? sender, RoutedEventArgs e)
+        => await ViewModel.ScanSyncthingFoldersAsync();
+
+    private async void OnRestartSyncthingClick(object? sender, RoutedEventArgs e)
+        => await ViewModel.RestartSyncthingAsync();
+
+    private async void OnPauseSyncthingDevicesClick(object? sender, RoutedEventArgs e)
+        => await ViewModel.SetSyncthingDevicesPausedAsync(true);
+
+    private async void OnResumeSyncthingDevicesClick(object? sender, RoutedEventArgs e)
+        => await ViewModel.SetSyncthingDevicesPausedAsync(false);
+
+    private void OnOpenSyncthingWebUiClick(object? sender, RoutedEventArgs e)
     {
         try
         {
