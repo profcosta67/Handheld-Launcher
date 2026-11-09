@@ -32,6 +32,7 @@ public sealed class RyzenSmuService : IDisposable
     private bool _initialized;
     private uint _initializedCpuModel;
     private bool _disposed;
+    private static int _pawnIoInstallerLaunchAttempted;
 
     public bool IsInitialized => _initialized;
 
@@ -142,16 +143,17 @@ public sealed class RyzenSmuService : IDisposable
         }
 
         var connect = _io.Connect();
+        if (connect == PawnIOWrapper.ConnectResult.NotInstalled)
+        {
+            DebugLog.Write("[PawnIO] Driver ausente em instalação limpa. Solicitando o instalador oficial.");
+            TryLaunchOfficialInstaller();
+            return false; // O driver só será usado após a instalação e uma nova inicialização do Launcher.
+        }
         if (connect != PawnIOWrapper.ConnectResult.OK)
         {
-            DebugLog.Write(connect switch
-            {
-                PawnIOWrapper.ConnectResult.NotInstalled =>
-                    "[PawnIO] Driver não encontrado. Instale o runtime oficial em https://pawnio.eu/ e reinicie o Windows.",
-                PawnIOWrapper.ConnectResult.AccessDenied =>
-                    "[PawnIO] Acesso negado ao driver. Abra o Launcher com elevação.",
-                _ => "[PawnIO] Não foi possível abrir o dispositivo do driver: " + connect + "."
-            });
+            DebugLog.Write(connect == PawnIOWrapper.ConnectResult.AccessDenied
+                ? "[PawnIO] Acesso negado ao driver. Abra o Launcher com elevação."
+                : "[PawnIO] Não foi possível abrir o dispositivo do driver: " + connect + ".");
             return false;
         }
 
@@ -180,6 +182,34 @@ public sealed class RyzenSmuService : IDisposable
         _initialized = true;
         DebugLog.Write($"[PawnIO] Módulo carregado com sucesso (Codename {codeName[0]}). TDP habilitado.");
         return true;
+    }
+
+    private static void TryLaunchOfficialInstaller()
+    {
+        if (!OperatingSystem.IsWindows() || Interlocked.Exchange(ref _pawnIoInstallerLaunchAttempted, 1) != 0)
+            return;
+
+        var installerPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Tools", "PawnIO_setup.exe");
+        if (!System.IO.File.Exists(installerPath))
+        {
+            DebugLog.Write($"[PawnIO] Instalador oficial não encontrado: {installerPath}. Reinstale o pacote completo do Launcher.");
+            return;
+        }
+
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = installerPath,
+                UseShellExecute = true,
+                Verb = "runas"
+            });
+            DebugLog.Write("[PawnIO] Instalador oficial aberto com solicitação de UAC. Conclua a instalação e reinicie o Launcher; reinicie o Windows se o instalador solicitar.");
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[PawnIO] Não foi possível iniciar o instalador oficial (UAC cancelado ou falha): {ex.Message}");
+        }
     }
 
     private static Mutex OpenOrCreatePciMutex()
