@@ -30,6 +30,7 @@ public partial class ConnectivityPopupWindow : Window
         BtnOpenWifi.Click += OnOpenNativeWifiClick;
         BtnOpenBluetooth.Click += OnOpenNativeBluetoothClick;
         BtnRefreshBluetooth.Click += OnRefreshBluetoothClick;
+        BtnDownloads.Click += OnDownloadsClick;
 
         _gamepadTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
         _gamepadTimer.Tick += (_, _) =>
@@ -184,6 +185,13 @@ public partial class ConnectivityPopupWindow : Window
     }
 
     private async void OnRefreshBluetoothClick(object? sender, RoutedEventArgs e) => await RefreshBluetoothAsync();
+
+    private void OnDownloadsClick(object? sender, RoutedEventArgs e)
+    {
+        if (GetMainWindow()?.DataContext is HandheldLauncher.App.ViewModels.MainViewModel vm)
+            vm.ToggleDownloads();
+        Close();
+    }
 
     private void OnOpenNativeWifiClick(object? sender, RoutedEventArgs e) => OpenNativeSettings("ms-settings:network-wifi");
     private void OnOpenNativeBluetoothClick(object? sender, RoutedEventArgs e) => OpenNativeSettings("ms-settings:bluetooth");
