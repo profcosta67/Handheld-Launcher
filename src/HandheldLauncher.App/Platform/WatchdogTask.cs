@@ -121,7 +121,7 @@ internal static class WatchdogTask
                     </LogonTrigger>
                   </Triggers>
                   <Principals>
-                    <Principal id="Author"><UserId>{Escape(user)}</UserId><LogonType>InteractiveToken</LogonType><RunLevel>Highest</RunLevel></Principal>
+                    <Principal id="Author"><UserId>{Escape(user)}</UserId><LogonType>InteractiveToken</LogonType><RunLevel>HighestAvailable</RunLevel></Principal>
                   </Principals>
                   <Settings>
                     <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>

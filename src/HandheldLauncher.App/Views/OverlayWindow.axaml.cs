@@ -322,7 +322,10 @@ public partial class OverlayWindow : Window
     private void StartTopmostEnforcer()
     {
         if (_topmostEnforcer != null) return;
-        _topmostEnforcer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(120) };
+        // v0.25.1: 120 ms → 250 ms. Cada tick chamava SetWindowPos e o
+        // GuardPosition; a essa frequência o painel repintava a cada instante
+        // ("piscadas") sem ganho nenhum de robustez.
+        _topmostEnforcer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
         _topmostEnforcer.Tick += (_, _) => { ForceTopmost(); GuardPosition(); };
         _topmostEnforcer.Start();
     }
@@ -459,6 +462,9 @@ public partial class OverlayWindow : Window
         if (_gamePid > 0 && AppSettingsStore.Load().FreezeGameOnOverlay)
         {
             HandheldLauncher.App.Platform.InputBlockService.BlockGamepadForGame(_gamePid);
+            // v0.25.1: prova no log de que o caminho do congelamento foi tomado
+            // (o teste de 09/11 nunca chegou a mostrar isto com o jogo aberto).
+            DebugLog.Write($"[INPUT] Congelamento pedido para o pid {_gamePid} (ver [INPUT] Bloqueio…).");
         }
 
         if (OperatingSystem.IsWindows())
@@ -588,6 +594,55 @@ public partial class OverlayWindow : Window
         }
 
         OnOverlayVisibilityChanged?.Invoke(false);
+
+        // v0.25.1: devolver o FOCO. O Quick Settings é NOACTIVATE; ao esconder-se
+        // o Windows fica sem janela em foreground (log de 09/11: foreground=0) e
+        // nem o jogo nem o launcher voltam a receber input — daí "o QS fecha e
+        // os controles não voltam".
+        RestoreForegroundAfterClose();
+    }
+
+    /// <summary>
+    /// Devolve o foreground à janela certa: o JOGO se houver um, senão o
+    /// launcher. Loga o resultado para se poder provar pelo <c>debug.log</c>:
+    /// <c>[OVERLAY-CLOSE] foco devolvido para 0x…, foreground agora=0x…</c>.
+    /// </summary>
+    private void RestoreForegroundAfterClose()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        try
+        {
+            var target = _gameHwnd;
+
+            // Nalguns fechos o handle do jogo vem a 0x0 (a janela dele foi
+            // recriada ou ainda não estava pronta) — procurar pelo PID.
+            if (target == IntPtr.Zero && _gamePid > 0)
+            {
+                try
+                {
+                    using var process = System.Diagnostics.Process.GetProcessById(_gamePid);
+                    target = process.MainWindowHandle;
+                }
+                catch (Exception swallowedEx) { DebugLog.Swallowed(swallowedEx); }
+            }
+
+            // Sem jogo (ex.: QS aberto na tela inicial): devolver ao launcher.
+            if (target == IntPtr.Zero && Owner is Window owner)
+            {
+                owner.Activate();
+                target = owner.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+            }
+
+            if (target != IntPtr.Zero) SetForegroundWindow(target);
+
+            DebugLog.Write(
+                $"[OVERLAY-CLOSE] foco devolvido para 0x{target:X} (jogo={_gameHwnd != IntPtr.Zero}, foreground agora=0x{GetForegroundWindow():X}).");
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[OVERLAY-CLOSE] Falha ao devolver o foco: {ex.GetType().Name}: {ex.Message}");
+        }
     }
 
     protected override void OnClosing(WindowClosingEventArgs e)

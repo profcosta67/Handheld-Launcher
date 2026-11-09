@@ -62,6 +62,21 @@ if ($pawnIoService) {
 } else {
     Write-Warning "Runtime do PawnIO não encontrado em: $pawnIoInstaller. O TDP não vai funcionar até ser instalado (https://pawnio.eu)."
 }
+
+# v0.25.1: o driver é um KERNEL_DRIVER com StartType=Manual — depois de um
+# reboot ficava STOPPED (código 1077) e o launcher dizia "Driver não
+# encontrado" apesar de estar instalado. Deixa-se em automático e arranca-se
+# já, para o TDP funcionar no primeiro arranque.
+if (Get-Service -Name "PawnIO" -ErrorAction SilentlyContinue) {
+    try {
+        sc.exe config PawnIO start= auto | Out-Null
+        $svc = Get-Service -Name "PawnIO"
+        if ($svc.Status -ne "Running") { Start-Service -Name "PawnIO" }
+        Write-Host "PawnIO: arranque automático configurado ($((Get-Service PawnIO).Status))."
+    } catch {
+        Write-Warning "PawnIO instalado mas não foi possível arrancar o driver: $($_.Exception.Message)"
+    }
+}
 # --- Fim da instalação do PawnIO ---
 
 # 2. Ativa o KioskMode no arquivo de configuracoes

@@ -3,6 +3,9 @@
 Mais recente primeiro. Cada versão tem notas completas em [`release-notes/`](release-notes/).
 Betas não entram aqui: o que eles trazem aparece na versão estável que os junta.
 
+## [0.25.1] — 2026-11-09
+Hotfix do Quick Settings e dos drivers: o **driver do PawnIO** fica em arranque automático e é iniciado pelo instalador (ficava `STOPPED` após reboot e o TDP dizia “Driver não encontrado”); a tarefa **watchdog** volta a ser criada (`RunLevel` inválido no XML); o launcher **devolve o foco** ao jogo ou a si próprio ao fechar o QS (`foreground=0` deixava os controles mortos); o *enforcer* de topmost passa de 120 ms para 250 ms (fim das piscadas). [Notas](release-notes/0.25.1.md)
+
 ## [0.25.0] — 2026-11-09
 Instalador com **ecrã de boas-vindas** e escolha de pasta (`--instWelcome` + `--instLocation Either`); **TDP volta a funcionar** porque o instalador passa a instalar o **runtime do PawnIO** (faltava — só o módulo era copiado); **isolamento do controle** cobre todos os pads (Lenovo, Xbox USB/BLE, ROG Ally, DualSense…) e deixa de falhar com maiúsculas/minúsculas; **teclado do launcher em Avalonia** em todas as janelas com campos de texto; **congelamento opcional** do jogo no Quick Settings, com aviso de risco e consentimento. [Notas](release-notes/0.25.0.md)
 
