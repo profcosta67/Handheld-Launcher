@@ -46,6 +46,8 @@ public partial class SettingsWindow : Window
             FitToScreen(); 
             FocusActiveTab(); 
             await ViewModel.LoadReleaseNotesAsync();
+            if (ViewModel.SyncthingEnabled)
+                await ViewModel.RefreshSyncthingAsync();
         };
 
         AddHandler(PointerPressedEvent, (_, e) => _lastPointerWasTouch = e.Pointer.Type != PointerType.Mouse, RoutingStrategies.Tunnel);
@@ -462,7 +464,16 @@ public partial class SettingsWindow : Window
 
     private void OnKeyboardClick(object? sender, RoutedEventArgs e) => TouchKeyboard.Toggle();
 
-      private void OnOpenSyncthingWebUiClick(object? sender, RoutedEventArgs e)
+      private async void OnRefreshSyncthingClick(object? sender, RoutedEventArgs e)
+        => await ViewModel.RefreshSyncthingAsync();
+
+    private async void OnScanSyncthingClick(object? sender, RoutedEventArgs e)
+        => await ViewModel.ScanSyncthingFoldersAsync();
+
+    private async void OnRestartSyncthingClick(object? sender, RoutedEventArgs e)
+        => await ViewModel.RestartSyncthingAsync();
+
+    private void OnOpenSyncthingWebUiClick(object? sender, RoutedEventArgs e)
     {
         try
         {
