@@ -296,6 +296,7 @@ internal static class UiSounds
             case GamepadAction.Menu:
             case GamepadAction.GlobalMenu:
             case GamepadAction.Downloads:
+            case GamepadAction.QuickAccessMenu:
             case GamepadAction.GameDetails:
                 PlayConfirm();
                 break;
