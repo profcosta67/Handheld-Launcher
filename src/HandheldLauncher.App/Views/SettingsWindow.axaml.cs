@@ -473,6 +473,12 @@ public partial class SettingsWindow : Window
     private async void OnRestartSyncthingClick(object? sender, RoutedEventArgs e)
         => await ViewModel.RestartSyncthingAsync();
 
+    private async void OnPauseSyncthingDevicesClick(object? sender, RoutedEventArgs e)
+        => await ViewModel.SetSyncthingDevicesPausedAsync(true);
+
+    private async void OnResumeSyncthingDevicesClick(object? sender, RoutedEventArgs e)
+        => await ViewModel.SetSyncthingDevicesPausedAsync(false);
+
     private void OnOpenSyncthingWebUiClick(object? sender, RoutedEventArgs e)
     {
         try
