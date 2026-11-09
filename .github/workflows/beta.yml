@@ -3,6 +3,8 @@ name: Beta Build
 on:
   push:
     branches: ['fix/**', 'beta/**']
+  pull_request:
+    branches: [master]
   workflow_dispatch:
 
 permissions:
