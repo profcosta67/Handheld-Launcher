@@ -154,6 +154,16 @@ public sealed class SyncthingService : IDisposable
         }
     }
 
+    public async Task SetAllDevicesPausedAsync(bool paused)
+    {
+        var apiKey = ReadApiKey();
+        var action = paused ? "pause" : "resume";
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{ApiBaseAddress}/rest/system/{action}");
+        request.Headers.Add("X-API-Key", apiKey);
+        using var response = await ApiHttp.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+    }
+
     public async Task RestartSyncthingAsync()
     {
         var apiKey = ReadApiKey();
