@@ -31,7 +31,27 @@
 | *(falta)* **Wi‑Fi/BT** | já existe na Central de Controlo (Y) | **ATALHO** para ela, sem duplicar |
 | *(falta)* **Perfil por jogo** | o diferencial | **ADICIONAR** (grava o que mudares no jogo atual) |
 
-## 3. Referências (o que copiar e o que não)
+## 2.1 Decisões do dono (09/11/2026) — valem sobre a tabela acima
+
+- **TDP**: **1 slider + 4 presets** — `Eco`, `Normal`, `Boost`, `Custom` (fora `U.Eco` e `Desemp.`).
+- **Volume**: **sim**, slider (os handhelds têm botões, mas o painel precisa de feedback).
+- **Brilho**: **não** — os handhelds têm botões físicos.
+- **Taxa (Hz)**: **não** — pouca utilidade prática no painel.
+- **Resolução**: **sim**, mas **3 presets automáticos por aparelho**, tirados do perfil detetado:
+  - Legion Go / Go 2 → `900p`, `1080p`, `1200p`
+  - ROG Ally / Ally X → `720p`, `900p`, `1080p`
+  - fallback (aparelho desconhecido) → resolução nativa do painel + 2 abaixo
+  Implementação: `DeviceProfile.ScreenPresets` (Core, com testes) — o `DeviceDetector`/`DeviceTdpLimits` já faz exatamente isto para o TDP, é o mesmo padrão.
+- **Manter** no painel: **Print**, **Gravar**, **Modo de Cor** e **Lossless** — este último como **Ligar/Desligar + 2x/3x/4x**.
+- **Ventoinha**: mantém-se (é específico de hardware, `IFanService`).
+
+## 2.2 Primeira validação real (14:28, jogo em **borderless**)
+
+- Painel abriu **sem tela preta** e o controle comandou-o → confirma a hipótese do fullscreen exclusivo.
+- `[OVERLAY-CLOSE] foco devolvido para 0x16079C (jogo=True, foreground agora=0x16079C)` → **foco OK** com o truque do ALT.
+- O jogo **não ficou congelado atrás** porque a opção de isolamento/congelamento estava desligada nas Configurações.
+- `[PawnIO] Acesso negado ao driver. Abra o Launcher com elevação.` → nessa sessão o launcher corria **sem administrador**: o TDP não aplica. É o comportamento esperado (o instalador deixa a tarefa de boot elevada), mas a UI deve **dizer** isso no painel em vez de só falhar no log.
+
 
 | Plataforma | Como resolve | Lição para nós |
 | --- | --- | --- |
