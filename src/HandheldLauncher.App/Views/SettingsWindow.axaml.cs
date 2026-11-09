@@ -464,7 +464,39 @@ public partial class SettingsWindow : Window
 
     private void OnKeyboardClick(object? sender, RoutedEventArgs e) => TouchKeyboard.Toggle();
 
-      private async void OnRefreshSyncthingClick(object? sender, RoutedEventArgs e)
+      private async void OnAddSyncthingDeviceClick(object? sender, RoutedEventArgs e)
+        => await ViewModel.AddSyncthingDeviceAsync();
+
+    private async void OnAddSyncthingFolderClick(object? sender, RoutedEventArgs e)
+        => await ViewModel.AddSyncthingFolderAsync();
+
+    private async void OnRemoveSyncthingDeviceClick(object? sender, RoutedEventArgs e)
+        => await ViewModel.RemoveSyncthingDeviceAsync();
+
+    private async void OnRemoveSyncthingFolderClick(object? sender, RoutedEventArgs e)
+        => await ViewModel.RemoveSyncthingFolderAsync();
+
+    private async void OnBrowseSyncthingFolderClick(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = "Selecione a pasta que será sincronizada",
+                AllowMultiple = false
+            });
+            var folder = folders.FirstOrDefault();
+            var path = folder?.TryGetLocalPath();
+            if (!string.IsNullOrWhiteSpace(path))
+                ViewModel.SyncthingNewFolderPath = path;
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[SETTINGS] Falha ao selecionar pasta do Syncthing: {ex.Message}");
+        }
+    }
+
+    private async void OnRefreshSyncthingClick(object? sender, RoutedEventArgs e)
         => await ViewModel.RefreshSyncthingAsync();
 
     private async void OnScanSyncthingClick(object? sender, RoutedEventArgs e)
