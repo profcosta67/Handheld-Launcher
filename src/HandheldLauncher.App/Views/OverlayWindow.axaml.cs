@@ -196,6 +196,7 @@ public partial class OverlayWindow : Window
 
         // Exibe o QS sem ativar a janela e sem roubar o foco do jogo.
         ShowActivated = false;
+        Topmost = true;
 
                 _tdpHardwareSupported = OperatingSystem.IsWindows()
             && RyzenSmuService.IsSupportedPlatform()
@@ -552,25 +553,22 @@ public partial class OverlayWindow : Window
         DebugLog.Write($"[OVERLAY] GamePid registrado: {pid}");
     }
 
-        protected override void OnOpened(EventArgs e)
-{
-    base.OnOpened(e);
-    DebugLog.Write($"[OVERLAY] OnOpened chamado. Width={Width}, Height={Height}");
-    
-    // Reposiciona sem alternar SW_HIDE/SW_SHOW durante OnOpened.
-    PositionOnRightEdge();
-
-    ResetPositionGuardForShow();
-    StartTopmostEnforcer();
-    UpdateLsfgStatus();
-    
-    // O resto continua igual...
-    Dispatcher.UIThread.Post(() =>
+    protected override void OnOpened(EventArgs e)
     {
+        base.OnOpened(e);
+        DebugLog.Write($"[OVERLAY] OnOpened chamado. Width={Width}, Height={Height}");
+
+        // A posição já foi definida antes de Show(). Aqui apenas confirma
+        // o Z-order, sem esconder/mostrar o HWND nem mudar o foco do jogo.
+        Topmost = true;
+        PositionOnRightEdge();
+        ResetPositionGuardForShow();
         ForceTopmost();
-        TakeFocusFromGameIfEnabled();
-    }, DispatcherPriority.Loaded);
-}
+        StartTopmostEnforcer();
+        UpdateLsfgStatus();
+
+        Dispatcher.UIThread.Post(TakeFocusFromGameIfEnabled, DispatcherPriority.Loaded);
+    }
 
     private void UpdateLsfgStatus()
     {
