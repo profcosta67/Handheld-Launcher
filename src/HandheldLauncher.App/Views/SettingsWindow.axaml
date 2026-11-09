@@ -281,6 +281,8 @@
                 <StackPanel Orientation="Horizontal" Spacing="8">
                   <Button Classes="pill primary" Content="Atualizar painel" Click="OnRefreshSyncthingClick" />
                   <Button Classes="pill" Content="Verificar pastas" Click="OnScanSyncthingClick" />
+                  <Button Classes="pill" Content="Pausar dispositivos" Click="OnPauseSyncthingDevicesClick" />
+                  <Button Classes="pill" Content="Retomar dispositivos" Click="OnResumeSyncthingDevicesClick" />
                   <Button Classes="pill" Content="Reiniciar serviço" Click="OnRestartSyncthingClick" />
                 </StackPanel>
                 <TextBlock Text="O painel consulta a API local do Syncthing. A chave é lida diretamente do arquivo de configuração e não é exibida." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
