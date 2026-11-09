@@ -442,7 +442,7 @@ public partial class OverlayWindow : Window
         DebugLog.Write($"[OVERLAY] GamePid registrado: {pid}");
     }
 
-    protected override void OnOpened(EventArgs e)
+     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
         DebugLog.Write($"[OVERLAY] OnOpened chamado. Width={Width}, Height={Height}");
@@ -450,8 +450,7 @@ public partial class OverlayWindow : Window
         // 🟢 INTEGRAÇÃO HIDHIDE (B7): Esconde o controle apenas se o toggle estiver ligado
         if (_gamePid > 0 && AppSettingsStore.Load().IsolateControllerOnOverlay)
         {
-            try { _hidHideService.HideControllerForProcess(_gamePid); }
-            catch (Exception ex) { DebugLog.Write($"[OVERLAY] Erro ao esconder controle: {ex.Message}"); }
+            _hidHideService.HideControllerForProcess(_gamePid);
         }
 
         if (OperatingSystem.IsWindows())
@@ -461,7 +460,6 @@ public partial class OverlayWindow : Window
             {
                 var ex = GetWindowLong(h, GWL_EXSTYLE);
                 SetWindowLong(h, GWL_EXSTYLE, ex | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);
-                DebugLog.Write($"[OVERLAY] WS_EX_NOACTIVATE|WS_EX_TOOLWINDOW aplicados (ex=0x{ex:X8}).");
             }
         }
 
@@ -477,7 +475,6 @@ public partial class OverlayWindow : Window
             ForceTopmost();
         }, DispatcherPriority.Loaded);
     }
-
     private void UpdateLsfgStatus()
     {
         if (LsfgStatusText == null) return;
@@ -558,7 +555,7 @@ public partial class OverlayWindow : Window
         }
     }
 
-    public void HideWithUnblock()
+     public void HideWithUnblock()
     {
         DebugLog.Write($"[OVERLAY-CLOSE] origem=HideWithUnblock fullscreen-contexto; overlay={TryGetPlatformHandle()?.Handle}, game={_gameHwnd}, foreground={GetForegroundWindow()}, visible={IsVisible}, submenu={_activeSubMenu}");
         
@@ -572,8 +569,7 @@ public partial class OverlayWindow : Window
         // 🟢 INTEGRAÇÃO HIDHIDE (B7): Devolve o controle para o jogo
         if (_gamePid > 0 && AppSettingsStore.Load().IsolateControllerOnOverlay)
         {
-            try { _hidHideService.RestoreControllerForProcess(_gamePid); }
-            catch (Exception ex) { DebugLog.Write($"[OVERLAY] Erro ao restaurar controle: {ex.Message}"); }
+            _hidHideService.RestoreControllerForProcess(_gamePid);
         }
 
         OnOverlayVisibilityChanged?.Invoke(false);
