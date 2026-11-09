@@ -625,6 +625,72 @@ public sealed class SettingsViewModel : ViewModelBase
         }
     }
 
+    private string _syncthingNewDeviceId = string.Empty;
+    public string SyncthingNewDeviceId { get => _syncthingNewDeviceId; set => SetField(ref _syncthingNewDeviceId, value); }
+
+    private string _syncthingNewDeviceName = string.Empty;
+    public string SyncthingNewDeviceName { get => _syncthingNewDeviceName; set => SetField(ref _syncthingNewDeviceName, value); }
+
+    private string _syncthingNewFolderId = string.Empty;
+    public string SyncthingNewFolderId { get => _syncthingNewFolderId; set => SetField(ref _syncthingNewFolderId, value); }
+
+    private string _syncthingNewFolderLabel = string.Empty;
+    public string SyncthingNewFolderLabel { get => _syncthingNewFolderLabel; set => SetField(ref _syncthingNewFolderLabel, value); }
+
+    private string _syncthingNewFolderPath = string.Empty;
+    public string SyncthingNewFolderPath { get => _syncthingNewFolderPath; set => SetField(ref _syncthingNewFolderPath, value); }
+
+    private string _syncthingRemoveId = string.Empty;
+    public string SyncthingRemoveId { get => _syncthingRemoveId; set => SetField(ref _syncthingRemoveId, value); }
+
+    public async Task AddSyncthingDeviceAsync()
+    {
+        if (_syncthingService is null || !_syncthingService.IsRunning) { SyncthingStatusText = "Inicie o Syncthing antes de adicionar dispositivos."; return; }
+        try
+        {
+            await _syncthingService.AddDeviceAsync(SyncthingNewDeviceId, SyncthingNewDeviceName);
+            SyncthingStatusText = "Dispositivo adicionado. Confirme o compartilhamento também no outro aparelho.";
+            await RefreshSyncthingAsync();
+        }
+        catch (Exception ex) { SyncthingStatusText = "Não foi possível adicionar o dispositivo: " + ex.Message; }
+    }
+
+    public async Task AddSyncthingFolderAsync()
+    {
+        if (_syncthingService is null || !_syncthingService.IsRunning) { SyncthingStatusText = "Inicie o Syncthing antes de adicionar pastas."; return; }
+        try
+        {
+            await _syncthingService.AddFolderAsync(SyncthingNewFolderId, SyncthingNewFolderLabel, SyncthingNewFolderPath);
+            SyncthingStatusText = "Pasta adicionada. Compartilhe-a com os dispositivos desejados no Syncthing.";
+            await RefreshSyncthingAsync();
+        }
+        catch (Exception ex) { SyncthingStatusText = "Não foi possível adicionar a pasta: " + ex.Message; }
+    }
+
+    public async Task RemoveSyncthingDeviceAsync()
+    {
+        if (_syncthingService is null || !_syncthingService.IsRunning) { SyncthingStatusText = "Inicie o Syncthing antes de remover dispositivos."; return; }
+        try
+        {
+            await _syncthingService.RemoveDeviceAsync(SyncthingRemoveId);
+            SyncthingStatusText = "Dispositivo removido da configuração local.";
+            await RefreshSyncthingAsync();
+        }
+        catch (Exception ex) { SyncthingStatusText = "Não foi possível remover o dispositivo: " + ex.Message; }
+    }
+
+    public async Task RemoveSyncthingFolderAsync()
+    {
+        if (_syncthingService is null || !_syncthingService.IsRunning) { SyncthingStatusText = "Inicie o Syncthing antes de remover pastas."; return; }
+        try
+        {
+            await _syncthingService.RemoveFolderAsync(SyncthingRemoveId);
+            SyncthingStatusText = "Pasta removida da configuração local. Os arquivos locais não foram apagados.";
+            await RefreshSyncthingAsync();
+        }
+        catch (Exception ex) { SyncthingStatusText = "Não foi possível remover a pasta: " + ex.Message; }
+    }
+
     public async Task SetSyncthingDevicesPausedAsync(bool paused)
     {
         if (_syncthingService is null || !_syncthingService.IsRunning)
