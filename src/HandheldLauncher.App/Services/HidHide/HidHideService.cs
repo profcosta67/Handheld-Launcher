@@ -171,9 +171,11 @@ public sealed class HidHideService : IHidHideService, IDisposable
         var markerStart = controllerInstanceId.IndexOf(ControllerVendorId, StringComparison.OrdinalIgnoreCase);
         if (markerStart < 0) return ids.ToArray();
 
-        var markerEnd = controllerInstanceId.IndexOf('\\', markerStart);
-        if (markerEnd < 0) markerEnd = controllerInstanceId.Length;
-        var hardwareKey = controllerInstanceId[markerStart..markerEnd];
+        var pidMarker = controllerInstanceId.IndexOf("&PID_", markerStart, StringComparison.OrdinalIgnoreCase);
+        if (pidMarker < 0 || controllerInstanceId.Length < pidMarker + 9) return ids.ToArray();
+        // Somente VID/PID: não incluir sufixos como &IG_00 ou &MI_00,
+        // pois o nó USB pai não contém esses qualificadores.
+        var hardwareKey = controllerInstanceId[markerStart..(pidMarker + 9)];
 
         try
         {
