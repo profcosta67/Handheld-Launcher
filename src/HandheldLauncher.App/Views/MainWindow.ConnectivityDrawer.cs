@@ -110,12 +110,14 @@ public partial class MainWindow : Window
         {
             DrawerBluetoothStatus.Text = "Buscando dispositivos pareados...";
             DrawerBluetoothDevices.Items.Clear();
-            // Não exigir Status=OK: periféricos pareados podem estar desconectados.
-            const string script = "$ErrorActionPreference='Stop'; Get-PnpDevice -Class Bluetooth | Where-Object { $_.FriendlyName -and $_.FriendlyName -notmatch 'Enumerator|Microsoft Bluetooth|Generic Access|Service Discovery' } | Sort-Object FriendlyName -Unique | ForEach-Object { '{0} [{1}]' -f $_.FriendlyName,$_.Status }";
+            // Lista somente periféricos (IDs BTHENUM\DEV_ e BTHLEDEVICE),
+            // não serviços internos/atributos do stack Bluetooth do Windows.
+            // Força UTF-8 para nomes acentuados não virarem "Informa��es".
+            const string script = "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [Console]::OutputEncoding; Get-PnpDevice -Class Bluetooth | Where-Object { $_.FriendlyName -and ($_.InstanceId -match '^(BTHENUM\\DEV_|BTHLEDEVICE\\)' ) -and $_.FriendlyName -notmatch 'Enumerator|Microsoft Bluetooth|Generic Access|Service Discovery|Servi[cç]o de' } | Sort-Object FriendlyName -Unique | ForEach-Object { $_.FriendlyName }";
             var output = await RunConnectivityCommandAsync("powershell.exe", "-NoProfile -Command \"" + script + "\"");
             foreach (var line in output.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => !string.IsNullOrWhiteSpace(s)))
                 DrawerBluetoothDevices.Items.Add(line);
-            DrawerBluetoothStatus.Text = DrawerBluetoothDevices.Items.Count == 0 ? "Nenhum dispositivo Bluetooth encontrado" : DrawerBluetoothDevices.Items.Count + " dispositivo(s) detectado(s)";
+            DrawerBluetoothStatus.Text = DrawerBluetoothDevices.Items.Count == 0 ? "Nenhum periférico Bluetooth encontrado" : DrawerBluetoothDevices.Items.Count + " periférico(s) detectado(s)";
         }
         catch (Exception ex) { DrawerBluetoothStatus.Text = "Falha ao consultar Bluetooth"; DrawerConnectivityFeedback.Text = ex.Message; }
     }
@@ -150,6 +152,20 @@ public partial class MainWindow : Window
     {
         try { await RunConnectivityCommandAsync("netsh.exe", "wlan disconnect"); DrawerConnectivityFeedback.Text = "Desconexão solicitada."; await Task.Delay(700); await RefreshDrawerWifiAsync(); }
         catch (Exception ex) { DrawerConnectivityFeedback.Text = "Não foi possível desconectar: " + ex.Message; }
+    }
+
+
+    private void OnDrawerAirplaneModeClick(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo("ms-settings:network-airplanemode") { UseShellExecute = true });
+            DrawerConnectivityFeedback.Text = "Configurações do Modo Avião abertas no Windows.";
+        }
+        catch (Exception ex)
+        {
+            DrawerConnectivityFeedback.Text = "Não foi possível abrir o Modo Avião: " + ex.Message;
+        }
     }
 
     private void OnDrawerManageBluetoothClick(object? sender, RoutedEventArgs e)
