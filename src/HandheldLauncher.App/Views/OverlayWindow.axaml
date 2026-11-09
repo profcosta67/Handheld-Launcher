@@ -326,6 +326,15 @@
                 <Button x:Name="BtnCloseXCloud" Click="OnCloseXCloudClick" IsVisible="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#8B2E2E" Foreground="White" CornerRadius="12" Padding="10" FontWeight="Bold">
                     <TextBlock Text="⏹ Fechar Xbox Cloud Gaming  (Y)" />
                 </Button>
+                <!-- 0.24.1: aviso de ecrã inteiro (limitação conhecida: o painel
+                     pode deixar o jogo preto quando ele está em fullscreen). -->
+                <Border x:Name="FullscreenWarning" IsVisible="False" Background="#33FF6B6B"
+                        BorderBrush="#66FF6B6B" BorderThickness="1" CornerRadius="10" Padding="10">
+                    <TextBlock x:Name="TxtFullscreenWarning" FontSize="11" Foreground="#FFD8D8"
+                               TextWrapping="Wrap" Text="" />
+                </Border>
+
+
                 <Button x:Name="BtnCloseMenu" Content="Fechar Menu  (X)" Click="OnCloseClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#252A36" Foreground="White" CornerRadius="12" Padding="12" FontWeight="Bold" />
             </StackPanel>
         </Grid>

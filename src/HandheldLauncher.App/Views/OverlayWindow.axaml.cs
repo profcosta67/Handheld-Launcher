@@ -477,6 +477,20 @@ public partial class OverlayWindow : Window
             DebugLog.Write($"[INPUT] Congelamento pedido para o pid {_gamePid} (ver [INPUT] Bloqueio…).");
         }
 
+        // 0.24.1: limitação conhecida — em ecrã inteiro o painel pode deixar o
+        // jogo preto. Deteta (só leitura) e avisa no painel.
+        var (windowMode, fullscreenDetail) = HandheldLauncher.App.Platform.FullscreenDetector.Detect(_gameHwnd);
+        DebugLog.Write($"[QS] janela do jogo: {fullscreenDetail}");
+        if (HandheldLauncher.Core.Services.FullscreenHeuristic.WarningFor(windowMode) is { } fullscreenWarning)
+        {
+            TxtFullscreenWarning.Text = fullscreenWarning;
+            FullscreenWarning.IsVisible = true;
+        }
+        else
+        {
+            FullscreenWarning.IsVisible = false;
+        }
+
         if (OperatingSystem.IsWindows())
         {
             var h = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;

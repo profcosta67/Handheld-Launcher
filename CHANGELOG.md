@@ -3,6 +3,9 @@
 Mais recente primeiro. Cada versão tem notas completas em [`release-notes/`](release-notes/).
 Betas não entram aqui: o que eles trazem aparece na versão estável que os junta.
 
+## [0.24.1] — 2026-11-09 · **estável**
+Fecha o lote de correções que andou em beta: **teclado do launcher** em todas as janelas com texto; **HidHide** com deteção sem distinção de maiúsculas e a esconder **todos** os controles (Xbox BT/BLE incluído); **TDP** porque o instalador passa a instalar e a arrancar o **runtime do PawnIO**; **congelamento opcional** do jogo no QS, com aviso de risco; **foco devolvido ao jogo** ao fechar o painel e menos piscadas; **watchdog** de volta; e **aviso de ecrã inteiro** no painel (limitação conhecida + solução). [Notas](release-notes/0.24.1.md)
+
 ## [0.25.1] — 2026-11-09
 Hotfix do Quick Settings e dos drivers: o **driver do PawnIO** fica em arranque automático e é iniciado pelo instalador (ficava `STOPPED` após reboot e o TDP dizia “Driver não encontrado”); a tarefa **watchdog** volta a ser criada (`RunLevel` inválido no XML); o launcher **devolve o foco** ao jogo ou a si próprio ao fechar o QS (`foreground=0` deixava os controles mortos); o *enforcer* de topmost passa de 120 ms para 250 ms (fim das piscadas). [Notas](release-notes/0.25.1.md)
 
