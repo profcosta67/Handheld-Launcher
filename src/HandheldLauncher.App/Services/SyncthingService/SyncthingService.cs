@@ -194,7 +194,7 @@ public sealed class SyncthingService : IDisposable
             ?? throw new InvalidOperationException("Não foi possível ler o modelo de pasta do Syncthing.");
         var selectedDeviceIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { localDeviceId };
         var requestedIds = (remoteDeviceIds ?? string.Empty)
-            .Split(new[] { ',', ';', '\\r', '\\n' }, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Split(new[] { ',', ';', '\r', '\n' }, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
             .Select(value => value.ToUpperInvariant())
             .ToArray();
 
