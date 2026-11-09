@@ -231,6 +231,7 @@ public sealed class SettingsViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsCategoryShortcutsActive));
                 OnPropertyChanged(nameof(IsCategoryLosslessActive));
                 OnPropertyChanged(nameof(IsCategoryConnectivityActive));
+                OnPropertyChanged(nameof(IsCategorySyncthingActive));
                 OnPropertyChanged(nameof(IsCategoryNewsActive));
                 OnPropertyChanged(nameof(SaveButtonText));
             }
@@ -245,7 +246,8 @@ public sealed class SettingsViewModel : ViewModelBase
     public bool IsCategoryLosslessActive => _categoryIndex == 5;      // Lossless
     public bool IsCategoryAccountsActive => _categoryIndex == 6;      // Contas
     public bool IsCategoryConnectivityActive => _categoryIndex == 7;  // Rede
-    public bool IsCategoryNewsActive => _categoryIndex == 8;          // Atualizações
+    public bool IsCategorySyncthingActive => _categoryIndex == 8;     // Syncthing
+    public bool IsCategoryNewsActive => _categoryIndex == 9;          // Atualizações
 
     public string SaveButtonText => "✕ Salvar e fechar";
 
@@ -553,9 +555,92 @@ public sealed class SettingsViewModel : ViewModelBase
         {
             if (SetField(ref _syncthingEnabled, value))
             {
-                if (value) _syncthingService?.Start();
-                else _syncthingService?.Stop();
+                if (value)
+                {
+                    var started = _syncthingService?.Start() == true;
+                    SyncthingStatusText = started ? "Serviço iniciado. Atualize o painel para consultar dispositivos e pastas." : "Não foi possível iniciar o Syncthing. Verifique se syncthing.exe está disponível.";
+                }
+                else
+                {
+                    _syncthingService?.Stop();
+                    SyncthingStatusText = "Serviço parado.";
+                }
             }
+        }
+    }
+
+    private string _syncthingStatusText = "Ative a sincronização para consultar o serviço.";
+    public string SyncthingStatusText { get => _syncthingStatusText; set => SetField(ref _syncthingStatusText, value); }
+
+    private string _syncthingDevicesText = "Nenhum dispositivo carregado.";
+    public string SyncthingDevicesText { get => _syncthingDevicesText; set => SetField(ref _syncthingDevicesText, value); }
+
+    private string _syncthingFoldersText = "Nenhuma pasta carregada.";
+    public string SyncthingFoldersText { get => _syncthingFoldersText; set => SetField(ref _syncthingFoldersText, value); }
+
+    public async Task RefreshSyncthingAsync()
+    {
+        if (_syncthingService is null)
+        {
+            SyncthingStatusText = "Serviço Syncthing indisponível nesta sessão.";
+            return;
+        }
+        if (!_syncthingService.IsRunning)
+        {
+            SyncthingStatusText = "Serviço parado. Ative a sincronização acima.";
+            return;
+        }
+
+        SyncthingStatusText = "Consultando serviço local…";
+        try
+        {
+            var dashboard = await _syncthingService.GetDashboardAsync();
+            SyncthingStatusText = dashboard.Status;
+            SyncthingDevicesText = dashboard.Devices;
+            SyncthingFoldersText = dashboard.Folders;
+        }
+        catch (Exception ex)
+        {
+            SyncthingStatusText = "API local indisponível: " + ex.Message;
+        }
+    }
+
+    public async Task ScanSyncthingFoldersAsync()
+    {
+        if (_syncthingService is null || !_syncthingService.IsRunning)
+        {
+            SyncthingStatusText = "Inicie o Syncthing antes de solicitar a verificação.";
+            return;
+        }
+        try
+        {
+            SyncthingStatusText = "Solicitando verificação de todas as pastas…";
+            await _syncthingService.ScanAllFoldersAsync();
+            await RefreshSyncthingAsync();
+            SyncthingStatusText += " · verificação solicitada";
+        }
+        catch (Exception ex)
+        {
+            SyncthingStatusText = "Falha ao verificar pastas: " + ex.Message;
+        }
+    }
+
+    public async Task RestartSyncthingAsync()
+    {
+        if (_syncthingService is null || !_syncthingService.IsRunning)
+        {
+            SyncthingStatusText = "O Syncthing não está em execução.";
+            return;
+        }
+        try
+        {
+            SyncthingStatusText = "Solicitando reinicialização…";
+            await _syncthingService.RestartSyncthingAsync();
+            SyncthingStatusText = "Reinicialização solicitada. Atualize o painel em alguns segundos.";
+        }
+        catch (Exception ex)
+        {
+            SyncthingStatusText = "Falha ao reiniciar: " + ex.Message;
         }
     }
 
