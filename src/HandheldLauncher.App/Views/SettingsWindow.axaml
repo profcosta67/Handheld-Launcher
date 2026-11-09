@@ -300,6 +300,39 @@
                 <TextBlock Text="{Binding SyncthingFoldersText}" TextWrapping="Wrap" FontSize="12" />
               </StackPanel>
             </Border>
+            <Border Classes="settingsCard">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Adicionar dispositivo remoto" Classes="sectionTitle" />
+                <TextBox Text="{Binding SyncthingNewDeviceName}" Watermark="Nome do dispositivo" />
+                <TextBox Text="{Binding SyncthingNewDeviceId}" Watermark="ID Syncthing (8 grupos de 7 caracteres)" />
+                <Button Classes="pill primary" Content="Adicionar dispositivo" Click="OnAddSyncthingDeviceClick" HorizontalAlignment="Left" />
+                <TextBlock Text="O outro aparelho também precisa aceitar o vínculo e compartilhar as pastas." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+            <Border Classes="settingsCard">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Adicionar pasta local" Classes="sectionTitle" />
+                <TextBox Text="{Binding SyncthingNewFolderLabel}" Watermark="Nome da pasta" />
+                <TextBox Text="{Binding SyncthingNewFolderId}" Watermark="ID único (ex.: saves-legion)" />
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBox Grid.Column="0" Text="{Binding SyncthingNewFolderPath}" Watermark="Caminho da pasta local" />
+                  <Button Grid.Column="1" Classes="pill" Content="Procurar…" Click="OnBrowseSyncthingFolderClick" Margin="8,0,0,0" />
+                </Grid>
+                <Button Classes="pill primary" Content="Adicionar pasta" Click="OnAddSyncthingFolderClick" HorizontalAlignment="Left" />
+                <TextBlock Text="A pasta será cadastrada neste aparelho. Para sincronizar, compartilhe-a com os dispositivos desejados." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+            <Border Classes="settingsCard">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Remover configuração" Classes="sectionTitle" />
+                <TextBox Text="{Binding SyncthingRemoveId}" Watermark="ID exato do dispositivo ou da pasta" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Button Classes="pill" Content="Remover dispositivo" Click="OnRemoveSyncthingDeviceClick" />
+                  <Button Classes="pill" Content="Remover pasta" Click="OnRemoveSyncthingFolderClick" />
+                </StackPanel>
+                <TextBlock Text="Remover uma pasta da lista não apaga os arquivos locais. A remoção do dispositivo encerra o vínculo neste aparelho." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
           </StackPanel>
 
           <!-- Atualizações -->
