@@ -194,7 +194,8 @@ public partial class OverlayWindow : Window
         _viewModel = viewModel;
         InitializeComponent();
 
-        ShowActivated = true;
+        // Exibe o QS sem ativar a janela e sem roubar o foco do jogo.
+        ShowActivated = false;
 
                 _tdpHardwareSupported = OperatingSystem.IsWindows()
             && RyzenSmuService.IsSupportedPlatform()
@@ -679,7 +680,7 @@ public partial class OverlayWindow : Window
             if (!AppSettingsStore.Load().FocusOverlayInGame) return;
             Activate();
             _focusTakenFromGame = true;
-            DebugLog.Write("[OVERLAY] Foco tirado do jogo enquanto o Quick Settings está aberto.");
+            DebugLog.Write("[OVERLAY] Foco tirado do jogo pela preferência explícita do usuário.");
         }
         catch (Exception ex)
         {
