@@ -640,6 +640,9 @@ public sealed class SettingsViewModel : ViewModelBase
     private string _syncthingNewFolderPath = string.Empty;
     public string SyncthingNewFolderPath { get => _syncthingNewFolderPath; set => SetField(ref _syncthingNewFolderPath, value); }
 
+    private string _syncthingNewFolderDeviceIds = string.Empty;
+    public string SyncthingNewFolderDeviceIds { get => _syncthingNewFolderDeviceIds; set => SetField(ref _syncthingNewFolderDeviceIds, value); }
+
     private string _syncthingRemoveId = string.Empty;
     public string SyncthingRemoveId { get => _syncthingRemoveId; set => SetField(ref _syncthingRemoveId, value); }
 
@@ -660,7 +663,7 @@ public sealed class SettingsViewModel : ViewModelBase
         if (_syncthingService is null || !_syncthingService.IsRunning) { SyncthingStatusText = "Inicie o Syncthing antes de adicionar pastas."; return; }
         try
         {
-            await _syncthingService.AddFolderAsync(SyncthingNewFolderId, SyncthingNewFolderLabel, SyncthingNewFolderPath);
+            await _syncthingService.AddFolderAsync(SyncthingNewFolderId, SyncthingNewFolderLabel, SyncthingNewFolderPath, SyncthingNewFolderDeviceIds);
             SyncthingStatusText = "Pasta adicionada. Compartilhe-a com os dispositivos desejados no Syncthing.";
             await RefreshSyncthingAsync();
         }
