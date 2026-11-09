@@ -364,7 +364,7 @@ public sealed class SettingsViewModel : ViewModelBase
     private bool _betaChannelOptIn;
     public bool BetaChannelOptIn { get => _betaChannelOptIn; set => SetField(ref _betaChannelOptIn, value); }
 
-    // 🟢 NOVO: Substitui o FreezeGameOnOverlay e o GameModeEnabled
+    // 🟢 B7: Substitui o FreezeGameOnOverlay e o GameModeEnabled
     private bool _isolateControllerOnOverlay = true;
     public bool IsolateControllerOnOverlay { get => _isolateControllerOnOverlay; set => SetField(ref _isolateControllerOnOverlay, value); }
 
@@ -494,6 +494,7 @@ public sealed class SettingsViewModel : ViewModelBase
         RawgApiKey = settings.RawgApiKey ?? string.Empty;
         IgdbClientId = settings.IgdbClientId ?? "";
         IgdbClientSecret = settings.IgdbClientSecret ?? "";
+        SyncthingEnabled = settings.SyncthingEnabled;
 
         var detected = SteamAccountDetector.FindMostRecent();
         _steamPersonaName = detected?.PersonaName;
@@ -537,6 +538,27 @@ public sealed class SettingsViewModel : ViewModelBase
         SavedMessage = null;
     }
 
+    private readonly HandheldLauncher.Services.Syncthing.SyncthingService? _syncthingService;
+
+    public SettingsViewModel(HandheldLauncher.Services.Syncthing.SyncthingService? syncthingService = null)
+    {
+        _syncthingService = syncthingService;
+    }
+
+    private bool _syncthingEnabled;
+    public bool SyncthingEnabled
+    {
+        get => _syncthingEnabled;
+        set
+        {
+            if (SetField(ref _syncthingEnabled, value))
+            {
+                if (value) _syncthingService?.Start();
+                else _syncthingService?.Stop();
+            }
+        }
+    }
+
     public void SaveTo(AppSettings settings)
     {
         settings.SteamGridDbApiKey = string.IsNullOrWhiteSpace(SteamGridDbApiKey) ? null : SteamGridDbApiKey.Trim();
@@ -545,6 +567,7 @@ public sealed class SettingsViewModel : ViewModelBase
         settings.IgdbClientId = IgdbClientId;
         settings.IgdbClientSecret = IgdbClientSecret;
         settings.SteamId64 = string.IsNullOrWhiteSpace(SteamId64) ? null : SteamId64.Trim();
+        settings.SyncthingEnabled = SyncthingEnabled;
         settings.XboxScanFolders = XboxScanFoldersText
             .Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
             .ToList();

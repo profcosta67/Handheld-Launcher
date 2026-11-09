@@ -53,7 +53,7 @@
           <Ellipse Width="10" Height="10" Fill="{StaticResource AccentBrush}" VerticalAlignment="Center" />
           <TextBlock Text="Handheld Launcher" Classes="gameTitle" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
         </StackPanel>
-
+        
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16">
 
           <Button Classes="iconGhost"

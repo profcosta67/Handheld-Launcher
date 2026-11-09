@@ -11,6 +11,7 @@ using HandheldLauncher.App.Views;
 using HandheldLauncher.Core.Services;
 using HandheldLauncher.Core.Services.Artwork;
 using HandheldLauncher.Services.HidHide;
+using HandheldLauncher.Services.Syncthing;
 using Nefarius.Drivers.HidHide;
 
 namespace HandheldLauncher.App;
@@ -58,7 +59,6 @@ public partial class App : Application
                  new EdenLibraryScanner(appSettings.EdenExecutablePath, appSettings.EdenRomFolders)]);
             var gameLauncher = new GameLauncher();
 
-            // v0.18.4: resultado da busca da SteamGridDB no debug.log (antes só ia pro Debug.WriteLine).
             SteamGridDbClient.Log = HandheldLauncher.App.Diagnostics.DebugLog.Write;
             var gridDbClient = new SteamGridDbClient(appSettings.SteamGridDbApiKey);
             var artworkService = new ArtworkService(gridDbClient, libraryStore);
@@ -81,14 +81,23 @@ public partial class App : Application
             var updateService = new UpdateService(appSettings.BetaChannelOptIn);
 
             // =====================================================================
-            // v0.23.2 (B2/B3): Inicializa o serviço HidHide e busca o controle físico
+            // v0.23.2: HidHide
             // =====================================================================
-            DebugLog.Write("[HidHide] Tentando instanciar o serviço...");
-                        // v0.23.2 (B2/B3): Inicializa o serviço e busca o controle físico
             var hidHideService = new HidHideService(new HidHideControlService());
             hidHideService.Initialize();
-            
             desktop.Exit += (_, _) => hidHideService.Dispose();
+
+            // =====================================================================
+            // v0.23.2: Syncthing
+            // =====================================================================
+            var syncthingService = new SyncthingService();
+            syncthingService.Initialize();
+            if (appSettings.SyncthingEnabled)
+            {
+                syncthingService.Start();
+            }
+            desktop.Exit += (_, _) => syncthingService.Dispose();
+
             PerformanceHud? performanceHud = null;
             if (OperatingSystem.IsWindows())
             {
@@ -106,32 +115,27 @@ public partial class App : Application
             {
                 DisplayColorManager.CaptureOriginal();
                 var colorIndex = Math.Clamp(appSettings.ColorMode, 0, DisplayColorManager.ModeNames.Length - 1);
-                // force: a tela pode ainda estar com o efeito da sessão anterior
-                // (launcher fechado sem restaurar) — sem forçar, o modo "Padrão"
-                // seria considerado já aplicado e a tela ficaria com o efeito.
                 var colorOk = DisplayColorManager.Apply(colorIndex, force: true);
                 HandheldLauncher.App.Diagnostics.StartupRestoreStatus.Report(
                     "Cor", $"{DisplayColorManager.ModeNames[colorIndex]}{(colorOk ? " aplicada" : " não aplicada (veja [DisplayColor])")}", colorOk);
                 desktop.Exit += (_, _) => DisplayColorManager.RestoreOriginal();
             }
 
-            var mainViewModel = new MainViewModel(libraryService, gameLauncher, artworkService, performanceOverlay, updateService, performanceHud,
-                steamOwnedGamesClient, steamAchievementsClient);
+            var mainViewModel = new MainViewModel(libraryService, gameLauncher, artworkService, performanceOverlay, updateService, performanceHud, steamOwnedGamesClient, steamAchievementsClient, syncthingService);
             desktop.Exit += (_, _) => mainViewModel.Dispose();
-           var mainWindow = new MainWindow(mainViewModel, hidHideService)
-{
-    DataContext = mainViewModel,
-};
 
-            // 🟢 v0.15.4: Inicia o Lossless Scaling em segundo plano (minimizado)
-            // pra ficar pronto pra receber o atalho Ctrl+Alt+S quando o usuário clicar no toggle do Overlay.
+            var mainWindow = new MainWindow(mainViewModel, hidHideService, syncthingService)
+            {
+                DataContext = mainViewModel,
+            };
+
+            // Lossless Scaling
             if (OperatingSystem.IsWindows())
             {
                 _ = Task.Run(async () =>
                 {
                     try
                     {
-                        // Pequeno delay pra não competir com o boot do launcher
                         await Task.Delay(5000);
                         if (!LosslessScalingService.IsLosslessRunning())
                         {
@@ -148,25 +152,12 @@ public partial class App : Application
 
             if (OperatingSystem.IsWindows())
             {
-                // v0.16: os dois detectores de L3+R3 (OverlayHotkeyWatcher via
-                // XInput comum, e GameInputHelper via GameInput com entrega em
-                // segundo plano) rodavam juntos o tempo todo e podiam disparar
-                // o mesmo ToggleOverlay() em corrida — causa provável do bug
-                // intermitente do Quick Settings relatado pelo usuário. Agora
-                // o MainWindow alterna entre os dois conforme um jogo está
-                // rodando ou não (só um fica ativo por vez), o que também
-                // reduz o tempo em que o launcher força entrega de input em
-                // segundo plano — suspeito de travar a suspensão do aparelho.
                 HandheldLauncher.App.Input.GameInputHelper.ListenInBackground(() =>
                 {
                     Avalonia.Threading.Dispatcher.UIThread.Post(() => mainWindow.ToggleOverlay());
                 });
                 mainWindow.InitializeGamepadComboDetection();
 
-                // v0.16.2 (diagnóstico): "retrato" do controle no debug.log ao
-                // abrir e quando os controles conectados mudam — pra investigar
-                // o controle do Legion Go 2 que às vezes só volta abrindo o
-                // Legion Space. Só registra, não muda nada. Ver ControllerDiagnostics.
                 HandheldLauncher.App.Diagnostics.ControllerDiagnostics.StartMonitoring();
                 desktop.Exit += (_, _) => HandheldLauncher.App.Input.GameInputHelper.StopHelperProcess();
             }
@@ -178,7 +169,6 @@ public partial class App : Application
 
             desktop.MainWindow = mainWindow;
 
-            // 🟢 Aplica o tema Cartoon na MainWindow se for o tema atual
             if (appSettings.Theme == 16)
             {
                 mainWindow.Classes.Add("cartoon");

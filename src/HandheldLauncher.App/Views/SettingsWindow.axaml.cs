@@ -15,7 +15,7 @@ namespace HandheldLauncher.App.Views;
 
 public partial class SettingsWindow : Window
 {
-    public SettingsViewModel ViewModel { get; } = new();
+    public SettingsViewModel ViewModel { get; }
 
     private readonly AppSettings _settings;
     private enum FocusZone { Tabs, Content }
@@ -25,8 +25,15 @@ public partial class SettingsWindow : Window
     private AccountsWindow? _accountsWindow;
     private ConnectivityPopupWindow? _connectivityDialog;
 
-    public SettingsWindow()
+    // 🟢 Construtor vazio mantido para compatibilidade
+    public SettingsWindow() : this(new SettingsViewModel())
     {
+    }
+
+    // 🟢 Construtor novo que aceita o ViewModel (usado pelo MainWindow.Dialogs.cs)
+    public SettingsWindow(SettingsViewModel viewModel)
+    {
+        ViewModel = viewModel;
         InitializeComponent();
         DataContext = ViewModel;
 
@@ -454,6 +461,29 @@ public partial class SettingsWindow : Window
     }
 
     private void OnKeyboardClick(object? sender, RoutedEventArgs e) => TouchKeyboard.Toggle();
+
+      private void OnOpenSyncthingWebUiClick(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            // 1. Rebaixa o SettingsWindow
+            Topmost = false;
+
+            // 2. Rebaixa o MainWindow (dono deste modal)
+            if (Owner is MainWindow mainWindow)
+            {
+                mainWindow.Topmost = false;
+            }
+
+            // 3. Abre o navegador (vai ficar por cima agora)
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo 
+            { 
+                FileName = "http://localhost:8384", 
+                UseShellExecute = true 
+            });
+        }
+        catch { }
+    }
 
     private async void OnOpenWifiSettingsClick(object? sender, RoutedEventArgs e)
     {

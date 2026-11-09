@@ -28,6 +28,9 @@ public sealed class MainViewModel : ViewModelBase
     private readonly PerformanceHud? _hud;
     private readonly ISteamOwnedGamesClient? _steamOwnedGames;
     private readonly ISteamAchievementsClient? _steamAchievements;
+
+    private readonly HandheldLauncher.Services.Syncthing.SyncthingService _syncthingService;
+    private readonly DispatcherTimer _syncthingTimer;
    
     
     // 🟢 Instância única do SteamStoreService
@@ -136,22 +139,29 @@ public sealed class MainViewModel : ViewModelBase
         UpdateService? updates = null,
         PerformanceHud? hud = null,
         ISteamOwnedGamesClient? steamOwnedGames = null,
-        ISteamAchievementsClient? steamAchievements = null)
-        
+        ISteamAchievementsClient? steamAchievements = null,
+        HandheldLauncher.Services.Syncthing.SyncthingService? syncthingService = null) // 🟢 CORRIGIDO AQUI
     {
+        _syncthingService = syncthingService;
         _library = library; _launcher = launcher; _artwork = artwork;
         _performanceOverlay = performanceOverlay; _updates = updates; _hud = hud;
         _steamOwnedGames = steamOwnedGames; _steamAchievements = steamAchievements;
-        // 🟢 Carrega as chaves do IGDB salvas pelo usuário
-        // 🟢 Carrega as chaves do IGDB salvas pelo usuário
-var _savedSettingsForIgdb = HandheldLauncher.Core.Services.AppSettingsStore.Load();
-_igdbService = new IgdbService(
-    _savedSettingsForIgdb.IgdbClientId ?? "",
-    _savedSettingsForIgdb.IgdbClientSecret ?? ""
-);
 
-// 🟢 INICIALIZA O STEAM STORE COM AS CHAVES AQUI:
-_steamStore = new SteamStoreService(_savedSettingsForIgdb.SteamWebApiKey, _savedSettingsForIgdb.SteamId64);
+        _syncthingTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        _syncthingTimer.Tick += (_, _) => UpdateSyncthingStatus();
+        _syncthingTimer.Start();
+
+        var _savedSettingsForIgdb = HandheldLauncher.Core.Services.AppSettingsStore.Load();
+        _syncthingEnabled = _savedSettingsForIgdb.SyncthingEnabled;
+        UpdateSyncthingStatus();
+
+        _igdbService = new IgdbService(
+            _savedSettingsForIgdb.IgdbClientId ?? "",
+            _savedSettingsForIgdb.IgdbClientSecret ?? ""
+        );
+
+        // 🟢 INICIALIZA O STEAM STORE COM AS CHAVES AQUI:
+        _steamStore = new SteamStoreService(_savedSettingsForIgdb.SteamWebApiKey, _savedSettingsForIgdb.SteamId64);
 
         _launcher.GameExited += OnGameExited;
 
@@ -271,7 +281,57 @@ _steamStore = new SteamStoreService(_savedSettingsForIgdb.SteamWebApiKey, _saved
         }
         catch (Exception ex) { DebugLog.Write($"[SGDB] Auto-fetch agendado EXCEPTION: {ex.Message}"); }
     }
+    private string _syncthingStatusText = "Parado";
+    public string SyncthingStatusText
+    {
+        get => _syncthingStatusText;
+        set => SetField(ref _syncthingStatusText, value);
+    }
 
+    private string _syncthingDetailsText = "Sincronização desativada.";
+    public string SyncthingDetailsText
+    {
+        get => _syncthingDetailsText;
+        set => SetField(ref _syncthingDetailsText, value);
+    }
+
+        private bool _syncthingEnabled;
+    public bool SyncthingEnabled
+    {
+        get => _syncthingEnabled;
+        set
+        {
+            if (SetField(ref _syncthingEnabled, value))
+            {
+                if (value) _syncthingService?.Start();
+                else _syncthingService?.Stop();
+                
+                try
+                {
+                    var settings = AppSettingsStore.Load();
+                    settings.SyncthingEnabled = value;
+                    AppSettingsStore.Save(settings);
+                }
+                catch { }
+            }
+        }
+    }
+
+
+    private void UpdateSyncthingStatus()
+    {
+        if (_syncthingService != null && _syncthingService.IsRunning)
+        {
+            SyncthingStatusText = "🟢 Rodando";
+            SyncthingDetailsText = "Sincronização ativa em segundo plano.";
+        }
+        else
+        {
+            SyncthingStatusText = "🔴 Parado";
+            SyncthingDetailsText = "Sincronização desativada.";
+        }
+    }
+    
     private static bool NeedsDownload(string? path)
         => string.IsNullOrEmpty(path) || !File.Exists(path);
 
@@ -312,10 +372,11 @@ _steamStore = new SteamStoreService(_savedSettingsForIgdb.SteamWebApiKey, _saved
         catch (Exception ex) { DebugLog.Write($"[HWiNFO] Erro ao tentar iniciar: {ex.Message}"); }
     }
 
-    public void Dispose()
+        public void Dispose()
     {
         _hardwareTimer?.Stop();
         _healthCheckTimer?.Stop();
+        _syncthingTimer?.Stop(); 
         _monitorService.Dispose();
         _hwInfoService.Dispose();
         try { _ownedArtworkCts?.Cancel(); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }

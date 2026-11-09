@@ -18,6 +18,8 @@ using HandheldLauncher.App.ViewModels;
 using HandheldLauncher.App.Views.Layouts;
 using HandheldLauncher.Core.Models;
 using HandheldLauncher.Core.Services;
+using HandheldLauncher.Services.HidHide;
+using HandheldLauncher.Services.Syncthing;
 
 namespace HandheldLauncher.App.Views;
 
@@ -42,54 +44,40 @@ public partial class MainWindow : Window
     private const int SW_RESTORE = 9;
 
     private static readonly IntPtr HWND_TOPMOST = new(-1);
-
     private static readonly IntPtr HWND_NOTOPMOST = new(-2);
 
     private bool _externalSettingsOpen;
 
     private const uint SWP_NOMOVE = 0x0002;
-
     private const uint SWP_NOSIZE = 0x0001;
-
     private const uint SWP_SHOWWINDOW = 0x0040;
 
     private const int RestoreHotkeyId = 0xB00;
-
     private const uint ModControl = 0x0002;
-
     private const uint ModAlt = 0x0001;
-
     private const uint ModNoRepeat = 0x4000;
-
     private const uint VkH = 0x48;
 
     private const int OverlayHotkeyId = 0xB01;
-
     private const uint VkO = 0x4F;
-
     private const uint WmHotkey = 0x0312;
 
     private const uint TrayCallbackMessage = 0x8000 + 0x51;
-
     private const uint NIM_ADD = 0, NIM_DELETE = 2, NIF_MESSAGE = 1, NIF_ICON = 2, NIF_TIP = 4;
-
     private const uint TPM_RETURNCMD = 0x0100, TPM_RIGHTBUTTON = 0x0002, TPM_NONOTIFY = 0x0080;
-
     private const uint MF_STRING = 0, MF_SEPARATOR = 0x00000800;
-
     private const int TrayMenuOpen = 1, TrayMenuExit = 2;
-
     private const int WmLButtonUp = 0x0202, WmLButtonDoubleClick = 0x0203, WmRButtonUp = 0x0205;
-
     private const uint WmSysCommand = 0x0112;
-
     private const int ScMonitorPower = 0xF170;
-    private readonly HandheldLauncher.Services.HidHide.IHidHideService _hidHideService;
+
+    // 🟢 Declarações únicas dos serviços
+    private readonly IHidHideService _hidHideService;
+    private readonly SyncthingService _syncthingService;
 
     private static readonly IntPtr HwndBroadcast = new(0xffff);
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-
     private struct NotifyIconData
     {
         public uint cbSize;
@@ -110,84 +98,57 @@ public partial class MainWindow : Window
     }
 
     [StructLayout(LayoutKind.Sequential)]
-
     private struct NativePoint { public int X; public int Y; }
 
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
-
     private static extern bool Shell_NotifyIcon(uint dwMessage, ref NotifyIconData data);
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
-
     private static extern uint ExtractIconEx(string file, int index, out IntPtr largeIcon, out IntPtr smallIcon, uint iconCount);
     [DllImport("user32.dll")]
-
     private static extern bool DestroyIcon(IntPtr icon);
     [DllImport("user32.dll")]
-
     private static extern IntPtr CreatePopupMenu();
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-
     private static extern bool AppendMenu(IntPtr menu, uint flags, uint itemId, string? itemText);
     [DllImport("user32.dll")]
-
     private static extern bool GetCursorPos(out NativePoint point);
     [DllImport("user32.dll")]
-
     private static extern uint TrackPopupMenuEx(IntPtr menu, uint flags, int x, int y, IntPtr hwnd, IntPtr parameters);
     [DllImport("user32.dll")]
-
     private static extern bool DestroyMenu(IntPtr menu);
 
     private IntPtr _trayIconHandle;
-
     private IntPtr _unusedTrayIconHandle;
-
     private bool _trayIconAdded;
 
     private readonly GamepadPoller _gamepad = new();
     private readonly IgdbService _igdbService = new IgdbService("", "");
 
     private readonly DispatcherTimer _gamepadTimer;
-
     private DispatcherTimer? _topmostEnforcerTimer;
-
     private DispatcherTimer? _foregroundFighterTimer;
-
     private DispatcherTimer? _gameWatcherTimer;
-
     private GameLaunchPopupWindow? _launchPopup;
-
     private DispatcherTimer? _launchPopupTimer;
-
     private DispatcherTimer? _batteryTimer;
-
     private bool _hotkeyRegistered;
 
     private ItemsControl GamesItemsControl = null!;
-
     private ScrollViewer GameRowScrollViewer = null!;
-
     private Image HeroImage = null!;
-
     private Image HeroBackImage = null!;
-
     private ILibraryLayout _libraryLayout = null!;
-
     private OverlayWindow? _overlayWindow;
-
     private DateTime _lastOverlayToggle = DateTime.MinValue;
 
-    // v0.16: só um detector de L3+R3 fica ativo por vez — ver
-    // SetGamepadComboDetectionForGame.
-
     private OverlayHotkeyWatcher? _overlayHotkeyWatcher;
-    private OverlayHotkeyWatcher? _inGameXInputObserver; // v0.16.2 diagnóstico (só log)
-
+    private OverlayHotkeyWatcher? _inGameXInputObserver;
     private bool? _gamepadComboModeIsGame;
 
-        public MainWindow(MainViewModel viewModel, HandheldLauncher.Services.HidHide.IHidHideService hidHideService)
-{
-    _hidHideService = hidHideService;
+    public MainWindow(MainViewModel viewModel, IHidHideService hidHideService, SyncthingService syncthingService)
+    {
+        _hidHideService = hidHideService;
+        _syncthingService = syncthingService;
         InitializeComponent();
 
         ApplyLayoutTheme();
@@ -202,7 +163,6 @@ public partial class MainWindow : Window
         _gamepadTimer.Tick += OnGamepadTick;
         _gamepadTimer.Start();
 
-        // v0.19: Otimização de energia.
         this.PropertyChanged += (s, e) =>
         {
             if (e.Property == IsVisibleProperty)
@@ -226,7 +186,6 @@ public partial class MainWindow : Window
             }
         };
 
-        // 🟢 Escuta o Quick Settings (OverlayWindow)
         OverlayWindow.OnOverlayVisibilityChanged += (isOverlayVisible) =>
         {
             if (isOverlayVisible)
@@ -239,12 +198,12 @@ public partial class MainWindow : Window
             }
             else
             {
-                if (IsVisible) // Se a Home está na tela
+                if (IsVisible)
                 {
-                    Activate(); // Devolve o foco
+                    Activate();
                     DebugLog.Write("[PERF] Quick Settings fechou. Launcher re-focado para navegação.");
                 }
-                else if (_gamepadTimer.IsEnabled) // Se está num jogo
+                else if (_gamepadTimer.IsEnabled)
                 {
                     _gamepadTimer.Stop();
                     DebugLog.Write("[PERF] Quick Settings fechou. Timer do gamepad PAUSADO (jogo em foco).");
@@ -303,7 +262,6 @@ public partial class MainWindow : Window
             }
         };
     }
-    
 
     public void ToggleOverlay()
     {
@@ -332,12 +290,6 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// v0.16: chamado uma vez no startup (de App.axaml.cs). Liga o detector
-    /// de L3+R3 correto pro estado atual (sem jogo rodando = biblioteca) e
-    /// garante a limpeza de ambos ao fechar o launcher.
-    /// </summary>
-
     public void InitializeGamepadComboDetection()
     {
         SetGamepadComboDetectionForGame(gameRunning: false);
@@ -351,33 +303,9 @@ public partial class MainWindow : Window
         };
     }
 
-    /// <summary>
-    /// v0.16: alterna qual detector de L3+R3 está ativo, conforme um jogo
-    /// está rodando ou não. Os dois nunca ficam ligados ao mesmo tempo:
-    ///
-    /// <list type="bullet">
-    /// <item>Sem jogo (biblioteca): <see cref="OverlayHotkeyWatcher"/> — lê
-    /// XInput comum; funciona porque o launcher tem o foco normal aqui.</item>
-    /// <item>Com jogo rodando: <see cref="GameInputHelper"/> — processo
-    /// ajudante com entrega de input em segundo plano, única forma de
-    /// detectar L3+R3 com o jogo em foreground.</item>
-    /// </list>
-    ///
-    /// Antes da v0.16 os dois ficavam ligados o tempo todo, o que podia
-    /// disparar o mesmo ToggleOverlay() duas vezes em corrida (bug
-    /// intermitente do Quick Settings) e mantinha o pedido de entrega de
-    /// input em segundo plano ativo mesmo parado na biblioteca — suspeito de
-    /// bloquear a suspensão/Modern Standby do aparelho.
-    /// </summary>
-
     private void SetGamepadComboDetectionForGame(bool gameRunning)
     {
-        // Os dois detectores (XInput e GameInput) só existem no Windows —
-        // igual ao comportamento original, de antes da v0.16, em que ambos
-        // só eram criados dentro de um "if (OperatingSystem.IsWindows())"
-        // no App.axaml.cs.
         if (!OperatingSystem.IsWindows()) return;
-
         if (_gamepadComboModeIsGame == gameRunning) return;
         _gamepadComboModeIsGame = gameRunning;
 
@@ -388,13 +316,6 @@ public partial class MainWindow : Window
             GameInputHelper.StartHelperProcess();
             DebugLog.Write("[OVERLAY] Detector de L3+R3: GameInputHelper (jogo rodando).");
 
-            // v0.16.2 (diagnóstico): no Days Gone e no Eden o GameInput entrega
-            // o controle "em repouso" com o jogo em foco, mas antes da v0.16.0
-            // o overlay abria nesses jogos — quando o detector XInput ficava
-            // ligado o tempo todo. Hipótese: era ele que pegava o L3+R3. Este
-            // observador SÓ registra no debug.log o que o XInput vê; nunca abre
-            // o overlay (o detector do jogo continua sendo só o GameInput, pra
-            // não voltar a corrida de toggle que a v0.16.0 removeu).
             _inGameXInputObserver?.Dispose();
             _inGameXInputObserver = new OverlayHotkeyWatcher(
                 () => DebugLog.Write("[DIAG] XInput viu L3+R3 com o jogo rodando (só observação — overlay NÃO foi aberto por este detector)."),
@@ -422,8 +343,6 @@ public partial class MainWindow : Window
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = url, UseShellExecute = true });
             DispatcherTimer.RunOnce(() =>
             {
-                // Não voltar para Topmost enquanto uma janela modal estiver aberta:
-                // isso cobria o navegador aberto a partir de Contas/Configurações.
                 if (IsVisible && _activeDialog is null)
                 {
                     Topmost = true;
@@ -438,19 +357,12 @@ public partial class MainWindow : Window
     {
         if (DataContext is not MainViewModel vm) return;
 
-        // v0.16: cria a OverlayWindow já na inicialização (em vez de só na
-        // primeira vez que o usuário abre o Quick Settings). O construtor da
-        // OverlayWindow é quem restaura TDP e curva de ventoinha salvos — se
-        // a janela só nascesse no primeiro L3+R3, o aparelho ficava no perfil
-        // padrão do firmware até o usuário abrir o overlay manualmente depois
-        // de reiniciar/desligar o console. A janela continua oculta (nunca
-        // chamamos Show() aqui) até o usuário pedir o Quick Settings.
         if (_overlayWindow == null)
         {
             try
             {
                 DebugLog.Write("[OVERLAY] Criando OverlayWindow na inicialização (restaura TDP/ventoinha).");
-                _overlayWindow = new OverlayWindow(vm, _hidHideService); // 🟢 ALTERADO AQUI
+                _overlayWindow = new OverlayWindow(vm, _hidHideService);
             }
             catch (Exception ex)
             {
@@ -459,10 +371,6 @@ public partial class MainWindow : Window
             }
         }
 
-        // v0.18 "Guardião de suspensão": reaplica TDP/ventoinha e devolve o
-        // foco pro jogo quando o Windows acorda da suspensão (pedido do
-        // usuário, 05/11). Start() é idempotente e não faz nada fora do
-        // Windows; parado em Closed, junto dos outros timers desta janela.
         SuspendGuardianService.Start(() =>
         {
             _overlayWindow?.ReapplyAfterSuspendResume();
@@ -479,9 +387,7 @@ public partial class MainWindow : Window
         vm.HelpCenterRequested += (_, _) => _ = OpenHelpCenterDialogAsync();
         vm.DeviceHealthRequested += (_, _) => _ = OpenDeviceHealthDialogAsync(vm);
         vm.StorageManagerRequested += (_, _) => _ = OpenStorageManagerDialogAsync(vm);
-        // v0.18 "Modo xCloud" (Fase 1) — ver OpenXCloud em MainWindow.Dialogs.cs.
         vm.XCloudRequested += (_, url) => OpenXCloud(url);
-        // v0.18: alertas da Saúde do aparelho (ver ShowHealthAlertPopup — nunca por cima de jogo).
         vm.HealthAlerts.AlertRaised += alert => ShowHealthAlertPopup(vm, alert);
 
         vm.QuitRequested += (_, _) =>
@@ -517,40 +423,26 @@ public partial class MainWindow : Window
                 {
                     try { gameHwnd = GetForegroundWindow(); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
                 }
-                
-               // v0.18.6: Em vez de destruir e recriar (o que causava o flash no centro e perda de foco),
-// nós apenas reaproveitamos a mesma janela. O construtor dela já foi chamado no boot.
-if (_overlayWindow == null)
-{
-    DebugLog.Write("[OVERLAY] Criando nova OverlayWindow (primeira vez).");
-    _overlayWindow = new OverlayWindow(vm, _hidHideService); // 🟢 ALTERADO AQUI
-}
-else
-{
-    DebugLog.Write("[OVERLAY] Reutilizando OverlayWindow existente.");
-}
 
-_overlayWindow.SetGameHwnd(gameHwnd);
-_overlayWindow.SetGamePid(_detectedGamePid);
+                if (_overlayWindow == null)
+                {
+                    DebugLog.Write("[OVERLAY] Criando nova OverlayWindow (primeira vez).");
+                    _overlayWindow = new OverlayWindow(vm, _hidHideService);
+                }
+                else
+                {
+                    DebugLog.Write("[OVERLAY] Reutilizando OverlayWindow existente.");
+                }
+
+                _overlayWindow.SetGameHwnd(gameHwnd);
+                _overlayWindow.SetGamePid(_detectedGamePid);
 
                 DebugLog.Write($"[OVERLAY] Antes Show: IsVisible={_overlayWindow.IsVisible}, Pos={_overlayWindow.Position}, GameHwnd=0x{gameHwnd:X}");
 
-                // v0.16.1: antes disto, o "flash" na posição errada era evitado
-                // chamando ShowWindow() nativo (SW_HIDE / SW_SHOWNORMAL) por fora
-                // do Avalonia. Isso muda a visibilidade da janela direto no
-                // Windows, sem passar pelo Avalonia — e o OnGamepadTick decide
-                // se o gamepad vai pro overlay ou pro launcher checando
-                // _overlayWindow.IsVisible (a propriedade do Avalonia). Suspeito
-                // de ser a causa do bug intermitente em que o Quick Settings
-                // aparece na frente, mas a navegação continua presa no launcher
-                // atrás: usar Opacity em vez de ShowWindow() nativo evita esconder
-                // a janela "por fora" do Avalonia, então IsVisible fica estável
-                // durante todo o processo de reposicionamento.
-                 _overlayWindow.Opacity = 0;
+                _overlayWindow.Opacity = 0;
                 _overlayWindow.SetInitialPosition(); 
                 _overlayWindow.Show();
 
-                // 🟢 CORREÇÃO PARA O FULLSCREEN: Força a janela a roubar o foco do jogo
                 _overlayWindow.Activate();
                 if (OperatingSystem.IsWindows())
                 {
@@ -566,7 +458,6 @@ _overlayWindow.SetGamePid(_detectedGamePid);
                     }
                     catch (Exception ex) { DebugLog.Write($"[OVERLAY] Falha ao forçar foco: {ex.Message}"); }
                 }
-                // Fim da correção
 
                 Dispatcher.UIThread.Post(() =>
                 {
@@ -598,11 +489,10 @@ _overlayWindow.SetGamePid(_detectedGamePid);
         StartBatteryMonitor(vm);
         StartDownloadsRefreshTimer(vm);
 
-                vm.PropertyChanged += (_, e) =>
+        vm.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(MainViewModel.IsFilterApplicationsActive))
             {
-                // v0.21.0: trocar de aba sempre sai do modo "Adicionar"
                 if (_addButtonFocused) SetAddButtonFocused(false);
             }
 
@@ -611,13 +501,11 @@ _overlayWindow.SetGamePid(_detectedGamePid);
 
             if (e.PropertyName == nameof(MainViewModel.IsFilterCloudActive))
                 UpdateCloudGrid(vm);
-            // ... resto igual
 
             if (e.PropertyName == nameof(MainViewModel.IsLaunching))
             {
                 if (vm.IsLaunching && !string.IsNullOrEmpty(vm.LaunchingGameTitle))
                 {
-                    // v0.18.3 (revisão): aviso de saúde ainda na tela não pode ficar por cima do jogo.
                     try { _healthPopup?.Close(); } catch (Exception swallowedEx) { DebugLog.Swallowed(swallowedEx); }
                     DebugLog.Write($"[JOGO] '{vm.LaunchingGameTitle}' abriu — minimizando launcher + popup.");
                     if (IsVisible) MinimizeToTray();
@@ -660,5 +548,4 @@ _overlayWindow.SetGamePid(_detectedGamePid);
     }
 
     private Window? _activeDialog;
-
 }

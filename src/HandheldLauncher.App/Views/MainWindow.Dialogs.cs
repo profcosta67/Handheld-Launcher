@@ -84,7 +84,8 @@ public partial class MainWindow : Window
 
     private async Task OpenSettingsDialogAsync(MainViewModel vm)
     {
-        var dialog = new SettingsWindow();
+        var settingsVm = new SettingsViewModel(_syncthingService);
+         var dialog = new SettingsWindow(settingsVm); 
         dialog.ViewModel.VersionText = vm.AppVersionText;
         dialog.ViewModel.UpdatesAvailable = vm.UpdatesInstalled;
         dialog.CheckForUpdates = vm.CheckForUpdatesWithResultAsync;
