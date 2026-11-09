@@ -90,6 +90,7 @@ public partial class OverlayWindow : Window
     [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] private static extern bool IsWindow(IntPtr hWnd);
     [DllImport("user32.dll")] private static extern bool BringWindowToTop(IntPtr hWnd);
     [DllImport("user32.dll")] private static extern bool AttachThreadInput(uint attach, uint attachTo, bool attachInput);
     [DllImport("kernel32.dll")] private static extern uint GetCurrentThreadId();
