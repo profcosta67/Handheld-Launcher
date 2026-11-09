@@ -113,7 +113,7 @@ public partial class MainWindow : Window
             // Lista somente periféricos (IDs BTHENUM\DEV_ e BTHLEDEVICE),
             // não serviços internos/atributos do stack Bluetooth do Windows.
             // Força UTF-8 para nomes acentuados não virarem "Informa��es".
-            const string script = "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [Console]::OutputEncoding; Get-PnpDevice -Class Bluetooth | Where-Object { $_.FriendlyName -and ($_.InstanceId -match '^(BTHENUM\\DEV_|BTHLEDEVICE\\)' ) -and $_.FriendlyName -notmatch 'Enumerator|Microsoft Bluetooth|Generic Access|Service Discovery|Servi[cç]o de' } | Sort-Object FriendlyName -Unique | ForEach-Object { $_.FriendlyName }";
+            const string script = "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [Console]::OutputEncoding; Get-PnpDevice -Class Bluetooth | Where-Object { $_.FriendlyName -and ($_.InstanceId -match '^(BTHENUM\\\\DEV_|BTHLEDEVICE\\\\)' ) -and $_.FriendlyName -notmatch 'Enumerator|Microsoft Bluetooth|Generic Access|Service Discovery|Servi[cç]o de' } | Sort-Object FriendlyName -Unique | ForEach-Object { $_.FriendlyName }";
             var output = await RunConnectivityCommandAsync("powershell.exe", "-NoProfile -Command \"" + script + "\"");
             foreach (var line in output.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => !string.IsNullOrWhiteSpace(s)))
                 DrawerBluetoothDevices.Items.Add(line);
