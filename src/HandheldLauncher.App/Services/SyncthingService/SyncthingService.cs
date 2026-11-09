@@ -165,6 +165,13 @@ public sealed class SyncthingService : IDisposable
             throw new ArgumentException("Informe um nome para o dispositivo.", nameof(name));
 
         var apiKey = ReadApiKey();
+        using (var currentDevices = await GetJsonAsync("/rest/config/devices", apiKey))
+        {
+            if (currentDevices.RootElement.EnumerateArray().Any(device =>
+                device.TryGetProperty("deviceID", out var currentId)
+                && string.Equals(currentId.GetString(), normalizedId, StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidOperationException("Esse dispositivo já está cadastrado.");
+        }
         using var defaults = await GetJsonAsync("/rest/config/defaults/device", apiKey);
         var config = JsonNode.Parse(defaults.RootElement.GetRawText())?.AsObject()
             ?? throw new InvalidOperationException("Não foi possível ler o modelo de dispositivo do Syncthing.");
@@ -184,6 +191,13 @@ public sealed class SyncthingService : IDisposable
             throw new ArgumentException("Selecione uma pasta local existente.", nameof(localPath));
 
         var apiKey = ReadApiKey();
+        using (var currentFolders = await GetJsonAsync("/rest/config/folders", apiKey))
+        {
+            if (currentFolders.RootElement.EnumerateArray().Any(folder =>
+                folder.TryGetProperty("id", out var currentId)
+                && string.Equals(currentId.GetString(), id, StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidOperationException("Já existe uma pasta com esse ID. Escolha outro ID.");
+        }
         using var defaults = await GetJsonAsync("/rest/config/defaults/folder", apiKey);
         using var status = await GetJsonAsync("/rest/system/status", apiKey);
         var localDeviceId = status.RootElement.TryGetProperty("myID", out var myId) ? myId.GetString() : null;
