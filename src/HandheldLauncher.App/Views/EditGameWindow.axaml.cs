@@ -18,7 +18,7 @@ namespace HandheldLauncher.App.Views;
 /// GameEntry.
 /// </para>
 /// </summary>
-public partial class EditGameWindow : Window
+public partial class EditGameWindow : Window, IGamepadKeyboardHost
 {
     public EditGameWindow(string currentTitle, bool isApplication)
     {
@@ -33,18 +33,28 @@ public partial class EditGameWindow : Window
         // "⌨ Teclado" dedicado — clicar/tocar direto na caixa de texto não
         // fazia nada, diferente de Configurações, que já tinha esse mesmo
         // padrão (tocar um TextBox abre o teclado). Copiado de
-        // SettingsWindow.axaml.cs pra ficar consistente nos dois.
-        AddHandler(PointerPressedEvent, (_, e) => _lastPointerWasTouch = e.Pointer.Type != PointerType.Mouse, RoutingStrategies.Tunnel);
+        // v0.24.2: qualquer campo de texto que receba foco abre o teclado do
+        // launcher (o TabTip não recebia o controle no aparelho).
         AddHandler(GotFocusEvent, (_, e) =>
         {
-            if (e.Source is TextBox && e.NavigationMethod == NavigationMethod.Pointer && _lastPointerWasTouch)
-            {
-                TouchKeyboard.Show();
-            }
+            if (e.Source is TextBox box && !ReferenceEquals(Keyboard.Target, box))
+                Keyboard.Show(box);
         }, RoutingStrategies.Bubble);
+
+        Keyboard.SubmitRequested += (_, _) => Keyboard.Hide();
     }
 
-    private bool _lastPointerWasTouch;
+    /// <summary>v0.24.2: com o teclado aberto, o controle é dele.</summary>
+    public bool HandleKeyboardGamepadAction(HandheldLauncher.App.Input.GamepadAction action)
+        => Keyboard.IsOpen && Keyboard.HandleGamepadAction(action);
+
+    /// <summary>v0.24.2: A sobre um campo de texto abre o teclado do launcher.</summary>
+    public bool ShowKeyboardFor(TextBox target)
+    {
+        Keyboard.Show(target);
+        target.Focus();
+        return true;
+    }
 
     /// <summary>
     /// Construtor sem parâmetros só pro carregador de XAML do Avalonia
@@ -61,7 +71,8 @@ public partial class EditGameWindow : Window
 
     private void OnKeyboardClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        TouchKeyboard.Toggle();
+        if (Keyboard.IsOpen) Keyboard.Hide();
+        else Keyboard.Show(TitleBox);
     }
 
     private void OnSaveClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

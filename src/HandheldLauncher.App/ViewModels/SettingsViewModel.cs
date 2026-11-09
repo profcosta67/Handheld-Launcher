@@ -375,6 +375,54 @@ public sealed class SettingsViewModel : ViewModelBase
     private bool _isolateControllerOnOverlay = true;
     public bool IsolateControllerOnOverlay { get => _isolateControllerOnOverlay; set => SetField(ref _isolateControllerOnOverlay, value); }
 
+    /// <summary>
+    /// v0.24.1: quando o driver recusa a configuração (sem administrador), o
+    /// mascaramento é delegado ao processo elevado — o UAC aparece uma vez por
+    /// abertura/fecho do Quick Settings. Desligado por padrão.
+    /// </summary>
+    private bool _hidHideElevateOnDemand;
+    public bool HidHideElevateOnDemand { get => _hidHideElevateOnDemand; set => SetField(ref _hidHideElevateOnDemand, value); }
+
+    /// <summary>"Reiniciar como administrador" só faz sentido no modo padrão.</summary>
+    public bool CanRestartAsAdmin
+        => OperatingSystem.IsWindows() && !HandheldLauncher.App.Platform.ElevationService.IsElevated;
+
+    /// <summary>Estado do isolamento do controle, em texto, no cartão do HidHide.</summary>
+    public string HidHideModeText => HandheldLauncher.App.Platform.ElevationService.IsElevated
+        ? "Modo administrador: o controle sai da vista do jogo enquanto o Quick Settings está aberto."
+        : "Modo padrão (sem administrador): o mascaramento NÃO tem efeito. Usa \"Reiniciar como administrador\" — ou liga a opção de pedir permissão.";
+
+    /// <summary>
+    /// v0.24.1: congelar o processo do jogo enquanto o Quick Settings está aberto.
+    ///
+    /// <para>É o único mecanismo que tira o input a um jogo **já aberto** — o
+    /// HidHide decide quem vê o dispositivo no momento em que a aplicação abre
+    /// o dispositivo, por isso não consegue revogar um handle já aberto. Em
+    /// troca, suspender o processo pode ser interpretado por anti-cheats de
+    /// jogos competitivos como manipulação: por isso é opt-in, com aviso.</para>
+    /// </summary>
+    private bool _freezeGameOnOverlay;
+    public bool FreezeGameOnOverlay
+    {
+        get => _freezeGameOnOverlay;
+        set
+        {
+            if (!SetField(ref _freezeGameOnOverlay, value)) return;
+            OnPropertyChanged(nameof(FreezeButtonText));
+            OnPropertyChanged(nameof(FreezeStatusText));
+        }
+    }
+
+    /// <summary>Aviso de risco aberto (só ativa depois do "Aceito").</summary>
+    private bool _isFreezeConfirmOpen;
+    public bool IsFreezeConfirmOpen { get => _isFreezeConfirmOpen; set => SetField(ref _isFreezeConfirmOpen, value); }
+
+    public string FreezeButtonText => FreezeGameOnOverlay ? "Desligar congelamento" : "Ativar congelamento…";
+
+    public string FreezeStatusText => FreezeGameOnOverlay
+        ? "Congelamento LIGADO: o jogo fica parado enquanto o Quick Settings está aberto."
+        : "Congelamento DESLIGADO.";
+
     private bool _isLoading;
 
     private int _soundThemeIndex;
@@ -527,6 +575,8 @@ public sealed class SettingsViewModel : ViewModelBase
         
         // 🟢 NOVO: Carrega o estado do isolamento
         IsolateControllerOnOverlay = settings.IsolateControllerOnOverlay;
+        HidHideElevateOnDemand = settings.HidHideElevateOnDemand;
+        FreezeGameOnOverlay = settings.FreezeGameOnOverlay;
         
         SoundThemeIndex = Math.Clamp(settings.SoundTheme, 0, HandheldLauncher.App.Platform.UiSounds.PackNames.Length - 1);
         SoundVolume = Math.Clamp(settings.SoundVolume, 0, 100);
@@ -715,6 +765,8 @@ public sealed class SettingsViewModel : ViewModelBase
         
         // 🟢 NOVO: Salva o estado do isolamento
         settings.IsolateControllerOnOverlay = IsolateControllerOnOverlay;
+        settings.HidHideElevateOnDemand = HidHideElevateOnDemand;
+        settings.FreezeGameOnOverlay = FreezeGameOnOverlay;
 
         settings.Theme = Math.Clamp(ThemeIndex, 0, HandheldLauncher.App.Platform.ThemeManager.ThemeNames.Length - 1);
         settings.LayoutTheme = Math.Clamp(LayoutThemeIndex, 0, HandheldLauncher.App.Platform.ThemeManager.LayoutThemeNames.Length - 1);

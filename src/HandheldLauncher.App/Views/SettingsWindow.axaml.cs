@@ -1,6 +1,8 @@
 using System.ComponentModel;
 using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
@@ -14,7 +16,7 @@ using HandheldLauncher.Core.Services;
 
 namespace HandheldLauncher.App.Views;
 
-public partial class SettingsWindow : Window
+public partial class SettingsWindow : Window, IGamepadKeyboardHost
 {
     public SettingsViewModel ViewModel { get; }
 
@@ -49,15 +51,18 @@ public partial class SettingsWindow : Window
             await ViewModel.LoadReleaseNotesAsync();
         };
 
-        AddHandler(PointerPressedEvent, (_, e) => _lastPointerWasTouch = e.Pointer.Type != PointerType.Mouse, RoutingStrategies.Tunnel);
         AddHandler(KeyDownEvent, OnSettingsKeyDown, RoutingStrategies.Tunnel);
+
+        // v0.24.2: qualquer campo de texto que receba foco abre o NOSSO teclado
+        // (antes só em toque, e era o TabTip — inalcançável pelo controle).
         AddHandler(GotFocusEvent, (_, e) =>
         {
-            if (e.Source is TextBox && e.NavigationMethod == NavigationMethod.Pointer && _lastPointerWasTouch)
-            {
-                TouchKeyboard.Show();
-            }
+            if (e.Source is TextBox box && !ReferenceEquals(Keyboard.Target, box))
+                Keyboard.Show(box);
         }, RoutingStrategies.Bubble);
+
+        // ⏎ ou "fechar" só escondem o teclado; a janela continua aberta.
+        Keyboard.SubmitRequested += (_, _) => Keyboard.Hide();
     }
 
     protected override void OnClosing(WindowClosingEventArgs e)
@@ -119,8 +124,6 @@ public partial class SettingsWindow : Window
             e.Handled = true;
     }
 
-    private bool _lastPointerWasTouch;
-
     private void FitToScreen()
     {
         try
@@ -139,6 +142,9 @@ public partial class SettingsWindow : Window
 
     public bool HandleSettingsGamepadAction(GamepadAction action)
     {
+        // v0.24.2: o teclado na tela tem prioridade sobre abas e campos.
+        if (HandleKeyboardGamepadAction(action)) return true;
+
         if (_accountsWindow is { IsVisible: true } accounts)
         {
             DialogGamepadNavigator.Handle(accounts, action);
@@ -495,7 +501,80 @@ public partial class SettingsWindow : Window
         return string.Join(" · ", parts) + ".";
     }
 
-    private void OnKeyboardClick(object? sender, RoutedEventArgs e) => TouchKeyboard.Toggle();
+    /// <summary>
+    /// v0.24.2: o botão "⌨ Teclado" abre o NOSSO teclado no campo focado.
+    /// Sem campo de texto focado não haveria onde escrever, por isso aí abre-se
+    /// o do Windows (TabTip), como antes.
+    /// </summary>
+    private void OnKeyboardClick(object? sender, RoutedEventArgs e)
+    {
+        if (Keyboard.IsOpen)
+        {
+            Keyboard.Hide();
+            return;
+        }
+
+        if (FocusManager?.GetFocusedElement() is TextBox box)
+        {
+            Keyboard.Show(box);
+            return;
+        }
+
+        TouchKeyboard.Toggle();
+    }
+
+    /// <summary>Com o teclado aberto, o controle é dele (D-Pad move, A escreve, B esconde).</summary>
+    public bool HandleKeyboardGamepadAction(GamepadAction action)
+        => Keyboard.IsOpen && Keyboard.HandleGamepadAction(action);
+
+    /// <summary>v0.24.2: A sobre um campo de texto abre o teclado do launcher.</summary>
+    public bool ShowKeyboardFor(TextBox target)
+    {
+        Keyboard.Show(target);
+        target.Focus();
+        return true;
+    }
+
+    /// <summary>
+    /// v0.24.1: congelamento opt-in. Ligar mostra o aviso de risco; desligar é
+    /// imediato (não há nada a confirmar).
+    /// </summary>
+    private void OnFreezeClick(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel.FreezeGameOnOverlay)
+        {
+            ViewModel.FreezeGameOnOverlay = false;
+            DebugLog.Write("[CONGELAR] Desligado pelo utilizador.");
+            return;
+        }
+
+        ViewModel.IsFreezeConfirmOpen = true;
+    }
+
+    private void OnFreezeAcceptClick(object? sender, RoutedEventArgs e)
+    {
+        ViewModel.FreezeGameOnOverlay = true;
+        ViewModel.IsFreezeConfirmOpen = false;
+        DebugLog.Write("[CONGELAR] Ativado pelo utilizador depois de aceitar o aviso de risco.");
+    }
+
+    private void OnFreezeCancelClick(object? sender, RoutedEventArgs e)
+        => ViewModel.IsFreezeConfirmOpen = false;
+
+    /// <summary>
+    /// com o driver do HidHide (e o TDP) a funcionar de verdade. O reinício usa
+    /// <c>--relaunch-after</c>, então a instância elevada espera esta morrer
+    /// antes de disputar o mutex de instância única (ver LauncherRestart).
+    /// Se o UAC for cancelado, TryStartReplacementAsAdmin devolve false e o
+    /// launcher continua aberto — nada de ficar sem janela.
+    /// </summary>
+    private void OnRestartAsAdminClick(object? sender, RoutedEventArgs e)
+    {
+        if (!LauncherRestart.TryStartReplacementAsAdmin()) return;
+
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            desktop.Shutdown();
+    }
 
       private void OnOpenSyncthingWebUiClick(object? sender, RoutedEventArgs e)
     {

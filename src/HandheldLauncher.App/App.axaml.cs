@@ -106,7 +106,7 @@ public partial class App : Application
                 desktop.Exit += (_, _) => realHidHide.Dispose();
                 hidHideService = realHidHide;
 
-                DebugLog.Write($"[HidHide] Disponível={realHidHide.IsAvailable} (elevado={ElevationService.IsElevated}).");
+                DebugLog.Write($"[HidHide] Disponível={realHidHide.IsAvailable}, pronto={realHidHide.IsReady} (elevado={ElevationService.IsElevated}) — {realHidHide.StatusDetail}.");
             }
             catch (Exception ex)
             {

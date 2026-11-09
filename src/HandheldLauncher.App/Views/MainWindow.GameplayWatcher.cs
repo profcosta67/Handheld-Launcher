@@ -512,6 +512,11 @@ private void SetAddButtonFocused(bool focused)
                 foreach (var dialogAction in actions)
                 {
                     UiSounds.PlayForAction(dialogAction);
+                    // v0.24.2: teclado na tela — com ele aberto, D-Pad/A/B são
+                    // dele (antes iam para o navegador genérico e o B fechava a
+                    // janela em vez de esconder o teclado).
+                    if (dialog is IGamepadKeyboardHost keyboardHost && keyboardHost.HandleKeyboardGamepadAction(dialogAction))
+                        continue;
                     if (dialog is SettingsWindow sw && sw.HandleSettingsGamepadAction(dialogAction))
                         continue;
                     // v0.16.2: Central de Ajuda — LB/RB trocam de aba e B dentro de
@@ -575,6 +580,11 @@ private void SetAddButtonFocused(bool focused)
                     ToggleOverlay();
                     return; // o restante deste lote não pertence ao launcher
                 }
+
+                // v0.24.2: teclado na tela aberto (busca da Nuvem) — o controle é
+                // dele: D-Pad anda nas teclas, A escreve, B esconde o teclado.
+                if (Keyboard.IsOpen && Keyboard.HandleGamepadAction(action))
+                    continue;
 
                 if (vm.IsAboutOpen)
                 {

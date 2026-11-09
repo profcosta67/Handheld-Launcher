@@ -1,12 +1,12 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Input;
-using HandheldLauncher.App.Platform;
+using HandheldLauncher.App.Input;
 using HandheldLauncher.App.ViewModels;
 
 namespace HandheldLauncher.App.Views;
 
-public partial class AccountsWindow : Window
+public partial class AccountsWindow : Window, IGamepadKeyboardHost
 {
     private readonly Action<string>? _openExternalUrl;
 
@@ -21,17 +21,27 @@ public partial class AccountsWindow : Window
         _openExternalUrl = openExternalUrl;
         Opened += (_, _) => GridDbKeyBox.Focus(NavigationMethod.Directional);
 
-        AddHandler(PointerPressedEvent, (_, e) => _lastPointerWasTouch = e.Pointer.Type != PointerType.Mouse, RoutingStrategies.Tunnel);
         AddHandler(GotFocusEvent, (_, e) =>
         {
-            if (e.Source is TextBox && e.NavigationMethod == NavigationMethod.Pointer && _lastPointerWasTouch)
-            {
-                TouchKeyboard.Show();
-            }
+            // v0.24.2: abre o teclado do launcher (o TabTip não recebia o controle).
+            if (e.Source is TextBox box && !ReferenceEquals(Keyboard.Target, box))
+                Keyboard.Show(box);
         }, RoutingStrategies.Bubble);
+
+        Keyboard.SubmitRequested += (_, _) => Keyboard.Hide();
     }
 
-    private bool _lastPointerWasTouch;
+    /// <summary>Com o teclado aberto, o controle é dele.</summary>
+    public bool HandleKeyboardGamepadAction(GamepadAction action)
+        => Keyboard.IsOpen && Keyboard.HandleGamepadAction(action);
+
+    /// <summary>A sobre um campo de texto abre o teclado do launcher.</summary>
+    public bool ShowKeyboardFor(TextBox target)
+    {
+        Keyboard.Show(target);
+        target.Focus();
+        return true;
+    }
 
     private SettingsViewModel ViewModel => (SettingsViewModel)DataContext!;
 

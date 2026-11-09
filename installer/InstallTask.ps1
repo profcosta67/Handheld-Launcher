@@ -41,6 +41,29 @@ if (-not (Test-Path $hidHideMarker)) {
 }
 # --- Fim da instalação do HidHide ---
 
+# --- Instalação do runtime do PawnIO (necessário para o TDP) ---
+# O módulo RyzenSMU.bin (scripts/Prepare-PawnIO.ps1) NÃO chega: sem o driver
+# PawnIO instalado, o log diz "Driver não encontrado" e o TDP nunca é aplicado.
+# O instalador oficial (edição assinada, de https://pawnio.eu) tem de estar em
+# Tools\PawnIO_setup.exe — é copiado para o pacote pela regra Tools\**\* do
+# HandheldLauncher.App.csproj.
+$pawnIoInstaller = Join-Path $PSScriptRoot "Tools\PawnIO_setup.exe"
+$pawnIoService = Get-Service -Name "PawnIO" -ErrorAction SilentlyContinue
+
+if ($pawnIoService) {
+    Write-Host "PawnIO já está instalado (serviço presente)."
+} elseif (Test-Path $pawnIoInstaller) {
+    Write-Host "Instalando o runtime do PawnIO..."
+    # Sintaxe oficial do PawnIO_setup.exe (o /S do NSIS é rejeitado — mostra a
+    # usage na tela): -install -silent. -restricted instalaria a edição sem
+    # assinatura, que NÃO é o que queremos.
+    $pawnIoProcess = Start-Process -FilePath $pawnIoInstaller -ArgumentList "-install", "-silent" -Wait -PassThru -NoNewWindow
+    Write-Host "PawnIO_setup.exe terminou com código $($pawnIoProcess.ExitCode)."
+} else {
+    Write-Warning "Runtime do PawnIO não encontrado em: $pawnIoInstaller. O TDP não vai funcionar até ser instalado (https://pawnio.eu)."
+}
+# --- Fim da instalação do PawnIO ---
+
 # 2. Ativa o KioskMode no arquivo de configuracoes
 $settingsDir = Join-Path $env:APPDATA "HandheldLauncher"
 $settingsFile = Join-Path $settingsDir "settings.json"

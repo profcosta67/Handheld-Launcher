@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using HandheldLauncher.App.Input;
 using HandheldLauncher.App.Platform;
 
 namespace HandheldLauncher.App.Views;
@@ -12,8 +13,13 @@ namespace HandheldLauncher.App.Views;
 /// Existe porque o Windows não conecta a uma rede sem perfil salvo: o WinRT
 /// responde InvalidCredential e o netsh exige o perfil já criado. Com a senha
 /// aqui, o serviço cria o perfil e liga de verdade.
+///
+/// v0.24.2: a janela passou a usar o teclado do launcher
+/// (<see cref="OnScreenKeyboardView"/>) em vez do TabTip — o TabTip é uma
+/// janela do Windows, fora da árvore do Avalonia, e o controle não chegava
+/// às teclas (a senha só era utilizável com teclado físico).
 /// </summary>
-public partial class WifiPasswordWindow : Window
+public partial class WifiPasswordWindow : Window, IGamepadKeyboardHost
 {
     public WifiPasswordWindow() : this(string.Empty)
     {
@@ -29,12 +35,30 @@ public partial class WifiPasswordWindow : Window
         Opened += (_, _) =>
         {
             PasswordBox.Focus();
-            TouchKeyboard.Show(); // handheld: sem teclado físico à mão
+            Keyboard.Show(PasswordBox);
         };
 
-        // Sem isto o teclado virtual ficava aberto por cima do launcher depois
-        // de fechar a janela (não dava mais para navegar).
-        Closed += (_, _) => TouchKeyboard.Hide();
+        // ⏎ no teclado liga; B/"fechar" só esconde o teclado (a janela fica).
+        Keyboard.SubmitRequested += (_, _) => Finish();
+
+        Closed += (_, _) =>
+        {
+            Keyboard.Hide();
+            // O TabTip de uma sessão anterior podia ter ficado aberto por cima.
+            TouchKeyboard.Hide();
+        };
+    }
+
+    /// <summary>Com o teclado aberto, o controle é dele (D-Pad move, A escreve).</summary>
+    public bool HandleKeyboardGamepadAction(GamepadAction action)
+        => Keyboard.IsOpen && Keyboard.HandleGamepadAction(action);
+
+    /// <summary>v0.24.2: A sobre o campo abre o teclado do launcher.</summary>
+    public bool ShowKeyboardFor(TextBox target)
+    {
+        Keyboard.Show(target);
+        target.Focus();
+        return true;
     }
 
     private void OnConnectClick(object? sender, RoutedEventArgs e) => Finish();

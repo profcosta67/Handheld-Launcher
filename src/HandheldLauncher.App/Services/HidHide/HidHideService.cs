@@ -1,8 +1,10 @@
 using System;
 using System.Diagnostics;
 using System.Linq;
-using System.Management;
 using System.Threading.Tasks; // Adicionado para Task.Run
+using HandheldLauncher.App.Diagnostics;
+using HandheldLauncher.App.Platform;
+using HandheldLauncher.Core.Services;
 using Nefarius.Drivers.HidHide;
 
 namespace HandheldLauncher.Services.HidHide;
@@ -12,7 +14,16 @@ public sealed class HidHideService : IHidHideService, IDisposable
     private readonly IHidHideControlService? _hidHideControl;
     private bool _isInitialized;
 
+    /// <summary>v0.24.1: só avisa UMA vez por sessão que o mascaramento está fora.</summary>
+    private bool _warnedUnavailable;
+
     public string? ControllerInstanceId { get; private set; }
+
+    /// <summary>Estado real do mascaramento (o driver aceitou a configuração?).</summary>
+    public bool IsReady => _isInitialized;
+
+    /// <summary>Explicação curta do estado — vai para o log e para a Saúde do aparelho.</summary>
+    public string StatusDetail { get; private set; } = "ainda não inicializado";
 
     public HidHideService(IHidHideControlService? hidHideControl = null)
     {
@@ -37,31 +48,67 @@ public sealed class HidHideService : IHidHideService, IDisposable
 
     public void Initialize()
     {
-        if (!IsAvailable) return;
-
-        ControllerInstanceId = FindControllerInstanceId();
-        
-        if (ControllerInstanceId != null)
+        if (_hidHideControl is null)
         {
-            try
-            {
-                if (!_hidHideControl.BlockedInstanceIds.Contains(ControllerInstanceId))
-                {
-                    _hidHideControl.AddBlockedInstanceId(ControllerInstanceId);
-                }
+            StatusDetail = "serviço do driver indisponível";
+            DebugLog.Write("[HIDHIDE] Sem serviço de controlo do driver — mascaramento desligado.");
+            Report();
+            return;
+        }
 
-                // MODO DENY-LIST: O controle é escondido apenas de quem está na lista (o jogo)
-                _hidHideControl.IsAppListInverted = true; 
-                _hidHideControl.IsActive = true;
-                _isInitialized = true;
-            }
-            catch (Exception ex)
+        if (!IsAvailable)
+        {
+            StatusDetail = "driver do HidHide ausente ou não operacional";
+            DebugLog.Write("[HIDHIDE] Driver ausente/não operacional — mascaramento desligado.");
+            Report();
+            return;
+        }
+
+        // v0.24.1: antes, sem controle encontrado isto saía em SILÊNCIO
+        // (ControllerInstanceId null e nenhuma linha no log), o que tornava
+        // impossível distinguir "sem admin" de "sem controle" a ler o log.
+        // v0.24.2: são TODOS os controles detetados (Lenovo + Xbox/DualSense…).
+        var controllerIds = HidHideTask.FindControllerInstanceIds();
+        ControllerInstanceId = controllerIds.FirstOrDefault();
+        if (controllerIds.Count == 0)
+        {
+            StatusDetail = "nenhum controle reconhecido";
+            DebugLog.Write("[HIDHIDE] Nenhum controle reconhecido — mascaramento desligado.");
+            Report();
+            return;
+        }
+
+        try
+        {
+            var added = 0;
+            foreach (var id in controllerIds)
             {
-                // v0.24: antes era um catch vazio — sem administrador a escrita no
-                // driver falha e o mascaramento ficava silenciosamente desligado.
-                HandheldLauncher.App.Diagnostics.DebugLog.Write(
-                    $"[HidHide] Sem permissão para configurar o driver (corre sem administrador?): {ex.Message}");
+                if (_hidHideControl.BlockedInstanceIds.Contains(id)) continue;
+                _hidHideControl.AddBlockedInstanceId(id);
+                added++;
             }
+
+            // MODO DENY-LIST: o controle é escondido apenas de quem está na lista (o jogo)
+            _hidHideControl.IsAppListInverted = true;
+            _hidHideControl.IsActive = true;
+            _isInitialized = true;
+
+            StatusDetail = $"{controllerIds.Count} controle(s) na blocklist ({added} novo(s)); driver ativo";
+
+            DebugLog.Write($"[HIDHIDE] Inicializado: ids={string.Join(" | ", controllerIds)}, novos={added}, ativo={ReadBack(() => _hidHideControl.IsActive)}, invertida={ReadBack(() => _hidHideControl.IsAppListInverted)}.");
+            Report();
+        }
+        catch (Exception ex)
+        {
+            // v0.24: antes era um catch vazio — sem administrador a escrita no
+            // driver falha e o mascaramento ficava silenciosamente desligado.
+            _isInitialized = false;
+            StatusDetail = ElevationService.IsElevated
+                ? $"driver recusou a configuração: {ex.GetType().Name}"
+                : "sem permissão (corre sem administrador)";
+
+            DebugLog.Write($"[HIDHIDE] Sem permissão para configurar o driver (elevado={ElevationService.IsElevated}): {ex.GetType().Name}: {ex.Message}");
+            Report();
         }
     }
 
@@ -71,46 +118,105 @@ public sealed class HidHideService : IHidHideService, IDisposable
     
     public void HideControllerForProcess(int processId)
     {
-        if (!_isInitialized || _hidHideControl == null || processId <= 0) return;
-        
+        if (processId <= 0)
+        {
+            DebugLog.Write($"[HIDHIDE] Ocultação ignorada: pid inválido ({processId}).");
+            return;
+        }
+
+        if (!_isInitialized)
+        {
+            UseElevatedTask(hide: true, processId);
+            return;
+        }
+
         // Roda em background para NÃO travar a interface do Overlay
         Task.Run(() =>
         {
             try
             {
                 var processPath = GetProcessPath(processId);
-                if (!string.IsNullOrEmpty(processPath))
+                if (string.IsNullOrEmpty(processPath))
                 {
-                    _hidHideControl.AddApplicationPath(processPath, throwIfInvalid: false);
-                    HandheldLauncher.App.Diagnostics.DebugLog.Write($"[HidHide] Controle OCULTADO para o jogo: {processPath}");
+                    DebugLog.Write($"[HIDHIDE] Ocultação abortada: sem caminho para o pid {processId}.");
+                    return;
                 }
+
+                _hidHideControl!.AddApplicationPath(processPath, throwIfInvalid: false);
+                DebugLog.Write($"[HIDHIDE] Controle OCULTADO para o jogo: {processPath}");
             }
             catch (Exception ex)
             {
-                HandheldLauncher.App.Diagnostics.DebugLog.Write($"[HidHide] Erro ao esconder controle: {ex.Message}");
+                DebugLog.Write($"[HIDHIDE] Erro ao esconder controle: {ex.GetType().Name}: {ex.Message}");
             }
         });
     }
 
     public void RestoreControllerForProcess(int processId)
     {
-        if (!_isInitialized || _hidHideControl == null || processId <= 0) return;
-        
+        if (processId <= 0)
+        {
+            DebugLog.Write($"[HIDHIDE] Restauro ignorado: pid inválido ({processId}).");
+            return;
+        }
+
+        if (!_isInitialized)
+        {
+            UseElevatedTask(hide: false, processId);
+            return;
+        }
+
         Task.Run(() =>
         {
             try
             {
                 var processPath = GetProcessPath(processId);
-                if (!string.IsNullOrEmpty(processPath))
+                if (string.IsNullOrEmpty(processPath))
                 {
-                    _hidHideControl.RemoveApplicationPath(processPath);
-                    HandheldLauncher.App.Diagnostics.DebugLog.Write($"[HidHide] Controle RESTAURADO para o jogo: {processPath}");
+                    DebugLog.Write($"[HIDHIDE] Restauro abortado: sem caminho para o pid {processId}.");
+                    return;
                 }
+
+                _hidHideControl!.RemoveApplicationPath(processPath);
+                DebugLog.Write($"[HIDHIDE] Controle RESTAURADO para o jogo: {processPath}");
             }
             catch (Exception ex)
             {
-                HandheldLauncher.App.Diagnostics.DebugLog.Write($"[HidHide] Erro ao restaurar controle: {ex.Message}");
+                DebugLog.Write($"[HIDHIDE] Erro ao restaurar controle: {ex.GetType().Name}: {ex.Message}");
             }
+        });
+    }
+
+    /// <summary>
+    /// v0.24.1 — caminho de recurso quando o driver não aceitou a configuração
+    /// (quase sempre por falta de administrador). Só corre se o utilizador ligou
+    /// "Pedir permissão para isolar" nas Configurações: um UAC a meio de um jogo
+    /// não pode aparecer sem ele ter pedido. Quem não liga fica com uma linha no
+    /// log (uma por sessão) e nada muda no aparelho.
+    /// </summary>
+    private void UseElevatedTask(bool hide, int processId)
+    {
+        if (!AppSettingsStore.Load().HidHideElevateOnDemand)
+        {
+            if (!_warnedUnavailable)
+            {
+                _warnedUnavailable = true;
+                DebugLog.Write(
+                    "[HIDHIDE] Mascaramento indisponível nesta sessão (" + StatusDetail + "). " +
+                    "Abre o launcher pela tarefa de boot, usa \"Reiniciar como administrador\" nas Configurações, " +
+                    "ou liga \"Pedir permissão para isolar\" para delegar ao processo elevado.");
+            }
+            return;
+        }
+
+        var task = hide ? "hidhide-hide" : "hidhide-restore";
+        Task.Run(() =>
+        {
+            DebugLog.Write($"[HIDHIDE] A delegar '{task}' (pid={processId}) ao processo elevado — o UAC vai aparecer uma vez.");
+            var ok = ElevationService.RunElevated(task, "--pid", processId.ToString());
+            DebugLog.Write(ok
+                ? $"[HIDHIDE] Tarefa elevada '{task}' concluída (pid={processId})."
+                : $"[HIDHIDE] Tarefa elevada '{task}' NÃO concluída (pid={processId}) — UAC cancelado ou falhou.");
         });
     }
 
@@ -118,18 +224,39 @@ public sealed class HidHideService : IHidHideService, IDisposable
     {
         if (_hidHideControl != null && IsAvailable && _isInitialized)
         {
-            try 
+            try
             {
                 _hidHideControl.IsActive = false;
-                HandheldLauncher.App.Diagnostics.DebugLog.Write("[HidHide] Mascaramento desativado no Dispose (segurança).");
-            } 
-            catch {}
+                StatusDetail = "driver desativado na saída (segurança)";
+                DebugLog.Write("[HIDHIDE] Mascaramento desativado no Dispose (segurança).");
+            }
+            catch (Exception ex)
+            {
+                DebugLog.Write($"[HIDHIDE] Falha ao desativar o mascaramento no Dispose: {ex.Message}");
+            }
+
+            _isInitialized = false;
         }
     }
 
     // ==========================================
     // Helpers (Síncronos, rodam no boot)
     // ==========================================
+
+    /// <summary>Põe o estado na "Restauração da última sessão" (Central de Ajuda).</summary>
+    private void Report()
+        => StartupRestoreStatus.Report("Controle isolado (HidHide)", StatusDetail, _isInitialized);
+
+    /// <summary>Leitura tolerante a falhas do estado do driver (nunca derruba o arranque).</summary>
+    private static string ReadBack<T>(Func<T> read)
+    {
+        try { return read()?.ToString() ?? "null"; }
+        catch (Exception ex)
+        {
+            DebugLog.Swallowed(ex);
+            return "erro";
+        }
+    }
 
     private string? GetProcessPath(int processId)
     {
@@ -139,30 +266,6 @@ public sealed class HidHideService : IHidHideService, IDisposable
             return process.MainModule?.FileName;
         }
         catch { return null; }
-    }
-
-    private string? FindControllerInstanceId()
-    {
-        try
-        {
-            using var searcher = new ManagementObjectSearcher("SELECT DeviceID, Name FROM Win32_PnPEntity WHERE PNPClass = 'HIDClass'");
-            
-            foreach (var device in searcher.Get())
-            {
-                var deviceId = device["DeviceID"]?.ToString();
-                if (string.IsNullOrEmpty(deviceId)) continue;
-
-                if (deviceId.Contains("VID_17EF"))
-                {
-                    if (deviceId.Contains("IG_00") || deviceId.Contains("IG_01") || deviceId.Contains("MI_00&Col01"))
-                    {
-                        return deviceId;
-                    }
-                }
-            }
-        }
-        catch {}
-        return null;
     }
 
     public void ForceRestartController()

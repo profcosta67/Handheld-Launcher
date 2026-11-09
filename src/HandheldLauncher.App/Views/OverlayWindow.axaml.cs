@@ -453,6 +453,14 @@ public partial class OverlayWindow : Window
             _hidHideService.HideControllerForProcess(_gamePid);
         }
 
+        // v0.24.1: congelamento opt-in (aviso de risco aceito nas Configurações).
+        // É o único mecanismo que tira o input a um jogo JÁ ABERTO — o HidHide
+        // decide quem vê o dispositivo no momento em que a app o abre.
+        if (_gamePid > 0 && AppSettingsStore.Load().FreezeGameOnOverlay)
+        {
+            HandheldLauncher.App.Platform.InputBlockService.BlockGamepadForGame(_gamePid);
+        }
+
         if (OperatingSystem.IsWindows())
         {
             var h = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
@@ -570,6 +578,13 @@ public partial class OverlayWindow : Window
         if (_gamePid > 0 && AppSettingsStore.Load().IsolateControllerOnOverlay)
         {
             _hidHideService.RestoreControllerForProcess(_gamePid);
+        }
+
+        // v0.24.1: retomar o jogo se ele chegou a ser congelado (é idempotente:
+        // sem nada suspenso só garante que o marcador de recuperação sumiu).
+        if (AppSettingsStore.Load().FreezeGameOnOverlay)
+        {
+            HandheldLauncher.App.Platform.InputBlockService.UnblockGamepadForGame();
         }
 
         OnOverlayVisibilityChanged?.Invoke(false);

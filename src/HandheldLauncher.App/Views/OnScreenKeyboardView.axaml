@@ -1,0 +1,33 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="HandheldLauncher.App.Views.OnScreenKeyboardView"
+             IsVisible="False">
+
+  <!-- v0.24.2: teclado do launcher. Fica DENTRO da janela (ao contrário do
+       TabTip), por isso o leitor de XInput do launcher alcança as teclas e o
+       D-Pad/A/B funcionam nos campos de texto. -->
+  <UserControl.Styles>
+    <Style Selector="Button.kbKey">
+      <Setter Property="Height" Value="38"/>
+      <Setter Property="Margin" Value="2"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="FontSize" Value="15"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="Background" Value="#22FFFFFF"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="BorderBrush" Value="#33FFFFFF"/>
+      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.kbKey.kbSelected">
+      <Setter Property="Background" Value="#7C5CFC"/>
+      <Setter Property="BorderBrush" Value="White"/>
+    </Style>
+  </UserControl.Styles>
+
+  <Border Background="#F21A1A1F" BorderBrush="#33FFFFFF" BorderThickness="0,1,0,0" Padding="8,6">
+    <StackPanel x:Name="RowsHost" Spacing="0" HorizontalAlignment="Center"/>
+  </Border>
+</UserControl>

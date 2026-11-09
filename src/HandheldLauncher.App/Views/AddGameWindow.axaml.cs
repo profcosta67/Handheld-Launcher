@@ -7,8 +7,20 @@ using System.Linq;
 
 namespace HandheldLauncher.App.Views;
 
-public partial class AddGameWindow : Window
+public partial class AddGameWindow : Window, IGamepadKeyboardHost
 {
+    /// <summary>v0.24.2: com o teclado aberto, o controle é dele.</summary>
+    public bool HandleKeyboardGamepadAction(HandheldLauncher.App.Input.GamepadAction action)
+        => Keyboard.IsOpen && Keyboard.HandleGamepadAction(action);
+
+    /// <summary>v0.24.2: A sobre um campo de texto abre o teclado do launcher.</summary>
+    public bool ShowKeyboardFor(TextBox target)
+    {
+        Keyboard.Show(target);
+        target.Focus();
+        return true;
+    }
+
     // 🟢 Construtor padrão (Designer / chamadas sem parâmetro)
     public AddGameWindow() : this(isApplication: false) { }
 

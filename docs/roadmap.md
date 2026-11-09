@@ -16,12 +16,14 @@ Guardião de suspensão, gerenciador de armazenamento, alertas de saúde do apar
 
 ## Backlog anotado (nov/2026)
 
-- **Controle não responde no teclado virtual do Windows (TabTip).** Quando um campo de texto abre o teclado do sistema, o D-Pad/A/B não navegam nas teclas — o TabTip é uma janela do próprio Windows, fora da árvore do Avalonia, então o nosso leitor de XInput não a alcança. Impacta: senha do Wi‑Fi, busca da aba Nuvem e campos das Configurações. Caminhos a investigar, do mais barato ao mais caro:
-  1. manter o teclado do launcher (o `TouchKeyboard` já existe) como padrão e só abrir o TabTip a pedido;
-  2. esconder o controle do TabTip via HidHide e injetar teclas por `SendInput`/UIAutomation a partir do D-Pad;
-  3. teclado próprio em Avalonia (na tela), reutilizando o layout do `TouchKeyboard` — resolve de vez e não depende do Windows.
-- **Tabela de versões acima desatualizada**: o projeto está na **0.24.0** e a tabela ainda lista a 0.17 como "Próxima". Atualizar na 0.25, junto com o assistente de instalação.
+- **HidHide não tira o controle a um jogo JÁ ABERTO** (descoberto em 09/11). O HidHide é um *device firewall*: decide quem vê o dispositivo no momento em que a aplicação **abre** o dispositivo. Um jogo que já tem o handle aberto continua a receber input, por isso mascarar no instante em que o Quick Settings abre não tem efeito sobre ele (o log mostra `Controle OCULTADO` e o jogo continua a reagir). Opções para fechar isto:
+  1. **suspender o processo do jogo** enquanto o QS está aberto (`Platform/InputBlockService` já existe, foi o mecanismo antes da 0.23.4) — fiável, mas congela o vídeo;
+  2. **camada de controle virtual** (feeder: esconder o físico do jogo e reexpor um virtual que o launcher controla, que é o caso de uso descrito no DEVELOPER.md do HidHide) — resolve a sério, mas é um projeto;
+  3. aceitar a limitação e documentá-la (o mascaramento serve para isolar o controle de apps que arrancam depois).
+- ~~**Controle não responde no teclado virtual do Windows (TabTip).**~~ **Resolvido na 0.24.1**: o launcher passou a ter teclado próprio em Avalonia (`Views/OnScreenKeyboardView` + `Core/Services/Keyboard`), com D-Pad/A/B, usado na senha do Wi‑Fi, nos campos das Configurações, Contas, Adicionar/Editar jogo e na busca da aba Nuvem.
+- **Tabela de versões acima desatualizada**: o projeto está na **0.24.x** e a tabela ainda lista a 0.17 como "Próxima". Atualizar na 0.25, junto com o assistente de instalação.
 
 ## Decisões
 - O layout Clássico **fica** (será lapidado na 0.17).
 - O modo "Uso em PC" continua; o padrão é Handheld em tela cheia.
+- **Mascaramento do controle (HidHide) não precisa de administrador** — medido na 0.24.1 (driver 1.5.230: `elevada=False` → `ativo=True`). Quem precisa de elevação é o **TDP** e o ligar/desligar de dispositivos **Bluetooth**.

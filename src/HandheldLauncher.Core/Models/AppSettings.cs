@@ -5,6 +5,15 @@ public class AppSettings
     public bool HwInfoDisabled { get; set; }
       // 🟢 NOVO: Substitui o FreezeGameOnOverlay e o GameModeEnabled
     public bool IsolateControllerOnOverlay { get; set; } = true;
+
+    // v0.24.1: caminho de recurso, DESLIGADO por padrão. Medido no driver
+    // HidHide 1.5.230: as escritas passam sem administrador, por isso não é
+    // preciso UAC nenhum para mascarar o controle. Se uma versão futura do
+    // driver recusar, ligar isto delega o mascaramento ao processo elevado
+    // ("--elevated-task hidhide-hide/restore") — ao custo de um UAC por
+    // abertura/fecho do overlay. Desligado, o estado apenas fica no log e na
+    // Saúde do aparelho.
+    public bool HidHideElevateOnDemand { get; set; } = false;
    public bool GameModeEnabled { get; set; } = true;
     public string RawgApiKey { get; set; } = string.Empty;
     public int Theme { get; set; } = 0;

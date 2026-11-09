@@ -117,7 +117,9 @@ public static class ElevationService
     private static int RunTask(string task, string[] args, int firstArg)
     {
         var name = GetArgument(args, firstArg, "--name");
-        DebugLog.Write($"[ELEVACAO] Tarefa '{task}' (name='{name}') elevada={IsElevated}");
+        var pidText = GetArgument(args, firstArg, "--pid");
+        var pid = int.TryParse(pidText, out var parsedPid) ? parsedPid : 0;
+        DebugLog.Write($"[ELEVACAO] Tarefa '{task}' (name='{name}', pid={pid}) elevada={IsElevated}");
 
         try
         {
@@ -128,6 +130,16 @@ public static class ElevationService
 
                 case "pnp-disable":
                     return RunPowerShell(PnpScript(name, enable: false)) ? 0 : 1;
+
+                // v0.24.1: mascaramento do controle (HidHide) numa instância
+                // elevada — só usado quando o launcher corre em modo padrão e o
+                // utilizador ligou "Pedir permissão para isolar" (ver
+                // Services/HidHide/HidHideService).
+                case "hidhide-hide":
+                    return HidHideTask.Apply(hide: true, pid);
+
+                case "hidhide-restore":
+                    return HidHideTask.Apply(hide: false, pid);
 
                 case "check":
                     return 0;

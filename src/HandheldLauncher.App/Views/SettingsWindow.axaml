@@ -204,6 +204,41 @@
                         </StackPanel>
                     </ToggleSwitch.Content>
                 </ToggleSwitch>
+
+                <!-- v0.24.1: o driver do HidHide só aceita a configuração com
+                     administrador. Em vez de falhar em silêncio, o cartão diz em
+                     que modo está e oferece o reinício elevado. -->
+                <TextBlock Text="{Binding HidHideModeText}" Classes="subtle"
+                           TextWrapping="Wrap" FontSize="11" MaxWidth="450" />
+
+                <Button Content="Reiniciar como administrador" Classes="pill"
+                        IsVisible="{Binding CanRestartAsAdmin}" Click="OnRestartAsAdminClick"
+                        HorizontalAlignment="Left" />
+
+                <!-- v0.24.1: congelamento OPT-IN. O HidHide decide quem vê o
+                     controle no momento em que a aplicação o abre, por isso não
+                     consegue tirá-lo a um jogo que já esteja a correr. Suspender
+                     o processo consegue — mas tem risco em jogos competitivos,
+                     daí o aviso e o "Aceito" antes de ligar. -->
+                <TextBlock Text="Se o jogo continuar a receber comandos com o Quick Settings aberto"
+                           FontWeight="SemiBold" Foreground="White" Margin="0,10,0,0"/>
+                <TextBlock Text="O HidHide só esconde o controle de quem começa a usá-lo depois de ele estar ativo: um jogo já aberto continua a vê-lo. O congelamento resolve isso suspendendo o processo do jogo enquanto o painel está aberto (o vídeo do jogo fica parado)."
+                           TextWrapping="Wrap" Foreground="Gray" FontSize="11" MaxWidth="450"/>
+                <TextBlock Text="{Binding FreezeStatusText}" Classes="subtle" FontSize="11"
+                           TextWrapping="Wrap" MaxWidth="450"/>
+                <Button Content="{Binding FreezeButtonText}" Classes="pill" Click="OnFreezeClick"
+                        HorizontalAlignment="Left" />
+
+                <ToggleSwitch IsChecked="{Binding HidHideElevateOnDemand}">
+                    <ToggleSwitch.Content>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Pedir permissão para isolar (UAC por overlay)" FontWeight="SemiBold" Foreground="White"/>
+                            <TextBlock Text="Só para quem abre o launcher sem administrador: cada abertura do Quick Settings pede permissão (UAC) para esconder o controle. Deixa desligado se preferires reiniciar como administrador uma vez."
+                                       TextWrapping="Wrap" Foreground="Gray" FontSize="11" MaxWidth="450"/>
+                        </StackPanel>
+                    </ToggleSwitch.Content>
+                </ToggleSwitch>
+
               </StackPanel>
             </Border>
           </StackPanel>
@@ -358,6 +393,31 @@
       </StackPanel>
     </Border>
   </Panel>
+
+  <!-- v0.24.2: teclado do launcher, sobreposto no fundo. É filho do Panel raiz
+       e vem DEPOIS do conteúdo (para desenhar por cima) e ANTES da tela do
+       Syncthing (que tem de cobrir tudo). -->
+  <views:OnScreenKeyboardView x:Name="Keyboard" VerticalAlignment="Bottom" />
+
+
+  <!-- v0.24.1: aviso de risco do congelamento (só liga depois do "Aceito"). -->
+  <Panel Classes="fadeIn" IsVisible="{Binding IsFreezeConfirmOpen}">
+    <Border Classes="contextMenuOverlay" />
+    <Border Classes="contextMenuCard" Width="540" Padding="28" HorizontalAlignment="Center" VerticalAlignment="Center">
+      <StackPanel Spacing="14">
+        <TextBlock Text="⚠ Congelar o jogo no Quick Settings" Classes="menuHeaderTitle" FontSize="18" TextWrapping="Wrap" />
+        <TextBlock TextWrapping="Wrap" Classes="subtle" MaxWidth="480"
+                   Text="Ligado, o launcher SUSPENDE o processo do jogo enquanto o Quick Settings está aberto. É a única forma de o jogo parar de receber comandos quando já está a correr — o isolamento por HidHide não consegue revogar um controle que o jogo já abriu." />
+        <TextBlock TextWrapping="Wrap" Classes="subtle" MaxWidth="480"
+                   Text="Risco: alguns anti-cheats de jogos competitivos podem interpretar um processo suspenso como manipulação e banir a conta. Usa por tua conta e risco — em jogos com anti-cheat, deixa desligado." />
+        <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right">
+          <Button Classes="pill" Content="Cancelar" Click="OnFreezeCancelClick" />
+          <Button Classes="pill primary" Content="Aceito o risco, ativar" Click="OnFreezeAcceptClick" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+  </Panel>
+
 
   <!-- v0.24: tela cheia do Syncthing (WebView nativo). É o último filho do
        Panel raiz porque controle nativo não respeita z-order do Avalonia.

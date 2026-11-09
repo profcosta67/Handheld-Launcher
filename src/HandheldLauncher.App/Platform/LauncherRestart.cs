@@ -71,6 +71,53 @@ internal static class LauncherRestart
     }
 
     /// <summary>
+    /// v0.24.1: "Reiniciar como administrador" — reabre o launcher com o
+    /// verbo <c>runas</c> e o MESMO <c>--relaunch-after</c>, para que a
+    /// instância elevada espere esta morrer antes de disputar o mutex (sem
+    /// isso o novo processo perdia a disputa e saía, ver
+    /// <see cref="WaitForPreviousInstance"/>).
+    ///
+    /// <para>Devolve false quando o utilizador cancela o UAC — nesse caso
+    /// NADA foi aberto e quem chamou não deve fechar o launcher (senão o
+    /// utilizador fica sem nada no ecrã).</para>
+    /// </summary>
+    public static bool TryStartReplacementAsAdmin()
+    {
+        if (!OperatingSystem.IsWindows()) return false;
+
+        try
+        {
+            var exe = Environment.ProcessPath;
+            if (string.IsNullOrWhiteSpace(exe) || !File.Exists(exe))
+            {
+                DebugLog.Write($"[ELEVACAO] ProcessPath inválido ('{exe}') — reinício elevado cancelado.");
+                return false;
+            }
+
+            var psi = new ProcessStartInfo(exe)
+            {
+                UseShellExecute = true,   // obrigatório para o verbo "runas"
+                Verb = "runas",           // ← é aqui que o UAC aparece
+                WorkingDirectory = Path.GetDirectoryName(exe) ?? string.Empty,
+            };
+            psi.ArgumentList.Add(WaitArgument);
+            psi.ArgumentList.Add(Environment.ProcessId.ToString());
+
+            var started = Process.Start(psi);
+            DebugLog.Write(started is null
+                ? "[ELEVACAO] Reinício elevado: Process.Start devolveu null."
+                : $"[ELEVACAO] Reinício elevado: nova instância pid={started.Id} esperando pid={Environment.ProcessId}.");
+            return started is not null;
+        }
+        catch (Exception ex)
+        {
+            // HResult 0x800704C7 = o utilizador cancelou o UAC.
+            DebugLog.Write($"[ELEVACAO] Reinício elevado não aconteceu: {ex.GetType().Name} hr=0x{ex.HResult:X8}");
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Chamado no começo do Program.Main, ANTES da trava de instância
     /// única. Sem o argumento, retorna na hora. Com ele, espera o processo
     /// anterior sair — com teto de tempo, pra um pid que nunca morre (ou

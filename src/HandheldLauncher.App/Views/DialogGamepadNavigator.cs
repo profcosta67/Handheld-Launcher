@@ -114,7 +114,7 @@ internal static class DialogGamepadNavigator
                 break;
 
             case GamepadAction.Confirm:
-                Activate(focused);
+                Activate(dialog, focused);
                 break;
 
             case GamepadAction.Back:
@@ -226,7 +226,13 @@ internal static class DialogGamepadNavigator
         return null;
     }
 
-    private static void Activate(Control? focused)
+    /// <summary>
+    /// v0.24.2: abre o teclado NO PRÓPRIO launcher em vez do TabTip. O TabTip é
+    /// uma janela do Windows, fora da árvore do Avalonia — o controle não lhe
+    /// chegava, por isso os campos de texto ficavam inutilizáveis no aparelho.
+    /// Só cai no teclado do sistema quando a janela não tem teclado próprio.
+    /// </summary>
+    private static void Activate(Window dialog, Control? focused)
     {
         switch (focused)
         {
@@ -240,10 +246,11 @@ internal static class DialogGamepadNavigator
                 button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 break;
             case ComboBox combo when combo.ItemCount > 0:
-                // v0.9.7, pedido do usuário ("ideal seria abrir a lista"):
-                // A abre o dropdown de verdade em vez de girar pra frente
-                // (girar sem abrir continua disponível em ←/→, ver Handle).
+                // v0.9.7, pedido do usuário ("ideal seria abrir a lista"): A abre
+                // o dropdown de verdade em vez de girar pra frente.
                 combo.IsDropDownOpen = true;
+                break;
+            case TextBox box when dialog is IGamepadKeyboardHost host && host.ShowKeyboardFor(box):
                 break;
             case TextBox:
                 TouchKeyboard.Show();

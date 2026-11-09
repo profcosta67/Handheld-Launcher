@@ -1,0 +1,16 @@
+Handheld Launcher
+
+Obrigado por instalares o launcher para os teus portáteis.
+
+Este instalador vai preparar:
+
+  - Handheld Launcher (o programa)
+  - HidHide (esconde o controle do jogo enquanto o Quick Settings está aberto)
+  - Runtime do PawnIO (necessário para o TDP; pode pedir reinício do Windows)
+  - Syncthing (sincronização de saves, opcional e desligado por omissão)
+
+Depois de instalar, o launcher abre automaticamente no login através de uma
+tarefa agendada com privilégio máximo, para que TDP e drivers funcionem sem
+pedir permissões em cada abertura.
+
+Podes remover tudo em Configurações > Aplicações > Handheld Launcher.

@@ -6,6 +6,7 @@
         xmlns:dataConv="using:Avalonia.Data.Converters"
         xmlns:media="using:Avalonia.Media"
         xmlns:svc="using:HandheldLauncher.Services"
+        xmlns:views="using:HandheldLauncher.App.Views"
         x:Class="HandheldLauncher.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="Handheld Launcher"
@@ -563,6 +564,13 @@
         </StackPanel>
       </Border>
     </Panel>
+
+    <!-- v0.24.2: teclado na tela para os campos de texto da janela principal
+         (busca da aba Nuvem). Fica no fundo e por baixo da Central de Controlo
+         (ZIndex 100) — quem manda naquela zona é ela. -->
+    <views:OnScreenKeyboardView x:Name="Keyboard" VerticalAlignment="Bottom" ZIndex="50" />
+
+
 
   </Panel>
 </Window>

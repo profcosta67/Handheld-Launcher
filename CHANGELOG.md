@@ -3,6 +3,9 @@
 Mais recente primeiro. Cada versão tem notas completas em [`release-notes/`](release-notes/).
 Betas não entram aqui: o que eles trazem aparece na versão estável que os junta.
 
+## [0.25.0] — 2026-11-09
+Instalador com **ecrã de boas-vindas** e escolha de pasta (`--instWelcome` + `--instLocation Either`); **TDP volta a funcionar** porque o instalador passa a instalar o **runtime do PawnIO** (faltava — só o módulo era copiado); **isolamento do controle** cobre todos os pads (Lenovo, Xbox USB/BLE, ROG Ally, DualSense…) e deixa de falhar com maiúsculas/minúsculas; **teclado do launcher em Avalonia** em todas as janelas com campos de texto; **congelamento opcional** do jogo no Quick Settings, com aviso de risco e consentimento. [Notas](release-notes/0.25.0.md)
+
 ## [0.24.0] — 2026-11-09
 O launcher abre **sem UAC** (asInvoker) e eleva só o que precisa; Central de Controlo na tecla **Y** com Wi‑Fi real (sinal, conectar com senha) e Bluetooth clássico+BLE (descobrir, emparelhar, ligar/desligar); nova aba **Central de Saves** com o Syncthing embutido; parsers de rede movidos para o Core com testes. [Notas](release-notes/0.24.0.md)
 

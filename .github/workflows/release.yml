@@ -131,7 +131,12 @@ jobs:
             "--packDir", "publish",
             "--mainExe", "HandheldLauncher.exe",
             "--icon", "src/HandheldLauncher.App/Assets/app-icon.ico",
-            "--splashProgressColor", "#7C5CFC"
+            "--splashProgressColor", "#7C5CFC",
+            # v0.25: ecrã de boas-vindas do instalador (Velopack setup wizard) e
+            # escolha de pasta. --instLocation já é 'Either' por omissão, fica
+            # explícito para ninguém o mudar sem querer.
+            "--instWelcome", "installer/InstWelcome.txt",
+            "--instLocation", "Either"
           )
           if (Test-Path $notesFile) {
             $packArgs += @("--releaseNotes", $notesFile)

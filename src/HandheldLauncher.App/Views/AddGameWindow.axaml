@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:HandheldLauncher.App.ViewModels"
+        xmlns:views="using:HandheldLauncher.App.Views"
         x:Class="HandheldLauncher.App.Views.AddGameWindow"
         x:DataType="vm:AddGameViewModel"
         Title="Adicionar Jogo ou Programa"
@@ -24,7 +25,7 @@
     </Style>
   </Window.Styles>
 
-  <Grid RowDefinitions="*,Auto" Margin="24">
+  <Grid RowDefinitions="*,Auto,Auto" Margin="24">
     <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="4">
 
@@ -62,5 +63,9 @@
       <Button Classes="pill" Content="Cancelar" Click="OnCancelClick" Width="120" Height="44" FontSize="14"/>
       <Button Classes="pill primary" Content="Salvar Jogo" Click="OnAddClick" IsEnabled="{Binding CanSave}" Width="160" Height="44" FontSize="14" FontWeight="Bold"/>
     </StackPanel>
+
+    <!-- v0.24.2: teclado do launcher (o TabTip do Windows não recebia o controle). -->
+    <views:OnScreenKeyboardView Grid.Row="2" x:Name="Keyboard" Margin="-24,0,-24,-24" />
+
   </Grid>
 </Window>

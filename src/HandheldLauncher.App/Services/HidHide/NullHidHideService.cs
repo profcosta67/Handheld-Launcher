@@ -10,6 +10,12 @@ public sealed class NullHidHideService : IHidHideService
 {
     public bool IsAvailable => false;
 
+    /// <summary>Sem driver não há mascaramento — nunca "pronto".</summary>
+    public bool IsReady => false;
+
+    /// <inheritdoc />
+    public string StatusDetail => "driver do HidHide indisponível";
+
     public string? ControllerInstanceId => null;
 
     public void Initialize()
