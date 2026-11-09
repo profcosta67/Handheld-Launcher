@@ -34,6 +34,9 @@
             BorderBrush="#333333" 
             BorderThickness="1,0,0,0"
             HorizontalAlignment="Right"
+            x:Name="LegacyPanel"
+            IsVisible="False"
+            IsHitTestVisible="False"
             Padding="20">
         <Grid RowDefinitions="Auto,*,Auto">
             
@@ -344,7 +347,8 @@
     </Border>
     <!-- QS 2.0: painel novo por cima do antigo. Nada do anterior é removido —
          se algo falhar, basta apagar esta linha e voltar ao painel antigo. -->
-    <qs:QsPanel x:Name="NewQsPanel" IsVisible="False" />
+    <qs:QsPanel x:Name="NewQsPanel" IsVisible="False"
+                HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
 </Panel>
 
 

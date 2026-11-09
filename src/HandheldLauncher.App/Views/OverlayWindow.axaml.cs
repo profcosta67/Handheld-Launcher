@@ -496,6 +496,11 @@ public partial class OverlayWindow : Window
 
         // QS 2.0: mostrar o painel novo (por cima do antigo) e ligar os eventos.
         WireNewQsPanel();
+        RefreshNewQsPanel();
+
+        // Cabe no ecrã atual (altura e posição) — inclui o caso de ter mudado
+        // de resolução desde a última abertura.
+        FitToScreen();
 
         if (OperatingSystem.IsWindows())
         {
@@ -571,6 +576,35 @@ public partial class OverlayWindow : Window
         }
     }
 
+    /// <summary>
+    /// QS 2.0 — garante que o painel cabe no ecrã atual. Chamado ao abrir e
+    /// depois de mudar de resolução: antes ficava ancorado às coordenadas da
+    /// resolução anterior e aparecia cortado fora da tela (bug de 09/11).
+    /// </summary>
+    public void FitToScreen()
+    {
+        try
+        {
+            var screen = Screens.ScreenFromWindow(this) ?? Screens.Primary ?? Screens.All.FirstOrDefault();
+            if (screen == null) return;
+
+            var wa = screen.WorkingArea;
+            var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
+
+            // 850 é a altura de desenho; nunca pode exceder o ecrã disponível,
+            // senão o rodapé e o fim do scroll ficam fora de alcance.
+            var maxLogicalHeight = (wa.Height / scaling) - 20;
+            Height = Math.Max(480, Math.Min(850, maxLogicalHeight));
+
+            PositionOnRightEdge();
+            DebugLog.Write($"[QS] Ajustado ao ecrã: {wa.Width}x{wa.Height} (escala {scaling:0.##}) → altura {Height:0}.");
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[QS] FitToScreen EXCEPTION: {ex.Message}");
+        }
+    }
+
     public void SetInitialPosition()
     {
         try
@@ -642,44 +676,64 @@ public partial class OverlayWindow : Window
         if (_qsWired) return;
         _qsWired = true;
 
-        NewQsPanel.TdpRequested += (_, button) => OnTdpClick(button, new RoutedEventArgs());
-        NewQsPanel.ResolutionRequested += (_, button) => OnResolutionClick(button, new RoutedEventArgs());
+        NewQsPanel.TdpWattsRequested += (_, watts) => ApplyTdpWattsFromQs(watts);
+        NewQsPanel.ResolutionRequested += (_, button) => ApplyResolutionFromQs(button.Tag?.ToString() ?? string.Empty);
         NewQsPanel.FanRequested += (_, button) => OnFanClick(button, new RoutedEventArgs());
         NewQsPanel.ColorRequested += (_, button) => OnColorClick(button, new RoutedEventArgs());
         NewQsPanel.MultiplierRequested += (_, button) => OnMultiplierClick(button, new RoutedEventArgs());
         NewQsPanel.PrintRequested += (_, _) => OnScreenshotClick(this, new RoutedEventArgs());
         NewQsPanel.RecordRequested += (_, _) => OnRecordClick(this, new RoutedEventArgs());
         NewQsPanel.LosslessToggled += (_, _) => OnLsfgToggleClick(this, new RoutedEventArgs());
-        NewQsPanel.CloseRequested += (_, _) => HideWithUnblock();
-
-        NewQsPanel.VolumeChanged += (_, volume) =>
+        NewQsPanel.CloseRequested += (_, _) =>
         {
-            _hardwareService?.SetVolume(Math.Round((double)volume.Percent));
-            SaveSetting("Volume", volume.Percent.ToString());
+            DebugLog.Write("[QS] Fecho pedido pelo painel 2.0 (✕ / B / Fechar Menu).");
+            HideWithUnblock();
+        };
+
+        NewQsPanel.BrightnessChanged += (_, value) =>
+        {
+            _hardwareService?.SetBrightness(Math.Round((double)value));
+            SaveSetting("Brightness", value.ToString());
         };
 
         // Perfil real do aparelho: é isto que faz o Legion mostrar 1200p e o ROG
         // Ally ficar nos 1080p (ScreenPresets, com testes no Core).
         var profile = HandheldLauncher.App.Platform.Hardware.DeviceDetector.Detect();
+        var currentPreset = _currentTdp switch
+        {
+            "Eco" => PowerPreset.Eco,
+            "Desempenho" => PowerPreset.Desempenho,
+            _ when _currentTdp.Contains("Custom", StringComparison.OrdinalIgnoreCase) => PowerPreset.Custom,
+            _ => PowerPreset.Normal,
+        };
 
         NewQsPanel.Initialize(
             deviceId: profile.Id,
             minWatts: profile.TdpMin,
             maxWatts: Math.Max(profile.TdpMax, profile.TdpMaxAc),
-            currentWatts: AppSettingsStore.Load().TdpCustomWatts,
+            currentWatts: _customWatts,
             fanModes: ["Automático", "Silencioso", "Normal", "Desempenho", "Boost"],
-            colorModes: ["Padrão", "Vívido", "OLED", "Noturno"]);
+            colorModes: ["Padrão", "Vívido", "OLED", "Noturno"],
+            currentFan: _currentFanMode,
+            currentColor: _currentColor,
+            currentMultiplier: _currentMultiplierIndex,
+            currentPreset: currentPreset);
 
-        NewQsPanel.SetVolume((int)Math.Round(VolumeSlider?.Value ?? 70));
+        NewQsPanel.IsVisible = true;
+        RefreshNewQsPanel();
+
+        DebugLog.Write("[QS] Painel 2.0 ligado ao painel antigo (ponte).");
+    }
+
+    /// <summary>Refresca o estado visível do painel novo a cada abertura.</summary>
+    private void RefreshNewQsPanel()
+    {
+        NewQsPanel.SetBrightness((int)Math.Round(BrightnessSlider?.Value ?? 70));
         NewQsPanel.SetScreenInfo(TxtScreenInfo?.Text ?? "—");
 
         // Só avisa quando o TDP não vai mesmo aplicar.
         if (!HandheldLauncher.App.Platform.ElevationService.IsElevated)
             NewQsPanel.ShowElevationWarning("Modo padrão: o TDP não aplica. Reinicia como administrador.");
-
-        NewQsPanel.IsVisible = true;
-
-        DebugLog.Write("[QS] Painel 2.0 ligado ao painel antigo (ponte).");
     }
 
     /// <summary>
@@ -754,7 +808,13 @@ public partial class OverlayWindow : Window
 
     public void HandleGamepadAction(GamepadAction action)
     {
-        if (action == GamepadAction.ToggleQuickSettings) { HideWithUnblock(); return; }
+        // O toggle é tratado no GameplayWatcher (ToggleOverlay). Se chegar aqui é
+        // um eco do mesmo lote de input e NÃO deve fechar o painel que acabou de
+        // abrir (bug reportado: "no home chama o QS, ele aparece e fecha").
+        if (action == GamepadAction.ToggleQuickSettings) return;
+
+        // QS 2.0: o painel novo tem a sua própria navegação por D-pad.
+        if (NewQsPanel is { IsVisible: true }) { NewQsPanel.HandleGamepadAction(action); return; }
 
         if (_activeSubMenu == SubMenuMode.TdpCustom)
         {
@@ -1220,6 +1280,60 @@ public partial class OverlayWindow : Window
         });
 
         return true;
+    }
+
+    /// <summary>
+    /// QS 2.0 — aplica watts vindos do painel (presets 8/15/20 W ou o slider
+    /// Custom). O valor é **sempre** limitado à janela do firmware
+    /// (`TdpLimits.ClampSpl`) antes de chegar ao EC: é esta linha que impede o
+    /// Custom de pedir mais do que o aparelho aguenta.
+    /// </summary>
+    public void ApplyTdpWattsFromQs(int watts)
+    {
+        if (!_tdpHardwareSupported)
+        {
+            DebugLog.Write("[TDP] QS 2.0: hardware sem suporte a TDP — pedido ignorado.");
+            return;
+        }
+
+        var clamped = _tdpLimits.ClampSpl(watts);
+        _customWatts = clamped;
+        ApplyTdp(TdpProfiles.CustomMode(clamped));
+
+        DebugLog.Write($"[TDP] QS 2.0: pedido {watts} W → {clamped} W (janela {_tdpLimits.SplMin}–{_tdpLimits.SplMax} W).");
+    }
+
+    /// <summary>
+    /// QS 2.0 — resolução pedida diretamente (Tag "WxH"), mantendo a taxa atual.
+    /// O handler antigo só reconhecia os botões do painel antigo, por isso a
+    /// mudança não surtia efeito (bug reportado a 09/11).
+    /// </summary>
+    public void ApplyResolutionFromQs(string wxh)
+    {
+        var parts = (wxh ?? string.Empty).Split('x');
+        if (parts.Length != 2 || !int.TryParse(parts[0], out var w) || !int.TryParse(parts[1], out var h))
+        {
+            DebugLog.Write($"[TELA] QS 2.0: resolução inválida '{wxh}'.");
+            return;
+        }
+
+        if (!int.TryParse(_refreshButtons[_currentHzIndex].Tag?.ToString(), out var hz)) return;
+
+        _hardwareService.SetDisplayMode(w, h, hz);
+        UpdateScreenInfoText();
+
+        // A resolução mudou: o Windows leva ~1 s a aplicar o modo. Só depois
+        // faz sentido recalcular a posição/tamanho do painel.
+        if (OperatingSystem.IsWindows())
+            DispatcherTimer.RunOnce(() => DisplayColorManager.ReapplyCurrent(), TimeSpan.FromMilliseconds(1500));
+
+        DispatcherTimer.RunOnce(() =>
+        {
+            UpdateScreenInfoText();
+            FitToScreen();
+        }, TimeSpan.FromMilliseconds(1200));
+
+        DebugLog.Write($"[TELA] QS 2.0: {w}x{h}@{hz}Hz aplicado.");
     }
 
     private void SetTdpButtonVisual(string activeMode)

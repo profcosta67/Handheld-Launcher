@@ -68,8 +68,8 @@ public class ScreenPresetsTests
 }
 
 /// <summary>
-/// QS 2.0 (F1): Eco / Normal / Boost / Custom, sempre dentro dos limites do
-/// firmware do aparelho.
+/// QS 2.0 (F1): Eco 8 W / Normal 15 W / Desempenho 20 W / Custom até ao máximo do
+/// aparelho — sempre dentro dos limites do firmware.
 /// </summary>
 public class QsPowerPresetsTests
 {
@@ -81,14 +81,14 @@ public class QsPowerPresetsTests
     public void HasExactlyFourPresets()
     {
         Assert.Equal(
-            [PowerPreset.Eco, PowerPreset.Normal, PowerPreset.Boost, PowerPreset.Custom],
+            [PowerPreset.Eco, PowerPreset.Normal, PowerPreset.Desempenho, PowerPreset.Custom],
             QsPowerPresets.All);
     }
 
     [Theory]
-    [InlineData(PowerPreset.Eco, 5)]
-    [InlineData(PowerPreset.Normal, 20)]
-    [InlineData(PowerPreset.Boost, 35)]
+    [InlineData(PowerPreset.Eco, 8)]
+    [InlineData(PowerPreset.Normal, 15)]
+    [InlineData(PowerPreset.Desempenho, 20)]
     public void ResolvesEachPresetInsideTheDeviceLimits(PowerPreset preset, int expected)
     {
         Assert.Equal(expected, QsPowerPresets.Resolve(preset, LegionMin, LegionMax));
@@ -109,15 +109,21 @@ public class QsPowerPresetsTests
     }
 
     [Fact]
-    public void Normal_IsClampedWhenTheDeviceDoesNotReach20W()
+    public void Eco_IsRaisedToTheDeviceMinimum()
     {
-        // Um aparelho limitado a 15 W: "Normal" não pode pedir 20 W.
-        Assert.Equal(15, QsPowerPresets.Resolve(PowerPreset.Normal, 5, 15));
+        // Um aparelho cujo mínimo é 10 W não pode receber 8 W.
+        Assert.Equal(10, QsPowerPresets.Resolve(PowerPreset.Eco, 10, 35));
+    }
+
+    [Fact]
+    public void Desempenho_IsClampedWhenTheDeviceCapsBelow20W()
+    {
+        Assert.Equal(15, QsPowerPresets.Resolve(PowerPreset.Desempenho, 5, 15));
     }
 
     [Fact]
     public void SwappedLimits_AreNormalized()
     {
-        Assert.Equal(35, QsPowerPresets.Resolve(PowerPreset.Boost, maxWatts: 5, minWatts: 35));
+        Assert.Equal(35, QsPowerPresets.Resolve(PowerPreset.Custom, maxWatts: 5, minWatts: 35, customWatts: 99));
     }
 }

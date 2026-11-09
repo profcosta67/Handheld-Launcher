@@ -33,9 +33,9 @@
 
 ## 2.1 Decisões do dono (09/11/2026) — valem sobre a tabela acima
 
-- **TDP**: **1 slider + 4 presets** — `Eco`, `Normal`, `Boost`, `Custom` (fora `U.Eco` e `Desemp.`).
-- **Volume**: **sim**, slider (os handhelds têm botões, mas o painel precisa de feedback).
-- **Brilho**: **não** — os handhelds têm botões físicos.
+- **TDP**: **1 slider + 4 presets** — `Eco 8 W`, `Normal 15 W`, `Desempenho 20 W`, `Custom` (até ao máximo do aparelho). Fora `U.Eco` e o antigo `Boost`.
+- **Brilho**: **sim**, slider — é o único controlo de ecrã que não tem atalho físico no aparelho.
+- **Volume**: **não** — os handhelds têm botões físicos de volume (decisão revista em 09/11, no teste do Legion Go 2).
 - **Taxa (Hz)**: **não** — pouca utilidade prática no painel.
 - **Resolução**: **sim**, mas **3 presets automáticos por aparelho**, tirados do perfil detetado:
   - Legion Go / Go 2 → `900p`, `1080p`, `1200p`

@@ -268,7 +268,7 @@ public partial class MainWindow : Window
         try
         {
             var delta = (DateTime.Now - _lastOverlayToggle).TotalMilliseconds;
-            if (delta < 500) { DebugLog.Write($"[OVERLAY] Debounce {delta:F0}ms, ignorado."); return; }
+            if (delta < 1500) { DebugLog.Write($"[OVERLAY] Debounce {delta:F0}ms, ignorado."); return; }
             _lastOverlayToggle = DateTime.Now;
 
             DebugLog.Write($"[OVERLAY] Toggle. Janela={(_overlayWindow == null ? "null" : $"visible={_overlayWindow.IsVisible}")}");
