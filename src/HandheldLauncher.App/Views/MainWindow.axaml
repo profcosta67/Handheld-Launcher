@@ -416,10 +416,10 @@
               <ListBox x:Name="DrawerWifiNetworks" Height="190" Background="#151B28" Foreground="#F5F7FF"
                        SelectionMode="Single"/>
               <TextBox x:Name="DrawerWifiPassword" Watermark="Senha da rede (se necessário)" PasswordChar="●"/>
-              <Grid ColumnDefinitions="*,*">
-                <Button Grid.Column="0" Content="Conectar" Classes="pill primary" Click="OnDrawerConnectWifiClick"/>
-                <Button Grid.Column="1" Margin="10,0,0,0" Content="Desconectar" Classes="pill" Click="OnDrawerDisconnectWifiClick"/>
-              </Grid>
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Content="Conectar" Classes="pill primary" Click="OnDrawerConnectWifiClick"/>
+                <Button Content="Desconectar" Classes="pill" Click="OnDrawerDisconnectWifiClick"/>
+              </StackPanel>
             </StackPanel>
           </Border>
           <Border Grid.Row="2" Background="#222B3D" CornerRadius="14" Padding="16">
