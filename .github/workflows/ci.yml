@@ -36,7 +36,7 @@ jobs:
         # A branch de desenvolvimento ainda carrega VERSION=0.20.5.
         # A beta deve ficar acima da estável 0.23.4 para o atualizador
         # não oferecer a release oficial antes do teste no aparelho.
-        run: echo "version=0.23.5-preview" >> "$GITHUB_OUTPUT"
+        run: echo "version=0.23.6-preview" >> "$GITHUB_OUTPUT"
 
       - name: Publicar pacote portátil de teste (win-x64)
         run: >
