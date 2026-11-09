@@ -419,9 +419,42 @@ public partial class MainWindow : Window
                 DebugLog.Write("[OVERLAY] Handler disparado.");
 
                 IntPtr gameHwnd = IntPtr.Zero;
+                int gamePid = 0;
                 if (OperatingSystem.IsWindows())
                 {
-                    try { gameHwnd = GetForegroundWindow(); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
+                    try
+                    {
+                        // Em fullscreen, o foreground pode ser o próprio overlay/launcher.
+                        // Prioriza a janela real associada ao jogo em execução.
+                        if (vm.RunningGame is not null)
+                        {
+                            var detected = FindGameWindow(vm.RunningGame);
+                            if (detected.Found && detected.Hwnd != IntPtr.Zero)
+                            {
+                                gameHwnd = detected.Hwnd;
+                                gamePid = (int)detected.Pid;
+                            }
+                        }
+
+                        // Fallback restrito a uma janela externa válida.
+                        if (gameHwnd == IntPtr.Zero)
+                        {
+                            var foreground = GetForegroundWindow();
+                            if (foreground != IntPtr.Zero)
+                            {
+                                GetWindowThreadProcessId(foreground, out var foregroundPid);
+                                if (foregroundPid != 0 && foregroundPid != (uint)Environment.ProcessId)
+                                {
+                                    gameHwnd = foreground;
+                                    gamePid = (int)foregroundPid;
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        DebugLog.Write($"[OVERLAY] Falha ao identificar HWND real do jogo: {ex.Message}");
+                    }
                 }
 
                 if (_overlayWindow == null)
@@ -435,7 +468,7 @@ public partial class MainWindow : Window
                 }
 
                 _overlayWindow.SetGameHwnd(gameHwnd);
-                _overlayWindow.SetGamePid(_detectedGamePid);
+                _overlayWindow.SetGamePid(gamePid);
 
                 DebugLog.Write($"[OVERLAY] Antes Show: IsVisible={_overlayWindow.IsVisible}, Pos={_overlayWindow.Position}, GameHwnd=0x{gameHwnd:X}");
 
