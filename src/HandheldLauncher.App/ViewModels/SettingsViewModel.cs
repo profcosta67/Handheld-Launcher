@@ -625,6 +625,25 @@ public sealed class SettingsViewModel : ViewModelBase
         }
     }
 
+    public async Task SetSyncthingDevicesPausedAsync(bool paused)
+    {
+        if (_syncthingService is null || !_syncthingService.IsRunning)
+        {
+            SyncthingStatusText = "O Syncthing não está em execução.";
+            return;
+        }
+        try
+        {
+            await _syncthingService.SetAllDevicesPausedAsync(paused);
+            SyncthingStatusText = paused ? "Sincronização com todos os dispositivos pausada." : "Sincronização com todos os dispositivos retomada.";
+            await RefreshSyncthingAsync();
+        }
+        catch (Exception ex)
+        {
+            SyncthingStatusText = "Falha ao alterar dispositivos: " + ex.Message;
+        }
+    }
+
     public async Task RestartSyncthingAsync()
     {
         if (_syncthingService is null || !_syncthingService.IsRunning)
