@@ -416,9 +416,9 @@
               <ListBox x:Name="DrawerWifiNetworks" Height="190" Background="#151B28" Foreground="#F5F7FF"
                        SelectionMode="Single"/>
               <TextBox x:Name="DrawerWifiPassword" Watermark="Senha da rede (se necessário)" PasswordChar="●"/>
-              <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Grid ColumnDefinitions="*,*">
                 <Button Grid.Column="0" Content="Conectar" Classes="pill primary" Click="OnDrawerConnectWifiClick"/>
-                <Button Grid.Column="1" Content="Desconectar" Classes="pill" Click="OnDrawerDisconnectWifiClick"/>
+                <Button Grid.Column="1" Margin="10,0,0,0" Content="Desconectar" Classes="pill" Click="OnDrawerDisconnectWifiClick"/>
               </Grid>
             </StackPanel>
           </Border>
