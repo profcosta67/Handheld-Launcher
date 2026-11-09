@@ -318,8 +318,9 @@
                   <TextBox Grid.Column="0" Text="{Binding SyncthingNewFolderPath}" Watermark="Caminho da pasta local" />
                   <Button Grid.Column="1" Classes="pill" Content="Procurar…" Click="OnBrowseSyncthingFolderClick" Margin="8,0,0,0" />
                 </Grid>
+                <TextBox Text="{Binding SyncthingNewFolderDeviceIds}" Watermark="IDs dos dispositivos (opcional; separados por vírgula)" />
                 <Button Classes="pill primary" Content="Adicionar pasta" Click="OnAddSyncthingFolderClick" HorizontalAlignment="Left" />
-                <TextBlock Text="A pasta será cadastrada neste aparelho. Para sincronizar, compartilhe-a com os dispositivos desejados." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+                <TextBlock Text="Informe IDs de dispositivos já cadastrados para compartilhar a pasta. Se deixar vazio, ela ficará apenas neste aparelho." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
               </StackPanel>
             </Border>
             <Border Classes="settingsCard">
