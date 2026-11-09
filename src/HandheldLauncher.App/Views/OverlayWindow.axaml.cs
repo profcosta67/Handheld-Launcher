@@ -90,6 +90,63 @@ public partial class OverlayWindow : Window
     [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);
+    [DllImport("user32.dll", CharSet = CharSet.Auto)] private static extern bool GetMonitorInfo(IntPtr monitor, ref MONITORINFO monitorInfo);
+
+    private const uint MONITOR_DEFAULTTONEAREST = 2;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MONITORINFO
+    {
+        public int cbSize;
+        public RECT rcMonitor;
+        public RECT rcWork;
+        public uint dwFlags;
+    }
+
+    // Usa o monitor da janela real do jogo. O HWND do overlay é fallback
+    // somente quando não há jogo detectado (modo desktop).
+    private bool TryGetTargetMonitorWorkArea(out RECT workArea, out double scaling, out string source)
+    {
+        workArea = default;
+        scaling = 1.0;
+        source = "indisponível";
+
+        if (OperatingSystem.IsWindows())
+        {
+            var targetHwnd = _gameHwnd != IntPtr.Zero && IsWindow(_gameHwnd)
+                ? _gameHwnd
+                : (TryGetPlatformHandle()?.Handle ?? IntPtr.Zero);
+
+            if (targetHwnd != IntPtr.Zero)
+            {
+                var monitor = MonitorFromWindow(targetHwnd, MONITOR_DEFAULTTONEAREST);
+                var info = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+                if (monitor != IntPtr.Zero && GetMonitorInfo(monitor, ref info))
+                {
+                    workArea = info.rcWork;
+                    var matchingScreen = Screens.All.FirstOrDefault(screen =>
+                        screen.Bounds.X == info.rcMonitor.Left &&
+                        screen.Bounds.Y == info.rcMonitor.Top &&
+                        screen.Bounds.Width == info.rcMonitor.Right - info.rcMonitor.Left &&
+                        screen.Bounds.Height == info.rcMonitor.Bottom - info.rcMonitor.Top);
+                    if (matchingScreen != null && matchingScreen.Scaling > 0)
+                        scaling = matchingScreen.Scaling;
+
+                    source = $"HWND 0x{targetHwnd:X}, monitor {info.rcMonitor.Left},{info.rcMonitor.Top}-{info.rcMonitor.Right},{info.rcMonitor.Bottom}";
+                    return workArea.Right > workArea.Left && workArea.Bottom > workArea.Top;
+                }
+            }
+        }
+
+        var fallback = Screens.Primary ?? Screens.All.FirstOrDefault();
+        if (fallback == null) return false;
+        var area = fallback.WorkingArea;
+        workArea = new RECT { Left = area.X, Top = area.Y, Right = area.X + area.Width, Bottom = area.Y + area.Height };
+        scaling = fallback.Scaling > 0 ? fallback.Scaling : 1.0;
+        source = "fallback Avalonia";
+        return true;
+    }
     
     [DllImport("user32.dll", SetLastError = true)] private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
     [DllImport("user32.dll", SetLastError = true)] private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
@@ -487,39 +544,30 @@ public partial class OverlayWindow : Window
     {
         try
         {
-            var screen = Screens.Primary ?? Screens.All.FirstOrDefault();
-            if (screen == null) return;
-
-            var wa = screen.WorkingArea;
-            var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
+            if (!TryGetTargetMonitorWorkArea(out var area, out var scaling, out var monitorSource)) return;
 
             double actualWidth = (Width > 0 && !double.IsNaN(Width)) ? Width : (Bounds.Width > 0 ? Bounds.Width : 440);
             double actualHeight = (Height > 0 && !double.IsNaN(Height)) ? Height : (Bounds.Height > 0 ? Bounds.Height : 850);
-
             var widthPx = (int)(actualWidth * scaling);
             var heightPx = (int)(actualHeight * scaling);
-
             if (widthPx <= 0 || heightPx <= 0) return;
 
-            var x = wa.X + wa.Width - widthPx - 20;
-            var y = wa.Y + (wa.Height - heightPx) / 2;
+            var x = area.Right - widthPx - 20;
+            var y = area.Top + ((area.Bottom - area.Top) - heightPx) / 2;
+            var position = new PixelPoint(x, y);
 
+            // Não usar SWP_HIDEWINDOW/SWP_SHOWWINDOW: isso disputa com o ciclo
+            // de vida do Avalonia e pode deixar o overlay invisível/congelado.
+            Position = position;
             if (OperatingSystem.IsWindows())
             {
                 var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
                 if (handle != IntPtr.Zero)
-                {
-                    Position = new PixelPoint(x, y);
                     SetWindowPos(handle, HWND_TOPMOST, x, y, widthPx, heightPx, SWP_NOACTIVATE);
-                    DebugLog.Write($"[OVERLAY] Reposicionado sem ocultar: {x},{y}");
-                }
             }
-            else
-            {
-                Position = new PixelPoint(x, y);
-            }
-            
-            RememberExpectedPosition(new PixelPoint(x, y));
+
+            RememberExpectedPosition(position);
+            DebugLog.Write($"[OVERLAY] Reposicionado no monitor do jogo: {x},{y}, {widthPx}x{heightPx}, escala={scaling:F2}, origem={monitorSource}");
         }
         catch (Exception ex)
         {
@@ -531,23 +579,17 @@ public partial class OverlayWindow : Window
     {
         try
         {
-            var screen = Screens.Primary ?? Screens.All.FirstOrDefault();
-            if (screen == null) return;
-
-            var wa = screen.WorkingArea;
-            var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
-            
-            double w = (Width > 0 && !double.IsNaN(Width)) ? Width : 440;
-            double h = (Height > 0 && !double.IsNaN(Height)) ? Height : 850;
-
-            var widthPx = (int)(w * scaling);
-            var heightPx = (int)(h * scaling);
-
-            var x = wa.X + wa.Width - widthPx - 20;
-            var y = wa.Y + (wa.Height - heightPx) / 2;
-
-            Position = new PixelPoint(x, y);
-            DebugLog.Write($"[OVERLAY] SetInitialPosition: {x},{y} (tamanho {widthPx}x{heightPx})");
+            if (!TryGetTargetMonitorWorkArea(out var area, out var scaling, out var monitorSource)) return;
+            double width = (Width > 0 && !double.IsNaN(Width)) ? Width : 440;
+            double height = (Height > 0 && !double.IsNaN(Height)) ? Height : 850;
+            var widthPx = (int)(width * scaling);
+            var heightPx = (int)(height * scaling);
+            var x = area.Right - widthPx - 20;
+            var y = area.Top + ((area.Bottom - area.Top) - heightPx) / 2;
+            var position = new PixelPoint(x, y);
+            Position = position;
+            RememberExpectedPosition(position);
+            DebugLog.Write($"[OVERLAY] SetInitialPosition: {x},{y}, tamanho={widthPx}x{heightPx}, escala={scaling:F2}, origem={monitorSource}");
         }
         catch (Exception ex)
         {
