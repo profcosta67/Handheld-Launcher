@@ -646,6 +646,9 @@ public sealed class SettingsViewModel : ViewModelBase
     private string _syncthingRemoveId = string.Empty;
     public string SyncthingRemoveId { get => _syncthingRemoveId; set => SetField(ref _syncthingRemoveId, value); }
 
+    private string _syncthingFolderActionId = string.Empty;
+    public string SyncthingFolderActionId { get => _syncthingFolderActionId; set => SetField(ref _syncthingFolderActionId, value); }
+
     public async Task AddSyncthingDeviceAsync()
     {
         if (_syncthingService is null || !_syncthingService.IsRunning) { SyncthingStatusText = "Inicie o Syncthing antes de adicionar dispositivos."; return; }
@@ -668,6 +671,18 @@ public sealed class SettingsViewModel : ViewModelBase
             await RefreshSyncthingAsync();
         }
         catch (Exception ex) { SyncthingStatusText = "Não foi possível adicionar a pasta: " + ex.Message; }
+    }
+
+    public async Task SetSyncthingFolderPausedAsync(bool paused)
+    {
+        if (_syncthingService is null || !_syncthingService.IsRunning) { SyncthingStatusText = "Inicie o Syncthing antes de alterar pastas."; return; }
+        try
+        {
+            await _syncthingService.SetFolderPausedAsync(SyncthingFolderActionId, paused);
+            SyncthingStatusText = paused ? "Pasta pausada." : "Sincronização da pasta retomada.";
+            await RefreshSyncthingAsync();
+        }
+        catch (Exception ex) { SyncthingStatusText = "Não foi possível alterar a pasta: " + ex.Message; }
     }
 
     public async Task RemoveSyncthingDeviceAsync()
