@@ -173,7 +173,7 @@ public sealed class SyncthingService : IDisposable
         await SendJsonAsync(HttpMethod.Post, "/rest/config/devices", config, apiKey);
     }
 
-    public async Task AddFolderAsync(string folderId, string label, string localPath)
+    public async Task AddFolderAsync(string folderId, string label, string localPath, string? remoteDeviceIds = null)
     {
         var id = (folderId ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(id) || id.Length > 64 || id.Any(c => !(char.IsAsciiLetterOrDigit(c) || c is '-' or '_')))
@@ -192,14 +192,35 @@ public sealed class SyncthingService : IDisposable
 
         var config = JsonNode.Parse(defaults.RootElement.GetRawText())?.AsObject()
             ?? throw new InvalidOperationException("Não foi possível ler o modelo de pasta do Syncthing.");
+        var selectedDeviceIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { localDeviceId };
+        var requestedIds = (remoteDeviceIds ?? string.Empty)
+            .Split(new[] { ',', ';', '\\r', '\\n' }, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Select(value => value.ToUpperInvariant())
+            .ToArray();
+
+        if (requestedIds.Length > 0)
+        {
+            using var configuredDevices = await GetJsonAsync("/rest/config/devices", apiKey);
+            var knownIds = new HashSet<string>(
+                configuredDevices.RootElement.EnumerateArray()
+                    .Where(device => device.TryGetProperty("deviceID", out _))
+                    .Select(device => device.GetProperty("deviceID").GetString() ?? string.Empty),
+                StringComparer.OrdinalIgnoreCase);
+            foreach (var remoteId in requestedIds)
+            {
+                if (!knownIds.Contains(remoteId))
+                    throw new ArgumentException($"O dispositivo {remoteId} não está cadastrado. Adicione-o primeiro.");
+                selectedDeviceIds.Add(remoteId);
+            }
+        }
+
         config["id"] = id;
         config["label"] = label.Trim();
         config["path"] = Path.GetFullPath(localPath);
-        config["devices"] = new JsonArray(new JsonObject
-        {
-            ["deviceID"] = localDeviceId,
-            ["introducedBy"] = string.Empty
-        });
+        var folderDevices = new JsonArray();
+        foreach (var selectedId in selectedDeviceIds)
+            folderDevices.Add(new JsonObject { ["deviceID"] = selectedId, ["introducedBy"] = string.Empty });
+        config["devices"] = folderDevices;
         await SendJsonAsync(HttpMethod.Post, "/rest/config/folders", config, apiKey);
     }
 
