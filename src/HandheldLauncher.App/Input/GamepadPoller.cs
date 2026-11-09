@@ -15,6 +15,7 @@ public enum GamepadAction
     PreviousFilter,
     NextFilter,
     Downloads,
+    QuickAccessMenu,
     GameDetails,
     ToggleQuickSettings,
 }
@@ -129,7 +130,7 @@ public sealed class GamepadPoller
             if (WasJustPressed(buttons, prevButtons, XInput.Buttons.B))              actions.Add(GamepadAction.Back);
             if (WasJustPressed(buttons, prevButtons, XInput.Buttons.LeftShoulder))   actions.Add(GamepadAction.PreviousFilter);
             if (WasJustPressed(buttons, prevButtons, XInput.Buttons.RightShoulder))  actions.Add(GamepadAction.NextFilter);
-            if (WasJustPressed(buttons, prevButtons, XInput.Buttons.Y))              actions.Add(GamepadAction.Downloads);
+            if (WasJustPressed(buttons, prevButtons, XInput.Buttons.Y))              actions.Add(GamepadAction.QuickAccessMenu);
             if (WasJustPressed(buttons, prevButtons, XInput.Buttons.X))              actions.Add(GamepadAction.GameDetails);
 
             // === Direcionais ===

@@ -569,6 +569,13 @@ private void SetAddButtonFocused(bool focused)
 
             foreach (var action in actions)
             {
+                if (action == GamepadAction.QuickAccessMenu)
+                {
+                    UiSounds.PlayForAction(action);
+                    _ = OpenConnectivityPopup();
+                    return; // Y abre o menu de acesso rápido; não propaga para a biblioteca
+                }
+
                 if (action == GamepadAction.ToggleQuickSettings)
                 {
                     UiSounds.PlayForAction(action);

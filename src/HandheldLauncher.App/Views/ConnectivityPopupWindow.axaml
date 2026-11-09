@@ -51,7 +51,8 @@
         </StackPanel>
       </Border>
 
-      <TextBlock x:Name="FeedbackText" Grid.Row="4" Text="" Foreground="#9BA8C4" FontSize="11" VerticalAlignment="Bottom" Margin="0,16,0,0" TextWrapping="Wrap"/>
+      <Button x:Name="BtnDownloads" Grid.Row="4" Content="⇩  Downloads" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,14,0,0" Classes="pill"/>
+      <TextBlock x:Name="FeedbackText" Grid.Row="4" Margin="0,52,0,0" Text="" Foreground="#9BA8C4" FontSize="11" VerticalAlignment="Bottom" TextWrapping="Wrap"/>
     </Grid>
   </Border>
 </Window>
