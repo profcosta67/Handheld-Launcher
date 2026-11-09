@@ -111,6 +111,10 @@ jobs:
             "--icon", "src/HandheldLauncher.App/Assets/app-icon.ico",
             "--splashProgressColor", "#7C5CFC"
           )
+          $notesFile = "release-notes/beta.md"
+          if (Test-Path $notesFile) {
+            $packArgs += @("--releaseNotes", $notesFile)
+          }
           Write-Host "Executando: vpk $($packArgs -join ' ')"
           & vpk @packArgs
           if ($LASTEXITCODE -ne 0) {
