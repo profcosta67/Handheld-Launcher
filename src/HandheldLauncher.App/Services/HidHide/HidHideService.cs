@@ -11,7 +11,6 @@ public sealed class HidHideService : IHidHideService, IDisposable
 {
     private const string ControllerVendorId = "VID_17EF";
     private readonly IHidHideControlService? _hidHideControl;
-    private readonly HashSet<string> _blockedControllerInstanceIds = new(StringComparer.OrdinalIgnoreCase);
     private bool _isInitialized;
 
     public string? ControllerInstanceId { get; private set; }
@@ -51,7 +50,6 @@ public sealed class HidHideService : IHidHideService, IDisposable
             {
                 if (_hidHideControl.BlockedInstanceIds.Contains(instanceId)) continue;
                 _hidHideControl.AddBlockedInstanceId(instanceId);
-                _blockedControllerInstanceIds.Add(instanceId);
             }
 
             // Modo inverso = lista de processos bloqueados. O jogo é incluído
