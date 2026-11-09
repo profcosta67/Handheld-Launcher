@@ -527,6 +527,14 @@ public partial class OverlayWindow : Window
     private void UpdateLsfgStatus()
     {
         if (LsfgStatusText == null) return;
+
+        if (OperatingSystem.IsLinux())
+        {
+            // Linux: o frame-gen é o LSFG-VK (camada Vulkan), não um app a correr.
+            LsfgStatusText.Text = LinuxLosslessService.GetStatus();
+            return;
+        }
+
         LsfgStatusText.Text = LosslessScalingService.IsLosslessRunning()
             ? "Lossless pronto"
             : "Lossless não está rodando";
@@ -1041,6 +1049,8 @@ public partial class OverlayWindow : Window
             _currentMultiplierIndex = index;
             _tempMultiplierIndex = index;
             UpdateMultiplierVisual();
+            // Linux: escreve o multiplicador no conf.toml do LSFG-VK.
+            if (OperatingSystem.IsLinux()) LinuxLosslessService.SetMultiplier(index + 2);
             if (LsfgStatusText != null)
                 LsfgStatusText.Text = $"Multiplicador salvo: {(index + 2)}x (configure no Lossless)";
         }
@@ -1737,6 +1747,19 @@ public partial class OverlayWindow : Window
 
     private async void OnLsfgToggleClick(object? sender, RoutedEventArgs e)
     {
+        if (OperatingSystem.IsLinux())
+        {
+            // Linux: liga/desliga o LSFG-VK (camada Vulkan) via env + conf.toml.
+            var turnOn = !_lsfgIsActive;
+            if (LinuxLosslessService.SetEnabled(turnOn, _currentMultiplierIndex + 2))
+            {
+                _lsfgIsActive = turnOn;
+                UpdateLsfgToggleVisual();
+            }
+            if (LsfgStatusText != null) LsfgStatusText.Text = LinuxLosslessService.GetStatus();
+            return;
+        }
+
         if (!OperatingSystem.IsWindows()) return;
 
         if (BtnLsfgToggle != null) BtnLsfgToggle.IsEnabled = false;
@@ -1829,6 +1852,19 @@ public partial class OverlayWindow : Window
     private void UpdateLsfgButtonState()
     {
         if (BtnLsfgToggle == null) return;
+
+        if (OperatingSystem.IsLinux())
+        {
+            var ready = LinuxLosslessService.IsInstalled;
+            BtnLsfgToggle.Content = _lsfgIsActive
+                ? "🟢 Ativado"
+                : (ready ? "Aplicar (LSFG-VK)" : "LSFG-VK ausente");
+            BtnLsfgToggle.Background = _lsfgIsActive
+                ? new SolidColorBrush(Color.FromRgb(46, 151, 98))
+                : _inactiveColor;
+            BtnLsfgToggle.IsEnabled = ready;
+            return;
+        }
 
         bool running = LosslessScalingService.IsLosslessRunning();
         bool activeContext = running && _gameHwnd != IntPtr.Zero && _lsfgIsActive;

@@ -73,6 +73,15 @@ public sealed class GamepadPoller
 
     public IReadOnlyList<GamepadAction> Poll()
     {
+        // v0.24.x (Fase 3 Linux): no Linux o gamepad é lido via evdev
+        // (/dev/input/event*), o substituto nativo do XInput.
+        if (OperatingSystem.IsLinux())
+        {
+            return PollLinux();
+        }
+
+        if (!OperatingSystem.IsWindows()) return Array.Empty<GamepadAction>();
+
         try
         {
             var actions = new List<GamepadAction>();
@@ -322,4 +331,57 @@ public sealed class GamepadPoller
 
     private static bool WasJustPressed(XInput.Buttons current, XInput.Buttons previous, XInput.Buttons button)
         => current.HasFlag(button) && !previous.HasFlag(button);
+
+    // ---------------------- Linux (evdev) ----------------------
+
+    private readonly EvdevGamepadReader? _evdev = OperatingSystem.IsLinux() ? new EvdevGamepadReader() : null;
+    private HashSet<ushort> _prevDown = new();
+    private int _prevHatX;
+    private int _prevHatY;
+
+    private IReadOnlyList<GamepadAction> PollLinux()
+    {
+        var actions = new List<GamepadAction>();
+        if (_evdev is null) return actions;
+
+        _evdev.Poll();
+        var down = new HashSet<ushort>(_evdev.DownButtons);
+
+        // Edge detection: só emite na transição solto → pressionado.
+        // (repeat automático do D-pad e sticks analógicos ficam para depois do
+        // primeiro teste no Bazzite)
+        Emit(down, actions, EvdevGamepadReader.BtnSouth, GamepadAction.Confirm);
+        Emit(down, actions, EvdevGamepadReader.BtnEast, GamepadAction.Back);
+        Emit(down, actions, EvdevGamepadReader.BtnNorth, GamepadAction.Connectivity);
+        Emit(down, actions, EvdevGamepadReader.BtnStart, GamepadAction.Menu);
+        Emit(down, actions, EvdevGamepadReader.BtnSelect, GamepadAction.GlobalMenu);
+        Emit(down, actions, EvdevGamepadReader.BtnTl, GamepadAction.PreviousFilter);
+        Emit(down, actions, EvdevGamepadReader.BtnTr, GamepadAction.NextFilter);
+
+        // D-pad: ABS_HAT (eixos) ou botões dedicados (alguns pads emitem só um).
+        if (JustDown(down, EvdevGamepadReader.BtnDpadUp) || (_evdev.HatY == -1 && _prevHatY != -1)) actions.Add(GamepadAction.MoveUp);
+        if (JustDown(down, EvdevGamepadReader.BtnDpadDown) || (_evdev.HatY == 1 && _prevHatY != 1)) actions.Add(GamepadAction.MoveDown);
+        if (JustDown(down, EvdevGamepadReader.BtnDpadLeft) || (_evdev.HatX == -1 && _prevHatX != -1)) actions.Add(GamepadAction.MoveLeft);
+        if (JustDown(down, EvdevGamepadReader.BtnDpadRight) || (_evdev.HatX == 1 && _prevHatX != 1)) actions.Add(GamepadAction.MoveRight);
+
+        // Combo L3+R3 abre o Quick Settings (equivalente ao GameInputHelper do Windows).
+        if (down.Contains(EvdevGamepadReader.BtnThumbl) && down.Contains(EvdevGamepadReader.BtnThumbr)
+            && (!_prevDown.Contains(EvdevGamepadReader.BtnThumbl) || !_prevDown.Contains(EvdevGamepadReader.BtnThumbr)))
+        {
+            actions.Add(GamepadAction.ToggleQuickSettings);
+        }
+
+        _prevDown = down;
+        _prevHatX = _evdev.HatX;
+        _prevHatY = _evdev.HatY;
+        return actions;
+    }
+
+    private void Emit(HashSet<ushort> down, List<GamepadAction> actions, ushort code, GamepadAction action)
+    {
+        if (JustDown(down, code)) actions.Add(action);
+    }
+
+    private bool JustDown(HashSet<ushort> down, ushort code)
+        => down.Contains(code) && !_prevDown.Contains(code);
 }

@@ -13,7 +13,6 @@ using HandheldLauncher.App.Diagnostics;
 using HandheldLauncher.App.Input;
 using HandheldLauncher.App.ViewModels;
 using HandheldLauncher.Services;
-using Windows.Devices.Radios;
 
 namespace HandheldLauncher.App.Views;
 

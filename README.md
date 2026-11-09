@@ -54,6 +54,35 @@ Baixe o pacote/instalador correspondente na seção **[Releases](https://github.
 
 O pacote de Windows inclui as ferramentas de terceiros necessárias à gravação e ao TDP, quando indicado nas notas da versão. O FFmpeg é distribuído como executável separado, acompanhado de seu aviso de licença e informações de origem; o módulo RyzenSMU usado pelo PawnIO vem do release oficial do [PawnIO.Modules](https://github.com/namazso/PawnIO.Modules), com hash conferido no build (veja `scripts/Prepare-PawnIO.ps1`).
 
+## Linux (Bazzite)
+
+O launcher também compila e roda **nativamente no Linux** (sem Wine/Bottles). O alvo principal é o **Bazzite** (handhelds AMD + Gamescope + MangoHud + ryzenadj).
+
+Para instalar num Linux (Bazzite ou outra distro):
+
+```bash
+# 1. Baixe HandheldLauncher-linux-x64.zip na aba Releases e extraia
+unzip HandheldLauncher-linux-x64.zip -d handheld-launcher
+cd handheld-launcher
+
+# 2. Instale (copia o binário, cria atalho e o auto-arranque no login)
+chmod +x install-linux.sh
+./install-linux.sh
+
+# 3. Corra (ou reinicie a sessão para abrir em tela cheia)
+handheld-launcher
+```
+
+O que já funciona nativamente no Linux:
+- **Biblioteca** (Steam/Epic/GOG/Heroic/Eden), capas e lançamento de jogos (`steam://` via `xdg-open`).
+- **Quick Settings**: TDP via `ryzenadj`, brilho via `brightnessctl`, volume via `pactl`, resolução via `wlr-randr`/`xrandr`.
+- **Navegação por gamepad** via `evdev` (`/dev/input/event*`), incluindo o combo L3+R3.
+- **Rede**: Wi-Fi via `nmcli`, Bluetooth via `bluetoothctl`, rádio via `rfkill`.
+- **Lossless (frame-gen)**: via **LSFG-VK** (camada Vulkan que reaproveita o teu `Lossless.dll`); o Quick Settings liga/desliga (`~/.config/environment.d`) e escolhe o multiplicador 2x/3x/4x (`~/.config/lsfg-vk/conf.toml`).
+- **Syncthing** (o binário `syncthing` do sistema).
+
+Para o "modo jogo" fullscreen, ative o **Modo Kiosk** nas Configurações (o launcher abre em `WindowState.FullScreen`); na sessão Gamescope do Bazzite o launcher corre como cliente Wayland.
+
 ## Temas de layout
 
 O launcher oferece três experiências de biblioteca, compartilhando o mesmo núcleo de jogos, integrações e ferramentas:

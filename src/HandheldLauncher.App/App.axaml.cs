@@ -12,7 +12,9 @@ using HandheldLauncher.Core.Services;
 using HandheldLauncher.Core.Services.Artwork;
 using HandheldLauncher.Services.HidHide;
 using HandheldLauncher.Services.Syncthing;
+#if WINDOWS
 using Nefarius.Drivers.HidHide;
+#endif
 
 namespace HandheldLauncher.App;
 
@@ -99,6 +101,7 @@ public partial class App : Application
             // agora é um recurso que simplesmente fica indisponível em vez de
             // derrubar o arranque.
             IHidHideService hidHideService;
+#if WINDOWS
             try
             {
                 var realHidHide = new HidHideService(new HidHideControlService());
@@ -113,6 +116,13 @@ public partial class App : Application
                 DebugLog.Write($"[HidHide] Indisponível sem elevação: {ex.GetType().Name}: {ex.Message}. Ocultação de controle desativada.");
                 hidHideService = new NullHidHideService();
             }
+#else
+            // Linux: o HidHide (firewall de dispositivos HID) é um driver do
+            // Windows; não existe equivalente. O isolamento de controle será
+            // resolvido por uma camada virtual (feeder) — backlog.
+            hidHideService = new NullHidHideService();
+            DebugLog.Write("[HidHide] Linux: mascaramento de controle indisponível — NullHidHideService.");
+#endif
 
             // =====================================================================
             // v0.23.2: Syncthing

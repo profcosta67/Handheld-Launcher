@@ -151,11 +151,15 @@ jobs:
       - name: Publicar (self-contained linux-x64)
         if: steps.exists.outputs.skip != 'true'
         run: >
-          dotnet publish src/HandheldLauncher.App -c Release -r linux-x64
+          dotnet publish src/HandheldLauncher.App -c Release -f net8.0 -r linux-x64
           --self-contained true
           -p:Version=${{ steps.ver.outputs.version }}
           -p:TreatWarningsAsErrors=false
           -o publish-linux
+
+      - name: Copiar instalador Linux para o pacote
+        if: steps.exists.outputs.skip != 'true'
+        run: Copy-Item "installer/install-linux.sh" -Destination "publish-linux/install-linux.sh"
 
       - name: Compactar pacote Linux
         if: steps.exists.outputs.skip != 'true'

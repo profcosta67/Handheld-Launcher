@@ -1,3 +1,4 @@
+#if WINDOWS
 using System;
 using System.Diagnostics;
 using System.Linq;
@@ -273,3 +274,4 @@ public sealed class HidHideService : IHidHideService, IDisposable
         // Método mantido por compatibilidade, mas não é mais chamado no App.axaml.cs
     }
 }
+#endif

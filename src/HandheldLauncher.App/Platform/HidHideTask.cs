@@ -1,3 +1,4 @@
+#if WINDOWS
 using System;
 using System.Diagnostics;
 using System.Linq;
@@ -183,3 +184,4 @@ internal static class HidHideTask
         }
     }
 }
+#endif

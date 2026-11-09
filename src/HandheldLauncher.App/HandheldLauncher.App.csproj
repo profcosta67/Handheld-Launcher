@@ -1,13 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-       <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <!-- Multi-target: o Windows mantém a TFM específica (net8.0-windows...),
+         o Linux/macOS usa net8.0 puro. O release.yml publica linux-x64 a partir
+         da TFM net8.0. -->
+    <TargetFrameworks>net8.0-windows10.0.19041.0;net8.0</TargetFrameworks>
+    <!-- WinExe só existe no Windows (executável GUI sem console). No Linux é Exe. -->
+    <OutputType Condition="'$(TargetFramework)' == 'net8.0-windows10.0.19041.0'">WinExe</OutputType>
+    <OutputType Condition="'$(TargetFramework)' == 'net8.0'">Exe</OutputType>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
-    <ApplicationManifest>app.manifest</ApplicationManifest>
-    <ApplicationIcon>Assets\app-icon.ico</ApplicationIcon>
+    <BuiltInComInteropSupport Condition="'$(TargetFramework)' == 'net8.0-windows10.0.19041.0'">true</BuiltInComInteropSupport>
+    <ApplicationManifest Condition="'$(TargetFramework)' == 'net8.0-windows10.0.19041.0'">app.manifest</ApplicationManifest>
+    <ApplicationIcon Condition="'$(TargetFramework)' == 'net8.0-windows10.0.19041.0'">Assets\app-icon.ico</ApplicationIcon>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <RootNamespace>HandheldLauncher.App</RootNamespace>
     <AssemblyName>HandheldLauncher</AssemblyName>
@@ -47,8 +52,10 @@
     <PackageReference Include="Avalonia.Controls.WebView" />
     <PackageReference Include="Avalonia.Fonts.Inter" />
     <PackageReference Include="Avalonia.Diagnostics" Condition="'$(Configuration)' == 'Debug'" />
-    <PackageReference Include="Nefarius.Drivers.HidHide" />
-    <PackageReference Include="Nefarius.Utilities.DeviceManagement" />
+    <!-- Nefarius (HidHide) é só Windows: não tem TFM net8.0 puro, por isso fica
+         condicionado à TFM do Windows. No Linux o código usa NullHidHideService. -->
+    <PackageReference Include="Nefarius.Drivers.HidHide" Condition="'$(TargetFramework)' == 'net8.0-windows10.0.19041.0'" />
+    <PackageReference Include="Nefarius.Utilities.DeviceManagement" Condition="'$(TargetFramework)' == 'net8.0-windows10.0.19041.0'" />
     <PackageReference Include="Velopack" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" />
     <PackageReference Include="System.Management" />

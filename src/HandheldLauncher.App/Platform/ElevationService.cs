@@ -135,11 +135,13 @@ public static class ElevationService
                 // elevada — só usado quando o launcher corre em modo padrão e o
                 // utilizador ligou "Pedir permissão para isolar" (ver
                 // Services/HidHide/HidHideService).
+#if WINDOWS
                 case "hidhide-hide":
                     return HidHideTask.Apply(hide: true, pid);
 
                 case "hidhide-restore":
                     return HidHideTask.Apply(hide: false, pid);
+#endif
 
                 case "check":
                     return 0;

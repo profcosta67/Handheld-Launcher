@@ -143,25 +143,39 @@ public sealed class SyncthingService : IDisposable
 
     private string? FindSyncthingExecutable()
     {
+        // Fase 1 Linux: o binário é `syncthing` no Linux/macOS e `syncthing.exe`
+        // no Windows.
+        var exeName = OperatingSystem.IsWindows() ? "syncthing.exe" : "syncthing";
+
         // 1. Procura na pasta Tools do próprio launcher
-        var localPath = Path.Combine(AppContext.BaseDirectory, "Tools", "syncthing.exe");
+        var localPath = Path.Combine(AppContext.BaseDirectory, "Tools", exeName);
         if (File.Exists(localPath)) return localPath;
 
         // 2. Procura no PATH do sistema
         var paths = Environment.GetEnvironmentVariable("PATH")?.Split(Path.PathSeparator) ?? Array.Empty<string>();
         foreach (var path in paths)
         {
-            var fullPath = Path.Combine(path, "syncthing.exe");
+            var fullPath = Path.Combine(path, exeName);
             if (File.Exists(fullPath)) return fullPath;
         }
 
-        // 3. Procura no AppData e Chocolatey
-        var commonPaths = new[]
+        // 3. Locais comuns por plataforma
+        if (OperatingSystem.IsWindows())
         {
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Syncthing", "syncthing.exe"),
-            "C:\\ProgramData\\chocolatey\\bin\\syncthing.exe"
-        };
+            var commonPaths = new[]
+            {
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Syncthing", "syncthing.exe"),
+                "C:\\ProgramData\\chocolatey\\bin\\syncthing.exe"
+            };
+            return commonPaths.FirstOrDefault(File.Exists);
+        }
 
-        return commonPaths.FirstOrDefault(File.Exists);
+        // Linux: instalações manuais costumam ficar fora do PATH.
+        var linuxCandidates = new[]
+        {
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "bin", "syncthing"),
+            "/usr/local/bin/syncthing"
+        };
+        return linuxCandidates.FirstOrDefault(File.Exists);
     }
 }

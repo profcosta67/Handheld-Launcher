@@ -1,3 +1,4 @@
+#if WINDOWS
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -367,3 +368,4 @@ public class WifiService
         }
     }
 }
+#endif

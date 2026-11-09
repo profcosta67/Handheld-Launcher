@@ -64,3 +64,20 @@ jobs:
           path: HandheldLauncher-preview-win-x64.zip
           if-no-files-found: error
           retention-days: 14
+
+  # Gate de compilação Linux: garante que o código continua a compilar para
+  # net8.0 (a TFM que o release.yml publica como linux-x64) a cada envio. O
+  # job Windows acima já cobre o build da TFM net8.0-windows; este é o "robô"
+  # que avisa na hora se uma chamada Windows-only aparecer no lugar errado.
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Compilar (net8.0 — Linux/macOS)
+        run: dotnet build src/HandheldLauncher.App -c Release -f net8.0
+
