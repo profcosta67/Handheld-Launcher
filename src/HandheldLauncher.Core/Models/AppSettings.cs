@@ -21,6 +21,7 @@ public class AppSettings
     public string SteamWebApiKey { get; set; } = string.Empty;
     public string SteamId64 { get; set; } = string.Empty;
     public string? IgdbClientId { get; set; }
+    public bool SyncthingEnabled { get; set; } = false;
     public string? IgdbClientSecret { get; set; }
     public List<string> XboxScanFolders { get; set; } = new();
     public string EdenExecutablePath { get; set; } = string.Empty;
