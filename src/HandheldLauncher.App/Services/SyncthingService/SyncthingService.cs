@@ -238,6 +238,14 @@ public sealed class SyncthingService : IDisposable
         await SendJsonAsync(HttpMethod.Post, "/rest/config/folders", config, apiKey);
     }
 
+    public async Task SetFolderPausedAsync(string folderId, bool paused)
+    {
+        var id = (folderId ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(id)) throw new ArgumentException("Informe o ID da pasta.", nameof(folderId));
+        var patch = new JsonObject { ["paused"] = paused };
+        await SendJsonAsync(HttpMethod.Patch, "/rest/config/folders/" + Uri.EscapeDataString(id), patch, ReadApiKey());
+    }
+
     public async Task RemoveDeviceAsync(string deviceId)
     {
         var id = (deviceId ?? string.Empty).Trim().ToUpperInvariant();
