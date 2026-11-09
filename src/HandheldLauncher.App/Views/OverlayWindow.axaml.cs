@@ -27,6 +27,9 @@ public partial class OverlayWindow : Window
 
     private readonly IHardwareService _hardwareService;
     private readonly IHidHideService _hidHideService;
+
+    /// <summary>QS 2.0: a ponte só é ligada uma vez.</summary>
+    private bool _qsWired;
     private readonly IBrush _activeColor = new SolidColorBrush(Color.FromRgb(124, 92, 252));
     private readonly IBrush _inactiveColor = new SolidColorBrush(Color.FromRgb(37, 42, 54));
     private readonly IBrush _focusBorderColor = new SolidColorBrush(Color.FromRgb(124, 92, 252));
@@ -491,6 +494,9 @@ public partial class OverlayWindow : Window
             FullscreenWarning.IsVisible = false;
         }
 
+        // QS 2.0: mostrar o painel novo (por cima do antigo) e ligar os eventos.
+        WireNewQsPanel();
+
         if (OperatingSystem.IsWindows())
         {
             var h = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
@@ -627,10 +633,56 @@ public partial class OverlayWindow : Window
     }
 
     /// <summary>
-    /// Devolve o foreground à janela certa: o JOGO se houver um, senão o
-    /// launcher. Loga o resultado para se poder provar pelo <c>debug.log</c>:
-    /// <c>[OVERLAY-CLOSE] foco devolvido para 0x…, foreground agora=0x…</c>.
+    /// QS 2.0 — liga o painel novo aos handlers que JÁ existem. Nada é
+    /// reescrito: cada evento leva o Button com o Tag no formato antigo
+    /// ("Eco", "1600x900", "Automático", "1") e o handler antigo faz o resto.
     /// </summary>
+    private void WireNewQsPanel()
+    {
+        if (_qsWired) return;
+        _qsWired = true;
+
+        NewQsPanel.TdpRequested += (_, button) => OnTdpClick(button, new RoutedEventArgs());
+        NewQsPanel.ResolutionRequested += (_, button) => OnResolutionClick(button, new RoutedEventArgs());
+        NewQsPanel.FanRequested += (_, button) => OnFanClick(button, new RoutedEventArgs());
+        NewQsPanel.ColorRequested += (_, button) => OnColorClick(button, new RoutedEventArgs());
+        NewQsPanel.MultiplierRequested += (_, button) => OnMultiplierClick(button, new RoutedEventArgs());
+        NewQsPanel.PrintRequested += (_, _) => OnScreenshotClick(this, new RoutedEventArgs());
+        NewQsPanel.RecordRequested += (_, _) => OnRecordClick(this, new RoutedEventArgs());
+        NewQsPanel.LosslessToggled += (_, _) => OnLsfgToggleClick(this, new RoutedEventArgs());
+        NewQsPanel.CloseRequested += (_, _) => HideWithUnblock();
+
+        NewQsPanel.VolumeChanged += (_, volume) =>
+        {
+            _hardwareService?.SetVolume(Math.Round((double)volume.Percent));
+            SaveSetting("Volume", volume.Percent.ToString());
+        };
+
+        // Perfil real do aparelho: é isto que faz o Legion mostrar 1200p e o ROG
+        // Ally ficar nos 1080p (ScreenPresets, com testes no Core).
+        var profile = HandheldLauncher.App.Platform.Hardware.DeviceDetector.Detect();
+
+        NewQsPanel.Initialize(
+            deviceId: profile.Id,
+            minWatts: profile.TdpMin,
+            maxWatts: Math.Max(profile.TdpMax, profile.TdpMaxAc),
+            currentWatts: AppSettingsStore.Load().TdpCustomWatts,
+            fanModes: ["Automático", "Silencioso", "Normal", "Desempenho", "Boost"],
+            colorModes: ["Padrão", "Vívido", "OLED", "Noturno"]);
+
+        NewQsPanel.SetVolume((int)Math.Round(VolumeSlider?.Value ?? 70));
+        NewQsPanel.SetScreenInfo(TxtScreenInfo?.Text ?? "—");
+
+        // Só avisa quando o TDP não vai mesmo aplicar.
+        if (!HandheldLauncher.App.Platform.ElevationService.IsElevated)
+            NewQsPanel.ShowElevationWarning("Modo padrão: o TDP não aplica. Reinicia como administrador.");
+
+        NewQsPanel.IsVisible = true;
+
+        DebugLog.Write("[QS] Painel 2.0 ligado ao painel antigo (ponte).");
+    }
+
+    /// <summary>
     private void RestoreForegroundAfterClose()
     {
         if (!OperatingSystem.IsWindows()) return;

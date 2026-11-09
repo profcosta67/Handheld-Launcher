@@ -37,7 +37,7 @@ public partial class QsPanel : UserControl
             _customWatts = (int)Math.Round(TdpSlider.Value);
             TxtTdp.Text = $"{_customWatts} W";
             SelectPowerPreset(PowerPreset.Custom);
-            PowerPresetChanged?.Invoke(this, new PowerPresetEventArgs(PowerPreset.Custom, _customWatts));
+            if (_tdpButtons.Count > 3) TdpRequested?.Invoke(this, _tdpButtons[3]);
         };
 
         VolumeSlider.PropertyChanged += (_, e) =>
@@ -56,13 +56,17 @@ public partial class QsPanel : UserControl
     /// <summary>Pedido de fecho (✕ ou B).</summary>
     public event EventHandler? CloseRequested;
 
-    public event EventHandler<PowerPresetEventArgs>? PowerPresetChanged;
     public event EventHandler<VolumeEventArgs>? VolumeChanged;
-    public event EventHandler<ScreenPreset>? ResolutionChanged;
-    public event EventHandler<string>? FanModeChanged;
-    public event EventHandler<string>? ColorModeChanged;
     public event EventHandler<bool>? LosslessToggled;
-    public event EventHandler<int>? LosslessMultiplierChanged;
+
+    // Ponte com o painel antigo: cada evento leva o **Button de origem**, com o
+    // Tag no formato que os handlers existentes esperam ("Eco", "1600x900",
+    // "Automático", "1"). Assim nada do OverlayWindow é reescrito.
+    public event EventHandler<Button>? TdpRequested;
+    public event EventHandler<Button>? ResolutionRequested;
+    public event EventHandler<Button>? FanRequested;
+    public event EventHandler<Button>? ColorRequested;
+    public event EventHandler<Button>? MultiplierRequested;
     public event EventHandler? PrintRequested;
     public event EventHandler? RecordRequested;
 
@@ -92,8 +96,8 @@ public partial class QsPanel : UserControl
         TxtTdp.Text = $"{_customWatts} W";
 
         BuildResolutions(ScreenPresets.ForDevice(deviceId, nativeWidth, nativeHeight));
-        BuildChips(FanHost, fanModes, _fanButtons, mode => FanModeChanged?.Invoke(this, mode));
-        BuildChips(ColorHost, colorModes, _colorButtons, mode => ColorModeChanged?.Invoke(this, mode));
+        BuildChips(FanHost, fanModes, _fanButtons, button => FanRequested?.Invoke(this, button), numericTags: false);
+        BuildChips(ColorHost, colorModes, _colorButtons, button => ColorRequested?.Invoke(this, button), numericTags: true);
     }
 
     /// <summary>Aviso de que o TDP não vai aplicar (ex.: launcher sem administrador).</summary>
@@ -154,7 +158,8 @@ public partial class QsPanel : UserControl
         TxtTdp.Text = $"{watts} W";
         SelectPowerPreset(preset);
 
-        PowerPresetChanged?.Invoke(this, new PowerPresetEventArgs(preset, watts));
+        var index = (int)preset;
+        if (index >= 0 && index < _tdpButtons.Count) TdpRequested?.Invoke(this, _tdpButtons[index]);
     }
 
     private void BuildResolutions(IReadOnlyList<ScreenPreset> presets)
@@ -168,21 +173,22 @@ public partial class QsPanel : UserControl
             {
                 Content = preset.Label,
                 Classes = { "pill" },
-                Tag = preset,
+                Tag = $"{preset.Width}x{preset.Height}",
                 Focusable = false,
             };
             button.Click += (_, _) =>
             {
                 foreach (var other in _resolutionButtons) other.Classes.Remove("active");
                 button.Classes.Add("active");
-                ResolutionChanged?.Invoke(this, preset);
+                ResolutionRequested?.Invoke(this, button);
             };
             _resolutionButtons.Add(button);
             ResolutionHost.Children.Add(button);
         }
     }
 
-    private void BuildChips(StackPanel host, IReadOnlyList<string> labels, List<Button> bucket, Action<string> onPick)
+    private void BuildChips(StackPanel host, IReadOnlyList<string> labels, List<Button> bucket,
+        Action<Button> onPick, bool numericTags)
     {
         host.Children.Clear();
         bucket.Clear();
@@ -190,18 +196,21 @@ public partial class QsPanel : UserControl
 
         foreach (var label in labels)
         {
+            var index = bucket.Count;
             var button = new Button
             {
                 Content = label,
                 Classes = { "pill" },
-                Tag = label,
+                // Os handlers antigos de cor leem o Tag como índice (0..3); os de
+                // ventoinha leem o nome por extenso.
+                Tag = numericTags ? index.ToString() : label,
                 Focusable = false,
             };
             button.Click += (_, _) =>
             {
                 foreach (var other in bucket) other.Classes.Remove("active");
                 button.Classes.Add("active");
-                onPick(label);
+                onPick(button);
             };
             bucket.Add(button);
             host.Children.Add(button);
@@ -228,7 +237,7 @@ public partial class QsPanel : UserControl
             button.Classes.Remove("active");
         clicked.Classes.Add("active");
 
-        LosslessMultiplierChanged?.Invoke(this, multiplier);
+        MultiplierRequested?.Invoke(this, clicked);
     }
 
     private void OnPrintClick(object? sender, RoutedEventArgs e) => PrintRequested?.Invoke(this, EventArgs.Empty);

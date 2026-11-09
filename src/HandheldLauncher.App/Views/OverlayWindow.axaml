@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:qs="using:HandheldLauncher.App.Views.Qs"
         x:Class="HandheldLauncher.App.Views.OverlayWindow"
         Title="Quick Settings"
         Width="440" Height="850"
@@ -25,6 +26,8 @@
     </Style>
       <!-- ... -->
         </Window.Styles>
+<Panel>
+
 
     <Border Background="#121212" 
             CornerRadius="24,0,0,24" 
@@ -339,4 +342,10 @@
             </StackPanel>
         </Grid>
     </Border>
+    <!-- QS 2.0: painel novo por cima do antigo. Nada do anterior é removido —
+         se algo falhar, basta apagar esta linha e voltar ao painel antigo. -->
+    <qs:QsPanel x:Name="NewQsPanel" IsVisible="False" />
+</Panel>
+
+
 </Window>

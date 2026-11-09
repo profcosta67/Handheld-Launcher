@@ -3,6 +3,9 @@
 Mais recente primeiro. Cada versão tem notas completas em [`release-notes/`](release-notes/).
 Betas não entram aqui: o que eles trazem aparece na versão estável que os junta.
 
+## [0.24.3] — 2026-11-09 · **beta**
+**Quick Settings 2.0 funcional**: painel novo ligado aos serviços existentes — volume com slider, TDP com slider + 4 presets (Eco/Normal/Boost/Custom), **resolução com 3 opções por aparelho** (Legion 900/1080/1200p, ROG 720/900/1080p), ventoinha, cor, Lossless 2x/3x/4x, Print e Gravar; avisos de elevação e de ecrã inteiro. O painel antigo fica por baixo, pronto para reverter numa linha. [Notas](release-notes/0.24.3.md)
+
 ## [0.24.1] — 2026-11-09 · **estável**
 Fecha o lote de correções que andou em beta: **teclado do launcher** em todas as janelas com texto; **HidHide** com deteção sem distinção de maiúsculas e a esconder **todos** os controles (Xbox BT/BLE incluído); **TDP** porque o instalador passa a instalar e a arrancar o **runtime do PawnIO**; **congelamento opcional** do jogo no QS, com aviso de risco; **foco devolvido ao jogo** ao fechar o painel e menos piscadas; **watchdog** de volta; e **aviso de ecrã inteiro** no painel (limitação conhecida + solução). [Notas](release-notes/0.24.1.md)
 
