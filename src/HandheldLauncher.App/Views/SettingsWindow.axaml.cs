@@ -470,6 +470,12 @@ public partial class SettingsWindow : Window
     private async void OnAddSyncthingFolderClick(object? sender, RoutedEventArgs e)
         => await ViewModel.AddSyncthingFolderAsync();
 
+    private async void OnPauseSyncthingFolderClick(object? sender, RoutedEventArgs e)
+        => await ViewModel.SetSyncthingFolderPausedAsync(true);
+
+    private async void OnResumeSyncthingFolderClick(object? sender, RoutedEventArgs e)
+        => await ViewModel.SetSyncthingFolderPausedAsync(false);
+
     private async void OnRemoveSyncthingDeviceClick(object? sender, RoutedEventArgs e)
         => await ViewModel.RemoveSyncthingDeviceAsync();
 
