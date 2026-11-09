@@ -1,0 +1,7 @@
+# Scripts e ficheiros que o Linux/macOS executam têm de manter line endings LF,
+# mesmo quando o checkout é feito no Windows. O core.autocrlf=true convertia os
+# .sh para CRLF e o Linux falhava a executar o shebang:
+#   "/bin/bash^M: bad interpreter: No such file or directory"
+*.sh text eol=lf
+*.desktop text eol=lf
+*.service text eol=lf
