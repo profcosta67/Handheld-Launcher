@@ -121,7 +121,7 @@ public sealed class SyncthingService : IDisposable
             var paused = device.TryGetProperty("paused", out var pausedValue) && pausedValue.ValueKind == JsonValueKind.True;
             var label = string.IsNullOrWhiteSpace(name) ? (id.Length > 12 ? id[..12] + "…" : id) : name;
             var state = paused ? "pausado" : connected.Contains(id) ? "conectado" : "desconectado";
-            deviceLines.Add($"• {label} — {state}");
+            deviceLines.Add($"• {label} — {state}\n  ID: {id}");
         }
 
         var folderLines = new List<string>();
@@ -131,7 +131,7 @@ public sealed class SyncthingService : IDisposable
             var label = folder.TryGetProperty("label", out var labelValue) ? labelValue.GetString() : null;
             var path = folder.TryGetProperty("path", out var pathValue) ? pathValue.GetString() : null;
             var paused = folder.TryGetProperty("paused", out var pausedValue) && pausedValue.ValueKind == JsonValueKind.True;
-            folderLines.Add($"• {(string.IsNullOrWhiteSpace(label) ? id : label)} — {(paused ? "pausada" : "ativa")}\n  {path}");
+            folderLines.Add($"• {(string.IsNullOrWhiteSpace(label) ? id : label)} — {(paused ? "pausada" : "ativa")}\n  ID: {id}\n  {path}");
         }
 
         return new SyncthingDashboard(
