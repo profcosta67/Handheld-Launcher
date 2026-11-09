@@ -89,6 +89,16 @@ public partial class OverlayWindow : Window
 
     [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    // v0.25.2 (QS 2.0): o Windows recusa trocar o foreground vindo de um
+    // processo que não está em primeiro plano (provado no log de 09/11:
+    // "foco devolvido … foreground agora=0x0"). O truque do ALT — manter o
+    // VK_MENU "premido" durante a chamada — é o que os overlays usam para
+    // contornar essa restrição.
+    private const byte VK_MENU = 0x12;
+
+    [DllImport("user32.dll")]
+    private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
     
     [DllImport("user32.dll", SetLastError = true)] private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
@@ -634,7 +644,14 @@ public partial class OverlayWindow : Window
                 target = owner.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
             }
 
-            if (target != IntPtr.Zero) SetForegroundWindow(target);
+            if (target != IntPtr.Zero)
+            {
+                // v0.25.2: ALT "premido" durante a troca — sem isto o Windows
+                // ignorava o SetForegroundWindow (foreground agora=0x0).
+                keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);
+                SetForegroundWindow(target);
+                keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+            }
 
             DebugLog.Write(
                 $"[OVERLAY-CLOSE] foco devolvido para 0x{target:X} (jogo={_gameHwnd != IntPtr.Zero}, foreground agora=0x{GetForegroundWindow():X}).");
