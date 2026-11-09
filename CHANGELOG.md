@@ -3,6 +3,19 @@
 Mais recente primeiro. Cada versão tem notas completas em [`release-notes/`](release-notes/).
 Betas não entram aqui: o que eles trazem aparece na versão estável que os junta.
 
+## [0.24.0] — 2026-11-09
+O launcher abre **sem UAC** (asInvoker) e eleva só o que precisa; Central de Controlo na tecla **Y** com Wi‑Fi real (sinal, conectar com senha) e Bluetooth clássico+BLE (descobrir, emparelhar, ligar/desligar); nova aba **Central de Saves** com o Syncthing embutido; parsers de rede movidos para o Core com testes. [Notas](release-notes/0.24.0.md)
+
+## [0.18.4 → 0.23.4] — histórico recuperado
+Estas versões saíram sem entrar aqui (só nas notas de cada release). Resumo, da mais antiga para a mais recente:
+
+- **0.18.4 / 0.18.5 / 0.18.6** — correções do Quick Settings e estabilidade. [0.18.6](release-notes/0.18.6.md)
+- **0.19.0** *(beta)* — "Cérebro dos Aparelhos": deteção do modelo (Legion Go 2 / Go S / ROG Ally) e limites de TDP por aparelho. [Notas](release-notes/0.19.0.md)
+- **0.20.x** — Diário de Sessões (`sessions.jsonl`) e estabilidade do controle. [0.20.1](release-notes/0.20.1.md)
+- **0.21.x** — conquistas Steam, tempo de jogo unificado, IGDB/metadados em PT-BR, redesign de Settings/Add Game/Game Hub. [0.21.1](release-notes/0.21.1.md)
+- **0.22.3** *(beta)* — Windows Game Mode / OmniConsole (substituir o Xbox FSE) e arranque no boot. [Notas](release-notes/0.22.3-beta.1.md)
+- **0.23.x** — fim do OmniConsole, hotfixes; 0.23.4 traz HidHide (segurança em jogos online) e a fase 1 do Syncthing. [0.23.4](release-notes/0.23.4.md)
+
 ## [0.18.3] — em preparo (beta)
 Busca por nome (sem acento) e filtro por letra (# A–Z) na aba Nuvem; mais fluidez (4 trabalhos pesados fora da thread da tela, capas da Nuvem em segundo plano); correções da revisão independente. [Notas](release-notes/0.18.3.md)
 

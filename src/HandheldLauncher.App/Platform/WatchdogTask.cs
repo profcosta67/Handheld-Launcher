@@ -76,6 +76,17 @@ internal static class WatchdogTask
             DebugLog.Write("WatchdogTask: Ignorado no Linux (não implementado via systemd).");
             return false;
         }
+
+        // v0.24: o launcher corre sem administrador (manifest asInvoker) e o
+        // schtasks /Create exige elevação. Quando não estamos elevados, a
+        // criação/remoção é delegada ao MESMO exe com "--elevated-task"
+        // (UAC uma vez). A instância elevada cai direto no Register/Remove.
+        if (!ElevationService.IsElevated)
+        {
+            DebugLog.Write($"WatchdogTask: sem administrador — a delegar '{handheldMode}' ao processo elevado.");
+            return ElevationService.RunElevated(handheldMode ? "watchdog-register" : "watchdog-remove");
+        }
+
         return handheldMode ? Register() : Remove();
     }
 
@@ -110,7 +121,7 @@ internal static class WatchdogTask
                     </LogonTrigger>
                   </Triggers>
                   <Principals>
-                    <Principal id="Author"><UserId>{Escape(user)}</UserId><LogonType>InteractiveToken</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal>
+                    <Principal id="Author"><UserId>{Escape(user)}</UserId><LogonType>InteractiveToken</LogonType><RunLevel>Highest</RunLevel></Principal>
                   </Principals>
                   <Settings>
                     <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>

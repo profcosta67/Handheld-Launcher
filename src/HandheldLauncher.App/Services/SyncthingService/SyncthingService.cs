@@ -2,14 +2,29 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
 using HandheldLauncher.App.Diagnostics;
 
 namespace HandheldLauncher.Services.Syncthing;
 
+/// <summary>
+/// Sobe e mantém o Syncthing em segundo plano e garante que a GUI local já
+/// responde antes de a tela embutida (WebView) apontar para ela.
+/// </summary>
 public sealed class SyncthingService : IDisposable
 {
+    /// <summary>Endereço da interface web local — é a URL carregada no WebView.</summary>
+    public const string BaseUrl = "http://127.0.0.1:8384";
+
+    private static readonly HttpClient HealthClient = new() { Timeout = TimeSpan.FromSeconds(2) };
+
     private Process? _syncthingProcess;
     private string? _syncthingPath;
+
+    /// <summary>True quando o syncthing.exe foi encontrado (Tools do app, PATH ou instalação padrão).</summary>
+    public bool IsAvailable => !string.IsNullOrEmpty(_syncthingPath);
 
     public bool IsRunning => _syncthingProcess != null && !_syncthingProcess.HasExited;
 
@@ -56,6 +71,52 @@ public sealed class SyncthingService : IDisposable
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Garante o Syncthing no ar: se a GUI já responde (inclusive uma instância
+    /// aberta fora do launcher, ou de uma sessão anterior) não inicia nada;
+    /// senão inicia o executável e espera a GUI responder até
+    /// <paramref name="timeout"/>. Devolve false se não der para ficar pronto.
+    /// </summary>
+    public async Task<bool> EnsureRunningAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
+    {
+        if (await IsGuiUpAsync(cancellationToken).ConfigureAwait(false)) return true;
+
+        if (!IsAvailable)
+        {
+            DebugLog.Write("[Syncthing] Executável não encontrado: não há como iniciar.");
+            return false;
+        }
+
+        if (!Start()) return false;
+
+        var deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            if (await IsGuiUpAsync(cancellationToken).ConfigureAwait(false)) return true;
+            await Task.Delay(250, cancellationToken).ConfigureAwait(false);
+        }
+
+        DebugLog.Write($"[Syncthing] GUI não respondeu em {timeout.TotalSeconds:0}s.");
+        return false;
+    }
+
+    // /rest/noauth/health responde 200 assim que a GUI está pronta para uso —
+    // mais confiável do que esperar um tempo fixo depois do Process.Start.
+    private static async Task<bool> IsGuiUpAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await HealthClient
+                .GetAsync(BaseUrl + "/rest/noauth/health", cancellationToken)
+                .ConfigureAwait(false);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return false;
+        }
     }
 
     public void Stop()

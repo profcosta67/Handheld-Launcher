@@ -295,9 +295,9 @@ public partial class MainWindow : Window
     }
 
     private void OnOpenWifiSettingsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-        => _ = OpenConnectivityPopup();
+        => ToggleControlCenter();
 
     private void OnOpenBluetoothSettingsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-        => _ = OpenConnectivityPopup();
+        => ToggleControlCenter();
 
 }

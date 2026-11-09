@@ -588,6 +588,17 @@ private void SetAddButtonFocused(bool focused)
                     continue;
                 }
 
+                // Central de Controle aberta: o D-Pad/teclado pertencem a ela. Isto
+                // fica ANTES da checagem de "launcher na frente" — senão o B não
+                // fecha o painel quando outra janela rouba o foco. Com um diálogo
+                // aberto por cima (senha do Wi-Fi), ele é quem manda.
+                if (_isControlCenterOpen && _activeDialog is null)
+                {
+                    UiSounds.PlayForAction(action);
+                    HandleControlCenterGamepad(action);
+                    continue;
+                }
+
                 // v0.16.3: botões só valem com o launcher NA FRENTE — antes isso só
                 // era checado com jogo rodando. Relato de 05/11: com o app do
                 // Xbox na frente o controle mexia na biblioteca atrás, e o "A"
@@ -695,6 +706,10 @@ private void SetAddButtonFocused(bool focused)
                     {
                         switch (action)
                         {
+                            // Na aba Nuvem o Y continua sendo a busca por texto (é o
+                            // único jeito de filtrar ali); a Central de Controle abre
+                            // pelo ícone 📶 da barra de cima.
+                            case GamepadAction.Connectivity:
                             case GamepadAction.Downloads: BeginCloudSearch(); continue;
                             case GamepadAction.GameDetails: vm.ToggleCloudLetterBar(); continue;
                             case GamepadAction.Back when vm.HasCloudFilter: vm.ClearCloudFilters(); ScrollGameRowSelectionIntoView(vm); continue;
@@ -741,6 +756,7 @@ if (_addButtonFocused)
         case GamepadAction.NextFilter:
         case GamepadAction.GameDetails:
         case GamepadAction.Downloads:
+        case GamepadAction.Connectivity:
             SetAddButtonFocused(false);
             // cai no switch principal abaixo (que trata a ação normalmente)
             break;
@@ -750,6 +766,7 @@ if (_addButtonFocused)
                 switch (action)
                 {
                     case GamepadAction.Downloads: vm.ToggleDownloads(); break;
+                    case GamepadAction.Connectivity: ToggleControlCenter(); break;
                     case GamepadAction.MoveLeft: vm.MovePrevious(); ScrollGameRowSelectionIntoView(vm); break;
                    case GamepadAction.MoveRight:
     // v0.21.0: se está no último jogo da aba Programas, vai pro botão "+"

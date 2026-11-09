@@ -27,6 +27,17 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            // v0.24: o manifest é asInvoker — o launcher abre sem UAC e só eleva
+            // as ações que precisam (Bluetooth PnP, drivers, watchdog).
+            DebugLog.Write($"[ELEVACAO] Launcher a correr {(ElevationService.IsElevated ? "COMO ADMINISTRADOR" : "sem administrador (modo padrão)")}.");
+
+            // Aparece na "Saúde do aparelho": sem administrador, mascarar o
+            // controle (HidHide) e escrever TDP não têm efeito.
+            StartupRestoreStatus.Report(
+                "Modo",
+                ElevationService.IsElevated ? "administrador" : "padrão (sem admin)",
+                ElevationService.IsElevated);
+
             var appSettings = AppSettingsStore.Load();
             if (string.IsNullOrWhiteSpace(appSettings.SteamId64)
                 && SteamAccountDetector.FindMostRecent() is { } steamAccount)
@@ -81,11 +92,27 @@ public partial class App : Application
             var updateService = new UpdateService(appSettings.BetaChannelOptIn);
 
             // =====================================================================
-            // v0.23.2: HidHide
+            // v0.23.2: HidHide  |  v0.24: tolerante a correr sem administrador
             // =====================================================================
-            var hidHideService = new HidHideService(new HidHideControlService());
-            hidHideService.Initialize();
-            desktop.Exit += (_, _) => hidHideService.Dispose();
+            // O driver é acedido via Nefarius e sem elevação o acesso pode falhar.
+            // Antes (manifest requireAdministrator) o processo era sempre admin;
+            // agora é um recurso que simplesmente fica indisponível em vez de
+            // derrubar o arranque.
+            IHidHideService hidHideService;
+            try
+            {
+                var realHidHide = new HidHideService(new HidHideControlService());
+                realHidHide.Initialize();
+                desktop.Exit += (_, _) => realHidHide.Dispose();
+                hidHideService = realHidHide;
+
+                DebugLog.Write($"[HidHide] Disponível={realHidHide.IsAvailable} (elevado={ElevationService.IsElevated}).");
+            }
+            catch (Exception ex)
+            {
+                DebugLog.Write($"[HidHide] Indisponível sem elevação: {ex.GetType().Name}: {ex.Message}. Ocultação de controle desativada.");
+                hidHideService = new NullHidHideService();
+            }
 
             // =====================================================================
             // v0.23.2: Syncthing

@@ -5,8 +5,15 @@
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
     <security>
       <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">
-        <!-- Exige privilégios de Administrador para o RyzenAdj funcionar -->
-        <requestedExecutionLevel level="requireAdministrator" uiAccess="false"/>
+        <!-- v0.24: o launcher abre SEM UAC (asInvoker). As poucas ações que
+             precisam de administrador — instalar PawnIO/HidHide, ligar ou
+             desligar um dispositivo Bluetooth via PnP, criar a tarefa do
+             watchdog — elevam SOB PEDIDO: o mesmo executável é reaberto com o
+             argumento "elevated-task" (ver Platform/ElevationService) e o verbo
+             "runas", ou seja, UAC uma vez por ação. Antes era
+             requireAdministrator, que pedia UAC em TODA a abertura, mesmo só
+             para ver a biblioteca. -->
+        <requestedExecutionLevel level="asInvoker" uiAccess="false"/>
       </requestedPrivileges>
     </security>
   </trustInfo>

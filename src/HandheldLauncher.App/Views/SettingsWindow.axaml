@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:HandheldLauncher.App.ViewModels"
+        xmlns:views="using:HandheldLauncher.App.Views"
         x:Class="HandheldLauncher.App.Views.SettingsWindow"
         x:DataType="vm:SettingsViewModel"
         Title="Configurações"
@@ -46,7 +47,8 @@
           <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryLosslessActive}" Content="Lossless" Tag="5" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
           <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAccountsActive}" Content="Contas" Tag="6" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
           <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryConnectivityActive}" Content="Rede" Tag="7" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
-          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryNewsActive}" Content="Atualizações" Tag="8" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
+          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategorySaveCenterActive}" Content="Central de Saves" Tag="8" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
+          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryNewsActive}" Content="Atualizações" Tag="9" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
         </StackPanel>
       </ScrollViewer>
       
@@ -250,18 +252,8 @@
           <!-- Conectividade -->
           <StackPanel Spacing="0" IsVisible="{Binding IsCategoryConnectivityActive}">
             
-            <!-- 🟢 SYNC (S4) -->
-            <Border Classes="settingsCard">
-              <StackPanel Spacing="8">
-                <TextBlock Text="Sincronização (Syncthing)" Classes="sectionTitle" />
-                <ToggleSwitch IsChecked="{Binding SyncthingEnabled}" Content="Ativar sincronização em segundo plano" />
-                <TextBlock Text="Mantém seus saves e configurações sincronizados entre o Legion Go e o PC. O Syncthing roda silenciosamente em segundo plano." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
-                
-                <Button Classes="pill primary" Content="⚙️ Configurar Pastas de Sincronização" Click="OnOpenSyncthingWebUiClick" HorizontalAlignment="Left" Margin="0,8,0,0" />
-                <TextBlock Text="Abre o painel do Syncthing no navegador para você escolher quais pastas (saves) deseja compartilhar." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
-              </StackPanel>
-            </Border>
-            <!-- FIM DO BLOCO SYNC -->
+            <!-- v0.24: o card de sincronização saiu da aba Rede — ele agora vive
+                 na aba "Central de Saves", que já abre o painel embutido. -->
 
             <Border Classes="settingsCard">
               <Grid ColumnDefinitions="*,Auto">
@@ -280,6 +272,22 @@
                 </StackPanel>
                 <Button Grid.Column="1" Classes="pill primary" Content="Abrir Bluetooth" Click="OnOpenBluetoothSettingsClick" VerticalAlignment="Center" />
               </Grid>
+            </Border>
+          </StackPanel>
+
+          <!-- Central de Saves -->
+          <StackPanel Spacing="0" IsVisible="{Binding IsCategorySaveCenterActive}">
+            <Border Classes="settingsCard">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Sincronização (Syncthing)" Classes="sectionTitle" />
+                <ToggleSwitch IsChecked="{Binding SyncthingEnabled}" Content="Ativar sincronização em segundo plano" />
+                <TextBlock Text="Mantém seus saves e configurações sincronizados entre o handheld e o PC. Ao entrar nesta aba a central abre sozinha, com o painel do Syncthing embutido." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+                  <Button Classes="pill primary" Content="🔄 Abrir Central de Saves" Command="{Binding OpenSyncthingCommand}" />
+                  <Button Classes="pill" Content="Abrir no navegador" Click="OnOpenSyncthingWebUiClick" />
+                </StackPanel>
+                <TextBlock Text="{Binding SyncthingStatusText}" IsVisible="{Binding HasSyncthingStatus}" Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+              </StackPanel>
             </Border>
           </StackPanel>
 
@@ -350,5 +358,10 @@
       </StackPanel>
     </Border>
   </Panel>
+
+  <!-- v0.24: tela cheia do Syncthing (WebView nativo). É o último filho do
+       Panel raiz porque controle nativo não respeita z-order do Avalonia.
+       Só é criado quando IsSyncthingOpen vira true. -->
+  <views:SyncthingSettingsView x:Name="SyncthingView" IsVisible="{Binding IsSyncthingOpen}" />
   </Panel>
 </Window>

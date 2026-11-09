@@ -2,7 +2,7 @@
 
   <PropertyGroup>
        <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
@@ -42,6 +42,9 @@
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Desktop" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
+    <!-- v0.24: WebView embutido da aba Rede > Syncthing. Usa o motor nativo da
+         plataforma (WebView2), então não soma peso ao instalador. -->
+    <PackageReference Include="Avalonia.Controls.WebView" />
     <PackageReference Include="Avalonia.Fonts.Inter" />
     <PackageReference Include="Avalonia.Diagnostics" Condition="'$(Configuration)' == 'Debug'" />
     <PackageReference Include="Nefarius.Drivers.HidHide" />

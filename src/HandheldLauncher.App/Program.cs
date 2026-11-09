@@ -76,6 +76,17 @@ internal static class Program
             return;
         }
 
+        // v0.24: elevação SOB PEDIDO (ver Platform/ElevationService). O launcher
+        // corre sem administrador; quando uma ação precisa de privilégios ele
+        // reabre este MESMO exe com "--elevated-task <ação>" e o verbo "runas".
+        // Esta instância faz só a tarefa e sai — tem de ser ANTES do mutex de
+        // instância única (e antes do CrashReport), senão perdia a disputa e só
+        // trazia a janela já aberta para a frente.
+        if (ElevationService.TryRunTask(args, out var elevationExitCode))
+        {
+            Environment.Exit(elevationExitCode);
+        }
+
         // 🟢 CORREÇÃO BUG 1: Se estamos reiniciando (layout picker), espera o
         // processo antigo morrer ANTES de disputar o mutex. Sem isso, o novo
         // processo perde o mutex e sai, deixando o usuário sem launcher.

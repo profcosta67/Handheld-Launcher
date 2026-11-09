@@ -5,6 +5,7 @@
         xmlns:conv="using:HandheldLauncher.App.Converters"
         xmlns:dataConv="using:Avalonia.Data.Converters"
         xmlns:media="using:Avalonia.Media"
+        xmlns:svc="using:HandheldLauncher.Services"
         x:Class="HandheldLauncher.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="Handheld Launcher"
@@ -19,15 +20,45 @@
     <conv:HexColorToBrushConverter x:Key="HexColorToBrushConverter" />
   </Window.Resources>
 
-  <!-- v0.17 (05/11): existia AQUI um Window.Styles duplicado pro
-       Button.switchAction (cores em hex fixo, inclusive um bloco à parte
-       pro ContentPresenter interno do botão) que sempre ganhava do estilo
-       do tema em Theme.axaml, por ser local à janela — por isso nenhuma das
-       correções de cor dos betas anteriores nunca apareceu de fato nesses
-       3 botões, e o bloco do ContentPresenter sobrepondo cor por cima do
-       próprio botão é o que causava aquele efeito de borda/gradiente nos
-       ícones. Removido: Theme.axaml já cobre Width/Height/CornerRadius/
-       Background/Foreground/FocusAdorner desses botões seguindo a paleta. -->
+  <Window.Styles>
+  <Style Selector="Border.listItem">
+    <Setter Property="Transitions">
+        <Transitions>
+            <BrushTransition Property="Background" Duration="0:0:0.2"/>
+        </Transitions>
+    </Setter>
+</Style>
+<Style Selector="Border.listItem:pointerover">
+    <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}"/>
+</Style>
+<Style Selector="Border.listItem.connected">
+    <Setter Property="Background" Value="#33124C2A"/> <!-- Um verde bem escuro translúcido -->
+    <Setter Property="BorderBrush" Value="#347A50"/>
+    <Setter Property="BorderThickness" Value="1"/>
+</Style>
+<!-- Item sob o "cursor" do controle/teclado na Central de Controle -->
+<Style Selector="Border.listItem.focused">
+    <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+    <Setter Property="BorderThickness" Value="2"/>
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+</Style>
+    <!-- Estilos do Control Center (movidos para o lugar correto) -->
+    <Style Selector="Button.controlTile">
+        <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}"/>
+        <Setter Property="CornerRadius" Value="16"/>
+        <Setter Property="Margin" Value="5"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="VerticalAlignment" Value="Stretch"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.2"/>
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="Button.controlTile:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+    </Style>
+  </Window.Styles>
 
   <Panel>
 
@@ -80,8 +111,14 @@
           <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="12" Padding="14,6" VerticalAlignment="Center">
             <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
 
-              <Button Classes="pill" Content="Wi-Fi" FontSize="10" Padding="8,5" Click="OnOpenWifiSettingsClick" ToolTip.Tip="Abrir configurações de Wi-Fi" />
-              <Button Classes="pill" Content="Bluetooth" FontSize="10" Padding="8,5" Click="OnOpenBluetoothSettingsClick" ToolTip.Tip="Abrir configurações de Bluetooth" />
+              <!-- 🟢 NOVO BOTÃO ÚNICO DA CENTRAL DE CONTROLE -->
+              <Button Classes="pill" Click="OnControlCenterClick" ToolTip.Tip="Central de Controle (Y)" Padding="10,5">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                      <TextBlock Text="📶" FontSize="12" VerticalAlignment="Center"/>
+                      <TextBlock Text="Rede" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                  </StackPanel>
+              </Button>
+
               <Rectangle Width="1" Height="14" Fill="{DynamicResource TextSecondaryBrush}" Opacity="0.3" VerticalAlignment="Center" />
               <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" ToolTip.Tip="{Binding TopBarTdpToolTip}">
                 <TextBlock Text="⚡" Foreground="#FFB84D" FontSize="14" VerticalAlignment="Center"/>
@@ -139,7 +176,145 @@
 
   </Grid>
 
-       <!-- Start-button context menu -->
+    <Panel x:Name="ControlCenterOverlay" IsVisible="False" Background="#80000000" ZIndex="100">
+    <!-- O Cartão Central -->
+    <Border x:Name="ControlCenterCard" 
+            Background="{DynamicResource SurfaceRaisedBrush}"
+            CornerRadius="24" 
+            Width="600" 
+            Padding="24"
+            HorizontalAlignment="Center" 
+            VerticalAlignment="Center"
+            BoxShadow="0 10 30 0 #40000000"
+            Opacity="0"
+            RenderTransform="translateY(20px)">
+        
+        <Border.Transitions>
+            <Transitions>
+                <DoubleTransition Property="Opacity" Duration="0:0:0.2"/>
+                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2"/>
+            </Transitions>
+        </Border.Transitions>
+
+        <StackPanel Spacing="20">
+            <!-- Título e Fechar -->
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Text="Central de Controle" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="ControlCenterStatus" Text="Wi-Fi: …" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                </StackPanel>
+                <Button x:Name="BtnCloseControlCenter" Grid.Column="1" Classes="iconGhost" Click="OnCloseControlCenter" Content="✕" FontSize="16" Width="32" Height="32"/>
+            </Grid>
+
+            <!-- Toggles Rápidos -->
+            <UniformGrid Columns="4" Height="100">
+                <Button x:Name="BtnAirplane" Classes="controlTile" Click="OnToggleAirplaneMode">
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="✈️" FontSize="28" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Modo Avião" FontSize="11" Margin="0,8,0,0" HorizontalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </StackPanel>
+                </Button>
+                <Button x:Name="BtnWifi" Classes="controlTile" Click="OnToggleWifi">
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="📶" FontSize="28" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Wi-Fi" FontSize="11" Margin="0,8,0,0" HorizontalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </StackPanel>
+                </Button>
+                <Button x:Name="BtnBluetooth" Classes="controlTile" Click="OnToggleBluetooth">
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="🔷" FontSize="28" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Bluetooth" FontSize="11" Margin="0,8,0,0" HorizontalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </StackPanel>
+                </Button>
+                <Button x:Name="BtnSync" Classes="controlTile" Click="OnToggleSyncthing">
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="🔄" FontSize="28" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Sync" FontSize="11" Margin="0,8,0,0" HorizontalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </StackPanel>
+                </Button>
+            </UniformGrid>
+
+            <!-- Seção de Downloads -->
+            <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="12" Padding="16">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <TextBlock Text="⬇" FontSize="24" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="Downloads" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="{Binding TopBarDownloadPercentText}" FontSize="12" Foreground="{StaticResource AccentBrush}" IsVisible="{Binding HasActiveDownloads}"/>
+                        <TextBlock Text="Nenhum download ativo" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding !HasActiveDownloads}"/>
+                    </StackPanel>
+                    <Button x:Name="BtnShowDownloads" Grid.Column="2" Classes="pill" Content="Ver Fila" Click="OnShowDownloadsClick"/>
+                </Grid>
+            </Border>
+
+            <!-- Listas -->
+            <Grid ColumnDefinitions="*,*" Height="220">
+                <!-- Wi-Fi List -->
+                <Border Grid.Column="0" Background="{DynamicResource SurfaceBrush}" CornerRadius="12" Padding="12" Margin="0,0,6,0">
+                    <StackPanel>
+                        <TextBlock Text="Redes Wi-Fi" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,8"/>
+                        <ScrollViewer>
+                            <ItemsControl x:Name="WifiList">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="svc:WifiNetwork">
+                                        <Border Classes="listItem" 
+                                                Classes.connected="{Binding IsConnected}" 
+                                                Padding="10,8" 
+                                                Margin="0,0,0,4" 
+                                                CornerRadius="6" 
+                                                Background="Transparent"
+                                                PointerPressed="OnWifiNetworkClick">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <TextBlock Text="{Binding Ssid}" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding SignalStrength, StringFormat='{}{0}%'}" Foreground="Gray" FontSize="11"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </StackPanel>
+                </Border>
+
+                <!-- Bluetooth List -->
+                <Border Grid.Column="1" Background="{DynamicResource SurfaceBrush}" CornerRadius="12" Padding="12" Margin="6,0,0,0">
+                    <StackPanel>
+                        <TextBlock Text="Bluetooth Pareados" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,8"/>
+                        <ScrollViewer>
+                            <ItemsControl x:Name="BluetoothList">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="svc:BtDevice">
+                                        <Border Classes="listItem" 
+                                                Classes.connected="{Binding IsConnected}" 
+                                                Padding="10,8" 
+                                                Margin="0,0,0,4" 
+                                                CornerRadius="6" 
+                                                Background="Transparent"
+                                                PointerPressed="OnBluetoothDeviceClick">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <TextBlock Text="{Binding Name}" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                                    <TextBlock Text="{Binding StatusText}" FontSize="10" Foreground="#75D99A"/>
+                                                    <TextBlock Text="{Binding ActionText}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </StackPanel>
+                </Border>
+            </Grid>
+            <!-- Feedback da última ação (conectar/desconectar) e dica de navegação -->
+            <TextBlock x:Name="ControlCenterFeedback" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+            <TextBlock Text="A conecta/desconecta · X atualiza · Y/B fecha" FontSize="11"
+                       Foreground="{DynamicResource TextSecondaryBrush}" Opacity="0.7"/>
+        </StackPanel>
+    </Border>
+</Panel>
+
+    <!-- Start-button context menu -->
     <Panel Classes="fadeIn" IsVisible="{Binding IsContextMenuOpen}">
       <Border Classes="contextMenuOverlay" PointerPressed="OnMenuOverlayPressed" />
       
@@ -306,7 +481,6 @@
     <Panel Classes="fadeIn" IsVisible="{Binding IsShortcutsHelpOpen}">
       <Border Classes="contextMenuOverlay" PointerPressed="OnShortcutsOverlayPressed" />
       
-      <!-- Aumentei a largura para 860 para caber 3 colunas confortavelmente -->
       <Border Width="860" Padding="32" CornerRadius="20"
               Background="#161B24"
               BorderBrush="#333A4A" BorderThickness="1"

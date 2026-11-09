@@ -55,7 +55,13 @@ public sealed class HidHideService : IHidHideService, IDisposable
                 _hidHideControl.IsActive = true;
                 _isInitialized = true;
             }
-            catch {}
+            catch (Exception ex)
+            {
+                // v0.24: antes era um catch vazio — sem administrador a escrita no
+                // driver falha e o mascaramento ficava silenciosamente desligado.
+                HandheldLauncher.App.Diagnostics.DebugLog.Write(
+                    $"[HidHide] Sem permissão para configurar o driver (corre sem administrador?): {ex.Message}");
+            }
         }
     }
 

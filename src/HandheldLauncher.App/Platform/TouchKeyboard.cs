@@ -43,6 +43,12 @@ internal static class TouchKeyboard
 
     private static DateTime _lastToggle = DateTime.MinValue;
 
+    // No Windows 11 a janela "IPTip_Main_Window" pode não existir, então
+    // IsVisible() mente e o Hide() não fazia nada (o teclado ficava aberto por
+    // cima do launcher, sem forma de o fechar). Esta bandeira resolve isso:
+    // sabemos quando fomos NÓS que o abrimos.
+    private static bool _shownByUs;
+
     /// <summary>Mostra o teclado (não faz nada se ele já está visível ou foi pedido há menos de 1,5 s).</summary>
     public static void Show()
     {
@@ -58,6 +64,7 @@ internal static class TouchKeyboard
         if (IsVisible()) return;
         if (DateTime.UtcNow - _lastToggle < TimeSpan.FromSeconds(1.5)) return;
         Toggle();
+        _shownByUs = true;
     }
 
     /// <summary>v0.18.3: fecha o teclado se ele estiver aberto (fim da busca da aba Nuvem).</summary>
@@ -65,7 +72,12 @@ internal static class TouchKeyboard
     {
         try
         {
-            if (OperatingSystem.IsWindows() && IsVisible()) Toggle();
+            if (!OperatingSystem.IsWindows()) return;
+
+            // Windows 11: IsVisible() não é confiável → fecha se fomos nós que
+            // abrimos (ou se ele se diz visível).
+            if (IsVisible() || _shownByUs) Toggle();
+            _shownByUs = false;
         }
         catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
     }

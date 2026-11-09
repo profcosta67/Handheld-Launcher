@@ -13,6 +13,11 @@
     <PackageVersion Include="Avalonia.Diagnostics" Version="11.2.8" />
     <PackageVersion Include="Avalonia.Fonts.Inter" Version="11.2.8" />
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.2.8" />
+    <!-- v0.24: WebView nativo para a tela do Syncthing. Ficou MIT/FOSS a partir
+         da 11.4.0 e a 11.4.1 exige apenas Avalonia >= 11.1.0 — ou seja, não
+         obriga a subir o Avalonia e NÃO traz o CEF (~300 MB): no Windows usa o
+         WebView2 que já vem com o Edge, no Linux o WPE/WebKitGTK do sistema. -->
+    <PackageVersion Include="Avalonia.Controls.WebView" Version="11.4.1" />
     <PackageVersion Include="LibreHardwareMonitorLib" Version="0.9.6" />
     <!-- v0.18: só pro Guardião de suspensão (SystemEvents.PowerModeChanged)
          detectar quando o Windows acorda da suspensão. Pacote oficial da

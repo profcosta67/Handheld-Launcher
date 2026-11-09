@@ -1,5 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
+using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -231,6 +233,7 @@ public sealed class SettingsViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsCategoryShortcutsActive));
                 OnPropertyChanged(nameof(IsCategoryLosslessActive));
                 OnPropertyChanged(nameof(IsCategoryConnectivityActive));
+                OnPropertyChanged(nameof(IsCategorySaveCenterActive));
                 OnPropertyChanged(nameof(IsCategoryNewsActive));
                 OnPropertyChanged(nameof(SaveButtonText));
             }
@@ -245,7 +248,11 @@ public sealed class SettingsViewModel : ViewModelBase
     public bool IsCategoryLosslessActive => _categoryIndex == 5;      // Lossless
     public bool IsCategoryAccountsActive => _categoryIndex == 6;      // Contas
     public bool IsCategoryConnectivityActive => _categoryIndex == 7;  // Rede
-    public bool IsCategoryNewsActive => _categoryIndex == 8;          // Atualizações
+    public bool IsCategorySaveCenterActive => _categoryIndex == SaveCenterCategoryIndex; // Central de Saves
+    public bool IsCategoryNewsActive => _categoryIndex == 9;          // Atualizações
+
+    /// <summary>Índice da aba "Central de Saves" (logo abaixo de Rede).</summary>
+    public const int SaveCenterCategoryIndex = 8;
 
     public string SaveButtonText => "✕ Salvar e fechar";
 
@@ -543,6 +550,8 @@ public sealed class SettingsViewModel : ViewModelBase
     public SettingsViewModel(HandheldLauncher.Services.Syncthing.SyncthingService? syncthingService = null)
     {
         _syncthingService = syncthingService;
+        OpenSyncthingCommand = new RelayCommand(() => _ = OpenSyncthingAsync());
+        CloseSyncthingCommand = new RelayCommand(() => IsSyncthingOpen = false);
     }
 
     private bool _syncthingEnabled;
@@ -557,6 +566,131 @@ public sealed class SettingsViewModel : ViewModelBase
                 else _syncthingService?.Stop();
             }
         }
+    }
+
+    private bool _isSyncthingOpen;
+    /// <summary>True enquanto a tela cheia com o WebView do Syncthing está aberta.</summary>
+    public bool IsSyncthingOpen
+    {
+        get => _isSyncthingOpen;
+        private set => SetField(ref _isSyncthingOpen, value);
+    }
+
+    private string _syncthingStatusText = string.Empty;
+    /// <summary>Mensagem curta do card (iniciando/erro). Fica vazia quando está tudo certo.</summary>
+    public string SyncthingStatusText
+    {
+        get => _syncthingStatusText;
+        private set
+        {
+            if (SetField(ref _syncthingStatusText, value))
+                OnPropertyChanged(nameof(HasSyncthingStatus));
+        }
+    }
+
+    public bool HasSyncthingStatus => !string.IsNullOrEmpty(_syncthingStatusText);
+
+    /// <summary>Botão "Abrir Syncthing": sobe o serviço (se preciso) e abre a aba Rede com o WebView.</summary>
+    public RelayCommand OpenSyncthingCommand { get; }
+
+    /// <summary>Botão "Voltar" da tela do WebView.</summary>
+    public RelayCommand CloseSyncthingCommand { get; }
+
+    /// <summary>
+    /// Leva para a aba Rede, garante o Syncthing no ar e só então mostra o
+    /// WebView (que aponta para a GUI local). Se já estiver rodando, apenas
+    /// mostra a tela — nada é reiniciado.
+    /// </summary>
+    public async Task OpenSyncthingAsync()
+    {
+        CategoryIndex = SaveCenterCategoryIndex; // aba Central de Saves
+
+        // No Linux o WebView nativo depende do runtime WPE WebKit instalado no
+        // sistema; sem isso a janela quebraria, então mantém o navegador externo.
+        if (!OperatingSystem.IsWindows())
+        {
+            OpenSyncthingInBrowser();
+            return;
+        }
+
+        // O controle nativo usa o runtime do WebView2 (vem junto com o Edge).
+        // Sem ele o controle falharia ao ser criado — aí cai no navegador.
+        if (!IsWebView2RuntimeInstalled())
+        {
+            SyncthingStatusText = "Runtime do WebView2 não encontrado: abrindo no navegador.";
+            OpenSyncthingInBrowser();
+            return;
+        }
+
+        SyncthingStatusText = "Iniciando o Syncthing…";
+        if (!await EnsureSyncthingReadyAsync()) return;
+
+        SyncthingEnabled = true;   // mantém o toggle coerente com o processo em execução
+        IsSyncthingOpen = true;
+    }
+
+    /// <summary>
+    /// Garante o Syncthing no ar e cuida da mensagem de estado. Usado pelo botão
+    /// da aba e pelo toggle do topo da tela de Saves.
+    /// </summary>
+    public async Task<bool> EnsureSyncthingReadyAsync()
+    {
+        if (_syncthingService is null)
+        {
+            SyncthingStatusText = "Serviço do Syncthing indisponível nesta instância.";
+            return false;
+        }
+
+        if (!_syncthingService.IsAvailable)
+        {
+            SyncthingStatusText = "syncthing.exe não encontrado na pasta Tools do launcher.";
+            return false;
+        }
+
+        var ready = await _syncthingService.EnsureRunningAsync(TimeSpan.FromSeconds(20));
+        SyncthingStatusText = ready
+            ? string.Empty
+            : "O Syncthing não respondeu em 127.0.0.1:8384 (veja debug.log).";
+        return ready;
+    }
+
+    /// <summary>Liga/desliga a sincronização pelo toggle do topo da tela de Saves.</summary>
+    public async Task SetSyncthingEnabledAsync(bool enabled)
+    {
+        SyncthingEnabled = enabled; // o setter já dispara Start()/Stop()
+        if (enabled) await EnsureSyncthingReadyAsync();
+    }
+
+    /// <summary>Fallback: abre a interface web no navegador padrão.</summary>
+    public void OpenSyncthingInBrowser()
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = HandheldLauncher.Services.Syncthing.SyncthingService.BaseUrl,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            SyncthingStatusText = $"Não foi possível abrir o navegador: {ex.Message}";
+        }
+    }
+
+    // O runtime do WebView2 (Evergreen) é instalado junto com o Edge: checamos as
+    // duas pastas padrão antes de deixar o controle nativo ser criado.
+    private static bool IsWebView2RuntimeInstalled()
+    {
+        var candidates = new[]
+        {
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+                "Microsoft", "EdgeWebView", "Application"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Microsoft", "EdgeWebView", "Application"),
+        };
+
+        return candidates.Any(Directory.Exists);
     }
 
     public void SaveTo(AppSettings settings)
@@ -611,7 +745,9 @@ public sealed class SettingsViewModel : ViewModelBase
         var taskOk = WatchdogTask.Apply(IsHandheldMode);
 
         SavedMessage = "Salvo! Aparência já vale ao fechar esta tela; chaves e modo de uso pedem reiniciar o launcher (fechar de vez e abrir de novo)."
-            + (taskOk ? string.Empty : " Aviso: não consegui ajustar a abertura automática do Windows (veja debug.log).");
+            + (taskOk
+                ? " A abertura automática foi ajustada (o Windows pede confirmação de administrador para essa alteração)."
+                : " Aviso: não consegui ajustar a abertura automática do Windows (veja debug.log).");
     }
 
     public void DismissSavedMessage() => SavedMessage = null;

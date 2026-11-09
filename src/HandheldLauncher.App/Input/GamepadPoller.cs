@@ -17,6 +17,8 @@ public enum GamepadAction
     Downloads,
     GameDetails,
     ToggleQuickSettings,
+    /// <summary>Y: abre a Central de Controle (rede, Wi-Fi, Bluetooth, downloads).</summary>
+    Connectivity,
 }
 
 public sealed class GamepadPoller
@@ -129,7 +131,7 @@ public sealed class GamepadPoller
             if (WasJustPressed(buttons, prevButtons, XInput.Buttons.B))              actions.Add(GamepadAction.Back);
             if (WasJustPressed(buttons, prevButtons, XInput.Buttons.LeftShoulder))   actions.Add(GamepadAction.PreviousFilter);
             if (WasJustPressed(buttons, prevButtons, XInput.Buttons.RightShoulder))  actions.Add(GamepadAction.NextFilter);
-            if (WasJustPressed(buttons, prevButtons, XInput.Buttons.Y))              actions.Add(GamepadAction.Downloads);
+            if (WasJustPressed(buttons, prevButtons, XInput.Buttons.Y))              actions.Add(GamepadAction.Connectivity);
             if (WasJustPressed(buttons, prevButtons, XInput.Buttons.X))              actions.Add(GamepadAction.GameDetails);
 
             // === Direcionais ===

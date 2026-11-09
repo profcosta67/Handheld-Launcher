@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -23,7 +24,6 @@ public partial class SettingsWindow : Window
     private int _tabIndex = 0;
     private int _contentIndex = 0;
     private AccountsWindow? _accountsWindow;
-    private ConnectivityPopupWindow? _connectivityDialog;
 
     // 🟢 Construtor vazio mantido para compatibilidade
     public SettingsWindow() : this(new SettingsViewModel())
@@ -36,6 +36,7 @@ public partial class SettingsWindow : Window
         ViewModel = viewModel;
         InitializeComponent();
         DataContext = ViewModel;
+        ViewModel.PropertyChanged += OnViewModelPropertyChanged;
 
         _settings = AppSettingsStore.Load();
         ViewModel.LoadFrom(_settings);
@@ -61,12 +62,44 @@ public partial class SettingsWindow : Window
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {
+        ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
         ViewModel.SaveTo(_settings);
         base.OnClosing(e);
     }
 
+    // O WebView só recebe uma URL quando a tela do Syncthing é realmente aberta:
+    // assim nenhum processo do motor web nasce ao abrir as Configurações.
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(SettingsViewModel.IsSyncthingOpen) && ViewModel.IsSyncthingOpen)
+        {
+            SyncthingView.Navigate(HandheldLauncher.Services.Syncthing.SyncthingService.BaseUrl);
+            return;
+        }
+
+        // Entrar na aba "Central de Saves" (por toque, teclado ou D-Pad) abre a
+        // central direto, que é o comportamento pedido para essa aba.
+        if (e.PropertyName == nameof(SettingsViewModel.CategoryIndex)
+            && ViewModel.CategoryIndex == SettingsViewModel.SaveCenterCategoryIndex)
+        {
+            ViewModel.OpenSyncthingCommand.Execute(null);
+        }
+    }
+
     private void OnSettingsKeyDown(object? sender, KeyEventArgs e)
     {
+        // Com a tela do Syncthing aberta, o teclado/D-Pad pertence ao navegador:
+        // só o Escape volta para as Configurações.
+        if (ViewModel.IsSyncthingOpen)
+        {
+            if (e.Key == Key.Escape)
+            {
+                ViewModel.CloseSyncthingCommand.Execute(null);
+                e.Handled = true;
+            }
+            return;
+        }
+
         if (e.Source is TextBox && e.Key is not Key.Escape) return;
 
         GamepadAction? action = e.Key switch
@@ -106,12 +139,6 @@ public partial class SettingsWindow : Window
 
     public bool HandleSettingsGamepadAction(GamepadAction action)
     {
-        if (_connectivityDialog is { IsVisible: true })
-        {
-            _connectivityDialog.HandleGamepadAction(action);
-            return true;
-        }
-
         if (_accountsWindow is { IsVisible: true } accounts)
         {
             DialogGamepadNavigator.Handle(accounts, action);
@@ -364,10 +391,18 @@ public partial class SettingsWindow : Window
     {
         if (sender is Button { Tag: string tag } && int.TryParse(tag, out var index))
         {
+            // "Central de Saves": a troca de aba já abre o WebView (ver
+            // OnViewModelPropertyChanged); re-clicar na aba ativa reabre depois
+            // de um "Voltar", quando o índice não muda.
+            var wasAlreadyHere = ViewModel.CategoryIndex == index;
+
             ViewModel.CategoryIndex = index;
             _tabIndex = index;
             _focusZone = FocusZone.Tabs;
             _contentIndex = 0;
+
+            if (wasAlreadyHere && index == SettingsViewModel.SaveCenterCategoryIndex)
+                ViewModel.OpenSyncthingCommand.Execute(null);
         }
     }
 
@@ -485,20 +520,18 @@ public partial class SettingsWindow : Window
         catch { }
     }
 
-    private async void OnOpenWifiSettingsClick(object? sender, RoutedEventArgs e)
-    {
-        var dialog = new ConnectivityPopupWindow { Topmost = true };
-        _connectivityDialog = dialog;
-        try { await dialog.ShowDialog(this); }
-        finally { _connectivityDialog = null; }
-    }
+    // Aba Rede: uma implementação só — a Central de Controlo da janela principal.
+    // O ConnectivityPopupWindow antigo (lista BT via PowerShell) ficou legacy.
+    private void OnOpenWifiSettingsClick(object? sender, RoutedEventArgs e) => OpenControlCenter();
 
-    private async void OnOpenBluetoothSettingsClick(object? sender, RoutedEventArgs e)
+    private void OnOpenBluetoothSettingsClick(object? sender, RoutedEventArgs e) => OpenControlCenter();
+
+    private void OpenControlCenter()
     {
-        var dialog = new ConnectivityPopupWindow { Topmost = true };
-        _connectivityDialog = dialog;
-        try { await dialog.ShowDialog(this); }
-        finally { _connectivityDialog = null; }
+        if (Owner is not MainWindow main) return;
+
+        Close();                     // fecha as Configurações…
+        main.ToggleControlCenter();  // …e abre a Central de Controlo
     }
 
     private void OnSavedOkClick(object? sender, RoutedEventArgs e) => ViewModel.DismissSavedMessage();
