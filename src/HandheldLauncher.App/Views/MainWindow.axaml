@@ -80,8 +80,7 @@
           <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="12" Padding="14,6" VerticalAlignment="Center">
             <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
 
-              <Button Classes="pill" Content="Wi-Fi" FontSize="10" Padding="8,5" Click="OnOpenWifiSettingsClick" ToolTip.Tip="Abrir configurações de Wi-Fi" />
-              <Button Classes="pill" Content="Bluetooth" FontSize="10" Padding="8,5" Click="OnOpenBluetoothSettingsClick" ToolTip.Tip="Abrir configurações de Bluetooth" />
+              <Button Classes="pill" Content="Conexões  ·  Wi-Fi / Bluetooth" FontSize="10" Padding="10,5" Click="OnConnectivityDrawerClick" ToolTip.Tip="Abrir painel rápido de conexões" />
               <Rectangle Width="1" Height="14" Fill="{DynamicResource TextSecondaryBrush}" Opacity="0.3" VerticalAlignment="Center" />
               <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" ToolTip.Tip="{Binding TopBarTdpToolTip}">
                 <TextBlock Text="⚡" Foreground="#FFB84D" FontSize="14" VerticalAlignment="Center"/>
@@ -387,6 +386,58 @@
           </StackPanel>
           
         </StackPanel>
+      </Border>
+    </Panel>
+
+
+    <!-- Painel lateral de conectividade integrado à Home -->
+    <Panel x:Name="ConnectivityDrawer" IsVisible="False">
+      <Border Background="#99000000" PointerPressed="OnConnectivityDrawerBackdropPressed"/>
+      <Border Width="460" HorizontalAlignment="Right" VerticalAlignment="Stretch"
+              Background="#151B28" BorderBrush="#39445A" BorderThickness="1,0,0,0"
+              Padding="26,24">
+        <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
+          <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,20">
+            <StackPanel Spacing="4">
+              <TextBlock Text="Conexões" FontSize="25" FontWeight="Bold" Foreground="#F5F7FF"/>
+              <TextBlock Text="Conecte e gerencie sem sair da Home" FontSize="12" Foreground="#9BA8C4"/>
+            </StackPanel>
+            <Button Grid.Column="1" Content="✕" Width="40" Height="40" Click="OnConnectivityDrawerCloseClick"/>
+          </Grid>
+          <Border Grid.Row="1" Background="#222B3D" CornerRadius="14" Padding="16" Margin="0,0,0,14">
+            <StackPanel Spacing="10">
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="3">
+                  <TextBlock Text="Wi-Fi" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF"/>
+                  <TextBlock x:Name="DrawerWifiStatus" Text="Verificando rede..." FontSize="12" Foreground="#AEBBD2"/>
+                </StackPanel>
+                <Button Grid.Column="1" Content="↻ Atualizar" Classes="pill" Click="OnDrawerRefreshWifiClick"/>
+              </Grid>
+              <ListBox x:Name="DrawerWifiNetworks" Height="190" Background="#151B28" Foreground="#F5F7FF"
+                       SelectionMode="Single"/>
+              <TextBox x:Name="DrawerWifiPassword" Watermark="Senha da rede (se necessário)" PasswordChar="●"/>
+              <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                <Button Grid.Column="0" Content="Conectar" Classes="pill primary" Click="OnDrawerConnectWifiClick"/>
+                <Button Grid.Column="1" Content="Desconectar" Classes="pill" Click="OnDrawerDisconnectWifiClick"/>
+              </Grid>
+            </StackPanel>
+          </Border>
+          <Border Grid.Row="2" Background="#222B3D" CornerRadius="14" Padding="16">
+            <StackPanel Spacing="10">
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="3">
+                  <TextBlock Text="Bluetooth" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF"/>
+                  <TextBlock x:Name="DrawerBluetoothStatus" Text="Verificando dispositivos..." FontSize="12" Foreground="#AEBBD2"/>
+                </StackPanel>
+                <Button Grid.Column="1" Content="↻ Atualizar" Classes="pill" Click="OnDrawerRefreshBluetoothClick"/>
+              </Grid>
+              <ListBox x:Name="DrawerBluetoothDevices" Height="135" Background="#151B28" Foreground="#F5F7FF"/>
+              <TextBlock Text="Selecione um dispositivo pareado para abrir as opções de conexão do Windows." FontSize="11" Foreground="#9BA8C4" TextWrapping="Wrap"/>
+              <Button Content="Gerenciar dispositivo selecionado" Classes="pill" Click="OnDrawerManageBluetoothClick"/>
+            </StackPanel>
+          </Border>
+          <TextBlock Grid.Row="4" x:Name="DrawerConnectivityFeedback" Text="As ações de Wi-Fi são executadas diretamente pelo Launcher." FontSize="11" Foreground="#9BA8C4" TextWrapping="Wrap" Margin="0,14,0,0"/>
+        </Grid>
       </Border>
     </Panel>
 
