@@ -5,6 +5,10 @@
          o Linux/macOS usa net8.0 puro. O release.yml publica linux-x64 a partir
          da TFM net8.0. -->
     <TargetFrameworks>net8.0-windows10.0.19041.0;net8.0</TargetFrameworks>
+    <!-- Permite restaurar/compilar a TFM Windows a partir de Linux/macOS (CI
+         build-linux e builds locais no Linux). Sem isto o SDK falha com
+         NETSDK1100 "set the EnableWindowsTargeting property to true". -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <!-- WinExe só existe no Windows (executável GUI sem console). No Linux é Exe. -->
     <OutputType Condition="'$(TargetFramework)' == 'net8.0-windows10.0.19041.0'">WinExe</OutputType>
     <OutputType Condition="'$(TargetFramework)' == 'net8.0'">Exe</OutputType>

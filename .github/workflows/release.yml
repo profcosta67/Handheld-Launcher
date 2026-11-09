@@ -74,7 +74,7 @@ jobs:
       - name: Publicar (self-contained win-x64)
         if: steps.exists.outputs.skip != 'true'
         run: >
-          dotnet publish src/HandheldLauncher.App -c Release -r win-x64
+          dotnet publish src/HandheldLauncher.App -c Release -f net8.0-windows10.0.19041.0 -r win-x64
           --self-contained true
           -p:Version=${{ steps.ver.outputs.version }}
           -p:TreatWarningsAsErrors=false
