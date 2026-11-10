@@ -185,6 +185,9 @@ verify_pack() {  # $1 = pasta extraída (contém $NAME/), $2 = rótulo
     cat "$work/selftest.log" >&2
     return 1
   fi
+  # Só aparece na consola do CI se se imprimir; sem isto o passo passava calado
+  # e não se sabia se o autoteste chegou a correr.
+  echo ">> [$label] autoteste de arranque: OK ($(grep -c '   ok   ' "$work/selftest.log") verificações, $(grep -c 'ok   assembly' "$work/selftest.log") assemblies)"
 
   # O desinstalador tem de limpar tudo.
   if ! ( cd "$app" && HOME="$ihome" bash ./uninstall-linux.sh ) > "$work/uninstall.log" 2>&1; then
@@ -198,7 +201,7 @@ verify_pack() {  # $1 = pasta extraída (contém $NAME/), $2 = rótulo
     || { echo "!! [$label] desinstalação deixou o atalho" >&2; return 1; }
   [ ! -e "$desk" ] || { echo "!! [$label] desinstalação deixou a entrada de menu" >&2; return 1; }
 
-  echo ">> [$label] instala → atalho → menu → Biblioteca/ldd → desinstala: OK"
+  echo ">> [$label] instala → atalho → menu → Biblioteca/ldd → autoteste → desinstala: OK"
   rm -rf "$work"
   return 0
 }
