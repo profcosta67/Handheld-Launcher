@@ -32,6 +32,12 @@
     <PackageVersion Include="System.Diagnostics.PerformanceCounter" Version="8.0.0" />
     <PackageVersion Include="System.Management" Version="10.0.2" />
     <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+    <!-- v0.24.3-beta.6: o RyzenSmuService usa MutexSecurity/MutexAccessRule, mas
+         o System.Threading.AccessControl só chegava de forma transitiva pelo
+         LibreHardwareMonitorLib. Como essa referência passou a ser só-Windows
+         (o pacote não tem runtime para linux-x64), o build net8.0 falhava com
+         CS1069/CS0103. Fica declarado aqui explicitamente. -->
+    <PackageVersion Include="System.Threading.AccessControl" Version="10.0.3" />
     <PackageVersion Include="Velopack" Version="1.2.161" />
     <PackageVersion Include="xunit" Version="2.9.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />

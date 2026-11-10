@@ -462,6 +462,8 @@ fi
 say ""
 say "Se a janela não abrir, corre isto para ver o erro e reporta-o:"
 say "   $INSTALL_DIR/$APP_NAME"
+say "Diagnóstico rápido (bibliotecas e serviços de arranque, sem abrir janela):"
+say "   $INSTALL_DIR/$APP_NAME --selftest"
 
 if [ "$RUN_AFTER" = "1" ] && [ "$DRY_RUN" = "0" ]; then
   say ""

@@ -37,7 +37,10 @@ public sealed class MainViewModel : ViewModelBase
    private readonly SteamStoreService _steamStore;
     private readonly IgdbService _igdbService;
 
-    private readonly HardwareMonitorService _monitorService = new();
+    // No Windows: LibreHardwareMonitor. No Linux/macOS: substituto inerte — o
+    // pacote NuGet só traz binários para Windows e o publish linux-x64 não o
+    // copiava (crash do beta.5). Ver Services/HardwareMonitor.cs.
+    private readonly IHardwareMonitorService _monitorService = HardwareMonitor.Create();
     private readonly HWiNFOSharedMemoryService _hwInfoService = new();
     private DateTime _lastHwInfoPollTime = DateTime.MinValue;
     private bool _hwInfoWasAvailable;

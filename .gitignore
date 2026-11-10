@@ -25,5 +25,6 @@ src/HandheldLauncher.App/Tools/ffmpeg.exe
 
 ## Pacote Linux gerado por scripts/package-linux.sh (build local e CI)
 publish-linux/
+publish-win/
 HandheldLauncher-linux-*.tar.gz
 HandheldLauncher-linux-*.zip

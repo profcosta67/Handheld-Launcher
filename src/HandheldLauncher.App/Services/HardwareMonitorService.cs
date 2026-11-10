@@ -1,10 +1,23 @@
+#if WINDOWS
 using System;
 using LibreHardwareMonitor.Hardware;
 using HandheldLauncher.App.Diagnostics;
 
 namespace HandheldLauncher.App.Services;
 
-public class HardwareMonitorService : IDisposable
+/// <summary>
+/// Leitura de sensores via LibreHardwareMonitor — <b>só Windows</b>.
+///
+/// O pacote NuGet 0.9.6 publica o DLL apenas em <c>runtimes/win-*</c>: compila
+/// em qualquer TFM (há asset de compile-time) mas um publish
+/// <c>-r linux-x64</c> não o copia, e o launcher morria no arranque com
+/// <c>FileNotFoundException: LibreHardwareMonitorLib</c> (beta.5). Por isso o
+/// ficheiro inteiro está dentro de <c>#if WINDOWS</c> e a referência ao pacote
+/// está condicionada no .csproj. Nas outras plataformas o
+/// <see cref="HardwareMonitor.Create"/> devolve
+/// <see cref="NullHardwareMonitorService"/>.
+/// </summary>
+public class HardwareMonitorService : IHardwareMonitorService
 {
     private readonly Computer _computer;
 
@@ -84,3 +97,4 @@ public class HardwareMonitorService : IDisposable
         lock (_sync) _computer.Close();
     }
 }
+#endif

@@ -13,6 +13,17 @@ internal static class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // v0.24.3-beta.6: autoteste de arranque sem janela (`--selftest`). Fica
+        // antes de tudo o resto para não disputar mutex nem tocar em Velopack.
+        // O CI Linux corre isto sobre o pacote instalado: no beta.5 o pacote foi
+        // publicado e instalado com sucesso mas o binário morria no arranque
+        // porque faltava uma assembly (LibreHardwareMonitorLib). Ver
+        // Diagnostics/StartupSelfTest.cs.
+        if (args.Length > 0 && args[0] == HandheldLauncher.App.Diagnostics.StartupSelfTest.Argument)
+        {
+            Environment.Exit(HandheldLauncher.App.Diagnostics.StartupSelfTest.Run());
+        }
+
         // O Velopack precisa processar primeiro install/update/uninstall.
         VelopackApp.Build()
             .OnAfterInstallFastCallback((version) =>

@@ -168,6 +168,24 @@ verify_pack() {  # $1 = pasta extraída (contém $NAME/), $2 = rótulo
     [ -z "$dv" ] || printf '   (aviso) %s\n' "$dv"
   fi
 
+  # Autoteste dentro do processo (`HandheldLauncher --selftest`): carrega todas
+  # as assemblies de que o launcher depende e constrói os serviços de arranque,
+  # sem abrir janela. Foi esta a falha do beta.5 — o pacote extraía, instalava e
+  # passava todas as verificações acima, e depois o binário morria no arranque
+  # (FileNotFoundException de LibreHardwareMonitorLib, que o publish linux-x64
+  # não copiava). Sem este passo, o defeito só aparecia ao utilizador final.
+  if ! HOME="$ihome" timeout 180 "$ihome/.local/share/handheld-launcher/HandheldLauncher" --selftest \
+        > "$work/selftest.log" 2>&1; then
+    echo "!! [$label] --selftest falhou — o launcher não arranca com este pacote:" >&2
+    cat "$work/selftest.log" >&2
+    return 1
+  fi
+  if ! grep -q 'AUTOTESTE OK' "$work/selftest.log"; then
+    echo "!! [$label] --selftest não confirmou sucesso:" >&2
+    cat "$work/selftest.log" >&2
+    return 1
+  fi
+
   # O desinstalador tem de limpar tudo.
   if ! ( cd "$app" && HOME="$ihome" bash ./uninstall-linux.sh ) > "$work/uninstall.log" 2>&1; then
     echo "!! [$label] uninstall-linux.sh falhou:" >&2

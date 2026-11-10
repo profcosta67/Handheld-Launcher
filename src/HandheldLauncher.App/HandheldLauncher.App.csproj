@@ -45,7 +45,15 @@
 </ItemGroup>
 
     <ItemGroup>
-    <PackageReference Include="LibreHardwareMonitorLib" />
+    <!-- LibreHardwareMonitor: SÓ Windows. O pacote 0.9.6 publica o DLL apenas em
+         runtimes/win-{x86,x64,arm64}. Compila em net8.0 (há asset de compile-time),
+         mas num publish `-r linux-x64` esses runtimes são filtrados e o DLL não é
+         copiado: o binário Linux arrancava e morria com
+             FileNotFoundException: Could not load file or assembly 'LibreHardwareMonitorLib'
+         — foi o crash do 0.24.3-beta.5 no Zorin. No Linux o HardwareMonitorService
+         nem sequer é compilado (#if WINDOWS) e o HardwareMonitor.Create() devolve
+         NullHardwareMonitorService. -->
+    <PackageReference Include="LibreHardwareMonitorLib" Condition="'$(TargetFramework)' == 'net8.0-windows10.0.19041.0'" />
     <PackageReference Include="AnimatedImage.Avalonia" />
     <PackageReference Include="AnimatedImage.Native" />
     <!-- Fixadas em 11.2.8 (v0.16): eram "11.2.*", que podia puxar um patch
@@ -66,6 +74,10 @@
     <PackageReference Include="Velopack" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" />
     <PackageReference Include="System.Management" />
+    <!-- v0.24.3-beta.6: ver a nota em Directory.Packages.props — o LHM (agora
+         só Windows) trazia isto de forma transitiva e o RyzenSmuService usa
+         MutexSecurity também no build net8.0 (Linux). -->
+    <PackageReference Include="System.Threading.AccessControl" />
     <!-- v0.18: Guardião de suspensão (SystemEvents.PowerModeChanged). -->
     <PackageReference Include="Microsoft.Win32.SystemEvents" />
   </ItemGroup>
