@@ -290,8 +290,14 @@ public partial class OverlayWindow : Window
             if (VolumeSlider != null) VolumeSlider.Value = settings.Volume;
             if (BrightnessSlider != null) BrightnessSlider.Value = settings.Brightness;
 
-            _currentHudIndex = settings.OverlayPreset;
+            // v0.26: HUD restaurado do que o usuário deixou; sem histórico
+            // (instalação nova) começa no preset "Completo".
+            _currentHudIndex = settings.OverlayPresetChosen
+                ? Math.Clamp(settings.OverlayPreset, 0, PerformanceHud.PresetNames.Length - 1)
+                : PerformanceHud.PresetNames.Length - 1;
+            _viewModel.SetOverlayPreset(_currentHudIndex);
             SetHudButtonVisual(_currentHudIndex);
+            DebugLog.Write($"[HUD] Iniciando no preset '{PerformanceHud.PresetNames[_currentHudIndex]}' (histórico={settings.OverlayPresetChosen}).");
 
             string displayInfo = _hardwareService.GetDisplayInfo();
             if (displayInfo.Contains("x") && displayInfo.Contains("Hz"))
@@ -666,6 +672,11 @@ public partial class OverlayWindow : Window
         if (_gamePid > 0 && AppSettingsStore.Load().IsolateControllerOnOverlay)
         {
             _hidHideService.RestoreControllerForProcess(_gamePid);
+
+            // v0.25.3: o HidHide devolve o dispositivo à lista, mas alguns jogos
+            // (Days Gone) não voltam a abri-lo. Reiniciar o gamepad no Windows
+            // força a re-detecção; é o mesmo controle, só re-enumerado.
+            DispatcherTimer.RunOnce(() => _hidHideService.ForceRestartController(), TimeSpan.FromMilliseconds(800));
         }
 
         // v0.24.1: retomar o jogo se ele chegou a ser congelado (é idempotente:
@@ -695,6 +706,16 @@ public partial class OverlayWindow : Window
         _qsWired = true;
 
         NewQsPanel.TdpWattsRequested += (_, watts) => ApplyTdpWattsFromQs(watts);
+
+        // v0.25.3: HUD escolhido no QS 2.0 — mesma rota do painel antigo.
+        NewQsPanel.HudPresetRequested += (_, preset) =>
+        {
+            _currentHudIndex = Math.Clamp(preset, 0, PerformanceHud.PresetNames.Length - 1);
+            _viewModel.SetOverlayPreset(_currentHudIndex);
+            SetHudButtonVisual(_currentHudIndex);
+            NewQsPanel.SetHud(_currentHudIndex);
+            DebugLog.Write($"[HUD] Preset escolhido no QS: '{PerformanceHud.PresetNames[_currentHudIndex]}'.");
+        };
         NewQsPanel.ResolutionRequested += (_, button) => ApplyResolutionFromQs(button.Tag?.ToString() ?? string.Empty);
         NewQsPanel.FanRequested += (_, button) => OnFanClick(button, new RoutedEventArgs());
         NewQsPanel.ColorRequested += (_, button) => OnColorClick(button, new RoutedEventArgs());
@@ -760,10 +781,12 @@ public partial class OverlayWindow : Window
         NewQsPanel.SetBrightness((int)Math.Round(BrightnessSlider?.Value ?? 70));
         NewQsPanel.SetScreenInfo(TxtScreenInfo?.Text ?? "—");
         NewQsPanel.SetBattery(_viewModel.BatteryStatusText);
+        NewQsPanel.SetHud(_currentHudIndex);
 
-        // Só avisa quando o TDP não vai mesmo aplicar.
-        if (!HandheldLauncher.App.Platform.ElevationService.IsElevated)
-            NewQsPanel.ShowElevationWarning("Modo padrão: o TDP não aplica. Reinicia como administrador.");
+        // v0.25.3: o aviso "o TDP não aplica" era mostrado SEMPRE que o launcher
+        // não estava elevado — mesmo com o PawnIO a aplicar TDP sem admin. Agora
+        // só aparece quando uma tentativa real falhar (ver ApplyTdpWattsFromQs).
+        NewQsPanel.HideElevationWarning();
     }
 
     /// <summary>

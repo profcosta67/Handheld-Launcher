@@ -176,6 +176,15 @@ public partial class MainWindow : Window
     private bool IsGridNav => _verticalLayout || _cloudGridActive;
 
     private bool IsCloudSearchFocused() { try { return _libraryLayout.CloudGrid.Search.IsKeyboardFocusWithin; } catch { return false; } }
+    // v0.25.3: abre o teclado do próprio launcher em qualquer campo (a busca da
+    // Nuvem chamava o TabTip do Windows). O Hide() é só um seguro para o caso
+    // de o Windows ter aberto o teclado antes deste handler.
+    public void ShowLauncherKeyboard(TextBox target)
+    {
+        try { TouchKeyboard.Hide(); } catch (Exception ex) { DebugLog.Swallowed(ex); }
+        Keyboard.Show(target);
+    }
+
     // v0.24.2: a busca da aba Nuvem passou a usar o teclado do launcher (o
     // TabTip do Windows não recebia o controle). Ver OnScreenKeyboardView.
     private void BeginCloudSearch() { try { _libraryLayout.CloudGrid.Search.Focus(); Keyboard.Show(_libraryLayout.CloudGrid.Search); } catch (Exception ex) { DebugLog.Swallowed(ex); } }

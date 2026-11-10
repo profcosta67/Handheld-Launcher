@@ -3,6 +3,9 @@
 Mais recente primeiro. Cada versão tem notas completas em [`release-notes/`](release-notes/).
 Betas não entram aqui: o que eles trazem aparece na versão estável que os junta.
 
+## [0.25.3] — 2026-11-10
+Lote de correções e acabamento: **Adicionar programa** passa a listar os programas instalados (registo, App Paths e Menu Iniciar) com procura por nome/caminho, atualização manual e preenchimento automático; **ícones vetoriais chunky** em todas as abas, barra de topo, botões de janela e cartões (fim dos emojis); **menos blur** (raios reduzidos a metade) e imagens estáticas nos heróis/capas para poupar GPU. Corrigido: adicionar jogo fechava com `InvalidCastException` e não adicionava; a busca da Nuvem usa o teclado do launcher; HUD do QS 2.0 restaurado com memória; aviso falso de TDP sem admin; reinício com mutex/watchdog; gamepad devolvido após fechar o QS; TDP personalizado ±1 W; foco do QS com scroll; seletor de layout com ícones. [Notas](release-notes/0.25.3.md)
+
 ## [0.25.2] — 2026-11-10
 Novo **tema Cartoon**, o quarto layout: estúdio de desenho animado dos anos 90/00 com moldura de tinta grossa, cantos tortos, splats, onomatopeias, estrelas de impacto, ícones vetoriais desenhados à mão e capas que "fazem boing" ao ganhar foco. Composição própria: faixa de informação compacta no topo (com a descrição ao lado do logo), grade vertical de capas, filtros no rodapé e ecrã de lançamento (wide capsule) com Jogar/Info/Fechar. Identidade fechada com **duas versões — escura (roxo) e clara (papel)** —, fonte Fredoka, som Bolha e grade fixa (as opções ficam bloqueadas nas Configurações). [Notas](release-notes/0.25.2.md)
 

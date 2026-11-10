@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using Avalonia;
+using HandheldLauncher.App.Diagnostics;
 using HandheldLauncher.App.Platform;
 using Velopack;
 using HandheldLauncher.Services.HidHide;
@@ -111,12 +112,29 @@ internal static class Program
         if (WatchdogGate.ShouldExitImmediately(args))
             return;
 
-        if (!SingleInstance.TryAcquire())
+        // v0.25.3: no reinício (--relaunch-after) o mutex pode continuar ocupado
+        // por uns instantes enquanto o processo antigo termina. Antes, uma única
+        // tentativa fazia o novo processo sair e o launcher ficava fechado.
+        var relaunch = LauncherRestart.IsRelaunch(args);
+        var acquired = false;
+        var attempts = relaunch ? 40 : 1;
+        for (var attempt = 0; attempt < attempts; attempt++)
         {
-            HandheldLauncher.App.Diagnostics.DebugLog.Write("[STARTUP] Já existe um launcher aberto — esta abertura só avisou a janela existente e saiu.");
+            if (SingleInstance.TryAcquire()) { acquired = true; break; }
+            if (attempt == 0)
+                DebugLog.Write("[STARTUP] Mutex ocupado durante o reinício; a aguardar a instância anterior.");
+            Thread.Sleep(250);
+        }
+
+        if (!acquired)
+        {
+            if (relaunch) LauncherRestart.ClearRestarting();
+            DebugLog.Write("[STARTUP] Já existe um launcher aberto — esta abertura só avisou a janela existente e saiu.");
             SingleInstance.NotifyExistingInstance();
             return;
         }
+
+        if (relaunch) LauncherRestart.ClearRestarting();
 
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }

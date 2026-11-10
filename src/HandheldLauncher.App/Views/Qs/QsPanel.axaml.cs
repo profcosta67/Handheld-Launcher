@@ -22,6 +22,7 @@ public partial class QsPanel : UserControl
     private readonly List<Button> _colorButtons = new();
     private readonly List<Button> _losslessButtons = new();
     private readonly List<Button> _captureButtons = new();
+    private readonly List<Button> _hudButtons = new();
 
     // Navegação por D-pad (mesma semântica do painel antigo).
     private readonly List<Border> _cards = new();
@@ -32,6 +33,7 @@ public partial class QsPanel : UserControl
     private int _minWatts = 5;
     private int _maxWatts = 35;
     private int _customWatts = QsPowerPresets.DesempenhoWatts;
+    private bool _customPresetActive;
     private bool _suppressEvents = false;
     private bool _losslessOn = false;
 
@@ -68,6 +70,7 @@ public partial class QsPanel : UserControl
         };
 
         BuildPowerPresets();
+        BuildHudChips();
 
         // Ordem vertical do D-pad = ordem visual (Brilho, Resolução, Cor,
         // Refrigeração, TDP, Lossless, Captura) + Fechar no fim.
@@ -76,6 +79,7 @@ public partial class QsPanel : UserControl
         _cards.Add(ColorCard);
         _cards.Add(FanCard);
         _cards.Add(TdpCard);
+        _cards.Add(HudCard);
         _cards.Add(LosslessCard);
         _cards.Add(CaptureCard);
         _losslessButtons.AddRange(new[] { BtnLosslessToggle, BtnLossless2x, BtnLossless3x, BtnLossless4x });
@@ -101,6 +105,7 @@ public partial class QsPanel : UserControl
     public event EventHandler<Button>? MultiplierRequested;
     public event EventHandler? PrintRequested;
     public event EventHandler? RecordRequested;
+    public event EventHandler<int>? HudPresetRequested;
 
     // ----------------------------------------------------------------- estado
 
@@ -145,6 +150,8 @@ public partial class QsPanel : UserControl
         }
     }
 
+    public void HideElevationWarning() => ElevationWarning.IsVisible = false;
+
     public void ShowElevationWarning(string message)
     {
         TxtElevationWarning.Text = message;
@@ -178,7 +185,42 @@ public partial class QsPanel : UserControl
     {
         for (var i = 0; i < _tdpButtons.Count; i++)
             _tdpButtons[i].Classes.Set("active", (PowerPreset)_tdpButtons[i].Tag! == preset);
+
+        // v0.25.3: no "Person." o D-pad ajusta o slider diretamente.
+        _customPresetActive = preset == PowerPreset.Custom;
+        if (TxtTdpHint is not null)
+            TxtTdpHint.Text = _customPresetActive ? "Personalizado: ←/→ ajusta 1 W" : "";
     }
+
+    // v0.25.3: HUD de desempenho de volta ao QS 2.0 (Off/Resumido/Médio/Completo).
+    private void BuildHudChips()
+    {
+        HudHost.Children.Clear();
+        _hudButtons.Clear();
+
+        var labels = new[] { "Desligado", "Mín", "Méd", "Completo" };
+        var emojis = new[] { "🚫", "📉", "📊", "📈" };
+        for (var i = 0; i < labels.Length; i++)
+        {
+            var index = i;
+            var button = MakeChip(emojis[i], labels[i]);
+            button.Tag = index;
+            button.Click += (_, _) => { SelectHud(index); HudPresetRequested?.Invoke(this, index); };
+            _hudButtons.Add(button);
+            HudHost.Children.Add(button);
+        }
+
+        SelectHud(0);
+    }
+
+    public void SelectHud(int preset)
+    {
+        for (var i = 0; i < _hudButtons.Count; i++)
+            _hudButtons[i].Classes.Set("active", i == preset);
+    }
+
+    /// <summary>Preset vindo das settings (0..3).</summary>
+    public void SetHud(int preset) => SelectHud(Math.Clamp(preset, 0, Math.Max(0, _hudButtons.Count - 1)));
 
     public void SelectFan(string label)
     {
@@ -440,6 +482,16 @@ public partial class QsPanel : UserControl
 
     private void SubMove(int dir)
     {
+        // v0.25.3: TDP personalizado — com o preset "Person." ativo, ←/→ altera
+        // o slider de watts sem precisar de tocar no ecrã.
+        if (_focusGroup == 4 && !_subOpen && _customPresetActive && TdpSlider is not null)
+        {
+            var current = (int)Math.Round(TdpSlider.Value);
+            var next = Math.Clamp(current + dir, _minWatts, _maxWatts);
+            if (next != current) TdpSlider.Value = next;
+            return;
+        }
+
         var items = ItemsFor(_focusGroup);
         if (items is null)
         {
@@ -475,9 +527,10 @@ public partial class QsPanel : UserControl
         2 => _colorButtons,
         3 => _fanButtons,
         4 => _tdpButtons,
-        5 => _losslessButtons,
-        6 => _captureButtons,
-        _ => null, // 0 = Brilho (slider), 7 = Fechar
+        5 => _hudButtons,
+        6 => _losslessButtons,
+        7 => _captureButtons,
+        _ => null, // 0 = Brilho (slider), 8 = Fechar
     };
 
     private void Activate(int group, int index)
@@ -501,11 +554,15 @@ public partial class QsPanel : UserControl
                     OnPowerPresetClick(p);
                 break;
             case 5:
+                if (index >= 0 && index < _hudButtons.Count)
+                    HudPresetRequested?.Invoke(this, index);
+                break;
+            case 6:
                 if (index == 0) OnLosslessToggleClick(BtnLosslessToggle, new RoutedEventArgs());
                 else if (index >= 1 && index < _losslessButtons.Count)
                     OnLosslessMultiplierClick(_losslessButtons[index], new RoutedEventArgs());
                 break;
-            case 6:
+            case 7:
                 if (index == 0) PrintRequested?.Invoke(this, EventArgs.Empty);
                 else RecordRequested?.Invoke(this, EventArgs.Empty);
                 break;
@@ -520,12 +577,24 @@ public partial class QsPanel : UserControl
         BtnCloseMenu.Classes.Set("active", !_subOpen && _focusGroup == _cards.Count);
 
         // cursor (foco de navegação) dentro de um grupo
-        for (var group = 0; group <= 6; group++)
+        for (var group = 0; group <= 7; group++)
         {
             var items = ItemsFor(group);
             if (items is null) continue;
             for (var i = 0; i < items.Count; i++)
                 items[i].Classes.Set("cursor", _subOpen && group == _focusGroup && i == _subIndex);
+        }
+
+        // v0.25.3: manter o cartão focado visível (o QS tem mais cartões do que
+        // a altura do painel — sem isto o D-pad "desaparecia" no fim da lista).
+        if (_focusGroup >= 0 && _focusGroup < _cards.Count)
+            _cards[_focusGroup].BringIntoView();
+
+        if (_subOpen)
+        {
+            var focused = ItemsFor(_focusGroup);
+            if (focused is not null && _subIndex >= 0 && _subIndex < focused.Count)
+                focused[_subIndex].BringIntoView();
         }
     }
 }

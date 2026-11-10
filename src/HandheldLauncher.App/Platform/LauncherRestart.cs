@@ -36,6 +36,54 @@ internal static class LauncherRestart
     private const string WaitArgument = "--relaunch-after";
 
     /// <summary>
+    /// v0.25.3: marcador de "reinício em curso". O watchdog (tarefa agendada)
+    /// pode acordar exactamente enquanto o processo antigo fecha e o novo espera
+    /// pelo mutex; nesse instante ele abria uma terceira instância, vencia a
+    /// corrida e o launcher ficava fechado. Com o marcador, abertura automática
+    /// durante um reinício sai na hora (ver WatchdogGate).
+    /// </summary>
+    private static readonly string RestartFlagPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "HandheldLauncher",
+        "restarting.flag");
+
+    public static bool IsRelaunch(string[] args)
+        => args.Any(a => string.Equals(a, WaitArgument, StringComparison.OrdinalIgnoreCase));
+
+    public static void MarkRestarting()
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(RestartFlagPath)!);
+            File.WriteAllText(RestartFlagPath, DateTime.UtcNow.ToString("O"));
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"LauncherRestart: falha ao marcar reinício: {ex.Message}");
+        }
+    }
+
+    public static void ClearRestarting()
+    {
+        try { if (File.Exists(RestartFlagPath)) File.Delete(RestartFlagPath); }
+        catch (Exception ex) { DebugLog.Swallowed(ex); }
+    }
+
+    /// <summary>True enquanto um reinício pedido por nós está em curso (90 s de validade).</summary>
+    public static bool IsRestartPending()
+    {
+        try
+        {
+            if (!File.Exists(RestartFlagPath)) return false;
+            var age = DateTime.UtcNow - File.GetLastWriteTimeUtc(RestartFlagPath);
+            if (age < TimeSpan.FromSeconds(90)) return true;
+            File.Delete(RestartFlagPath); // marcador órfão
+        }
+        catch (Exception ex) { DebugLog.Swallowed(ex); }
+        return false;
+    }
+
+    /// <summary>
     /// Abre uma instância nova que espera esta morrer, e devolve true se
     /// conseguiu. False = NADA foi aberto, e quem chamou não deve fechar o
     /// launcher (senão o usuário fica sem nada na tela).
@@ -59,12 +107,15 @@ internal static class LauncherRestart
             psi.ArgumentList.Add(WaitArgument);
             psi.ArgumentList.Add(Environment.ProcessId.ToString());
 
+            MarkRestarting();
             var started = Process.Start(psi);
+            if (started is null) ClearRestarting();
             DebugLog.Write($"LauncherRestart: instância nova pid={started?.Id.ToString() ?? "?"} esperando pid={Environment.ProcessId}.");
             return started is not null;
         }
         catch (Exception ex)
         {
+            ClearRestarting();
             DebugLog.Write($"LauncherRestart EXCEPTION: {ex}");
             return false;
         }
@@ -103,7 +154,9 @@ internal static class LauncherRestart
             psi.ArgumentList.Add(WaitArgument);
             psi.ArgumentList.Add(Environment.ProcessId.ToString());
 
+            MarkRestarting();
             var started = Process.Start(psi);
+            if (started is null) ClearRestarting();
             DebugLog.Write(started is null
                 ? "[ELEVACAO] Reinício elevado: Process.Start devolveu null."
                 : $"[ELEVACAO] Reinício elevado: nova instância pid={started.Id} esperando pid={Environment.ProcessId}.");
@@ -111,6 +164,7 @@ internal static class LauncherRestart
         }
         catch (Exception ex)
         {
+            ClearRestarting();
             // HResult 0x800704C7 = o utilizador cancelou o UAC.
             DebugLog.Write($"[ELEVACAO] Reinício elevado não aconteceu: {ex.GetType().Name} hr=0x{ex.HResult:X8}");
             return false;

@@ -3,6 +3,16 @@
              x:Class="HandheldLauncher.App.App"
              RequestedThemeVariant="Dark">
 
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <!-- v0.25.3: ícones "chunky" partilhados pelos layouts Clássico,
+             Clean/Switch e BigScreen (o Cartoon tem os seus Path à mão). -->
+        <ResourceInclude Source="avares://HandheldLauncher/Styles/ChunkyIcons.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+
   <Application.Styles>
     <FluentTheme />
     <StyleInclude Source="avares://HandheldLauncher/Styles/Theme.axaml" />

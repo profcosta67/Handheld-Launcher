@@ -221,6 +221,57 @@ public sealed class HidHideService : IHidHideService, IDisposable
         });
     }
 
+    public void ForceRestartController()
+    {
+        if (!OperatingSystem.IsWindows() || !ElevationService.IsElevated)
+        {
+            DebugLog.Write("[HIDHIDE] Reinício do gamepad ignorado: sem administrador.");
+            return;
+        }
+
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                // Só os gamepads (IG_00 / SYNTHETICGAMEPAD): reiniciar teclado,
+                // rato ou touchpad da handheld seria pior do que o problema.
+                var ids = HidHideTask.FindControllerInstanceIds()
+                    .Where(id => id.Contains("IG_00", StringComparison.OrdinalIgnoreCase)
+                              || id.Contains("SYNTHETICGAMEPAD", StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                foreach (var id in ids)
+                {
+                    try
+                    {
+                        var psi = new System.Diagnostics.ProcessStartInfo("pnputil.exe", $"/restart-device \"{id}\"")
+                        {
+                            UseShellExecute = false,
+                            CreateNoWindow = true,
+                            RedirectStandardOutput = true,
+                            RedirectStandardError = true,
+                        };
+                        using var proc = System.Diagnostics.Process.Start(psi);
+                        if (proc is null) continue;
+                        if (!proc.WaitForExit(5000))
+                        {
+                            try { proc.Kill(entireProcessTree: true); } catch (Exception swallowedEx) { DebugLog.Swallowed(swallowedEx); }
+                        }
+                        DebugLog.Write($"[HIDHIDE] Gamepad re-enumerado ({id}): exit={proc.ExitCode}.");
+                    }
+                    catch (Exception ex)
+                    {
+                        DebugLog.Write($"[HIDHIDE] Falha ao re-enumerar {id}: {ex.GetType().Name}: {ex.Message}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                DebugLog.Write($"[HIDHIDE] ForceRestartController falhou: {ex.GetType().Name}: {ex.Message}");
+            }
+        });
+    }
+
     public void Dispose()
     {
         if (_hidHideControl != null && IsAvailable && _isInitialized)
@@ -267,11 +318,6 @@ public sealed class HidHideService : IHidHideService, IDisposable
             return process.MainModule?.FileName;
         }
         catch { return null; }
-    }
-
-    public void ForceRestartController()
-    {
-        // Método mantido por compatibilidade, mas não é mais chamado no App.axaml.cs
     }
 }
 #endif

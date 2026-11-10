@@ -50,7 +50,10 @@ public class AppSettings
     public bool AutoRestart { get; set; } = false;
     public bool ModeChosen { get; set; } = false;
     public int ColorMode { get; set; } = 0;
+    // v0.26: o HUD do Quick Settings começa no preset que o usuário deixou;
+    // sem histórico (instalação nova) começa no "Completo".
     public int OverlayPreset { get; set; } = 0;
+    public bool OverlayPresetChosen { get; set; }
 
     // v0.16: opt-in pro canal beta do Velopack. Default false — ninguém sai
     // do canal estável sem pedir. Ver UpdateService.

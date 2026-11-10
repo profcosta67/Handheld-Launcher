@@ -534,7 +534,7 @@ public bool CanOpenSelectedDetails => SelectedTile?.Game is { } game && HasGameD
         var last = Interlocked.Read(ref _lastOverlayCycleTicks);
         if (now - last < 500 || Interlocked.CompareExchange(ref _lastOverlayCycleTicks, now, last) != last) return;
         _hud.Preset = (_hud.Preset + 1) % PerformanceHud.PresetNames.Length;
-        try { var settings = AppSettingsStore.Load(); settings.OverlayPreset = _hud.Preset; AppSettingsStore.Save(settings); }
+        try { var settings = AppSettingsStore.Load(); settings.OverlayPreset = _hud.Preset; settings.OverlayPresetChosen = true; AppSettingsStore.Save(settings); }
         catch (Exception ex) { DebugLog.Write($"[HUD] Falha ao salvar preset do overlay: {ex.Message}"); }
     }
 
@@ -542,7 +542,7 @@ public bool CanOpenSelectedDetails => SelectedTile?.Game is { } game && HasGameD
     {
         if (_hud is null || !OperatingSystem.IsWindows()) return;
         _hud.Preset = preset;
-        try { var settings = AppSettingsStore.Load(); settings.OverlayPreset = _hud.Preset; AppSettingsStore.Save(settings); }
+        try { var settings = AppSettingsStore.Load(); settings.OverlayPreset = _hud.Preset; settings.OverlayPresetChosen = true; AppSettingsStore.Save(settings); }
         catch (Exception ex) { DebugLog.Write($"[HUD] Falha ao salvar preset do overlay: {ex.Message}"); }
     }
 
@@ -554,7 +554,7 @@ public bool CanOpenSelectedDetails => SelectedTile?.Game is { } game && HasGameD
     {
         if (_hud is null || !OperatingSystem.IsWindows()) return;
         _hud.Preset = enabled ? Math.Max(1, _hud.Preset) : 0;
-        try { var settings = AppSettingsStore.Load(); settings.OverlayPreset = _hud.Preset; AppSettingsStore.Save(settings); }
+        try { var settings = AppSettingsStore.Load(); settings.OverlayPreset = _hud.Preset; settings.OverlayPresetChosen = true; AppSettingsStore.Save(settings); }
         catch (Exception ex) { DebugLog.Write($"[HUD] Falha ao salvar preset do overlay: {ex.Message}"); }
         OnPropertyChanged(nameof(IsPerformanceHudEnabled));
     }

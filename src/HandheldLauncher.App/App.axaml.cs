@@ -138,7 +138,21 @@ public partial class App : Application
             PerformanceHud? performanceHud = null;
             if (OperatingSystem.IsWindows())
             {
-                performanceHud = new PerformanceHud(appSettings.OverlayPreset);
+                // v0.25.3: HUD restaurado do que o usuário deixou. Sem histórico
+                // (instalação nova) começa no preset "Completo".
+                var hudPreset = appSettings.OverlayPresetChosen
+                    ? Math.Clamp(appSettings.OverlayPreset, 0, PerformanceHud.PresetNames.Length - 1)
+                    : PerformanceHud.PresetNames.Length - 1;
+                if (!appSettings.OverlayPresetChosen)
+                {
+                    appSettings.OverlayPreset = hudPreset;
+                    appSettings.OverlayPresetChosen = true;
+                    try { AppSettingsStore.Save(appSettings); }
+                    catch (Exception ex) { DebugLog.Write($"[HUD] Falha ao salvar preset inicial: {ex.Message}"); }
+                    DebugLog.Write($"[HUD] Sem histórico — iniciando no preset '{PerformanceHud.PresetNames[hudPreset]}'.");
+                }
+
+                performanceHud = new PerformanceHud(hudPreset);
                 desktop.Exit += (_, _) => performanceHud?.Dispose();
             }
 

@@ -56,10 +56,10 @@
 
   <Panel>
     <Image x:Name="HeroBackImage" Stretch="UniformToFill" IsHitTestVisible="False">
-      <Image.Effect><media:BlurEffect Radius="45" /></Image.Effect>
+      <Image.Effect><media:BlurEffect Radius="22" /></Image.Effect>
     </Image>
     <Image x:Name="HeroImage" Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}" Stretch="UniformToFill" IsHitTestVisible="False">
-      <Image.Effect><media:BlurEffect Radius="45" /></Image.Effect>
+      <Image.Effect><media:BlurEffect Radius="22" /></Image.Effect>
     </Image>
 
     <Border Background="{DynamicResource ArtBackdropDimBrush}" IsHitTestVisible="False" />
@@ -118,14 +118,14 @@
                       <Transitions><DoubleTransition Property="Opacity" Duration="0:0:0.25" /></Transitions>
                     </Grid.Transitions>
 
-                    <Image anim:ImageBehavior.AnimatedSource="{Binding CarouselTileImagePath}" Width="{Binding CarouselTileWidth}" Height="{Binding CarouselTileHeight}" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Image Source="{Binding CarouselTileImagePath}" Width="{Binding CarouselTileWidth}" Height="{Binding CarouselTileHeight}" Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center" />
                     
                     <Border Background="{DynamicResource BackdropDimBrush}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" IsVisible="{Binding ShowEmptyCarouselPlaceholder}">
                       <TextBlock Text="{Binding Title}" Classes="gameTitle" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="8" />
                     </Border>
                     
                     <Border Background="{DynamicResource SurfaceBrush}" IsHitTestVisible="False" IsVisible="{Binding IsOwnedNotInstalled}" />
-                    <TextBlock Text="★" Foreground="{DynamicResource AccentBrush}" FontSize="18" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="6" IsVisible="{Binding IsFavorite}" />
+                    <PathIcon Width="18" Height="18" Data="{StaticResource IconStar}" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="6" IsVisible="{Binding IsFavorite}" />
                     <Border Background="{Binding PlatformBadgeColorHex, Converter={StaticResource HexColorToBrushConverter}}" CornerRadius="4" Padding="4,1" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="6" IsVisible="{Binding HasPlatformBadge}">
                       <TextBlock Text="{Binding PlatformBadgeText}" FontSize="9" FontWeight="Bold" Foreground="White" />
                     </Border>
@@ -138,7 +138,7 @@
 
             <Button x:Name="AddProgramButton" Classes="addGhostCard" Click="OnAddProgramClick" IsVisible="{Binding IsFilterApplicationsActive}" VerticalAlignment="Center">
               <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
-                <TextBlock Text="＋" FontSize="48" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                <PathIcon Width="48" Height="48" Data="{StaticResource IconPlus}" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
                 <TextBlock Text="Adicionar Jogo" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
               </StackPanel>
             </Button>
@@ -154,25 +154,25 @@
       <StackPanel Grid.Row="1" Spacing="8" Margin="0,16,0,0">
         <Grid ColumnDefinitions="*,*,*,*,*,*,*">
           <Button Grid.Column="0" Classes="switchTab" Classes.active="{Binding IsFilterFavoritesActive}" Command="{Binding SetFilterFavoritesCommand}" Margin="4">
-            <StackPanel HorizontalAlignment="Center" Spacing="3"><TextBlock Text="★" FontSize="19" HorizontalAlignment="Center" /><TextBlock Text="Favoritos" /></StackPanel>
+            <StackPanel HorizontalAlignment="Center" Spacing="3"><PathIcon Width="20" Height="20" HorizontalAlignment="Center" Data="{StaticResource IconStar}" /><TextBlock Text="Favoritos" /></StackPanel>
           </Button>
           <Button Grid.Column="1" Classes="switchTab" Classes.active="{Binding IsFilterAllActive}" Command="{Binding SetFilterAllCommand}" Margin="4">
-            <StackPanel HorizontalAlignment="Center" Spacing="3"><TextBlock Text="▦" FontSize="19" HorizontalAlignment="Center" /><TextBlock Text="Todos" /></StackPanel>
+            <StackPanel HorizontalAlignment="Center" Spacing="3"><PathIcon Width="20" Height="20" HorizontalAlignment="Center" Data="{StaticResource IconGrid}" /><TextBlock Text="Todos" /></StackPanel>
           </Button>
           <Button Grid.Column="2" Classes="switchTab" Classes.active="{Binding IsFilterComputerActive}" Command="{Binding SetFilterComputerCommand}" Margin="4">
-            <StackPanel HorizontalAlignment="Center" Spacing="3"><TextBlock Text="⌨" FontSize="19" HorizontalAlignment="Center" /><TextBlock Text="Computador" /></StackPanel>
+            <StackPanel HorizontalAlignment="Center" Spacing="3"><PathIcon Width="20" Height="20" HorizontalAlignment="Center" Data="{StaticResource IconMonitor}" /><TextBlock Text="Computador" /></StackPanel>
           </Button>
           <Button Grid.Column="3" Classes="switchTab" Classes.active="{Binding IsFilterEmulatorsActive}" Command="{Binding SetFilterEmulatorsCommand}" Margin="4">
-            <StackPanel HorizontalAlignment="Center" Spacing="3"><TextBlock Text="◈" FontSize="19" HorizontalAlignment="Center" /><TextBlock Text="Emuladores" /></StackPanel>
+            <StackPanel HorizontalAlignment="Center" Spacing="3"><PathIcon Width="20" Height="20" HorizontalAlignment="Center" Data="{StaticResource IconGamepad}" /><TextBlock Text="Emuladores" /></StackPanel>
           </Button>
           <Button Grid.Column="4" Classes="switchTab" Classes.active="{Binding IsFilterApplicationsActive}" Command="{Binding SetFilterApplicationsCommand}" Margin="4">
-            <StackPanel HorizontalAlignment="Center" Spacing="3"><TextBlock Text="▣" FontSize="19" HorizontalAlignment="Center" /><TextBlock Text="Programas" /></StackPanel>
+            <StackPanel HorizontalAlignment="Center" Spacing="3"><PathIcon Width="20" Height="20" HorizontalAlignment="Center" Data="{StaticResource IconAppWindow}" /><TextBlock Text="Programas" /></StackPanel>
           </Button>
           <Button Grid.Column="5" Classes="switchTab" Classes.active="{Binding IsFilterNotInstalledActive}" Command="{Binding SetFilterNotInstalledCommand}" Margin="4">
-            <StackPanel HorizontalAlignment="Center" Spacing="3"><TextBlock Text="↓" FontSize="19" HorizontalAlignment="Center" /><TextBlock Text="Não instalados" /></StackPanel>
+            <StackPanel HorizontalAlignment="Center" Spacing="3"><PathIcon Width="20" Height="20" HorizontalAlignment="Center" Data="{StaticResource IconDownload}" /><TextBlock Text="Não instalados" /></StackPanel>
           </Button>
           <Button Grid.Column="6" Classes="switchTab" Classes.active="{Binding IsFilterCloudActive}" Command="{Binding SetFilterCloudCommand}" Margin="4">
-            <StackPanel HorizontalAlignment="Center" Spacing="3"><TextBlock Text="☁" FontSize="19" HorizontalAlignment="Center" /><TextBlock Text="Nuvem" /></StackPanel>
+            <StackPanel HorizontalAlignment="Center" Spacing="3"><PathIcon Width="20" Height="20" HorizontalAlignment="Center" Data="{StaticResource IconCloud}" /><TextBlock Text="Nuvem" /></StackPanel>
           </Button>
         </Grid>
 

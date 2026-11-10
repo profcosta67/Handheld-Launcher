@@ -147,7 +147,7 @@
     <Style Selector="Path.toonBurst">
       <Setter Property="Fill" Value="{StaticResource ToonBurstBrush}" />
       <Setter Property="Stroke" Value="{StaticResource ToonInkBrush}" />
-      <Setter Property="StrokeThickness" Value="2.5" />
+      <Setter Property="StrokeThickness" Value="2.8" />
       <Setter Property="Stretch" Value="Uniform" />
       <Setter Property="HorizontalAlignment" Value="Center" />
       <Setter Property="VerticalAlignment" Value="Center" />
@@ -208,7 +208,7 @@
     <!-- Ícones de estatística (relógio, calendário, troféu): traço de caneta -->
     <Style Selector="Path.statIcon">
       <Setter Property="Stroke" Value="{DynamicResource TextSecondaryBrush}" />
-      <Setter Property="StrokeThickness" Value="1.5" />
+      <Setter Property="StrokeThickness" Value="1.8" />
       <Setter Property="Fill" Value="Transparent" />
       <Setter Property="Width" Value="12" />
       <Setter Property="Height" Value="12" />
@@ -219,7 +219,7 @@
     <!-- Ícones dos botões (play/info/fechar) -->
     <Style Selector="Path.btnIcon">
       <Setter Property="Stroke" Value="{StaticResource ToonInkBrush}" />
-      <Setter Property="StrokeThickness" Value="1.8" />
+      <Setter Property="StrokeThickness" Value="2.1" />
       <Setter Property="Fill" Value="Transparent" />
       <Setter Property="Width" Value="14" />
       <Setter Property="Height" Value="14" />
@@ -290,7 +290,7 @@
     <!-- Fundo: o BANNER (hero) do jogo em foco vira o plano de fundo do tema -->
     <Image Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
            Stretch="UniformToFill" Opacity="0.30" IsHitTestVisible="False">
-      <Image.Effect><media:BlurEffect Radius="28" /></Image.Effect>
+      <Image.Effect><media:BlurEffect Radius="14" /></Image.Effect>
     </Image>
     <!-- Véu do tema: re-tintado pelo ThemeManager (roxo no escuro, papel no claro) -->
     <Border IsHitTestVisible="False" Background="{DynamicResource ToonVeilBrush}" />
@@ -426,15 +426,18 @@
                             Width="{Binding TileWidth}" Height="{Binding TileHeight}"
                             PointerPressed="OnTilePointerPressed">
                       <Grid>
-                        <Image anim:ImageBehavior.AnimatedSource="{Binding TileImagePath}" Stretch="Uniform" />
+                        <Image Source="{Binding TileImagePath}" Stretch="UniformToFill" />
                         <Border Background="#99383838" IsHitTestVisible="False" IsVisible="{Binding IsOwnedNotInstalled}" />
                         <TextBlock Text="{Binding Title}" Classes="gameTitle" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="10" IsVisible="{Binding ShowEmptyPlaceholder}" />
                         <Border Background="{Binding PlatformBadgeColorHex, Converter={StaticResource HexColorToBrushConverter}}" BorderBrush="{StaticResource ToonInkBrush}" BorderThickness="2" CornerRadius="6" Padding="5,2" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8" IsVisible="{Binding HasPlatformBadge}">
                           <TextBlock Text="{Binding PlatformBadgeText}" FontSize="10" FontWeight="Bold" Foreground="White" />
                         </Border>
-                        <TextBlock Text="★" Foreground="{StaticResource ToonBurstBrush}" FontSize="22" FontWeight="Black" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="8" IsVisible="{Binding IsFavorite}" />
+                        <Path Width="24" Height="24" Data="M12,2 L14.2,8.2 L21,8.6 L15.7,13.1 L17.6,20 L12,16.1 L6.4,20 L8.3,13.1 L3,8.6 L9.8,8.2 Z" Fill="{StaticResource ToonBurstBrush}" Stroke="{StaticResource ToonInkBrush}" StrokeThickness="1.5" StrokeJoin="Round" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="8" IsVisible="{Binding IsFavorite}" />
                         <Border Background="{StaticResource ToonSplatBrush}" BorderBrush="{StaticResource ToonInkBrush}" BorderThickness="2" CornerRadius="6" Padding="6,3" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="8" IsVisible="{Binding IsOwnedNotInstalled}">
-                          <TextBlock Text="⇩ INSTALAR" FontSize="11" FontWeight="Bold" Foreground="{StaticResource ToonInkBrush}" />
+                          <StackPanel Orientation="Horizontal" Spacing="4">
+                            <PathIcon Width="11" Height="11" Data="{StaticResource IconDownload}" Foreground="{StaticResource ToonInkBrush}" />
+                            <TextBlock Text="INSTALAR" FontSize="11" FontWeight="Bold" Foreground="{StaticResource ToonInkBrush}" VerticalAlignment="Center" />
+                          </StackPanel>
                         </Border>
                       </Grid>
                     </Border>
@@ -446,7 +449,7 @@
 
           <Button x:Name="AddProgramButton" Classes="addGhostCard" Click="OnAddProgramClick" IsVisible="{Binding IsFilterApplicationsActive}" VerticalAlignment="Top">
             <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
-              <TextBlock Text="＋" FontSize="40" FontWeight="Black" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" />
+              <PathIcon Width="40" Height="40" Data="{StaticResource IconPlus}" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" />
               <TextBlock Text="Adicionar Jogo" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" />
             </StackPanel>
           </Button>

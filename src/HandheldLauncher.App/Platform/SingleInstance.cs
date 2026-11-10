@@ -48,8 +48,15 @@ internal static class SingleInstance
 
     public static bool TryAcquire()
     {
-        _mutex = new Mutex(initiallyOwned: true, name: MutexName, out var isNewInstance);
-        return isNewInstance;
+        var mutex = new Mutex(initiallyOwned: true, name: MutexName, out var isNewInstance);
+        if (isNewInstance)
+        {
+            _mutex = mutex;
+            return true;
+        }
+
+        mutex.Dispose();
+        return false;
     }
 
     /// <summary>

@@ -49,7 +49,7 @@
   <StackPanel Grid.Row="0" Spacing="6" Margin="8,4,8,6">
     <Grid ColumnDefinitions="*,Auto">
       <TextBox x:Name="SearchBox" Text="{Binding CloudSearchText, Mode=TwoWay}"
-               Watermark="🔍 Buscar jogo na nuvem  (Y)" MaxWidth="640" HorizontalAlignment="Stretch"
+               Watermark="Buscar jogo na nuvem  (Y)" MaxWidth="640" HorizontalAlignment="Stretch"
                GotFocus="OnSearchGotFocus" />
       <Button Grid.Column="1" Classes="pill" Content="✕ Limpar  (B)" Margin="8,0,0,0" Focusable="False"
               IsVisible="{Binding HasCloudFilter}" Click="OnClearClick" />
@@ -98,7 +98,7 @@
                 <layouts:AsyncPosterImage Path="{Binding GridImagePath}" Stretch="UniformToFill" />
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="10" Spacing="6"
                             IsVisible="{Binding ShowEmptyPlaceholder}">
-                  <TextBlock Text="☁" FontSize="34" HorizontalAlignment="Center" Foreground="{DynamicResource AccentBrush}" />
+                  <PathIcon Width="34" Height="34" Data="{StaticResource IconCloud}" HorizontalAlignment="Center" Foreground="{DynamicResource AccentBrush}" />
                   <TextBlock Text="{Binding Title}" Classes="gameTitle" FontSize="14" TextWrapping="Wrap" TextAlignment="Center" />
                 </StackPanel>
               </Grid>

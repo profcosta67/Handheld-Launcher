@@ -33,6 +33,17 @@ public partial class AddGameWindow : Window, IGamepadKeyboardHost
         DataContext = vm;
     }
 
+    protected override void OnOpened(EventArgs e)
+    {
+        base.OnOpened(e);
+        if (DataContext is AddGameViewModel vm) _ = vm.LoadInstalledProgramsAsync();
+    }
+
+    private async void OnRefreshProgramsClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is AddGameViewModel vm) await vm.LoadInstalledProgramsAsync();
+    }
+
     private async void OnBrowseClick(object? sender, RoutedEventArgs e)
     {
         var storage = GetTopLevel(this)?.StorageProvider;
@@ -51,13 +62,16 @@ public partial class AddGameWindow : Window, IGamepadKeyboardHost
         }
     }
 
-    private void OnCancelClick(object? sender, RoutedEventArgs e) => Close(false);
+    private void OnCancelClick(object? sender, RoutedEventArgs e) => Close(null);
 
     private void OnAddClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is AddGameViewModel vm && vm.CanSave)
         {
-            Close(vm);
+            // v0.25.3: a MainWindow espera um GameEntry (ShowDialog<GameEntry?>).
+            // Antes fechava com o ViewModel → InvalidCastException e o programa
+            // nunca era adicionado ("travou e não reconheceu").
+            Close(vm.BuildGameEntry());
         }
     }
 }

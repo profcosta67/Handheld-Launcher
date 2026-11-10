@@ -23,4 +23,12 @@ public interface IHidHideService
     void Initialize();
     void HideControllerForProcess(int processId);
     void RestoreControllerForProcess(int processId);
+
+    /// <summary>
+    /// v0.25.3: depois de devolver o controle ao jogo, força o Windows a
+    /// re-enumerar os gamepads. Sem isto, alguns jogos (Days Gone) continuam
+    /// sem controle depois de fechar o QS — o HidHide escondeu o dispositivo e
+    /// o jogo não volta a abri-lo só porque o caminho foi removido da lista.
+    /// </summary>
+    void ForceRestartController();
 }

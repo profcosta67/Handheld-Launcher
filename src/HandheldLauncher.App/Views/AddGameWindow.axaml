@@ -1,11 +1,12 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:HandheldLauncher.App.ViewModels"
+        xmlns:models="using:HandheldLauncher.Core.Models"
         xmlns:views="using:HandheldLauncher.App.Views"
         x:Class="HandheldLauncher.App.Views.AddGameWindow"
         x:DataType="vm:AddGameViewModel"
         Title="Adicionar Jogo ou Programa"
-        Width="600" Height="680"
+        Width="640" Height="760"
         Topmost="True"
         CanResize="False"
         WindowStartupLocation="CenterOwner"
@@ -28,6 +29,40 @@
   <Grid RowDefinitions="*,Auto,Auto" Margin="24">
     <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="4">
+
+        <!-- Card: Programas instalados (v0.25.3) -->
+        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="12" Padding="16" Margin="0,0,0,12">
+          <StackPanel Spacing="10">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Programas instalados" Classes="header" Margin="0"/>
+              <Button Grid.Column="1" Classes="pill" Content="Atualizar" Click="OnRefreshProgramsClick" Height="32" FontSize="12" Padding="14,0"/>
+            </Grid>
+            <TextBlock Text="Escolhe um programa da lista ou preenche os campos abaixo à mão." Classes="label" TextWrapping="Wrap"/>
+            <TextBox Text="{Binding ProgramSearch, Mode=TwoWay}" Watermark="Buscar programa instalado..." Height="38" FontSize="13"/>
+            <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsScanningPrograms}" Height="3"/>
+            <TextBlock Text="{Binding ProgramStatusText}" Classes="label" IsVisible="{Binding !IsScanningPrograms}"/>
+            <ListBox ItemsSource="{Binding FilteredPrograms}"
+                     SelectedItem="{Binding SelectedProgram, Mode=TwoWay}"
+                     MaxHeight="190" IsVisible="{Binding HasPrograms}"
+                     Background="Transparent" BorderThickness="0" Padding="0">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="models:InstalledProgramOption">
+                  <Grid ColumnDefinitions="Auto,*" Margin="4,5">
+                    <PathIcon Grid.Column="0" Width="22" Height="22"
+                              Data="{StaticResource IconAppWindow}"
+                              Foreground="{DynamicResource AccentBrush}" Margin="0,0,10,0"/>
+                    <StackPanel Grid.Column="1" Spacing="1">
+                      <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis"/>
+                      <TextBlock Text="{Binding ExecutablePath}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <TextBlock Text="Nenhum programa encontrado. Usa a procura ou adiciona à mão."
+                       Classes="label" TextWrapping="Wrap" IsVisible="{Binding NoProgramsFound}"/>
+          </StackPanel>
+        </Border>
 
         <!-- Card: Informações Básicas -->
         <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="12" Padding="16" Margin="0,0,0,12">

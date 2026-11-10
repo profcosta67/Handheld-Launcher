@@ -29,4 +29,8 @@ public sealed class NullHidHideService : IHidHideService
     public void RestoreControllerForProcess(int processId)
     {
     }
+
+    public void ForceRestartController()
+    {
+    }
 }

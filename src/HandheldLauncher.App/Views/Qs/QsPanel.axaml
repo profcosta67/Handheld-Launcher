@@ -170,9 +170,21 @@
               </Grid>
               <StackPanel x:Name="TdpPresetsHost" Orientation="Horizontal" Spacing="6"
                           HorizontalAlignment="Center" Margin="0,8,0,0" />
+              <TextBlock x:Name="TxtTdpHint" Text="" FontSize="10"
+                         Foreground="{StaticResource TextSecondaryBrush}"
+                         HorizontalAlignment="Center" TextAlignment="Center"
+                         TextWrapping="Wrap" Margin="0,4,0,0" />
             </StackPanel>
           </Border>
 
+
+          <!-- HUD DE DESEMPENHO -->
+          <Border x:Name="HudCard" Classes="qsGroup">
+            <StackPanel Spacing="0">
+              <TextBlock Text="HUD de Desempenho" Classes="qsGroupTitle" />
+              <StackPanel x:Name="HudHost" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" />
+            </StackPanel>
+          </Border>
 
           <!-- LOSSLESS SCALING: toggle em cima, multiplicadores em baixo -->
           <Border x:Name="LosslessCard" Classes="qsGroup">

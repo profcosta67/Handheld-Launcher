@@ -47,7 +47,7 @@
                         <TextBlock Text="{Binding SelectedTile.InstallStatusLabel}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" FontWeight="Bold"/>
                     </Border>
                     <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding SelectedTile.IsFavorite}" VerticalAlignment="Center">
-                        <TextBlock Text="★" Foreground="#FFFFC45C" FontSize="14" VerticalAlignment="Center"/>
+                        <PathIcon Width="14" Height="14" Data="{StaticResource IconStar}" Foreground="#FFFFC45C" VerticalAlignment="Center"/>
                         <TextBlock Text="Favorito" Foreground="#FFFFC45C" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     </StackPanel>
                 </StackPanel>
@@ -77,7 +77,7 @@
                     
                     <!-- ⏱️ Tempo de Jogo -->
                     <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding SelectedTile.ShowPlaytime}">
-                        <TextBlock Text="⏱️" FontSize="14" VerticalAlignment="Center"/>
+                        <PathIcon Width="14" Height="14" Data="{StaticResource IconClock}" VerticalAlignment="Center"/>
                         <TextBlock Text="{Binding SelectedTile.PlaytimeLabel}"
                                    Foreground="{DynamicResource TextPrimaryBrush}"
                                    FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
@@ -86,7 +86,7 @@
                     <!-- 🕒 Última Sessão -->
                     <StackPanel Orientation="Horizontal" Spacing="4"
                                 IsVisible="{Binding SelectedTile.HasLastPlayed}">
-                        <TextBlock Text="🕒" FontSize="14" VerticalAlignment="Center"/>
+                        <PathIcon Width="14" Height="14" Data="{StaticResource IconCalendar}" VerticalAlignment="Center"/>
                         <TextBlock Text="{Binding SelectedTile.LastPlayedLabel}"
                                    Foreground="{DynamicResource TextPrimaryBrush}"
                                    FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
@@ -95,7 +95,7 @@
                     <!-- 🏷️ Gênero -->
                     <StackPanel Orientation="Horizontal" Spacing="4"
                                 IsVisible="{Binding SelectedTile.HasGenre}">
-                        <TextBlock Text="🏷️" FontSize="14" VerticalAlignment="Center"/>
+                        <PathIcon Width="14" Height="14" Data="{StaticResource IconTag}" VerticalAlignment="Center"/>
                         <TextBlock Text="{Binding SelectedTile.Genre}"
                                    Foreground="{DynamicResource TextPrimaryBrush}"
                                    FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
@@ -104,7 +104,7 @@
                     <!-- Adicione isso na linha de estatísticas (junto com tempo, última sessão e gênero) -->
                 <StackPanel Orientation="Horizontal" Spacing="4"
                             IsVisible="{Binding SelectedTile.HasAchievements}">
-                    <TextBlock Text="🏆" FontSize="11"/>
+                    <PathIcon Width="12" Height="12" Data="{StaticResource IconTrophy}" VerticalAlignment="Center"/>
                     <TextBlock Text="{Binding SelectedTile.AchievementBadgeLabel}" FontSize="11"
                             Foreground="{DynamicResource TextMuted}"/>
                 </StackPanel>

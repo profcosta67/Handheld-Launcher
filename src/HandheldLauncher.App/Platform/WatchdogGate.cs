@@ -43,6 +43,14 @@ internal static class WatchdogGate
             // iniciados por svchost como tarefas agendadas.
             var isAutomatic = args.Any(a => string.Equals(a, "--watchdog", StringComparison.OrdinalIgnoreCase));
 
+            // v0.25.3: nunca competir com um reinício pedido pelo próprio
+            // launcher (troca de layout, "Reiniciar launcher", reinício admin).
+            if (isAutomatic && LauncherRestart.IsRestartPending())
+            {
+                DebugLog.Write("[STARTUP] Abertura automática ignorada: reinício do launcher em curso.");
+                return true;
+            }
+
             if (!isAutomatic)
             {
                 ClearQuitFlag();

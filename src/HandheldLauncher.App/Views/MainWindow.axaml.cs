@@ -177,7 +177,10 @@ public partial class MainWindow : Window
                 }
                 else
                 {
-                    if (_gamepadTimer.IsEnabled)
+                    // v0.25.3: com o QS aberto, o timer tem de continuar ligado
+                    // mesmo que o launcher esteja minimizado (jogo em foco) —
+                    // senão o controle não navega o painel.
+                    if (_gamepadTimer.IsEnabled && _overlayWindow is not { IsVisible: true })
                     {
                         _gamepadTimer.Stop();
                         DebugLog.Write("[PERF] Launcher minimizado/escondido. Timer do gamepad PAUSADO.");
@@ -188,6 +191,7 @@ public partial class MainWindow : Window
 
         OverlayWindow.OnOverlayVisibilityChanged += (isOverlayVisible) =>
         {
+            DebugLog.Write($"[PERF] QS visível={isOverlayVisible}; timer={_gamepadTimer.IsEnabled}; launcher visível={IsVisible}.");
             if (isOverlayVisible)
             {
                 if (!_gamepadTimer.IsEnabled)
