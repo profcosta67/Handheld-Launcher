@@ -52,7 +52,7 @@
     <Image x:Name="HeroBackImage" Stretch="UniformToFill" IsHitTestVisible="False">
       <Image.Effect><media:BlurEffect Radius="6" /></Image.Effect>
     </Image>
-    <Image x:Name="HeroImage" Source="{Binding SelectedTile.BannerImagePath}" Stretch="UniformToFill" Opacity="0.48" IsHitTestVisible="False">
+    <Image x:Name="HeroImage" Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}" Stretch="UniformToFill" Opacity="0.48" IsHitTestVisible="False">
       <Image.Effect><media:BlurEffect Radius="4" /></Image.Effect>
     </Image>
     <Border Background="#88070A12" IsHitTestVisible="False" />
@@ -114,7 +114,7 @@
                 <DataTemplate x:DataType="vm:GameTileViewModel">
                   <Border Width="320" Height="180" CornerRadius="17" Background="#D9151925" BorderBrush="#667B8499" BorderThickness="1" ClipToBounds="True" PointerPressed="OnTilePointerPressed" DoubleTapped="OnTileDoubleTapped">
                     <Grid>
-                      <Image Source="{Binding WideCapsuleImagePath}" Stretch="UniformToFill" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                      <Image Source="{Binding WideCapsuleImagePath, Converter={StaticResource FileToBitmapConverter}}" Stretch="UniformToFill" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
                       <Border Background="#55000000" IsVisible="{Binding ShowEmptyWideCapsulePlaceholder}"><TextBlock Text="{Binding Title}" Foreground="#FFF5F7FF" FontSize="19" FontWeight="SemiBold" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="18" /></Border>
                       <Border Background="#B8000000" Height="48" VerticalAlignment="Bottom" Padding="14,7">
                         <Grid ColumnDefinitions="*,Auto">

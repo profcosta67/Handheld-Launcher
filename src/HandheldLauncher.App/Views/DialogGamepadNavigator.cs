@@ -73,6 +73,25 @@ internal static class DialogGamepadNavigator
 
         var focused = dialog.FocusManager?.GetFocusedElement() as Control;
 
+        // v0.25.4: lista de programas instalados. ↑/↓ mudam a seleção e
+        // rolam a lista; antes o foco linear saltava por cima dela e o
+        // controle não conseguia percorrer os programas.
+        if (FindParentListBox(focused) is { } listBox)
+        {
+            switch (action)
+            {
+                case GamepadAction.MoveUp:
+                    MoveListSelection(listBox, -1);
+                    return;
+                case GamepadAction.MoveDown:
+                    MoveListSelection(listBox, 1);
+                    return;
+                case GamepadAction.Back:
+                    dialog.Close();
+                    return;
+            }
+        }
+
         switch (action)
         {
             case GamepadAction.MoveDown:
@@ -199,6 +218,24 @@ internal static class DialogGamepadNavigator
             if (descendant is ComboBox { IsDropDownOpen: true } combo) return combo;
         }
         return null;
+    }
+
+    private static ListBox? FindParentListBox(Control? focused)
+    {
+        if (focused is ListBox list) return list;
+        return focused?.GetLogicalAncestors().OfType<ListBox>().FirstOrDefault();
+    }
+
+    private static void MoveListSelection(ListBox list, int delta)
+    {
+        if (list.ItemCount == 0) return;
+        var index = list.SelectedIndex;
+        if (index < 0) index = delta > 0 ? -1 : list.ItemCount;
+        var next = Math.Clamp(index + delta, 0, list.ItemCount - 1);
+        list.SelectedIndex = next;
+        list.ScrollIntoView(next);
+        if (list.ContainerFromIndex(next) is Control container)
+            container.Focus(NavigationMethod.Directional);
     }
 
     private static void MoveFocus(Window dialog, Control? focused, NavigationDirection direction)

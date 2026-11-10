@@ -102,6 +102,34 @@ private void SetAddButtonFocused(bool focused)
     }
 }
 
+    /// <summary>
+    /// v0.25.4: leva o foco do controle ao botão "+" (Adicionar programa).
+    /// Antes só funcionava com MoveRight e com pelo menos um programa na aba;
+    /// com a lista vazia (ou numa grade vertical) era impossível chegar lá.
+    /// </summary>
+    private bool TryFocusAddProgramButton(MainViewModel vm)
+    {
+        if (!vm.IsFilterApplicationsActive) return false;
+        var addBtn = GetAddProgramButton();
+        if (addBtn is null || !addBtn.IsEffectivelyVisible) return false;
+
+        SetAddButtonFocused(true);
+        addBtn.BringIntoView();
+        return true;
+    }
+
+    /// <summary>Devolve o foco ao último programa da lista (ou só limpa o "+").</summary>
+    private void ReturnFromAddProgramButton(MainViewModel vm)
+    {
+        if (!_addButtonFocused) return;
+        SetAddButtonFocused(false);
+        if (vm.Games.Count > 0)
+        {
+            vm.SelectedIndex = vm.Games.Count - 1;
+            ScrollGameRowSelectionIntoView(vm);
+        }
+    }
+
     private void ShowLaunchPopup(string title, string? iconPath)
     {
         try
@@ -784,19 +812,22 @@ if (_addButtonFocused)
             SetAddButtonFocused(false);
             HandleAddProgramClick();
             continue;
-        case GamepadAction.MoveLeft:
         case GamepadAction.Back:
-        case GamepadAction.Menu:
-        case GamepadAction.MoveUp:
-        case GamepadAction.MoveDown:
-        case GamepadAction.MoveRight:
-        case GamepadAction.PreviousFilter:
-        case GamepadAction.NextFilter:
-        case GamepadAction.GameDetails:
-        case GamepadAction.Downloads:
-        case GamepadAction.Connectivity:
             SetAddButtonFocused(false);
-            // cai no switch principal abaixo (que trata a ação normalmente)
+            continue;
+        case GamepadAction.MoveUp:
+        case GamepadAction.MoveLeft:
+            ReturnFromAddProgramButton(vm);
+            continue;
+        case GamepadAction.MoveDown:
+            SetAddButtonFocused(false);
+            if (_filtersBelowGrid) vm.FocusSubFilterRow();
+            continue;
+        case GamepadAction.MoveRight:
+            SetAddButtonFocused(false);
+            continue;
+        default:
+            SetAddButtonFocused(false);
             break;
     }
 }
@@ -807,15 +838,15 @@ if (_addButtonFocused)
                     case GamepadAction.Connectivity: ToggleControlCenter(); break;
                     case GamepadAction.MoveLeft: vm.MovePrevious(); ScrollGameRowSelectionIntoView(vm); break;
                    case GamepadAction.MoveRight:
-    // v0.21.0: se está no último jogo da aba Programas, vai pro botão "+"
-    if (vm.IsFilterApplicationsActive && !_addButtonFocused)
+    // v0.21.0/v0.25.4: no fim da aba Programas (ou sem programas), MoveRight
+    // horizontal leva ao botão "+". Na grade vertical o caminho é MoveDown.
+    if (!_addButtonFocused && vm.IsFilterApplicationsActive)
     {
         var games = vm.Games;
-        if (games.Count > 0 && vm.SelectedTile == games[games.Count - 1])
-        {
-            SetAddButtonFocused(true);
+        var noGames = games.Count == 0;
+        var atLast = games.Count > 0 && vm.SelectedTile == games[^1];
+        if ((noGames || (!IsGridNav && atLast)) && TryFocusAddProgramButton(vm))
             break;
-        }
     }
     vm.MoveNext();
     ScrollGameRowSelectionIntoView(vm);
@@ -825,8 +856,26 @@ if (_addButtonFocused)
                         else if (!MoveSelectionVertical(vm, -1)) vm.FocusSubFilterRow();
                         break;
                     case GamepadAction.MoveDown:
-                        if (_filtersBelowGrid) { if (!MoveSelectionVertical(vm, 1)) vm.FocusSubFilterRow(); }
-                        else MoveSelectionVertical(vm, 1);
+                        if (_filtersBelowGrid)
+                        {
+                            if (!_addButtonFocused && vm.Games.Count == 0 && TryFocusAddProgramButton(vm))
+                                break;
+                            if (!MoveSelectionVertical(vm, 1))
+                            {
+                                if (!_addButtonFocused && TryFocusAddProgramButton(vm))
+                                    break;
+                                vm.FocusSubFilterRow();
+                            }
+                        }
+                        else if (IsGridNav)
+                        {
+                            if (!MoveSelectionVertical(vm, 1) && TryFocusAddProgramButton(vm))
+                                break;
+                        }
+                        else
+                        {
+                            MoveSelectionVertical(vm, 1);
+                        }
                         break;
                     case GamepadAction.Confirm:
                         // v0.25.2: no Cartoon o A abre o ecrã de lançamento; lá dentro é que joga.
@@ -936,6 +985,38 @@ if (_addButtonFocused)
 
         var settings = AppSettingsStore.Load();
 
+        // v0.25.4: paridade de teclado com o controle no botão "+".
+        if (_addButtonFocused)
+        {
+            if (e.Key == Key.Escape) { SetAddButtonFocused(false); e.Handled = true; return; }
+            if (e.Key == Key.Enter || TryMatch(settings.KeyLaunchGame, e))
+            {
+                SetAddButtonFocused(false);
+                HandleAddProgramClick();
+                e.Handled = true;
+                return;
+            }
+            if (e.Key is Key.Up or Key.Left)
+            {
+                ReturnFromAddProgramButton(vm);
+                e.Handled = true;
+                return;
+            }
+            if (e.Key == Key.Down)
+            {
+                SetAddButtonFocused(false);
+                if (_filtersBelowGrid) vm.FocusSubFilterRow();
+                e.Handled = true;
+                return;
+            }
+            if (e.Key == Key.Right)
+            {
+                SetAddButtonFocused(false);
+                e.Handled = true;
+                return;
+            }
+        }
+
         // v0.25.2: ecrã de lançamento (Cartoon). Com ele aberto é modal: Enter
         // joga, X/Pespaço abrem os detalhes e Esc/B fecham — o resto é ignorado.
         if (_libraryLayout is ILaunchScreenHost launchHost && launchHost.IsLaunchScreenOpen)
@@ -963,14 +1044,41 @@ if (_addButtonFocused)
         switch (e.Key)
         {
             case Key.Left: vm.MovePrevious(); ScrollGameRowSelectionIntoView(vm); e.Handled = true; break;
-            case Key.Right: vm.MoveNext(); ScrollGameRowSelectionIntoView(vm); e.Handled = true; break;
+            case Key.Right:
+                if (!_addButtonFocused && vm.IsFilterApplicationsActive)
+                {
+                    var games = vm.Games;
+                    var noGames = games.Count == 0;
+                    var atLast = games.Count > 0 && vm.SelectedTile == games[^1];
+                    if ((noGames || (!IsGridNav && atLast)) && TryFocusAddProgramButton(vm))
+                    { e.Handled = true; break; }
+                }
+                vm.MoveNext(); ScrollGameRowSelectionIntoView(vm); e.Handled = true; break;
             case Key.Up:
                 if (_filtersBelowGrid) MoveSelectionVertical(vm, -1);
                 else if (!MoveSelectionVertical(vm, -1)) vm.FocusSubFilterRow();
                 e.Handled = true; break;
             case Key.Down:
-                if (_filtersBelowGrid) { if (!MoveSelectionVertical(vm, 1)) vm.FocusSubFilterRow(); }
-                else MoveSelectionVertical(vm, 1);
+                if (_filtersBelowGrid)
+                {
+                    if (!_addButtonFocused && vm.Games.Count == 0 && TryFocusAddProgramButton(vm))
+                    { e.Handled = true; break; }
+                    if (!MoveSelectionVertical(vm, 1))
+                    {
+                        if (!_addButtonFocused && TryFocusAddProgramButton(vm))
+                        { e.Handled = true; break; }
+                        vm.FocusSubFilterRow();
+                    }
+                }
+                else if (IsGridNav)
+                {
+                    if (!MoveSelectionVertical(vm, 1) && TryFocusAddProgramButton(vm))
+                    { e.Handled = true; break; }
+                }
+                else
+                {
+                    MoveSelectionVertical(vm, 1);
+                }
                 e.Handled = true; break;
         }
     }

@@ -3,6 +3,9 @@
 Mais recente primeiro. Cada versão tem notas completas em [`release-notes/`](release-notes/).
 Betas não entram aqui: o que eles trazem aparece na versão estável que os junta.
 
+## [0.25.4] — 2026-11-10
+Hotfix: as capas dos temas Clássico e Clean (e do Cartoon) voltaram a aparecer — a remoção do `AnimatedSource` tinha deixado bindings de `Image.Source` a receber texto em vez de imagem. A navegação por controle na aba Programas também foi corrigida: agora chega ao botão **Adicionar Jogo** tanto na grade vertical (↓ no fim) como na horizontal (→ no fim), inclusive com a lista vazia, e o “ghost card” deixou de prender o direcional. A lista de programas instalados ganhou scrollbar visível e navegação ↑/↓ pelo controle. [Notas](release-notes/0.25.4.md)
+
 ## [0.25.3] — 2026-11-10
 Lote de correções e acabamento: **Adicionar programa** passa a listar os programas instalados (registo, App Paths e Menu Iniciar) com procura por nome/caminho, atualização manual e preenchimento automático; **ícones vetoriais chunky** em todas as abas, barra de topo, botões de janela e cartões (fim dos emojis); **menos blur** (raios reduzidos a metade) e imagens estáticas nos heróis/capas para poupar GPU. Corrigido: adicionar jogo fechava com `InvalidCastException` e não adicionava; a busca da Nuvem usa o teclado do launcher; HUD do QS 2.0 restaurado com memória; aviso falso de TDP sem admin; reinício com mutex/watchdog; gamepad devolvido após fechar o QS; TDP personalizado ±1 W; foco do QS com scroll; seletor de layout com ícones. [Notas](release-notes/0.25.3.md)
 

@@ -118,7 +118,7 @@
                       <Transitions><DoubleTransition Property="Opacity" Duration="0:0:0.25" /></Transitions>
                     </Grid.Transitions>
 
-                    <Image Source="{Binding CarouselTileImagePath}" Width="{Binding CarouselTileWidth}" Height="{Binding CarouselTileHeight}" Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Image Source="{Binding CarouselTileImagePath, Converter={StaticResource FileToBitmapConverter}}" Width="{Binding CarouselTileWidth}" Height="{Binding CarouselTileHeight}" Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center" />
                     
                     <Border Background="{DynamicResource BackdropDimBrush}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" IsVisible="{Binding ShowEmptyCarouselPlaceholder}">
                       <TextBlock Text="{Binding Title}" Classes="gameTitle" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="8" />

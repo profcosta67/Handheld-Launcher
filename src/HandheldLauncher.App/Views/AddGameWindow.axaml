@@ -41,9 +41,15 @@
             <TextBox Text="{Binding ProgramSearch, Mode=TwoWay}" Watermark="Buscar programa instalado..." Height="38" FontSize="13"/>
             <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsScanningPrograms}" Height="3"/>
             <TextBlock Text="{Binding ProgramStatusText}" Classes="label" IsVisible="{Binding !IsScanningPrograms}"/>
-            <ListBox ItemsSource="{Binding FilteredPrograms}"
+            <ListBox x:Name="ProgramsList"
+                     ItemsSource="{Binding FilteredPrograms}"
                      SelectedItem="{Binding SelectedProgram, Mode=TwoWay}"
-                     MaxHeight="190" IsVisible="{Binding HasPrograms}"
+                     Height="190" IsVisible="{Binding HasPrograms}"
+                     AutoScrollToSelectedItem="True"
+                     Focusable="True"
+                     ScrollViewer.VerticalScrollBarVisibility="Visible"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     ScrollViewer.AllowAutoHide="False"
                      Background="Transparent" BorderThickness="0" Padding="0">
               <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="models:InstalledProgramOption">

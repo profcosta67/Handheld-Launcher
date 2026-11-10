@@ -37,7 +37,7 @@
         <Grid IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
           <Image Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}" Stretch="UniformToFill" Opacity="0.3" IsHitTestVisible="False"><Image.Effect><media:BlurEffect Radius="5" /></Image.Effect></Image>
           <Image x:Name="HeroBackImage" Stretch="Uniform" IsHitTestVisible="False" />
-          <Image x:Name="HeroImage" Source="{Binding SelectedTile.BannerImagePath}" Stretch="Uniform" />
+          <Image x:Name="HeroImage" Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}" Stretch="Uniform" />
           <Border IsHitTestVisible="False">
             <Border.Background><LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%"><GradientStop Color="#1A1A1A" Offset="0.0" /><GradientStop Color="Transparent" Offset="0.10" /><GradientStop Color="Transparent" Offset="0.90" /><GradientStop Color="#1A1A1A" Offset="1.0" /></LinearGradientBrush></Border.Background>
           </Border>
@@ -123,7 +123,7 @@
 
                 <Border Classes="gameTile" Classes.focused="{Binding IsFocused}" Classes.lastPlayed="{Binding IsLastPlayed}" Width="{Binding TileWidth}" Height="{Binding TileHeight}" PointerPressed="OnTilePointerPressed" DoubleTapped="OnTileDoubleTapped">
                   <Grid>
-                    <Image Source="{Binding TileImagePath}" Stretch="UniformToFill" />
+                    <Image Source="{Binding TileImagePath, Converter={StaticResource FileToBitmapConverter}}" Stretch="UniformToFill" />
                     <Border Background="#99383838" IsHitTestVisible="False" IsVisible="{Binding IsOwnedNotInstalled}" />
                     <TextBlock Text="{Binding Title}" Classes="gameTitle" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="10" IsVisible="{Binding ShowEmptyPlaceholder}" />
                     <Border Background="{Binding PlatformBadgeColorHex, Converter={StaticResource HexColorToBrushConverter}}" CornerRadius="4" Padding="5,2" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8" IsVisible="{Binding HasPlatformBadge}"><TextBlock Text="{Binding PlatformBadgeText}" FontSize="10" FontWeight="Bold" Foreground="White" /></Border>
