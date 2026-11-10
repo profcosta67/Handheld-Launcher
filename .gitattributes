@@ -4,4 +4,5 @@
 #   "/bin/bash^M: bad interpreter: No such file or directory"
 *.sh text eol=lf
 *.desktop text eol=lf
+installer/LEIA-ME.txt text eol=lf
 *.service text eol=lf

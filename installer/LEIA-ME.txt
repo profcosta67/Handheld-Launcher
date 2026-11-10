@@ -1,0 +1,19 @@
+Handheld Launcher — instalação no Linux
+=======================================
+
+1. Duplo-clique em "INSTALAR" (na pasta acima desta).
+   Se o gestor de ficheiros perguntar, escolhe "Executar no terminal" /
+   "Permitir execução" (no GNOME/Zorin: botão direito → Permitir execução).
+
+2. No menu que abre, escolhe:
+     1) Instalar e abrir sozinho no login (handheld)   [Enter]
+     2) Instalar sem abrir no login
+     3) Desinstalar
+
+Sem ambiente gráfico, usa o terminal:
+
+     cd ..                       # para a pasta handheld-launcher
+     ./instalador/instalar.sh
+
+NUNCA uses sudo: a instalação é só para o teu utilizador (~/.local).
+O log de cada instalação fica em ~/.local/state/handheld-launcher/install.log

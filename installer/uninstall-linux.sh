@@ -90,6 +90,14 @@ do_rm "$AUTOSTART_DIR/$DESKTOP_ID"
 do_rm "$APPS_DIR/$DESKTOP_ID"
 do_rm "$ICONS_DIR/$APP_ID.png"
 do_rm "$BIN_DIR/handheld-launcher"
+# Atalho no ambiente de trabalho (beta.7): o xdg-user-dir resolve
+# "Área de Trabalho"/"Ambiente de Trabalho"; o fallback cobre o resto.
+for d in "$(command -v xdg-user-dir >/dev/null 2>&1 && xdg-user-dir DESKTOP 2>/dev/null || true)" \
+         "$HOME/Desktop" "$HOME/Área de Trabalho" "$HOME/Ambiente de Trabalho"; do
+  if [ -n "$d" ] && [ "$d" != "$HOME" ] && [ -f "$d/$DESKTOP_ID" ]; then
+    do_rm "$d/$DESKTOP_ID"
+  fi
+done
 
 # 3. Aplicação
 do_rm "$INSTALL_DIR"

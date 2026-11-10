@@ -58,30 +58,46 @@ O pacote de Windows inclui as ferramentas de terceiros necessárias à gravaçã
 
 O launcher também compila e roda **nativamente no Linux** (sem Wine/Bottles). O alvo principal é o **Bazzite** (handhelds AMD + Gamescope + MangoHud + ryzenadj).
 
-Para instalar num Linux (Bazzite, Zorin ou outra distro):
+Para instalar num Linux (Bazzite, Zorin ou outra distro), depois de extrair o `.tar.gz`:
 
-```bash
-# 1. Baixe HandheldLauncher-linux-x64.tar.gz na aba Releases e extraia
-tar -xzf HandheldLauncher-linux-x64.tar.gz
-cd handheld-launcher
-
-# 2. Instale (só para o seu usuário — NÃO use sudo)
-./install-linux.sh
-
-# 3. Abra pelo menu de aplicações ("Handheld Launcher") ou num terminal novo
-handheld-launcher
+```
+handheld-launcher/
+├── INSTALAR.desktop     ← duplo-clique (o instalador)
+├── instalador/          ← scripts
+└── arquivos/            ← binário e tudo o que ele precisa
 ```
 
-O `install-linux.sh` cria o atalho `~/.local/bin/handheld-launcher`, a entrada no menu de aplicações com ícone, corrige o `PATH` no `~/.profile` e confere as bibliotecas/ferramentas em falta (mostrando o comando `apt`/`dnf`/`rpm-ostree` exato). O log de cada execução fica em `~/.local/state/handheld-launcher/install.log`.
+**Duplo-clique em `INSTALAR`** e escolha no menu:
 
-Opções úteis:
+```
+1) Instalar e abrir sozinho no login (handheld)   [Enter]
+2) Instalar sem abrir no login
+3) Desinstalar
+```
+
+Sem ambiente gráfico (ou prefira o terminal):
 
 ```bash
-./install-linux.sh --autostart   # + abre sozinho no login (modo handheld)
-./install-linux.sh --run         # instala e abre no final
-./install-linux.sh --dry-run     # mostra o que faria, sem alterar nada
-./install-linux.sh --uninstall   # remove app, atalho, menu, ícone e auto-arranque
-./install-linux.sh --help
+cd handheld-launcher
+./instalador/instalar.sh          # abre o mesmo menu
+./instalador/instalar.sh --sem-perguntas   # instala + arranque no login
+./instalador/instalar.sh --desinstalar     # remove (--purge apaga os dados)
+```
+
+O instalador cria o atalho `~/.local/bin/handheld-launcher`, a entrada no menu de aplicações com ícone, **um atalho no ambiente de trabalho**, corrige o `PATH` no `~/.profile`, liga o **arranque automático no login** e confere as bibliotecas/ferramentas em falta (mostrando o comando `apt`/`dnf`/`rpm-ostree` exato). O log de cada execução fica em `~/.local/state/handheld-launcher/install.log`.
+
+> No GNOME/Zorin, o primeiro duplo-clique num `.desktop` recém-extraído pode pedir autorização: botão direito → **Permitir execução**. Depois disso já abre com dois cliques.
+
+Opções úteis (script `instalador/install-linux.sh`, que o menu usa):
+
+```bash
+./instalador/install-linux.sh --autostart              # liga o arranque no login
+./instalador/install-linux.sh --no-autostart           # desliga (padrão no CLI)
+./instalador/install-linux.sh --run                    # instala e abre no final
+./instalador/install-linux.sh --no-desktop-shortcut     # sem atalho no desktop
+./instalador/install-linux.sh --dry-run                # mostra sem alterar nada
+./instalador/install-linux.sh --uninstall              # remove tudo
+./instalador/install-linux.sh --help
 ```
 
 > Prefira o `.tar.gz`: é o único formato que preserva as permissões de execução em qualquer extração. O `.zip` continua publicado, mas o zip gerado no Windows (até a beta.4) chegava sem o bit `+x` — era por isso que o launcher "instalava" e depois não abria no Zorin.

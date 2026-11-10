@@ -77,25 +77,36 @@ STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 
 DEST="$STAGE/$NAME"
-mkdir -p "$DEST"
-cp -a "$PUBLISH/." "$DEST/"
+# Layout do pacote (0.24.3-beta.7): a raiz fica com o ÚNICO atalho visível
+# (INSTALAR.desktop) para ninguém andar à procura do instalador; os binários
+# vão para arquivos/ e os scripts para instalador/.
+SRC_APP="$DEST/arquivos"
+SRC_INST="$DEST/instalador"
+mkdir -p "$SRC_APP" "$SRC_INST"
+cp -a "$PUBLISH/." "$SRC_APP/"
 
 # Ferramentas Windows (ffmpeg.exe/HidHide/PawnIO) não têm lugar num pacote Linux.
-if [ -d "$DEST/Tools" ] && ls "$DEST/Tools"/*.exe >/dev/null 2>&1; then
+if [ -d "$SRC_APP/Tools" ] && ls "$SRC_APP/Tools"/*.exe >/dev/null 2>&1; then
   fail "Tools/ tem binários Windows no pacote Linux — ver a condição de TFM no HandheldLauncher.App.csproj."
 fi
 
 # Instalador, desinstalador, ícone e versão viajam dentro do pacote: é o que
 # permite instalar/desinstalar sem voltar a descarregar nada.
-cp "$ROOT/installer/install-linux.sh"   "$DEST/install-linux.sh"
-cp "$ROOT/installer/uninstall-linux.sh" "$DEST/uninstall-linux.sh"
+cp "$ROOT/installer/install-linux.sh"   "$SRC_INST/install-linux.sh"
+cp "$ROOT/installer/uninstall-linux.sh" "$SRC_INST/uninstall-linux.sh"
+cp "$ROOT/installer/instalar.sh"        "$SRC_INST/instalar.sh"
+cp "$ROOT/installer/LEIA-ME.txt"        "$SRC_INST/LEIA-ME.txt"
+cp "$ROOT/installer/INSTALAR.desktop"   "$DEST/INSTALAR.desktop"
 [ -f "$ROOT/installer/icons/handheld-launcher.png" ] || fail "Falta installer/icons/handheld-launcher.png."
-cp "$ROOT/installer/icons/handheld-launcher.png" "$DEST/handheld-launcher.png"
-printf '%s\n' "$VERSION" > "$DEST/version.txt"
+cp "$ROOT/installer/icons/handheld-launcher.png" "$SRC_APP/handheld-launcher.png"
+printf '%s\n' "$VERSION" > "$SRC_APP/version.txt"
 
 # Permissões ANTES de compactar — é isto que o Compress-Archive do Windows não
 # fazia e que deixava a instalação inútil no Zorin.
-chmod 755 "$DEST/HandheldLauncher" "$DEST/install-linux.sh" "$DEST/uninstall-linux.sh"
+chmod 755 "$SRC_APP/HandheldLauncher" \
+          "$SRC_INST/install-linux.sh" "$SRC_INST/uninstall-linux.sh" "$SRC_INST/instalar.sh"
+# O .desktop da raiz tem de ser executável para o duplo-clique (Nautilus/KDE).
+chmod 755 "$DEST/INSTALAR.desktop"
 
 TARBALL="$OUT/HandheldLauncher-linux-x64.tar.gz"
 ZIPFILE="$OUT/HandheldLauncher-linux-x64.zip"
@@ -122,23 +133,45 @@ fi
 verify_pack() {  # $1 = pasta extraída (contém $NAME/), $2 = rótulo
   local pack="$1" label="$2"
   local app="$pack/$NAME"
-  local work ihome desk
+  local bin="$app/arquivos/HandheldLauncher"
+  local inst="$app/instalador"
+  local work ihome desk autostart desk_top topo
   work="$(mktemp -d)"
   ihome="$work/home"
-  mkdir -p "$ihome"
+  # O utilizador tem de ter um ambiente de trabalho para receber o atalho.
+  mkdir -p "$ihome/Desktop"
 
-  [ -x "$app/HandheldLauncher" ]   || { echo "!! [$label] HandheldLauncher sem +x" >&2; return 1; }
-  [ -x "$app/install-linux.sh" ]   || { echo "!! [$label] install-linux.sh sem +x" >&2; return 1; }
-  [ -x "$app/uninstall-linux.sh" ] || { echo "!! [$label] uninstall-linux.sh sem +x" >&2; return 1; }
-  [ -f "$app/handheld-launcher.png" ] || { echo "!! [$label] ícone em falta" >&2; return 1; }
-  [ -f "$app/version.txt" ]        || { echo "!! [$label] version.txt em falta" >&2; return 1; }
-  if ! file -b "$app/HandheldLauncher" | grep -q 'ELF 64-bit'; then
+  # A raiz do pacote tem de ter SÓ estes três nomes: é o que o utilizador vê ao
+  # extrair, e serve para ele não andar à procura do instalador.
+  topo="$(find "$app" -mindepth 1 -maxdepth 1 -printf '%f\n' | sort | tr '\n' ' ')"
+  [ "$topo" = "INSTALAR.desktop arquivos instalador " ] \
+    || { echo "!! [$label] raiz do pacote inesperada: '$topo'" >&2; return 1; }
+  [ -x "$app/INSTALAR.desktop" ] || { echo "!! [$label] INSTALAR.desktop sem +x" >&2; return 1; }
+  [ -x "$bin" ]                 || { echo "!! [$label] arquivos/HandheldLauncher sem +x" >&2; return 1; }
+  [ -x "$inst/instalar.sh" ]        || { echo "!! [$label] instalador/instalar.sh sem +x" >&2; return 1; }
+  [ -x "$inst/install-linux.sh" ]   || { echo "!! [$label] instalador/install-linux.sh sem +x" >&2; return 1; }
+  [ -x "$inst/uninstall-linux.sh" ] || { echo "!! [$label] instalador/uninstall-linux.sh sem +x" >&2; return 1; }
+  [ -f "$app/arquivos/handheld-launcher.png" ] || { echo "!! [$label] ícone em falta" >&2; return 1; }
+  [ -f "$app/arquivos/version.txt" ]           || { echo "!! [$label] version.txt em falta" >&2; return 1; }
+  if ! file -b "$bin" | grep -q 'ELF 64-bit'; then
     echo "!! [$label] HandheldLauncher não é ELF 64-bit" >&2
     return 1
   fi
+  if command -v desktop-file-validate >/dev/null 2>&1; then
+    local dv_inst
+    dv_inst="$(desktop-file-validate "$app/INSTALAR.desktop" 2>&1 || true)"
+    if printf '%s' "$dv_inst" | grep -q 'error:'; then
+      printf '%s\n' "$dv_inst" >&2
+      echo "!! [$label] INSTALAR.desktop inválido" >&2
+      return 1
+    fi
+    [ -z "$dv_inst" ] || printf '   (aviso) %s\n' "$dv_inst"
+  fi
 
-  if ! ( cd "$app" && HOME="$ihome" bash ./install-linux.sh --no-add-path ) > "$work/install.log" 2>&1; then
-    echo "!! [$label] install-linux.sh falhou:" >&2
+  # Caminho do utilizador: o menu do instalador, em modo não-interativo
+  # (opção 1 = instalar + arranque automático no login).
+  if ! ( cd "$app" && HOME="$ihome" bash ./instalador/instalar.sh --sem-perguntas --no-add-path ) > "$work/install.log" 2>&1; then
+    echo "!! [$label] instalador/instalar.sh falhou:" >&2
     cat "$work/install.log" >&2
     return 1
   fi
@@ -168,6 +201,17 @@ verify_pack() {  # $1 = pasta extraída (contém $NAME/), $2 = rótulo
     [ -z "$dv" ] || printf '   (aviso) %s\n' "$dv"
   fi
 
+  # Arranque automático no login (o instalador liga-o por omissão) e atalho no
+  # ambiente de trabalho — eram exactamente as duas coisas que faltavam.
+  autostart="$ihome/.config/autostart/handheld-launcher.desktop"
+  desk_top="$ihome/Desktop/handheld-launcher.desktop"
+  [ -f "$autostart" ] || { echo "!! [$label] arranque automático não foi criado" >&2; return 1; }
+  grep -q '^X-GNOME-Autostart-enabled=true$' "$autostart" \
+    || { echo "!! [$label] autostart sem X-GNOME-Autostart-enabled=true" >&2; return 1; }
+  [ -x "$desk_top" ] || { echo "!! [$label] atalho no ambiente de trabalho em falta" >&2; return 1; }
+  grep -qxF "Exec=\"$ihome/.local/share/handheld-launcher/HandheldLauncher\"" "$desk_top" \
+    || { echo "!! [$label] atalho do desktop com Exec= errado" >&2; return 1; }
+
   # Autoteste dentro do processo (`HandheldLauncher --selftest`): carrega todas
   # as assemblies de que o launcher depende e constrói os serviços de arranque,
   # sem abrir janela. Foi esta a falha do beta.5 — o pacote extraía, instalava e
@@ -189,9 +233,21 @@ verify_pack() {  # $1 = pasta extraída (contém $NAME/), $2 = rótulo
   # e não se sabia se o autoteste chegou a correr.
   echo ">> [$label] autoteste de arranque: OK ($(grep -c '   ok   ' "$work/selftest.log") verificações, $(grep -c 'ok   assembly' "$work/selftest.log") assemblies)"
 
-  # O desinstalador tem de limpar tudo.
-  if ! ( cd "$app" && HOME="$ihome" bash ./uninstall-linux.sh ) > "$work/uninstall.log" 2>&1; then
-    echo "!! [$label] uninstall-linux.sh falhou:" >&2
+  # Opção 2 do menu: instalar sem arranque automático tem de remover o anterior
+  # (é o que impede o "ligou sozinho e eu não pedi" em PC/desktop).
+  if ! ( cd "$app" && HOME="$ihome" bash ./instalador/instalar.sh --sem-perguntas --no-autostart --no-add-path ) \
+        > "$work/install2.log" 2>&1; then
+    echo "!! [$label] reinstalação sem autostart falhou:" >&2
+    cat "$work/install2.log" >&2
+    return 1
+  fi
+  [ ! -e "$autostart" ] \
+    || { echo "!! [$label] --no-autostart não removeu o arranque automático" >&2; return 1; }
+
+  # Opção 3 do menu: o desinstalador tem de limpar tudo.
+  if ! ( cd "$app" && HOME="$ihome" bash ./instalador/instalar.sh --sem-perguntas --desinstalar ) \
+        > "$work/uninstall.log" 2>&1; then
+    echo "!! [$label] desinstalação falhou:" >&2
     cat "$work/uninstall.log" >&2
     return 1
   fi
@@ -200,8 +256,9 @@ verify_pack() {  # $1 = pasta extraída (contém $NAME/), $2 = rótulo
   [ ! -e "$ihome/.local/bin/handheld-launcher" ] \
     || { echo "!! [$label] desinstalação deixou o atalho" >&2; return 1; }
   [ ! -e "$desk" ] || { echo "!! [$label] desinstalação deixou a entrada de menu" >&2; return 1; }
+  [ ! -e "$desk_top" ] || { echo "!! [$label] desinstalação deixou o atalho do desktop" >&2; return 1; }
 
-  echo ">> [$label] instala → atalho → menu → Biblioteca/ldd → autoteste → desinstala: OK"
+  echo ">> [$label] instala → autostart → desktop → menu → ldd → autoteste → desinstala: OK"
   rm -rf "$work"
   return 0
 }

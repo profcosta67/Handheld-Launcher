@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Instalar Handheld Launcher
+GenericName=Instalador do Handheld Launcher
+Comment=Instala o Handheld Launcher neste usuário (sem sudo); abre o menu no terminal
+Exec=bash -c "cd \"$(dirname \"%k\")\" && exec bash ./instalador/instalar.sh"
+Icon=utilities-terminal
+Terminal=true
+Categories=Utility;
+Keywords=instalar;install;launcher;handheld;

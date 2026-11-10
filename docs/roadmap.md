@@ -29,5 +29,5 @@ Resumo do plano estratégico. Cada versão só começa quando a anterior está p
 
 - O layout Clássico **fica**.
 - O modo "Uso em PC" continua; o padrão é Handheld em tela cheia.
-- **Distro alvo do Linux: Bazzite** (Gamescope/Wayland, ryzenadj, MangoHud). Distribuição via pacote nativo `.tar.gz` (recomendado) / `.zip` + `install-linux.sh` — gerado num runner Linux por `scripts/package-linux.sh`, que instala o próprio pacote num HOME temporário **e corre `HandheldLauncher --selftest`** (carrega todas as assemblies e constrói os serviços de arranque, sem janela) antes de publicar; Flatpak/AppImage depois.
+- **Distro alvo do Linux: Bazzite** (Gamescope/Wayland, ryzenadj, MangoHud). Distribuição via pacote nativo `.tar.gz` (recomendado) / `.zip` com `INSTALAR` (duplo-clique) + `instalador/` + `arquivos/`, gerado num runner Linux por `scripts/package-linux.sh`, que corre o próprio instalador num HOME temporário (autostart, atalho no desktop e `--selftest`) antes de publicar; Flatpak/AppImage depois.
 - Mascaramento do controle (HidHide) é Windows-only; no Linux o isolamento sai do feeder virtual (backlog).

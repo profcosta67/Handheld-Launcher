@@ -46,6 +46,15 @@ if [ -f "$0" ] && grep -q $'\r' "$0" 2>/dev/null; then
   exec bash "$_tmp" "$@"
 fi
 
+# Layout do pacote 0.24.3-beta.7: a raiz só tem o INSTALAR.desktop; os binários
+# vivem em arquivos/ e os scripts em instalador/. Um pacote antigo (script ao
+# lado dos binários) continua a funcionar — daí o fallback para $HERE.
+if [ -d "$HERE/../arquivos" ]; then
+  SRC_DIR="$(cd "$HERE/../arquivos" && pwd)"
+else
+  SRC_DIR="$HERE"
+fi
+
 INSTALL_DIR="$HOME/.local/share/handheld-launcher"
 BIN_DIR="$HOME/.local/bin"
 APPS_DIR="$HOME/.local/share/applications"
@@ -62,6 +71,8 @@ AUTOSTART=0
 ADD_PATH=1
 RUN_AFTER=0
 DRY_RUN=0
+DESKTOP_SHORTCUT=1
+DESKTOP_DIR=""      # resolvido depois dos argumentos (xdg-user-dir DESKTOP)
 
 # ---------------------------------------------------------------------------
 # Saída + log: tudo o que aparece no terminal fica também em install.log, para
@@ -100,6 +111,10 @@ Uso: ./install-linux.sh [opções]
   --autostart        Instala também o arranque automático no login (modo
                      handheld). No PC/desktop isto NÃO é recomendado.
   --no-autostart     Não instala o arranque automático (comportamento padrão).
+  --desktop-shortcut Cria também um atalho no ambiente de trabalho
+                     (~/Desktop ou ~/Área de Trabalho) — comportamento padrão.
+  --no-desktop-shortcut  Não cria o atalho no ambiente de trabalho (e remove
+                     um que exista de uma instalação anterior).
   --no-add-path      Não mexe no ~/.profile. O atalho em ~/.local/bin continua
                      a ser criado; usa o caminho completo ou faz logout/login.
   --prefix DIR       Instala em DIR/.local/... em vez de \$HOME.
@@ -126,6 +141,8 @@ while [ "$#" -gt 0 ]; do
   case "$1" in
     --autostart)    AUTOSTART=1 ;;
     --no-autostart) AUTOSTART=0 ;;
+    --desktop-shortcut)    DESKTOP_SHORTCUT=1 ;;
+    --no-desktop-shortcut) DESKTOP_SHORTCUT=0 ;;
     --add-path)     ADD_PATH=1 ;;
     --no-add-path)  ADD_PATH=0 ;;
     --run)          RUN_AFTER=1 ;;
@@ -135,7 +152,7 @@ while [ "$#" -gt 0 ]; do
         exec bash "$HERE/uninstall-linux.sh" "${@:2}"
       fi
       die "Não encontrei '$HERE/uninstall-linux.sh'. Remove à mão:
-   rm -rf '$INSTALL_DIR' '$BIN_DIR/handheld-launcher' '$APPS_DIR/$DESKTOP_ID' '$AUTOSTART_DIR/$DESKTOP_ID' '$ICONS_DIR/$APP_ID.png'"
+   rm -rf '$INSTALL_DIR' '$BIN_DIR/handheld-launcher' '$APPS_DIR/$DESKTOP_ID' '$AUTOSTART_DIR/$DESKTOP_ID' '$DESKTOP_DIR/$DESKTOP_ID' '$ICONS_DIR/$APP_ID.png'"
       ;;
     --prefix)
       [ "$#" -ge 2 ] || die "--prefix precisa de uma pasta."
@@ -156,6 +173,26 @@ while [ "$#" -gt 0 ]; do
 done
 
 # ---------------------------------------------------------------------------
+# 1.1 Pasta do ambiente de trabalho (para o atalho). O xdg-user-dir é o
+#     standard e resolve "Área de Trabalho"/"Ambiente de Trabalho"; o fallback
+#     cobre distros sem xdg-user-dirs.
+# ---------------------------------------------------------------------------
+resolve_desktop_dir() {
+  local d="" candidate
+  if command -v xdg-user-dir >/dev/null 2>&1; then
+    d="$(xdg-user-dir DESKTOP 2>/dev/null || true)"
+  fi
+  if [ -z "$d" ] || [ "$d" = "$HOME" ]; then
+    for candidate in "$HOME/Desktop" "$HOME/Área de Trabalho" "$HOME/Ambiente de Trabalho"; do
+      if [ -d "$candidate" ]; then d="$candidate"; break; fi
+    done
+  fi
+  [ -n "$d" ] || d="$HOME/Desktop"
+  DESKTOP_DIR="$d"
+}
+resolve_desktop_dir
+
+# ---------------------------------------------------------------------------
 # 2. Nunca com root/sudo — a causa nº1 de "instalou mas não aparece".
 # ---------------------------------------------------------------------------
 if [ "$(id -u)" = "0" ]; then
@@ -171,12 +208,13 @@ fi
 # 3. Validar o pacote extraído
 # ---------------------------------------------------------------------------
 say "== $APP_TITLE — instalador Linux =="
-say ">> Pacote: $HERE"
+say ">> Pacote: $SRC_DIR"
 
-SRC_BIN="$HERE/$APP_NAME"
-[ -f "$SRC_BIN" ] || die "Não encontrei '$APP_NAME' ao lado do script.
-   Extrai o pacote COMPLETO e corre o script de dentro da pasta extraída:
-     tar -xzf HandheldLauncher-linux-x64.tar.gz && cd handheld-launcher && ./install-linux.sh"
+SRC_BIN="$SRC_DIR/$APP_NAME"
+[ -f "$SRC_BIN" ] || die "Não encontrei '$APP_NAME' em '$SRC_DIR'.
+   Extrai o pacote COMPLETO e corre o instalador de dentro da pasta extraída:
+     tar -xzf HandheldLauncher-linux-x64.tar.gz && cd handheld-launcher
+     ./instalador/instalar.sh        (ou duplo-clique em INSTALAR)"
 
 SRC_SIZE="$(wc -c < "$SRC_BIN" 2>/dev/null || echo 0)"
 # O apphost do .NET 8 tem ~70 KB; abaixo disto é extração truncada/zumbi.
@@ -191,8 +229,8 @@ if command -v file >/dev/null 2>&1; then
 fi
 
 VERSION_LABEL="desconhecida"
-if [ -f "$HERE/version.txt" ]; then
-  VERSION_LABEL="$(tr -d ' \r\n' < "$HERE/version.txt")"
+if [ -f "$SRC_DIR/version.txt" ]; then
+  VERSION_LABEL="$(tr -d ' \r\n' < "$SRC_DIR/version.txt")"
 fi
 say ">> Versão do pacote: $VERSION_LABEL"
 
@@ -257,12 +295,20 @@ fi
 say ">> Instalando em $INSTALL_DIR"
 run mkdir -p "$INSTALL_DIR" "$BIN_DIR" "$APPS_DIR" "$ICONS_DIR"
 
-if [ "$HERE" != "$INSTALL_DIR" ]; then
+if [ "$SRC_DIR" != "$INSTALL_DIR" ]; then
   run rm -rf "$INSTALL_DIR"
   run mkdir -p "$INSTALL_DIR"
   if [ "$DRY_RUN" = "0" ]; then
-    # cp -a leva a árvore toda: dlls, *.so, Tools/, scripts de instalação.
-    cp -a "$HERE/." "$INSTALL_DIR/"
+    # cp -a leva a árvore toda: dlls, *.so, version.txt, ícone.
+    cp -a "$SRC_DIR/." "$INSTALL_DIR/"
+    # Os scripts de instalação ficam dentro da pasta instalada, para se poder
+    # desinstalar depois sem voltar a extrair o pacote (no beta.7+ os scripts
+    # vivem em instalador/, não ao lado do binário).
+    for s in install-linux.sh uninstall-linux.sh; do
+      if [ -f "$HERE/$s" ] && [ "$HERE/$s" != "$INSTALL_DIR/$s" ]; then
+        cp -f "$HERE/$s" "$INSTALL_DIR/$s"
+      fi
+    done
   fi
 fi
 
@@ -285,7 +331,7 @@ say ">> Atalho: $BIN_DIR/handheld-launcher"
 #    isto o launcher não aparece em lado nenhum e parece "não instalado")
 # ---------------------------------------------------------------------------
 ICON_SRC=""
-for candidate in "$HERE/$APP_ID.png" "$HERE/$APP_NAME.png" "$HERE/app-icon.png"; do
+for candidate in "$SRC_DIR/$APP_ID.png" "$SRC_DIR/$APP_NAME.png" "$SRC_DIR/app-icon.png"; do
   if [ -f "$candidate" ]; then
     ICON_SRC="$candidate"
     break
@@ -355,6 +401,30 @@ else
   else
     say ">> Arranque automático no login: DESLIGADO (usa --autostart para ligar)."
   fi
+fi
+
+# ---------------------------------------------------------------------------
+# 6.1 Atalho no ambiente de trabalho (beta.7). No Windows o Velopack cria um
+#     atalho no desktop; no Linux faltava. O GNOME/Nautilus só executa um
+#     .desktop marcado como "trusted", daí o `gio set` (ausente → só aviso).
+# ---------------------------------------------------------------------------
+DESKTOP_PATH="$DESKTOP_DIR/$DESKTOP_ID"
+if [ "$DESKTOP_SHORTCUT" = "1" ]; then
+  if [ "$DRY_RUN" = "1" ]; then
+    say "   [dry-run] escreveria $DESKTOP_PATH"
+  elif [ -d "$DESKTOP_DIR" ]; then
+    write_desktop "$DESKTOP_PATH" 0
+    chmod 755 "$DESKTOP_PATH" 2>/dev/null || true
+    if command -v gio >/dev/null 2>&1; then
+      gio set "$DESKTOP_PATH" metadata::trusted true >/dev/null 2>&1 || true
+    fi
+    say ">> Atalho no ambiente de trabalho: $DESKTOP_PATH"
+  else
+    warn "pasta do ambiente de trabalho não encontrada ($DESKTOP_DIR) — atalho não criado."
+  fi
+elif [ -f "$DESKTOP_PATH" ]; then
+  run rm -f "$DESKTOP_PATH"
+  say ">> Atalho no ambiente de trabalho: removido (--no-desktop-shortcut)."
 fi
 
 # ---------------------------------------------------------------------------
@@ -450,6 +520,11 @@ say "   Aplicação:     $INSTALL_DIR/$APP_NAME"
 say "   Atalho:        $BIN_DIR/handheld-launcher"
 say "   Menu:          \"$APP_TITLE\" (categoria Jogos)"
 say "   Auto-arranque: $AUTO_LABEL"
+DESK_LABEL="não criado"
+if [ "$DESKTOP_SHORTCUT" = "1" ] && { [ "$DRY_RUN" = "1" ] || [ -f "$DESKTOP_PATH" ]; }; then
+  DESK_LABEL="$DESKTOP_PATH"
+fi
+say "   Atalho desktop: $DESK_LABEL"
 say "   Log:           $LOG_FILE"
 say ""
 say "Como abrir agora:"
