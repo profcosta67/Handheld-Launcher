@@ -3,10 +3,10 @@
 # Handheld Launcher — instalador "de duplo-clique" para Linux
 # (o equivalente Linux ao .bat do Windows).
 #
-#   ./instalador/instalar.sh                  # abre o menu
-#   ./instalador/instalar.sh --sem-perguntas  # instala + arranque no login
-#   ./instalador/instalar.sh --no-autostart   # instala sem arranque no login
-#   ./instalador/instalar.sh --desinstalar    # remove tudo
+#   ./instalador/menu.sh                  # abre o menu
+#   ./instalador/menu.sh --sem-perguntas  # instala + arranque no login
+#   ./instalador/menu.sh --no-autostart   # instala sem arranque no login
+#   ./instalador/menu.sh --desinstalar    # remove tudo
 #
 # Este script NÃO tem lógica de instalação: mostra o menu e delega no
 # install-linux.sh (que faz a cópia, o atalho, o menu de aplicações, o ícone,
@@ -14,7 +14,7 @@
 #
 # Layout do pacote (0.24.3-beta.7):
 #   handheld-launcher/
-#     INSTALAR.desktop      ← atalho que abre este menu
+#     INSTALAR.sh           ← atalho de duplo-clique que abre este menu
 #     instalador/           ← este script + install-linux.sh + uninstall-linux.sh
 #     arquivos/             ← binário e tudo o que ele precisa (+ version.txt)
 #
@@ -56,7 +56,7 @@ usage() {
   cat <<'EOF'
 Handheld Launcher — instalador Linux (duplo-clique)
 
-Uso: ./instalador/instalar.sh [opções]
+Uso: ./instalador/menu.sh [opções]
 
   (sem opções)        Abre o menu: instalar, instalar sem arranque no login
                       ou desinstalar.
@@ -184,10 +184,10 @@ bash "$INSTALLER" ${ARGS[@]+"${ARGS[@]}"} || RC=$?
 
 if [ "$RC" -ne 0 ]; then
   mostrar_falha
-elif command -v gio >/dev/null 2>&1 && [ -f "$HERE/../INSTALAR.desktop" ]; then
+elif command -v gio >/dev/null 2>&1 && [ -f "$HERE/../INSTALAR.sh" ]; then
   # Depois de correr uma vez, o atalho INSTALAR fica marcado como "confiável"
   # no GNOME: no próximo duplo-clique já não pede autorização.
-  gio set "$HERE/../INSTALAR.desktop" metadata::trusted true >/dev/null 2>&1 || true
+  gio set "$HERE/../INSTALAR.sh" metadata::trusted true >/dev/null 2>&1 || true
 fi
 
 pausar

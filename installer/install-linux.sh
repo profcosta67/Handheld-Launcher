@@ -46,7 +46,7 @@ if [ -f "$0" ] && grep -q $'\r' "$0" 2>/dev/null; then
   exec bash "$_tmp" "$@"
 fi
 
-# Layout do pacote 0.24.3-beta.7: a raiz só tem o INSTALAR.desktop; os binários
+# Layout do pacote 0.24.3-beta.7: a raiz só tem o INSTALAR.sh; os binários
 # vivem em arquivos/ e os scripts em instalador/. Um pacote antigo (script ao
 # lado dos binários) continua a funcionar — daí o fallback para $HERE.
 if [ -d "$HERE/../arquivos" ]; then
@@ -214,7 +214,7 @@ SRC_BIN="$SRC_DIR/$APP_NAME"
 [ -f "$SRC_BIN" ] || die "Não encontrei '$APP_NAME' em '$SRC_DIR'.
    Extrai o pacote COMPLETO e corre o instalador de dentro da pasta extraída:
      tar -xzf HandheldLauncher-linux-x64.tar.gz && cd handheld-launcher
-     ./instalador/instalar.sh        (ou duplo-clique em INSTALAR)"
+     ./instalador/menu.sh            (ou duplo-clique em INSTALAR.sh)"
 
 SRC_SIZE="$(wc -c < "$SRC_BIN" 2>/dev/null || echo 0)"
 # O apphost do .NET 8 tem ~70 KB; abaixo disto é extração truncada/zumbi.

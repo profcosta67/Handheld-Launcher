@@ -78,7 +78,7 @@ trap 'rm -rf "$STAGE"' EXIT
 
 DEST="$STAGE/$NAME"
 # Layout do pacote (0.24.3-beta.7): a raiz fica com o ÚNICO atalho visível
-# (INSTALAR.desktop) para ninguém andar à procura do instalador; os binários
+# (INSTALAR.sh) para ninguém andar à procura do instalador; os binários
 # vão para arquivos/ e os scripts para instalador/.
 SRC_APP="$DEST/arquivos"
 SRC_INST="$DEST/instalador"
@@ -94,9 +94,9 @@ fi
 # permite instalar/desinstalar sem voltar a descarregar nada.
 cp "$ROOT/installer/install-linux.sh"   "$SRC_INST/install-linux.sh"
 cp "$ROOT/installer/uninstall-linux.sh" "$SRC_INST/uninstall-linux.sh"
-cp "$ROOT/installer/instalar.sh"        "$SRC_INST/instalar.sh"
+cp "$ROOT/installer/menu.sh"            "$SRC_INST/menu.sh"
 cp "$ROOT/installer/LEIA-ME.txt"        "$SRC_INST/LEIA-ME.txt"
-cp "$ROOT/installer/INSTALAR.desktop"   "$DEST/INSTALAR.desktop"
+cp "$ROOT/installer/INSTALAR.sh"        "$DEST/INSTALAR.sh"
 [ -f "$ROOT/installer/icons/handheld-launcher.png" ] || fail "Falta installer/icons/handheld-launcher.png."
 cp "$ROOT/installer/icons/handheld-launcher.png" "$SRC_APP/handheld-launcher.png"
 printf '%s\n' "$VERSION" > "$SRC_APP/version.txt"
@@ -104,9 +104,9 @@ printf '%s\n' "$VERSION" > "$SRC_APP/version.txt"
 # Permissões ANTES de compactar — é isto que o Compress-Archive do Windows não
 # fazia e que deixava a instalação inútil no Zorin.
 chmod 755 "$SRC_APP/HandheldLauncher" \
-          "$SRC_INST/install-linux.sh" "$SRC_INST/uninstall-linux.sh" "$SRC_INST/instalar.sh"
-# O .desktop da raiz tem de ser executável para o duplo-clique (Nautilus/KDE).
-chmod 755 "$DEST/INSTALAR.desktop"
+          "$SRC_INST/install-linux.sh" "$SRC_INST/uninstall-linux.sh" "$SRC_INST/menu.sh"
+# O atalho da raiz tem de ser executável para o duplo-clique.
+chmod 755 "$DEST/INSTALAR.sh"
 
 TARBALL="$OUT/HandheldLauncher-linux-x64.tar.gz"
 ZIPFILE="$OUT/HandheldLauncher-linux-x64.zip"
@@ -135,20 +135,25 @@ verify_pack() {  # $1 = pasta extraída (contém $NAME/), $2 = rótulo
   local app="$pack/$NAME"
   local bin="$app/arquivos/HandheldLauncher"
   local inst="$app/instalador"
-  local work ihome desk autostart desk_top topo
+  local work ihome desk autostart desk_top topo_n
   work="$(mktemp -d)"
   ihome="$work/home"
   # O utilizador tem de ter um ambiente de trabalho para receber o atalho.
   mkdir -p "$ihome/Desktop"
 
   # A raiz do pacote tem de ter SÓ estes três nomes: é o que o utilizador vê ao
-  # extrair, e serve para ele não andar à procura do instalador.
-  topo="$(find "$app" -mindepth 1 -maxdepth 1 -printf '%f\n' | sort | tr '\n' ' ')"
-  [ "$topo" = "INSTALAR.desktop arquivos instalador " ] \
-    || { echo "!! [$label] raiz do pacote inesperada: '$topo'" >&2; return 1; }
-  [ -x "$app/INSTALAR.desktop" ] || { echo "!! [$label] INSTALAR.desktop sem +x" >&2; return 1; }
+  # extrair, e serve para ele não andar à procura do instalador. Comparação por
+  # nome (não por string ordenada — a ordem do sort depende do locale).
+  topo_n="$(find "$app" -mindepth 1 -maxdepth 1 | wc -l)"
+  if [ "$topo_n" != "3" ] || [ ! -f "$app/INSTALAR.sh" ] \
+     || [ ! -d "$app/arquivos" ] || [ ! -d "$app/instalador" ]; then
+    echo "!! [$label] raiz do pacote inesperada ($topo_n entradas; esperava INSTALAR.sh, arquivos/, instalador/):" >&2
+    find "$app" -mindepth 1 -maxdepth 1 -printf '     %f\n' >&2 || true
+    return 1
+  fi
+  [ -x "$app/INSTALAR.sh" ] || { echo "!! [$label] INSTALAR.sh sem +x" >&2; return 1; }
   [ -x "$bin" ]                 || { echo "!! [$label] arquivos/HandheldLauncher sem +x" >&2; return 1; }
-  [ -x "$inst/instalar.sh" ]        || { echo "!! [$label] instalador/instalar.sh sem +x" >&2; return 1; }
+  [ -x "$inst/menu.sh" ]            || { echo "!! [$label] instalador/menu.sh sem +x" >&2; return 1; }
   [ -x "$inst/install-linux.sh" ]   || { echo "!! [$label] instalador/install-linux.sh sem +x" >&2; return 1; }
   [ -x "$inst/uninstall-linux.sh" ] || { echo "!! [$label] instalador/uninstall-linux.sh sem +x" >&2; return 1; }
   [ -f "$app/arquivos/handheld-launcher.png" ] || { echo "!! [$label] ícone em falta" >&2; return 1; }
@@ -157,21 +162,10 @@ verify_pack() {  # $1 = pasta extraída (contém $NAME/), $2 = rótulo
     echo "!! [$label] HandheldLauncher não é ELF 64-bit" >&2
     return 1
   fi
-  if command -v desktop-file-validate >/dev/null 2>&1; then
-    local dv_inst
-    dv_inst="$(desktop-file-validate "$app/INSTALAR.desktop" 2>&1 || true)"
-    if printf '%s' "$dv_inst" | grep -q 'error:'; then
-      printf '%s\n' "$dv_inst" >&2
-      echo "!! [$label] INSTALAR.desktop inválido" >&2
-      return 1
-    fi
-    [ -z "$dv_inst" ] || printf '   (aviso) %s\n' "$dv_inst"
-  fi
-
   # Caminho do utilizador: o menu do instalador, em modo não-interativo
   # (opção 1 = instalar + arranque automático no login).
-  if ! ( cd "$app" && HOME="$ihome" bash ./instalador/instalar.sh --sem-perguntas --no-add-path ) > "$work/install.log" 2>&1; then
-    echo "!! [$label] instalador/instalar.sh falhou:" >&2
+  if ! ( cd "$app" && HOME="$ihome" bash ./instalador/menu.sh --sem-perguntas --no-add-path ) > "$work/install.log" 2>&1; then
+    echo "!! [$label] instalador/menu.sh falhou:" >&2
     cat "$work/install.log" >&2
     return 1
   fi
@@ -235,7 +229,7 @@ verify_pack() {  # $1 = pasta extraída (contém $NAME/), $2 = rótulo
 
   # Opção 2 do menu: instalar sem arranque automático tem de remover o anterior
   # (é o que impede o "ligou sozinho e eu não pedi" em PC/desktop).
-  if ! ( cd "$app" && HOME="$ihome" bash ./instalador/instalar.sh --sem-perguntas --no-autostart --no-add-path ) \
+  if ! ( cd "$app" && HOME="$ihome" bash ./instalador/menu.sh --sem-perguntas --no-autostart --no-add-path ) \
         > "$work/install2.log" 2>&1; then
     echo "!! [$label] reinstalação sem autostart falhou:" >&2
     cat "$work/install2.log" >&2
@@ -245,7 +239,7 @@ verify_pack() {  # $1 = pasta extraída (contém $NAME/), $2 = rótulo
     || { echo "!! [$label] --no-autostart não removeu o arranque automático" >&2; return 1; }
 
   # Opção 3 do menu: o desinstalador tem de limpar tudo.
-  if ! ( cd "$app" && HOME="$ihome" bash ./instalador/instalar.sh --sem-perguntas --desinstalar ) \
+  if ! ( cd "$app" && HOME="$ihome" bash ./instalador/menu.sh --sem-perguntas --desinstalar ) \
         > "$work/uninstall.log" 2>&1; then
     echo "!! [$label] desinstalação falhou:" >&2
     cat "$work/uninstall.log" >&2

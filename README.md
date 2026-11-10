@@ -62,12 +62,12 @@ Para instalar num Linux (Bazzite, Zorin ou outra distro), depois de extrair o `.
 
 ```
 handheld-launcher/
-├── INSTALAR.desktop     ← duplo-clique (o instalador)
+├── INSTALAR.sh          ← duplo-clique (o instalador)
 ├── instalador/          ← scripts
 └── arquivos/            ← binário e tudo o que ele precisa
 ```
 
-**Duplo-clique em `INSTALAR`** e escolha no menu:
+**Duplo-clique em `INSTALAR.sh`** (o gestor de ficheiros pergunta *Executar no terminal* — escolha essa opção) e escolha no menu:
 
 ```
 1) Instalar e abrir sozinho no login (handheld)   [Enter]
@@ -79,14 +79,14 @@ Sem ambiente gráfico (ou prefira o terminal):
 
 ```bash
 cd handheld-launcher
-./instalador/instalar.sh          # abre o mesmo menu
-./instalador/instalar.sh --sem-perguntas   # instala + arranque no login
-./instalador/instalar.sh --desinstalar     # remove (--purge apaga os dados)
+./instalador/menu.sh                       # abre o mesmo menu
+./instalador/menu.sh --sem-perguntas       # instala + arranque no login
+./instalador/menu.sh --desinstalar         # remove (--purge apaga os dados)
 ```
 
 O instalador cria o atalho `~/.local/bin/handheld-launcher`, a entrada no menu de aplicações com ícone, **um atalho no ambiente de trabalho**, corrige o `PATH` no `~/.profile`, liga o **arranque automático no login** e confere as bibliotecas/ferramentas em falta (mostrando o comando `apt`/`dnf`/`rpm-ostree` exato). O log de cada execução fica em `~/.local/state/handheld-launcher/install.log`.
 
-> No GNOME/Zorin, o primeiro duplo-clique num `.desktop` recém-extraído pode pedir autorização: botão direito → **Permitir execução**. Depois disso já abre com dois cliques.
+> No GNOME/Zorin, na primeira vez o `INSTALAR.sh` pode aparecer como "não confiável": botão direito → **Permitir execução** (ou abra o terminal e corra `./INSTALAR.sh`). Depois disso, dois cliques bastam.
 
 Opções úteis (script `instalador/install-linux.sh`, que o menu usa):
 
