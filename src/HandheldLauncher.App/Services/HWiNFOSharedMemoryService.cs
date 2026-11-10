@@ -130,6 +130,11 @@ public static HardwareMetrics ExtractMetrics(Snapshot snapshot)
         catch (UnauthorizedAccessException) { ResetMapping(); }
         catch (IOException) { ResetMapping(); }
         catch (ArgumentException) { ResetMapping(); }
+        // v0.24.3-beta.6: no Linux/macOS memoria partilhada NOMEADA não existe —
+        // OpenExisting lança PlatformNotSupportedException ("Named maps are not
+        // supported"). Sem este catch, o timer de hardware do MainViewModel
+        // (async void) rebentava no primeiro tick.
+        catch (PlatformNotSupportedException) { ResetMapping(); }
 
         return false;
     }
@@ -137,6 +142,11 @@ public static HardwareMetrics ExtractMetrics(Snapshot snapshot)
     private void EnsureMapping()
     {
         if (_view is not null) return;
+
+        // O HWiNFO é um programa de Windows: fora dele não há mapa nenhum para
+        // abrir. Sair aqui evita a exceção (e o log poluído a cada tick).
+        if (!OperatingSystem.IsWindows()) return;
+
         _mapping = MemoryMappedFile.OpenExisting(MappingName, MemoryMappedFileRights.Read);
         _view = _mapping.CreateViewAccessor(0, 0, MemoryMappedFileAccess.Read);
     }

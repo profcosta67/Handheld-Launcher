@@ -342,6 +342,12 @@ public sealed class MainViewModel : ViewModelBase
     {
         try
         {
+            // v0.24.3-beta.6: o HWiNFO64 é um .exe de Windows. No Linux não há
+            // nada para arrancar — e sem esta guarda a procura pelos caminhos
+            // "C:\Program Files\..." acabava por gravar HwInfoDisabled=true nas
+            // settings do utilizador logo no primeiro arranque.
+            if (!OperatingSystem.IsWindows()) return;
+
             var settings = AppSettingsStore.Load();
             if (settings.HwInfoDisabled) return;
 
