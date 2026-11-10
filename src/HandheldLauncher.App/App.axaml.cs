@@ -206,7 +206,10 @@ public partial class App : Application
 
             desktop.MainWindow = mainWindow;
 
-            if (appSettings.Theme == 16)
+            // v0.25.2: a paleta Cartoon pode vir do tema (16 escura / 17 clara) ou
+            // do layout (3) — o layout força a paleta em ApplyAppearance, mas a
+            // classe precisa de existir já na primeira pintura.
+            if (appSettings.Theme is 16 or 17 || appSettings.LayoutTheme == 3)
             {
                 mainWindow.Classes.Add("cartoon");
             }

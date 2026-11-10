@@ -10,8 +10,9 @@ public static class ThemeManager
     [
         "Escuro", "Claro", "Azul", "Vermelho", "Verde", "Laranja", "Rosa", "Ciano", "Preto (OLED)", "Dourado", "Grafite",
         "Meia-noite", "Crepúsculo", "Musgo", "Névoa", "Alto Contraste",
-        // 🟢 NOVO TEMA CARTOON AQUI (Índice 16)
-        "Cartoon"
+        // Cartoon tem duas versões — escura (16) e clara (17). São as únicas
+        // oferecidas ao usuário; o resto da paleta continua bloqueado.
+        "Cartoon", "Cartoon Claro"
     ];
 
     public static readonly string[] LayoutThemeNames = ["Clássico", "Clean", "BigScreen", "Cartoon"];
@@ -45,12 +46,20 @@ public static class ThemeManager
     public const int FontManrope = 11, FontOutfit = 12, FontSpaceGrotesk = 13, FontDmSans = 14,
         FontPlusJakarta = 15, FontChakraPetch2 = 16, FontRajdhani = 17, FontNunito = 18, FontFredoka2 = 19;
 
+    // v0.25.2: apelidos do tema Cartoon. O layout 3 é uma identidade fechada —
+    // MainWindow.ApplyAppearance e SettingsViewModel.SaveTo forçam estes três
+    // valores sempre que ele está ativo (ver LayoutDefaults abaixo).
+    public const int ThemeCartoon = 16;
+    public const int ThemeCartoonLight = 17;
+    public const int FontFredoka = FontFredoka2;
+    public const int SoundBolha = 2;
+
     public static (int Font, int Sound) LayoutDefaults(int layoutTheme) => layoutTheme switch
 {
     0 => (FontPlusJakarta, 1),   // Clássico
     1 => (FontManrope, 3),       // Clean
     2 => (FontChakraPetch2, 0),  // Moderno (BigScreen)
-    3 => (FontFredoka2, 2),      // 🟢 NOVO: Cartoon (Fonte Bolha)
+    3 => (FontFredoka2, 2),      // Cartoon: Fredoka + Bolha
     _ => (FontModerna, 0),
 };
 
@@ -132,8 +141,13 @@ public static class ThemeManager
         new("#E9EDF2", "#FFFFFF", "#DDE3EB", "#0F6CBD", "#9CC4E8", "#101820", "#4F5B6B", true),
         new("#000000", "#0D0D0D", "#1A1A1A", "#FFD400", "#8F7700", "#FFFFFF", "#C8C8C8", false, TileRadius: 6, BarRadius: 6),
         
-        // 🟢 PALETA CARTOON (Roxo Nickelodeon + Laranja + Bordas Arredondadas)
-        new("#1A0B2E", "#2D1B4E", "#42286D", "#FF9800", "#E65100", "#FFFFFF", "#FFEB3B", false, TileRadius: 24, BarRadius: 24)
+        // 🟢 PALETA CARTOON ESCURA (Roxo Nickelodeon + Laranja + Bordas Arredondadas)
+        new("#1A0B2E", "#2D1B4E", "#42286D", "#FF9800", "#E65100", "#FFFFFF", "#FFEB3B", false, TileRadius: 24, BarRadius: 24),
+
+        // v0.25.2: CARTOON CLARO — "papel de desenho": creme, tinta roxa e o mesmo
+        // laranja do estúdio. A tinta preta dos contornos continua a funcionar
+        // porque o fundo é claro (ver CartoonLibraryLayout/Styles).
+        new("#F6EFE0", "#FFFDF6", "#EFE4CF", "#E65100", "#FFB74D", "#241A2E", "#6F5F77", true, TileRadius: 24, BarRadius: 24)
     ];
 
     public static void ApplyFont(Avalonia.Controls.Window window, int uiFont)
@@ -163,7 +177,7 @@ public static class ThemeManager
             {
                 foreach (var window in lifetime.Windows)
                 {
-                    if (themeIndex == 16) // Cartoon
+                    if (themeIndex is ThemeCartoon or ThemeCartoonLight)
                     {
                         if (!window.Classes.Contains("cartoon")) window.Classes.Add("cartoon");
                     }
@@ -203,6 +217,11 @@ public static class ThemeManager
 
         // Véu do Quick Settings: 70% opaco / 30% translúcido sobre o tema.
         SetBrush(app, "PanelTranslucentBrush", "#B3" + palette.Background.TrimStart('#'));
+
+        // v0.25.2: véus do layout Cartoon (fundo da página e do ecrã de lançamento).
+        // Derivam da cor de fundo da paleta, por isso o Cartoon Claro fica certo.
+        SetBrush(app, "ToonVeilBrush", "#B3" + palette.Background.TrimStart('#'));
+        SetBrush(app, "ToonVeilStrongBrush", "#E6" + palette.Background.TrimStart('#'));
     }
 
     /// <summary>

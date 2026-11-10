@@ -11,7 +11,10 @@
         <conv:HexColorToBrushConverter x:Key="HexColorToBrushConverter" />
     </UserControl.Resources>
 
-    <Border Background="{DynamicResource BarBrush}" 
+    <!-- v0.25.2: Classes="hubBar" — o layout Cartoon re-estiliza esta barra como
+         balão de fala com moldura de tinta (ver Styles/CartoonTheme.axaml). -->
+    <Border Classes="hubBar"
+            Background="{DynamicResource BarBrush}" 
             CornerRadius="{DynamicResource BarCornerRadius}" 
             Margin="0,10,0,0" 
             Padding="24,16"
@@ -121,7 +124,7 @@
 
             <!-- 3. Botão Jogar -->
             <Button Grid.Column="3" 
-                    Classes="switchAction" 
+                    Classes="switchAction hubPlay" 
                     Content="JOGAR (A)" 
                     HorizontalAlignment="Right" 
                     VerticalAlignment="Center"

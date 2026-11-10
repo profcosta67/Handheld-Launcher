@@ -1,0 +1,60 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    v0.25.2 — identidade visual do layout "Cartoon" (índice 3).
+
+    Tudo aqui é condicionado à classe "toon", que só a janela principal
+    recebe quando o layout Cartoon está ativo (MainWindow.ApplyLayoutTheme).
+    A paleta continua a cargo do ThemeManager (índice 16); a classe global
+    "cartoon", que já existia no Theme.axaml, trata dos contornos de tinta
+    nos botões/cartões partilhados. Aqui fica o que é só deste layout: a
+    barra de topo, o rodapé do jogo e o botão JOGAR.
+
+    Nada aqui copia personagens ou logótipos: são os recursos da linguagem
+    dos desenhos da era — moldura de tinta, canto torto, sombra chapada.
+  -->
+
+  <Styles.Resources>
+    <!-- Mesmos valores do CartoonLibraryLayout: a tinta não segue temas. -->
+    <SolidColorBrush x:Key="ToonInkBrush" Color="#141018" />
+    <SolidColorBrush x:Key="ToonSplatBrush" Color="#FF9F1C" />
+  </Styles.Resources>
+
+  <!-- Barra de topo: cartaz de tinta levemente torto -->
+  <Style Selector="Window.toon Border.topBar">
+    <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource ToonInkBrush}" />
+    <Setter Property="BorderThickness" Value="3" />
+    <Setter Property="CornerRadius" Value="22,12,26,14" />
+    <Setter Property="BoxShadow" Value="5 5 0 0 #B0141018" />
+    <Setter Property="RenderTransform" Value="rotate(-0.35deg)" />
+  </Style>
+
+  <!-- Rodapé do jogo selecionado: balão de fala com moldura -->
+  <Style Selector="Window.toon Border.hubBar">
+    <Setter Property="BorderBrush" Value="{StaticResource ToonInkBrush}" />
+    <Setter Property="BorderThickness" Value="4" />
+    <Setter Property="CornerRadius" Value="26,16,30,18" />
+    <Setter Property="BoxShadow" Value="6 6 0 0 #B0141018" />
+  </Style>
+
+  <!-- Botão JOGAR: carimbo de tinta -->
+  <Style Selector="Window.toon Button.hubPlay">
+    <Setter Property="BorderBrush" Value="{StaticResource ToonInkBrush}" />
+    <Setter Property="BorderThickness" Value="3" />
+    <Setter Property="CornerRadius" Value="18,10,20,12" />
+    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}" />
+    <Setter Property="FontWeight" Value="Black" />
+  </Style>
+
+  <Style Selector="Window.toon Button.hubPlay /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource ToonInkBrush}" />
+    <Setter Property="BorderThickness" Value="3" />
+    <Setter Property="CornerRadius" Value="18,10,20,12" />
+  </Style>
+
+</Styles>

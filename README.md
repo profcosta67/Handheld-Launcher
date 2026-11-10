@@ -114,13 +114,14 @@ Para o "modo jogo" fullscreen, ative o **Modo Kiosk** nas Configurações (o lau
 
 ## Temas de layout
 
-O launcher oferece três experiências de biblioteca, compartilhando o mesmo núcleo de jogos, integrações e ferramentas:
+O launcher oferece quatro experiências de biblioteca, compartilhando o mesmo núcleo de jogos, integrações e ferramentas:
 
 - **BigScreen:** layout imersivo, inspirado na navegação de console do Steam Big Picture e Bazzite, com identidade visual própria e foco em controle.
 - **Clean:** layout mais compacto (antigo "Switch"), com grade vertical e roleta de jogos.
 - **Clássico:** layout original do Handheld Launcher.
+- **Cartoon:** estúdio de desenho animado dos anos 90/00 — moldura de tinta grossa, cantos tortos, splats, onomatopeias, estrelas de impacto e ícones vetoriais desenhados à mão. Composição própria: **faixa de informação no topo**, **grade vertical de capas**, **filtros no rodapé** e **ecrã de lançamento** (wide capsule) ao escolher um jogo. Identidade fechada com **duas versões — escura (roxo) e clara (papel)** —, fonte Fredoka, som Bolha e grade fixa (as opções ficam bloqueadas enquanto ele está ativo).
 
-Os três layouts reutilizam a mesma infraestrutura de biblioteca e funcionalidades para evitar duplicação de recursos. Veja as notas de cada versão em [`release-notes/`](release-notes/) para o histórico de mudanças.
+Os quatro layouts reutilizam a mesma infraestrutura de biblioteca e funcionalidades para evitar duplicação de recursos. Veja as notas de cada versão em [`release-notes/`](release-notes/) para o histórico de mudanças.
 
 ## Desenvolvimento
 

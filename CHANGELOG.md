@@ -3,6 +3,9 @@
 Mais recente primeiro. Cada versão tem notas completas em [`release-notes/`](release-notes/).
 Betas não entram aqui: o que eles trazem aparece na versão estável que os junta.
 
+## [0.25.2] — 2026-11-10
+Novo **tema Cartoon**, o quarto layout: estúdio de desenho animado dos anos 90/00 com moldura de tinta grossa, cantos tortos, splats, onomatopeias, estrelas de impacto, ícones vetoriais desenhados à mão e capas que "fazem boing" ao ganhar foco. Composição própria: faixa de informação compacta no topo (com a descrição ao lado do logo), grade vertical de capas, filtros no rodapé e ecrã de lançamento (wide capsule) com Jogar/Info/Fechar. Identidade fechada com **duas versões — escura (roxo) e clara (papel)** —, fonte Fredoka, som Bolha e grade fixa (as opções ficam bloqueadas nas Configurações). [Notas](release-notes/0.25.2.md)
+
 ## [0.24.2] — 2026-11-09 · **estável**
 **Quick Settings 2.0**: o painel novo está ligado e a funcionar — **Brilho** com slider, **TDP** com slider + 4 presets (**Eco 8 W · Normal 15 W · Desempenho 20 W · Custom** até ao máximo do aparelho, com clamp em 3 camadas para o Custom nunca exceder o firmware), **resolução com 3 opções por aparelho** (Legion 900/1080/1200p, ROG 720/900/1080p) e a aplicar de facto, ventoinha, cor, Lossless 2x/3x/4x, Print e Gravar — tudo **centrado**, com os ícones originais e navegável por **D-pad**. Corrigido: painel ficava fora do ecrã e o scroll não chegava ao fim depois de mudar de resolução; QS abria e fechava sozinho no launcher. [Notas](release-notes/0.24.2.md)
 

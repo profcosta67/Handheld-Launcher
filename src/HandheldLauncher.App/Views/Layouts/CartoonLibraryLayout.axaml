@@ -1,0 +1,646 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:anim="https://github.com/whistyun/AnimatedImage.Avalonia"
+             xmlns:vm="using:HandheldLauncher.App.ViewModels"
+             xmlns:conv="using:HandheldLauncher.App.Converters"
+             xmlns:dataConv="using:Avalonia.Data.Converters"
+             xmlns:media="using:Avalonia.Media"
+             xmlns:layouts="using:HandheldLauncher.App.Views.Layouts"
+             x:Class="HandheldLauncher.App.Views.Layouts.CartoonLibraryLayout"
+             x:DataType="vm:MainViewModel">
+
+  <!--
+    v0.25.2 — layout "Cartoon" (índice 3), REVISÃO 2.
+
+    A primeira versão repetia a disposição do Clássico (banner → abas →
+    fileira → rodapé). Esta reorganiza tudo para não haver dúvida:
+
+      • FUNDO      — o BANNER (hero) do jogo em foco vira o fundo da página.
+      • TOPO       — faixa de informação no lugar do rodapé: ícone, logo/nome,
+                     selos, estatísticas, descrição e os botões JOGAR/INFO.
+      • MEIO       — GRADE vertical de capas (capsule), com scroll vertical.
+      • RODAPÉ     — abas de filtro + subfiltros (plataformas).
+      • POPUP      — ao escolher um jogo (clique/toque/A) abre o ecrã de
+                     lançamento estilo Steam Deck, com a WIDE CAPSULE como
+                     fundo, ícone + logo, dados e JOGAR/INFO/FECHAR.
+
+    Imagens (padrão SteamGridDB): capsule = capa da grade; wide capsule =
+    fundo do popup; banner/hero = fundo do tema ao selecionar o jogo.
+
+    Identidade fechada: paleta Cartoon (16), Fredoka, som Bolha e grade
+    vertical fixa (ver ThemeManager/MainWindow). Ícones das abas são Path
+    vetoriais próprios — nunca emojis.
+  -->
+
+  <UserControl.Resources>
+    <conv:FileToBitmapConverter x:Key="FileToBitmapConverter" />
+    <conv:HexColorToBrushConverter x:Key="HexColorToBrushConverter" />
+
+    <!-- Tinta e cores do estúdio: traço de desenho, não "cor de destaque". -->
+    <SolidColorBrush x:Key="ToonInkBrush" Color="#141018" />
+    <SolidColorBrush x:Key="ToonSplatBrush" Color="#FF9F1C" />
+    <SolidColorBrush x:Key="ToonSplatDeepBrush" Color="#E65100" />
+    <SolidColorBrush x:Key="ToonBurstBrush" Color="#FFE066" />
+    <SolidColorBrush x:Key="ToonSlimeBrush" Color="#8BD450" />
+    <SolidColorBrush x:Key="ToonPaperBrush" Color="#FFF6E5" />
+  </UserControl.Resources>
+
+  <UserControl.Styles>
+    <!-- Aba do estúdio: cartão de tinta, torto, com "splat" laranja quando ativo -->
+    <Style Selector="Button.toonTab">
+      <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource ToonInkBrush}" />
+      <Setter Property="BorderThickness" Value="3" />
+      <Setter Property="CornerRadius" Value="16,8,18,10" />
+      <Setter Property="Padding" Value="8,6" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="RenderTransform" Value="rotate(0deg)" />
+      <Setter Property="Transitions">
+        <Transitions>
+          <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.14" Easing="CubicEaseOut" />
+        </Transitions>
+      </Setter>
+    </Style>
+
+    <!-- Cada aba ganha a sua inclinação (mão livre, não régua) -->
+    <Style Selector="Button.toonTab.tiltL">
+      <Setter Property="RenderTransform" Value="rotate(-1.4deg)" />
+    </Style>
+    <Style Selector="Button.toonTab.tiltR">
+      <Setter Property="RenderTransform" Value="rotate(1.1deg)" />
+    </Style>
+    <Style Selector="Button.toonTab.tiltL:pointerover">
+      <Setter Property="RenderTransform" Value="rotate(-2.6deg) scale(1.05)" />
+    </Style>
+    <Style Selector="Button.toonTab.tiltR:pointerover">
+      <Setter Property="RenderTransform" Value="rotate(2.3deg) scale(1.05)" />
+    </Style>
+
+    <Style Selector="Button.toonTab /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource ToonInkBrush}" />
+      <Setter Property="BorderThickness" Value="3" />
+    </Style>
+
+    <Style Selector="Button.toonTab:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+    </Style>
+
+    <!-- Aba ativa: carimbo de tinta laranja -->
+    <Style Selector="Button.toonTab.active">
+      <Setter Property="Background" Value="{StaticResource ToonSplatBrush}" />
+      <Setter Property="Foreground" Value="{StaticResource ToonInkBrush}" />
+    </Style>
+    <Style Selector="Button.toonTab.active /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource ToonSplatBrush}" />
+      <Setter Property="Foreground" Value="{StaticResource ToonInkBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource ToonInkBrush}" />
+    </Style>
+    <Style Selector="Button.toonTab.active.tiltL">
+      <Setter Property="RenderTransform" Value="rotate(-2deg) translate(0,-2px)" />
+    </Style>
+    <Style Selector="Button.toonTab.active.tiltR">
+      <Setter Property="RenderTransform" Value="rotate(1.6deg) translate(0,-2px)" />
+    </Style>
+
+    <!-- Ícones: traço de caneta, não preenchimento (lê-se como rabisco) -->
+    <Style Selector="Button.toonTab Path">
+      <Setter Property="Stroke" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="StrokeThickness" Value="2.4" />
+      <Setter Property="Fill" Value="Transparent" />
+      <Setter Property="Width" Value="16" />
+      <Setter Property="Height" Value="16" />
+      <Setter Property="Stretch" Value="Uniform" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.toonTab.active Path">
+      <Setter Property="Stroke" Value="{StaticResource ToonInkBrush}" />
+    </Style>
+    <!-- Capa: cartão de tinta. Foco = "boing": endireita e cresce. -->
+    <Style Selector="Border.toonTile">
+      <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource ToonInkBrush}" />
+      <Setter Property="BorderThickness" Value="4" />
+      <Setter Property="CornerRadius" Value="18,26,16,30" />
+      <Setter Property="ClipToBounds" Value="True" />
+      <Setter Property="BoxShadow" Value="5 5 0 0 #B0141018" />
+      <Setter Property="RenderTransform" Value="rotate(-1.1deg)" />
+      <Setter Property="Transitions">
+        <Transitions>
+          <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.16" Easing="CubicEaseOut" />
+        </Transitions>
+      </Setter>
+    </Style>
+    <Style Selector="Border.toonTile.focused">
+      <Setter Property="BorderBrush" Value="{StaticResource ToonSplatBrush}" />
+      <Setter Property="BorderThickness" Value="5" />
+      <Setter Property="RenderTransform" Value="rotate(0.4deg) scale(1.055)" />
+      <Setter Property="BoxShadow" Value="9 9 0 0 #D9141018" />
+    </Style>
+
+    <!-- Estrela de impacto atrás da capa em foco -->
+    <Style Selector="Path.toonBurst">
+      <Setter Property="Fill" Value="{StaticResource ToonBurstBrush}" />
+      <Setter Property="Stroke" Value="{StaticResource ToonInkBrush}" />
+      <Setter Property="StrokeThickness" Value="2.5" />
+      <Setter Property="Stretch" Value="Uniform" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="IsHitTestVisible" Value="False" />
+    </Style>
+
+    <!-- Cartão "+ Adicionar jogo": moldura de tinta, cantos tortos -->
+    <Style Selector="Button.addGhostCard">
+      <Setter Property="Width" Value="200" />
+      <Setter Property="Height" Value="250" />
+      <Setter Property="CornerRadius" Value="20,28,18,26" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="{StaticResource ToonInkBrush}" />
+      <Setter Property="BorderThickness" Value="4" />
+      <Setter Property="Margin" Value="0,0,28,28" />
+      <Setter Property="Focusable" Value="True" />
+    </Style>
+    <Style Selector="Button.addGhostCard:focus, Button.addGhostCard.addFocused">
+      <Setter Property="BorderBrush" Value="{StaticResource ToonSplatBrush}" />
+      <Setter Property="Background" Value="#33FF9F1C" />
+    </Style>
+    <!-- Faixa de informação (topo) e barra de filtros (rodapé) -->
+    <Style Selector="Border.toonInfoBand">
+      <Setter Property="BorderBrush" Value="{StaticResource ToonInkBrush}" />
+      <Setter Property="BorderThickness" Value="4" />
+      <Setter Property="CornerRadius" Value="24,14,28,18" />
+      <Setter Property="BoxShadow" Value="6 6 0 0 #B0141018" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+      <Setter Property="RenderTransform" Value="rotate(-0.35deg)" />
+    </Style>
+    <Style Selector="Border.toonFilterBar">
+      <Setter Property="BorderBrush" Value="{StaticResource ToonInkBrush}" />
+      <Setter Property="BorderThickness" Value="4" />
+      <Setter Property="CornerRadius" Value="18,26,16,30" />
+      <Setter Property="BoxShadow" Value="5 5 0 0 #A0141018" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+      <Setter Property="RenderTransform" Value="rotate(0.25deg)" />
+    </Style>
+
+    <!-- Selos/etiquetas: adesivos com contorno de tinta -->
+    <Style Selector="Border.toonSticker">
+      <Setter Property="BorderBrush" Value="{StaticResource ToonInkBrush}" />
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="CornerRadius" Value="7,3,8,4" />
+      <Setter Property="Padding" Value="7,2" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Balão de fala da descrição -->
+    <Style Selector="Border.toonBubble">
+      <Setter Property="Background" Value="{StaticResource ToonPaperBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource ToonInkBrush}" />
+      <Setter Property="BorderThickness" Value="3" />
+      <Setter Property="CornerRadius" Value="14,14,14,4" />
+      <Setter Property="Padding" Value="12,8" />
+    </Style>
+
+    <!-- Ícones de estatística (relógio, calendário, troféu): traço de caneta -->
+    <Style Selector="Path.statIcon">
+      <Setter Property="Stroke" Value="{DynamicResource TextSecondaryBrush}" />
+      <Setter Property="StrokeThickness" Value="1.5" />
+      <Setter Property="Fill" Value="Transparent" />
+      <Setter Property="Width" Value="12" />
+      <Setter Property="Height" Value="12" />
+      <Setter Property="Stretch" Value="Uniform" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Ícones dos botões (play/info/fechar) -->
+    <Style Selector="Path.btnIcon">
+      <Setter Property="Stroke" Value="{StaticResource ToonInkBrush}" />
+      <Setter Property="StrokeThickness" Value="1.8" />
+      <Setter Property="Fill" Value="Transparent" />
+      <Setter Property="Width" Value="14" />
+      <Setter Property="Height" Value="14" />
+      <Setter Property="Stretch" Value="Uniform" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <!-- Ecrã de lançamento (popup): cartão de tinta com a wide capsule atrás -->
+    <Style Selector="Border.launchCard">
+      <Setter Property="BorderBrush" Value="{StaticResource ToonInkBrush}" />
+      <Setter Property="BorderThickness" Value="5" />
+      <Setter Property="CornerRadius" Value="28,16,32,20" />
+      <Setter Property="ClipToBounds" Value="True" />
+      <Setter Property="BoxShadow" Value="10 10 0 0 #C0141018" />
+      <Setter Property="RenderTransform" Value="rotate(-0.6deg)" />
+    </Style>
+
+    <Style Selector="Button.launchAction">
+      <Setter Property="BorderBrush" Value="{StaticResource ToonInkBrush}" />
+      <Setter Property="BorderThickness" Value="3" />
+      <Setter Property="CornerRadius" Value="18,10,20,12" />
+      <Setter Property="Padding" Value="20,11" />
+      <Setter Property="FontWeight" Value="Black" />
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.launchAction /template/ ContentPresenter">
+      <Setter Property="BorderBrush" Value="{StaticResource ToonInkBrush}" />
+      <Setter Property="BorderThickness" Value="3" />
+      <Setter Property="CornerRadius" Value="18,10,20,12" />
+    </Style>
+    <Style Selector="Button.launchAction.primary">
+      <Setter Property="Background" Value="{StaticResource ToonSplatBrush}" />
+      <Setter Property="Foreground" Value="{StaticResource ToonInkBrush}" />
+    </Style>
+    <Style Selector="Button.launchAction.primary /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource ToonSplatBrush}" />
+      <Setter Property="Foreground" Value="{StaticResource ToonInkBrush}" />
+    </Style>
+    <Style Selector="Button.launchAction.info">
+      <Setter Property="Background" Value="{StaticResource ToonPaperBrush}" />
+      <Setter Property="Foreground" Value="{StaticResource ToonInkBrush}" />
+    </Style>
+    <Style Selector="Button.launchAction.info /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource ToonPaperBrush}" />
+      <Setter Property="Foreground" Value="{StaticResource ToonInkBrush}" />
+    </Style>
+    <Style Selector="Button.launchAction.ghost">
+      <Setter Property="Background" Value="#33141018" />
+      <Setter Property="Foreground" Value="#FFF6E5" />
+    </Style>
+    <Style Selector="Button.launchAction.ghost /template/ ContentPresenter">
+      <Setter Property="Background" Value="#33141018" />
+      <Setter Property="Foreground" Value="#FFF6E5" />
+    </Style>
+    <Style Selector="Button.launchAction:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource ToonBurstBrush}" />
+      <Setter Property="Foreground" Value="{StaticResource ToonInkBrush}" />
+    </Style>
+  </UserControl.Styles>
+
+  <Panel>
+    <!-- Contrato ILibraryLayout: o Cartoon não tem hero separado (o banner do
+         jogo é o fundo da página), mas a MainWindow espera estas duas imagens
+         para a transição de foco. Ficam ocultas e sem custo. -->
+    <Image x:Name="HeroImage" IsVisible="False" IsHitTestVisible="False" />
+    <Image x:Name="HeroBackImage" IsVisible="False" IsHitTestVisible="False" />
+
+    <!-- Fundo: o BANNER (hero) do jogo em foco vira o plano de fundo do tema -->
+    <Image Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}"
+           Stretch="UniformToFill" Opacity="0.30" IsHitTestVisible="False">
+      <Image.Effect><media:BlurEffect Radius="28" /></Image.Effect>
+    </Image>
+    <!-- Véu do tema: re-tintado pelo ThemeManager (roxo no escuro, papel no claro) -->
+    <Border IsHitTestVisible="False" Background="{DynamicResource ToonVeilBrush}" />
+
+    <!-- Raios de ação, como nos cartazes de desenho (discretos) -->
+    <Panel IsHitTestVisible="False" Opacity="0.12">
+      <Border Background="#FFEB3B" Height="3" Width="460" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="-80,150,0,0" RenderTransform="rotate(-22deg)" />
+      <Border Background="#FFFFFF" Height="3" Width="520" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-100,160" RenderTransform="rotate(-20deg)" />
+    </Panel>
+
+    <!-- Splats: a "meleca" verde e o borrão laranja da era -->
+    <Path IsHitTestVisible="False" Opacity="0.16" Fill="{StaticResource ToonSlimeBrush}" Stretch="None"
+          HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="-40,0,0,10"
+          Data="M70,10 C120,-10 180,14 196,58 C210,96 188,132 150,146 C120,157 78,150 56,120 C30,84 32,28 70,10 Z" />
+    <Path IsHitTestVisible="False" Opacity="0.14" Fill="{StaticResource ToonSplatBrush}" Stretch="None"
+          HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-46,-56,0"
+          Data="M90,16 C148,-6 214,20 232,74 C248,122 216,168 160,182 C112,194 52,176 30,128 C8,78 34,36 90,16 Z" />
+    <Grid RowDefinitions="Auto,*,Auto">
+    <!-- Faixa de informação compacta: logo à esquerda, descrição ao lado, ações à direita -->
+    <Border Grid.Row="0" Classes="toonInfoBand" Margin="24,8,24,0" Padding="14,10">
+      <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+
+        <!-- Ícone do jogo em carimbo -->
+        <Border Width="64" Height="64" VerticalAlignment="Center" ClipToBounds="True"
+                Background="#33FFFFFF" BorderBrush="{StaticResource ToonInkBrush}"
+                BorderThickness="3" CornerRadius="14,8,16,10">
+          <Image Source="{Binding SelectedTile.IconImagePath, Converter={StaticResource FileToBitmapConverter}}" Stretch="Uniform" Margin="5" />
+        </Border>
+
+        <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center" Margin="12,0,14,0" MinWidth="250" MaxWidth="380">
+          <!-- Logo do jogo (se houver) ou o nome normal, com estrela de impacto atrás -->
+          <Grid>
+            <Path Classes="toonBurst" Width="250" Height="90" Opacity="0.20" HorizontalAlignment="Left" Margin="-34,0,0,0" />
+            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+              <Image Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                     Height="40" MaxWidth="240" Stretch="Uniform" VerticalAlignment="Center"
+                     IsVisible="{Binding SelectedTile.ShowCurrentLogo}" />
+              <TextBlock Text="{Binding SelectedTile.Title}" FontSize="24" FontWeight="Black"
+                         Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"
+                         VerticalAlignment="Center" IsVisible="{Binding SelectedTile.ShowNameCaption}" />
+              <Border Classes="toonSticker" Background="{StaticResource ToonSplatBrush}" RenderTransform="rotate(-3deg)" Margin="2,0,0,0">
+                <TextBlock Text="BOING!" FontWeight="Black" FontSize="10" Foreground="{StaticResource ToonInkBrush}" />
+              </Border>
+            </StackPanel>
+          </Grid>
+
+          <!-- Selos -->
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <Border Classes="toonSticker" IsVisible="{Binding SelectedTile.HasPlatformBadge}"
+                    Background="{Binding SelectedTile.PlatformBadgeColorHex, Converter={StaticResource HexColorToBrushConverter}}">
+              <TextBlock Text="{Binding SelectedTile.PlatformBadgeText}" FontSize="10" FontWeight="Bold" Foreground="White" />
+            </Border>
+            <Border Classes="toonSticker" Background="{DynamicResource SurfaceBrush}">
+              <TextBlock Text="{Binding SelectedTile.InstallStatusLabel}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" />
+            </Border>
+            <Border Classes="toonSticker" Background="{StaticResource ToonBurstBrush}" IsVisible="{Binding SelectedTile.IsFavorite}">
+              <TextBlock Text="★ FAVORITO" FontSize="10" FontWeight="Bold" Foreground="{StaticResource ToonInkBrush}" />
+            </Border>
+            <Border Classes="toonSticker" Background="{DynamicResource SurfaceBrush}" IsVisible="{Binding SelectedTile.HasGenre}">
+              <TextBlock Text="{Binding SelectedTile.Genre}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" />
+            </Border>
+          </StackPanel>
+
+          <!-- Estatísticas com ícones desenhados à mão -->
+          <StackPanel Orientation="Horizontal" Spacing="14">
+            <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding SelectedTile.ShowPlaytime}">
+              <Path Classes="statIcon" Data="M6,1.5 A4.5,4.5 0 1 0 6,10.5 A4.5,4.5 0 1 0 6,1.5 Z M6,3.8 V6.2 L7.8,7.4" />
+              <TextBlock Text="{Binding SelectedTile.PlaytimeLabel}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding SelectedTile.HasLastPlayed}">
+              <Path Classes="statIcon" Data="M1.5,3.5 H10.5 V10.5 H1.5 Z M1.5,5.5 H10.5 M3.5,1.5 V3.5 M8.5,1.5 V3.5" />
+              <TextBlock Text="{Binding SelectedTile.LastPlayedLabel}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding SelectedTile.HasAchievements}">
+              <Path Classes="statIcon" Data="M4,2 H8 V5.5 C8,7.2 6.9,8.5 6,8.5 C5.1,8.5 4,7.2 4,5.5 Z M2.5,3 H4 M8,3 H9.5 M6,8.5 V10.5 M4.5,10.5 H7.5" />
+              <TextBlock Text="{Binding SelectedTile.AchievementBadgeLabel}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+            </StackPanel>
+          </StackPanel>
+
+        </StackPanel>
+
+        <!-- Descrição ao lado do logo (o espaço que estava vazio na faixa) -->
+        <Border Grid.Column="2" Classes="toonBubble" IsVisible="{Binding SelectedTile.HasDescription}"
+                VerticalAlignment="Center" Margin="4,0,16,0" MaxWidth="620">
+          <TextBlock Text="{Binding SelectedTile.Description, Converter={x:Static conv:HtmlDecodeConverter.Instance}}"
+                     FontSize="12" Foreground="{StaticResource ToonInkBrush}" TextWrapping="Wrap"
+                     MaxLines="3" TextTrimming="CharacterEllipsis" />
+        </Border>
+
+        <!-- Ações rápidas (com ícones) -->
+        <StackPanel Grid.Column="3" Spacing="6" VerticalAlignment="Center">
+          <Button Classes="launchAction primary" Width="170" Command="{Binding LaunchSelectedCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Path Classes="btnIcon" Data="M3,1.5 L12,7 L3,12.5 Z" Fill="{StaticResource ToonInkBrush}" StrokeThickness="1" />
+              <TextBlock Text="JOGAR (A)" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+          <Button Classes="launchAction info" Width="170" Click="OnInfoClick" IsVisible="{Binding CanOpenSelectedDetails}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Path Classes="btnIcon" Data="M7,1.5 A5.5,5.5 0 1 0 7,12.5 A5.5,5.5 0 1 0 7,1.5 Z M7,6 V10 M7,3.6 V3.7" />
+              <TextBlock Text="INFO (X)" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </Grid>
+    </Border>
+    <!-- GRADE vertical de capas (capsule) com scroll vertical -->
+    <Grid Grid.Row="1" Margin="24,10,24,0">
+      <layouts:CloudGridView x:Name="CloudGrid" IsVisible="{Binding IsFilterCloudActive}" />
+
+      <ScrollViewer x:Name="GameRowScrollViewer" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
+                    PointerWheelChanged="OnGameRowPointerWheelChanged" IsVisible="{Binding !IsFilterCloudActive}">
+        <ScrollViewer.Transitions>
+          <Transitions><VectorTransition Property="Offset" Duration="0:0:0.28" Easing="CubicEaseOut" /></Transitions>
+        </ScrollViewer.Transitions>
+
+        <WrapPanel x:Name="GameOuterPanel" Orientation="Horizontal" VerticalAlignment="Top">
+          <ItemsControl x:Name="GamesItemsControl" ItemsSource="{Binding Games}">
+            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:GameTileViewModel">
+                <StackPanel Width="{Binding TileWidth}" Spacing="6">
+                  <Grid Height="46">
+                    <TextBlock Text="{Binding Title}" Classes="tileCaption" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" TextAlignment="Left" HorizontalAlignment="Left" VerticalAlignment="Center" IsVisible="{Binding ShowNameCaption}" />
+                    <Image Source="{Binding LogoImagePath, Converter={StaticResource FileToBitmapConverter}}" Width="190" Height="{Binding CaptionLogoHeight}" Stretch="Uniform" HorizontalAlignment="Left" VerticalAlignment="Center" IsVisible="{Binding ShowCurrentLogo}" />
+                  </Grid>
+
+                  <Grid>
+                    <!-- A estrela de impacto aparece só na capa em foco -->
+                    <Path Classes="toonBurst" Width="300" Height="360" Margin="-24" IsVisible="{Binding IsFocused}"
+                          Data="M20,0 L23.5,11.5 L35,6 L28,17 L40,20 L28,23 L35,34 L23.5,28.5 L20,40 L16.5,28.5 L5,34 L12,23 L0,20 L12,17 L5,6 L16.5,11.5 Z" />
+                    <Border Classes="toonTile" Classes.focused="{Binding IsFocused}"
+                            Width="{Binding TileWidth}" Height="{Binding TileHeight}"
+                            PointerPressed="OnTilePointerPressed">
+                      <Grid>
+                        <Image anim:ImageBehavior.AnimatedSource="{Binding TileImagePath}" Stretch="Uniform" />
+                        <Border Background="#99383838" IsHitTestVisible="False" IsVisible="{Binding IsOwnedNotInstalled}" />
+                        <TextBlock Text="{Binding Title}" Classes="gameTitle" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="10" IsVisible="{Binding ShowEmptyPlaceholder}" />
+                        <Border Background="{Binding PlatformBadgeColorHex, Converter={StaticResource HexColorToBrushConverter}}" BorderBrush="{StaticResource ToonInkBrush}" BorderThickness="2" CornerRadius="6" Padding="5,2" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8" IsVisible="{Binding HasPlatformBadge}">
+                          <TextBlock Text="{Binding PlatformBadgeText}" FontSize="10" FontWeight="Bold" Foreground="White" />
+                        </Border>
+                        <TextBlock Text="★" Foreground="{StaticResource ToonBurstBrush}" FontSize="22" FontWeight="Black" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="8" IsVisible="{Binding IsFavorite}" />
+                        <Border Background="{StaticResource ToonSplatBrush}" BorderBrush="{StaticResource ToonInkBrush}" BorderThickness="2" CornerRadius="6" Padding="6,3" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="8" IsVisible="{Binding IsOwnedNotInstalled}">
+                          <TextBlock Text="⇩ INSTALAR" FontSize="11" FontWeight="Bold" Foreground="{StaticResource ToonInkBrush}" />
+                        </Border>
+                      </Grid>
+                    </Border>
+                  </Grid>
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <Button x:Name="AddProgramButton" Classes="addGhostCard" Click="OnAddProgramClick" IsVisible="{Binding IsFilterApplicationsActive}" VerticalAlignment="Top">
+            <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
+              <TextBlock Text="＋" FontSize="40" FontWeight="Black" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" />
+              <TextBlock Text="Adicionar Jogo" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" />
+            </StackPanel>
+          </Button>
+        </WrapPanel>
+      </ScrollViewer>
+
+      <TextBlock Text="Nenhum jogo encontrado ainda.&#10;Adicione um jogo manualmente para começar."
+                 Classes="subtle" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center"
+                 HorizontalAlignment="Center" Margin="24"
+                 IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
+
+      <TextBlock Text="{Binding NotInstalledTabMessage}" Classes="subtle" TextWrapping="Wrap" TextAlignment="Center"
+                 HorizontalAlignment="Center" VerticalAlignment="Top" Margin="40,30,40,0" MaxWidth="600"
+                 IsVisible="{Binding HasNotInstalledTabMessage}" />
+    </Grid>
+    <!-- RODAPÉ: abas de filtro + subfiltros (plataformas) -->
+    <Border Grid.Row="2" Classes="toonFilterBar" Margin="24,10,24,14" Padding="12,10">
+      <StackPanel Spacing="8">
+        <!-- Linha tracejada de tinta (divisória de desenho) -->
+        <Rectangle Height="3" Stroke="{StaticResource ToonInkBrush}" StrokeThickness="3" StrokeDashArray="2,3" Margin="0,-4,0,2" />
+
+        <Grid ColumnDefinitions="*,*,*,*,*,*,*">
+          <Button Grid.Column="0" Classes="toonTab tiltL" Classes.active="{Binding IsFilterFavoritesActive}" Command="{Binding SetFilterFavoritesCommand}" Margin="0,0,6,0">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Path Data="M10,1.5 L12.4,7 L18.5,7.6 L13.9,11.7 L15.3,17.7 L10,14.5 L4.7,17.7 L6.1,11.7 L1.5,7.6 L7.6,7 Z" />
+              <TextBlock Text="Favoritos" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+          <Button Grid.Column="1" Classes="toonTab tiltR" Classes.active="{Binding IsFilterAllActive}" Command="{Binding SetFilterAllCommand}" Margin="6,0,6,0">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Path Data="M2,2 H9 V9 H2 Z M11,2 H18 V9 H11 Z M2,11 H9 V18 H2 Z M11,11 H18 V18 H11 Z" />
+              <TextBlock Text="Todos" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+          <Button Grid.Column="2" Classes="toonTab tiltL" Classes.active="{Binding IsFilterComputerActive}" Command="{Binding SetFilterComputerCommand}" Margin="6,0,6,0">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Path Data="M1.5,5.5 H18.5 V14.5 H1.5 Z M4.5,8.2 H6 M8,8.2 H9.5 M11.5,8.2 H13 M15,8.2 H16.5 M5,11.3 H15" />
+              <TextBlock Text="Computador" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+          <Button Grid.Column="3" Classes="toonTab tiltR" Classes.active="{Binding IsFilterEmulatorsActive}" Command="{Binding SetFilterEmulatorsCommand}" Margin="6,0,6,0">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Path Data="M5,6.5 H15 C17.2,6.5 18.6,8.4 18,10.5 L16.8,14.6 C16.3,16.2 14.3,16.6 13.4,15.2 L12.2,13.5 H7.8 L6.6,15.2 C5.7,16.6 3.7,16.2 3.2,14.6 L2,10.5 C1.4,8.4 2.8,6.5 5,6.5 Z M6.2,9.2 V11.6 M5,10.4 H7.4 M13.2,9.6 H13.3 M15,10.6 H15.1" />
+              <TextBlock Text="Emuladores" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+          <Button Grid.Column="4" Classes="toonTab tiltL" Classes.active="{Binding IsFilterApplicationsActive}" Command="{Binding SetFilterApplicationsCommand}" Margin="6,0,6,0">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Path Data="M2.5,3.5 H17.5 V16.5 H2.5 Z M2.5,7 H17.5 M5,5.2 H5.1 M7.5,5.2 H7.6" />
+              <TextBlock Text="Programas" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+          <Button Grid.Column="5" Classes="toonTab tiltR" Classes.active="{Binding IsFilterNotInstalledActive}" Command="{Binding SetFilterNotInstalledCommand}" Margin="6,0,6,0">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Path Data="M10,2.5 V12 M5.5,8 L10,12.5 L14.5,8 M3,16.5 H17" />
+              <TextBlock Text="Não instalados" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+          <Button Grid.Column="6" Classes="toonTab tiltL" Classes.active="{Binding IsFilterCloudActive}" Command="{Binding SetFilterCloudCommand}" Margin="6,0,0,0">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Path Data="M6,15.5 C3.5,15.5 2,13.8 2,11.8 C2,9.9 3.4,8.4 5.3,8.3 C5.8,5.7 8,4 10.5,4 C13.2,4 15.4,6 15.7,8.6 C17.6,8.9 19,10.4 19,12.2 C19,14.2 17.4,15.5 15.4,15.5 Z" />
+              <TextBlock Text="Nuvem" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+        </Grid>
+
+        <ItemsControl ItemsSource="{Binding SubFilters}" IsVisible="{Binding HasSubFilters}" HorizontalAlignment="Center">
+          <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel Orientation="Horizontal" HorizontalAlignment="Center" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:SubFilterViewModel">
+              <Button Classes="pill subFilter" Classes.cursor="{Binding IsCursor}" Content="{Binding Label}" Click="OnSubFilterClick" Background="{Binding BackgroundHex, Converter={StaticResource HexColorToBrushConverter}}" Foreground="{Binding ForegroundHex, Converter={StaticResource HexColorToBrushConverter}}" BorderBrush="{Binding AccentHex, Converter={StaticResource HexColorToBrushConverter}}" BorderThickness="2" Margin="4,0" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </Border>
+    </Grid>
+    <!-- ECRÃ DE LANÇAMENTO (popup estilo Steam Deck) -->
+    <Panel x:Name="LaunchScreen" IsVisible="False">
+      <Border Background="#E60B0616" PointerPressed="OnLaunchScrimPressed" />
+
+      <Panel HorizontalAlignment="Center" VerticalAlignment="Center">
+        <!-- Estrela de impacto que "rebenta" atrás do cartão -->
+        <Path x:Name="LaunchBurst" Classes="toonBurst" Width="940" Height="740" Opacity="0"
+              Data="M20,0 L23.5,11.5 L35,6 L28,17 L40,20 L28,23 L35,34 L23.5,28.5 L20,40 L16.5,28.5 L5,34 L12,23 L0,20 L12,17 L5,6 L16.5,11.5 Z" />
+
+        <Border x:Name="LaunchCard" Classes="launchCard" Width="800">
+          <Grid RowDefinitions="Auto,Auto">
+            <!-- Área da wide capsule: compacta, sem o vazio que sobrava em cima -->
+            <Grid Height="310" ClipToBounds="True">
+              <!-- WIDE CAPSULE como fundo do popup -->
+              <Image Source="{Binding SelectedTile.WideCapsuleImagePath, Converter={StaticResource FileToBitmapConverter}}" Stretch="UniformToFill" />
+              <Border Background="{DynamicResource ToonVeilStrongBrush}" />
+
+              <Grid Margin="24,16" RowDefinitions="Auto,Auto,*">
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                  <!-- O ícone aparece também no popup -->
+                  <Border Width="58" Height="58" VerticalAlignment="Center" ClipToBounds="True"
+                          Background="#33FFFFFF" BorderBrush="{StaticResource ToonInkBrush}"
+                          BorderThickness="3" CornerRadius="14,8,16,10">
+                    <Image Source="{Binding SelectedTile.IconImagePath, Converter={StaticResource FileToBitmapConverter}}" Stretch="Uniform" Margin="5" />
+                  </Border>
+                  <Image Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}"
+                         Height="50" MaxWidth="400" Stretch="Uniform" VerticalAlignment="Center"
+                         IsVisible="{Binding SelectedTile.ShowCurrentLogo}" />
+                  <TextBlock Text="{Binding SelectedTile.Title}" FontSize="30" FontWeight="Black"
+                             Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" MaxWidth="400"
+                             VerticalAlignment="Center" IsVisible="{Binding SelectedTile.ShowNameCaption}" />
+                </StackPanel>
+
+                  <StackPanel Grid.Row="1" Spacing="6" Margin="0,8,0,0">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                      <Border Classes="toonSticker" IsVisible="{Binding SelectedTile.HasPlatformBadge}"
+                              Background="{Binding SelectedTile.PlatformBadgeColorHex, Converter={StaticResource HexColorToBrushConverter}}">
+                        <TextBlock Text="{Binding SelectedTile.PlatformBadgeText}" FontSize="10" FontWeight="Bold" Foreground="White" />
+                      </Border>
+                      <Border Classes="toonSticker" Background="{DynamicResource SurfaceBrush}">
+                        <TextBlock Text="{Binding SelectedTile.InstallStatusLabel}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                      </Border>
+                      <Border Classes="toonSticker" Background="{StaticResource ToonBurstBrush}" IsVisible="{Binding SelectedTile.IsFavorite}">
+                        <TextBlock Text="★ FAVORITO" FontSize="10" FontWeight="Bold" Foreground="{StaticResource ToonInkBrush}" />
+                      </Border>
+                      <Border Classes="toonSticker" Background="{DynamicResource SurfaceBrush}" IsVisible="{Binding SelectedTile.HasGenre}">
+                        <TextBlock Text="{Binding SelectedTile.Genre}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                      </Border>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Spacing="14">
+                      <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding SelectedTile.ShowPlaytime}">
+                        <Path Classes="statIcon" Data="M6,1.5 A4.5,4.5 0 1 0 6,10.5 A4.5,4.5 0 1 0 6,1.5 Z M6,3.8 V6.2 L7.8,7.4" />
+                        <TextBlock Text="{Binding SelectedTile.PlaytimeLabel}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+                      </StackPanel>
+                      <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding SelectedTile.HasLastPlayed}">
+                        <Path Classes="statIcon" Data="M1.5,3.5 H10.5 V10.5 H1.5 Z M1.5,5.5 H10.5 M3.5,1.5 V3.5 M8.5,1.5 V3.5" />
+                        <TextBlock Text="{Binding SelectedTile.LastPlayedLabel}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+                      </StackPanel>
+                      <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding SelectedTile.HasAchievements}">
+                        <Path Classes="statIcon" Data="M4,2 H8 V5.5 C8,7.2 6.9,8.5 6,8.5 C5.1,8.5 4,7.2 4,5.5 Z M2.5,3 H4 M8,3 H9.5 M6,8.5 V10.5 M4.5,10.5 H7.5" />
+                        <TextBlock Text="{Binding SelectedTile.AchievementBadgeLabel}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+                      </StackPanel>
+                    </StackPanel>
+                  </StackPanel>
+
+                  <!-- Descrição em baixo, centrada -->
+                  <Border Grid.Row="2" Classes="toonBubble" IsVisible="{Binding SelectedTile.HasDescription}"
+                          VerticalAlignment="Bottom" HorizontalAlignment="Center" MaxWidth="640" Margin="0,8,0,0">
+                    <TextBlock Text="{Binding SelectedTile.Description, Converter={x:Static conv:HtmlDecodeConverter.Instance}}"
+                               FontSize="12" Foreground="{StaticResource ToonInkBrush}" TextWrapping="Wrap"
+                               MaxLines="3" TextTrimming="CharacterEllipsis" />
+                  </Border>
+                </Grid>
+            </Grid>
+
+            <!-- Barra inferior: selo à esquerda + botões à direita -->
+            <Border Grid.Row="1" Background="{DynamicResource SurfaceRaisedBrush}">
+              <StackPanel>
+                <!-- Linha tracejada de tinta (divisória de desenho) -->
+                <Rectangle Height="3" Stroke="{StaticResource ToonInkBrush}" StrokeThickness="3" StrokeDashArray="2,3" Margin="0,4,0,0" />
+
+                <Grid ColumnDefinitions="Auto,*,Auto" Margin="16,10">
+                  <Border Classes="toonSticker" Background="{StaticResource ToonSplatBrush}" Padding="12,4"
+                          VerticalAlignment="Center" RenderTransform="rotate(-2deg)">
+                    <TextBlock Text="PRONTO PRA JOGAR?" FontWeight="Black" FontSize="13" Foreground="{StaticResource ToonInkBrush}" />
+                  </Border>
+
+                  <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                    <Button Classes="launchAction primary" MinWidth="150" Click="OnPlayClick">
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Path Classes="btnIcon" Data="M3,1.5 L12,7 L3,12.5 Z" Fill="{StaticResource ToonInkBrush}" StrokeThickness="1" />
+                        <TextBlock Text="JOGAR (A)" VerticalAlignment="Center" />
+                      </StackPanel>
+                    </Button>
+                    <Button Classes="launchAction info" MinWidth="120" Click="OnInfoClick" IsVisible="{Binding CanOpenSelectedDetails}">
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Path Classes="btnIcon" Data="M7,1.5 A5.5,5.5 0 1 0 7,12.5 A5.5,5.5 0 1 0 7,1.5 Z M7,6 V10 M7,3.6 V3.7" />
+                        <TextBlock Text="INFO (X)" VerticalAlignment="Center" />
+                      </StackPanel>
+                    </Button>
+                    <Button Classes="launchAction ghost" MinWidth="130" Click="OnCloseLaunchClick">
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Path Data="M2,2 L12,12 M12,2 L2,12" Stroke="#FFF6E5" StrokeThickness="2" Width="13" Height="13" Stretch="Uniform" VerticalAlignment="Center" />
+                        <TextBlock Text="FECHAR (B)" VerticalAlignment="Center" />
+                      </StackPanel>
+                    </Button>
+                  </StackPanel>
+                </Grid>
+              </StackPanel>
+            </Border>
+          </Grid>
+        </Border>
+      </Panel>
+
+      <!-- Flash curto de desenho animado ao abrir -->
+      <Border x:Name="LaunchFlash" Background="White" Opacity="0" IsHitTestVisible="False" />
+    </Panel>
+  </Panel>
+</UserControl>

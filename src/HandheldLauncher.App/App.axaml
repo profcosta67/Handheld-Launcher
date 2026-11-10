@@ -6,6 +6,9 @@
   <Application.Styles>
     <FluentTheme />
     <StyleInclude Source="avares://HandheldLauncher/Styles/Theme.axaml" />
+    <!-- v0.25.2: identidade do layout Cartoon (só ativa na janela com a classe
+         "toon" — ver MainWindow.ApplyLayoutTheme). -->
+    <StyleInclude Source="avares://HandheldLauncher/Styles/CartoonTheme.axaml" />
   </Application.Styles>
 
 </Application>

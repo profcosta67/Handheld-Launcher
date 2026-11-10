@@ -83,17 +83,29 @@
               <StackPanel Spacing="8">
                 <TextBlock Text="Cores e Fontes" Classes="sectionTitle" />
                 <TextBlock Text="Tema do Launcher" Classes="label"/>
-                <ComboBox SelectedIndex="{Binding ThemeIndex}" HorizontalAlignment="Stretch" Height="36">
+                <ComboBox SelectedIndex="{Binding ThemeIndex}" IsEnabled="{Binding !IsCartoonThemeActive}" HorizontalAlignment="Stretch" Height="36">
                   <ComboBoxItem Content="Escuro" /><ComboBoxItem Content="Claro" /><ComboBoxItem Content="Azul" />
                   <ComboBoxItem Content="Vermelho" /><ComboBoxItem Content="Verde" /><ComboBoxItem Content="Laranja" />
                   <ComboBoxItem Content="Rosa" /><ComboBoxItem Content="Ciano" /><ComboBoxItem Content="Preto (OLED)" />
                   <ComboBoxItem Content="Dourado" /><ComboBoxItem Content="Grafite" /><ComboBoxItem Content="Meia-noite" />
                   <ComboBoxItem Content="Crepúsculo" /><ComboBoxItem Content="Musgo" /><ComboBoxItem Content="Névoa" />
-                  <ComboBoxItem Content="Alto Contraste" />
+                  <ComboBoxItem Content="Alto Contraste" /><ComboBoxItem Content="Cartoon" /><ComboBoxItem Content="Cartoon Claro" />
+                </ComboBox>
+
+                <!-- v0.25.2: identidade fechada do layout Cartoon -->
+                <TextBlock Text="O layout Cartoon usa cores, fonte (Fredoka) e som (Bolha) exclusivos — a personalização fica bloqueada enquanto ele estiver ativo."
+                           IsVisible="{Binding IsCartoonThemeActive}"
+                           Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+
+                <!-- v0.25.2: única escolha do Cartoon: versão escura ou clara -->
+                <TextBlock Text="Versão do Cartoon" Classes="label" Margin="0,8,0,4" IsVisible="{Binding IsCartoonThemeActive}" />
+                <ComboBox SelectedIndex="{Binding CartoonVariantIndex}" IsVisible="{Binding IsCartoonThemeActive}" HorizontalAlignment="Stretch" Height="36">
+                  <ComboBoxItem Content="Escuro (roxo de estúdio)" />
+                  <ComboBoxItem Content="Claro (papel de desenho)" />
                 </ComboBox>
 
                 <TextBlock Text="Fonte do Sistema" Classes="label" Margin="0,8,0,4"/>
-                <ComboBox SelectedIndex="{Binding FontIndex}" HorizontalAlignment="Stretch" Height="36">
+                <ComboBox SelectedIndex="{Binding FontIndex}" IsEnabled="{Binding !IsCartoonThemeActive}" HorizontalAlignment="Stretch" Height="36">
                   <ComboBoxItem Content="Moderna (Segoe UI)" /><ComboBoxItem Content="Divertida (Comic Sans)" />
                   <ComboBoxItem Content="Formal (Georgia)" /><ComboBoxItem Content="Gamer (Bahnschrift)" />
                   <ComboBoxItem Content="Terminal (Consolas)" /><ComboBoxItem Content="Simples (Arial)" />
@@ -127,13 +139,17 @@
               <StackPanel Spacing="8">
                 <TextBlock Text="Layout e Comportamento" Classes="sectionTitle" />
                 <TextBlock Text="Layout da Biblioteca" Classes="label"/>
-                <ComboBox SelectedIndex="{Binding LayoutIndex}" HorizontalAlignment="Stretch" Height="36">
+                <ComboBox SelectedIndex="{Binding LayoutIndex}" IsEnabled="{Binding !IsCartoonThemeActive}" HorizontalAlignment="Stretch" Height="36">
                   <ComboBoxItem Content="Fileira horizontal (rola pros lados)" />
                   <ComboBoxItem Content="Grade vertical (rola pra cima e pra baixo)" />
                 </ComboBox>
                 <!-- 🟢 AVISO DO TEMA CLEAN -->
                 <TextBlock Text="O tema Clean usa o carrossel (fileira) por padrão e ignora a grade vertical." 
                            IsVisible="{Binding IsCleanThemeActive}" 
+                           Classes="subtle" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                <!-- v0.25.2: o Cartoon é sempre grade vertical (blocos) -->
+                <TextBlock Text="O tema Cartoon usa sempre a grade vertical (blocos) — a opção fica bloqueada."
+                           IsVisible="{Binding IsCartoonThemeActive}"
                            Classes="subtle" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
                            
                 <ToggleSwitch IsChecked="{Binding Animations}" Content="Animações (zoom e rolagem suave)" Margin="0,8,0,0" />
@@ -156,10 +172,14 @@
                 <ToggleSwitch IsChecked="{Binding SoundEffects}" Content="Sons ao navegar pelo controle" />
                 
                 <TextBlock Text="Estilo do Som" Classes="label" Margin="0,8,0,4"/>
-                <ComboBox SelectedIndex="{Binding SoundThemeIndex}" HorizontalAlignment="Stretch" IsEnabled="{Binding SoundEffects}" Height="36">
+                <ComboBox SelectedIndex="{Binding SoundThemeIndex}" HorizontalAlignment="Stretch" IsEnabled="{Binding IsSoundStyleEnabled}" Height="36">
                   <ComboBoxItem Content="Console" /><ComboBoxItem Content="Toque" /><ComboBoxItem Content="Bolha" />
                   <ComboBoxItem Content="Mecânico" /><ComboBoxItem Content="Marimba" /><ComboBoxItem Content="Botão" /><ComboBoxItem Content="Digital" />
                 </ComboBox>
+                <!-- v0.25.2: o layout Cartoon fixa o pacote Bolha -->
+                <TextBlock Text="O layout Cartoon usa o som Bolha — o estilo fica bloqueado enquanto ele estiver ativo."
+                           IsVisible="{Binding IsCartoonThemeActive}"
+                           Classes="subtle" FontSize="11" TextWrapping="Wrap" />
                 
                 <TextBlock Text="{Binding SoundVolume, StringFormat='Volume dos Efeitos ({0}%)'}" Classes="label" Margin="0,8,0,4"/>
                 <Slider Minimum="0" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" Value="{Binding SoundVolume}" IsEnabled="{Binding SoundEffects}" />

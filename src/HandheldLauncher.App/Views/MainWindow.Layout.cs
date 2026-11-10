@@ -66,6 +66,10 @@ public partial class MainWindow : Window
 
     private bool _verticalLayout;
     private bool _layoutInitialized;
+
+    // v0.25.2: no Cartoon as abas/subfiltros ficam no RODAPÉ, por isso o foco
+    // vertical inverte (↓ entra nos subfiltros, ↑ volta à grade).
+    private bool _filtersBelowGrid;
     private ITemplate<Panel?>? _horizontalPanelTemplate;
     private Transitions? _rowScrollTransitions;
 
@@ -76,20 +80,28 @@ public partial class MainWindow : Window
     {
         try
         {
-            ThemeManager.Apply(settings.Theme);
-            ThemeManager.ApplyFont(this, settings.UiFont);
+            // v0.25.2: o layout Cartoon é uma identidade fechada — paleta, fonte e
+            // som são dele, não do que estiver salvo em Preferências. A escolha
+            // do usuário continua guardada para quando voltar aos outros três.
+            var cartoon = settings.LayoutTheme == 3;
+            // v0.25.2: o Cartoon só aceita duas versões — escura (roxo) e clara (papel).
+            var cartoonTheme = settings.CartoonLightMode ? ThemeManager.ThemeCartoonLight : ThemeManager.ThemeCartoon;
+            ThemeManager.Apply(cartoon ? cartoonTheme : settings.Theme);
+            ThemeManager.ApplyFont(this, cartoon ? ThemeManager.FontFredoka : settings.UiFont);
             ThemeManager.ApplyFontSize(settings.UiFontSize);
             Classes.Set("noAnim", !settings.Animations);
             _rowScrollTransitions ??= _libraryLayout.GameRowScrollViewer.Transitions;
             _libraryLayout.GameRowScrollViewer.Transitions = settings.Animations ? _rowScrollTransitions : null;
             UiSounds.Enabled = settings.SoundEffects;
-            UiSounds.Pack = settings.SoundTheme;
+            UiSounds.Pack = cartoon ? ThemeManager.SoundBolha : settings.SoundTheme;
             UiSounds.Volume = settings.SoundVolume;
             if (OperatingSystem.IsWindows()) DisplayColorManager.Apply(settings.ColorMode);
             var scale = GameTileViewModel.ScaleForSetting(settings.TileSize);
             var scaleChanged = Math.Abs(scale - GameTileViewModel.SizeScale) > 0.001;
             GameTileViewModel.SizeScale = scale;
-            if (!_layoutInitialized || settings.VerticalLayout != _verticalLayout) { SetLayout(settings.VerticalLayout); _layoutInitialized = true; }
+            // Cartoon é sempre grade vertical (blocos); os outros obedeceram à escolha.
+            var vertical = cartoon || settings.VerticalLayout;
+            if (!_layoutInitialized || vertical != _verticalLayout) { SetLayout(vertical); _layoutInitialized = true; }
             if (scaleChanged) vm.ReloadTiles();
             ScrollGameRowSelectionIntoView(vm);
         }
@@ -106,14 +118,28 @@ public partial class MainWindow : Window
             layoutTheme = settings.LayoutTheme;
             layout = settings.LayoutTheme switch
             {
+                3 => new Layouts.CartoonLibraryLayout(),
                 2 => new Layouts.BigScreenLibraryLayout(),
                 1 => new Layouts.SwitchLibraryLayout(),
                 _ => new Layouts.ClassicLibraryLayout()
             };
         }
-        catch (Exception ex) { DebugLog.Write($"ApplyLayoutTheme: falhou ao ler settings, usando Clássico. {ex}"); layout = new Layouts.ClassicLibraryLayout(); }
+        catch (Exception ex)
+        {
+            // O layout escolhido rebentou (ex.: XAML indisponível): volta ao
+            // Clássico E limpa a marca do Cartoon, senão a barra/rodapé
+            // ficavam com a moldura de tinta por cima de outro layout.
+            DebugLog.Write($"ApplyLayoutTheme: falhou ao ler settings, usando Clássico. {ex}");
+            layoutTheme = 0;
+            layout = new Layouts.ClassicLibraryLayout();
+        }
         _libraryLayout = (ILibraryLayout)layout;
         TopBar.IsVisible = layoutTheme != 2;
+        // v0.25.2: a classe "toon" só existe com o layout Cartoon — é ela que
+        // veste a barra de topo e o rodapé com a moldura de tinta (ver
+        // Styles/CartoonTheme.axaml). A paleta fica a cargo do ThemeManager.
+        Classes.Set("toon", layoutTheme == 3);
+        _filtersBelowGrid = layoutTheme == 3;
         GamesItemsControl = _libraryLayout.GamesItemsControl;
         GameRowScrollViewer = _libraryLayout.GameRowScrollViewer;
         HeroImage = _libraryLayout.HeroImage;

@@ -414,13 +414,23 @@ public GameTileViewModel? SelectedTile
     get => _selectedTile;
     private set
     {
-        if (SetField(ref _selectedTile, value) && value is not null)
+        if (SetField(ref _selectedTile, value))
         {
-            _ = value.LoadDescriptionAsync();
-            _ = value.LoadReviewAsync();   // 🟢 NOVO
+            OnPropertyChanged(nameof(CanOpenSelectedDetails));
+            if (value is not null)
+            {
+                _ = value.LoadDescriptionAsync();
+                _ = value.LoadReviewAsync();   // 🟢 NOVO
+            }
         }
     }
 }
+
+/// <summary>
+/// v0.25.2: o popup de lançamento do Cartoon só mostra o botão "Info" quando o
+/// jogo tem página de detalhes (nuvem/atalhos/não instalados ficam sem ele).
+/// </summary>
+public bool CanOpenSelectedDetails => SelectedTile?.Game is { } game && HasGameDetails(game);
 
     private string _updateStatusText = string.Empty;
     public string UpdateStatusText

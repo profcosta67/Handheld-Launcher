@@ -38,6 +38,12 @@
            translúcido sobre a COR DO TEMA (o ThemeManager re-tinta ao trocar). -->
       <SolidColorBrush x:Key="PanelTranslucentBrush" Color="#B30C0D12" />
 
+      <!-- v0.25.2: véus do layout Cartoon (fundo da página e do ecrã de
+           lançamento). O ThemeManager re-tinta com a cor de fundo da paleta,
+           por isso acompanham o Cartoon escuro e o Cartoon claro. -->
+      <SolidColorBrush x:Key="ToonVeilBrush" Color="#B31A0B2E" />
+      <SolidColorBrush x:Key="ToonVeilStrongBrush" Color="#E61A0B2E" />
+
       <FontFamily x:Key="GlobalFontFamily">Segoe UI Variable Text, Segoe UI</FontFamily>
 
       <x:Double x:Key="FontSizeBase">14</x:Double>

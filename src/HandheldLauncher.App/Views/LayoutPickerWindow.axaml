@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="HandheldLauncher.App.Views.LayoutPickerWindow"
         Title="Layout da tela"
-        Width="560" Height="520"
+        Width="560" Height="620"
         CanResize="False"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource BackgroundBrush}">
@@ -50,6 +50,14 @@
         <StackPanel Spacing="4">
           <TextBlock Text="BigScreen" FontWeight="SemiBold" />
           <TextBlock Text="Experiência imersiva para controle: jogo em destaque, carrossel de capas ampliado e navegação inspirada em consoles." Classes="subtle" FontSize="11" TextWrapping="Wrap" MaxWidth="440" />
+        </StackPanel>
+      </RadioButton>
+
+      <!-- v0.25.2: identidade fechada — cores, fonte, som e fileira são do tema -->
+      <RadioButton x:Name="CartoonOption" GroupName="Layout">
+        <StackPanel Spacing="4">
+          <TextBlock Text="Cartoon 🎬" FontWeight="SemiBold" />
+          <TextBlock Text="Estúdio de desenho animado dos anos 90/00: moldura de tinta, capas tortas, splats, onomatopeias e ícones desenhados à mão. Cores, fonte (Fredoka), som (Bolha) e a fileira horizontal são exclusivos do tema." Classes="subtle" FontSize="11" TextWrapping="Wrap" MaxWidth="440" />
         </StackPanel>
       </RadioButton>
     </StackPanel>

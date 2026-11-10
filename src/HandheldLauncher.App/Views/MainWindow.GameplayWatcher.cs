@@ -639,6 +639,29 @@ private void SetAddButtonFocused(bool focused)
                 }
                 UiSounds.PlayForAction(action);
 
+                // v0.25.2: ecrã de lançamento do Cartoon aberto — o controle
+                // pertence-lhe: A joga, X abre os detalhes, B fecha.
+                if (_libraryLayout is ILaunchScreenHost launchScreen && launchScreen.IsLaunchScreenOpen)
+                {
+                    switch (action)
+                    {
+                        case GamepadAction.Confirm:
+                            _ = vm.LaunchSelected();
+                            launchScreen.CloseLaunchScreen();
+                            break;
+                        case GamepadAction.GameDetails:
+                            vm.OpenGameDetailsForSelected();
+                            launchScreen.CloseLaunchScreen();
+                            break;
+                        case GamepadAction.Back:
+                        case GamepadAction.Menu:
+                        case GamepadAction.GlobalMenu:
+                            launchScreen.CloseLaunchScreen();
+                            break;
+                    }
+                    continue;
+                }
+
                 if (vm.IsCoverPickerOpen)
                 {
 
@@ -735,7 +758,12 @@ private void SetAddButtonFocused(bool focused)
                         case GamepadAction.MoveLeft: vm.MoveSubFilterCursor(-1); continue;
                         case GamepadAction.MoveRight: vm.MoveSubFilterCursor(1); continue;
                         case GamepadAction.Confirm: vm.ToggleFocusedSubFilter(); continue;
-                        case GamepadAction.MoveDown: case GamepadAction.Back: vm.LeaveSubFilterRow(); continue;
+                        // v0.25.2: no Cartoon os subfiltros ficam no rodapé — sai-se para cima OU para baixo.
+                        case GamepadAction.MoveUp when _filtersBelowGrid:
+                        case GamepadAction.MoveDown when _filtersBelowGrid:
+                        case GamepadAction.Back:
+                            vm.LeaveSubFilterRow(); continue;
+                        case GamepadAction.MoveDown: vm.LeaveSubFilterRow(); continue;
                         case GamepadAction.MoveUp: continue;
                         case GamepadAction.PreviousFilter: case GamepadAction.NextFilter: break;
                         default: continue;
@@ -792,9 +820,19 @@ if (_addButtonFocused)
     vm.MoveNext();
     ScrollGameRowSelectionIntoView(vm);
     break;
-                    case GamepadAction.MoveUp: if (!MoveSelectionVertical(vm, -1)) vm.FocusSubFilterRow(); break;
-                    case GamepadAction.MoveDown: MoveSelectionVertical(vm, 1); break;
-                    case GamepadAction.Confirm: _ = vm.LaunchSelected(); ScrollGameRowSelectionIntoView(vm); break;
+                    case GamepadAction.MoveUp:
+                        if (_filtersBelowGrid) MoveSelectionVertical(vm, -1);
+                        else if (!MoveSelectionVertical(vm, -1)) vm.FocusSubFilterRow();
+                        break;
+                    case GamepadAction.MoveDown:
+                        if (_filtersBelowGrid) { if (!MoveSelectionVertical(vm, 1)) vm.FocusSubFilterRow(); }
+                        else MoveSelectionVertical(vm, 1);
+                        break;
+                    case GamepadAction.Confirm:
+                        // v0.25.2: no Cartoon o A abre o ecrã de lançamento; lá dentro é que joga.
+                        if (_libraryLayout is ILaunchScreenHost launchHost) launchHost.OpenLaunchScreen();
+                        else { _ = vm.LaunchSelected(); ScrollGameRowSelectionIntoView(vm); }
+                        break;
                     case GamepadAction.Back: vm.CloseRunningGame(); break;
                     case GamepadAction.Menu: vm.ToggleContextMenu(); break;
                     case GamepadAction.GlobalMenu:
@@ -888,6 +926,9 @@ if (_addButtonFocused)
                 case Key.Left: vm.MoveSubFilterCursor(-1); e.Handled = true; return;
                 case Key.Right: vm.MoveSubFilterCursor(1); e.Handled = true; return;
                 case Key.Enter: case Key.Space: vm.ToggleFocusedSubFilter(); e.Handled = true; return;
+                // v0.25.2: no Cartoon os subfiltros ficam no rodapé (sai-se por cima ou por baixo).
+                case Key.Up when _filtersBelowGrid:
+                case Key.Down when _filtersBelowGrid:
                 case Key.Down: case Key.Escape: vm.LeaveSubFilterRow(); e.Handled = true; return;
                 case Key.Up: e.Handled = true; return;
             }
@@ -895,7 +936,23 @@ if (_addButtonFocused)
 
         var settings = AppSettingsStore.Load();
 
-        if (TryMatch(settings.KeyLaunchGame, e)) { _ = vm.LaunchSelected(); ScrollGameRowSelectionIntoView(vm); e.Handled = true; return; }
+        // v0.25.2: ecrã de lançamento (Cartoon). Com ele aberto é modal: Enter
+        // joga, X/Pespaço abrem os detalhes e Esc/B fecham — o resto é ignorado.
+        if (_libraryLayout is ILaunchScreenHost launchHost && launchHost.IsLaunchScreenOpen)
+        {
+            if (e.Key == Key.Escape || TryMatch(settings.KeyGlobalMenu, e)) launchHost.CloseLaunchScreen();
+            else if (TryMatch(settings.KeyLaunchGame, e) || e.Key == Key.Enter) { _ = vm.LaunchSelected(); launchHost.CloseLaunchScreen(); }
+            else if (e.Key == Key.Space || TryMatch(settings.KeyContextMenu, e)) { vm.OpenGameDetailsForSelected(); launchHost.CloseLaunchScreen(); }
+            e.Handled = true;
+            return;
+        }
+
+        if (TryMatch(settings.KeyLaunchGame, e))
+        {
+            if (_libraryLayout is ILaunchScreenHost host) host.OpenLaunchScreen();
+            else { _ = vm.LaunchSelected(); ScrollGameRowSelectionIntoView(vm); }
+            e.Handled = true; return;
+        }
         if (TryMatch(settings.KeyGlobalMenu, e)) { vm.ToggleGlobalMenu(); e.Handled = true; return; }
         if (TryMatch(settings.KeyCloseGame, e)) { vm.CloseRunningGame(); e.Handled = true; return; }
         if (TryMatch(settings.KeyContextMenu, e)) { vm.ToggleContextMenu(); e.Handled = true; return; }
@@ -907,8 +964,14 @@ if (_addButtonFocused)
         {
             case Key.Left: vm.MovePrevious(); ScrollGameRowSelectionIntoView(vm); e.Handled = true; break;
             case Key.Right: vm.MoveNext(); ScrollGameRowSelectionIntoView(vm); e.Handled = true; break;
-            case Key.Up: if (!MoveSelectionVertical(vm, -1)) vm.FocusSubFilterRow(); e.Handled = true; break;
-            case Key.Down: MoveSelectionVertical(vm, 1); e.Handled = true; break;
+            case Key.Up:
+                if (_filtersBelowGrid) MoveSelectionVertical(vm, -1);
+                else if (!MoveSelectionVertical(vm, -1)) vm.FocusSubFilterRow();
+                e.Handled = true; break;
+            case Key.Down:
+                if (_filtersBelowGrid) { if (!MoveSelectionVertical(vm, 1)) vm.FocusSubFilterRow(); }
+                else MoveSelectionVertical(vm, 1);
+                e.Handled = true; break;
         }
     }
 

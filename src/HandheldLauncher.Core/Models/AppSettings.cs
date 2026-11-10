@@ -18,6 +18,10 @@ public class AppSettings
     public string RawgApiKey { get; set; } = string.Empty;
     public int Theme { get; set; } = 0;
     public int LayoutTheme { get; set; } = 0;
+
+    // v0.25.2: versão do tema Cartoon (falso = escuro/roxo, verdadeiro = claro/papel).
+    // Só vale com LayoutTheme == 3; o resto da paleta continua bloqueado.
+    public bool CartoonLightMode { get; set; }
     public int UiFont { get; set; } = 0;
     public int UiFontSize { get; set; } = 14;
     public int TileSize { get; set; } = 1;

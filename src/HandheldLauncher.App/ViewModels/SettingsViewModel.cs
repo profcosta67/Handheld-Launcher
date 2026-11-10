@@ -326,6 +326,8 @@ public sealed class SettingsViewModel : ViewModelBase
             {
                 OnPropertyChanged(nameof(LayoutThemeButtonText));
                 OnPropertyChanged(nameof(IsCleanThemeActive));
+                OnPropertyChanged(nameof(IsCartoonThemeActive));
+                OnPropertyChanged(nameof(IsSoundStyleEnabled));
             }
         }
     }
@@ -351,9 +353,10 @@ public sealed class SettingsViewModel : ViewModelBase
         {
             if (SetField(ref _layoutIndex, value))
             {
-                if (value == 1 && IsCleanThemeActive) 
+                // Clean é sempre fileira; Cartoon é sempre grade vertical (blocos).
+                if ((IsCleanThemeActive && value == 1) || (IsCartoonThemeActive && value == 0))
                 {
-                    _layoutIndex = 0;
+                    _layoutIndex = IsCartoonThemeActive ? 1 : 0;
                     OnPropertyChanged(nameof(LayoutIndex));
                 }
             }
@@ -362,11 +365,51 @@ public sealed class SettingsViewModel : ViewModelBase
 
     public bool IsCleanThemeActive => LayoutThemeIndex == 1;
 
+    /// <summary>
+    /// v0.25.2: o Cartoon é uma identidade fechada (paleta 16/17, fonte Fredoka e
+    /// som Bolha). Nas Configurações os combos de tema/fonte/som ficam
+    /// desligados enquanto ele está ativo, e o SaveTo força os valores.
+    /// </summary>
+    public bool IsCartoonThemeActive => LayoutThemeIndex == 3;
+
+    private int _cartoonVariantIndex;
+
+    /// <summary>
+    /// v0.25.2: a única personalização do Cartoon — versão escura (0) ou clara (1).
+    /// Aplicada ao vivo, para se ver o resultado sem fechar as Configurações.
+    /// </summary>
+    public int CartoonVariantIndex
+    {
+        get => _cartoonVariantIndex;
+        set
+        {
+            if (!SetField(ref _cartoonVariantIndex, Math.Clamp(value, 0, 1))) return;
+            if (_isLoading || !IsCartoonThemeActive) return;
+
+            var palette = _cartoonVariantIndex == 1
+                ? HandheldLauncher.App.Platform.ThemeManager.ThemeCartoonLight
+                : HandheldLauncher.App.Platform.ThemeManager.ThemeCartoon;
+            HandheldLauncher.App.Platform.ThemeManager.Apply(palette);
+            ThemeIndex = palette; // o combo de tema (desligado) mostra a versão ativa
+        }
+    }
+
     private bool _animations = true;
     public bool Animations { get => _animations; set => SetField(ref _animations, value); }
 
     private bool _soundEffects = true;
-    public bool SoundEffects { get => _soundEffects; set => SetField(ref _soundEffects, value); }
+    public bool SoundEffects
+    {
+        get => _soundEffects;
+        set
+        {
+            if (SetField(ref _soundEffects, value))
+                OnPropertyChanged(nameof(IsSoundStyleEnabled));
+        }
+    }
+
+    /// <summary>Estilo do som: só é escolhível sem o layout Cartoon e com efeitos ligados.</summary>
+    public bool IsSoundStyleEnabled => SoundEffects && !IsCartoonThemeActive;
 
     private bool _betaChannelOptIn;
     public bool BetaChannelOptIn { get => _betaChannelOptIn; set => SetField(ref _betaChannelOptIn, value); }
@@ -568,7 +611,7 @@ public sealed class SettingsViewModel : ViewModelBase
         FontIndex = Math.Clamp(settings.UiFont, 0, HandheldLauncher.App.Platform.ThemeManager.Fonts.Length - 1);
         FontSizeIndex = Math.Clamp(settings.UiFontSize, 0, 2);
         TileSizeIndex = Math.Clamp(settings.TileSize, 0, 2);
-        LayoutIndex = settings.VerticalLayout ? 1 : 0;
+        LayoutIndex = LayoutThemeIndex == 3 ? 1 : (settings.VerticalLayout ? 1 : 0);
         Animations = settings.Animations;
         SoundEffects = settings.SoundEffects;
         BetaChannelOptIn = settings.BetaChannelOptIn;
@@ -581,6 +624,19 @@ public sealed class SettingsViewModel : ViewModelBase
         SoundThemeIndex = Math.Clamp(settings.SoundTheme, 0, HandheldLauncher.App.Platform.UiSounds.PackNames.Length - 1);
         SoundVolume = Math.Clamp(settings.SoundVolume, 0, 100);
         ColorModeIndex = Math.Clamp(settings.ColorMode, 0, HandheldLauncher.App.Platform.DisplayColorManager.ModeNames.Length - 1);
+
+        // v0.25.2: com o layout Cartoon ativo, os combos desligados mostram os
+        // valores que o tema força — e não o que ficou salvo de outro layout.
+        if (LayoutThemeIndex == 3)
+        {
+            CartoonVariantIndex = settings.CartoonLightMode ? 1 : 0;
+            ThemeIndex = settings.CartoonLightMode
+                ? HandheldLauncher.App.Platform.ThemeManager.ThemeCartoonLight
+                : HandheldLauncher.App.Platform.ThemeManager.ThemeCartoon;
+            FontIndex = HandheldLauncher.App.Platform.ThemeManager.FontFredoka;
+            SoundThemeIndex = HandheldLauncher.App.Platform.ThemeManager.SoundBolha;
+            LayoutIndex = 1;
+        }
 
         KeyPrevFilter = settings.KeyPrevFilter;
         KeyNextFilter = settings.KeyNextFilter;
@@ -768,17 +824,32 @@ public sealed class SettingsViewModel : ViewModelBase
         settings.HidHideElevateOnDemand = HidHideElevateOnDemand;
         settings.FreezeGameOnOverlay = FreezeGameOnOverlay;
 
-        settings.Theme = Math.Clamp(ThemeIndex, 0, HandheldLauncher.App.Platform.ThemeManager.ThemeNames.Length - 1);
+        // v0.25.2: o layout Cartoon é uma identidade fechada — paleta 16, fonte
+        // Fredoka e som Bolha. Os combos ficam desligados na tela; gravar aqui
+        // garante o bloqueio mesmo que algo os altere por outra via.
+        var cartoon = LayoutThemeIndex == 3;
+        settings.CartoonLightMode = cartoon && CartoonVariantIndex == 1;
         settings.LayoutTheme = Math.Clamp(LayoutThemeIndex, 0, HandheldLauncher.App.Platform.ThemeManager.LayoutThemeNames.Length - 1);
-        settings.UiFont = Math.Clamp(FontIndex, 0, HandheldLauncher.App.Platform.ThemeManager.Fonts.Length - 1);
+        settings.Theme = cartoon
+            ? (settings.CartoonLightMode
+                ? HandheldLauncher.App.Platform.ThemeManager.ThemeCartoonLight
+                : HandheldLauncher.App.Platform.ThemeManager.ThemeCartoon)
+            : Math.Clamp(ThemeIndex, 0, HandheldLauncher.App.Platform.ThemeManager.ThemeNames.Length - 1);
+        settings.UiFont = cartoon
+            ? HandheldLauncher.App.Platform.ThemeManager.FontFredoka
+            : Math.Clamp(FontIndex, 0, HandheldLauncher.App.Platform.ThemeManager.Fonts.Length - 1);
         settings.UiFontSize = Math.Clamp(FontSizeIndex, 0, 2);
         settings.TileSize = Math.Clamp(TileSizeIndex, 0, 2);
-        settings.VerticalLayout = LayoutIndex == 1;
+        // Com o Cartoon ativo a grade é fixa: não mexer na preferência guardada,
+        // para os outros layouts voltarem à disposição que o usuário tinha.
+        if (!cartoon) settings.VerticalLayout = LayoutIndex == 1;
         settings.Animations = Animations;
         settings.SoundEffects = SoundEffects;
         settings.BetaChannelOptIn = BetaChannelOptIn;
         
-        settings.SoundTheme = Math.Clamp(SoundThemeIndex, 0, HandheldLauncher.App.Platform.UiSounds.PackNames.Length - 1);
+        settings.SoundTheme = cartoon
+            ? HandheldLauncher.App.Platform.ThemeManager.SoundBolha
+            : Math.Clamp(SoundThemeIndex, 0, HandheldLauncher.App.Platform.UiSounds.PackNames.Length - 1);
         settings.SoundVolume = Math.Clamp((int)Math.Round(SoundVolume), 0, 100);
         settings.ColorMode = Math.Clamp(ColorModeIndex, 0, HandheldLauncher.App.Platform.DisplayColorManager.ModeNames.Length - 1);
 

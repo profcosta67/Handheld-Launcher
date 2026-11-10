@@ -65,6 +65,13 @@ public partial class MainWindow : Window
         bool apply; try { apply = await dialog.ShowDialog<bool>(this); } finally { _activeDialog = null; }
         if (!apply || dialog.SelectedLayout == settings.LayoutTheme) return;
         settings.LayoutTheme = dialog.SelectedLayout;
+        // v0.25.2: o Cartoon vive com a paleta Cartoon (índice 16). Ao sair dele,
+        // se a paleta tinha sido forçada pelo layout, volta para o Escuro — a
+        // escolha antiga do usuário não fica perdida dentro do tema fechado.
+        if (settings.LayoutTheme == 3)
+            settings.Theme = settings.CartoonLightMode ? ThemeManager.ThemeCartoonLight : ThemeManager.ThemeCartoon;
+        else if (settings.Theme is ThemeManager.ThemeCartoon or ThemeManager.ThemeCartoonLight)
+            settings.Theme = 0;
         // v0.16.4: o layout novo traz o som e a fonte que combinam com ele.
         var (font, sound) = ThemeManager.LayoutDefaults(settings.LayoutTheme);
         settings.UiFont = font;
