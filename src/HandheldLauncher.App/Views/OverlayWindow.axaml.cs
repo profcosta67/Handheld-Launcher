@@ -138,6 +138,16 @@ public partial class OverlayWindow : Window
         _hidHideService = hidHideService;
         InitializeComponent();
 
+        // Vidro real do Windows (Acrylic) quando o compositor suporta; se não,
+        // cai para Blur e, em último caso, para alpha simples. Sem esta lista o
+        // Acrylic podia falhar e a janela ficar opaca/preta.
+        TransparencyLevelHint = new[]
+        {
+            WindowTransparencyLevel.AcrylicBlur,
+            WindowTransparencyLevel.Blur,
+            WindowTransparencyLevel.Transparent,
+        };
+
         ShowActivated = false;
 
         _tdpHardwareSupported = OperatingSystem.IsWindows()
@@ -698,6 +708,14 @@ public partial class OverlayWindow : Window
             HideWithUnblock();
         };
 
+        // Engrenagem do rodapé: fecha o painel e abre as Configurações.
+        NewQsPanel.SettingsRequested += (_, _) =>
+        {
+            DebugLog.Write("[QS] Configurações pedidas pelo painel 2.0.");
+            HideWithUnblock();
+            _viewModel.RequestSettings();
+        };
+
         NewQsPanel.BrightnessChanged += (_, value) =>
         {
             _hardwareService?.SetBrightness(Math.Round((double)value));
@@ -714,6 +732,9 @@ public partial class OverlayWindow : Window
             _ when _currentTdp.Contains("Custom", StringComparison.OrdinalIgnoreCase) => PowerPreset.Custom,
             _ => PowerPreset.Normal,
         };
+
+        // Rodapé do painel mostra a bateria (o QsPanel não usa DataContext).
+        NewQsPanel.DataContext = _viewModel;
 
         NewQsPanel.Initialize(
             deviceId: profile.Id,
@@ -738,6 +759,7 @@ public partial class OverlayWindow : Window
     {
         NewQsPanel.SetBrightness((int)Math.Round(BrightnessSlider?.Value ?? 70));
         NewQsPanel.SetScreenInfo(TxtScreenInfo?.Text ?? "—");
+        NewQsPanel.SetBattery(_viewModel.BatteryStatusText);
 
         // Só avisa quando o TDP não vai mesmo aplicar.
         if (!HandheldLauncher.App.Platform.ElevationService.IsElevated)

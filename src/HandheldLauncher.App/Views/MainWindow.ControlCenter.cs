@@ -3,15 +3,18 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Media;
 using Avalonia.Media.Transformation;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using HandheldLauncher.App.Diagnostics;
 using HandheldLauncher.App.Input;
+using HandheldLauncher.App.Platform;
 using HandheldLauncher.App.ViewModels;
+using HandheldLauncher.Core.Models;
+using HandheldLauncher.Core.Services;
 using HandheldLauncher.Services;
 
 namespace HandheldLauncher.App.Views;
@@ -26,18 +29,43 @@ public partial class MainWindow : Window
     private readonly WifiService _wifiService = new();
     private readonly BluetoothService _btService = new();
 
-    // Alvo de foco com posição na "grade" do painel: linha 0 = tiles, linha 1 =
-    // downloads/fechar, linha 2+ = linhas das listas (coluna 0 = Wi-Fi, 1 = BT).
+    // Volume/Brilho/TDP da Central de Controle: mesma implementação por
+    // plataforma que o OverlayWindow usa (Windows nativo, Linux via
+    // pactl/brightnessctl, Mock nas restantes).
+    //
+    // Criado só à primeira utilização: o construtor do WindowsHardwareService
+    // corre o DeviceDetector, e o launcher não deve pagar isso no arranque por
+    // causa de um painel que pode nunca ser aberto.
+    private IHardwareService? _hardwareService;
+
+    private IHardwareService Hardware => _hardwareService ??= CreateHardwareService();
+
+    /// <summary>Sliders em modo "preencher a partir das definições" não devem gravar nada.</summary>
+    private bool _suppressControlCenterSliders;
+
+    private bool _nightLightOn;
+    private bool _darkModeOn;
+
+    // Gravar as definições a cada tick do slider martelava o disco: aplica-se o
+    // valor na hora ao hardware e só se persiste quando o dedo para.
+    private DispatcherTimer? _settingsSaveTimer;
+
+    private static IHardwareService CreateHardwareService()
+    {
+        if (OperatingSystem.IsWindows()) return new WindowsHardwareService();
+        if (OperatingSystem.IsLinux()) return new LinuxHardwareService();
+        return new MockHardwareService();
+    }
+
+    // Alvo de foco com posição na "grade" do painel: linhas 0 e 1 = os seis
+    // tiles (3×2), linha 2 = Sync/Ver Fila/Fechar, linha 3+ = linhas das listas
+    // (coluna 1 = Wi-Fi, coluna 2 = Bluetooth).
     private readonly record struct ControlCenterTarget(Control Control, int Row, int Column);
 
     private readonly List<ControlCenterTarget> _controlCenterTargets = new();
     private ControlCenterTarget? _controlCenterCurrent;
     private bool _controlCenterBusy;
     private DispatcherTimer? _controlCenterRefreshTimer;
-
-    // Cores para o feedback visual dos tiles
-    private readonly IBrush _activeColor = new SolidColorBrush(Color.FromRgb(124, 92, 252));
-    private readonly IBrush _inactiveColor = new SolidColorBrush(Color.FromRgb(37, 42, 54));
 
     public void ToggleControlCenter()
     {
@@ -59,12 +87,23 @@ public partial class MainWindow : Window
         card.RenderTransform = TransformOperations.Parse("translateY(0px)");
         DebugLog.Write("[CONTROL CENTER] Aberto.");
 
+        LoadControlCenterSliders();
+        UpdateExtraTilesVisuals();
+
         await UpdateRadioVisualsAsync();
         await LoadNetworksAndDevicesAsync(discoverBluetooth: true);
 
         // Cursor visível desde o início — senão a primeira seta parece "sumir"
         // (com _controlCenterCurrent nulo, isto foca o primeiro tile).
         MoveControlCenterFocus(NavigationDirection.Down);
+
+        // O BringIntoView do foco rolava o painel e cortava o cabeçalho
+        // ("Configurações rápidas" aparecia a meio do cartão). Volta ao topo.
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (this.FindControl<ScrollViewer>("ControlCenterScroll") is { } scroll)
+                scroll.Offset = default;
+        }, DispatcherPriority.Background);
 
         // O estado muda por fora (o Windows reconecta sozinho, o rádio desliga),
         // então o painel se atualiza enquanto estiver aberto.
@@ -77,6 +116,7 @@ public partial class MainWindow : Window
     private async void OnControlCenterRefreshTick(object? sender, EventArgs e)
     {
         if (!_isControlCenterOpen || _controlCenterBusy) return;
+        ApplyArtworkTile();
         await UpdateRadioVisualsAsync();
         await LoadNetworksAndDevicesAsync(keepFocus: true);
     }
@@ -188,9 +228,9 @@ public partial class MainWindow : Window
         {
             NavigationDirection.Left => FindInSameRow(current, -1),
             NavigationDirection.Right => FindInSameRow(current, +1),
-            NavigationDirection.Down when current.Row == 0
-                => FindInColumnFrom(2, current.Column) ?? FindInAdjacentRow(current, +1),
-            NavigationDirection.Up when current.Row >= 2
+            NavigationDirection.Down when current.Row <= 1
+                => FindInColumnFrom(3, current.Column) ?? FindInAdjacentRow(current, +1),
+            NavigationDirection.Up when current.Row >= 3
                 => FindInColumnFrom(0, current.Column) ?? FindInAdjacentRow(current, -1),
             NavigationDirection.Up => FindInAdjacentRow(current, -1),
             _ => FindInAdjacentRow(current, +1),
@@ -286,8 +326,8 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// Monta a "grade" de navegação. É refeita a cada refresh porque as listas
-    /// são recriadas: linha 0 = tiles · linha 1 = Ver Fila/Fechar · linha 2+ =
-    /// linhas das listas (coluna 0 = Wi-Fi, coluna 1 = Bluetooth).
+    /// são recriadas: linhas 0 e 1 = os seis tiles (3×2), linha 2 = Sync/Ver
+    /// Fila/Fechar, linha 3+ = linhas das listas (coluna 1 = Wi-Fi, 2 = BT).
     /// </summary>
     private void EnsureControlCenterTargets()
     {
@@ -295,25 +335,36 @@ public partial class MainWindow : Window
         var bluetoothRows = FindListRows("BluetoothList");
 
         var targets = new List<ControlCenterTarget>();
-        var column = 0;
-        foreach (var name in new[] { "BtnAirplane", "BtnWifi", "BtnBluetooth", "BtnSync" })
+
+        // Tiles na mesma disposição do UniformGrid do MainWindow.axaml.
+        (string Name, int Row, int Column)[] tiles =
+        [
+            ("BtnArtwork", 0, 0), ("BtnWifi", 0, 1), ("BtnBluetooth", 0, 2),
+            ("BtnNightLight", 1, 0), ("BtnDarkMode", 1, 1), ("BtnAirplane", 1, 2),
+        ];
+
+        foreach (var (name, row, column) in tiles)
         {
-            if (this.FindControl<Control>(name) is { } tile) targets.Add(new ControlCenterTarget(tile, 0, column++));
+            if (this.FindControl<Control>(name) is { } tile)
+                targets.Add(new ControlCenterTarget(tile, row, column));
         }
 
+        if (this.FindControl<Control>("BtnSync") is { } sync)
+            targets.Add(new ControlCenterTarget(sync, 2, 0));
+
         if (this.FindControl<Control>("BtnShowDownloads") is { } downloads)
-            targets.Add(new ControlCenterTarget(downloads, 1, 0));
+            targets.Add(new ControlCenterTarget(downloads, 2, 1));
 
         if (this.FindControl<Control>("BtnCloseControlCenter") is { } close)
-            targets.Add(new ControlCenterTarget(close, 1, 3));
+            targets.Add(new ControlCenterTarget(close, 2, 2));
 
         // Colunas alinhadas com os tiles de cima: Wi-Fi = 1, Bluetooth = 2 —
         // assim "descer" do tile cai na lista certa (ver MoveControlCenterFocus).
         for (var i = 0; i < wifiRows.Count; i++)
-            targets.Add(new ControlCenterTarget(wifiRows[i], 2 + i, 1));
+            targets.Add(new ControlCenterTarget(wifiRows[i], 3 + i, 1));
 
         for (var i = 0; i < bluetoothRows.Count; i++)
-            targets.Add(new ControlCenterTarget(bluetoothRows[i], 2 + i, 2));
+            targets.Add(new ControlCenterTarget(bluetoothRows[i], 3 + i, 2));
 
         _controlCenterTargets.Clear();
         _controlCenterTargets.AddRange(targets);
@@ -419,6 +470,7 @@ public partial class MainWindow : Window
         {
             vm.SyncthingEnabled = !vm.SyncthingEnabled;
             DebugLog.Write($"[CONTROL CENTER] Syncthing alterado para: {vm.SyncthingEnabled}");
+            UpdateExtraTilesVisuals();
         }
     }
 
@@ -549,24 +601,212 @@ public partial class MainWindow : Window
         }
     }
 
+    // ---------- volume ----------
+
+    /// <summary>Preenche o slider com o que está guardado (sem aplicar ao hardware).</summary>
+    private void LoadControlCenterSliders()
+    {
+        var settings = AppSettingsStore.Load();
+        var volume = Math.Clamp(settings.Volume, 0, 100);
+
+        _suppressControlCenterSliders = true;
+        if (this.FindControl<Slider>("VolumeSlider") is { } volumeSlider)
+            volumeSlider.Value = volume;
+        _suppressControlCenterSliders = false;
+
+        SetControlCenterText("TxtVolumeValue", volume.ToString());
+    }
+
+    private void OnVolumeSliderChanged(object? sender, RangeBaseValueChangedEventArgs e)
+    {
+        var value = (int)Math.Round(e.NewValue);
+        SetControlCenterText("TxtVolumeValue", value.ToString());
+        if (_suppressControlCenterSliders) return;
+
+        Hardware.SetVolume(value);
+        ScheduleSettingsSave(settings => settings.Volume = value);
+    }
+
+    // ---------- atualizar capas ----------
+
+    /// <summary>
+    /// "Atualizar Capas": dispara o mesmo comando do menu Biblioteca
+    /// (SteamGridDB). O tile fica "ligado" enquanto a busca corre.
+    /// </summary>
+    private void OnRefreshArtworkClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm) return;
+
+        if (!vm.CanFetchArtwork)
+        {
+            ApplyArtworkTile();
+            SetControlCenterFeedback(vm.IsFetchingArtwork
+                ? "A buscar capas… espera que a fila termine."
+                : "Falta a chave do SteamGridDB — configura-a nas Configurações.");
+            return;
+        }
+
+        vm.FetchArtworkCommand.Execute(null);
+        SetControlCenterFeedback("A buscar capas em falta (SteamGridDB)…");
+        ApplyArtworkTile();
+    }
+
+    private void OnArtworkDetailsClick(object? sender, RoutedEventArgs e) =>
+        SetControlCenterFeedback("Procura capas em falta no SteamGridDB (precisa da chave configurada). Mesmo comando do menu Biblioteca.");
+
+    private void ApplyArtworkTile()
+    {
+        var busy = DataContext is MainViewModel { IsFetchingArtwork: true };
+        var canFetch = DataContext is MainViewModel { CanFetchArtwork: true };
+
+        if (this.FindControl<Border>("TileArtwork") is { } tile) tile.Classes.Set("on", busy);
+        SetControlCenterText("TxtArtworkState", busy ? "A buscar…" : canFetch ? "Automático" : "Falta a chave");
+    }
+
+    // ---------- luz noturna ----------
+
+    private void OnToggleNightLight(object? sender, RoutedEventArgs e)
+    {
+        _nightLightOn = !_nightLightOn;
+        ApplyNightLightTile();
+        SetControlCenterFeedback(_nightLightOn
+            ? "Luz Noturna ligada: filtro âmbar sobre o launcher."
+            : "Luz Noturna desligada.");
+    }
+
+    private void OnNightLightDetailsClick(object? sender, RoutedEventArgs e) =>
+        SetControlCenterFeedback("A Luz Noturna é um filtro âmbar aplicado só ao launcher — não altera o gamma do sistema.");
+
+    private void ApplyNightLightTile()
+    {
+        if (this.FindControl<Border>("NightLightFilter") is { } filter) filter.IsVisible = _nightLightOn;
+        if (this.FindControl<Border>("TileNightLight") is { } tile) tile.Classes.Set("on", _nightLightOn);
+        SetControlCenterText("TxtNightLightState", _nightLightOn ? "Ligada" : "Desligada");
+    }
+
+    // ---------- estilo (tema claro/escuro) ----------
+
+    private void OnToggleDarkMode(object? sender, RoutedEventArgs e)
+    {
+        _darkModeOn = !_darkModeOn;
+
+        // ThemeManager: 0 = "Escuro", 1 = "Claro". O tema escolhido nas
+        // Configurações é substituído, por isso também fica guardado.
+        var themeIndex = _darkModeOn ? 0 : 1;
+        ThemeManager.Apply(themeIndex);
+        ScheduleSettingsSave(settings => settings.Theme = themeIndex);
+
+        ApplyDarkModeTile();
+        SetControlCenterFeedback(_darkModeOn ? "Estilo Escuro ligado." : "Estilo Escuro desligado (tema Claro).");
+    }
+
+    private void OnDarkModeDetailsClick(object? sender, RoutedEventArgs e) =>
+        SetControlCenterFeedback($"Estilo atual: {(_darkModeOn ? "Escuro" : "Claro")}. Os restantes temas estão nas Configurações.");
+
+    private void ApplyDarkModeTile()
+    {
+        if (this.FindControl<Border>("TileDarkMode") is { } tile) tile.Classes.Set("on", _darkModeOn);
+        SetControlCenterText("TxtDarkModeState", _darkModeOn ? "Ligado" : "Desligado");
+    }
+
+    /// <summary>Estado dos tiles que não dependem dos rádios (capas, sync, luz, tema).</summary>
+    private void UpdateExtraTilesVisuals()
+    {
+        var settings = AppSettingsStore.Load();
+
+        _darkModeOn = !ThemeManager.IsLight(settings.Theme);
+        ApplyDarkModeTile();
+        ApplyNightLightTile();
+        ApplyArtworkTile();
+
+        var syncthingOn = DataContext is MainViewModel { SyncthingEnabled: true };
+        if (this.FindControl<Border>("TileSync") is { } syncTile) syncTile.Classes.Set("on", syncthingOn);
+        SetControlCenterText("TxtSyncState", syncthingOn ? "Ligado" : "Desligado");
+    }
+
+    // ---------- setas "→" dos tiles de conectividade ----------
+
+    private void OnWifiDetailsClick(object? sender, RoutedEventArgs e)
+    {
+        SetControlCenterFeedback("Escolhe uma rede na lista abaixo (A ou toque liga/desliga).");
+        FocusFirstListRow(column: 1);
+    }
+
+    private void OnBluetoothDetailsClick(object? sender, RoutedEventArgs e)
+    {
+        SetControlCenterFeedback("Escolhe um aparelho na lista abaixo (A ou toque liga/desliga).");
+        FocusFirstListRow(column: 2);
+    }
+
+    private void OnAirplaneDetailsClick(object? sender, RoutedEventArgs e) =>
+        SetControlCenterFeedback("O Modo Avião desliga o Wi-Fi e o Bluetooth de uma vez.");
+
+    private void OnSyncDetailsClick(object? sender, RoutedEventArgs e) =>
+        SetControlCenterFeedback("Sync liga/desliga a sincronização de estados de jogo (Syncthing).");
+
+    private void FocusFirstListRow(int column)
+    {
+        EnsureControlCenterTargets();
+        var target = _controlCenterTargets.FirstOrDefault(t => t.Row >= 3 && t.Column == column);
+        if (target.Control is not null) FocusControlCenterTarget(target);
+    }
+
+    // ---------- persistência (com debounce) ----------
+
+    private Action<AppSettings>? _pendingSettingsChange;
+
+    /// <summary>Guarda as definições quando o utilizador para de mexer (evita I/O por tick).</summary>
+    private void ScheduleSettingsSave(Action<AppSettings> change)
+    {
+        _settingsSaveTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(450) };
+        _settingsSaveTimer.Stop();
+        _settingsSaveTimer.Tick -= OnSettingsSaveTick;
+        _settingsSaveTimer.Tick += OnSettingsSaveTick;
+        _pendingSettingsChange = change;
+        _settingsSaveTimer.Start();
+    }
+
+    private void OnSettingsSaveTick(object? sender, EventArgs e)
+    {
+        _settingsSaveTimer?.Stop();
+        if (_pendingSettingsChange is not { } change) return;
+        _pendingSettingsChange = null;
+
+        try
+        {
+            var settings = AppSettingsStore.Load();
+            change(settings);
+            AppSettingsStore.Save(settings);
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[CONTROL CENTER] Falha ao guardar definições: {ex.Message}");
+        }
+    }
+
+    // ---------- estado dos rádios ----------
+
     private async Task UpdateRadioVisualsAsync()
     {
         var wifiOn = await _radioService.IsRadioOnAsync(RadioKind.WiFi);
         var bluetoothOn = await _radioService.IsRadioOnAsync(RadioKind.Bluetooth);
+        var airplaneOn = !wifiOn && !bluetoothOn;
 
-        if (this.FindControl<Button>("BtnWifi") is { } btnWifi)
-            btnWifi.Background = wifiOn ? _activeColor : _inactiveColor;
+        if (this.FindControl<Border>("TileWifi") is { } wifiTile) wifiTile.Classes.Set("on", wifiOn);
+        if (this.FindControl<Border>("TileBluetooth") is { } bluetoothTile) bluetoothTile.Classes.Set("on", bluetoothOn);
+        if (this.FindControl<Border>("TileAirplane") is { } airplaneTile) airplaneTile.Classes.Set("on", airplaneOn);
 
-        if (this.FindControl<Button>("BtnBluetooth") is { } btnBluetooth)
-            btnBluetooth.Background = bluetoothOn ? _activeColor : _inactiveColor;
-
-        if (this.FindControl<Button>("BtnAirplane") is { } btnAirplane)
-            btnAirplane.Background = (!wifiOn && !bluetoothOn) ? _activeColor : _inactiveColor;
+        var wifi = wifiOn ? (await _wifiService.GetCurrentSsidAsync() ?? "ligado, sem rede") : "Desligado";
+        SetControlCenterText("TxtWifiState", wifi);
+        SetControlCenterText("TxtBluetoothState", bluetoothOn ? "Ligado" : "Desligado");
+        SetControlCenterText("TxtAirplaneState", airplaneOn ? "Ligado" : "Desligado");
 
         if (this.FindControl<TextBlock>("ControlCenterStatus") is { } status)
-        {
-            var wifi = wifiOn ? (await _wifiService.GetCurrentSsidAsync() ?? "ligado, sem rede") : "desligado";
             status.Text = $"Wi-Fi: {wifi}   ·   Bluetooth: {(bluetoothOn ? "ligado" : "desligado")}";
-        }
+    }
+
+    private void SetControlCenterText(string name, string text)
+    {
+        if (this.FindControl<TextBlock>(name) is { } block) block.Text = text;
     }
 }

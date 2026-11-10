@@ -11,18 +11,20 @@
         Background="{StaticResource BackgroundBrush}">
 
   <Window.Styles>
-    <Style Selector="ComboBox"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="3" CornerRadius="10" Margin="-4"/></Template></Setter></Style>
-    <Style Selector="TextBox"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="3" CornerRadius="10" Margin="-4"/></Template></Setter></Style>
-    <Style Selector="ToggleSwitch"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="3" CornerRadius="10" Margin="-4"/></Template></Setter></Style>
-    <Style Selector="RadioButton"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="3" CornerRadius="10" Margin="-4"/></Template></Setter></Style>
-    <Style Selector="Slider"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="3" CornerRadius="16" Margin="-4"/></Template></Setter></Style>
-    <Style Selector="Button.categoryTab"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="3" CornerRadius="16" Margin="-3"/></Template></Setter></Style>
+    <Style Selector="ComboBox"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="9" Margin="1"/></Template></Setter></Style>
+    <Style Selector="TextBox"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="9" Margin="1"/></Template></Setter></Style>
+    <Style Selector="ToggleSwitch"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="9" Margin="1"/></Template></Setter></Style>
+    <Style Selector="RadioButton"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="9" Margin="1"/></Template></Setter></Style>
+    <Style Selector="Slider"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="15" Margin="1"/></Template></Setter></Style>
+    <Style Selector="Button.categoryTab"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="11" Margin="1"/></Template></Setter></Style>
     
     <Style Selector="Border.settingsCard">
       <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}"/>
-      <Setter Property="CornerRadius" Value="12"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource TileCornerRadius}"/>
       <Setter Property="Padding" Value="16"/>
       <Setter Property="Margin" Value="0,0,0,12"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="BorderBrush" Value="{StaticResource TileSeparatorBrush}"/>
     </Style>
     <Style Selector="TextBlock.sectionTitle">
       <Setter Property="FontSize" Value="14"/>
@@ -38,17 +40,37 @@
         
       <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Spacing="6" Margin="0,0,16,8">
-          <TextBlock Text="CONFIGURAÇÕES" FontSize="11" FontWeight="Bold" Opacity="0.5" Margin="8,0,0,8" />
-          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryModeActive}" Content="Geral" Tag="0" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
-          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAppearanceActive}" Content="Aparência" Tag="1" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
-          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategorySoundsActive}" Content="Sons" Tag="2" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
-          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryLibraryActive}" Content="Biblioteca" Tag="3" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
-          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryShortcutsActive}" Content="Controles" Tag="4" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
-          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryLosslessActive}" Content="Lossless" Tag="5" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
-          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryAccountsActive}" Content="Contas" Tag="6" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
-          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryConnectivityActive}" Content="Rede" Tag="7" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
-          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategorySaveCenterActive}" Content="Central de Saves" Tag="8" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
-          <Button Classes="pill filterTab categoryTab" Classes.active="{Binding IsCategoryNewsActive}" Content="Atualizações" Tag="9" Click="OnCategoryTabClick" HorizontalContentAlignment="Left" Padding="14,12" />
+          <TextBlock Text="Configurações" Classes="qsSectionTitle" Margin="8,0,0,8" />
+          <Button Classes="settingsTab categoryTab" Classes.active="{Binding IsCategoryModeActive}" Tag="0" Click="OnCategoryTabClick">
+            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Geral" VerticalAlignment="Center" /><TextBlock Grid.Column="1" Text="›" Opacity="0.65" VerticalAlignment="Center" /></Grid>
+          </Button>
+          <Button Classes="settingsTab categoryTab" Classes.active="{Binding IsCategoryAppearanceActive}" Tag="1" Click="OnCategoryTabClick">
+            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Aparência" VerticalAlignment="Center" /><TextBlock Grid.Column="1" Text="›" Opacity="0.65" VerticalAlignment="Center" /></Grid>
+          </Button>
+          <Button Classes="settingsTab categoryTab" Classes.active="{Binding IsCategorySoundsActive}" Tag="2" Click="OnCategoryTabClick">
+            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Sons" VerticalAlignment="Center" /><TextBlock Grid.Column="1" Text="›" Opacity="0.65" VerticalAlignment="Center" /></Grid>
+          </Button>
+          <Button Classes="settingsTab categoryTab" Classes.active="{Binding IsCategoryLibraryActive}" Tag="3" Click="OnCategoryTabClick">
+            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Biblioteca" VerticalAlignment="Center" /><TextBlock Grid.Column="1" Text="›" Opacity="0.65" VerticalAlignment="Center" /></Grid>
+          </Button>
+          <Button Classes="settingsTab categoryTab" Classes.active="{Binding IsCategoryShortcutsActive}" Tag="4" Click="OnCategoryTabClick">
+            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Controles" VerticalAlignment="Center" /><TextBlock Grid.Column="1" Text="›" Opacity="0.65" VerticalAlignment="Center" /></Grid>
+          </Button>
+          <Button Classes="settingsTab categoryTab" Classes.active="{Binding IsCategoryLosslessActive}" Tag="5" Click="OnCategoryTabClick">
+            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Lossless" VerticalAlignment="Center" /><TextBlock Grid.Column="1" Text="›" Opacity="0.65" VerticalAlignment="Center" /></Grid>
+          </Button>
+          <Button Classes="settingsTab categoryTab" Classes.active="{Binding IsCategoryAccountsActive}" Tag="6" Click="OnCategoryTabClick">
+            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Contas" VerticalAlignment="Center" /><TextBlock Grid.Column="1" Text="›" Opacity="0.65" VerticalAlignment="Center" /></Grid>
+          </Button>
+          <Button Classes="settingsTab categoryTab" Classes.active="{Binding IsCategoryConnectivityActive}" Tag="7" Click="OnCategoryTabClick">
+            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Rede" VerticalAlignment="Center" /><TextBlock Grid.Column="1" Text="›" Opacity="0.65" VerticalAlignment="Center" /></Grid>
+          </Button>
+          <Button Classes="settingsTab categoryTab" Classes.active="{Binding IsCategorySaveCenterActive}" Tag="8" Click="OnCategoryTabClick">
+            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Central de Saves" VerticalAlignment="Center" /><TextBlock Grid.Column="1" Text="›" Opacity="0.65" VerticalAlignment="Center" /></Grid>
+          </Button>
+          <Button Classes="settingsTab categoryTab" Classes.active="{Binding IsCategoryNewsActive}" Tag="9" Click="OnCategoryTabClick">
+            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Atualizações" VerticalAlignment="Center" /><TextBlock Grid.Column="1" Text="›" Opacity="0.65" VerticalAlignment="Center" /></Grid>
+          </Button>
         </StackPanel>
       </ScrollViewer>
       
@@ -198,7 +220,7 @@
                 <ToggleSwitch IsChecked="{Binding IsolateControllerOnOverlay}">
                     <ToggleSwitch.Content>
                         <StackPanel Spacing="4">
-                            <TextBlock Text="Isolar controle no Overlay (HidHide)" FontWeight="SemiBold" Foreground="White"/>
+                            <TextBlock Text="Isolar controle no Overlay (HidHide)" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <TextBlock Text="Esconde o controle físico do jogo enquanto o Quick Settings está aberto. O jogo continua rodando no fundo, mas não recebe comandos duplicados. Recomendado para evitar banimentos em anti-cheat." 
                                        TextWrapping="Wrap" Foreground="Gray" FontSize="11" MaxWidth="450"/>
                         </StackPanel>
@@ -221,7 +243,7 @@
                      o processo consegue — mas tem risco em jogos competitivos,
                      daí o aviso e o "Aceito" antes de ligar. -->
                 <TextBlock Text="Se o jogo continuar a receber comandos com o Quick Settings aberto"
-                           FontWeight="SemiBold" Foreground="White" Margin="0,10,0,0"/>
+                           FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,10,0,0"/>
                 <TextBlock Text="O HidHide só esconde o controle de quem começa a usá-lo depois de ele estar ativo: um jogo já aberto continua a vê-lo. O congelamento resolve isso suspendendo o processo do jogo enquanto o painel está aberto (o vídeo do jogo fica parado)."
                            TextWrapping="Wrap" Foreground="Gray" FontSize="11" MaxWidth="450"/>
                 <TextBlock Text="{Binding FreezeStatusText}" Classes="subtle" FontSize="11"
@@ -232,7 +254,7 @@
                 <ToggleSwitch IsChecked="{Binding HidHideElevateOnDemand}">
                     <ToggleSwitch.Content>
                         <StackPanel Spacing="4">
-                            <TextBlock Text="Pedir permissão para isolar (UAC por overlay)" FontWeight="SemiBold" Foreground="White"/>
+                            <TextBlock Text="Pedir permissão para isolar (UAC por overlay)" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <TextBlock Text="Só para quem abre o launcher sem administrador: cada abertura do Quick Settings pede permissão (UAC) para esconder o controle. Deixa desligado se preferires reiniciar como administrador uma vez."
                                        TextWrapping="Wrap" Foreground="Gray" FontSize="11" MaxWidth="450"/>
                         </StackPanel>

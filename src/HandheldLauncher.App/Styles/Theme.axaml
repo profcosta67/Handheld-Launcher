@@ -25,6 +25,19 @@
       <SolidColorBrush x:Key="BackdropDimBrush" Color="#CC0C0D12" />
       <SolidColorBrush x:Key="ArtBackdropDimBrush" Color="#CC0C0D12" />
 
+      <!-- Central de Controle / Quick Settings (Windows 11 Fluent).
+           Nomes pedidos pelo design (CardBackground/ButtonBackground/Border):
+           são brushes derivados da paleta, por isso acompanham o tema ativo
+           em vez de ficarem presos a um cinza fixo. -->
+      <SolidColorBrush x:Key="CardBackgroundBrush" Color="{StaticResource SurfaceColor}" />
+      <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="{StaticResource SurfaceRaisedColor}" />
+      <SolidColorBrush x:Key="BorderLineBrush" Color="#333333" />
+      <SolidColorBrush x:Key="TileSeparatorBrush" Color="#26FFFFFF" />
+      <SolidColorBrush x:Key="TileHoverBrush" Color="#26FFFFFF" />
+      <!-- Véu dos painéis flutuantes (Quick Settings): 70% opaco / 30%
+           translúcido sobre a COR DO TEMA (o ThemeManager re-tinta ao trocar). -->
+      <SolidColorBrush x:Key="PanelTranslucentBrush" Color="#B30C0D12" />
+
       <FontFamily x:Key="GlobalFontFamily">Segoe UI Variable Text, Segoe UI</FontFamily>
 
       <x:Double x:Key="FontSizeBase">14</x:Double>
@@ -278,7 +291,7 @@
     <Setter Property="VerticalContentAlignment" Value="Center" />
     <Setter Property="FocusAdorner">
       <Template>
-        <Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="3" CornerRadius="14" Margin="-3" />
+        <Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="13" Margin="1" />
       </Template>
     </Setter>
   </Style>
@@ -319,5 +332,153 @@
   <Style Selector="Window.noAnim Border.gameTile:pointerover">
     <Setter Property="RenderTransform" Value="scale(1.0)" />
   </Style>
+
+  <!-- =====================================================================
+       Quick Settings (Central de Controle) — Windows 11 Fluent.
+       Cartões com canto arredondado e sombra difusa; tiles de duas metades
+       (esquerda liga/desliga, direita abre detalhes) com gradiente no
+       estado LIGADO. Os gradientes semânticos (Wi-Fi ciano, Bluetooth azul,
+       Luz Noturna âmbar) são fixos de propósito — servem de código de cor —
+       e o gradiente genérico (.on sem variante) segue o AccentColor do tema.
+       ===================================================================== -->
+
+  <Style Selector="Border.qsCard">
+    <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource TileCornerRadius}" />
+    <Setter Property="Padding" Value="14,12" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="{StaticResource TileSeparatorBrush}" />
+  </Style>
+
+  <Style Selector="TextBlock.qsSectionTitle">
+    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="Margin" Value="4,6,0,2" />
+  </Style>
+
+  <!-- Item de navegação das Configurações (mesmo padrão do tile: fundo
+       arredondado, sombra suave, metade esquerda clicável + seta à direita). -->
+  <Style Selector="Button.settingsTab">
+    <Setter Property="Background" Value="{StaticResource ButtonBackgroundBrush}" />
+    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="Padding" Value="14,11" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="FontSize" Value="13" />
+  </Style>
+
+  <Style Selector="Button.settingsTab:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource TileHoverBrush}" />
+  </Style>
+
+  <Style Selector="Button.settingsTab.active">
+    <Setter Property="Background">
+      <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+        <GradientStop Color="{StaticResource AccentColor}" Offset="0" />
+        <GradientStop Color="{StaticResource AccentSoftColor}" Offset="1" />
+      </LinearGradientBrush>
+    </Setter>
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <!-- Caixa do tile: é ela que recebe o gradiente (as duas metades ficam
+       transparentes por cima, por isso o canto arredondado nunca é cortado). -->
+  <Style Selector="Border.qsTile">
+    <Setter Property="Background" Value="{StaticResource ButtonBackgroundBrush}" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="ClipToBounds" Value="True" />
+    <Setter Property="Margin" Value="5" />
+  </Style>
+
+  <!-- Metade esquerda (toggle) -->
+  <Style Selector="Button.qsTileMain">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="VerticalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Padding" Value="14,10" />
+    <Setter Property="MinHeight" Value="56" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+
+  <Style Selector="Button.qsTileMain:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource TileHoverBrush}" />
+  </Style>
+
+  <!-- Metade direita (seta → detalhes) -->
+  <Style Selector="Button.qsTileArrow">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+    <Setter Property="Width" Value="42" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="VerticalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Opacity" Value="0.85" />
+  </Style>
+
+  <Style Selector="Button.qsTileArrow:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource TileHoverBrush}" />
+  </Style>
+
+  <Style Selector="Border.qsTileDivider">
+    <Setter Property="Width" Value="1" />
+    <Setter Property="Background" Value="{StaticResource TileSeparatorBrush}" />
+    <Setter Property="VerticalAlignment" Value="Stretch" />
+    <Setter Property="Margin" Value="0,10" />
+  </Style>
+
+  <!-- Destaque do cursor de navegação (controle/teclado) -->
+  <Style Selector="Button.qsTileMain.focused">
+    <Setter Property="BorderThickness" Value="2" />
+    <Setter Property="BorderBrush" Value="{StaticResource TextPrimaryBrush}" />
+    <Setter Property="CornerRadius" Value="12" />
+  </Style>
+
+  <!-- Slider minimalista -->
+  <Style Selector="Slider.qsSlider">
+    <Setter Property="MinHeight" Value="22" />
+    <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+  </Style>
+
+  <!-- Contraste dos tiles: no estado DESLIGADO o texto segue o tema; no
+       estado LIGADO o fundo passa a ser o gradiente de destaque, por isso o
+       texto vai para o "on accent" (branco no escuro, e calculado pelo
+       ThemeManager no tema Claro). Sem isto, texto escuro sobre o gradiente
+       ficava ilegível no tema claro. -->
+  <Style Selector="Border.qsTile TextBlock">
+    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+  </Style>
+
+  <Style Selector="Border.qsTile.on TextBlock">
+    <Setter Property="Foreground" Value="{StaticResource OnAccentBrush}" />
+  </Style>
+
+  <!-- Estado LIGADO — gradiente genérico (AccentColor → AccentSoftColor) -->
+  <Style Selector="Border.qsTile.on">
+    <Setter Property="Background">
+      <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+        <GradientStop Color="{StaticResource AccentColor}" Offset="0" />
+        <GradientStop Color="{StaticResource AccentSoftColor}" Offset="1" />
+      </LinearGradientBrush>
+    </Setter>
+  </Style>
+
+  <!-- Variantes de cor por serviço: removidas de propósito. O dono pediu que a
+       cor predominante seja a escolhida nas Configurações (vermelho, azul,
+       verde...), por isso TODOS os tiles ativos usam o gradiente AccentColor →
+       AccentSoftColor de cima. As classes semânticas (wifi, bluetooth, ...)
+       continuam no XAML só como marcadores, sem estilo próprio. -->
 
 </Styles>

@@ -184,7 +184,33 @@ public static class ThemeManager
         SetBrush(app, "ArtBackdropDimBrush", "#CC" + palette.Background.TrimStart('#'));
         SetBrush(app, "OnAccentBrush", TextOnAccent(palette.Accent));
         SetBrush(app, "BackgroundBrush", palette.Background);
+
+        // Até aqui só o fundo/barra acompanhavam o tema: as superfícies, o
+        // destaque e o texto ficavam com as cores do tema escuro por omissão
+        // (um tema "Claro" era só o fundo a mudar). Os brushes são a MESMA
+        // instância usada por {StaticResource ...} em toda a app, por isso
+        // mudar a cor aqui propaga-se a todas as janelas abertas.
+        SetBrush(app, "SurfaceBrush", palette.Surface);
+        SetBrush(app, "SurfaceRaisedBrush", palette.SurfaceRaised);
+        SetBrush(app, "AccentBrush", palette.Accent);
+        SetBrush(app, "AccentSoftBrush", palette.AccentSoft);
+        SetBrush(app, "TextPrimaryBrush", palette.TextPrimary);
+        SetBrush(app, "TextSecondaryBrush", palette.TextSecondary);
+
+        // Brushes da Central de Controle derivam destes dois.
+        SetBrush(app, "CardBackgroundBrush", palette.Surface);
+        SetBrush(app, "ButtonBackgroundBrush", palette.SurfaceRaised);
+
+        // Véu do Quick Settings: 70% opaco / 30% translúcido sobre o tema.
+        SetBrush(app, "PanelTranslucentBrush", "#B3" + palette.Background.TrimStart('#'));
     }
+
+    /// <summary>
+    /// Indica se o tema (índice) é claro. Usado pelo tile "Estilo Escuro" da
+    /// Central de Controle para saber em que estado está.
+    /// </summary>
+    public static bool IsLight(int themeIndex)
+        => themeIndex >= 0 && themeIndex < Palettes.Length && Palettes[themeIndex].IsLight;
 
     internal static string TextOnAccent(string accentHex)
     {

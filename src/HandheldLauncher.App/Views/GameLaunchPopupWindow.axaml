@@ -29,7 +29,7 @@
                                VerticalAlignment="Center"
                                FontSize="24"
                                FontWeight="Bold"
-                               Foreground="#7C5CFC"
+                               Foreground="{DynamicResource AccentBrush}"
                                IsVisible="False"/>
                 </Grid>
             </Border>
@@ -47,7 +47,7 @@
             <TextBlock Grid.Column="2"
                        x:Name="TxtLoadingSpinner" Text="◐"
                        FontSize="22"
-                       Foreground="#7C5CFC"
+                       Foreground="{DynamicResource AccentBrush}"
                        VerticalAlignment="Center"
                        HorizontalAlignment="Center"/>
         </Grid>

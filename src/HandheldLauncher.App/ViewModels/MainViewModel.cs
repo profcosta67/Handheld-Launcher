@@ -711,6 +711,12 @@ public GameTileViewModel? SelectedTile
 
     public event EventHandler? AddGameRequested;
     public event EventHandler? SettingsRequested;
+
+    /// <summary>
+    /// Pede à janela principal que abra as Configurações. Usado pela
+    /// engrenagem do Quick Settings (não tem referência ao MainWindow).
+    /// </summary>
+    public void RequestSettings() => SettingsRequested?.Invoke(this, EventArgs.Empty);
     public event EventHandler? QuitRequested;
     public event EventHandler<GameEntry>? GameDetailsRequested;
     public event EventHandler<GameEntry>? EditGameRequested;
@@ -1381,7 +1387,7 @@ public GameTileViewModel? SelectedTile
         GlobalMenuItems.Clear(); _globalMenuActions.Clear(); _globalMenuNavigates.Clear();
 
         void Add(string label, Action action, bool isDanger = false) { GlobalMenuItems.Add(new ContextMenuItemViewModel(label, isDanger)); _globalMenuActions.Add(action); _globalMenuNavigates.Add(false); }
-        void Folder(string label, GlobalMenuPage page) { GlobalMenuItems.Add(new ContextMenuItemViewModel(label)); _globalMenuActions.Add(() => NavigateGlobalMenu(page)); _globalMenuNavigates.Add(true); }
+        void Folder(string label, GlobalMenuPage page) { GlobalMenuItems.Add(new ContextMenuItemViewModel(label, isFolder: true)); _globalMenuActions.Add(() => NavigateGlobalMenu(page)); _globalMenuNavigates.Add(true); }
 
         switch (_globalMenuPage)
         {

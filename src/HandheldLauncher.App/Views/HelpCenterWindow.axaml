@@ -18,7 +18,7 @@
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="HorizontalAlignment" Value="Stretch" />
       <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-      <Setter Property="FocusAdorner"><Template><Border BorderBrush="#7C5CFC" BorderThickness="3" CornerRadius="14" Margin="-3"/></Template></Setter>
+      <Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="13" Margin="1"/></Template></Setter>
     </Style>
     <Style Selector="Button.check TextBlock">
       <Setter Property="Foreground" Value="#E6E9F2" />
@@ -29,7 +29,7 @@
     <Style Selector="Button.check:pointerover /template/ ContentPresenter">
       <Setter Property="Background" Value="#2A3047" />
     </Style>
-    <Style Selector="Button.pill"><Setter Property="FocusAdorner"><Template><Border BorderBrush="#7C5CFC" BorderThickness="3" CornerRadius="16" Margin="-3"/></Template></Setter></Style>
+    <Style Selector="Button.pill"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="15" Margin="1"/></Template></Setter></Style>
   </Window.Styles>
 
   <Grid RowDefinitions="Auto,*,Auto" Margin="24">

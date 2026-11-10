@@ -22,7 +22,7 @@
         </Border>
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" Margin="0,15,0,0">
-            <Button x:Name="BtnInstall" Content="Instalar Driver" Click="OnInstallClick" IsEnabled="False" Background="#7C5CFC" Foreground="White" CornerRadius="8" Padding="15,10" FontWeight="Bold"/>
+            <Button x:Name="BtnInstall" Content="Instalar Driver" Click="OnInstallClick" IsEnabled="False" Background="{StaticResource AccentBrush}" Foreground="White" CornerRadius="8" Padding="15,10" FontWeight="Bold"/>
             <Button Content="Fechar" Click="OnCloseClick" Background="#FF4040" Foreground="White" CornerRadius="8" Padding="15,10"/>
         </StackPanel>
     </Grid>

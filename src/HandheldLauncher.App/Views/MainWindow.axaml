@@ -142,7 +142,7 @@
               <Rectangle Width="1" Height="14" Fill="{DynamicResource TextSecondaryBrush}" Opacity="0.3" VerticalAlignment="Center" />
 
               <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <TextBlock Text="{Binding BatteryStatusText}" FontFamily="Inter" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding BatteryStatusText}" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
               </StackPanel>
 
               <Rectangle Width="1" Height="14" Fill="{DynamicResource TextSecondaryBrush}" Opacity="0.3" VerticalAlignment="Center" />
@@ -180,13 +180,14 @@
     <Panel x:Name="ControlCenterOverlay" IsVisible="False" Background="#80000000" ZIndex="100">
     <!-- O Cartão Central -->
     <Border x:Name="ControlCenterCard" 
-            Background="{DynamicResource SurfaceRaisedBrush}"
+            Background="{StaticResource CardBackgroundBrush}"
             CornerRadius="24" 
-            Width="600" 
-            Padding="24"
+            Width="780"
+            MaxHeight="720"
+            Padding="22"
             HorizontalAlignment="Center" 
             VerticalAlignment="Center"
-            BoxShadow="0 10 30 0 #40000000"
+            BoxShadow="0 18 46 0 #55000000"
             Opacity="0"
             RenderTransform="translateY(20px)">
         
@@ -197,64 +198,204 @@
             </Transitions>
         </Border.Transitions>
 
-        <StackPanel Spacing="20">
-            <!-- Título e Fechar -->
+        <ScrollViewer x:Name="ControlCenterScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="12">
+
+            <!-- ===== Cabeçalho: título, estado, bateria/relógio e fechar ===== -->
             <Grid ColumnDefinitions="*,Auto">
                 <StackPanel Spacing="2" VerticalAlignment="Center">
-                    <TextBlock Text="Central de Controle" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
-                    <TextBlock x:Name="ControlCenterStatus" Text="Wi-Fi: …" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <TextBlock Text="Configurações rápidas" FontSize="22" FontWeight="Bold"
+                               Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="ControlCenterStatus" Text="Wi-Fi: …" FontSize="11"
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
                 </StackPanel>
-                <Button x:Name="BtnCloseControlCenter" Grid.Column="1" Classes="iconGhost" Click="OnCloseControlCenter" Content="✕" FontSize="16" Width="32" Height="32"/>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Border Background="{StaticResource ButtonBackgroundBrush}"
+                            CornerRadius="{DynamicResource PillCornerRadius}" Padding="12,6"
+                            ToolTip.Tip="Bateria · Relógio">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="🔋" FontSize="13" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding BatteryStatusText}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding ClockText}" FontSize="11"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                    <Button x:Name="BtnCloseControlCenter" Classes="iconGhost" Click="OnCloseControlCenter"
+                            Content="✕" FontSize="16" Width="32" Height="32"/>
+                </StackPanel>
             </Grid>
 
-            <!-- Toggles Rápidos -->
-            <UniformGrid Columns="4" Height="100">
-                <Button x:Name="BtnAirplane" Classes="controlTile" Click="OnToggleAirplaneMode">
-                    <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="✈️" FontSize="28" HorizontalAlignment="Center"/>
-                        <TextBlock Text="Modo Avião" FontSize="11" Margin="0,8,0,0" HorizontalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    </StackPanel>
-                </Button>
-                <Button x:Name="BtnWifi" Classes="controlTile" Click="OnToggleWifi">
-                    <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="📶" FontSize="28" HorizontalAlignment="Center"/>
-                        <TextBlock Text="Wi-Fi" FontSize="11" Margin="0,8,0,0" HorizontalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    </StackPanel>
-                </Button>
-                <Button x:Name="BtnBluetooth" Classes="controlTile" Click="OnToggleBluetooth">
-                    <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="🔷" FontSize="28" HorizontalAlignment="Center"/>
-                        <TextBlock Text="Bluetooth" FontSize="11" Margin="0,8,0,0" HorizontalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    </StackPanel>
-                </Button>
-                <Button x:Name="BtnSync" Classes="controlTile" Click="OnToggleSyncthing">
-                    <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="🔄" FontSize="28" HorizontalAlignment="Center"/>
-                        <TextBlock Text="Sync" FontSize="11" Margin="0,8,0,0" HorizontalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    </StackPanel>
-                </Button>
-            </UniformGrid>
-
-            <!-- Seção de Downloads -->
-            <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="12" Padding="16">
+            <!-- ===== Sliders minimalistas: Volume e Brilho ===== -->
+            <Border Classes="qsCard" Padding="12,6">
                 <Grid ColumnDefinitions="Auto,*,Auto">
-                    <TextBlock Text="⬇" FontSize="24" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
-                        <TextBlock Text="Downloads" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                        <TextBlock Text="{Binding TopBarDownloadPercentText}" FontSize="12" Foreground="{StaticResource AccentBrush}" IsVisible="{Binding HasActiveDownloads}"/>
-                        <TextBlock Text="Nenhum download ativo" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding !HasActiveDownloads}"/>
-                    </StackPanel>
-                    <Button x:Name="BtnShowDownloads" Grid.Column="2" Classes="pill" Content="Ver Fila" Click="OnShowDownloadsClick"/>
+                    <TextBlock Grid.Column="0" Text="🔊" FontSize="15" VerticalAlignment="Center"/>
+                    <Slider Grid.Column="1" x:Name="VolumeSlider" Classes="qsSlider"
+                            Minimum="0" Maximum="100" Margin="14,0" VerticalAlignment="Center"
+                            ValueChanged="OnVolumeSliderChanged"/>
+                    <TextBlock Grid.Column="2" x:Name="TxtVolumeValue" Text="70"
+                               FontSize="12" FontWeight="SemiBold" MinWidth="30" TextAlignment="Right"
+                               Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                 </Grid>
             </Border>
 
+            <TextBlock Classes="qsSectionTitle" Text="Conectividade"/>
+
+            <!-- ===== Grade de tiles (3×2) ===== -->
+            <UniformGrid Columns="3" Rows="2">
+                <!-- Atualizar Capas (SteamGridDB — o mesmo do menu Biblioteca) -->
+                <Border x:Name="TileArtwork" Classes="qsTile">
+                    <Grid ColumnDefinitions="*,Auto,Auto">
+                        <Button Grid.Column="0" x:Name="BtnArtwork" Classes="qsTileMain" Click="OnRefreshArtworkClick">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <TextBlock Text="🖼️" FontSize="16" VerticalAlignment="Center"/>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Atualizar Capas" FontSize="13" FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="TxtArtworkState" Text="Automático" FontSize="11"
+                                               />
+                                </StackPanel>
+                            </StackPanel>
+                        </Button>
+                        <Border Grid.Column="1" Classes="qsTileDivider"/>
+                        <Button Grid.Column="2" Classes="qsTileArrow" Content="→" Click="OnArtworkDetailsClick"/>
+                    </Grid>
+                </Border>
+
+                <!-- Wi-Fi -->
+                <Border x:Name="TileWifi" Classes="qsTile wifi">
+                    <Grid ColumnDefinitions="*,Auto,Auto">
+                        <Button Grid.Column="0" x:Name="BtnWifi" Classes="qsTileMain" Click="OnToggleWifi">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <TextBlock Text="📶" FontSize="16" VerticalAlignment="Center"/>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Wi-Fi" FontSize="13" FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="TxtWifiState" Text="Desligado" FontSize="11"
+                                               />
+                                </StackPanel>
+                            </StackPanel>
+                        </Button>
+                        <Border Grid.Column="1" Classes="qsTileDivider"/>
+                        <Button Grid.Column="2" Classes="qsTileArrow" Content="→" Click="OnWifiDetailsClick"/>
+                    </Grid>
+                </Border>
+
+                <!-- Bluetooth -->
+                <Border x:Name="TileBluetooth" Classes="qsTile bluetooth">
+                    <Grid ColumnDefinitions="*,Auto,Auto">
+                        <Button Grid.Column="0" x:Name="BtnBluetooth" Classes="qsTileMain" Click="OnToggleBluetooth">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <TextBlock Text="🔷" FontSize="16" VerticalAlignment="Center"/>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Bluetooth" FontSize="13" FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="TxtBluetoothState" Text="Desligado" FontSize="11"
+                                               />
+                                </StackPanel>
+                            </StackPanel>
+                        </Button>
+                        <Border Grid.Column="1" Classes="qsTileDivider"/>
+                        <Button Grid.Column="2" Classes="qsTileArrow" Content="→" Click="OnBluetoothDetailsClick"/>
+                    </Grid>
+                </Border>
+                <!-- Luz Noturna (filtro âmbar sobre o launcher) -->
+                <Border x:Name="TileNightLight" Classes="qsTile night">
+                    <Grid ColumnDefinitions="*,Auto,Auto">
+                        <Button Grid.Column="0" x:Name="BtnNightLight" Classes="qsTileMain" Click="OnToggleNightLight">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <TextBlock Text="🌙" FontSize="16" VerticalAlignment="Center"/>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Luz Noturna" FontSize="13" FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="TxtNightLightState" Text="Desligada" FontSize="11"
+                                               />
+                                </StackPanel>
+                            </StackPanel>
+                        </Button>
+                        <Border Grid.Column="1" Classes="qsTileDivider"/>
+                        <Button Grid.Column="2" Classes="qsTileArrow" Content="→" Click="OnNightLightDetailsClick"/>
+                    </Grid>
+                </Border>
+
+                <!-- Estilo Escuro (alterna Escuro ↔ Claro em todos os temas) -->
+                <Border x:Name="TileDarkMode" Classes="qsTile dark">
+                    <Grid ColumnDefinitions="*,Auto,Auto">
+                        <Button Grid.Column="0" x:Name="BtnDarkMode" Classes="qsTileMain" Click="OnToggleDarkMode">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <TextBlock Text="🌑" FontSize="16" VerticalAlignment="Center"/>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Estilo Escuro" FontSize="13" FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="TxtDarkModeState" Text="Ligado" FontSize="11"
+                                               />
+                                </StackPanel>
+                            </StackPanel>
+                        </Button>
+                        <Border Grid.Column="1" Classes="qsTileDivider"/>
+                        <Button Grid.Column="2" Classes="qsTileArrow" Content="→" Click="OnDarkModeDetailsClick"/>
+                    </Grid>
+                </Border>
+
+                <!-- Modo Avião -->
+                <Border x:Name="TileAirplane" Classes="qsTile airplane">
+                    <Grid ColumnDefinitions="*,Auto,Auto">
+                        <Button Grid.Column="0" x:Name="BtnAirplane" Classes="qsTileMain" Click="OnToggleAirplaneMode">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <TextBlock Text="✈️" FontSize="16" VerticalAlignment="Center"/>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Modo Avião" FontSize="13" FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="TxtAirplaneState" Text="Desligado" FontSize="11"
+                                               />
+                                </StackPanel>
+                            </StackPanel>
+                        </Button>
+                        <Border Grid.Column="1" Classes="qsTileDivider"/>
+                        <Button Grid.Column="2" Classes="qsTileArrow" Content="→" Click="OnAirplaneDetailsClick"/>
+                    </Grid>
+                </Border>
+            </UniformGrid>
+
+            <!-- ===== Sync + Downloads ===== -->
+            <Grid ColumnDefinitions="*,*">
+
+                <Border x:Name="TileSync" Grid.Column="0" Classes="qsTile sync">
+                    <Grid ColumnDefinitions="*,Auto,Auto">
+                        <Button x:Name="BtnSync" Grid.Column="0" Classes="qsTileMain" Click="OnToggleSyncthing">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <TextBlock Text="🔄" FontSize="16" VerticalAlignment="Center"/>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Sync" FontSize="13" FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="TxtSyncState" Text="Desligado" FontSize="11"
+                                               />
+                                </StackPanel>
+                            </StackPanel>
+                        </Button>
+                        <Border Grid.Column="1" Classes="qsTileDivider"/>
+                        <Button Grid.Column="2" Classes="qsTileArrow" Content="→" Click="OnSyncDetailsClick"/>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Column="1" Classes="qsCard" Margin="5" Padding="16,12">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <TextBlock Text="⬇" FontSize="20" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="Downloads" FontWeight="SemiBold" FontSize="13"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBlock Text="{Binding TopBarDownloadPercentText}" FontSize="11"
+                                       Foreground="{StaticResource AccentBrush}" IsVisible="{Binding HasActiveDownloads}"/>
+                            <TextBlock Text="Nenhum download ativo" FontSize="11"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding !HasActiveDownloads}"/>
+                        </StackPanel>
+                        <Button x:Name="BtnShowDownloads" Grid.Column="2" Classes="pill" Content="Ver Fila"
+                                VerticalAlignment="Center" Click="OnShowDownloadsClick"/>
+                    </Grid>
+                </Border>
+            </Grid>
+
             <!-- Listas -->
-            <Grid ColumnDefinitions="*,*" Height="220">
+            <Grid ColumnDefinitions="*,*" Height="190">
                 <!-- Wi-Fi List -->
-                <Border Grid.Column="0" Background="{DynamicResource SurfaceBrush}" CornerRadius="12" Padding="12" Margin="0,0,6,0">
-                    <StackPanel>
+                <Border Grid.Column="0" Classes="qsCard" Padding="12" Margin="0,0,6,0">
+                    <Grid RowDefinitions="Auto,*">
                         <TextBlock Text="Redes Wi-Fi" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,8"/>
-                        <ScrollViewer>
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                             <ItemsControl x:Name="WifiList">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="svc:WifiNetwork">
@@ -274,14 +415,14 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </ScrollViewer>
-                    </StackPanel>
+                    </Grid>
                 </Border>
 
                 <!-- Bluetooth List -->
-                <Border Grid.Column="1" Background="{DynamicResource SurfaceBrush}" CornerRadius="12" Padding="12" Margin="6,0,0,0">
-                    <StackPanel>
+                <Border Grid.Column="1" Classes="qsCard" Padding="12" Margin="6,0,0,0">
+                    <Grid RowDefinitions="Auto,*">
                         <TextBlock Text="Bluetooth Pareados" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,8"/>
-                        <ScrollViewer>
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                             <ItemsControl x:Name="BluetoothList">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="svc:BtDevice">
@@ -304,7 +445,7 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </ScrollViewer>
-                    </StackPanel>
+                    </Grid>
                 </Border>
             </Grid>
             <!-- Feedback da última ação (conectar/desconectar) e dica de navegação -->
@@ -312,6 +453,7 @@
             <TextBlock Text="A conecta/desconecta · X atualiza · Y/B fecha" FontSize="11"
                        Foreground="{DynamicResource TextSecondaryBrush}" Opacity="0.7"/>
         </StackPanel>
+        </ScrollViewer>
     </Border>
 </Panel>
 
@@ -338,7 +480,12 @@
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:ContextMenuItemViewModel">
                   <Border Classes="menuItem" Classes.selected="{Binding IsSelected}" Classes.danger="{Binding IsDanger}" Padding="16,12" Cursor="Hand" PointerPressed="OnContextMenuItemPressed">
-                    <TextBlock Text="{Binding Label}" Classes="gameTitle" FontSize="{DynamicResource FontSizeBody}" />
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Grid.Column="0" Text="{Binding Label}" Classes="gameTitle" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
+                      <!-- Só as "pastas" (abrem outra página) levam a seta — mesmo padrão dos tiles. -->
+                      <TextBlock Grid.Column="1" Text="›" FontSize="18" Opacity="0.7" VerticalAlignment="Center"
+                                 IsVisible="{Binding IsFolder}" />
+                    </Grid>
                   </Border>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
@@ -490,8 +637,8 @@
           
           <StackPanel Spacing="6">
             <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-              <Border Background="#7C5CFC" CornerRadius="8" Padding="8,4">
-                <TextBlock Text="F1" FontFamily="Consolas" FontWeight="Bold" Foreground="White" FontSize="14" />
+              <Border Background="{StaticResource AccentBrush}" CornerRadius="8" Padding="8,4">
+                <TextBlock Text="F1" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource OnAccentBrush}" FontSize="14" />
               </Border>
               <TextBlock Text="Atalhos" FontSize="24" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" />
             </StackPanel>
@@ -532,7 +679,7 @@
             <StackPanel Spacing="8">
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock Text="⌨" FontSize="16" VerticalAlignment="Center" />
-                <TextBlock Text="TECLADO" FontSize="12" FontWeight="Bold" Foreground="#7C5CFC" VerticalAlignment="Center" />
+                <TextBlock Text="TECLADO" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" />
               </StackPanel>
               <ItemsControl ItemsSource="{Binding KeyboardShortcuts}">
                 <ItemsControl.ItemsPanel>
@@ -544,8 +691,8 @@
                   <DataTemplate>
                     <Border Background="#1A1F2B" CornerRadius="10" Padding="12,10" Margin="4">
                       <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                        <Border Background="#252A36" CornerRadius="6" Padding="8,4" BorderBrush="#424A5D" BorderThickness="1" MinWidth="72">
-                          <TextBlock Text="{Binding Key}" FontFamily="Consolas" FontSize="12" FontWeight="Bold" Foreground="#7C5CFC" HorizontalAlignment="Center" />
+                        <Border Background="{StaticResource ButtonBackgroundBrush}" CornerRadius="6" Padding="8,4" BorderBrush="{StaticResource TileSeparatorBrush}" BorderThickness="1" MinWidth="72">
+                          <TextBlock Text="{Binding Key}" FontFamily="Consolas" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" />
                         </Border>
                         <TextBlock Text="{Binding Label}" FontSize="12" Foreground="#E0E0E0" VerticalAlignment="Center" TextWrapping="Wrap" />
                       </StackPanel>
@@ -570,7 +717,10 @@
          (ZIndex 100) — quem manda naquela zona é ela. -->
     <views:OnScreenKeyboardView x:Name="Keyboard" VerticalAlignment="Bottom" ZIndex="50" />
 
-
+    <!-- Luz Noturna (Central de Controlo): filtro âmbar por cima da janela.
+         Só afeta o launcher — não mexe no gamma do sistema. -->
+    <Border x:Name="NightLightFilter" IsVisible="False" IsHitTestVisible="False" ZIndex="200"
+            Background="#2EFF9A2E" />
 
   </Panel>
 </Window>

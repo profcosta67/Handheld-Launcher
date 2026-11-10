@@ -22,7 +22,7 @@
       <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
     <Style Selector="Button.kbKey.kbSelected">
-      <Setter Property="Background" Value="#7C5CFC"/>
+      <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
       <Setter Property="BorderBrush" Value="White"/>
     </Style>
   </UserControl.Styles>

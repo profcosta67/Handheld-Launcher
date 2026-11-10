@@ -8,11 +8,17 @@ namespace HandheldLauncher.App.ViewModels;
 /// </summary>
 public sealed class ContextMenuItemViewModel : ViewModelBase
 {
-    public ContextMenuItemViewModel(string label, bool isDanger = false)
+    public ContextMenuItemViewModel(string label, bool isDanger = false, bool isFolder = false)
     {
         _label = label;
         IsDanger = isDanger;
+        IsFolder = isFolder;
     }
+
+    // Item que abre outra página do menu (as "pastas": Biblioteca, HUD,
+    // Atualizações...). A seta "›" só aparece nestes — é o padrão de tile
+    // (metade esquerda clicável + indicador à direita) do resto do launcher.
+    public bool IsFolder { get; }
 
     // Item destrutivo/irreversível ("Sim, excluir...", "Sim, reiniciar...")
     // — pedido do usuário pra deixar a confirmação "mais chamativa" (ver

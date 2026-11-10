@@ -69,12 +69,13 @@ public partial class QsPanel : UserControl
 
         BuildPowerPresets();
 
-        // Ordem vertical do D-pad = ordem das cards + Fechar no fim.
+        // Ordem vertical do D-pad = ordem visual (Brilho, Resolução, Cor,
+        // Refrigeração, TDP, Lossless, Captura) + Fechar no fim.
         _cards.Add(BrightnessCard);
-        _cards.Add(TdpCard);
         _cards.Add(ResolutionCard);
-        _cards.Add(FanCard);
         _cards.Add(ColorCard);
+        _cards.Add(FanCard);
+        _cards.Add(TdpCard);
         _cards.Add(LosslessCard);
         _cards.Add(CaptureCard);
         _losslessButtons.AddRange(new[] { BtnLosslessToggle, BtnLossless2x, BtnLossless3x, BtnLossless4x });
@@ -86,6 +87,7 @@ public partial class QsPanel : UserControl
     // ----------------------------------------------------------------- eventos
 
     public event EventHandler? CloseRequested;
+    public event EventHandler? SettingsRequested;
     public event EventHandler<int>? BrightnessChanged;
     public event EventHandler<bool>? LosslessToggled;
 
@@ -151,6 +153,9 @@ public partial class QsPanel : UserControl
 
     public void SetScreenInfo(string text) => TxtScreenInfo.Text = text;
 
+    /// <summary>Bateria mostrada no rodapé (o painel não tem DataContext).</summary>
+    public void SetBattery(string text) => TxtBattery.Text = text;
+
     public void SetBrightness(int percent)
     {
         _suppressEvents = true;
@@ -203,7 +208,7 @@ public partial class QsPanel : UserControl
     public void SetLossless(bool on)
     {
         _losslessOn = on;
-        BtnLosslessToggle.Content = on ? "Desligar" : "Ligar";
+        BtnLosslessToggle.Content = on ? "🦆  Desligar" : "🦆  Ligar";
         BtnLosslessToggle.Classes.Set("active", on);
     }
 
@@ -253,7 +258,7 @@ public partial class QsPanel : UserControl
         };
         if (!string.IsNullOrEmpty(emoji))
             stack.Children.Add(new TextBlock { Text = emoji, FontSize = 16, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center });
-        stack.Children.Add(new TextBlock { Text = label, FontSize = 10, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center });
+        stack.Children.Add(new TextBlock { Text = label, FontSize = 11, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center });
 
         return new Button
         {
@@ -288,7 +293,7 @@ public partial class QsPanel : UserControl
 
         foreach (var preset in presets)
         {
-            var button = MakeChip(null, preset.Label);
+            var button = MakeChip("🖥️", preset.Label);
             button.Tag = $"{preset.Width}x{preset.Height}";
             button.Click += (_, _) => ActivateResolution(button);
             _resolutionButtons.Add(button);
@@ -327,7 +332,23 @@ public partial class QsPanel : UserControl
         _ => label,
     };
 
-    private static string FanEmoji(string label) => label == "Automático" ? "🤖" : "✣";
+    private static string FanEmoji(string label) => label switch
+    {
+        "Automático" => "🤖",
+        "Silencioso" => "🤫",
+        "Normal" => "⚖️",
+        "Desempenho" => "🚀",
+        "Boost" => "🔥",
+        _ => "✳️",
+    };
+
+    private static string ColorEmoji(int index) => index switch
+    {
+        0 => "⚪",
+        1 => "💡",
+        2 => "⚫",
+        _ => "🌙",
+    };
 
     private void ActivateFan(Button button)
     {
@@ -344,7 +365,7 @@ public partial class QsPanel : UserControl
 
         for (var i = 0; i < labels.Count; i++)
         {
-            var button = MakeChip(null, labels[i]);
+            var button = MakeChip(ColorEmoji(i), labels[i]);
             button.Tag = i.ToString(); // handler antigo lê o índice 0..3
             button.Click += (_, _) => ActivateColor(button);
             _colorButtons.Add(button);
@@ -362,6 +383,10 @@ public partial class QsPanel : UserControl
     // ----------------------------------------------------------------- cliques
 
     private void OnCloseClick(object? sender, RoutedEventArgs e) => CloseRequested?.Invoke(this, EventArgs.Empty);
+
+    // Engrenagem do rodapé: o OverlayWindow fecha o painel e pede as
+    // Configurações ao MainViewModel (mesma rota do menu global).
+    private void OnSettingsClick(object? sender, RoutedEventArgs e) => SettingsRequested?.Invoke(this, EventArgs.Empty);
 
     private void OnLosslessToggleClick(object? sender, RoutedEventArgs e)
     {
@@ -418,7 +443,7 @@ public partial class QsPanel : UserControl
         var items = ItemsFor(_focusGroup);
         if (items is null)
         {
-            // sliders (Volume): esquerda/direita ajusta de 5 em 5
+            // sliders (Brilho): esquerda/direita ajusta de 5 em 5
             if (_focusGroup == 0 && BrightnessSlider is not null)
                 BrightnessSlider.Value = Math.Clamp(BrightnessSlider.Value + (dir * 5), 0, 100);
             return;
@@ -446,13 +471,13 @@ public partial class QsPanel : UserControl
 
     private List<Button>? ItemsFor(int group) => group switch
     {
-        1 => _tdpButtons,
-        2 => _resolutionButtons,
+        1 => _resolutionButtons,
+        2 => _colorButtons,
         3 => _fanButtons,
-        4 => _colorButtons,
+        4 => _tdpButtons,
         5 => _losslessButtons,
         6 => _captureButtons,
-        _ => null, // 0 = Volume (slider), 7 = Fechar
+        _ => null, // 0 = Brilho (slider), 7 = Fechar
     };
 
     private void Activate(int group, int index)
@@ -460,20 +485,20 @@ public partial class QsPanel : UserControl
         switch (group)
         {
             case 1:
-                if (index >= 0 && index < _tdpButtons.Count && _tdpButtons[index].Tag is PowerPreset p)
-                    OnPowerPresetClick(p);
-                break;
-            case 2:
                 if (index >= 0 && index < _resolutionButtons.Count)
                     ActivateResolution(_resolutionButtons[index]);
+                break;
+            case 2:
+                if (index >= 0 && index < _colorButtons.Count)
+                    ActivateColor(_colorButtons[index]);
                 break;
             case 3:
                 if (index >= 0 && index < _fanButtons.Count)
                     ActivateFan(_fanButtons[index]);
                 break;
             case 4:
-                if (index >= 0 && index < _colorButtons.Count)
-                    ActivateColor(_colorButtons[index]);
+                if (index >= 0 && index < _tdpButtons.Count && _tdpButtons[index].Tag is PowerPreset p)
+                    OnPowerPresetClick(p);
                 break;
             case 5:
                 if (index == 0) OnLosslessToggleClick(BtnLosslessToggle, new RoutedEventArgs());
@@ -495,7 +520,7 @@ public partial class QsPanel : UserControl
         BtnCloseMenu.Classes.Set("active", !_subOpen && _focusGroup == _cards.Count);
 
         // cursor (foco de navegação) dentro de um grupo
-        for (var group = 1; group <= 6; group++)
+        for (var group = 0; group <= 6; group++)
         {
             var items = ItemsFor(group);
             if (items is null) continue;

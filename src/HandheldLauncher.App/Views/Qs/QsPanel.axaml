@@ -2,13 +2,12 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="HandheldLauncher.App.Views.Qs.QsPanel"
              Width="440"
-             Background="#121212">
+             Background="Transparent">
 
-  <!-- QS 2.0 (F1). Substitui o conteúdo do OverlayWindow. Decisões do dono
-       (09/11/2026): TDP = slider + 4 presets (Eco 8 W / Normal 15 W /
-       Desempenho 20 W / Custom até ao máximo); Brilho sim, Volume não, Hz não;
-       Resolução = 3 presets do aparelho; mantêm-se Ventoinha, Cor, Lossless
-       (on/off + 2x/3x/4x), Print e Gravar. -->
+  <!-- QS 2.0 — padrão Windows 11: UM fundo só (véu a 20% sobre a cor do tema),
+       tiles sem cartão e sem sombra, itens centralizados e sliders distribuídos.
+       Decisões do dono: TDP = slider + 4 presets; Brilho sim, Volume não;
+       Resolução = presets do aparelho; Ventoinha, Cor, Lossless e Captura. -->
 
   <UserControl.Styles>
     <Style Selector="TextBlock">
@@ -17,152 +16,213 @@
     <Style Selector="Button">
       <Setter Property="FontFamily" Value="{DynamicResource GlobalFontFamily}" />
     </Style>
+
+    <!-- Tiles de preset no padrão Windows 11: retângulo, canto 8, ZERO sombra. -->
     <Style Selector="Button.pill">
-      <Setter Property="Background" Value="#252A36" />
-      <Setter Property="Foreground" Value="White" />
-      <Setter Property="CornerRadius" Value="10" />
-      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="Background" Value="{StaticResource ButtonBackgroundBrush}" />
+      <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="12,7" />
       <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="MinWidth" Value="66" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
     <Style Selector="Button.pill:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="#343A48" />
+      <Setter Property="Background" Value="{StaticResource TileHoverBrush}" />
     </Style>
     <Style Selector="Button.pill.active">
-      <Setter Property="Background" Value="#7C5CFC" />
-      <Setter Property="Foreground" Value="White" />
+      <Setter Property="Background">
+        <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+          <GradientStop Color="{StaticResource AccentColor}" Offset="0" />
+          <GradientStop Color="{StaticResource AccentSoftColor}" Offset="1" />
+        </LinearGradientBrush>
+      </Setter>
+      <Setter Property="Foreground" Value="{StaticResource OnAccentBrush}" />
     </Style>
     <Style Selector="Button.pill.active /template/ ContentPresenter">
-      <Setter Property="Background" Value="#7C5CFC" />
-      <Setter Property="Foreground" Value="White" />
+      <Setter Property="Background">
+        <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+          <GradientStop Color="{StaticResource AccentColor}" Offset="0" />
+          <GradientStop Color="{StaticResource AccentSoftColor}" Offset="1" />
+        </LinearGradientBrush>
+      </Setter>
+      <Setter Property="Foreground" Value="{StaticResource OnAccentBrush}" />
     </Style>
     <Style Selector="Button.pill.cursor">
       <Setter Property="BorderThickness" Value="2" />
-      <Setter Property="BorderBrush" Value="White" />
+      <Setter Property="BorderBrush" Value="{StaticResource TextPrimaryBrush}" />
     </Style>
-    <Style Selector="Border.qsCard">
-      <Setter Property="CornerRadius" Value="12" />
-      <Setter Property="Padding" Value="10" />
-      <Setter Property="Background" Value="#1AFFFFFF" />
-      <Setter Property="BorderThickness" Value="2" />
+
+    <!-- Título de grupo: centralizado, sem caixa, discreto (muted). -->
+    <Style Selector="TextBlock.qsGroupTitle">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="TextAlignment" Value="Center" />
+      <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+
+    <!-- Grupo: sem fundo e sem sombra — só o contorno de foco quando navegas. -->
+    <Style Selector="Border.qsGroup">
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="BorderThickness" Value="1" />
       <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="Background" Value="Transparent" />
     </Style>
-    <Style Selector="Border.qsCard.focused">
-      <Setter Property="BorderBrush" Value="#7C5CFC" />
+    <Style Selector="Border.qsGroup.focused">
+      <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
     </Style>
   </UserControl.Styles>
 
-  <Grid RowDefinitions="Auto,*,Auto">
+  <!-- ÚNICO fundo do painel: véu a 20% sobre a cor do tema + cantos e sombra. -->
+  <Border Background="{StaticResource PanelTranslucentBrush}"
+          BorderBrush="{StaticResource TileSeparatorBrush}"
+          BorderThickness="1"
+          CornerRadius="16"
+          Margin="6"
+          ClipToBounds="True"
+          BoxShadow="0 12 32 0 #40000000">
+    <Grid RowDefinitions="Auto,*,Auto">
 
-    <!-- cabeçalho -->
-    <Border Grid.Row="0" CornerRadius="24,0,0,24" BorderBrush="#333333" BorderThickness="0,0,0,1" Padding="20,14">
-      <Grid ColumnDefinitions="*,Auto">
-        <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
-          <TextBlock Text="⚙️ Quick Settings" FontSize="22" FontWeight="Bold" Foreground="White" />
-          <TextBlock x:Name="TxtScreenInfo" Text="—" FontSize="11" Foreground="#9BA8C4" />
+      <!-- cabeçalho (sem divisória nem caixa) -->
+      <Border Grid.Row="0" Padding="18,14,12,8">
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel Grid.Column="0" Spacing="1" VerticalAlignment="Center">
+            <TextBlock Text="Quick Settings" FontSize="20" FontWeight="Bold"
+                       Foreground="{DynamicResource TextPrimaryBrush}" />
+            <TextBlock x:Name="TxtScreenInfo" Text="—" FontSize="11"
+                       Foreground="{DynamicResource TextSecondaryBrush}" />
+          </StackPanel>
+          <Button Grid.Column="1" x:Name="BtnClose" Content="✕" Classes="pill"
+                  Width="36" Height="36" CornerRadius="18" Padding="0" FontSize="14" MinWidth="0"
+                  HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Click="OnCloseClick" />
+        </Grid>
+      </Border>
+
+      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="10" Margin="8,0,8,10">
+
+          <!-- aviso de elevação (TDP indisponível sem admin) -->
+          <Border x:Name="ElevationWarning" IsVisible="False" Background="#33FF6B6B"
+                  BorderBrush="#66FF6B6B" BorderThickness="1" CornerRadius="10"
+                  Padding="10" Margin="6,0,6,6">
+            <TextBlock x:Name="TxtElevationWarning" FontSize="11" Foreground="#FFD8D8"
+                       TextWrapping="Wrap" Text="Modo padrão: o TDP não aplica. Reinicia como administrador." />
+          </Border>
+
+          <!-- BRILHO -->
+          <Border x:Name="BrightnessCard" Classes="qsGroup">
+            <StackPanel Spacing="0">
+              <TextBlock Text="Brilho" Classes="qsGroupTitle" />
+              <Grid ColumnDefinitions="Auto,*,Auto">
+                <TextBlock Grid.Column="0" Text="☀️" FontSize="15" VerticalAlignment="Center" />
+                <Slider Grid.Column="1" x:Name="BrightnessSlider" Minimum="0" Maximum="100"
+                        TickFrequency="5" IsSnapToTickEnabled="True" Margin="12,0" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" x:Name="TxtBrightness" Text="70%" FontSize="12" FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"
+                           MinWidth="40" TextAlignment="Right" />
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <!-- RESOLUÇÃO -->
+          <Border x:Name="ResolutionCard" Classes="qsGroup">
+            <StackPanel Spacing="0">
+              <TextBlock Text="Resolução" Classes="qsGroupTitle" />
+              <StackPanel x:Name="ResolutionHost" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" />
+            </StackPanel>
+          </Border>
+
+          <!-- MODO DE COR -->
+          <Border x:Name="ColorCard" Classes="qsGroup">
+            <StackPanel Spacing="0">
+              <TextBlock Text="Modo de Cor" Classes="qsGroupTitle" />
+              <StackPanel x:Name="ColorHost" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" />
+            </StackPanel>
+          </Border>
+
+          <!-- REFRIGERAÇÃO -->
+          <Border x:Name="FanCard" Classes="qsGroup">
+            <StackPanel Spacing="0">
+              <TextBlock Text="Refrigeração" Classes="qsGroupTitle" />
+              <StackPanel x:Name="FanHost" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" />
+              <TextBlock x:Name="TxtFanStatus" Text="" FontSize="10" Margin="0,6,0,0"
+                         Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"
+                         HorizontalAlignment="Center" TextAlignment="Center" />
+            </StackPanel>
+          </Border>
+
+          <!-- DESEMPENHO (TDP) -->
+          <Border x:Name="TdpCard" Classes="qsGroup">
+            <StackPanel Spacing="0">
+              <TextBlock Text="Desempenho (TDP)" Classes="qsGroupTitle" />
+              <Grid ColumnDefinitions="*,Auto">
+                <Slider Grid.Column="0" x:Name="TdpSlider" Minimum="5" Maximum="35"
+                        TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" x:Name="TxtTdp" Text="20 W" FontSize="14" FontWeight="Bold"
+                           Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"
+                           MinWidth="54" TextAlignment="Right" />
+              </Grid>
+              <StackPanel x:Name="TdpPresetsHost" Orientation="Horizontal" Spacing="6"
+                          HorizontalAlignment="Center" Margin="0,8,0,0" />
+            </StackPanel>
+          </Border>
+
+
+          <!-- LOSSLESS SCALING: toggle em cima, multiplicadores em baixo -->
+          <Border x:Name="LosslessCard" Classes="qsGroup">
+            <StackPanel Spacing="0">
+              <TextBlock Text="Lossless Scaling" Classes="qsGroupTitle" />
+              <Button x:Name="BtnLosslessToggle" Content="🦆  Ligar" Classes="pill"
+                      MinWidth="150" HorizontalAlignment="Center" Click="OnLosslessToggleClick" />
+              <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" Margin="0,8,0,0">
+                <Button x:Name="BtnLossless2x" Content="2x" Classes="pill" Click="OnLosslessMultiplierClick" Tag="2" />
+                <Button x:Name="BtnLossless3x" Content="3x" Classes="pill" Click="OnLosslessMultiplierClick" Tag="3" />
+                <Button x:Name="BtnLossless4x" Content="4x" Classes="pill" Click="OnLosslessMultiplierClick" Tag="4" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <!-- CAPTURA -->
+          <Border x:Name="CaptureCard" Classes="qsGroup">
+            <StackPanel Spacing="0">
+              <TextBlock Text="Captura" Classes="qsGroupTitle" />
+              <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                <Button x:Name="BtnPrint" Content="📷 Print" Classes="pill" Click="OnPrintClick" />
+                <Button x:Name="BtnRecord" Content="🎥 Gravar" Classes="pill" Click="OnRecordClick" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
         </StackPanel>
-        <Button Grid.Column="1" x:Name="BtnClose" Content="✕" Classes="pill" Width="40" Height="40"
-                CornerRadius="20" Padding="0" FontSize="16" FontWeight="Bold"
-                HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Click="OnCloseClick" />
-      </Grid>
-    </Border>
+      </ScrollViewer>
 
-    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-      <StackPanel Spacing="10" Width="380" HorizontalAlignment="Center">
-
-        <!-- aviso de elevação (TDP indisponível sem admin — ver log de 09/11) -->
-        <Border x:Name="ElevationWarning" IsVisible="False" Background="#33FF6B6B"
-                BorderBrush="#66FF6B6B" BorderThickness="1" CornerRadius="8" Padding="8">
-          <TextBlock x:Name="TxtElevationWarning" FontSize="11" Foreground="#FFD8D8"
-                     TextWrapping="Wrap" Text="Modo padrão: o TDP não aplica. Reinicia como administrador." />
-        </Border>
-
-        <!-- BRILHO -->
-        <Border x:Name="BrightnessCard" Classes="qsCard">
-          <StackPanel Spacing="4">
-            <TextBlock Text="☀️ Brilho" FontSize="14" FontWeight="Bold" Foreground="#7C5CFC"
-                       HorizontalAlignment="Center" TextAlignment="Center" />
-            <Slider x:Name="BrightnessSlider" Minimum="0" Maximum="100"
-                    TickFrequency="5" IsSnapToTickEnabled="True" />
-            <TextBlock x:Name="TxtBrightness" Text="70%" FontSize="12" FontWeight="Bold"
-                       Foreground="White" HorizontalAlignment="Center" TextAlignment="Center" />
+      <!-- rodapé: bateria + fechar + configurações -->
+      <Border Grid.Row="2" Padding="18,8,12,12"
+              BorderBrush="{StaticResource TileSeparatorBrush}" BorderThickness="0,1,0,0">
+        <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+          <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+            <TextBlock Text="🔋" FontSize="13" VerticalAlignment="Center" />
+            <TextBlock x:Name="TxtBattery" Text="—" FontSize="12" FontWeight="SemiBold"
+                       Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
           </StackPanel>
-        </Border>
+          <Button Grid.Column="2" x:Name="BtnCloseMenu" Content="✕" Classes="pill"
+                  Width="36" Height="36" MinWidth="0" CornerRadius="18" Padding="0" FontSize="13"
+                  Margin="0,0,6,0" ToolTip.Tip="Fechar menu (B)"
+                  HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Click="OnCloseClick" />
+          <Button Grid.Column="3" x:Name="BtnSettings" Content="⚙" Classes="pill"
+                  Width="36" Height="36" MinWidth="0" CornerRadius="18" Padding="0" FontSize="15"
+                  ToolTip.Tip="Configurações"
+                  HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Click="OnSettingsClick" />
+        </Grid>
+      </Border>
 
-        <!-- DESEMPENHO (TDP) -->
-        <Border x:Name="TdpCard" Classes="qsCard">
-          <StackPanel Spacing="6">
-            <TextBlock Text="⚡ Desempenho (TDP)" FontSize="14" FontWeight="Bold" Foreground="#7C5CFC"
-                       HorizontalAlignment="Center" TextAlignment="Center" />
-            <Slider x:Name="TdpSlider" Minimum="5" Maximum="35"
-                    TickFrequency="1" IsSnapToTickEnabled="True" />
-            <TextBlock x:Name="TxtTdp" Text="20 W" FontSize="16" FontWeight="Bold"
-                       Foreground="White" HorizontalAlignment="Center" TextAlignment="Center" />
-            <StackPanel x:Name="TdpPresetsHost" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" />
-          </StackPanel>
-        </Border>
-
-        <!-- RESOLUÇÃO (3 presets do aparelho) -->
-        <Border x:Name="ResolutionCard" Classes="qsCard">
-          <StackPanel Spacing="6">
-            <TextBlock Text="🖥️ Resolução" FontSize="14" FontWeight="Bold" Foreground="#7C5CFC"
-                       HorizontalAlignment="Center" TextAlignment="Center" />
-            <StackPanel x:Name="ResolutionHost" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" />
-          </StackPanel>
-        </Border>
-
-        <!-- REFRIGERAÇÃO -->
-        <Border x:Name="FanCard" Classes="qsCard">
-          <StackPanel Spacing="6">
-            <TextBlock Text="❄️ Refrigeração (ventoinhas)" FontSize="14" FontWeight="Bold" Foreground="#7C5CFC"
-                       HorizontalAlignment="Center" TextAlignment="Center" />
-            <StackPanel x:Name="FanHost" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" />
-            <TextBlock x:Name="TxtFanStatus" Text="" FontSize="10" Foreground="#9BA8C4"
-                       TextWrapping="Wrap" HorizontalAlignment="Center" TextAlignment="Center" />
-          </StackPanel>
-        </Border>
-
-        <!-- COR -->
-        <Border x:Name="ColorCard" Classes="qsCard">
-          <StackPanel Spacing="6">
-            <TextBlock Text="🎨 Modo de Cor" FontSize="14" FontWeight="Bold" Foreground="#7C5CFC"
-                       HorizontalAlignment="Center" TextAlignment="Center" />
-            <StackPanel x:Name="ColorHost" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" />
-          </StackPanel>
-        </Border>
-
-        <!-- LOSSLESS -->
-        <Border x:Name="LosslessCard" Classes="qsCard">
-          <StackPanel Spacing="6">
-            <TextBlock Text="🔍 Lossless Scaling" FontSize="14" FontWeight="Bold" Foreground="#7C5CFC"
-                       HorizontalAlignment="Center" TextAlignment="Center" />
-            <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
-              <Button x:Name="BtnLosslessToggle" Content="Ligar" Classes="pill" Click="OnLosslessToggleClick" />
-              <Button x:Name="BtnLossless2x" Content="2x" Classes="pill" Click="OnLosslessMultiplierClick" Tag="2" />
-              <Button x:Name="BtnLossless3x" Content="3x" Classes="pill" Click="OnLosslessMultiplierClick" Tag="3" />
-              <Button x:Name="BtnLossless4x" Content="4x" Classes="pill" Click="OnLosslessMultiplierClick" Tag="4" />
-            </StackPanel>
-          </StackPanel>
-        </Border>
-
-        <!-- CAPTURA -->
-        <Border x:Name="CaptureCard" Classes="qsCard">
-          <StackPanel Spacing="6">
-            <TextBlock Text="📸 Captura" FontSize="14" FontWeight="Bold" Foreground="#7C5CFC"
-                       HorizontalAlignment="Center" TextAlignment="Center" />
-            <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
-              <Button x:Name="BtnPrint" Content="📷 Print" Classes="pill" Click="OnPrintClick" />
-              <Button x:Name="BtnRecord" Content="🎥 Gravar" Classes="pill" Click="OnRecordClick" />
-            </StackPanel>
-          </StackPanel>
-        </Border>
-
-      </StackPanel>
-    </ScrollViewer>
-
-    <!-- rodapé fixo -->
-    <Border Grid.Row="2" Padding="20,12" BorderBrush="#333333" BorderThickness="0,1,0,0">
-      <Button x:Name="BtnCloseMenu" Content="Fechar Menu  (B)" Classes="pill"
-              HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="OnCloseClick" />
-    </Border>
-  </Grid>
+    </Grid>
+  </Border>
 </UserControl>
+
