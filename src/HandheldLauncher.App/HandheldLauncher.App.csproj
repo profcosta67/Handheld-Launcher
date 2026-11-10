@@ -29,13 +29,16 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   
-   <ItemGroup>
+    <!-- Ferramentas Windows (ffmpeg.exe, HidHide, PawnIO): sem a condição de TFM
+        o publish linux-x64 levava ~56 MB de .exe que não servem para nada e só
+        engordavam o pacote Linux. -->
+   <ItemGroup Condition="'$(TargetFramework)' == 'net8.0-windows10.0.19041.0'">
     <None Update="Tools\ffmpeg.exe">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0-windows10.0.19041.0'">
   <None Update="Tools\HidHide_1.5.230_x64.exe">
     <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
   </None>
@@ -67,7 +70,7 @@
     <PackageReference Include="Microsoft.Win32.SystemEvents" />
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0-windows10.0.19041.0'">
     <Content Include="Tools\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -82,7 +85,7 @@
     <AvaloniaResource Include="Assets\**" />
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0-windows10.0.19041.0'">
     <None Update="Tools\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

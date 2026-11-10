@@ -81,3 +81,40 @@ jobs:
       - name: Compilar (net8.0 — Linux/macOS)
         run: dotnet build src/HandheldLauncher.App -c Release -f net8.0
 
+      - name: Descobrir versão de teste
+        id: ver
+        shell: bash
+        run: echo "version=$(tr -d ' \r\n' < VERSION)-preview" >> "$GITHUB_OUTPUT"
+
+      - name: Ferramentas de empacotamento
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zip unzip desktop-file-utils
+
+      # Pacote + teste de fumo do instalador. É este passo que teria apanhado o
+      # bug do Zorin na beta.4 (zip sem bit de execução, atalho fora do PATH,
+      # nada no menu de aplicações): o scripts/package-linux.sh gera o .tar.gz e
+      # o .zip, extrai-os e instala num HOME temporário antes de aprovar.
+      - name: Publicar (linux-x64) para empacotar
+        run: >
+          dotnet publish src/HandheldLauncher.App -c Release -f net8.0 -r linux-x64
+          --self-contained true
+          -p:Version=${{ steps.ver.outputs.version }}
+          -p:TreatWarningsAsErrors=false
+          -o publish-linux
+
+      - name: Empacotar + testar o instalador Linux
+        run: >
+          bash scripts/package-linux.sh
+          --publish publish-linux
+          --version "${{ steps.ver.outputs.version }}"
+          --out .
+
+      - name: Disponibilizar pacote Linux de teste
+        uses: actions/upload-artifact@v4
+        with:
+          name: HandheldLauncher-preview-linux-x64
+          path: |
+            HandheldLauncher-linux-x64.tar.gz
+            HandheldLauncher-linux-x64.zip
+          if-no-files-found: error
+          retention-days: 14
+

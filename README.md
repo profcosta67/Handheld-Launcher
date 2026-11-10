@@ -58,20 +58,33 @@ O pacote de Windows inclui as ferramentas de terceiros necessárias à gravaçã
 
 O launcher também compila e roda **nativamente no Linux** (sem Wine/Bottles). O alvo principal é o **Bazzite** (handhelds AMD + Gamescope + MangoHud + ryzenadj).
 
-Para instalar num Linux (Bazzite ou outra distro):
+Para instalar num Linux (Bazzite, Zorin ou outra distro):
 
 ```bash
-# 1. Baixe HandheldLauncher-linux-x64.zip na aba Releases e extraia
-unzip HandheldLauncher-linux-x64.zip -d handheld-launcher
+# 1. Baixe HandheldLauncher-linux-x64.tar.gz na aba Releases e extraia
+tar -xzf HandheldLauncher-linux-x64.tar.gz
 cd handheld-launcher
 
-# 2. Instale (copia o binário, cria atalho e o auto-arranque no login)
-chmod +x install-linux.sh
+# 2. Instale (só para o seu usuário — NÃO use sudo)
 ./install-linux.sh
 
-# 3. Corra (ou reinicie a sessão para abrir em tela cheia)
+# 3. Abra pelo menu de aplicações ("Handheld Launcher") ou num terminal novo
 handheld-launcher
 ```
+
+O `install-linux.sh` cria o atalho `~/.local/bin/handheld-launcher`, a entrada no menu de aplicações com ícone, corrige o `PATH` no `~/.profile` e confere as bibliotecas/ferramentas em falta (mostrando o comando `apt`/`dnf`/`rpm-ostree` exato). O log de cada execução fica em `~/.local/state/handheld-launcher/install.log`.
+
+Opções úteis:
+
+```bash
+./install-linux.sh --autostart   # + abre sozinho no login (modo handheld)
+./install-linux.sh --run         # instala e abre no final
+./install-linux.sh --dry-run     # mostra o que faria, sem alterar nada
+./install-linux.sh --uninstall   # remove app, atalho, menu, ícone e auto-arranque
+./install-linux.sh --help
+```
+
+> Prefira o `.tar.gz`: é o único formato que preserva as permissões de execução em qualquer extração. O `.zip` continua publicado, mas o zip gerado no Windows (até a beta.4) chegava sem o bit `+x` — era por isso que o launcher "instalava" e depois não abria no Zorin.
 
 O que já funciona nativamente no Linux:
 - **Biblioteca** (Steam/Epic/GOG/Heroic/Eden), capas e lançamento de jogos (`steam://` via `xdg-open`).

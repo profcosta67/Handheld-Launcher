@@ -148,23 +148,9 @@ jobs:
             throw "Velopack falhou ao empacotar o instalador (exit code $LASTEXITCODE)."
           }
 
-      - name: Publicar (self-contained linux-x64)
-        if: steps.exists.outputs.skip != 'true'
-        run: >
-          dotnet publish src/HandheldLauncher.App -c Release -f net8.0 -r linux-x64
-          --self-contained true
-          -p:Version=${{ steps.ver.outputs.version }}
-          -p:TreatWarningsAsErrors=false
-          -o publish-linux
-
-      - name: Copiar instalador Linux para o pacote
-        if: steps.exists.outputs.skip != 'true'
-        run: Copy-Item "installer/install-linux.sh" -Destination "publish-linux/install-linux.sh"
-
-      - name: Compactar pacote Linux
-        if: steps.exists.outputs.skip != 'true'
-        shell: pwsh
-        run: Compress-Archive -Path publish-linux/* -DestinationPath HandheldLauncher-linux-x64.zip -Force
+      # v0.24.3-beta.5: o pacote Linux passou para o job "linux-package" (runner
+      # Linux). Feito aqui com Compress-Archive, o zip saía SEM o bit de execução
+      # — "instalava" mas nada arrancava no Zorin.
 
       - name: Montar Modo-Console.zip
         if: steps.exists.outputs.skip != 'true'
@@ -240,8 +226,10 @@ jobs:
           & gh @editArgs
           if ($LASTEXITCODE -ne 0) { Write-Warning "gh release edit retornou $LASTEXITCODE (não fatal)." }
 
-          # 4) Complementares (não gerenciados pelo Velopack)
-          gh release upload $tag (Resolve-Path Modo-Console.zip).Path (Resolve-Path HandheldLauncher-linux-x64.zip).Path -R $env:GITHUB_REPOSITORY --clobber
+          # 4) Complementares (não gerenciados pelo Velopack). O pacote Linux é
+          #    enviado pelo job linux-package (runner Linux, permissões certas e
+          #    teste de fumo antes de publicar).
+          gh release upload $tag (Resolve-Path Modo-Console.zip).Path -R $env:GITHUB_REPOSITORY --clobber
           if ($LASTEXITCODE -ne 0) { throw "Falha ao enviar os arquivos complementares da Release." }
 
       - name: Limpar versões antigas
@@ -259,3 +247,81 @@ jobs:
               gh release edit "$t" --notes-file "release-notes/${t#v}.md" -R "$GITHUB_REPOSITORY" || true
             fi
           done < tags.txt
+
+  # ---------------------------------------------------------------------------
+  # Pacote Linux — corre num runner Linux a sério (v0.24.3-beta.5).
+  #
+  # Antes era o job Windows que fazia `dotnet publish -r linux-x64` e compactava
+  # com Compress-Archive. Esse zip chegava ao Zorin sem o bit de execução (o
+  # Compress-Archive não guarda permissões Unix): o instalador copiava os
+  # ficheiros, nada era executável e o utilizador ficava com uma instalação
+  # inútil. Agora: publica em ubuntu-latest, empacota com `scripts/package-linux.sh`
+  # (.tar.gz + .zip, chmod antes), o script extrai o resultado e instala-o num
+  # HOME temporário — só depois é que o arquivo vai para a Release.
+  # ---------------------------------------------------------------------------
+  linux-package:
+    needs: release
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Descobrir versão
+        id: ver
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="$(tr -d ' \r\n' < VERSION)"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Versão: $VERSION"
+
+      - name: Pacote Linux já publicado?
+        id: exists
+        shell: bash
+        run: |
+          if gh release view "${{ steps.ver.outputs.tag }}" -R "$GITHUB_REPOSITORY" \
+               --json assets --jq '.assets[].name' 2>/dev/null \
+             | grep -qx 'HandheldLauncher-linux-x64.tar.gz'; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-dotnet@v4
+        if: steps.exists.outputs.skip != 'true'
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Ferramentas de empacotamento
+        if: steps.exists.outputs.skip != 'true'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zip unzip desktop-file-utils
+
+      - name: Publicar (self-contained linux-x64)
+        if: steps.exists.outputs.skip != 'true'
+        run: >
+          dotnet publish src/HandheldLauncher.App -c Release -f net8.0 -r linux-x64
+          --self-contained true
+          -p:Version=${{ steps.ver.outputs.version }}
+          -p:TreatWarningsAsErrors=false
+          -o publish-linux
+
+      - name: Empacotar + testar o instalador (tar.gz e zip)
+        if: steps.exists.outputs.skip != 'true'
+        run: >
+          bash scripts/package-linux.sh
+          --publish publish-linux
+          --version "${{ steps.ver.outputs.version }}"
+          --out .
+
+      - name: Enviar pacote Linux para a Release
+        if: steps.exists.outputs.skip != 'true'
+        shell: bash
+        run: >
+          gh release upload "${{ steps.ver.outputs.tag }}"
+          HandheldLauncher-linux-x64.tar.gz HandheldLauncher-linux-x64.zip
+          -R "$GITHUB_REPOSITORY" --clobber

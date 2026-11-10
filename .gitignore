@@ -22,3 +22,8 @@ installer/Arquivos/publish/
 installer/Arquivos/steamgriddb-api-key.txt
 
 src/HandheldLauncher.App/Tools/ffmpeg.exe
+
+## Pacote Linux gerado por scripts/package-linux.sh (build local e CI)
+publish-linux/
+HandheldLauncher-linux-*.tar.gz
+HandheldLauncher-linux-*.zip
