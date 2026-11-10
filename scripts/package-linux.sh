@@ -68,6 +68,11 @@ fi
 VERSION="$(printf '%s' "$VERSION" | tr -d ' \r\n')"
 
 mkdir -p "$OUT"
+# --out pode vir relativo (o CI passa "--out ."). Normaliza já: mais abaixo há um
+# `cd` num subshell para criar o zip, e com um caminho relativo o arquivo acabava
+# gravado dentro da pasta temporária (desaparecia no trap do EXIT) em vez da
+# pasta pedida — foi o que reprovou o job linux-package do beta.5.
+OUT="$(cd "$OUT" && pwd)"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 
