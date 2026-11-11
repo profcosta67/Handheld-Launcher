@@ -559,6 +559,12 @@ public partial class MainWindow : Window
                     if (IsVisible) MinimizeToTray();
                     ShowLaunchPopup(vm.LaunchingGameTitle, vm.LaunchingGameIconPath);
                 }
+                else if (!vm.IsLaunching && !OperatingSystem.IsWindows())
+                {
+                    // Linux: não há detector de janela do jogo (Win32); fecha o popup
+                    // pouco depois de o lançamento terminar.
+                    CloseLaunchPopupWithGrace();
+                }
                 return;
             }
 
