@@ -30,6 +30,8 @@ public sealed class NullHidHideService : IHidHideService
     {
     }
 
+    public void ForceRestartController(bool includeXusb) { }
+
     public void ForceRestartController()
     {
     }

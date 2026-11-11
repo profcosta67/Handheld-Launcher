@@ -221,7 +221,14 @@ public sealed class HidHideService : IHidHideService, IDisposable
         });
     }
 
-    public void ForceRestartController()
+    public void ForceRestartController() => ForceRestartController(includeXusb: false);
+
+    /// <summary>
+    /// <paramref name="includeXusb"/> (experimental, v0.25.9): reinicia também o
+    /// "Controlador XBOX 360" (xusb22, USB\...&amp;MI_00), por onde o XInput do jogo
+    /// lê. Só o QS-ao-abrir usa; o fechamento mantém o comportamento de sempre.
+    /// </summary>
+    public void ForceRestartController(bool includeXusb)
     {
         if (!OperatingSystem.IsWindows() || !ElevationService.IsElevated)
         {
@@ -245,6 +252,8 @@ public sealed class HidHideService : IHidHideService, IDisposable
                 var ids = HidHideTask.FindControllerInstanceIds()
                     .Where(id => id.Contains("IG_00", StringComparison.OrdinalIgnoreCase)
                               || id.Contains("SYNTHETICGAMEPAD", StringComparison.OrdinalIgnoreCase))
+                    .Concat(includeXusb ? HidHideTask.FindXusbInstanceIds() : Enumerable.Empty<string>())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList();
 
                 foreach (var id in ids)

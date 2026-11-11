@@ -123,6 +123,8 @@ public partial class OverlayWindow : Window
 
     [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hWnd);
+    [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    private const int SwRestore = 9;
 
     // v0.25.2 (QS 2.0): o Windows recusa trocar o foreground vindo de um
     // processo que não está em primeiro plano (provado no log de 09/11:
@@ -533,7 +535,7 @@ public partial class OverlayWindow : Window
                     if (!IsVisible) return;
                     DebugLog.Write("[HIDHIDE] Experimental: reiniciando o controle ao abrir o Quick Settings.");
                     LastControllerRestartUtc = ElevationService.IsElevated ? DateTime.UtcNow : LastControllerRestartUtc;
-                    _hidHideService.ForceRestartController();
+                    _hidHideService.ForceRestartController(includeXusb: true);
                 }, TimeSpan.FromMilliseconds(700));
             }
         }
@@ -905,6 +907,15 @@ public partial class OverlayWindow : Window
 
             if (target != IntPtr.Zero)
             {
+                // v0.25.9: jogo em fullscreen exclusivo se minimiza quando perde o
+                // foco com o QS por cima (log de 11/11: janela 160x28, foreground=0).
+                // Sem restaurar, o SetForegroundWindow não tem efeito e fica a tela cinza.
+                if (target != IntPtr.Zero && IsIconic(target))
+                {
+                    DebugLog.Write("[OVERLAY-CLOSE] Janela do jogo minimizada — restaurando.");
+                    ShowWindow(target, SwRestore);
+                }
+
                 // v0.25.2: ALT "premido" durante a troca — sem isto o Windows
                 // ignorava o SetForegroundWindow (foreground agora=0x0).
                 keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);
