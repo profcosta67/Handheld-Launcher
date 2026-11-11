@@ -12,22 +12,18 @@ public class AppSettings
     // administrador, então ele passou a rodar em TODO fechamento — e no
     // Legion Go 2 re-enumerar o controle é o que às vezes o faz sumir.
     // Ligado por padrão (mantém o comportamento atual); desligar serve para
-    // testar se o controle travado vem daqui.
+    // testar se o controle travado vem daqui. Sem opção visível desde a
+    // limpeza do menu (11/11); só pelo settings.json.
     public bool RestartControllerAfterOverlay { get; set; } = true;
 
-    // v0.25.9 (EXPERIMENTAL): reinicia o controle também ao ABRIR o QS, logo
-    // depois de escondê-lo do jogo. O HidHide só esconde o controle de quem o
-    // abre depois; um jogo que já o tem aberto continua recebendo o D-pad por
-    // trás do painel. Re-enumerar o controle faz o jogo perder o dispositivo
-    // e, como ele está na lista de ocultação, não consegue reabri-lo enquanto
-    // o painel está aberto. Desligado por padrão: precisa de teste por jogo.
-    public bool RestartControllerOnOverlayOpen { get; set; } = false;
-
-    // v0.25.9 (EXPERIMENTAL): o QS pega o foco ao abrir com jogo rodando. O
-    // Windows não entrega XInput a quem está em segundo plano, então o jogo
-    // para de receber o controle enquanto o painel está aberto. Risco: jogo em
-    // ecrã inteiro exclusivo pode minimizar. Desligado por padrão.
-    public bool FocusOverlayOnOpen { get; set; } = false;
+    // v0.25.9: o QS pega o foco ao abrir com jogo rodando. O Windows não
+    // entrega XInput a quem está em segundo plano, então o jogo para de
+    // receber o controle enquanto o painel está aberto (testado no Legion Go 2,
+    // 11/11). Em tela cheia o Windows mostra o fundo preto do sistema atrás do
+    // painel — aceito pelo usuário. Sem opção visível; fica aqui como saída de
+    // emergência (settings.json). Chave nova de propósito: quem testou o
+    // experimento antigo (FocusOverlayOnOpen=false gravado) recebe o padrão.
+    public bool OverlayTakesFocus { get; set; } = true;
 
     // v0.24.1: caminho de recurso, DESLIGADO por padrão. Medido no driver
     // HidHide 1.5.230: as escritas passam sem administrador, por isso não é

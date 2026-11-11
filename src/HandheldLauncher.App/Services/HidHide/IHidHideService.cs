@@ -31,5 +31,4 @@ public interface IHidHideService
     /// o jogo não volta a abri-lo só porque o caminho foi removido da lista.
     /// </summary>
     void ForceRestartController();
-    void ForceRestartController(bool includeXusb);
 }

@@ -58,16 +58,6 @@ public partial class OverlayWindow : Window
     // responder até o Windows devolver o dispositivo.
     private IDisposable? _pendingControllerRestart;
 
-    // v0.25.9 (experimental): reinício do controle agendado ao ABRIR o QS.
-    private IDisposable? _pendingOpenControllerRestart;
-
-    private void CancelPendingOpenControllerRestart()
-    {
-        if (_pendingOpenControllerRestart is null) return;
-        _pendingOpenControllerRestart.Dispose();
-        _pendingOpenControllerRestart = null;
-    }
-
     /// <summary>Há reinício de controle agendado e ainda não executado?</summary>
     public bool HasPendingControllerRestart => _pendingControllerRestart is not null;
 
@@ -522,25 +512,6 @@ public partial class OverlayWindow : Window
         if (_gamePid > 0 && overlaySettings.IsolateControllerOnOverlay)
         {
             _hidHideService.HideControllerForProcess(_gamePid);
-
-            // v0.25.9 (experimental): o jogo já abriu o controle antes do QS e o
-            // HidHide não o tira de quem já o tem. Re-enumerar o controle logo
-            // depois de ocultá-lo faz o jogo perdê-lo. Atraso pra dar tempo de a
-            // ocultação valer; cancelado se o painel fechar antes.
-            if (overlaySettings.RestartControllerOnOverlayOpen)
-            {
-                CancelPendingOpenControllerRestart();
-                _pendingOpenControllerRestart = DispatcherTimer.RunOnce(() =>
-                {
-                    _pendingOpenControllerRestart = null;
-                    if (!IsVisible) return;
-                    DebugLog.Write("[HIDHIDE] Experimental: reiniciando o controle ao abrir o Quick Settings.");
-                    LastControllerRestartUtc = ElevationService.IsElevated ? DateTime.UtcNow : LastControllerRestartUtc;
-                    // O xusb (MI_00) não aceita /restart-device: exit=-1 após 5 s e
-                    // travava os reinícios seguintes (log 11/11 14:36). Fora.
-                    _hidHideService.ForceRestartController(includeXusb: false);
-                }, TimeSpan.FromMilliseconds(700));
-            }
         }
 
         // v0.24.1: congelamento opt-in (aviso de risco aceito nas Configurações).
@@ -584,18 +555,19 @@ public partial class OverlayWindow : Window
                 var ex = GetWindowLong(h, GWL_EXSTYLE);
                 SetWindowLong(h, GWL_EXSTYLE, ex | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);
 
-                // v0.25.9 (experimental): tirar o foco do jogo para ele deixar de
-                // receber XInput. O FullscreenDetector não distingue borderless
-                // "popup" de exclusivo (Days Gone aparece como FullscreenLikely),
-                // por isso vale para todos os modos — o fecho já restaura o jogo
-                // se ele tiver minimizado.
-                if (_gamePid > 0 && overlaySettings.FocusOverlayOnOpen)
+                // v0.25.9: tirar o foco do jogo para ele deixar de receber XInput
+                // (padrão desde 11/11). O FullscreenDetector não distingue
+                // borderless "popup" de exclusivo (Days Gone aparece como
+                // FullscreenLikely), por isso vale para todos os modos — o fecho
+                // já restaura o jogo se ele tiver minimizado. Em tela cheia o
+                // Windows mostra um fundo preto atrás do painel (aceito).
+                if (_gamePid > 0 && overlaySettings.OverlayTakesFocus)
                 {
                     SetWindowLong(h, GWL_EXSTYLE, (ex | WS_EX_TOOLWINDOW) & ~WS_EX_NOACTIVATE);
                     keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);
                     SetForegroundWindow(h);
                     keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-                    DebugLog.Write($"[QS] Experimental: foco pego pelo Quick Settings (modo={windowMode}, foreground agora=0x{GetForegroundWindow():X}, painel=0x{h:X}).");
+                    DebugLog.Write($"[QS] Foco pego pelo Quick Settings (modo={windowMode}, foreground agora=0x{GetForegroundWindow():X}, painel=0x{h:X}).");
                 }
             }
         }
@@ -733,7 +705,6 @@ public partial class OverlayWindow : Window
     {
         DebugLog.Write($"[OVERLAY-CLOSE] origem=HideWithUnblock fullscreen-contexto; overlay={TryGetPlatformHandle()?.Handle}, game={_gameHwnd}, foreground={GetForegroundWindow()}, visible={IsVisible}, submenu={_activeSubMenu}");
         
-        CancelPendingOpenControllerRestart(); // v0.25.9: fechou antes do reinício experimental rodar
         if (_activeSubMenu == SubMenuMode.TdpCustom) CancelTdpCustomEdit();
         FlushPendingCustomApply();
         

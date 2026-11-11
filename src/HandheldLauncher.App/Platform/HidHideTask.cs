@@ -159,35 +159,6 @@ internal static class HidHideTask
         return ids;
     }
 
-    /// <summary>
-    /// v0.25.9 (experimental): instâncias do "Controlador XBOX 360" (driver xusb,
-    /// Lenovo VID_17EF) — é por aqui que o XInput do jogo lê. Só do controle
-    /// da Lenovo; nunca teclado/mouse (outras interfaces MI_xx).
-    /// </summary>
-    public static IReadOnlyList<string> FindXusbInstanceIds()
-    {
-        var ids = new List<string>();
-        try
-        {
-            using var searcher = new ManagementObjectSearcher(
-                "SELECT DeviceID FROM Win32_PnPEntity WHERE PNPClass = 'XnaComposite'");
-            foreach (var device in searcher.Get())
-            {
-                var id = device["DeviceID"]?.ToString();
-                if (id is not null
-                    && id.Contains("VID_17EF", StringComparison.OrdinalIgnoreCase)
-                    && id.Contains("MI_00", StringComparison.OrdinalIgnoreCase))
-                    ids.Add(id);
-            }
-        }
-        catch (Exception ex)
-        {
-            DebugLog.Swallowed(ex);
-        }
-        DebugLog.Write($"[HIDHIDE] Controlador XInput (xusb) encontrado: {(ids.Count == 0 ? "nenhum" : string.Join(" | ", ids))}");
-        return ids;
-    }
-
     private static string? GetProcessPath(int processId)
     {
         try
