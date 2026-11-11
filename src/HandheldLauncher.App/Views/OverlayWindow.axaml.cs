@@ -536,7 +536,9 @@ public partial class OverlayWindow : Window
                     if (!IsVisible) return;
                     DebugLog.Write("[HIDHIDE] Experimental: reiniciando o controle ao abrir o Quick Settings.");
                     LastControllerRestartUtc = ElevationService.IsElevated ? DateTime.UtcNow : LastControllerRestartUtc;
-                    _hidHideService.ForceRestartController(includeXusb: true);
+                    // O xusb (MI_00) não aceita /restart-device: exit=-1 após 5 s e
+                    // travava os reinícios seguintes (log 11/11 14:36). Fora.
+                    _hidHideService.ForceRestartController(includeXusb: false);
                 }, TimeSpan.FromMilliseconds(700));
             }
         }
@@ -581,6 +583,20 @@ public partial class OverlayWindow : Window
             {
                 var ex = GetWindowLong(h, GWL_EXSTYLE);
                 SetWindowLong(h, GWL_EXSTYLE, ex | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);
+
+                // v0.25.9 (experimental): tirar o foco do jogo para ele deixar de
+                // receber XInput. O FullscreenDetector não distingue borderless
+                // "popup" de exclusivo (Days Gone aparece como FullscreenLikely),
+                // por isso vale para todos os modos — o fecho já restaura o jogo
+                // se ele tiver minimizado.
+                if (_gamePid > 0 && overlaySettings.FocusOverlayOnOpen)
+                {
+                    SetWindowLong(h, GWL_EXSTYLE, (ex | WS_EX_TOOLWINDOW) & ~WS_EX_NOACTIVATE);
+                    keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);
+                    SetForegroundWindow(h);
+                    keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                    DebugLog.Write($"[QS] Experimental: foco pego pelo Quick Settings (modo={windowMode}, foreground agora=0x{GetForegroundWindow():X}, painel=0x{h:X}).");
+                }
             }
         }
 

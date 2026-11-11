@@ -424,6 +424,8 @@ public sealed class SettingsViewModel : ViewModelBase
 
     // v0.25.9 (experimental): ver AppSettings.RestartControllerOnOverlayOpen.
     private bool _restartControllerOnOverlayOpen;
+    private bool _focusOverlayOnOpen;
+    public bool FocusOverlayOnOpen { get => _focusOverlayOnOpen; set => SetField(ref _focusOverlayOnOpen, value); }
     public bool RestartControllerOnOverlayOpen { get => _restartControllerOnOverlayOpen; set => SetField(ref _restartControllerOnOverlayOpen, value); }
 
     /// <summary>
@@ -628,6 +630,7 @@ public sealed class SettingsViewModel : ViewModelBase
         IsolateControllerOnOverlay = settings.IsolateControllerOnOverlay;
         RestartControllerAfterOverlay = settings.RestartControllerAfterOverlay;
         RestartControllerOnOverlayOpen = settings.RestartControllerOnOverlayOpen;
+        FocusOverlayOnOpen = settings.FocusOverlayOnOpen;
         HidHideElevateOnDemand = settings.HidHideElevateOnDemand;
         FreezeGameOnOverlay = settings.FreezeGameOnOverlay;
         
@@ -833,6 +836,7 @@ public sealed class SettingsViewModel : ViewModelBase
         settings.IsolateControllerOnOverlay = IsolateControllerOnOverlay;
         settings.RestartControllerAfterOverlay = RestartControllerAfterOverlay;
         settings.RestartControllerOnOverlayOpen = RestartControllerOnOverlayOpen;
+        settings.FocusOverlayOnOpen = FocusOverlayOnOpen;
         settings.HidHideElevateOnDemand = HidHideElevateOnDemand;
         settings.FreezeGameOnOverlay = FreezeGameOnOverlay;
 

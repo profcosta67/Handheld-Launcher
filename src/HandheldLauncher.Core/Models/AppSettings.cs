@@ -23,6 +23,12 @@ public class AppSettings
     // o painel está aberto. Desligado por padrão: precisa de teste por jogo.
     public bool RestartControllerOnOverlayOpen { get; set; } = false;
 
+    // v0.25.9 (EXPERIMENTAL): o QS pega o foco ao abrir com jogo rodando. O
+    // Windows não entrega XInput a quem está em segundo plano, então o jogo
+    // para de receber o controle enquanto o painel está aberto. Risco: jogo em
+    // ecrã inteiro exclusivo pode minimizar. Desligado por padrão.
+    public bool FocusOverlayOnOpen { get; set; } = false;
+
     // v0.24.1: caminho de recurso, DESLIGADO por padrão. Medido no driver
     // HidHide 1.5.230: as escritas passam sem administrador, por isso não é
     // preciso UAC nenhum para mascarar o controle. Se uma versão futura do

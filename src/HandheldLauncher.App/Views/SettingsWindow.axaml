@@ -276,6 +276,17 @@
                     </ToggleSwitch.Content>
                 </ToggleSwitch>
 
+                <!-- v0.25.9 (experimental): QS pega o foco ao abrir. -->
+                <ToggleSwitch IsChecked="{Binding FocusOverlayOnOpen}">
+                    <ToggleSwitch.Content>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Experimental: Quick Settings pega o foco do jogo" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBlock Text="Com o painel em primeiro plano, o Windows deixa de entregar o controle (XInput) ao jogo, que para de mexer por trás. Em ecrã inteiro exclusivo o jogo pode minimizar; se a imagem ficar cinza ou preta, desligue."
+                                       TextWrapping="Wrap" Foreground="Gray" FontSize="11" MaxWidth="450"/>
+                        </StackPanel>
+                    </ToggleSwitch.Content>
+                </ToggleSwitch>
+
                 <!-- v0.25.9 (experimental): reinício do controle ao ABRIR o QS. -->
                 <ToggleSwitch IsChecked="{Binding RestartControllerOnOverlayOpen}">
                     <ToggleSwitch.Content>
