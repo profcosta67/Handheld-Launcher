@@ -19,8 +19,11 @@ nem disputar espaço copiando suas interfaces.
 O repositório está na versão estável **0.25.8**. Já existem biblioteca multi-loja, layouts e temas,
 detalhes e conquistas, Quick Settings, diário de sessões, Central de Ajuda,
 armazenamento, saúde do aparelho, guardião de suspensão, rede, Syncthing e
-atualizações beta. A versão 0.25 também acrescentou melhorias de instalação e
-de operação sem exigir que o launcher sempre abra elevado.
+atualizações beta. A versão 0.25 também acrescentou melhorias de instalação.
+A 0.24 chegou a abrir sem administrador, mas a **0.25.7 voltou a exigir
+administrador sempre** (`requireAdministrator` + tarefa de logon elevada) para
+estabilizar TDP e ventoinha. Isso tem custos (jogos e lojas herdam o admin,
+UAC fora da tarefa de logon) — ver [admin-helper.md](./admin-helper.md).
 
 O refinamento visual 0.26 começou pelo layout Clássico, com proposta aprovada
 pelo usuário. A linguagem foi expandida aos layouts BigScreen, Switch e Cartoon,
@@ -66,6 +69,24 @@ seus marcos já viraram produto; as maiores lacunas restantes são:
    compartilhamento de compatibilidade é voluntário, explícito e minimizado.
 
 ## Próximos marcos
+
+### 0.25.x — Estabilidade antes do visual
+
+**Objetivo:** fechar o que atrapalha o uso diário antes de seguir com o visual.
+
+1. Quick Settings dentro do jogo: o painel não recebia o controle (abre sem
+   foco e o XInput não chega a quem está em segundo plano). Na 0.25.9 o
+   ajudante passa os botões ao painel; falta validar no Go 2 e no Ally.
+2. Camada esbranquiçada ao abrir o QS sobre o jogo: investigar (efeito
+   Acrílico do painel, perfil de cor Vívido, HDR, congelamento do jogo).
+3. Administrador: medir no log quem abre o launcher e em que modo, e decidir
+   a proposta do ajudante privilegiado ([admin-helper.md](./admin-helper.md)).
+4. Processo: `beta/**` com CI, branch do beta mesclado no master depois de
+   cada oficial, VERSION do master sempre acima do último lançado.
+
+**Critérios de aceite:** QS navegável e fechável pelo controle dentro de jogo
+em tela cheia sem bordas nos aparelhos suportados; sem camada branca; log
+mostra modo de abertura em todo início.
 
 ### 0.26 — Identidade visual e experiência coesas
 

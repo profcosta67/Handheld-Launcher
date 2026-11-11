@@ -51,6 +51,27 @@ public partial class OverlayWindow : Window
 
     private DispatcherTimer? _topmostEnforcer;
 
+    // v0.25.9: reinício do controle agendado pelo fechamento do QS. Fica num
+    // campo para poder ser CANCELADO se o painel reabrir antes de ele rodar —
+    // antes era um RunOnce solto: reabrir o QS logo depois de fechar fazia o
+    // controle ser re-enumerado com o painel aberto, e o painel ficava sem
+    // responder até o Windows devolver o dispositivo.
+    private IDisposable? _pendingControllerRestart;
+
+    /// <summary>Há reinício de controle agendado e ainda não executado?</summary>
+    public bool HasPendingControllerRestart => _pendingControllerRestart is not null;
+
+    /// <summary>Quando o último reinício de controle foi disparado (UTC).</summary>
+    public static DateTime? LastControllerRestartUtc { get; private set; }
+
+    private void CancelPendingControllerRestart(string reason)
+    {
+        if (_pendingControllerRestart is null) return;
+        _pendingControllerRestart.Dispose();
+        _pendingControllerRestart = null;
+        DebugLog.Write($"[HIDHIDE] Reinício do controle agendado CANCELADO ({reason}).");
+    }
+
     private enum SubMenuMode { None, Resolution, RefreshRate, Tdp, TdpCustom, Fan, Color, Hud, Volume, Brightness, Capture, Lossless }
 
     private const int CustomTdpIndex = 5;
@@ -479,6 +500,10 @@ public partial class OverlayWindow : Window
         base.OnOpened(e);
         DebugLog.Write($"[OVERLAY] OnOpened chamado. Width={Width}, Height={Height}");
 
+        // v0.25.9: o QS reabriu antes do reinício do controle do fechamento
+        // anterior rodar — não re-enumerar o controle com o painel aberto.
+        CancelPendingControllerRestart("Quick Settings reaberto");
+
         // 🟢 INTEGRAÇÃO HIDHIDE (B7): Esconde o controle apenas se o toggle estiver ligado
         if (_gamePid > 0 && AppSettingsStore.Load().IsolateControllerOnOverlay)
         {
@@ -676,7 +701,28 @@ public partial class OverlayWindow : Window
             // v0.25.3: o HidHide devolve o dispositivo à lista, mas alguns jogos
             // (Days Gone) não voltam a abri-lo. Reiniciar o gamepad no Windows
             // força a re-detecção; é o mesmo controle, só re-enumerado.
-            DispatcherTimer.RunOnce(() => _hidHideService.ForceRestartController(), TimeSpan.FromMilliseconds(800));
+            // v0.25.9: pode ser desligado nas Configurações, é cancelado se o
+            // QS reabrir antes de rodar e nunca roda com o painel visível.
+            CancelPendingControllerRestart("novo fechamento");
+            if (AppSettingsStore.Load().RestartControllerAfterOverlay)
+            {
+                _pendingControllerRestart = DispatcherTimer.RunOnce(() =>
+                {
+                    _pendingControllerRestart = null;
+                    if (IsVisible)
+                    {
+                        DebugLog.Write("[HIDHIDE] Reinício do controle PULADO: o Quick Settings está aberto.");
+                        return;
+                    }
+                    if (ElevationService.IsElevated) LastControllerRestartUtc = DateTime.UtcNow;
+                    DebugLog.Write("[HIDHIDE] Reiniciando o controle (fechamento do Quick Settings).");
+                    _hidHideService.ForceRestartController();
+                }, TimeSpan.FromMilliseconds(800));
+            }
+            else
+            {
+                DebugLog.Write("[HIDHIDE] Reinício do controle ao fechar o QS desligado nas Configurações.");
+            }
         }
 
         // v0.24.1: retomar o jogo se ele chegou a ser congelado (é idempotente:

@@ -6,6 +6,15 @@ public class AppSettings
       // 🟢 NOVO: Substitui o FreezeGameOnOverlay e o GameModeEnabled
     public bool IsolateControllerOnOverlay { get; set; } = true;
 
+    // v0.25.9: o reinício do controle (pnputil /restart-device) ao fechar o
+    // Quick Settings veio na 0.25.3 para jogos que não voltam a abrir o
+    // controle (Days Gone). Desde a 0.25.7 o launcher abre sempre como
+    // administrador, então ele passou a rodar em TODO fechamento — e no
+    // Legion Go 2 re-enumerar o controle é o que às vezes o faz sumir.
+    // Ligado por padrão (mantém o comportamento atual); desligar serve para
+    // testar se o controle travado vem daqui.
+    public bool RestartControllerAfterOverlay { get; set; } = true;
+
     // v0.24.1: caminho de recurso, DESLIGADO por padrão. Medido no driver
     // HidHide 1.5.230: as escritas passam sem administrador, por isso não é
     // preciso UAC nenhum para mascarar o controle. Se uma versão futura do

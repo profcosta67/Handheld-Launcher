@@ -264,6 +264,18 @@
                     </ToggleSwitch.Content>
                 </ToggleSwitch>
 
+                <!-- v0.25.9: reinício do controle ao fechar o QS (ver
+                     AppSettings.RestartControllerAfterOverlay). -->
+                <ToggleSwitch IsChecked="{Binding RestartControllerAfterOverlay}">
+                    <ToggleSwitch.Content>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Reiniciar o controle ao fechar o Overlay" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBlock Text="Ajuda jogos que não voltam a reconhecer o controle depois do Quick Settings (ex.: Days Gone). Se o controle às vezes some ou o Quick Settings para de responder, desligue para testar."
+                                       TextWrapping="Wrap" Foreground="Gray" FontSize="11" MaxWidth="450"/>
+                        </StackPanel>
+                    </ToggleSwitch.Content>
+                </ToggleSwitch>
+
                 <!-- v0.24.1: o driver do HidHide só aceita a configuração com
                      administrador. Em vez de falhar em silêncio, o cartão diz em
                      que modo está e oferece o reinício elevado. -->

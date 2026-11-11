@@ -4,7 +4,7 @@ name: Build
 
 on:
   push:
-    branches: [master, main, 'design/**', 'feature/**', 'recovery/**']
+    branches: [master, main, 'design/**', 'feature/**', 'recovery/**', 'beta/**', 'fix/**']
   pull_request:
 
 permissions:

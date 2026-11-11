@@ -418,6 +418,10 @@ public sealed class SettingsViewModel : ViewModelBase
     private bool _isolateControllerOnOverlay = true;
     public bool IsolateControllerOnOverlay { get => _isolateControllerOnOverlay; set => SetField(ref _isolateControllerOnOverlay, value); }
 
+    // v0.25.9: ver AppSettings.RestartControllerAfterOverlay.
+    private bool _restartControllerAfterOverlay = true;
+    public bool RestartControllerAfterOverlay { get => _restartControllerAfterOverlay; set => SetField(ref _restartControllerAfterOverlay, value); }
+
     /// <summary>
     /// v0.24.1: quando o driver recusa a configuração (sem administrador), o
     /// mascaramento é delegado ao processo elevado — o UAC aparece uma vez por
@@ -618,6 +622,7 @@ public sealed class SettingsViewModel : ViewModelBase
         
         // 🟢 NOVO: Carrega o estado do isolamento
         IsolateControllerOnOverlay = settings.IsolateControllerOnOverlay;
+        RestartControllerAfterOverlay = settings.RestartControllerAfterOverlay;
         HidHideElevateOnDemand = settings.HidHideElevateOnDemand;
         FreezeGameOnOverlay = settings.FreezeGameOnOverlay;
         
@@ -821,6 +826,7 @@ public sealed class SettingsViewModel : ViewModelBase
         
         // 🟢 NOVO: Salva o estado do isolamento
         settings.IsolateControllerOnOverlay = IsolateControllerOnOverlay;
+        settings.RestartControllerAfterOverlay = RestartControllerAfterOverlay;
         settings.HidHideElevateOnDemand = HidHideElevateOnDemand;
         settings.FreezeGameOnOverlay = FreezeGameOnOverlay;
 

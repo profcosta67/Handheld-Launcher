@@ -136,6 +136,9 @@ internal static class Program
 
         if (relaunch) LauncherRestart.ClearRestarting();
 
+        // v0.25.9: quem abriu o launcher e se está elevado (diagnóstico do admin).
+        StartupDiagnostics.LogLaunchContext(args);
+
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 

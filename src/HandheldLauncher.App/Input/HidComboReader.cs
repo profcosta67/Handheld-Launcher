@@ -137,6 +137,15 @@ internal static unsafe class HidComboReader
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
     private static extern IntPtr GetModuleHandle(string? name);
 
+    // v0.25.9: hat switch (D-pad) para a ponte do Quick Settings.
+    [DllImport("hid.dll")]
+    private static extern int HidP_GetUsageValue(int reportType, ushort usagePage, ushort linkCollection,
+        ushort usage, out uint usageValue, IntPtr preparsedData, byte* report, uint reportLength);
+
+    private const ushort UsageHatSwitch = 0x39;
+    private static int _hatChangesLogged;
+    private static uint _lastHat = uint.MaxValue;
+
     [DllImport("hid.dll")]
     private static extern int HidP_GetUsages(int reportType, ushort usagePage, ushort linkCollection,
         ushort* usageList, ref uint usageLength, IntPtr preparsedData, byte* report, uint reportLength);
@@ -306,6 +315,27 @@ internal static unsafe class HidComboReader
             }
 
             if (!device.IsXInputCompatible) continue;
+
+            // v0.25.9: publica botões + D-pad para o Quick Settings (HidPadBridge).
+            var buttonMask = 0;
+            for (var u = 0; u < count; u++)
+                if (usages[u] is >= 1 and <= 10) buttonMask |= 1 << (usages[u] - 1);
+            var directions = 0;
+            if (HidP_GetUsageValue(HidP_Input, UsagePageGenericDesktop, 0, UsageHatSwitch, out var hat,
+                    device.PreparsedData, report, reportSize) == HIDP_STATUS_SUCCESS)
+            {
+                directions = HidPadBridge.DirectionsFromHat(hat);
+                if (hat != _lastHat)
+                {
+                    _lastHat = hat;
+                    if (_hatChangesLogged < 30)
+                    {
+                        _hatChangesLogged++;
+                        DebugLog.Write($"HidComboReader: [{device.ShortName}] D-pad hat={hat} → direções={directions}");
+                    }
+                }
+            }
+            HidPadBridge.Publish(buttonMask, directions);
 
             var isDown = hasL3 && hasR3;
             if (isDown && !device.WasDown)

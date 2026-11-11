@@ -307,6 +307,50 @@ public partial class MainWindow : Window
         };
     }
 
+    // v0.25.9: vigia do ajudante do L3+R3. Com o jogo na frente, o QS só
+    // abre pelo ajudante (processo separado). Se ele morria no meio do jogo,
+    // ninguém o reabria e o L3+R3 parava de funcionar até voltar pra
+    // biblioteca. Agora, se ele morreu SOZINHO, é reaberto — no máximo uma
+    // vez a cada 15 s, pra nunca virar um laço se ele morrer na partida.
+    private DispatcherTimer? _helperWatchdog;
+    private DateTime _lastHelperRevive = DateTime.MinValue;
+    private int _helperRevivesThisGame;
+    private const int MaxHelperRevivesPerGame = 3;
+
+    private void EnsureHelperWatchdog()
+    {
+        if (_helperWatchdog is not null || !OperatingSystem.IsWindows()) return;
+        _helperWatchdog = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+        _helperWatchdog.Tick += (_, _) =>
+        {
+            try
+            {
+                if (_gamepadComboModeIsGame != true || !GameInputHelper.HelperDiedUnexpectedly) return;
+                if (DateTime.UtcNow - _lastHelperRevive < TimeSpan.FromSeconds(15)) return;
+                var code = GameInputHelper.CurrentHelperExitCode is { } c ? $"0x{c:X8}" : "?";
+                if (_helperRevivesThisGame >= MaxHelperRevivesPerGame)
+                {
+                    if (_helperRevivesThisGame == MaxHelperRevivesPerGame)
+                    {
+                        _helperRevivesThisGame++;
+                        DebugLog.Write($"[OVERLAY] Ajudante do L3+R3 morreu de novo (código={code}) — {MaxHelperRevivesPerGame} tentativas neste jogo, desistindo até o próximo jogo.");
+                    }
+                    return;
+                }
+                _lastHelperRevive = DateTime.UtcNow;
+                _helperRevivesThisGame++;
+                DebugLog.Write($"[OVERLAY] Ajudante do L3+R3 morreu com o jogo aberto (código={code}) — reabrindo ({_helperRevivesThisGame}/{MaxHelperRevivesPerGame}).");
+                GameInputHelper.StartHelperProcess();
+            }
+            catch (Exception ex)
+            {
+                DebugLog.Write($"[OVERLAY] Vigia do ajudante: {ex.GetType().Name}: {ex.Message}");
+            }
+        };
+        _helperWatchdog.Start();
+        Closed += (_, _) => { _helperWatchdog?.Stop(); _helperWatchdog = null; };
+    }
+
     private void SetGamepadComboDetectionForGame(bool gameRunning)
     {
         if (!OperatingSystem.IsWindows()) return;
@@ -315,6 +359,8 @@ public partial class MainWindow : Window
 
         if (gameRunning)
         {
+            EnsureHelperWatchdog();
+            _helperRevivesThisGame = 0;
             _overlayHotkeyWatcher?.Dispose();
             _overlayHotkeyWatcher = null;
             GameInputHelper.StartHelperProcess();
@@ -464,6 +510,8 @@ public partial class MainWindow : Window
                     {
                         _overlayWindow.Opacity = 1;
                         DebugLog.Write($"[OVERLAY] Mostrado (reposicionado pelo OnOpened). Pos={_overlayWindow.Position}, IsVisible={_overlayWindow.IsVisible}");
+                        // v0.25.9: foto do estado de entrada (depois de mostrar, pra não atrasar o painel).
+                        DebugLog.Write($"[QS-INPUT] Aberto · {DescribeInputState()}");
                     }
                     catch (Exception ex)
                     {
