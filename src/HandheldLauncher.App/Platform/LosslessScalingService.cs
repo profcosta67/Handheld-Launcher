@@ -88,6 +88,7 @@ public static class LosslessScalingService
     [DllImport("user32.dll")] private static extern bool IsIconic(IntPtr hWnd);
 
     private const int SW_MINIMIZE = 6;
+    private const int SW_SHOWMINNOACTIVE = 7;
 
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
@@ -108,6 +109,9 @@ public static class LosslessScalingService
     private const string LosslessMainWindowTitle = "Lossless Scaling";
     private static readonly TimeSpan MinimizeWatchTimeout = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan MinimizeSettleTime = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan GuardGrace = TimeSpan.FromSeconds(60);
+    private const int GuardPollMs = 500;
+    private static int _guardRunning;
 
     /// <summary>
     /// v0.16.3 — P2: a janela do Lossless (interface cinza escura) às vezes
@@ -128,55 +132,121 @@ public static class LosslessScalingService
         try
         {
             var started = DateTime.UtcNow;
-            DateTime? lastMinimized = null;
+            DateTime? lastHandled = null;
             var minimizedCount = 0;
+            var sawWindow = false;
 
             while (DateTime.UtcNow - started < MinimizeWatchTimeout)
             {
-                if (lastMinimized is { } last && DateTime.UtcNow - last > MinimizeSettleTime) break;
+                if (lastHandled is { } last && DateTime.UtcNow - last > MinimizeSettleTime) break;
 
-                var pids = new HashSet<uint>();
-                foreach (var p in Process.GetProcessesByName("LosslessScaling"))
+                var minimizedNow = MinimizeMainWindows(noActivate: false, out var found);
+                if (found) { sawWindow = true; lastHandled ??= DateTime.UtcNow; }
+                if (minimizedNow > 0)
                 {
-                    using (p) { try { pids.Add((uint)p.Id); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); } }
-                }
-
-                if (pids.Count > 0)
-                {
-                    var targets = new List<IntPtr>();
-                    EnumWindows((hWnd, _) =>
-                    {
-                        GetWindowThreadProcessId(hWnd, out uint pid);
-                        // v0.16.3: janela minimizada continua "visível" pro Windows —
-                        // sem pular as minimizadas, o vigia minimizava a mesma janela
-                        // a cada 100 ms por 20 s (141 linhas no log de 05/11).
-                        if (!pids.Contains(pid) || !IsWindowVisible(hWnd) || IsIconic(hWnd)) return true;
-                        var title = new System.Text.StringBuilder(256);
-                        GetWindowText(hWnd, title, title.Capacity);
-                        if (string.Equals(title.ToString(), LosslessMainWindowTitle, StringComparison.Ordinal))
-                            targets.Add(hWnd);
-                        return true;
-                    }, IntPtr.Zero);
-
-                    foreach (var hwnd in targets)
-                    {
-                        ShowWindow(hwnd, SW_MINIMIZE);
-                        minimizedCount++;
-                        lastMinimized = DateTime.UtcNow;
-                        DebugLog.Write($"[PATINHO] Janela do Lossless minimizada com sucesso ({(DateTime.UtcNow - started).TotalSeconds:0.0}s após abrir).");
-                    }
+                    minimizedCount += minimizedNow;
+                    lastHandled = DateTime.UtcNow;
+                    DebugLog.Write($"[PATINHO] Janela do Lossless minimizada com sucesso ({(DateTime.UtcNow - started).TotalSeconds:0.0}s após abrir).");
                 }
 
                 Thread.Sleep(100);
             }
 
-            if (minimizedCount == 0)
+            if (minimizedCount == 0 && sawWindow)
+                DebugLog.Write("[PATINHO] Janela do Lossless já estava minimizada (aberto em segundo plano) — nada a fazer.");
+            else if (minimizedCount == 0)
                 DebugLog.Write($"[PATINHO] Não encontrei a janela principal do Lossless em {MinimizeWatchTimeout.TotalSeconds:0}s — ela pode ter ficado aberta na tela.");
         }
         catch (Exception ex)
         {
             DebugLog.Write($"[PATINHO] Não foi possível minimizar a janela: {ex.Message}");
         }
+
+        StartMainWindowGuard();
+    }
+
+    /// <summary>
+    /// Minimiza as janelas principais do Lossless que estiverem visíveis e não
+    /// minimizadas. <paramref name="found"/> diz se achou alguma janela principal
+    /// (mesmo já minimizada) — assim "já estava minimizada" não vira falso alarme.
+    /// Com <paramref name="noActivate"/> usa SW_SHOWMINNOACTIVE, que não rouba o
+    /// foco do jogo.
+    /// </summary>
+    private static int MinimizeMainWindows(bool noActivate, out bool found)
+    {
+        var pids = new HashSet<uint>();
+        foreach (var p in Process.GetProcessesByName("LosslessScaling"))
+        {
+            using (p) { try { pids.Add((uint)p.Id); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); } }
+        }
+
+        found = false;
+        if (pids.Count == 0) return 0;
+
+        var targets = new List<IntPtr>();
+        var sawAny = false;
+        EnumWindows((hWnd, _) =>
+        {
+            GetWindowThreadProcessId(hWnd, out uint pid);
+            if (!pids.Contains(pid) || !IsWindowVisible(hWnd)) return true;
+            var title = new System.Text.StringBuilder(256);
+            GetWindowText(hWnd, title, title.Capacity);
+            if (!string.Equals(title.ToString(), LosslessMainWindowTitle, StringComparison.Ordinal)) return true;
+            sawAny = true;
+            // v0.16.3: janela minimizada continua "visível" pro Windows — sem
+            // pular as minimizadas, o vigia minimizava a mesma janela a cada 100 ms.
+            if (!IsIconic(hWnd)) targets.Add(hWnd);
+            return true;
+        }, IntPtr.Zero);
+
+        found = sawAny;
+        foreach (var hwnd in targets)
+            ShowWindow(hwnd, noActivate ? SW_SHOWMINNOACTIVE : SW_MINIMIZE);
+        return targets.Count;
+    }
+
+    /// <summary>
+    /// Guarda contínuo: enquanto um jogo aberto pelo launcher estiver rodando (e
+    /// por 60 s depois de abrir o Lossless), se a janela principal do Lossless
+    /// reaparecer na frente — o Lossless às vezes se reabre sozinho —, minimiza de
+    /// novo sem tirar o foco do jogo. Fora de uma sessão de jogo não mexe em nada,
+    /// então abrir o Lossless à mão para configurar continua funcionando.
+    /// </summary>
+    private static void StartMainWindowGuard()
+    {
+        if (Interlocked.Exchange(ref _guardRunning, 1) == 1) return;
+        ThreadPool.QueueUserWorkItem(_ =>
+        {
+            var begin = DateTime.UtcNow;
+            var reminimized = 0;
+            try
+            {
+                while (true)
+                {
+                    var gameAlive = _gameHwnd != IntPtr.Zero && IsWindow(_gameHwnd);
+                    if (!gameAlive && DateTime.UtcNow - begin > GuardGrace) break;
+
+                    var n = MinimizeMainWindows(noActivate: true, out _);
+                    if (n > 0)
+                    {
+                        reminimized += n;
+                        if (reminimized <= 3)
+                            DebugLog.Write("[PATINHO] Janela do Lossless reapareceu — minimizada de novo (sem tirar o foco do jogo).");
+                    }
+                    Thread.Sleep(GuardPollMs);
+                }
+            }
+            catch (Exception ex)
+            {
+                DebugLog.Write($"[PATINHO] Guarda da janela do Lossless parou: {ex.Message}");
+            }
+            finally
+            {
+                if (reminimized > 3)
+                    DebugLog.Write($"[PATINHO] Janela do Lossless minimizada de novo {reminimized}x nesta sessão.");
+                Interlocked.Exchange(ref _guardRunning, 0);
+            }
+        });
     }
 
     // =====================================================================
@@ -191,7 +261,11 @@ public static class LosslessScalingService
     {
         _gameHwnd = hwnd;
         if (hwnd != IntPtr.Zero)
+        {
             DebugLog.Write($"[PATINHO] GameHwnd registrado: 0x{hwnd:X}");
+            // Lossless pode já estar aberto (Steam, início do Windows): vigia a janela dele.
+            if (IsLosslessRunning()) StartMainWindowGuard();
+        }
     }
 
     public static string GetExecutablePath()
