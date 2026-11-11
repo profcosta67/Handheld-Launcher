@@ -6,16 +6,10 @@ namespace HandheldLauncher.App.Platform;
 
 /// <summary>
 /// Troca o plano de energia ativo do Windows por <c>powercfg /setactive</c>.
-///
-/// v0.25.6: na bateria o Windows troca para o plano "Equilibrado", que reduz a
-/// frequência do CPU/GPU e o brilho — o jogo perde desempenho em relação à
-/// tomada. O botão "Desempenho (bateria)" do Quick Settings ativa o plano
-/// "Alto desempenho" mesmo na bateria. <c>powercfg /setactive</c> NÃO exige
-/// administrador (confirmado no Legion Go 2), por isso não há UAC.
 /// </summary>
 internal static class PowerPlanService
 {
-    // GUIDs nativos do Windows (existem em todas as edições, mesmo ocultos no /list).
+    // GUIDs nativos do Windows
     private const string HighPerformanceGuid = "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c";
     private const string BalancedGuid = "381b4222-f694-41f0-9685-ff5bb260df2e";
 

@@ -6,42 +6,12 @@ using HandheldLauncher.App.Diagnostics;
 
 namespace HandheldLauncher.App.Platform;
 
-/// <summary>
-/// Cria/remove a Tarefa Agendada "HandheldLauncherWatchdog" direto do launcher.
-/// Usada pelo seletor Desktop/Handheld nas Configurações.
-///
-/// <para>v0.14.2 — Fim do loop de boot. A versão anterior tinha um
-/// <c>TimeTrigger</c> com <c>Repetition=PT1M</c> que abria o launcher a
-/// cada 1 minuto PARA SEMPRE. Combinado com um LogonTrigger disparando ao
-/// mesmo tempo, causava o "loop infinito de abertura" que o usuário
-/// relatou. A correção: substituir o TimeTrigger por <c>RestartOnFailure</c>
-/// com <b>count limitado</b> (só reabre se o app crashar, não se fechar
-/// normalmente), e adicionar um <c>Delay</c> de 20s no LogonTrigger (espera
-/// o Legion Space e o Xbox app carregarem antes de abrir).</para>
-///
-/// <para>Resultado prático:
-/// <list type="bullet">
-/// <item>Boot normal → 1 abertura (delay 20s).</item>
-/// <item>App crasha sozinho → reabre até 3x, 30s entre cada; depois desiste (evita loop).</item>
-/// <item>Usuário fecha pelo menu Power → não reabre (exit 0, RestartOnFailure não dispara).</item>
-/// <item>Usuário fecha por crash → reabre até 3x.</item>
-/// </list>
-/// </para>
-/// </summary>
 internal static class WatchdogTask
 {
     private const string TaskName = "HandheldLauncherWatchdog";
 
-    /// <summary>
-    /// v0.16.2: a tarefa agendada existe? Pra Central de Ajuda conferir se ela
-    /// bate com o modo escolhido. null = não deu pra saber.
-    /// </summary>
     public static bool? Exists() => Exists(TaskName);
 
-    /// <summary>
-    /// Tarefa criada pelo InstallTask.ps1 do instalador (abre o launcher no
-    /// login com privilégio de administrador, em qualquer modo).
-    /// </summary>
     public const string InstallerTaskName = "HandheldLauncher_Startup";
 
     public static bool? Exists(string taskName)
@@ -73,14 +43,10 @@ internal static class WatchdogTask
     {
         if (!OperatingSystem.IsWindows())
         {
-            DebugLog.Write("WatchdogTask: Ignorado no Linux (não implementado via systemd).");
+            DebugLog.Write("WatchdogTask: Ignorado no Linux.");
             return false;
         }
 
-        // v0.24: o launcher corre sem administrador (manifest asInvoker) e o
-        // schtasks /Create exige elevação. Quando não estamos elevados, a
-        // criação/remoção é delegada ao MESMO exe com "--elevated-task"
-        // (UAC uma vez). A instância elevada cai direto no Register/Remove.
         if (!ElevationService.IsElevated)
         {
             DebugLog.Write($"WatchdogTask: sem administrador — a delegar '{handheldMode}' ao processo elevado.");
@@ -104,9 +70,6 @@ internal static class WatchdogTask
             }
 
             var user = WindowsIdentity.GetCurrent().Name;
-            // 🟢 CORREÇÃO: StartBoundary no passado é OK, mas a LogonTrigger tem
-            // <Delay>PT20S</Delay> que faz o "espera 20s" corretamente. Sem
-            // TimeTrigger, não há repetição infinita.
             var start = DateTime.Now.AddMinutes(-1).ToString("yyyy-MM-dd'T'HH:mm:ss");
 
             var xml = $"""
@@ -133,7 +96,7 @@ internal static class WatchdogTask
                     <RestartOnFailure>
                         <Interval>PT1M</Interval>
                         <Count>3</Count>
-                        </RestartOnFailure>
+                    </RestartOnFailure>
                   </Settings>
                   <Actions Context="Author">
                     <Exec>
@@ -157,14 +120,13 @@ internal static class WatchdogTask
         }
         finally
         {
-            try { if (xmlPath is not null && File.Exists(xmlPath)) File.Delete(xmlPath); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
+            try { if (xmlPath is not null && File.Exists(xmlPath)) File.Delete(xmlPath); } catch { }
         }
     }
 
     [SupportedOSPlatform("windows")]
     private static bool Remove()
     {
-        // Código de saída 1 = "tarefa não existe": já é o estado desejado.
         RunSchtasks($"/Delete /TN \"{TaskName}\" /F", okExitCodes: [0, 1]);
         return true;
     }

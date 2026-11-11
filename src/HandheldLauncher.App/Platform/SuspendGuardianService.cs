@@ -1,18 +1,18 @@
 using System;
-using System.Diagnostics; // Necessário para o ProcessStartInfo
+using System.Diagnostics; 
 using System.Threading;
+using System.Threading.Tasks;
+using System.Runtime.InteropServices;
 using Microsoft.Win32;
 using HandheldLauncher.App.Diagnostics;
 
 namespace HandheldLauncher.App.Platform;
 
 /// <summary>
-/// v0.18 "Guardião de suspensão" (pedido do usuário, 05/11): ao acordar o
-/// aparelho da suspensão do Windows, reaplica o TDP salvo e devolve o foco
-/// pro jogo em execução. Handhelds Windows costumam "esquecer" os dois ao
-/// voltar de suspender — o TDP volta pro padrão do firmware e alguma outra
-/// janela do sistema (Xbox Game Bar, notificação, etc.) fica na frente do
-/// jogo.
+/// v0.18 "Guardião de suspensão".
+/// <para>v0.26: Adicionado controle de energia (AC/DC). Quando o cabo de energia
+/// é desconectado, o Windows derruba o TDP e o plano de energia. O Guardião
+/// intercepta essa mudança e força o Alto Desempenho novamente.</para>
 /// </summary>
 public static class SuspendGuardianService
 {
@@ -58,6 +58,35 @@ public static class SuspendGuardianService
         try
         {
             DebugLog.Write($"[SUSPENSAO] PowerModeChanged recebido: {e.Mode}.");
+
+            // =======================================================================
+            // CORREÇÃO DO CABO DE ENERGIA (AC/DC)
+            // =======================================================================
+            if (e.Mode == PowerModes.StatusChange)
+            {
+                bool isOnBattery = IsOnBattery();
+
+                if (isOnBattery)
+                {
+                    DebugLog.Write("[ENERGIA] Cabo desconectado! Forçando Alto Desempenho e TDP Máximo.");
+
+                    // 1. Força o plano de energia do Windows para Alto Desempenho
+                    PowerPlanService.SetHighPerformance();
+
+                    // 2. Reaplica o TDP (usando a instância elevada para garantir que não falhe)
+                    // ATENÇÃO: Troque "Performance" pelo nome exato do modo que o seu sistema usa (ex: "Performance", "Turbo", "30W")
+                    _ = Task.Run(() => ElevationService.RunElevated("tdp-apply", "--mode", "Performance"));
+                }
+                else
+                {
+                    DebugLog.Write("[ENERGIA] Cabo conectado (AC). O Windows vai gerenciar o desempenho.");
+                }
+                
+                return; // Sai do método para não confundir com a lógica de suspensão abaixo
+            }
+            // =======================================================================
+
+            // Lógica de suspensão normal (Wake up)
             if (e.Mode != PowerModes.Resume) return;
 
             var now = DateTime.UtcNow;
@@ -70,11 +99,7 @@ public static class SuspendGuardianService
 
             DebugLog.Write("[SUSPENSAO] Aparelho acordou da suspensão — reaplicando TDP e devolvendo foco em 2s.");
 
-            // =======================================================================
-            // AQUI ESTÁ A CHAMADA DO DIAGNÓSTICO DO POWERCFG
-            // =======================================================================
             LogPowerRequests(); 
-            // =======================================================================
 
             _resumeDelayTimer?.Dispose();
             _resumeDelayTimer = new Timer(_ =>
@@ -87,10 +112,10 @@ public static class SuspendGuardianService
         {
             DebugLog.Write($"[SUSPENSAO] EXCEPTION em OnPowerModeChanged: {ex.Message}");
         }
-    } // <--- ESTA CHAVE ESTAVA FALTANDO NO SEU CÓDIGO
+    }
 
     // =======================================================================
-    // MÉTODO FORA DO ONPOWERMODECHANGED
+    // DIAGNÓSTICO DO POWERCFG
     // =======================================================================
     private static void LogPowerRequests()
     {
@@ -123,5 +148,39 @@ public static class SuspendGuardianService
         {
             DebugLog.Write("[SUSPENSAO] Falha ao executar powercfg /requests: " + ex.Message);
         }
+    }
+
+    // =======================================================================
+    // DETECÇÃO NATIVA DE BATERIA (AC/DC)
+    // =======================================================================
+    // Usamos P/Invoke do kernel32 para não depender de bibliotecas do WinForms.
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetSystemPowerStatus(out SYSTEM_POWER_STATUS systemPowerStatus);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct SYSTEM_POWER_STATUS
+    {
+        public byte ACLineStatus; // 0 = Bateria, 1 = Tomada, 255 = Desconhecido
+        public byte BatteryFlag;
+        public byte BatteryLifePercent;
+        public byte SystemStatusFlag;
+        public int BatteryLifeTime;
+        public int BatteryFullLifeTime;
+    }
+
+    private static bool IsOnBattery()
+    {
+        try
+        {
+            if (GetSystemPowerStatus(out var status))
+            {
+                return status.ACLineStatus == 0; // 0 significa que o cabo está fora
+            }
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[ENERGIA] Falha ao ler status da bateria: {ex.Message}");
+        }
+        return false; // Na dúvida, assume que está na tomada para não forçar nada
     }
 }

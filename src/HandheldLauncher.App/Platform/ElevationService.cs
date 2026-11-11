@@ -6,47 +6,26 @@ using HandheldLauncher.App.Diagnostics;
 
 namespace HandheldLauncher.App.Platform;
 
-/// <summary>
-/// O launcher arranca **sem** administrador (`app.manifest` = asInvoker). Quando
-/// uma ação precisa de privilégios, reabre o MESMO executável com
-/// <c>--elevated-task &lt;ação&gt;</c> e o verbo <c>runas</c>: o UAC aparece uma vez
-/// por ação, a instância elevada faz só aquela tarefa e sai.
-///
-/// A instância elevada é despachada no <c>Program.Main</c> ANTES do mutex de
-/// instância única — senão ela perderia a disputa e só traria a janela existente
-/// à frente (mesmo cuidado que o processo ajudante do GameInput).
-/// </summary>
 public static class ElevationService
 {
-    /// <summary>Argumento que marca "sou a instância elevada, só vou executar uma tarefa".</summary>
     public const string TaskArgument = "--elevated-task";
 
-    /// <summary>Estamos a correr como Administrador?</summary>
     public static bool IsElevated { get; } = DetectElevated();
 
     private static bool DetectElevated()
     {
         if (!OperatingSystem.IsWindows()) return false;
-
         try
         {
             using var identity = WindowsIdentity.GetCurrent();
             return new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator);
         }
-        catch
-        {
-            return false;
-        }
+        catch { return false; }
     }
 
-    /// <summary>
-    /// Chamado pelo <c>Program.Main</c>: se a linha de comando traz uma tarefa
-    /// elevada, executa-a e devolve true (o chamador sai com <paramref name="exitCode"/>).
-    /// </summary>
     public static bool TryRunTask(string[] args, out int exitCode)
     {
         exitCode = 0;
-
         var index = Array.IndexOf(args, TaskArgument);
         if (index < 0 || index + 1 >= args.Length) return false;
 
@@ -54,15 +33,11 @@ public static class ElevationService
         return true;
     }
 
-    /// <summary>
-    /// Pede elevação (UAC) para uma tarefa e espera terminar.
-    /// Devolve true quando a tarefa correu e saiu com código 0.
-    /// </summary>
     public static bool RunElevated(string task, params string[] extraArgs)
     {
         if (!OperatingSystem.IsWindows()) return false;
 
-        // Se já somos administradores, não vale a pena abrir outro processo.
+        // Como o app agora exige admin no manifest, ele sempre cairá aqui (evitando o UAC duplo).
         if (IsElevated) return RunTask(task, BuildArgs(task, extraArgs), 0) == 0;
 
         try
@@ -74,8 +49,8 @@ public static class ElevationService
             var startInfo = new ProcessStartInfo
             {
                 FileName = exe,
-                UseShellExecute = true,   // obrigatório para o verbo "runas"
-                Verb = "runas",           // ← é aqui que o UAC aparece
+                UseShellExecute = true,
+                Verb = "runas",
                 WindowStyle = ProcessWindowStyle.Hidden,
             };
 
@@ -97,13 +72,10 @@ public static class ElevationService
         }
         catch (Exception ex)
         {
-            // HRESULT 0x800704C7 (1223) = o utilizador cancelou o UAC.
             DebugLog.Write($"[ELEVACAO] Sem elevação para '{task}': {ex.GetType().Name} hr=0x{ex.HResult:X8}");
             return false;
         }
     }
-
-    // ---------------------------------------------------------------- tarefas
 
     private static string[] BuildArgs(string task, string[] extraArgs)
     {
@@ -127,44 +99,24 @@ public static class ElevationService
             {
                 case "pnp-enable":
                     return RunPowerShell(PnpScript(name, enable: true)) ? 0 : 1;
-
                 case "pnp-disable":
                     return RunPowerShell(PnpScript(name, enable: false)) ? 0 : 1;
-
-                // v0.24.1: mascaramento do controle (HidHide) numa instância
-                // elevada — só usado quando o launcher corre em modo padrão e o
-                // utilizador ligou "Pedir permissão para isolar" (ver
-                // Services/HidHide/HidHideService).
+                case "check":
+                    return 0;
+                case "watchdog-register":
+                    return WatchdogTask.Apply(true) ? 0 : 1;
+                case "watchdog-remove":
+                    return WatchdogTask.Apply(false) ? 0 : 1;
 #if WINDOWS
                 case "hidhide-hide":
                     return HidHideTask.Apply(hide: true, pid);
-
                 case "hidhide-restore":
                     return HidHideTask.Apply(hide: false, pid);
-#endif
-
-                case "check":
-                    return 0;
-
-                // Tarefa do watchdog: corre o mesmo código do launcher, já elevado
-                // (o schtasks /Create exige administrador).
-                case "watchdog-register":
-                    return WatchdogTask.Apply(true) ? 0 : 1;
-
-                case "watchdog-remove":
-                    return WatchdogTask.Apply(false) ? 0 : 1;
-
-#if WINDOWS
-                // v0.25.5 (Camada 2): TDP e ventoinha aplicados numa instância
-                // elevada — usados quando o launcher corre em modo padrão e a
-                // escrita direta falha (ver Platform/HardwareTask).
                 case "tdp-apply":
                     return HardwareTask.ApplyTdp(GetArgument(args, firstArg, "--mode"));
-
                 case "fan-apply":
                     return HardwareTask.ApplyFan(GetArgument(args, firstArg, "--mode"));
 #endif
-
                 default:
                     DebugLog.Write($"[ELEVACAO] Tarefa desconhecida: {task}");
                     return 2;
@@ -177,12 +129,10 @@ public static class ElevationService
         }
     }
 
-    // Liga/desliga um dispositivo Bluetooth pelo PnP (o WinRT não expõe isso).
     private static string PnpScript(string name, bool enable)
     {
         var safe = (name ?? string.Empty).Replace("'", "''");
         var cmdlet = enable ? "Enable-PnpDevice" : "Disable-PnpDevice";
-
         return $"$d = Get-PnpDevice -Class Bluetooth -FriendlyName '{safe}' -ErrorAction SilentlyContinue; " +
                $"if (-not $d) {{ 'NAO_ENCONTRADO' }} else {{ $d | {cmdlet} -Confirm:$false -ErrorAction Stop; 'OK' }}";
     }
@@ -205,10 +155,7 @@ public static class ElevationService
         process.Start();
         var output = process.StandardOutput.ReadToEnd();
         process.WaitForExit();
-
-        var ok = output.Contains("OK", StringComparison.Ordinal);
-        if (!ok) DebugLog.Write($"[ELEVACAO] PnP sem sucesso: {output.Trim()}");
-        return ok;
+        return output.Contains("OK", StringComparison.Ordinal);
     }
 
     private static string GetArgument(string[] args, int start, string key)
@@ -217,7 +164,6 @@ public static class ElevationService
         {
             if (string.Equals(args[i], key, StringComparison.OrdinalIgnoreCase)) return args[i + 1];
         }
-
         return string.Empty;
     }
 }

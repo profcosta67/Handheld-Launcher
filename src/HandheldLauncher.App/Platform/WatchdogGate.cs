@@ -7,25 +7,7 @@ namespace HandheldLauncher.App.Platform;
 
 /// <summary>
 /// Decide, logo no começo do Program.Main, se uma abertura AUTOMÁTICA
-/// (Tarefa Agendada "HandheldLauncherWatchdog": login + checagem a cada
-/// 1 min) deve ser ignorada. Bug reportado: "no modo desktop ainda fica
-/// abrindo toda hora mesmo clicando em Sair". Antes, o "Sair" só tentava
-/// desativar a tarefa via schtasks — se isso falhasse (permissão, tarefa
-/// antiga, etc.) o watchdog reabria em até 1 minuto. Agora quem decide é o
-/// próprio launcher, sem depender de mexer na tarefa:
-/// <list type="bullet">
-/// <item>"Sair" grava um marcador com a hora do boot atual. Aberturas
-/// automáticas nesse mesmo boot saem na hora (sem janela). Reiniciou o
-/// aparelho → marcador perde a validade → abre normal no login.</item>
-/// <item>Configurações → "Abrir sozinho no login e reabrir se fechar"
-/// desmarcado (uso no PC): toda abertura automática sai na hora.</item>
-/// <item>Abertura MANUAL (atalho, menu Iniciar) sempre abre e limpa o
-/// marcador.</item>
-/// </list>
-/// "Automática" = argumento --watchdog (tarefas registradas pelo
-/// Configurar-Modo-Console.ps1 novo) OU processo pai é o serviço do
-/// Agendador de Tarefas (svchost/taskhostw) — cobre tarefas antigas
-/// registradas sem o argumento.
+/// deve ser ignorada. Evita loops de abertura e respeita o botão "Sair".
 /// </summary>
 internal static class WatchdogGate
 {
@@ -39,12 +21,8 @@ internal static class WatchdogGate
     {
         try
         {
-            // Identificação explícita evita classificar incorretamente processos
-            // iniciados por svchost como tarefas agendadas.
             var isAutomatic = args.Any(a => string.Equals(a, "--watchdog", StringComparison.OrdinalIgnoreCase));
 
-            // v0.25.3: nunca competir com um reinício pedido pelo próprio
-            // launcher (troca de layout, "Reiniciar launcher", reinício admin).
             if (isAutomatic && LauncherRestart.IsRestartPending())
             {
                 DebugLog.Write("[STARTUP] Abertura automática ignorada: reinício do launcher em curso.");
@@ -60,13 +38,13 @@ internal static class WatchdogGate
             var settings = AppSettingsStore.Load();
             if (!settings.AutoRestart)
             {
-                DebugLog.Write("[STARTUP] Abertura automática ignorada: \"Abrir sozinho no login\" está desligado nas Configurações.");
+                DebugLog.Write("[STARTUP] Abertura automática ignorada: \"Abrir sozinho no login\" está desligado.");
                 return true;
             }
 
             if (QuitFlagIsFromThisBoot())
             {
-                DebugLog.Write("[STARTUP] Abertura automática ignorada: o launcher foi fechado de propósito (Fechar launcher) nesta mesma sessão do Windows.");
+                DebugLog.Write("[STARTUP] Abertura automática ignorada: o launcher foi fechado de propósito.");
                 return true;
             }
 
@@ -75,12 +53,10 @@ internal static class WatchdogGate
         }
         catch
         {
-            // Na dúvida, abre normal — nunca impedir o launcher de abrir por erro aqui.
             return false;
         }
     }
 
-    /// <summary>Chamado no "Sair" deliberado (menu Power, bandeja).</summary>
     public static void MarkDeliberateQuit()
     {
         try
@@ -88,10 +64,7 @@ internal static class WatchdogGate
             Directory.CreateDirectory(Path.GetDirectoryName(FlagPath)!);
             File.WriteAllText(FlagPath, GetSessionStartUtc().ToString("O"));
         }
-        catch
-        {
-            // Melhor esforço.
-        }
+        catch { }
     }
 
     private static void ClearQuitFlag()
@@ -100,10 +73,7 @@ internal static class WatchdogGate
         {
             if (File.Exists(FlagPath)) File.Delete(FlagPath);
         }
-        catch
-        {
-            // Melhor esforço.
-        }
+        catch { }
     }
 
     private static bool QuitFlagIsFromThisBoot()
@@ -115,26 +85,12 @@ internal static class WatchdogGate
             return false;
         }
 
-        // Hora do boot calculada por TickCount varia alguns ms entre
-        // processos — tolerância folgada de 2 minutos.
         return Math.Abs((GetSessionStartUtc() - flaggedBoot.ToUniversalTime()).TotalMinutes) < 2;
     }
 
     private static DateTime GetBootTimeUtc()
         => DateTime.UtcNow - TimeSpan.FromMilliseconds(Environment.TickCount64);
 
-    /// <summary>
-    /// Quando começou a sessão do Windows em que este processo roda (v0.16.5).
-    /// Antes o marcador de "fechei de propósito" usava a hora do boot calculada
-    /// pelo contador de tempo ligado — e esse contador NÃO zera no
-    /// Desligar → Ligar com a Inicialização Rápida do Windows. Fechar o
-    /// launcher, desligar e ligar de novo deixava o marcador "válido" e o
-    /// launcher não abria no login. Agora a referência é a hora de início do
-    /// winlogon.exe DESTA sessão (nasce a cada login, inclusive após a
-    /// Inicialização Rápida). Se não der pra obter, cai pro cálculo antigo —
-    /// e como o marcador gravado e o lido divergem, o launcher abre (o lado
-    /// seguro).
-    /// </summary>
     private static DateTime GetSessionStartUtc()
     {
         try
@@ -149,25 +105,14 @@ internal static class WatchdogGate
                     var started = process.StartTime.ToUniversalTime();
                     if (earliest is null || started < earliest) earliest = started;
                 }
-                catch (Exception ex)
-                {
-                    DebugLog.Swallowed(ex);
-                }
-                finally
-                {
-                    process.Dispose();
-                }
+                catch { }
+                finally { process.Dispose(); }
             }
             if (earliest is not null) return earliest.Value;
         }
-        catch (Exception ex)
-        {
-            DebugLog.Swallowed(ex);
-        }
+        catch { }
         return GetBootTimeUtc();
     }
-
-    // --- processo pai -----------------------------------------------------
 
     [StructLayout(LayoutKind.Sequential)]
     private struct ProcessBasicInformation
@@ -188,7 +133,6 @@ internal static class WatchdogGate
         int processInformationLength,
         out int returnLength);
 
-    /// <summary>Nome do processo pai ("explorer", "svchost"...), só pra diagnóstico no debug.log.</summary>
     public static string DescribeParent()
     {
         try
@@ -202,29 +146,6 @@ internal static class WatchdogGate
         catch
         {
             return "(pai já encerrou)";
-        }
-    }
-
-    private static bool IsLaunchedByTaskScheduler()
-    {
-        try
-        {
-            var info = new ProcessBasicInformation();
-            using var current = Process.GetCurrentProcess();
-            var status = NtQueryInformationProcess(current.Handle, 0, ref info, Marshal.SizeOf(info), out _);
-            if (status != 0) return false;
-
-            var parentId = info.InheritedFromUniqueProcessId.ToInt32();
-            using var parent = Process.GetProcessById(parentId);
-            var name = parent.ProcessName;
-            return string.Equals(name, "svchost", StringComparison.OrdinalIgnoreCase)
-                   || string.Equals(name, "taskhostw", StringComparison.OrdinalIgnoreCase)
-                   || string.Equals(name, "taskeng", StringComparison.OrdinalIgnoreCase);
-        }
-        catch
-        {
-            // Pai já fechou / sem acesso → trata como abertura manual.
-            return false;
         }
     }
 }
