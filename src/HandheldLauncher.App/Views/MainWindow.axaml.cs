@@ -150,6 +150,13 @@ public partial class MainWindow : Window
         _hidHideService = hidHideService;
         _syncthingService = syncthingService;
         InitializeComponent();
+        if (OperatingSystem.IsLinux())
+        {
+            // Linux sem blur: Background "Transparent" deixava ver as janelas por trás.
+            TransparencyLevelHint = new[] { Avalonia.Controls.WindowTransparencyLevel.None };
+            ClearValue(BackgroundProperty);
+            Classes.Add("linuxSolid");
+        }
 
         ApplyLayoutTheme();
 

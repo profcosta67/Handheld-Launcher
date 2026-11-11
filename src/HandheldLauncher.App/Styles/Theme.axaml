@@ -75,6 +75,11 @@
     </ResourceDictionary>
   </Styles.Resources>
 
+  <!-- Linux: sem blur de fundo, a janela principal usa o fundo sólido do tema. -->
+  <Style Selector="Window.linuxSolid">
+    <Setter Property="Background" Value="{DynamicResource BackgroundBrush}"/>
+  </Style>
+
   <Style Selector="Window">
     <Setter Property="FontFamily" Value="{DynamicResource GlobalFontFamily}" />
     <Setter Property="FontSize" Value="{DynamicResource FontSizeBase}" />

@@ -338,6 +338,7 @@ public partial class MainWindow : Window
         {
             DebugLog.Write("[RESTORE] RestoreFromTray chamado.");
             Show();
+            if (OperatingSystem.IsLinux()) { var xid = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero; Avalonia.Threading.Dispatcher.UIThread.Post(() => HandheldLauncher.App.Platform.LinuxWindowActivator.Raise(xid, above: false), Avalonia.Threading.DispatcherPriority.Background); }
             if (WindowState == WindowState.Minimized) WindowState = Topmost ? WindowState.FullScreen : WindowState.Normal;
             else if (Topmost) WindowState = WindowState.FullScreen;
             Activate();

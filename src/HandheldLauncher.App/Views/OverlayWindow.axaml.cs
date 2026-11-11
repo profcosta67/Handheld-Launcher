@@ -547,6 +547,13 @@ public partial class OverlayWindow : Window
         // de resolução desde a última abertura.
         FitToScreen();
 
+        if (OperatingSystem.IsLinux())
+        {
+            // Linux/GNOME: sem isto o QS abre ATRÁS do jogo (só aparece a notificação "está pronto").
+            var xid = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+            Dispatcher.UIThread.Post(() => HandheldLauncher.App.Platform.LinuxWindowActivator.Raise(xid), DispatcherPriority.Background);
+        }
+
         if (OperatingSystem.IsWindows())
         {
             var h = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
