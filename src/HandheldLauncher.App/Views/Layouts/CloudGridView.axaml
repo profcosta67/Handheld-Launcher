@@ -22,6 +22,9 @@
 
   <UserControl.Styles>
     <Style Selector="Button.cloudLetter">
+      <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource TileSeparatorBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
       <Setter Property="Padding" Value="0" />
       <Setter Property="MinWidth" Value="30" />
       <Setter Property="Height" Value="30" />
@@ -37,9 +40,23 @@
       <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
       <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}" />
     </Style>
+    <Style Selector="Button.cloudLetter.active">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
     <Style Selector="Button.cloudLetter.cursor /template/ ContentPresenter">
       <Setter Property="BorderThickness" Value="2" />
       <Setter Property="BorderBrush" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+    <Style Selector="TextBox.cloudSearch">
+      <Setter Property="MinHeight" Value="44" />
+      <Setter Property="CornerRadius" Value="16" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource TileSeparatorBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="14,8" />
+    </Style>
+    <Style Selector="TextBox.cloudSearch:focus">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
     </Style>
   </UserControl.Styles>
 
@@ -48,7 +65,7 @@
   <!-- v0.18.3: busca (Y) + filtro por letra (X) — só na aba Nuvem. -->
   <StackPanel Grid.Row="0" Spacing="6" Margin="8,4,8,6">
     <Grid ColumnDefinitions="*,Auto">
-      <TextBox x:Name="SearchBox" Text="{Binding CloudSearchText, Mode=TwoWay}"
+      <TextBox x:Name="SearchBox" Classes="cloudSearch" Text="{Binding CloudSearchText, Mode=TwoWay}"
                Watermark="Buscar jogo na nuvem  (Y)" MaxWidth="640" HorizontalAlignment="Stretch"
                GotFocus="OnSearchGotFocus" />
       <Button Grid.Column="1" Classes="pill" Content="✕ Limpar  (B)" Margin="8,0,0,0" Focusable="False"

@@ -20,11 +20,28 @@
     
     <Style Selector="Border.settingsCard">
       <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}"/>
-      <Setter Property="CornerRadius" Value="{DynamicResource TileCornerRadius}"/>
-      <Setter Property="Padding" Value="16"/>
+      <Setter Property="CornerRadius" Value="20"/>
+      <Setter Property="Padding" Value="18"/>
       <Setter Property="Margin" Value="0,0,0,12"/>
       <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="BorderBrush" Value="{StaticResource TileSeparatorBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource TileSeparatorBrush}"/>
+    </Style>
+    <Style Selector="Button.categoryTab">
+      <Setter Property="CornerRadius" Value="16"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="Transitions">
+        <Transitions>
+          <BrushTransition Property="Background" Duration="0:0:0.16"/>
+          <BrushTransition Property="BorderBrush" Duration="0:0:0.16"/>
+        </Transitions>
+      </Setter>
+    </Style>
+    <Style Selector="Button.categoryTab:pointerover /template/ ContentPresenter, Button.categoryTab:focus /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource TileHoverBrush}"/>
+    </Style>
+    <Style Selector="Button.categoryTab.active">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
     </Style>
     <Style Selector="TextBlock.sectionTitle">
       <Setter Property="FontSize" Value="14"/>

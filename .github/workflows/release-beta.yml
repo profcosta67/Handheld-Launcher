@@ -135,7 +135,8 @@ jobs:
             "--icon", "src/HandheldLauncher.App/Assets/app-icon.ico",
             "--splashProgressColor", "#7C5CFC"
           )
-          $notesFile = "release-notes/${{ steps.ver.outputs.base }}.md"
+          $notesFile = "release-notes/${{ steps.ver.outputs.base }}-beta.md"
+          if (-not (Test-Path $notesFile)) { $notesFile = "release-notes/${{ steps.ver.outputs.base }}.md" }
           if (Test-Path $notesFile) { $packArgs += @("--releaseNotes", $notesFile) }
           Write-Host "Executando: vpk $($packArgs -join ' ')"
           & vpk @packArgs
@@ -147,7 +148,8 @@ jobs:
         shell: pwsh
         run: |
           $tag = "${{ steps.ver.outputs.tag }}"
-          $notesFile = "release-notes/${{ steps.ver.outputs.base }}.md"
+          $notesFile = "release-notes/${{ steps.ver.outputs.base }}-beta.md"
+          if (-not (Test-Path $notesFile)) { $notesFile = "release-notes/${{ steps.ver.outputs.base }}.md" }
           # v0.16.3: a tag aponta pro commit que foi EMPACOTADO (o "ref"
           # escolhido no formulário), não pro da branch de onde o workflow
           # foi disparado — no beta.10 a tag ficou no master por isso.
