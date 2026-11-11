@@ -84,7 +84,7 @@ jobs:
       - name: Descobrir versão de teste
         id: ver
         shell: bash
-        run: echo "version=$(tr -d ' \r\n' < VERSION)-preview" >> "$GITHUB_OUTPUT"
+        run: echo "version=$(tr -d ' \r\n' < VERSION)-preview.g${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
       - name: Ferramentas de empacotamento
         run: sudo apt-get update -qq && sudo apt-get install -y -qq zip unzip desktop-file-utils
