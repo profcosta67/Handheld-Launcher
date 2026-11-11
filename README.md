@@ -102,13 +102,15 @@ Opções úteis (script `instalador/install-linux.sh`, que o menu usa):
 
 > Prefira o `.tar.gz`: é o único formato que preserva as permissões de execução em qualquer extração. O `.zip` continua publicado, mas o zip gerado no Windows (até a beta.4) chegava sem o bit `+x` — era por isso que o launcher "instalava" e depois não abria no Zorin.
 
-O que já funciona nativamente no Linux:
+Funcionalidades com suporte Linux (dependem das ferramentas e permissões da distribuição):
 - **Biblioteca** (Steam/Epic/GOG/Heroic/Eden), capas e lançamento de jogos (`steam://` via `xdg-open`).
 - **Quick Settings**: TDP via `ryzenadj`, brilho via `brightnessctl`, volume via `pactl`, resolução via `wlr-randr`/`xrandr`.
 - **Navegação por gamepad** via `evdev` (`/dev/input/event*`), incluindo o combo L3+R3.
 - **Rede**: Wi-Fi via `nmcli`, Bluetooth via `bluetoothctl`, rádio via `rfkill`.
 - **Lossless (frame-gen)**: via **LSFG-VK** (camada Vulkan que reaproveita o teu `Lossless.dll`); o Quick Settings liga/desliga (`~/.config/environment.d`) e escolhe o multiplicador 2x/3x/4x (`~/.config/lsfg-vk/conf.toml`).
 - **Syncthing** (o binário `syncthing` do sistema).
+
+Wi-Fi requer **NetworkManager** (`nmcli`); rádio Bluetooth requer **BlueZ** (`bluetoothctl`); `rfkill` é usado como alternativa. A descoberta Bluetooth é limitada ao que o BlueZ consegue encontrar e o emparelhamento pode depender do agente de autorização da sessão gráfica. A disponibilidade também depende de permissões e do hardware/driver; funções de hardware do Quick Settings não estão disponíveis em todos os aparelhos Linux. O Linux ainda não tem a mesma cobertura de hardware validada que o Windows.
 
 Para o "modo jogo" fullscreen, ative o **Modo Kiosk** nas Configurações (o launcher abre em `WindowState.FullScreen`); na sessão Gamescope do Bazzite o launcher corre como cliente Wayland.
 

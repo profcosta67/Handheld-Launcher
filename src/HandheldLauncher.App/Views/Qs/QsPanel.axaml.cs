@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using HandheldLauncher.App.Input;
+using HandheldLauncher.App.Platform;
 using HandheldLauncher.Core.Services;
 
 namespace HandheldLauncher.App.Views.Qs;
@@ -23,7 +24,7 @@ public partial class QsPanel : UserControl
     private readonly List<Button> _losslessButtons = new();
     private readonly List<Button> _captureButtons = new();
     private readonly List<Button> _hudButtons = new();
-    private readonly List<Button> _perfButtons = new();
+    private readonly List<Button> _powerPlanButtons = new();
 
     // Navegação por D-pad (mesma semântica do painel antigo).
     private readonly List<Border> _cards = new();
@@ -37,7 +38,6 @@ public partial class QsPanel : UserControl
     private bool _customPresetActive;
     private bool _suppressEvents = false;
     private bool _losslessOn = false;
-    private bool _performanceOn = false;
 
     // O TDP demora ~500 ms a aplicar no EC: só mandamos depois de o dedo parar.
     private readonly DispatcherTimer _tdpDebounce = new() { Interval = TimeSpan.FromMilliseconds(450) };
@@ -74,8 +74,7 @@ public partial class QsPanel : UserControl
         BuildPowerPresets();
         BuildHudChips();
 
-        // Ordem vertical do D-pad = ordem visual (Brilho, Resolução, Cor,
-        // Refrigeração, TDP, Lossless, Captura) + Fechar no fim.
+        // Ordem vertical do D-pad acompanha a ordem visual dos cartões.
         _cards.Add(BrightnessCard);
         _cards.Add(ResolutionCard);
         _cards.Add(ColorCard);
@@ -86,8 +85,7 @@ public partial class QsPanel : UserControl
         _cards.Add(CaptureCard);
         _losslessButtons.AddRange(new[] { BtnLosslessToggle, BtnLossless2x, BtnLossless3x, BtnLossless4x });
         _captureButtons.AddRange(new[] { BtnPrint, BtnRecord });
-        _cards.Add(PerformanceCard);
-        _perfButtons.Add(BtnPerformanceToggle);
+        _cards.Add(PowerPlanCard);
 
         RefreshFocusVisual();
     }
@@ -98,7 +96,7 @@ public partial class QsPanel : UserControl
     public event EventHandler? SettingsRequested;
     public event EventHandler<int>? BrightnessChanged;
     public event EventHandler<bool>? LosslessToggled;
-    public event EventHandler<bool>? PerformanceModeRequested;
+    public event EventHandler<string>? PowerPlanRequested;
 
     // Ponte com o painel antigo: cada evento leva o **Button de origem**, com o
     // Tag no formato que os handlers existentes esperam ("Eco", "1600x900",
@@ -164,6 +162,34 @@ public partial class QsPanel : UserControl
     }
 
     public void SetScreenInfo(string text) => TxtScreenInfo.Text = text;
+
+    internal void InitializePowerPlans(IReadOnlyList<PowerPlanInfo> plans)
+    {
+        PowerPlanHost.Children.Clear();
+        _powerPlanButtons.Clear();
+
+        foreach (var plan in plans)
+        {
+            var button = MakeChip("⚡", plan.Name);
+            button.Tag = plan.Guid;
+            button.Classes.Set("active", plan.IsActive);
+            button.Click += (_, _) => PowerPlanRequested?.Invoke(this, plan.Guid);
+            _powerPlanButtons.Add(button);
+            PowerPlanHost.Children.Add(button);
+        }
+
+        TxtPowerPlanStatus.Text = plans.Count == 0
+            ? "Planos de energia indisponíveis nesta plataforma."
+            : string.Empty;
+    }
+
+    public void SelectPowerPlan(string guid)
+    {
+        foreach (var button in _powerPlanButtons)
+            button.Classes.Set("active", string.Equals(button.Tag?.ToString(), guid, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public void SetPowerPlanStatus(string message) => TxtPowerPlanStatus.Text = message;
 
     /// <summary>Bateria mostrada no rodapé (o painel não tem DataContext).</summary>
     public void SetBattery(string text) => TxtBattery.Text = text;
@@ -250,13 +276,6 @@ public partial class QsPanel : UserControl
     {
         foreach (var b in _resolutionButtons)
             b.Classes.Set("active", Equals(b.Tag, wxh));
-    }
-
-    public void SetPerformanceMode(bool on)
-    {
-        _performanceOn = on;
-        BtnPerformanceToggle.Content = on ? "⚡  Desligar" : "⚡  Ativar";
-        BtnPerformanceToggle.Classes.Set("active", on);
     }
 
     public void SetLossless(bool on)
@@ -449,13 +468,6 @@ public partial class QsPanel : UserControl
         LosslessToggled?.Invoke(this, turnOn);
     }
 
-    private void OnPerformanceToggleClick(object? sender, RoutedEventArgs e)
-    {
-        var turnOn = !_performanceOn;
-        SetPerformanceMode(turnOn);
-        PerformanceModeRequested?.Invoke(this, turnOn);
-    }
-
     private void OnLosslessMultiplierClick(object? sender, RoutedEventArgs e)
     {
         if (sender is not Button clicked || clicked.Tag is not string tag || !int.TryParse(tag, out var multiplier))
@@ -549,7 +561,7 @@ public partial class QsPanel : UserControl
         5 => _hudButtons,
         6 => _losslessButtons,
         7 => _captureButtons,
-        8 => _perfButtons,
+        8 => _powerPlanButtons,
         _ => null, // 0 = Brilho (slider), 9 = Fechar
     };
 
@@ -587,7 +599,8 @@ public partial class QsPanel : UserControl
                 else RecordRequested?.Invoke(this, EventArgs.Empty);
                 break;
             case 8:
-                OnPerformanceToggleClick(BtnPerformanceToggle, new RoutedEventArgs());
+                if (index >= 0 && index < _powerPlanButtons.Count)
+                    PowerPlanRequested?.Invoke(this, _powerPlanButtons[index].Tag?.ToString() ?? string.Empty);
                 break;
         }
     }
@@ -621,5 +634,3 @@ public partial class QsPanel : UserControl
         }
     }
 }
-
-

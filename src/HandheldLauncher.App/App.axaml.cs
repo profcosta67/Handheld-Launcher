@@ -29,8 +29,8 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            // v0.24: o manifest é asInvoker — o launcher abre sem UAC e só eleva
-            // as ações que precisam (Bluetooth PnP, drivers, watchdog).
+            // O manifesto exige elevação para que os controles de hardware
+            // funcionem sem pedir UAC a cada ação.
             DebugLog.Write($"[ELEVACAO] Launcher a correr {(ElevationService.IsElevated ? "COMO ADMINISTRADOR" : "sem administrador (modo padrão)")}.");
 
             // Aparece na "Saúde do aparelho": sem administrador, mascarar o

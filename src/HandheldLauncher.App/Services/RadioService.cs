@@ -5,10 +5,8 @@ using HandheldLauncher.App.Diagnostics;
 
 namespace HandheldLauncher.Services;
 
-// RadioKind passou a ser um enum do próprio projeto (antes vinha do WinRT
-// Windows.Devices.Radios, que só existe no Windows). A UI usa estes valores em
-// qualquer plataforma; a implementação real de rádio é Windows-only por agora
-// (a Fase 4 liga o Linux ao rfkill/bluetoothctl).
+// RadioKind é independente da plataforma; cada sistema usa a API de rádio
+// disponível, com rfkill como alternativa no Linux.
 public enum RadioKind
 {
     WiFi,
@@ -28,9 +26,30 @@ public class RadioService
         }
         catch { return false; }
 #else
-        // rfkill: "Soft blocked: no" = rádio ligado.
-        var output = LinuxShell.RunCapture("rfkill", $"list {RfkillName(kind)}") ?? string.Empty;
-        return output.Contains("Soft blocked: no", StringComparison.OrdinalIgnoreCase);
+        return await Task.Run(() =>
+        {
+            var output = kind switch
+            {
+                RadioKind.WiFi => LinuxShell.RunCapture("nmcli", "radio", "wifi"),
+                RadioKind.Bluetooth => LinuxShell.RunCapture("bluetoothctl", "show"),
+                _ => null,
+            };
+
+            if (kind == RadioKind.WiFi && output is not null)
+            {
+                if (output.Trim().Equals("enabled", StringComparison.OrdinalIgnoreCase)) return true;
+                if (output.Trim().Equals("disabled", StringComparison.OrdinalIgnoreCase)) return false;
+            }
+            else if (kind == RadioKind.Bluetooth && output is not null)
+            {
+                if (output.Contains("Powered: yes", StringComparison.OrdinalIgnoreCase)) return true;
+                if (output.Contains("Powered: no", StringComparison.OrdinalIgnoreCase)) return false;
+            }
+
+            var rfkillOutput = LinuxShell.RunCapture("rfkill", "list", RfkillName(kind)) ?? string.Empty;
+            return rfkillOutput.Contains("Soft blocked: no", StringComparison.OrdinalIgnoreCase)
+                && !rfkillOutput.Contains("Hard blocked: yes", StringComparison.OrdinalIgnoreCase);
+        });
 #endif
     }
 
@@ -50,9 +69,19 @@ public class RadioService
         catch { }
         return false;
 #else
-        var ok = LinuxShell.Run("rfkill", $"{(turnOn ? "unblock" : "block")} {RfkillName(kind)}");
-        DebugLog.Write($"[RADIO] Linux: {(turnOn ? "ligar" : "desligar")} {RfkillName(kind)} {(ok ? "ok" : "falhou")}.");
-        return ok;
+        return await Task.Run(() =>
+        {
+            var ok = kind switch
+            {
+                RadioKind.WiFi => LinuxShell.Run("nmcli", "radio", "wifi", turnOn ? "on" : "off"),
+                RadioKind.Bluetooth => LinuxShell.Run("bluetoothctl", "power", turnOn ? "on" : "off"),
+                _ => false,
+            };
+            if (!ok)
+                ok = LinuxShell.Run("rfkill", turnOn ? "unblock" : "block", RfkillName(kind));
+            DebugLog.Write($"[RADIO] Linux: {(turnOn ? "ligar" : "desligar")} {RfkillName(kind)} {(ok ? "ok" : "falhou")}.");
+            return ok;
+        });
 #endif
     }
 
@@ -65,8 +94,8 @@ public class RadioService
             var wifi = radios.FirstOrDefault(r => r.Kind == Windows.Devices.Radios.RadioKind.WiFi);
             var bt = radios.FirstOrDefault(r => r.Kind == Windows.Devices.Radios.RadioKind.Bluetooth);
 
-            // Se o Wi-Fi estiver ligado, desliga tudo (Avião ON)
-            bool turnOn = wifi?.State != Windows.Devices.Radios.RadioState.On;
+            bool turnOn = wifi?.State != Windows.Devices.Radios.RadioState.On
+                && bt?.State != Windows.Devices.Radios.RadioState.On;
 
             if (wifi != null) await wifi.SetStateAsync(turnOn ? Windows.Devices.Radios.RadioState.On : Windows.Devices.Radios.RadioState.Off);
             if (bt != null) await bt.SetStateAsync(turnOn ? Windows.Devices.Radios.RadioState.On : Windows.Devices.Radios.RadioState.Off);
@@ -74,11 +103,13 @@ public class RadioService
         }
         catch { return false; }
 #else
-        // Modo avião: bloqueia/desbloqueia tudo (Wi-Fi + Bluetooth) de uma vez.
-        var wifiOn = (LinuxShell.RunCapture("rfkill", "list wifi") ?? string.Empty)
-            .Contains("Soft blocked: no", StringComparison.OrdinalIgnoreCase);
-        var ok = LinuxShell.Run("rfkill", wifiOn ? "block all" : "unblock all");
-        DebugLog.Write($"[RADIO] Linux: modo avião {(wifiOn ? "LIGADO" : "DESLIGADO")} {(ok ? "ok" : "falhou")}.");
+        var wifiOn = await IsRadioOnAsync(RadioKind.WiFi);
+        var bluetoothOn = await IsRadioOnAsync(RadioKind.Bluetooth);
+        var turnOn = !wifiOn && !bluetoothOn;
+        var wifiOk = await SetRadioStateAsync(RadioKind.WiFi, turnOn);
+        var bluetoothOk = await SetRadioStateAsync(RadioKind.Bluetooth, turnOn);
+        var ok = wifiOk && bluetoothOk;
+        DebugLog.Write($"[RADIO] Modo avião {(turnOn ? "desligado" : "ligado")} {(ok ? "ok" : "falhou")}.");
         return ok;
 #endif
     }

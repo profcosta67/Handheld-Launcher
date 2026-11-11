@@ -48,9 +48,32 @@ jobs:
         shell: bash
         run: |
           BASE="$(tr -d ' \r\n' < VERSION)"
+          BASE_STABLE="${BASE%%-*}"
+          LATEST_STABLE_TAG="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq .tag_name)"
+          LATEST_STABLE="${LATEST_STABLE_TAG#v}"
+          LATEST_STABLE="${LATEST_STABLE%%-*}"
+          IFS=. read -r base_major base_minor base_patch <<< "$BASE_STABLE"
+          IFS=. read -r stable_major stable_minor stable_patch <<< "$LATEST_STABLE"
+          if [[ ! "$BASE_STABLE" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ || ! "$LATEST_STABLE" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Versão base inválida: beta=$BASE_STABLE, estável=$LATEST_STABLE."
+            exit 1
+          fi
+          base_major=$((10#$base_major))
+          base_minor=$((10#$base_minor))
+          base_patch=$((10#$base_patch))
+          stable_major=$((10#$stable_major))
+          stable_minor=$((10#$stable_minor))
+          stable_patch=$((10#$stable_patch))
+          if (( base_major < stable_major )) \
+            || (( base_major == stable_major && base_minor < stable_minor )) \
+            || (( base_major == stable_major && base_minor == stable_minor && base_patch <= stable_patch )); then
+            echo "A base beta $BASE não é superior à estável $LATEST_STABLE_TAG."
+            exit 1
+          fi
           VERSION="${BASE}-beta.${GITHUB_RUN_NUMBER}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "base=$BASE_STABLE" >> "$GITHUB_OUTPUT"
           echo "Versão beta: $VERSION"
 
       - uses: actions/setup-dotnet@v4
@@ -111,6 +134,8 @@ jobs:
             "--icon", "src/HandheldLauncher.App/Assets/app-icon.ico",
             "--splashProgressColor", "#7C5CFC"
           )
+          $notesFile = "release-notes/${{ steps.ver.outputs.base }}.md"
+          if (Test-Path $notesFile) { $packArgs += @("--releaseNotes", $notesFile) }
           Write-Host "Executando: vpk $($packArgs -join ' ')"
           & vpk @packArgs
           if ($LASTEXITCODE -ne 0) {
@@ -121,13 +146,20 @@ jobs:
         shell: pwsh
         run: |
           $tag = "${{ steps.ver.outputs.tag }}"
+          $notesFile = "release-notes/${{ steps.ver.outputs.base }}.md"
           # v0.16.3: a tag aponta pro commit que foi EMPACOTADO (o "ref"
           # escolhido no formulário), não pro da branch de onde o workflow
           # foi disparado — no beta.10 a tag ficou no master por isso.
           $builtSha = (git rev-parse HEAD).Trim()
           gh release view $tag -R $env:GITHUB_REPOSITORY 2>$null | Out-Null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag -R $env:GITHUB_REPOSITORY --target $builtSha --title "Handheld Launcher ${{ steps.ver.outputs.version }} (Beta)" --notes "Build de teste — canal beta. Pode ter bugs que ainda não existem na versão estável." --prerelease
+            $createArgs = @("release", "create", $tag, "-R", $env:GITHUB_REPOSITORY,
+              "--target", $builtSha, "--title", "Handheld Launcher ${{ steps.ver.outputs.version }} (Beta)",
+              "--prerelease")
+            if (Test-Path $notesFile) { $createArgs += @("--notes-file", $notesFile) }
+            else { $createArgs += @("--notes", "Build de teste — canal beta. Pode ter bugs que ainda não existem na versão estável.") }
+            & gh @createArgs
+            if ($LASTEXITCODE -ne 0) { throw "Falha ao criar a Release beta $tag." }
           }
 
           # v0.16.3: espera a release recém-criada aparecer na API antes do
@@ -181,3 +213,51 @@ jobs:
               *) gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${t}" || true ;;
             esac
           done < beta_releases.txt
+
+  linux-beta-package:
+    needs: release-beta
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Descobrir versão beta
+        id: ver
+        shell: bash
+        run: |
+          BASE="$(tr -d ' \r\n' < VERSION)"
+          VERSION="${BASE}-beta.${GITHUB_RUN_NUMBER}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Ferramentas de empacotamento
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zip unzip desktop-file-utils
+
+      - name: Publicar (self-contained linux-x64)
+        run: >
+          dotnet publish src/HandheldLauncher.App -c Release -f net8.0 -r linux-x64
+          --self-contained true
+          -p:Version=${{ steps.ver.outputs.version }}
+          -p:TreatWarningsAsErrors=false
+          -o publish-linux
+
+      - name: Empacotar e testar instalador Linux
+        run: >
+          bash scripts/package-linux.sh
+          --publish publish-linux
+          --version "${{ steps.ver.outputs.version }}"
+          --out .
+
+      - name: Publicar pacotes Linux na mesma pré-release
+        run: >
+          gh release upload "${{ steps.ver.outputs.tag }}"
+          HandheldLauncher-linux-x64.tar.gz HandheldLauncher-linux-x64.zip
+          -R "$GITHUB_REPOSITORY" --clobber

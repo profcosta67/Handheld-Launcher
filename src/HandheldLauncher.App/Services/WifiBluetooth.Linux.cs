@@ -1,17 +1,22 @@
 #if !WINDOWS
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
+using System.Linq;
+using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using HandheldLauncher.App.Diagnostics;
+using HandheldLauncher.Core.Services;
 
 namespace HandheldLauncher.Services;
 
-// ---- Stubs Linux dos serviços de rede (Wi-Fi/Bluetooth) ---------------------
+// ---- Serviços Linux de rede (Wi-Fi/Bluetooth) -------------------------------
 // No Windows a implementação real usa WinRT (Windows.Devices.WiFi/Bluetooth),
 // que não existe no .NET puro — por isso vive em WifiService.cs e
-// BluetoothService.cs, ambos compilados só com `#if WINDOWS`. Estes stubs
-// mantêm a MESMA API pública para o resto do app compilar em net8.0; a
-// implementação real via NetworkManager (nmcli) e bluetoothctl chega na Fase 4.
+// BluetoothService.cs, ambos compilados só com `#if WINDOWS`. Estas
+// implementações mantêm a mesma API pública e usam NetworkManager/BlueZ.
 
 public class WifiNetwork
 {
@@ -38,26 +43,40 @@ public class BtDevice
 
 public class WifiService
 {
+    private static readonly object ScanLock = new();
+    private static DateTime _lastScanUtc = DateTime.MinValue;
+
     public async Task<List<WifiNetwork>> GetAvailableNetworksAsync()
     {
         return await Task.Run(() =>
         {
             var networks = new List<WifiNetwork>();
-            var output = LinuxShell.RunCapture("nmcli", "-t -f SSID,SIGNAL,SECURITY,IN-USE device wifi list");
+            lock (ScanLock)
+            {
+                if (DateTime.UtcNow - _lastScanUtc > TimeSpan.FromSeconds(15))
+                {
+                    _ = LinuxShell.Run("nmcli", "device", "wifi", "rescan");
+                    _lastScanUtc = DateTime.UtcNow;
+                }
+            }
+
+            var output = LinuxShell.RunCapture("nmcli", "-t", "-f", "SSID,SIGNAL,SECURITY,IN-USE", "device", "wifi", "list");
             if (string.IsNullOrWhiteSpace(output)) return networks;
+
+            var profilesOutput = LinuxShell.RunCapture("nmcli", "-t", "-f", "NAME", "connection", "show") ?? string.Empty;
+            var profiles = profilesOutput.Split('\n')
+                .Select(line => NmcliOutputParser.ParseTerseFields(line).FirstOrDefault() ?? string.Empty)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             foreach (var line in output.Split('\n'))
             {
-                var trimmed = line.Trim();
-                if (trimmed.Length == 0) continue;
-                // Formato terse: SSID:SINAL:SEGURANCA:IN-USE (o SSID pode conter ':').
-                var fields = trimmed.Split(':');
-                if (fields.Length < 3) continue;
+                var fields = NmcliOutputParser.ParseTerseFields(line);
+                if (fields.Count < 4) continue;
 
-                var ssid = string.Join(':', fields[..^3]);
-                var signal = int.TryParse(fields[^3], out var s) ? s : 0;
-                var security = fields[^2];
-                var inUse = fields[^1] == "*";
+                var ssid = fields[0];
+                var signal = int.TryParse(fields[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var s) ? s : 0;
+                var security = fields[2];
+                var inUse = fields[3] == "*";
 
                 if (string.IsNullOrWhiteSpace(ssid)) continue;
 
@@ -68,8 +87,8 @@ public class WifiService
                     {
                         Ssid = ssid,
                         SignalStrength = signal,
-                        IsSecured = !string.IsNullOrEmpty(security),
-                        HasProfile = HasProfile(ssid),
+                        IsSecured = !string.IsNullOrEmpty(security) && security != "--",
+                        HasProfile = profiles.Contains(ssid),
                         IsConnected = inUse,
                     });
                 }
@@ -90,10 +109,10 @@ public class WifiService
     {
         return await Task.Run(() =>
         {
-            var args = string.IsNullOrEmpty(password)
-                ? $"device wifi connect \"{ssid}\""
-                : $"device wifi connect \"{ssid}\" password \"{password}\"";
-            var ok = LinuxShell.Run("nmcli", args);
+            var arguments = string.IsNullOrEmpty(password)
+                ? new[] { "device", "wifi", "connect", ssid }
+                : new[] { "device", "wifi", "connect", ssid, "password", password };
+            var ok = LinuxShell.Run("nmcli", arguments);
             DebugLog.Write($"[WIFI] Linux: conectar '{ssid}' {(ok ? "ok" : "falhou")}.");
             return ok;
         });
@@ -103,31 +122,28 @@ public class WifiService
     {
         return await Task.Run(() =>
         {
-            var ssid = GetCurrentSsid();
-            var ok = LinuxShell.Run("nmcli", string.IsNullOrEmpty(ssid) ? "device disconnect" : $"connection down \"{ssid}\"");
+            var devices = LinuxShell.RunCapture("nmcli", "-t", "-f", "DEVICE,TYPE,STATE", "device", "status");
+            var wifiDevice = devices?.Split('\n')
+                .Select(NmcliOutputParser.ParseTerseFields)
+                .FirstOrDefault(fields => fields.Count >= 3
+                    && fields[1].Equals("wifi", StringComparison.OrdinalIgnoreCase)
+                    && fields[2].StartsWith("connected", StringComparison.OrdinalIgnoreCase));
+            if (wifiDevice is null || wifiDevice.Count == 0)
+            {
+                DebugLog.Write("[WIFI] Linux: não foi encontrada uma interface Wi-Fi conectada.");
+                return false;
+            }
+
+            var ok = LinuxShell.Run("nmcli", "device", "disconnect", wifiDevice[0]);
             DebugLog.Write($"[WIFI] Linux: desconectar {(ok ? "ok" : "falhou")}.");
             return ok;
         });
     }
 
-    private static bool HasProfile(string ssid)
-    {
-        var output = LinuxShell.RunCapture("nmcli", "-t -f NAME connection show") ?? string.Empty;
-        return output.Split('\n').Any(l => string.Equals(l.Trim(), ssid, StringComparison.OrdinalIgnoreCase));
-    }
-
     private static string? GetCurrentSsid()
     {
-        var output = LinuxShell.RunCapture("nmcli", "-t -f active,ssid device wifi");
-        foreach (var line in output?.Split('\n') ?? Array.Empty<string>())
-        {
-            if (line.TrimStart().StartsWith("sim:", StringComparison.OrdinalIgnoreCase))
-            {
-                var ssid = line.Trim()["sim:".Length..].Trim();
-                return string.IsNullOrEmpty(ssid) ? null : ssid;
-            }
-        }
-        return null;
+        var output = LinuxShell.RunCapture("nmcli", "-t", "-f", "IN-USE,SSID", "device", "wifi");
+        return NmcliOutputParser.ParseCurrentSsid(output);
     }
 }
 
@@ -137,6 +153,16 @@ public class BluetoothService
     {
         return await Task.Run(() =>
         {
+            if (discovery is { } window && window > TimeSpan.Zero)
+            {
+                var scanDuration = TimeSpan.FromSeconds(Math.Clamp(window.TotalSeconds, 1, 10));
+                _ = LinuxShell.RunSessionAsync(
+                    "bluetoothctl",
+                    "scan on",
+                    scanDuration,
+                    ["scan off", "quit"]).GetAwaiter().GetResult();
+            }
+
             var devices = new List<BtDevice>();
             var output = LinuxShell.RunCapture("bluetoothctl", "devices") ?? string.Empty;
             foreach (var line in output.Split('\n'))
@@ -148,7 +174,7 @@ public class BluetoothService
                 var mac = space > 0 ? rest[..space] : rest;
                 var name = space > 0 ? rest[(space + 1)..].Trim() : mac;
 
-                var info = LinuxShell.RunCapture("bluetoothctl", $"info {mac}") ?? string.Empty;
+                var info = LinuxShell.RunCapture("bluetoothctl", "info", mac) ?? string.Empty;
                 devices.Add(new BtDevice
                 {
                     Name = string.IsNullOrEmpty(name) ? mac : name,
@@ -166,19 +192,19 @@ public class BluetoothService
         return await Task.Run(() =>
         {
             var mac = FormatMac(device.Address);
-            LinuxShell.Run("bluetoothctl", $"pair {mac}");
-            LinuxShell.Run("bluetoothctl", $"trust {mac}");
-            var ok = LinuxShell.Run("bluetoothctl", $"connect {mac}");
+            var pairOk = LinuxShell.Run("bluetoothctl", "pair", mac);
+            var trustOk = pairOk && LinuxShell.Run("bluetoothctl", "trust", mac);
+            var ok = trustOk && LinuxShell.Run("bluetoothctl", "connect", mac);
             DebugLog.Write($"[BT] Linux: emparelhar '{device.Name}' {(ok ? "ok" : "falhou")}.");
             return ok;
         });
     }
 
     public Task<bool> ConnectAsync(BtDevice device)
-        => Task.Run(() => LinuxShell.Run("bluetoothctl", $"connect {FormatMac(device.Address)}"));
+        => Task.Run(() => LinuxShell.Run("bluetoothctl", "connect", FormatMac(device.Address)));
 
     public Task<bool> DisconnectAsync(BtDevice device)
-        => Task.Run(() => LinuxShell.Run("bluetoothctl", $"disconnect {FormatMac(device.Address)}"));
+        => Task.Run(() => LinuxShell.Run("bluetoothctl", "disconnect", FormatMac(device.Address)));
 
     private static ulong ParseMac(string mac)
     {
@@ -197,24 +223,26 @@ public class BluetoothService
 
 internal static class LinuxShell
 {
-    public static bool Run(string file, string arguments)
+    private static readonly TimeSpan CommandTimeout = TimeSpan.FromSeconds(10);
+
+    public static bool Run(string file, params string[] arguments)
     {
         try
         {
-            using var process = new System.Diagnostics.Process
-            {
-                StartInfo = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = file,
-                    Arguments = arguments,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                }
-            };
+            using var process = new Process { StartInfo = CreateStartInfo(file, arguments) };
             process.Start();
-            if (!process.WaitForExit(10_000)) { try { process.Kill(); } catch { } return false; }
+            var stdout = process.StandardOutput.ReadToEndAsync();
+            var stderr = process.StandardError.ReadToEndAsync();
+            if (!process.WaitForExit((int)CommandTimeout.TotalMilliseconds))
+            {
+                try { process.Kill(entireProcessTree: true); } catch (Exception ex) { DebugLog.Swallowed(ex); }
+                DebugLog.Write($"[LINUX] '{file}' excedeu o tempo limite.");
+                return false;
+            }
+            _ = stdout.GetAwaiter().GetResult();
+            _ = stderr.GetAwaiter().GetResult();
+            if (process.ExitCode != 0)
+                DebugLog.Write($"[LINUX] '{file}' terminou com código {process.ExitCode}.");
             return process.ExitCode == 0;
         }
         catch (Exception ex)
@@ -224,31 +252,88 @@ internal static class LinuxShell
         }
     }
 
-    public static string? RunCapture(string file, string arguments)
+    public static string? RunCapture(string file, params string[] arguments)
     {
         try
         {
-            using var process = new System.Diagnostics.Process
-            {
-                StartInfo = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = file,
-                    Arguments = arguments,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                }
-            };
+            using var process = new Process { StartInfo = CreateStartInfo(file, arguments) };
             process.Start();
-            var output = process.StandardOutput.ReadToEnd();
-            if (!process.WaitForExit(10_000)) { try { process.Kill(); } catch { } return null; }
+            var stdout = process.StandardOutput.ReadToEndAsync();
+            var stderr = process.StandardError.ReadToEndAsync();
+            if (!process.WaitForExit((int)CommandTimeout.TotalMilliseconds))
+            {
+                try { process.Kill(entireProcessTree: true); } catch (Exception ex) { DebugLog.Swallowed(ex); }
+                DebugLog.Write($"[LINUX] '{file}' excedeu o tempo limite.");
+                return null;
+            }
+            var output = stdout.GetAwaiter().GetResult();
+            _ = stderr.GetAwaiter().GetResult();
+            if (process.ExitCode != 0)
+            {
+                DebugLog.Write($"[LINUX] '{file}' terminou com código {process.ExitCode}.");
+                return null;
+            }
             return output;
         }
-        catch
+        catch (Exception ex)
         {
+            DebugLog.Write($"[LINUX] '{file}' indisponível: {ex.GetType().Name}: {ex.Message}");
             return null;
         }
+    }
+
+    public static async Task<bool> RunSessionAsync(string file, string firstCommand, TimeSpan duration, string[] finalCommands)
+    {
+        try
+        {
+            using var process = new Process { StartInfo = CreateStartInfo(file, Array.Empty<string>(), redirectInput: true) };
+            process.Start();
+            var stdout = process.StandardOutput.ReadToEndAsync();
+            var stderr = process.StandardError.ReadToEndAsync();
+
+            await process.StandardInput.WriteLineAsync(firstCommand);
+            await process.StandardInput.FlushAsync();
+            await Task.Delay(duration);
+            foreach (var command in finalCommands)
+                await process.StandardInput.WriteLineAsync(command);
+            process.StandardInput.Close();
+
+            if (!process.WaitForExit(5000))
+            {
+                try { process.Kill(entireProcessTree: true); } catch (Exception ex) { DebugLog.Swallowed(ex); }
+                DebugLog.Write($"[LINUX] Sessão '{file}' excedeu o tempo limite.");
+                return false;
+            }
+
+            _ = stdout.GetAwaiter().GetResult();
+            _ = stderr.GetAwaiter().GetResult();
+            if (process.ExitCode != 0)
+                DebugLog.Write($"[LINUX] Sessão '{file}' terminou com código {process.ExitCode}.");
+            return process.ExitCode == 0;
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[LINUX] Sessão '{file}' falhou: {ex.GetType().Name}: {ex.Message}");
+            return false;
+        }
+    }
+
+    private static ProcessStartInfo CreateStartInfo(string file, IEnumerable<string> arguments, bool redirectInput = false)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = file,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardInput = redirectInput,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8,
+        };
+        foreach (var argument in arguments)
+            startInfo.ArgumentList.Add(argument);
+        return startInfo;
     }
 }
 #endif
