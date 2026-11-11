@@ -192,6 +192,7 @@ public partial class MainWindow : Window
         OverlayWindow.OnOverlayVisibilityChanged += (isOverlayVisible) =>
         {
             DebugLog.Write($"[PERF] QS visível={isOverlayVisible}; timer={_gamepadTimer.IsEnabled}; launcher visível={IsVisible}.");
+            ResetOverlayInputState(); // v0.25.9: ponte HID e diagnóstico recomeçam a cada abertura
             if (isOverlayVisible)
             {
                 if (!_gamepadTimer.IsEnabled)

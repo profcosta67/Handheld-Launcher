@@ -525,6 +525,18 @@ private void SetAddButtonFocused(bool focused)
     private bool _hidPadArmed;
     private bool _hidPadLoggedDuplicate;
 
+    /// <summary>
+    /// v0.25.9 (revisão): chamado a cada abertura/fechamento do QS. O tique do
+    /// controle PARA quando o QS fecha com o jogo na frente, então nenhum tique
+    /// "vê" o painel fechado — sem isto, a 2ª abertura reaproveitava a
+    /// referência antiga e os botões apertados jogando viravam ações no QS.
+    /// </summary>
+    private void ResetOverlayInputState()
+    {
+        _hidPadArmed = false;
+        _overlayTraceWasVisible = false;
+    }
+
     private IReadOnlyList<GamepadAction> ApplyHidBridge(IReadOnlyList<GamepadAction> xinputActions)
     {
         var qsInGame = OperatingSystem.IsWindows()
@@ -551,7 +563,8 @@ private void SetAddButtonFocused(bool focused)
         }
 
         var hidActions = _hidPad.Poll();
-        if (!_hidPad.HasData) return xinputActions; // sem ponte: fica como antes (XInput)
+        // Sem ponte (ou ajudante morto, com dado velho): fica como antes (XInput).
+        if (!_hidPad.HasData || !GameInputHelper.IsHelperRunning) return xinputActions;
 
         // Com a ponte ativa, ela é a única fonte — se o XInput também entregar
         // (launcher em foco), o mesmo aperto não pode valer duas vezes.

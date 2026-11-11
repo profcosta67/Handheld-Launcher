@@ -262,6 +262,7 @@ internal sealed class HidPadReader : IDisposable
 
     private bool EnsureOpen()
     {
+        if (!OperatingSystem.IsWindows()) return false;
         if (_view is not null) return true;
         if (DateTime.UtcNow - _lastOpenAttempt < OpenRetry) return false;
         _lastOpenAttempt = DateTime.UtcNow;

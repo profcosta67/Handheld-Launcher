@@ -157,6 +157,8 @@ internal static unsafe class HidComboReader
         public IntPtr PreparsedData;   // memória nossa (Marshal.AllocHGlobal), vive enquanto o ajudante vive
         public string LastButtons = "";
         public bool WasDown;
+        public int PadButtons;      // v0.25.9: estado deste controle para a ponte do QS
+        public int PadDirections;
     }
 
     private static readonly Dictionary<IntPtr, DeviceInfo> Devices = new();
@@ -320,7 +322,7 @@ internal static unsafe class HidComboReader
             var buttonMask = 0;
             for (var u = 0; u < count; u++)
                 if (usages[u] is >= 1 and <= 10) buttonMask |= 1 << (usages[u] - 1);
-            var directions = 0;
+            var directions = device.PadDirections; // relatório sem hat: mantém o último
             if (HidP_GetUsageValue(HidP_Input, UsagePageGenericDesktop, 0, UsageHatSwitch, out var hat,
                     device.PreparsedData, report, reportSize) == HIDP_STATUS_SUCCESS)
             {
@@ -335,7 +337,20 @@ internal static unsafe class HidComboReader
                     }
                 }
             }
-            HidPadBridge.Publish(buttonMask, directions);
+            // Estado por controle; publica a UNIÃO de todos os compatíveis com
+            // XInput — dois controles (ou físico + virtual espelhado) intercalando
+            // relatórios não contam o mesmo aperto duas vezes.
+            device.PadButtons = buttonMask;
+            device.PadDirections = directions;
+            var allButtons = 0;
+            var allDirections = 0;
+            foreach (var d in Devices.Values)
+            {
+                if (!d.IsXInputCompatible) continue;
+                allButtons |= d.PadButtons;
+                allDirections |= d.PadDirections;
+            }
+            HidPadBridge.Publish(allButtons, allDirections);
 
             var isDown = hasL3 && hasR3;
             if (isDown && !device.WasDown)
