@@ -140,11 +140,11 @@ if [ "$ACAO" = "instalar" ] && [ "$PULAR_MENU" = "0" ] && [ -t 0 ]; then
   read -r -p 'Escolhe [1]: ' ESCOLHA || ESCOLHA=""
   ESCOLHA="${ESCOLHA:-1}"
   case "$ESCOLHA" in
-    1) ACAO="instalar" ;;
+    1) ACAO="instalar"; AUTOSTART_FORCADO=1 ;;
     2) ACAO="instalar"; AUTOSTART_FORCADO=0 ;;
     3) ACAO="desinstalar" ;;
     0) printf 'Nada foi alterado.\n'; exit 0 ;;
-    *) printf 'Opção inválida (%s) — a usar 1.\n' "$ESCOLHA"; ACAO="instalar" ;;
+    *) printf 'Opção inválida (%s) — a usar 1.\n' "$ESCOLHA"; ACAO="instalar"; AUTOSTART_FORCADO=1 ;;
   esac
   printf '\n'
 fi
