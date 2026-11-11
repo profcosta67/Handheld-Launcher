@@ -28,6 +28,13 @@ public partial class MainWindow : Window
 {
     private void ForceForeground(bool allowRestore = false, bool forceIfGameRunning = false)
     {
+        if (OperatingSystem.IsLinux())
+        {
+            // Linux: pedido ao gestor de janelas (Steam/outros abrem depois do login e ficam à frente).
+            try { if (IsVisible && WindowState != WindowState.Minimized) { Activate(); Topmost = false; Topmost = true; } }
+            catch (Exception ex) { DebugLog.Write($"[STARTUP] ForceForeground (Linux) EXCEPTION: {ex.Message}"); }
+            return;
+        }
         if (!OperatingSystem.IsWindows()) return;
         if (!IsVisible) return;
         if (WindowState == WindowState.Minimized) return;
@@ -134,6 +141,13 @@ public partial class MainWindow : Window
             // os dois "fiscais" de topmost (este, a cada 2s, e o do overlay,
             // a cada 1s) ficavam se alternando por cima = overlay piscando.
             if (_overlayWindow is { IsVisible: true }) return;
+
+            if (OperatingSystem.IsLinux())
+            {
+                // Só durante o período de arranque (120 s): traz o launcher de volta se o Steam o cobrir.
+                if (!IsActive) ForceForeground(forceIfGameRunning: true);
+                return;
+            }
 
             try
             {
@@ -342,7 +356,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private static void TurnOffScreen() { if (!OperatingSystem.IsWindows()) return; try { PostMessage(HwndBroadcast, WmSysCommand, (IntPtr)ScMonitorPower, (IntPtr)2); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); } }
+    private static void TurnOffScreen() { if (OperatingSystem.IsLinux()) { RunLinuxPower("sh", "-c \"xset dpms force off || busctl --user call org.gnome.Shell /org/gnome/ScreenSaver org.gnome.ScreenSaver SetActive b true\"", "desligar tela"); return; } if (!OperatingSystem.IsWindows()) return; try { PostMessage(HwndBroadcast, WmSysCommand, (IntPtr)ScMonitorPower, (IntPtr)2); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); } }
 
     /// <summary>
     /// v0.17 (pedido do usuário): "Reiniciar Launcher" (Energia) — reinicia só
@@ -355,6 +369,20 @@ public partial class MainWindow : Window
     /// </summary>
     private static void RelaunchSelfAfterExit()
     {
+        if (OperatingSystem.IsLinux())
+        {
+            try
+            {
+                var self = Environment.ProcessPath;
+                if (string.IsNullOrEmpty(self)) return;
+                var psi = new ProcessStartInfo("sh") { UseShellExecute = false, CreateNoWindow = true };
+                psi.ArgumentList.Add("-c"); psi.ArgumentList.Add("sleep 1; exec \"$0\""); psi.ArgumentList.Add(self);
+                Process.Start(psi);
+                DebugLog.Write("RelaunchSelfAfterExit (Linux): relançamento agendado.");
+            }
+            catch (Exception ex) { DebugLog.Write($"RelaunchSelfAfterExit (Linux) EXCEPTION: {ex.Message}"); }
+            return;
+        }
         if (!OperatingSystem.IsWindows()) return;
         try
         {
@@ -382,9 +410,23 @@ public partial class MainWindow : Window
         }
     }
 
-    private static void RestartDevice() { if (!OperatingSystem.IsWindows()) return; RunShutdownExe("/r /f /t 0"); }
+    private static void RestartDevice() { if (OperatingSystem.IsLinux()) { RunLinuxPower("systemctl", "reboot", "reiniciar"); return; } if (!OperatingSystem.IsWindows()) return; RunShutdownExe("/r /f /t 0"); }
 
-    private static void ShutdownDevice() { if (!OperatingSystem.IsWindows()) return; RunShutdownExe("/s /f /t 0"); }
+    private static void ShutdownDevice() { if (OperatingSystem.IsLinux()) { RunLinuxPower("systemctl", "poweroff", "desligar"); return; } if (!OperatingSystem.IsWindows()) return; RunShutdownExe("/s /f /t 0"); }
+
+    /// <summary>Linux: energia via systemctl (logind/polkit permite ao utilizador da sessão local sem sudo).</summary>
+    private static void RunLinuxPower(string file, string args, string label)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo(file, args) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardError = true, RedirectStandardOutput = true };
+            using var p = Process.Start(psi);
+            if (p is null) { DebugLog.Write($"[POWER] {label}: processo não iniciou."); return; }
+            var err = p.StandardError.ReadToEnd(); p.WaitForExit(5000);
+            DebugLog.Write($"[POWER] {label}: {file} {args} -> exit={(p.HasExited ? p.ExitCode : -1)} stderr='{err.Trim()}'");
+        }
+        catch (Exception ex) { DebugLog.Write($"[POWER] {label} EXCEPTION: {ex.Message}"); }
+    }
 
     private static void RunShutdownExe(string arguments)
     {

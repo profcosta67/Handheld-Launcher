@@ -345,6 +345,7 @@ public sealed class GamepadPoller
         if (_evdev is null) return actions;
 
         _evdev.Poll();
+        IsConnected = _evdev.IsConnected;
         var down = new HashSet<ushort>(_evdev.DownButtons);
 
         // Edge detection: só emite na transição solto → pressionado.
@@ -353,8 +354,10 @@ public sealed class GamepadPoller
         Emit(down, actions, EvdevGamepadReader.BtnSouth, GamepadAction.Confirm);
         Emit(down, actions, EvdevGamepadReader.BtnEast, GamepadAction.Back);
         Emit(down, actions, EvdevGamepadReader.BtnNorth, GamepadAction.Connectivity);
-        Emit(down, actions, EvdevGamepadReader.BtnStart, GamepadAction.Menu);
-        Emit(down, actions, EvdevGamepadReader.BtnSelect, GamepadAction.GlobalMenu);
+        // Igual ao Windows: Start (☰) = menu global, Select/View = Menu.
+        Emit(down, actions, EvdevGamepadReader.BtnStart, GamepadAction.GlobalMenu);
+        Emit(down, actions, EvdevGamepadReader.BtnSelect, GamepadAction.Menu);
+        Emit(down, actions, EvdevGamepadReader.BtnWest, GamepadAction.GameDetails);
         Emit(down, actions, EvdevGamepadReader.BtnTl, GamepadAction.PreviousFilter);
         Emit(down, actions, EvdevGamepadReader.BtnTr, GamepadAction.NextFilter);
 
@@ -363,6 +366,15 @@ public sealed class GamepadPoller
         if (JustDown(down, EvdevGamepadReader.BtnDpadDown) || (_evdev.HatY == 1 && _prevHatY != 1)) actions.Add(GamepadAction.MoveDown);
         if (JustDown(down, EvdevGamepadReader.BtnDpadLeft) || (_evdev.HatX == -1 && _prevHatX != -1)) actions.Add(GamepadAction.MoveLeft);
         if (JustDown(down, EvdevGamepadReader.BtnDpadRight) || (_evdev.HatX == 1 && _prevHatX != 1)) actions.Add(GamepadAction.MoveRight);
+
+        // Analógico esquerdo: direção com repeat (400 ms inicial, depois 120 ms).
+        int sx = _evdev.StickX > 0.5 ? 1 : _evdev.StickX < -0.5 ? -1 : 0;
+        int sy = _evdev.StickY > 0.5 ? 1 : _evdev.StickY < -0.5 ? -1 : 0;
+        var dirKey = sx * 3 + sy;
+        var now = DateTime.UtcNow;
+        if (dirKey == 0) _linuxStickDir = 0;
+        else if (dirKey != _linuxStickDir) { _linuxStickDir = dirKey; _linuxStickNext = now.AddMilliseconds(400); AddStick(actions, sx, sy); }
+        else if (now >= _linuxStickNext) { _linuxStickNext = now.AddMilliseconds(120); AddStick(actions, sx, sy); }
 
         // Combo L3+R3 abre o Quick Settings (equivalente ao GameInputHelper do Windows).
         if (down.Contains(EvdevGamepadReader.BtnThumbl) && down.Contains(EvdevGamepadReader.BtnThumbr)
@@ -375,6 +387,15 @@ public sealed class GamepadPoller
         _prevHatX = _evdev.HatX;
         _prevHatY = _evdev.HatY;
         return actions;
+    }
+
+    private int _linuxStickDir;
+    private DateTime _linuxStickNext;
+
+    private static void AddStick(List<GamepadAction> actions, int sx, int sy)
+    {
+        if (Math.Abs(sx) >= Math.Abs(sy) && sx != 0) actions.Add(sx < 0 ? GamepadAction.MoveLeft : GamepadAction.MoveRight);
+        else if (sy != 0) actions.Add(sy < 0 ? GamepadAction.MoveUp : GamepadAction.MoveDown);
     }
 
     private void Emit(HashSet<ushort> down, List<GamepadAction> actions, ushort code, GamepadAction action)

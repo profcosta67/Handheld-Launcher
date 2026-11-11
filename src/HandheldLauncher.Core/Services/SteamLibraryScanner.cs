@@ -67,7 +67,7 @@ public sealed class SteamLibraryScanner : ISteamLibraryScanner
             foreach (var manifestPath in Directory.EnumerateFiles(steamappsDir, "appmanifest_*.acf"))
             {
                 var entry = TryParseManifest(manifestPath, libraryPath);
-                if (entry is not null) results.Add(entry);
+                if (entry is not null && !results.Any(r => r.Id == entry.Id)) results.Add(entry);
             }
         }
 
@@ -198,7 +198,27 @@ public sealed class SteamLibraryScanner : ISteamLibraryScanner
     /// has added as a Steam library, including the default one under the
     /// Steam install itself.
     /// </summary>
+    private static string CanonicalPath(string path)
+    {
+        // No Linux ~/.steam/steam é symlink para ~/.local/share/Steam: sem resolver,
+        // a mesma biblioteca era varrida duas vezes (jogos duplicados).
+        try
+        {
+            var full = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar);
+            var target = Directory.ResolveLinkTarget(full, returnFinalTarget: true);
+            return (target?.FullName ?? full).TrimEnd(Path.DirectorySeparatorChar);
+        }
+        catch { return path; }
+    }
+
     private static IEnumerable<string> GetLibraryFolders(string steamRoot)
+    {
+        var seen = new HashSet<string>(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+        foreach (var f in GetLibraryFoldersRaw(steamRoot))
+            if (seen.Add(CanonicalPath(f))) yield return f;
+    }
+
+    private static IEnumerable<string> GetLibraryFoldersRaw(string steamRoot)
     {
         yield return steamRoot;
 

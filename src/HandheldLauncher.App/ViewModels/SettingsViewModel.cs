@@ -750,7 +750,7 @@ public sealed class SettingsViewModel : ViewModelBase
 
         if (!_syncthingService.IsAvailable)
         {
-            SyncthingStatusText = "syncthing.exe não encontrado na pasta Tools do launcher.";
+            SyncthingStatusText = OperatingSystem.IsWindows() ? "syncthing.exe não encontrado na pasta Tools do launcher." : "syncthing não encontrado (instale o pacote syncthing ou coloque o binário na pasta Tools do launcher).";
             return false;
         }
 
