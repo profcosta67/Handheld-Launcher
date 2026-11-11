@@ -62,6 +62,7 @@ internal sealed class EvdevGamepadReader : IDisposable
     private readonly Dictionary<int, (int Min, int Max)> _rangeX = new();
     private readonly Dictionary<int, (int Min, int Max)> _rangeY = new();
     private readonly HashSet<string> _deniedLogged = new();
+    private readonly HashSet<string> _notGamepad = new();
     private DateTime _lastScan = DateTime.MinValue;
     private readonly Dictionary<int, int> _rawX = new();
     private readonly Dictionary<int, int> _rawY = new();
@@ -86,7 +87,7 @@ internal sealed class EvdevGamepadReader : IDisposable
         {
             foreach (var path in Directory.EnumerateFiles("/dev/input", "event*"))
             {
-                if (_fdByPath.ContainsKey(path)) continue;
+                if (_fdByPath.ContainsKey(path) || _notGamepad.Contains(path)) continue;
                 var fd = Open(path, O_RDONLY | O_NONBLOCK);
                 if (fd < 0)
                 {
@@ -94,6 +95,8 @@ internal sealed class EvdevGamepadReader : IDisposable
                         DebugLog.Write($"[EVDEV] Sem acesso a {path} (errno={Marshal.GetLastWin32Error()}). Se o controle não responder, adicione o utilizador ao grupo 'input'.");
                     continue;
                 }
+                // Só gamepads (BTN_SOUTH): descarta teclado, mouse, touchscreen, IMU.
+                if (!HasGamepadButtons(fd)) { try { Close(fd); } catch { } _notGamepad.Add(path); continue; }
                 _fdByPath[path] = fd;
                 _rangeX[fd] = ReadRange(fd, AbsX);
                 _rangeY[fd] = ReadRange(fd, AbsY);
@@ -104,6 +107,18 @@ internal sealed class EvdevGamepadReader : IDisposable
         {
             DebugLog.Write($"[EVDEV] Falha ao enumerar /dev/input: {ex.Message}");
         }
+    }
+
+    private static bool HasGamepadButtons(int fd)
+    {
+        try
+        {
+            var bits = new byte[96]; // KEY_MAX = 0x2ff → 96 bytes
+            // EVIOCGBIT(EV_KEY, 96) = _IOC(_IOC_READ, 'E', 0x20 + EV_KEY, 96)
+            if (Ioctl(fd, 0x80000000UL | (96UL << 16) | (0x45UL << 8) | 0x21UL, bits) < 0) return false;
+            return (bits[BtnSouth / 8] & (1 << (BtnSouth % 8))) != 0;
+        }
+        catch { return false; }
     }
 
     private static (int Min, int Max) ReadRange(int fd, ushort axis)
@@ -152,7 +167,7 @@ internal sealed class EvdevGamepadReader : IDisposable
                 if (n <= 0)
                 {
                     // EAGAIN = sem dados; qualquer outro erro (ENODEV) = dispositivo removido.
-                    if (n < 0 && Marshal.GetLastWin32Error() != 11) (dead ??= new()).Add(path);
+                    if (n < 0 && Marshal.GetLastWin32Error() is not (11 or 4)) (dead ??= new()).Add(path);
                     break;
                 }
 
@@ -194,12 +209,9 @@ internal sealed class EvdevGamepadReader : IDisposable
             }
 
         StickX = bestX; StickY = bestY;
-        // "Conectado" = viu algum sinal de gamepad (botão face/D-pad) ou eixo com intervalo válido.
-        IsConnected = _down.Contains(BtnSouth) || _down.Contains(BtnEast) || _down.Count > 0 || HatX != 0 || HatY != 0 || _connectedSeen;
-        if (IsConnected) _connectedSeen = true;
+        IsConnected = _fdByPath.Count > 0;
     }
 
-    private bool _connectedSeen;
 
     public void Dispose()
     {

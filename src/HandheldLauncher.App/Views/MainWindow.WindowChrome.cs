@@ -378,7 +378,7 @@ public partial class MainWindow : Window
                 var self = Environment.ProcessPath;
                 if (string.IsNullOrEmpty(self)) return;
                 var psi = new ProcessStartInfo("sh") { UseShellExecute = false, CreateNoWindow = true };
-                psi.ArgumentList.Add("-c"); psi.ArgumentList.Add("sleep 1; exec \"$0\""); psi.ArgumentList.Add(self);
+                psi.ArgumentList.Add("-c"); psi.ArgumentList.Add("sleep 1; exec setsid \"$0\""); psi.ArgumentList.Add(self);
                 Process.Start(psi);
                 DebugLog.Write("RelaunchSelfAfterExit (Linux): relançamento agendado.");
             }
@@ -412,20 +412,21 @@ public partial class MainWindow : Window
         }
     }
 
-    private static void RestartDevice() { if (OperatingSystem.IsLinux()) { RunLinuxPower("systemctl", "reboot", "reiniciar"); return; } if (!OperatingSystem.IsWindows()) return; RunShutdownExe("/r /f /t 0"); }
+    private static void RestartDevice() { if (OperatingSystem.IsLinux()) { RunLinuxPower("systemctl", "reboot -i --no-ask-password", "reiniciar"); return; } if (!OperatingSystem.IsWindows()) return; RunShutdownExe("/r /f /t 0"); }
 
-    private static void ShutdownDevice() { if (OperatingSystem.IsLinux()) { RunLinuxPower("systemctl", "poweroff", "desligar"); return; } if (!OperatingSystem.IsWindows()) return; RunShutdownExe("/s /f /t 0"); }
+    private static void ShutdownDevice() { if (OperatingSystem.IsLinux()) { RunLinuxPower("systemctl", "poweroff -i --no-ask-password", "desligar"); return; } if (!OperatingSystem.IsWindows()) return; RunShutdownExe("/s /f /t 0"); }
 
     /// <summary>Linux: energia via systemctl (logind/polkit permite ao utilizador da sessão local sem sudo).</summary>
     private static void RunLinuxPower(string file, string args, string label)
     {
         try
         {
-            var psi = new ProcessStartInfo(file, args) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardError = true, RedirectStandardOutput = true };
+            var psi = new ProcessStartInfo(file, args) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardError = true, RedirectStandardOutput = false };
             using var p = Process.Start(psi);
             if (p is null) { DebugLog.Write($"[POWER] {label}: processo não iniciou."); return; }
-            var err = p.StandardError.ReadToEnd(); p.WaitForExit(5000);
-            DebugLog.Write($"[POWER] {label}: {file} {args} -> exit={(p.HasExited ? p.ExitCode : -1)} stderr='{err.Trim()}'");
+            if (!p.WaitForExit(5000)) { try { p.Kill(); } catch { } DebugLog.Write($"[POWER] {label}: {file} {args} -> timeout 5s (processo morto)."); return; }
+            var err = p.StandardError.ReadToEnd();
+            DebugLog.Write($"[POWER] {label}: {file} {args} -> exit={p.ExitCode} stderr='{err.Trim()}'");
         }
         catch (Exception ex) { DebugLog.Write($"[POWER] {label} EXCEPTION: {ex.Message}"); }
     }
