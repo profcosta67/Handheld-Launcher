@@ -31,7 +31,7 @@ public partial class MainWindow : Window
         if (OperatingSystem.IsLinux())
         {
             // Linux: pedido ao gestor de janelas (Steam/outros abrem depois do login e ficam à frente).
-            try { if (IsVisible && WindowState != WindowState.Minimized) { Activate(); Topmost = false; Topmost = true; } }
+            try { if (DataContext is MainViewModel { IsLaunching: false, RunningGame: null } && IsVisible && WindowState != WindowState.Minimized) { Activate(); Topmost = false; Topmost = true; } }
             catch (Exception ex) { DebugLog.Write($"[STARTUP] ForceForeground (Linux) EXCEPTION: {ex.Message}"); }
             return;
         }
@@ -145,7 +145,9 @@ public partial class MainWindow : Window
             if (OperatingSystem.IsLinux())
             {
                 // Só durante o período de arranque (120 s): traz o launcher de volta se o Steam o cobrir.
-                if (!IsActive) ForceForeground(forceIfGameRunning: true);
+                // Nunca durante o lançamento/execução de um jogo (senão cobre o diálogo do Steam).
+                var gameBusy = (DataContext as MainViewModel) is { } mv && (mv.IsLaunching || mv.RunningGame is not null);
+                if (!IsActive && !gameBusy) ForceForeground(forceIfGameRunning: true);
                 return;
             }
 
