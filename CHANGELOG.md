@@ -3,6 +3,9 @@
 Mais recente primeiro. Cada versão tem notas completas em [`release-notes/`](release-notes/).
 Betas não entram aqui: o que eles trazem aparece na versão estável que os junta.
 
+## [0.25.6] — 2026-11-10
+Novo botão **Desempenho (bateria)** no Quick Settings: ativa o plano de energia "Alto desempenho", põe o brilho no máximo e reaplica o TDP salvo — mesmo perfil da tomada, na bateria. O `powercfg /setactive` não exige administrador. [Notas](release-notes/0.25.6.md)
+
 ## [0.25.5] — 2026-11-10
 Hotfix: o TDP e a ventoinha deixam de falhar em silêncio quando o launcher abre sem administrador. Ao lançar um jogo em modo padrão, aparece um aviso com "Reiniciar como administrador" (UAC uma vez); e as novas tarefas elevadas `tdp-apply`/`fan-apply` fazem o slider de TDP/ventoinha do Quick Settings funcionar mesmo sem admin. [Notas](release-notes/0.25.5.md)
 

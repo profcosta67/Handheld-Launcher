@@ -723,6 +723,8 @@ public partial class OverlayWindow : Window
         NewQsPanel.PrintRequested += (_, _) => OnScreenshotClick(this, new RoutedEventArgs());
         NewQsPanel.RecordRequested += (_, _) => OnRecordClick(this, new RoutedEventArgs());
         NewQsPanel.LosslessToggled += (_, _) => OnLsfgToggleClick(this, new RoutedEventArgs());
+        // v0.25.6: botão "Desempenho (bateria)" — replica o perfil de "tomada".
+        NewQsPanel.PerformanceModeRequested += (_, on) => ApplyPerformanceMode(on);
         NewQsPanel.CloseRequested += (_, _) =>
         {
             DebugLog.Write("[QS] Fecho pedido pelo painel 2.0 (✕ / B / Fechar Menu).");
@@ -782,11 +784,44 @@ public partial class OverlayWindow : Window
         NewQsPanel.SetScreenInfo(TxtScreenInfo?.Text ?? "—");
         NewQsPanel.SetBattery(_viewModel.BatteryStatusText);
         NewQsPanel.SetHud(_currentHudIndex);
+        // v0.25.6: o botão "Desempenho" reflete o plano de energia ativo.
+        NewQsPanel.SetPerformanceMode(PowerPlanService.IsHighPerformanceActive());
 
         // v0.25.3: o aviso "o TDP não aplica" era mostrado SEMPRE que o launcher
         // não estava elevado — mesmo com o PawnIO a aplicar TDP sem admin. Agora
         // só aparece quando uma tentativa real falhar (ver ApplyTdpWattsFromQs).
         NewQsPanel.HideElevationWarning();
+    }
+
+    /// <summary>
+    /// v0.25.6 — botão "Desempenho (bateria)" do Quick Settings: replica o perfil
+    /// de "tomada" na bateria. Liga o plano de energia "Alto desempenho" (o
+    /// powercfg não exige admin), força o brilho no máximo e reaplica o TDP salvo
+    /// (delegando ao processo elevado se não houver admin, ver ApplyTdp).
+    /// Desliga: volta ao "Equilibrado" e ao brilho guardado.
+    /// </summary>
+    private void ApplyPerformanceMode(bool on)
+    {
+        var settings = AppSettingsStore.Load();
+
+        if (on)
+        {
+            PowerPlanService.SetHighPerformance();
+            _hardwareService?.SetBrightness(100);
+            NewQsPanel.SetBrightness(100);
+        }
+        else
+        {
+            PowerPlanService.SetBalanced();
+            var savedBrightness = Math.Clamp(settings.Brightness, 0, 100);
+            _hardwareService?.SetBrightness(savedBrightness);
+            NewQsPanel.SetBrightness(savedBrightness);
+        }
+
+        // Reaplica o TDP salvo (perfil completo de "tomada"; delega ao processo
+        // elevado se não houver admin — ver ApplyTdp/Camada 2).
+        var savedTdp = string.IsNullOrWhiteSpace(settings.TdpMode) ? "Normal" : settings.TdpMode;
+        ApplyTdp(savedTdp);
     }
 
     /// <summary>

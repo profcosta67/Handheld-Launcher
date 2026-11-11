@@ -211,6 +211,16 @@
             </StackPanel>
           </Border>
 
+          <!-- DESEMPENHO (bateria): força o plano Alto desempenho + brilho máximo + TDP salvo -->
+          <Border x:Name="PerformanceCard" Classes="qsGroup">
+            <StackPanel Spacing="0">
+              <TextBlock Text="Desempenho (bateria)" Classes="qsGroupTitle" />
+              <Button x:Name="BtnPerformanceToggle" Content="⚡  Ativar" Classes="pill"
+                      MinWidth="150" HorizontalAlignment="Center" Click="OnPerformanceToggleClick"
+                      ToolTip.Tip="Mesmo desempenho da tomada: plano Alto desempenho + brilho máximo + TDP" />
+            </StackPanel>
+          </Border>
+
         </StackPanel>
       </ScrollViewer>
 

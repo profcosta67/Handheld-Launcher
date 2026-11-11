@@ -23,6 +23,7 @@ public partial class QsPanel : UserControl
     private readonly List<Button> _losslessButtons = new();
     private readonly List<Button> _captureButtons = new();
     private readonly List<Button> _hudButtons = new();
+    private readonly List<Button> _perfButtons = new();
 
     // Navegação por D-pad (mesma semântica do painel antigo).
     private readonly List<Border> _cards = new();
@@ -36,6 +37,7 @@ public partial class QsPanel : UserControl
     private bool _customPresetActive;
     private bool _suppressEvents = false;
     private bool _losslessOn = false;
+    private bool _performanceOn = false;
 
     // O TDP demora ~500 ms a aplicar no EC: só mandamos depois de o dedo parar.
     private readonly DispatcherTimer _tdpDebounce = new() { Interval = TimeSpan.FromMilliseconds(450) };
@@ -84,6 +86,8 @@ public partial class QsPanel : UserControl
         _cards.Add(CaptureCard);
         _losslessButtons.AddRange(new[] { BtnLosslessToggle, BtnLossless2x, BtnLossless3x, BtnLossless4x });
         _captureButtons.AddRange(new[] { BtnPrint, BtnRecord });
+        _cards.Add(PerformanceCard);
+        _perfButtons.Add(BtnPerformanceToggle);
 
         RefreshFocusVisual();
     }
@@ -94,6 +98,7 @@ public partial class QsPanel : UserControl
     public event EventHandler? SettingsRequested;
     public event EventHandler<int>? BrightnessChanged;
     public event EventHandler<bool>? LosslessToggled;
+    public event EventHandler<bool>? PerformanceModeRequested;
 
     // Ponte com o painel antigo: cada evento leva o **Button de origem**, com o
     // Tag no formato que os handlers existentes esperam ("Eco", "1600x900",
@@ -245,6 +250,13 @@ public partial class QsPanel : UserControl
     {
         foreach (var b in _resolutionButtons)
             b.Classes.Set("active", Equals(b.Tag, wxh));
+    }
+
+    public void SetPerformanceMode(bool on)
+    {
+        _performanceOn = on;
+        BtnPerformanceToggle.Content = on ? "⚡  Desligar" : "⚡  Ativar";
+        BtnPerformanceToggle.Classes.Set("active", on);
     }
 
     public void SetLossless(bool on)
@@ -437,6 +449,13 @@ public partial class QsPanel : UserControl
         LosslessToggled?.Invoke(this, turnOn);
     }
 
+    private void OnPerformanceToggleClick(object? sender, RoutedEventArgs e)
+    {
+        var turnOn = !_performanceOn;
+        SetPerformanceMode(turnOn);
+        PerformanceModeRequested?.Invoke(this, turnOn);
+    }
+
     private void OnLosslessMultiplierClick(object? sender, RoutedEventArgs e)
     {
         if (sender is not Button clicked || clicked.Tag is not string tag || !int.TryParse(tag, out var multiplier))
@@ -530,7 +549,8 @@ public partial class QsPanel : UserControl
         5 => _hudButtons,
         6 => _losslessButtons,
         7 => _captureButtons,
-        _ => null, // 0 = Brilho (slider), 8 = Fechar
+        8 => _perfButtons,
+        _ => null, // 0 = Brilho (slider), 9 = Fechar
     };
 
     private void Activate(int group, int index)
@@ -566,6 +586,9 @@ public partial class QsPanel : UserControl
                 if (index == 0) PrintRequested?.Invoke(this, EventArgs.Empty);
                 else RecordRequested?.Invoke(this, EventArgs.Empty);
                 break;
+            case 8:
+                OnPerformanceToggleClick(BtnPerformanceToggle, new RoutedEventArgs());
+                break;
         }
     }
 
@@ -577,7 +600,7 @@ public partial class QsPanel : UserControl
         BtnCloseMenu.Classes.Set("active", !_subOpen && _focusGroup == _cards.Count);
 
         // cursor (foco de navegação) dentro de um grupo
-        for (var group = 0; group <= 7; group++)
+        for (var group = 0; group <= 8; group++)
         {
             var items = ItemsFor(group);
             if (items is null) continue;
