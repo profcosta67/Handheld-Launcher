@@ -226,7 +226,7 @@ public static class LosslessScalingService
                     var gameAlive = _gameHwnd != IntPtr.Zero && IsWindow(_gameHwnd);
                     if (!gameAlive && DateTime.UtcNow - begin > GuardGrace) break;
 
-                    var n = MinimizeMainWindows(noActivate: true, out _);
+                    var n = MinimizeMainWindows(noActivate: true, out bool sawIgnored);
                     if (n > 0)
                     {
                         reminimized += n;
