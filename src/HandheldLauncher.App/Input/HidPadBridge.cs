@@ -126,7 +126,11 @@ internal static class HidPadBridge
                 else
                 {
                     // Toque curto numa diagonal ainda pendente: conta antes de soltar.
-                    if (_diagonalTimer != null && directions == 0 && IsDiagonal(prevRaw))
+                    // Só a partir do neutro — soltar uma direção já contada
+                    // passando de raspão pela diagonal não pode contar a vizinha
+                    // (revisão 11/11).
+                    if (_diagonalTimer != null && directions == 0 && IsDiagonal(prevRaw)
+                        && _committedDirections == 0)
                         CommitDirections(writer, prevRaw);
                     CancelDiagonalTimer();
                     CommitDirections(writer, directions);

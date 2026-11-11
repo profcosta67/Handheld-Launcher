@@ -564,9 +564,11 @@ public partial class OverlayWindow : Window
                 if (_gamePid > 0 && overlaySettings.OverlayTakesFocus)
                 {
                     SetWindowLong(h, GWL_EXSTYLE, (ex | WS_EX_TOOLWINDOW) & ~WS_EX_NOACTIVATE);
+                    // ALT descido e solto ANTES da troca: a liberação não pode ir
+                    // para o painel, senão o jogo fica a ver o ALT premido.
                     keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);
-                    SetForegroundWindow(h);
                     keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                    SetForegroundWindow(h);
                     DebugLog.Write($"[QS] Foco pego pelo Quick Settings (modo={windowMode}, foreground agora=0x{GetForegroundWindow():X}, painel=0x{h:X}).");
                 }
             }
@@ -703,7 +705,7 @@ public partial class OverlayWindow : Window
 
      public void HideWithUnblock()
     {
-        DebugLog.Write($"[OVERLAY-CLOSE] origem=HideWithUnblock fullscreen-contexto; overlay={TryGetPlatformHandle()?.Handle}, game={_gameHwnd}, foreground={GetForegroundWindow()}, visible={IsVisible}, submenu={_activeSubMenu}");
+        DebugLog.Write($"[OVERLAY-CLOSE] origem=HideWithUnblock fullscreen-contexto; overlay={TryGetPlatformHandle()?.Handle}, game={_gameHwnd}, foreground={(OperatingSystem.IsWindows() ? GetForegroundWindow() : IntPtr.Zero)}, visible={IsVisible}, submenu={_activeSubMenu}");
         
         if (_activeSubMenu == SubMenuMode.TdpCustom) CancelTdpCustomEdit();
         FlushPendingCustomApply();
@@ -873,6 +875,7 @@ public partial class OverlayWindow : Window
         try
         {
             var target = _gameHwnd;
+            var targetIsGame = target != IntPtr.Zero;
 
             // Nalguns fechos o handle do jogo vem a 0x0 (a janela dele foi
             // recriada ou ainda não estava pronta) — procurar pelo PID.
@@ -882,6 +885,7 @@ public partial class OverlayWindow : Window
                 {
                     using var process = System.Diagnostics.Process.GetProcessById(_gamePid);
                     target = process.MainWindowHandle;
+                    targetIsGame = target != IntPtr.Zero;
                 }
                 catch (Exception swallowedEx) { DebugLog.Swallowed(swallowedEx); }
             }
@@ -898,7 +902,9 @@ public partial class OverlayWindow : Window
                 // v0.25.9: jogo em fullscreen exclusivo se minimiza quando perde o
                 // foco com o QS por cima (log de 11/11: janela 160x28, foreground=0).
                 // Sem restaurar, o SetForegroundWindow não tem efeito e fica a tela cinza.
-                if (target != IntPtr.Zero && IsMinimizedWindow(target))
+                // Só a janela do jogo: o launcher minimizado não pode saltar
+                // por cima do jogo (revisão 11/11).
+                if (targetIsGame && IsMinimizedWindow(target))
                 {
                     DebugLog.Write("[OVERLAY-CLOSE] Janela do jogo minimizada — restaurando.");
                     ShowWindow(target, SwRestore);

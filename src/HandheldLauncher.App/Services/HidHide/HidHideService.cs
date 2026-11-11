@@ -263,7 +263,7 @@ public sealed class HidHideService : IHidHideService, IDisposable
                         if (proc is null) continue;
                         if (!proc.WaitForExit(5000))
                         {
-                            try { proc.Kill(entireProcessTree: true); } catch (Exception swallowedEx) { DebugLog.Swallowed(swallowedEx); }
+                            try { proc.Kill(entireProcessTree: true); proc.WaitForExit(2000); } catch (Exception swallowedEx) { DebugLog.Swallowed(swallowedEx); }
                         }
                         DebugLog.Write($"[HIDHIDE] Gamepad re-enumerado ({id}): exit={proc.ExitCode}.");
                     }
