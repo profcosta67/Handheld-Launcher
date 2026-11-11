@@ -58,6 +58,16 @@ public partial class OverlayWindow : Window
     // responder até o Windows devolver o dispositivo.
     private IDisposable? _pendingControllerRestart;
 
+    // v0.25.9 (experimental): reinício do controle agendado ao ABRIR o QS.
+    private IDisposable? _pendingOpenControllerRestart;
+
+    private void CancelPendingOpenControllerRestart()
+    {
+        if (_pendingOpenControllerRestart is null) return;
+        _pendingOpenControllerRestart.Dispose();
+        _pendingOpenControllerRestart = null;
+    }
+
     /// <summary>Há reinício de controle agendado e ainda não executado?</summary>
     public bool HasPendingControllerRestart => _pendingControllerRestart is not null;
 
@@ -505,9 +515,27 @@ public partial class OverlayWindow : Window
         CancelPendingControllerRestart("Quick Settings reaberto");
 
         // 🟢 INTEGRAÇÃO HIDHIDE (B7): Esconde o controle apenas se o toggle estiver ligado
-        if (_gamePid > 0 && AppSettingsStore.Load().IsolateControllerOnOverlay)
+        var overlaySettings = AppSettingsStore.Load();
+        if (_gamePid > 0 && overlaySettings.IsolateControllerOnOverlay)
         {
             _hidHideService.HideControllerForProcess(_gamePid);
+
+            // v0.25.9 (experimental): o jogo já abriu o controle antes do QS e o
+            // HidHide não o tira de quem já o tem. Re-enumerar o controle logo
+            // depois de ocultá-lo faz o jogo perdê-lo. Atraso pra dar tempo de a
+            // ocultação valer; cancelado se o painel fechar antes.
+            if (overlaySettings.RestartControllerOnOverlayOpen)
+            {
+                CancelPendingOpenControllerRestart();
+                _pendingOpenControllerRestart = DispatcherTimer.RunOnce(() =>
+                {
+                    _pendingOpenControllerRestart = null;
+                    if (!IsVisible) return;
+                    DebugLog.Write("[HIDHIDE] Experimental: reiniciando o controle ao abrir o Quick Settings.");
+                    LastControllerRestartUtc = ElevationService.IsElevated ? DateTime.UtcNow : LastControllerRestartUtc;
+                    _hidHideService.ForceRestartController();
+                }, TimeSpan.FromMilliseconds(700));
+            }
         }
 
         // v0.24.1: congelamento opt-in (aviso de risco aceito nas Configurações).
@@ -686,6 +714,7 @@ public partial class OverlayWindow : Window
     {
         DebugLog.Write($"[OVERLAY-CLOSE] origem=HideWithUnblock fullscreen-contexto; overlay={TryGetPlatformHandle()?.Handle}, game={_gameHwnd}, foreground={GetForegroundWindow()}, visible={IsVisible}, submenu={_activeSubMenu}");
         
+        CancelPendingOpenControllerRestart(); // v0.25.9: fechou antes do reinício experimental rodar
         if (_activeSubMenu == SubMenuMode.TdpCustom) CancelTdpCustomEdit();
         FlushPendingCustomApply();
         

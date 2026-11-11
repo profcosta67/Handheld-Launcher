@@ -276,6 +276,17 @@
                     </ToggleSwitch.Content>
                 </ToggleSwitch>
 
+                <!-- v0.25.9 (experimental): reinício do controle ao ABRIR o QS. -->
+                <ToggleSwitch IsChecked="{Binding RestartControllerOnOverlayOpen}">
+                    <ToggleSwitch.Content>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Experimental: tirar o controle do jogo ao abrir o Overlay" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBlock Text="Evita que o jogo continue navegando por trás do Quick Settings sem congelar a imagem: o controle é reiniciado ao abrir o painel e devolvido ao fechar. Precisa de &quot;Isolar controle&quot; ligado. Se o jogo perder o controle depois de fechar o painel, desligue."
+                                       TextWrapping="Wrap" Foreground="Gray" FontSize="11" MaxWidth="450"/>
+                        </StackPanel>
+                    </ToggleSwitch.Content>
+                </ToggleSwitch>
+
                 <!-- v0.24.1: o driver do HidHide só aceita a configuração com
                      administrador. Em vez de falhar em silêncio, o cartão diz em
                      que modo está e oferece o reinício elevado. -->

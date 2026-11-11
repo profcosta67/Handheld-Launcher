@@ -229,6 +229,13 @@ public sealed class HidHideService : IHidHideService, IDisposable
             return;
         }
 
+        // Um reinício por vez: abrir e fechar o QS rápido não pode rodar dois pnputil juntos.
+        if (System.Threading.Interlocked.CompareExchange(ref _restartInFlight, 1, 0) != 0)
+        {
+            DebugLog.Write("[HIDHIDE] Reinício do gamepad já em andamento — ignorado.");
+            return;
+        }
+
         _ = Task.Run(() =>
         {
             try
@@ -269,8 +276,14 @@ public sealed class HidHideService : IHidHideService, IDisposable
             {
                 DebugLog.Write($"[HIDHIDE] ForceRestartController falhou: {ex.GetType().Name}: {ex.Message}");
             }
+            finally
+            {
+                System.Threading.Interlocked.Exchange(ref _restartInFlight, 0);
+            }
         });
     }
+
+    private int _restartInFlight;
 
     public void Dispose()
     {

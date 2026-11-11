@@ -47,9 +47,23 @@ internal static class HidPadBridge
     private static MemoryMappedFile? _writerFile;
     private static MemoryMappedViewAccessor? _writer;
     private static int _lastButtons = -1;
-    private static int _lastDirections = -1;
+    private static int _rawDirections = -1;        // último estado bruto recebido
+    private static int _committedDirections = -1;  // estado já contado/publicado
+    private static System.Threading.Timer? _diagonalTimer;
     private static int _sequence;
     private static readonly object WriterLock = new();
+
+    /// <summary>
+    /// Quanto esperar antes de aceitar uma diagonal. Um D-pad de handheld
+    /// raramente passa de "solto" direto para uma direção pura: costuma
+    /// reportar a diagonal por 1–2 relatórios. Se a diagonal virar uma
+    /// direção pura dentro desta janela, só a pura conta; se continuar,
+    /// o jogador quis mesmo a diagonal e as duas direções contam.
+    /// </summary>
+    public const int DiagonalSettleMs = 45;
+
+    private static bool IsDiagonal(int d) =>
+        (d & (DirUp | DirDown)) != 0 && (d & (DirLeft | DirRight)) != 0;
 
     /// <summary>Ajudante: cria (ou reabre) a memória compartilhada do launcher pai.</summary>
     public static void InitWriter(int launcherPid)
@@ -75,8 +89,9 @@ internal static class HidPadBridge
     }
 
     /// <summary>
-    /// Ajudante: novo estado vindo do HID (máscara de botões e direções).
-    /// Conta os apertos novos e publica. Chamado pela thread do HidComboReader.
+    /// Ajudante: novo estado vindo do HID (máscara de botões e direções, D-pad
+    /// e analógico já combinados). Conta os apertos novos e publica. Chamado
+    /// pela thread do HidComboReader.
     /// </summary>
     public static void Publish(int buttons, int directions)
     {
@@ -86,25 +101,38 @@ internal static class HidPadBridge
         {
             lock (WriterLock)
             {
-                if (buttons == _lastButtons && directions == _lastDirections) return;
-                var prevButtons = _lastButtons < 0 ? buttons : _lastButtons;
-                var prevDirections = _lastDirections < 0 ? directions : _lastDirections;
+                if (buttons == _lastButtons && directions == _rawDirections) return;
 
+                var prevButtons = _lastButtons < 0 ? buttons : _lastButtons;
                 var newButtons = buttons & ~prevButtons;
                 for (var i = 0; i < 10; i++)
                     if ((newButtons & (1 << i)) != 0) Bump(writer, i);
-
-                var newDirections = directions & ~prevDirections;
-                if ((newDirections & DirUp) != 0) Bump(writer, 10);
-                if ((newDirections & DirDown) != 0) Bump(writer, 11);
-                if ((newDirections & DirLeft) != 0) Bump(writer, 12);
-                if ((newDirections & DirRight) != 0) Bump(writer, 13);
-
                 writer.Write(OffButtons, buttons);
-                writer.Write(OffDirections, directions);
-                writer.Write(OffSequence, ++_sequence);
                 _lastButtons = buttons;
-                _lastDirections = directions;
+
+                var prevRaw = _rawDirections;
+                _rawDirections = directions;
+                if (_committedDirections < 0)
+                {
+                    // Primeiro relatório: o que já está segurado não conta como aperto.
+                    _committedDirections = directions;
+                    writer.Write(OffDirections, directions);
+                }
+                else if (IsDiagonal(directions) && directions != _committedDirections)
+                {
+                    // Espera a diagonal "assentar" antes de contar.
+                    _diagonalTimer ??= new System.Threading.Timer(OnDiagonalSettled, _timerGeneration, DiagonalSettleMs, System.Threading.Timeout.Infinite);
+                }
+                else
+                {
+                    // Toque curto numa diagonal ainda pendente: conta antes de soltar.
+                    if (_diagonalTimer != null && directions == 0 && IsDiagonal(prevRaw))
+                        CommitDirections(writer, prevRaw);
+                    CancelDiagonalTimer();
+                    CommitDirections(writer, directions);
+                }
+
+                writer.Write(OffSequence, ++_sequence);
             }
         }
         catch (Exception ex)
@@ -112,6 +140,48 @@ internal static class HidPadBridge
             DebugLog.Write($"HidPadBridge: falha ao publicar ({ex.GetType().Name}) — ponte desligada.");
             _writer = null;
         }
+    }
+
+    private static int _timerGeneration;
+
+    private static void CancelDiagonalTimer()
+    {
+        _timerGeneration++;
+        _diagonalTimer?.Dispose();
+        _diagonalTimer = null;
+    }
+
+    private static void OnDiagonalSettled(object? state)
+    {
+        try
+        {
+            lock (WriterLock)
+            {
+                // Callback de um timer já cancelado/substituído: ignora.
+                if (state is not int gen || gen != _timerGeneration) return;
+                CancelDiagonalTimer();
+                var writer = _writer;
+                if (writer is null || _rawDirections < 0) return;
+                CommitDirections(writer, _rawDirections);
+                writer.Write(OffSequence, ++_sequence);
+            }
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"HidPadBridge: falha ao confirmar diagonal ({ex.GetType().Name}).");
+        }
+    }
+
+    /// <summary>Conta as direções novas em relação à última confirmada e publica.</summary>
+    private static void CommitDirections(MemoryMappedViewAccessor writer, int directions)
+    {
+        var added = directions & ~_committedDirections;
+        if ((added & DirUp) != 0) Bump(writer, 10);
+        if ((added & DirDown) != 0) Bump(writer, 11);
+        if ((added & DirLeft) != 0) Bump(writer, 12);
+        if ((added & DirRight) != 0) Bump(writer, 13);
+        _committedDirections = directions;
+        writer.Write(OffDirections, directions);
     }
 
     private static void Bump(MemoryMappedViewAccessor writer, int index)
@@ -136,6 +206,32 @@ internal static class HidPadBridge
         8 => DirUp | DirLeft,
         _ => 0,
     };
+
+    // Zona morta do analógico, mesma proporção do GamepadPoller (18000/32768
+    // para começar, 8000/32768 para soltar — histerese contra ruído).
+    private const double StickPress = 0.55;
+    private const double StickRelease = 0.25;
+
+    /// <summary>
+    /// Analógico (x, y em -1..1, y POSITIVO = para baixo, como no HID) →
+    /// UMA direção, a do eixo dominante: navegar menus não deve gerar
+    /// diagonais. <paramref name="previous"/> é a direção anterior (0 = solto)
+    /// e liga a histerese.
+    /// </summary>
+    public static int DirectionFromStick(double x, double y, int previous)
+    {
+        var ax = Math.Abs(x);
+        var ay = Math.Abs(y);
+        var magnitude = Math.Max(ax, ay);
+        if (magnitude < (previous != 0 ? StickRelease : StickPress)) return 0;
+        var candidate = ax >= ay
+            ? (x > 0 ? DirRight : DirLeft)
+            : (y > 0 ? DirDown : DirUp);
+        // Trocar de direção exige passar do limiar de aperto: soltar o analógico
+        // passando pelo meio não pode gerar um movimento espúrio.
+        if (previous != 0 && candidate != previous && magnitude < StickPress) return previous;
+        return candidate;
+    }
 }
 
 /// <summary>

@@ -15,6 +15,14 @@ public class AppSettings
     // testar se o controle travado vem daqui.
     public bool RestartControllerAfterOverlay { get; set; } = true;
 
+    // v0.25.9 (EXPERIMENTAL): reinicia o controle também ao ABRIR o QS, logo
+    // depois de escondê-lo do jogo. O HidHide só esconde o controle de quem o
+    // abre depois; um jogo que já o tem aberto continua recebendo o D-pad por
+    // trás do painel. Re-enumerar o controle faz o jogo perder o dispositivo
+    // e, como ele está na lista de ocultação, não consegue reabri-lo enquanto
+    // o painel está aberto. Desligado por padrão: precisa de teste por jogo.
+    public bool RestartControllerOnOverlayOpen { get; set; } = false;
+
     // v0.24.1: caminho de recurso, DESLIGADO por padrão. Medido no driver
     // HidHide 1.5.230: as escritas passam sem administrador, por isso não é
     // preciso UAC nenhum para mascarar o controle. Se uma versão futura do

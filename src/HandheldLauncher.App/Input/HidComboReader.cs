@@ -143,6 +143,70 @@ internal static unsafe class HidComboReader
         ushort usage, out uint usageValue, IntPtr preparsedData, byte* report, uint reportLength);
 
     private const ushort UsageHatSwitch = 0x39;
+    private const ushort UsageAxisX = 0x30;
+    private const ushort UsageAxisY = 0x31;
+
+    // HIDP_VALUE_CAPS (72 bytes em x64/x86): só os campos que usamos.
+    [StructLayout(LayoutKind.Explicit, Size = 72)]
+    private struct HidpValueCaps
+    {
+        [FieldOffset(18)] public ushort BitSize;
+        [FieldOffset(40)] public int LogicalMin;
+        [FieldOffset(44)] public int LogicalMax;
+    }
+
+    [DllImport("hid.dll")]
+    private static extern int HidP_GetSpecificValueCaps(int reportType, ushort usagePage, ushort linkCollection,
+        ushort usage, HidpValueCaps* valueCaps, ref ushort valueCapsLength, IntPtr preparsedData);
+
+    private struct AxisCaps
+    {
+        public bool Ok;
+        public int Min;
+        public int Max;
+        public int Bits;
+    }
+
+    private static AxisCaps ReadAxisCaps(IntPtr preparsed, ushort usage)
+    {
+        try
+        {
+            HidpValueCaps* buf = stackalloc HidpValueCaps[4];
+            ushort count = 4;
+            var status = HidP_GetSpecificValueCaps(HidP_Input, UsagePageGenericDesktop, 0, usage, buf, ref count, preparsed);
+            if (status != HIDP_STATUS_SUCCESS || count < 1) return default;
+            var caps = buf[0];
+            var max = caps.LogicalMax;
+            // Eixo sem sinal de 16 bits declarado como 0..0xFFFF pode vir com max = -1.
+            if (caps.LogicalMin >= 0 && max < 0 && caps.BitSize is > 0 and < 32) max = (1 << caps.BitSize) - 1;
+            if (max <= caps.LogicalMin) return default;
+            return new AxisCaps { Ok = true, Min = caps.LogicalMin, Max = max, Bits = caps.BitSize };
+        }
+        catch
+        {
+            return default;
+        }
+    }
+
+    /// <summary>Valor bruto do eixo → -1..1 usando a faixa REAL do descritor (centro = meio da faixa).</summary>
+    private static double NormalizeAxis(uint raw, AxisCaps caps)
+    {
+        var value = (long)raw;
+        if (caps.Min < 0)
+        {
+            if (caps.Bits >= 32) value = (int)raw;
+            else if (caps.Bits > 0)
+            {
+                var shift = 32 - caps.Bits;
+                value = (int)(raw << shift) >> shift;   // extensão de sinal
+            }
+        }
+        var mid = (caps.Min + (double)caps.Max) / 2.0;
+        var half = (caps.Max - (double)caps.Min) / 2.0;
+        return Math.Clamp((value - mid) / half, -1.0, 1.0);
+    }
+
+    private static int _stickChangesLogged;
     private static int _hatChangesLogged;
     private static uint _lastHat = uint.MaxValue;
 
@@ -158,7 +222,11 @@ internal static unsafe class HidComboReader
         public string LastButtons = "";
         public bool WasDown;
         public int PadButtons;      // v0.25.9: estado deste controle para a ponte do QS
-        public int PadDirections;
+        public int PadDirections;   // D-pad (hat) ou, se solto, analógico
+        public int PadHatDirections; // só o D-pad
+        public int StickDirection;  // só o analógico (para a histerese)
+        public AxisCaps AxisX;
+        public AxisCaps AxisY;
     }
 
     private static readonly Dictionary<IntPtr, DeviceInfo> Devices = new();
@@ -250,6 +318,7 @@ internal static unsafe class HidComboReader
                 {
                     if (gone.PreparsedData != IntPtr.Zero) Marshal.FreeHGlobal(gone.PreparsedData);
                     DebugLog.Write($"HidComboReader: dispositivo saiu ({gone.ShortName}).");
+                    PublishPadState(); // o controle que saiu não deixa botão "preso" na ponte
                 }
             }
         }
@@ -258,6 +327,24 @@ internal static unsafe class HidComboReader
             DebugLog.Write($"HidComboReader: erro lendo relatório ({ex.Message}).");
         }
         return DefWindowProc(hwnd, msg, wParam, lParam);
+    }
+
+    /// <summary>
+    /// Publica a UNIÃO dos controles compatíveis com XInput: dois controles
+    /// (ou um físico + um virtual espelhado) intercalando relatórios não
+    /// contam o mesmo aperto duas vezes.
+    /// </summary>
+    private static void PublishPadState()
+    {
+        var allButtons = 0;
+        var allDirections = 0;
+        foreach (var d in Devices.Values)
+        {
+            if (!d.IsXInputCompatible) continue;
+            allButtons |= d.PadButtons;
+            allDirections |= d.PadDirections;
+        }
+        HidPadBridge.Publish(allButtons, allDirections);
     }
 
     private static void HandleInput(IntPtr rawInputHandle)
@@ -322,35 +409,46 @@ internal static unsafe class HidComboReader
             var buttonMask = 0;
             for (var u = 0; u < count; u++)
                 if (usages[u] is >= 1 and <= 10) buttonMask |= 1 << (usages[u] - 1);
-            var directions = device.PadDirections; // relatório sem hat: mantém o último
+            var hatDirections = device.PadHatDirections; // relatório sem hat: mantém o último
             if (HidP_GetUsageValue(HidP_Input, UsagePageGenericDesktop, 0, UsageHatSwitch, out var hat,
                     device.PreparsedData, report, reportSize) == HIDP_STATUS_SUCCESS)
             {
-                directions = HidPadBridge.DirectionsFromHat(hat);
+                hatDirections = HidPadBridge.DirectionsFromHat(hat);
                 if (hat != _lastHat)
                 {
                     _lastHat = hat;
                     if (_hatChangesLogged < 30)
                     {
                         _hatChangesLogged++;
-                        DebugLog.Write($"HidComboReader: [{device.ShortName}] D-pad hat={hat} → direções={directions}");
+                        DebugLog.Write($"HidComboReader: [{device.ShortName}] D-pad hat={hat} → direções={hatDirections}");
                     }
                 }
             }
-            // Estado por controle; publica a UNIÃO de todos os compatíveis com
-            // XInput — dois controles (ou físico + virtual espelhado) intercalando
-            // relatórios não contam o mesmo aperto duas vezes.
-            device.PadButtons = buttonMask;
-            device.PadDirections = directions;
-            var allButtons = 0;
-            var allDirections = 0;
-            foreach (var d in Devices.Values)
+            device.PadHatDirections = hatDirections;
+
+            // Analógico esquerdo → uma direção (eixo dominante, com histerese).
+            // O D-pad tem prioridade, como no GamepadPoller.
+            var stickDirection = device.StickDirection;
+            if (device.AxisX.Ok && device.AxisY.Ok
+                && HidP_GetUsageValue(HidP_Input, UsagePageGenericDesktop, 0, UsageAxisX, out var rawX,
+                       device.PreparsedData, report, reportSize) == HIDP_STATUS_SUCCESS
+                && HidP_GetUsageValue(HidP_Input, UsagePageGenericDesktop, 0, UsageAxisY, out var rawY,
+                       device.PreparsedData, report, reportSize) == HIDP_STATUS_SUCCESS)
             {
-                if (!d.IsXInputCompatible) continue;
-                allButtons |= d.PadButtons;
-                allDirections |= d.PadDirections;
+                var nx = NormalizeAxis(rawX, device.AxisX);
+                var ny = NormalizeAxis(rawY, device.AxisY);
+                stickDirection = HidPadBridge.DirectionFromStick(nx, ny, device.StickDirection);
+                if (stickDirection != device.StickDirection && _stickChangesLogged < 30)
+                {
+                    _stickChangesLogged++;
+                    DebugLog.Write($"HidComboReader: [{device.ShortName}] analógico x={nx:F2} y={ny:F2} (y+ = baixo) → direção={stickDirection}");
+                }
             }
-            HidPadBridge.Publish(allButtons, allDirections);
+            device.StickDirection = stickDirection;
+            device.PadDirections = hatDirections != 0 ? hatDirections : stickDirection;
+            device.PadButtons = buttonMask;
+
+            PublishPadState();
 
             var isDown = hasL3 && hasR3;
             if (isDown && !device.WasDown)
@@ -382,6 +480,15 @@ internal static unsafe class HidComboReader
                 info.PreparsedData = data;
             else
                 Marshal.FreeHGlobal(data);
+        }
+
+        if (info.IsXInputCompatible && info.PreparsedData != IntPtr.Zero)
+        {
+            info.AxisX = ReadAxisCaps(info.PreparsedData, UsageAxisX);
+            info.AxisY = ReadAxisCaps(info.PreparsedData, UsageAxisY);
+            DebugLog.Write(info.AxisX.Ok && info.AxisY.Ok
+                ? $"HidComboReader: [{info.ShortName}] analógico esquerdo: X {info.AxisX.Min}..{info.AxisX.Max} ({info.AxisX.Bits} bits), Y {info.AxisY.Min}..{info.AxisY.Max} ({info.AxisY.Bits} bits)."
+                : $"HidComboReader: [{info.ShortName}] eixos X/Y não encontrados — o analógico não navega o QS no jogo.");
         }
 
         Devices[handle] = info;
