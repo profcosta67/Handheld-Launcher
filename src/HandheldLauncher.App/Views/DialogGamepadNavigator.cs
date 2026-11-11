@@ -92,6 +92,13 @@ internal static class DialogGamepadNavigator
             }
         }
 
+        // Opções de rádio (ex.: Tema/Layout): ↑/↓/←/→ percorrem o MESMO grupo e já marcam a
+        // opção — o foco por Tab trata o grupo como uma parada só e o controle ficava preso.
+        if (focused is RadioButton radioFocused
+            && action is GamepadAction.MoveUp or GamepadAction.MoveDown or GamepadAction.MoveLeft or GamepadAction.MoveRight
+            && MoveRadioInGroup(dialog, radioFocused, (action is GamepadAction.MoveDown or GamepadAction.MoveRight) ? 1 : -1))
+            return;
+
         switch (action)
         {
             case GamepadAction.MoveDown:
@@ -249,6 +256,21 @@ internal static class DialogGamepadNavigator
             control.Focus(NavigationMethod.Directional);
             control.BringIntoView();
         }
+    }
+
+    private static bool MoveRadioInGroup(Window dialog, RadioButton current, int delta)
+    {
+        var group = dialog.GetLogicalDescendants()
+            .OfType<RadioButton>()
+            .Where(r => r.IsEffectivelyVisible && r.IsEffectivelyEnabled && r.GroupName == current.GroupName)
+            .ToList();
+        var index = group.IndexOf(current);
+        var next = index + delta;
+        if (group.Count < 2 || index < 0 || next < 0 || next >= group.Count) return false;
+        group[next].IsChecked = true;
+        group[next].Focus(NavigationMethod.Directional);
+        group[next].BringIntoView();
+        return true;
     }
 
     private static Control? FirstFocusable(Window dialog)
