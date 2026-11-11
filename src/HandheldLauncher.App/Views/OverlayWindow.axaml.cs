@@ -1309,6 +1309,14 @@ public partial class OverlayWindow : Window
                 success = _hardwareService.SetTdpMode(mode);
             }
 
+            if (!success && !ElevationService.IsElevated && OperatingSystem.IsWindows())
+            {
+                // v0.25.5 (Camada 2): sem admin a escrita do PawnIO falha — delega
+                // ao processo elevado (UAC uma vez por alteração).
+                DebugLog.Write($"[TDP] Escrita direta falhou (sem admin) — delegando ao processo elevado: {mode}.");
+                success = ElevationService.RunElevated("tdp-apply", "--mode", mode);
+            }
+
             Dispatcher.UIThread.Post(() =>
             {
                 if (!success)
@@ -1643,6 +1651,22 @@ public partial class OverlayWindow : Window
         if (_fanCurveService.TryApplyPreset(mode, out var message))
         {
             _currentFanMode = mode; SetFanButtonVisual(mode); TxtFanStatus.Text = message; SaveSetting("FanMode", mode);
+        }
+        else if (!ElevationService.IsElevated && OperatingSystem.IsWindows())
+        {
+            // v0.25.5 (Camada 2): sem admin a escrita WMI falha — delega ao processo elevado (UAC uma vez).
+            DebugLog.Write($"[FAN] Escrita direta falhou (sem admin) — delegando ao processo elevado: {mode}.");
+            _ = Task.Run(() =>
+            {
+                if (ElevationService.RunElevated("fan-apply", "--mode", mode))
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        _currentFanMode = mode;
+                        SetFanButtonVisual(mode);
+                        TxtFanStatus.Text = $"Curva {mode} aplicada (elevado).";
+                        SaveSetting("FanMode", mode);
+                    });
+            });
         }
         else TxtFanStatus.Text = message + " Curva anterior preservada.";
     }

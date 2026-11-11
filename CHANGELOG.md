@@ -3,6 +3,9 @@
 Mais recente primeiro. Cada versão tem notas completas em [`release-notes/`](release-notes/).
 Betas não entram aqui: o que eles trazem aparece na versão estável que os junta.
 
+## [0.25.5] — 2026-11-10
+Hotfix: o TDP e a ventoinha deixam de falhar em silêncio quando o launcher abre sem administrador. Ao lançar um jogo em modo padrão, aparece um aviso com "Reiniciar como administrador" (UAC uma vez); e as novas tarefas elevadas `tdp-apply`/`fan-apply` fazem o slider de TDP/ventoinha do Quick Settings funcionar mesmo sem admin. [Notas](release-notes/0.25.5.md)
+
 ## [0.25.4] — 2026-11-10
 Hotfix: as capas dos temas Clássico e Clean (e do Cartoon) voltaram a aparecer — a remoção do `AnimatedSource` tinha deixado bindings de `Image.Source` a receber texto em vez de imagem. A navegação por controle na aba Programas também foi corrigida: agora chega ao botão **Adicionar Jogo** tanto na grade vertical (↓ no fim) como na horizontal (→ no fim), inclusive com a lista vazia, e o “ghost card” deixou de prender o direcional. A lista de programas instalados ganhou scrollbar visível e navegação ↑/↓ pelo controle. [Notas](release-notes/0.25.4.md)
 

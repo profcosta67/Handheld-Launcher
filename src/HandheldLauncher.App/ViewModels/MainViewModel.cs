@@ -745,6 +745,13 @@ public bool CanOpenSelectedDetails => SelectedTile?.Game is { } game && HasGameD
     /// <summary>v0.18 aba "Nuvem": abrir esta URL do xbox.com/play no Edge em tela cheia (ver MainWindow.OpenXCloud).</summary>
     public event EventHandler<string>? XCloudRequested;
 
+    /// <summary>
+    /// v0.25.5 (Camada 1): pedido da guarda de elevação no lançamento de um jogo.
+    /// A MainWindow mostra o diálogo e resolve via <see cref="ResolveElevationGuard"/>.
+    /// </summary>
+    public sealed record ElevationGuardRequest(string GameTitle, string TdpMode);
+    public event EventHandler<ElevationGuardRequest>? ElevationGuardRequested;
+
     public void RequestOpenOverlay() { OpenOverlayRequested?.Invoke(this, EventArgs.Empty); }
 
     public void RefreshArtworkState()
@@ -1123,6 +1130,10 @@ public bool CanOpenSelectedDetails => SelectedTile?.Game is { } game && HasGameD
         if (game.IsOwnedNotInstalled) { if (game.SteamAppId is { } ownedAppId) _launcher.OpenSteamInstaller(ownedAppId); return; }
         if (IsCloudEntry(game)) { OpenCloudEntry(game); return; }
 
+        // v0.25.5 (Camada 1): sem administrador o TDP/ventoinha não aplicam — avisa
+        // antes de lançar e oferece reiniciar elevado (UAC uma vez).
+        if (await GuardElevationForLaunchAsync(game)) return;
+
         LaunchingGameTitle = game.Title;
         LaunchingGameIconPath = ResolveIconPath(game);
         IsLaunching = true;
@@ -1165,6 +1176,56 @@ public bool CanOpenSelectedDetails => SelectedTile?.Game is { } game && HasGameD
         {
             IsLaunching = false;
         }
+    }
+
+    private bool _elevationGuardShownThisSession;
+    private TaskCompletionSource<bool>? _elevationGuardTcs;
+
+    /// <summary>
+    /// Devolve true quando o launcher vai reiniciar elevado (e portanto NÃO deve
+    /// lançar o jogo agora). Pergunta uma vez por sessão e só quando o TDP está
+    /// disponível neste aparelho e o launcher corre sem administrador.
+    /// </summary>
+    private async Task<bool> GuardElevationForLaunchAsync(GameEntry game)
+    {
+        if (_elevationGuardShownThisSession) return false;
+        if (!OperatingSystem.IsWindows()) return false;
+        if (ElevationService.IsElevated) return false;
+        if (!RyzenSmuService.IsSupportedPlatform() || !RyzenSmuService.IsSupportedCpu()) return false;
+
+        _elevationGuardShownThisSession = true;
+
+        var settings = AppSettingsStore.Load();
+        var tdp = string.IsNullOrWhiteSpace(settings.TdpMode) ? "Normal" : settings.TdpMode;
+
+        DebugLog.Write($"[ELEVACAO] Guarda de lançamento: sem admin, TDP '{tdp}' pode não aplicar — a perguntar ao usuário.");
+        return await RequestElevationGuardAsync(game.Title, tdp);
+    }
+
+    private async Task<bool> RequestElevationGuardAsync(string gameTitle, string tdpMode)
+    {
+        var handler = ElevationGuardRequested;
+        if (handler is null) return false;
+
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _elevationGuardTcs = tcs;
+        try
+        {
+            handler(this, new ElevationGuardRequest(gameTitle, tdpMode));
+            return await tcs.Task;
+        }
+        finally
+        {
+            if (ReferenceEquals(_elevationGuardTcs, tcs)) _elevationGuardTcs = null;
+        }
+    }
+
+    /// <summary>Chamado pela MainWindow com o resultado do diálogo (true = reiniciar elevado).</summary>
+    public void ResolveElevationGuard(bool restartAsAdmin)
+    {
+        var tcs = _elevationGuardTcs;
+        _elevationGuardTcs = null;
+        tcs?.TrySetResult(restartAsAdmin);
     }
 
     private static string? ResolveIconPath(GameEntry game)

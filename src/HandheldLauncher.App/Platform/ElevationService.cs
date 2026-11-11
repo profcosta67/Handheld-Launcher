@@ -154,6 +154,17 @@ public static class ElevationService
                 case "watchdog-remove":
                     return WatchdogTask.Apply(false) ? 0 : 1;
 
+#if WINDOWS
+                // v0.25.5 (Camada 2): TDP e ventoinha aplicados numa instância
+                // elevada — usados quando o launcher corre em modo padrão e a
+                // escrita direta falha (ver Platform/HardwareTask).
+                case "tdp-apply":
+                    return HardwareTask.ApplyTdp(GetArgument(args, firstArg, "--mode"));
+
+                case "fan-apply":
+                    return HardwareTask.ApplyFan(GetArgument(args, firstArg, "--mode"));
+#endif
+
                 default:
                     DebugLog.Write($"[ELEVACAO] Tarefa desconhecida: {task}");
                     return 2;

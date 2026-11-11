@@ -414,6 +414,14 @@ public partial class MainWindow : Window
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop) desktop.Shutdown();
             else Close();
         };
+        vm.ElevationGuardRequested += async (_, req) =>
+        {
+            // v0.25.5 (Camada 1): sem admin, avisa antes de lançar o jogo e oferece
+            // reiniciar elevado (UAC uma vez). true = reiniciar elevado.
+            var restartAsAdmin = await ShowElevationGuardDialogAsync(req);
+            vm.ResolveElevationGuard(restartAsAdmin);
+            if (restartAsAdmin) RestartElevated(vm);
+        };
         vm.GameDetailsRequested += (_, game) => _ = OpenGameDetailsDialogAsync(vm, game);
 
         vm.OpenOverlayRequested += (_, _) =>
@@ -536,6 +544,24 @@ public partial class MainWindow : Window
             if (vm.UpdatesInstalled && !settings.ModeChosen && !settings.KioskMode) Dispatcher.UIThread.Post(() => _ = OpenSettingsDialogAsync(vm), DispatcherPriority.Background);
         }
         catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
+    }
+
+    private async Task<bool> ShowElevationGuardDialogAsync(MainViewModel.ElevationGuardRequest request)
+    {
+        var dialog = new ElevationGuardWindow(request.GameTitle, request.TdpMode) { Topmost = true };
+        _activeDialog = dialog;
+        try { return await dialog.ShowDialog<bool>(this); }
+        finally { _activeDialog = null; }
+    }
+
+    private void RestartElevated(MainViewModel vm)
+    {
+        WatchdogGate.MarkDeliberateQuit();
+        vm.ClearOverlayNow();
+        if (_overlayWindow != null) { _overlayWindow.IsAppClosing = true; _overlayWindow.Close(); }
+        LauncherRestart.TryStartReplacementAsAdmin();
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop) desktop.Shutdown();
+        else Close();
     }
 
     private Window? _activeDialog;

@@ -1,0 +1,27 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="HandheldLauncher.App.Views.ElevationGuardWindow"
+        Title="TDP não aplicado"
+        Width="500" SizeToContent="Height"
+        SystemDecorations="None"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent"
+        Topmost="True"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False">
+
+  <!-- v0.26 (Camada 1): guarda de elevação no lançamento de um jogo. -->
+  <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="16"
+          BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1.5" Padding="22">
+    <StackPanel Spacing="12">
+      <TextBlock x:Name="TxtTitle" FontSize="17" FontWeight="Bold"
+                 Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
+      <TextBlock x:Name="TxtMessage" FontSize="13"
+                 Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+      <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" Margin="0,6,0,0">
+        <Button x:Name="BtnPlayAnyway" Content="Jogar mesmo assim" IsCancel="True" Click="OnPlayAnywayClick"/>
+        <Button x:Name="BtnRestartAdmin" Content="Reiniciar como administrador" IsDefault="True" Click="OnRestartAdminClick"/>
+      </StackPanel>
+    </StackPanel>
+  </Border>
+</Window>
