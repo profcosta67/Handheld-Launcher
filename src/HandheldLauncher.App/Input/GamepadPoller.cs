@@ -353,11 +353,12 @@ public sealed class GamepadPoller
         // primeiro teste no Bazzite)
         Emit(down, actions, EvdevGamepadReader.BtnSouth, GamepadAction.Confirm);
         Emit(down, actions, EvdevGamepadReader.BtnEast, GamepadAction.Back);
-        Emit(down, actions, EvdevGamepadReader.BtnNorth, GamepadAction.Connectivity);
+        // xpad: Xbox Y = BTN_WEST(0x134 "BTN_Y"), Xbox X = BTN_NORTH(0x133 "BTN_X") — nomes legados do kernel.
+        Emit(down, actions, EvdevGamepadReader.BtnWest, GamepadAction.Connectivity);
         // Igual ao Windows: Start (☰) = menu global, Select/View = Menu.
         Emit(down, actions, EvdevGamepadReader.BtnStart, GamepadAction.GlobalMenu);
         Emit(down, actions, EvdevGamepadReader.BtnSelect, GamepadAction.Menu);
-        Emit(down, actions, EvdevGamepadReader.BtnWest, GamepadAction.GameDetails);
+        Emit(down, actions, EvdevGamepadReader.BtnNorth, GamepadAction.GameDetails);
         Emit(down, actions, EvdevGamepadReader.BtnTl, GamepadAction.PreviousFilter);
         Emit(down, actions, EvdevGamepadReader.BtnTr, GamepadAction.NextFilter);
 
