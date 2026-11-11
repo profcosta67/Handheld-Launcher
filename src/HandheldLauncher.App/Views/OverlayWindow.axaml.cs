@@ -124,6 +124,7 @@ public partial class OverlayWindow : Window
     [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    [DllImport("user32.dll", EntryPoint = "IsIconic")] private static extern bool IsMinimizedWindow(IntPtr hWnd);
     private const int SwRestore = 9;
 
     // v0.25.2 (QS 2.0): o Windows recusa trocar o foreground vindo de um
@@ -910,7 +911,7 @@ public partial class OverlayWindow : Window
                 // v0.25.9: jogo em fullscreen exclusivo se minimiza quando perde o
                 // foco com o QS por cima (log de 11/11: janela 160x28, foreground=0).
                 // Sem restaurar, o SetForegroundWindow não tem efeito e fica a tela cinza.
-                if (target != IntPtr.Zero && IsIconic(target))
+                if (target != IntPtr.Zero && IsMinimizedWindow(target))
                 {
                     DebugLog.Write("[OVERLAY-CLOSE] Janela do jogo minimizada — restaurando.");
                     ShowWindow(target, SwRestore);
