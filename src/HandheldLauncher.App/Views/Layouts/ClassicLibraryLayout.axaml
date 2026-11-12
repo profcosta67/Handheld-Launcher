@@ -63,7 +63,7 @@
         <Grid IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
           <Image Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}" Stretch="UniformToFill" Opacity="0.3" IsHitTestVisible="False"><Image.Effect><media:BlurEffect Radius="5" /></Image.Effect></Image>
           <Image x:Name="HeroBackImage" Stretch="Uniform" IsHitTestVisible="False" />
-          <Image x:Name="HeroImage" Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}" Stretch="Uniform" />
+          <Image x:Name="HeroImage" anim:ImageBehavior.AnimatedSource="{Binding SelectedTile.BannerImagePath}" Stretch="Uniform" />
           <Border IsHitTestVisible="False">
             <Border.Background><LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%"><GradientStop Color="#1A1A1A" Offset="0.0" /><GradientStop Color="Transparent" Offset="0.10" /><GradientStop Color="Transparent" Offset="0.90" /><GradientStop Color="#1A1A1A" Offset="1.0" /></LinearGradientBrush></Border.Background>
           </Border>
@@ -76,7 +76,7 @@
 
             <Border Grid.Column="1" Width="132" Height="202" CornerRadius="22" Background="{DynamicResource SurfaceRaisedBrush}" BorderBrush="{DynamicResource TileSeparatorBrush}" BorderThickness="1" ClipToBounds="True" VerticalAlignment="Center" Margin="24,0,0,0">
               <Grid>
-                <Image Source="{Binding SelectedTile.CarouselTileImagePath, Converter={StaticResource FileToBitmapConverter}}" Stretch="UniformToFill" />
+                <Image anim:ImageBehavior.AnimatedSource="{Binding SelectedTile.CarouselTileImagePath}" Stretch="UniformToFill" />
                 <Border Background="{DynamicResource SurfaceBrush}" IsVisible="{Binding SelectedTile.ShowEmptyCarouselPlaceholder}">
                   <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12" Margin="12">
                     <PathIcon Width="30" Height="30" Data="{StaticResource IconGamepad}" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" />
@@ -166,7 +166,7 @@
 
                 <Border Classes="gameTile" Classes.focused="{Binding IsFocused}" Classes.lastPlayed="{Binding IsLastPlayed}" Width="{Binding TileWidth}" Height="{Binding TileHeight}" PointerPressed="OnTilePointerPressed" DoubleTapped="OnTileDoubleTapped">
                   <Grid>
-                    <Image Source="{Binding TileImagePath, Converter={StaticResource FileToBitmapConverter}}" Stretch="UniformToFill" />
+                    <Image anim:ImageBehavior.AnimatedSource="{Binding TileImagePath}" Stretch="UniformToFill" />
                     <Border Background="#99383838" IsHitTestVisible="False" IsVisible="{Binding IsOwnedNotInstalled}" />
                     <TextBlock Text="{Binding Title}" Classes="gameTitle" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="10" IsVisible="{Binding ShowEmptyPlaceholder}" />
                     <Border Background="{Binding PlatformBadgeColorHex, Converter={StaticResource HexColorToBrushConverter}}" CornerRadius="4" Padding="5,2" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8" IsVisible="{Binding HasPlatformBadge}"><TextBlock Text="{Binding PlatformBadgeText}" FontSize="10" FontWeight="Bold" Foreground="White" /></Border>

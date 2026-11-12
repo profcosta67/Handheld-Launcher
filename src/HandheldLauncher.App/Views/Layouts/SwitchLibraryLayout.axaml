@@ -77,7 +77,7 @@
     <Image x:Name="HeroBackImage" Stretch="UniformToFill" IsHitTestVisible="False">
       <Image.Effect><media:BlurEffect Radius="22" /></Image.Effect>
     </Image>
-    <Image x:Name="HeroImage" Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}" Stretch="UniformToFill" IsHitTestVisible="False">
+    <Image x:Name="HeroImage" anim:ImageBehavior.AnimatedSource="{Binding SelectedTile.BannerImagePath}" Stretch="UniformToFill" IsHitTestVisible="False">
       <Image.Effect><media:BlurEffect Radius="22" /></Image.Effect>
     </Image>
 
@@ -139,7 +139,7 @@
 
                     <Border Classes="switchTile" Classes.focused="{Binding IsFocused}">
                       <Grid>
-                        <Image Source="{Binding CarouselTileImagePath, Converter={StaticResource FileToBitmapConverter}}" Width="{Binding CarouselTileWidth}" Height="{Binding CarouselTileHeight}" Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <Image anim:ImageBehavior.AnimatedSource="{Binding CarouselTileImagePath}" Width="{Binding CarouselTileWidth}" Height="{Binding CarouselTileHeight}" Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         <Border Background="{DynamicResource BackdropDimBrush}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" IsVisible="{Binding ShowEmptyCarouselPlaceholder}">
                           <TextBlock Text="{Binding Title}" Classes="gameTitle" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="8" />
                         </Border>
