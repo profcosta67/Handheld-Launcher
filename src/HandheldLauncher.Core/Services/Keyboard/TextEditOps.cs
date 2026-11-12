@@ -40,6 +40,21 @@ public static class TextEditOps
         return (current.Remove(start - 1, 1), start - 1);
     }
 
+    /// <summary>
+    /// Move o cursor <paramref name="delta"/> posições (−1 = esquerda, +1 = direita).
+    /// Com seleção, a primeira seta só a desfaz: ← vai ao início dela, → ao fim —
+    /// como num campo de texto normal. Nunca sai de [0, tamanho do texto].
+    /// </summary>
+    public static int MoveCaret(string? text, int selectionStart, int selectionLength, int delta)
+    {
+        var current = text ?? string.Empty;
+        var (start, length) = Normalize(current, selectionStart, selectionLength);
+
+        if (length > 0) return delta < 0 ? start : start + length;
+
+        return Math.Clamp(start + delta, 0, current.Length);
+    }
+
     private static (int Start, int Length) Normalize(string text, int selectionStart, int selectionLength)
     {
         var start = Math.Clamp(selectionStart, 0, text.Length);

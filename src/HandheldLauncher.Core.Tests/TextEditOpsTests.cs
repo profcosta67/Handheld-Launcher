@@ -85,4 +85,21 @@ public class TextEditOpsTests
         Assert.Equal(string.Empty, text);
         Assert.Equal(0, caret);
     }
+
+    [Fact]
+    public void MoveCaret_WalksInsideTextAndClampsAtEnds()
+    {
+        Assert.Equal(1, TextEditOps.MoveCaret("abc", 2, 0, -1));
+        Assert.Equal(3, TextEditOps.MoveCaret("abc", 2, 0, +1));
+        Assert.Equal(0, TextEditOps.MoveCaret("abc", 0, 0, -1));
+        Assert.Equal(3, TextEditOps.MoveCaret("abc", 3, 0, +1));
+        Assert.Equal(0, TextEditOps.MoveCaret(null, 0, 0, +1));
+    }
+
+    [Fact]
+    public void MoveCaret_WithSelectionJumpsToItsEdge()
+    {
+        Assert.Equal(1, TextEditOps.MoveCaret("abcd", 1, 2, -1));
+        Assert.Equal(3, TextEditOps.MoveCaret("abcd", 1, 2, +1));
+    }
 }

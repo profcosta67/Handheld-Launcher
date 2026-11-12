@@ -106,6 +106,12 @@ public partial class OnScreenKeyboardView : UserControl
             case GamepadAction.Back:
                 RaiseClose();
                 break;
+            case GamepadAction.PreviousFilter: // LB: cursor para a esquerda
+                MoveCaret(-1);
+                break;
+            case GamepadAction.NextFilter: // RB: cursor para a direita
+                MoveCaret(+1);
+                break;
             default:
                 // Qualquer outra ação com o teclado aberto é consumida de propósito.
                 break;
@@ -211,6 +217,14 @@ public partial class OnScreenKeyboardView : UserControl
                 }
                 break;
 
+            case KeyboardKeyKind.CaretLeft:
+                MoveCaret(-1);
+                break;
+
+            case KeyboardKeyKind.CaretRight:
+                MoveCaret(+1);
+                break;
+
             case KeyboardKeyKind.Enter:
                 SubmitRequested?.Invoke(this, EventArgs.Empty);
                 break;
@@ -229,6 +243,15 @@ public partial class OnScreenKeyboardView : UserControl
                 RaiseClose();
                 break;
         }
+    }
+
+    private void MoveCaret(int delta)
+    {
+        if (_target is null) return;
+        var caret = TextEditOps.MoveCaret(TargetText(), SelectionStart(), SelectionLength(), delta);
+        _target.SelectionStart = caret;
+        _target.SelectionEnd = caret;
+        _target.CaretIndex = caret;
     }
 
     private void RaiseClose()

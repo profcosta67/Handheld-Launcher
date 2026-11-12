@@ -32,7 +32,7 @@ public class OnScreenKeyboardLayoutTests
         var bottom = OnScreenKeyboardLayout.Letters(shifted: false)[3];
 
         Assert.Equal(
-            [KeyboardKeyKind.Page, KeyboardKeyKind.Space, KeyboardKeyKind.Clear, KeyboardKeyKind.Close],
+            [KeyboardKeyKind.Page, KeyboardKeyKind.Space, KeyboardKeyKind.CaretLeft, KeyboardKeyKind.CaretRight, KeyboardKeyKind.Clear, KeyboardKeyKind.Close],
             bottom.Select(k => k.Kind));
     }
 
@@ -76,13 +76,13 @@ public class OnScreenKeyboardLayoutTests
     }
 
     [Fact]
-    public void Move_DownFromShiftLandsOnClose()
+    public void Move_DownFromShiftLandsOnClear()
     {
-        // ⇧ (1.5) e "fechar" (1.5) têm o mesmo centro.
+        // ⇧ tem centro em 7,75; na linha de baixo o "limpar" (centro 8,25) é o mais próximo.
         var rows = OnScreenKeyboardLayout.Letters(shifted: false);
 
-        Assert.Equal((3, 3), OnScreenKeyboardLayout.Move(rows, 2, 7, KeyboardDirection.Down));
-        Assert.Equal("fechar", rows[3][3].Label);
+        Assert.Equal((3, 4), OnScreenKeyboardLayout.Move(rows, 2, 7, KeyboardDirection.Down));
+        Assert.Equal("limpar", rows[3][4].Label);
     }
 
     [Fact]
@@ -99,7 +99,7 @@ public class OnScreenKeyboardLayoutTests
         var rows = OnScreenKeyboardLayout.Letters(shifted: false);
 
         Assert.Equal((0, 0), OnScreenKeyboardLayout.Move(rows, -5, -5, KeyboardDirection.Left));
-        Assert.Equal((3, 3), OnScreenKeyboardLayout.Move(rows, 99, 99, KeyboardDirection.Right));
+        Assert.Equal((3, 5), OnScreenKeyboardLayout.Move(rows, 99, 99, KeyboardDirection.Right));
     }
 
     [Fact]
