@@ -41,20 +41,35 @@ public static class InputDedup
         return false;
     }
 
-    /// <summary>Devolve true se esta tecla repete um movimento do controle de agora há pouco.</summary>
+    /// <summary>
+    /// Fase de entrada (Tunnel): devolve true se esta tecla repete um movimento do
+    /// controle de agora há pouco. Não registra a tecla — isso fica para
+    /// <see cref="NoteKeyHandled"/>, depois de alguém de fato tratá-la.
+    /// </summary>
     public static bool DropKey(Key key)
     {
         var kind = FromKey(key);
         if (kind == Kind.None) return false;
-        var now = DateTime.UtcNow;
-        if ((now - LastPad[(int)kind]).TotalMilliseconds < WindowMs)
+        if ((DateTime.UtcNow - LastPad[(int)kind]).TotalMilliseconds < WindowMs)
         {
             LastPad[(int)kind] = DateTime.MinValue;
             Log($"tecla {key} ignorada: a mesma ação já chegou pelo controle");
             return true;
         }
-        LastKey[(int)kind] = now;
         return false;
+    }
+
+    /// <summary>
+    /// Fase de saída (Bubble, inclusive já tratados): só uma tecla que FEZ algo
+    /// (Handled) pode anular o aperto do controle que vem logo depois. Tecla sem
+    /// dono (ex.: o QS não trata teclado) não apaga o controle (revisão 12/11).
+    /// </summary>
+    public static void NoteKeyHandled(Key key, bool handled, bool droppedByUs)
+    {
+        if (!handled || droppedByUs) return;
+        var kind = FromKey(key);
+        if (kind == Kind.None) return;
+        LastKey[(int)kind] = DateTime.UtcNow;
     }
 
     private static void Log(string what)

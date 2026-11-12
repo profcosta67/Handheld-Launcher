@@ -571,7 +571,9 @@ private void SetAddButtonFocused(bool focused)
         // borda crua do HID (sem debounce) e entrava ~60 ms antes do XInput — no log de
         // 12/11 13:15 apareciam movimentos da ponte sem aperto correspondente no XInput.
         // Com foco, a fonte é o XInput; a ponte só vale quando o painel está SEM foco.
-        if (_overlayWindow is { IsActive: true })
+        // Revisão 12/11: só se o XInput estiver vivo — slot morto (reinício do controle,
+        // HidHide) volta para a ponte, senão o QS ficaria sem input nenhum.
+        if (_overlayWindow is { IsActive: true } && _gamepad.IsConnected)
         {
             if (!_hidPadLoggedDuplicate)
             {

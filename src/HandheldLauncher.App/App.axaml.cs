@@ -29,9 +29,18 @@ public partial class App : Application
     {
         // v0.25.10: tecla que repete um movimento do controle (controle virando teclado)
         // não move a seleção de novo — ver Input/InputDedup. Vale para todas as janelas.
+        var droppedKeys = new System.Runtime.CompilerServices.ConditionalWeakTable<Avalonia.Input.KeyEventArgs, object>();
         Avalonia.Input.InputElement.KeyDownEvent.AddClassHandler<Avalonia.Controls.Window>(
-            (_, e) => { if (HandheldLauncher.App.Input.InputDedup.DropKey(e.Key)) e.Handled = true; },
+            (_, e) =>
+            {
+                if (!HandheldLauncher.App.Input.InputDedup.DropKey(e.Key)) return;
+                e.Handled = true;
+                droppedKeys.AddOrUpdate(e, true);
+            },
             Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        Avalonia.Input.InputElement.KeyDownEvent.AddClassHandler<Avalonia.Controls.Window>(
+            (_, e) => HandheldLauncher.App.Input.InputDedup.NoteKeyHandled(e.Key, e.Handled, droppedKeys.TryGetValue(e, out _)),
+            Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
