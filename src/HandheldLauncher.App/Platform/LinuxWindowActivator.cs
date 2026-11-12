@@ -64,16 +64,22 @@ internal static class LinuxWindowActivator
         finally { if (d != IntPtr.Zero) { try { XCloseDisplay(d); } catch { } } }
     }
 
-    /// <summary>Raise repetido (0/150/400 ms): a janela pode ainda não estar mapeada na 1ª tentativa.</summary>
+    /// <summary>
+    /// Raise com verificação: tenta a 0/150/400/900 ms, mas só enquanto a janela
+    /// alvo ainda não for a ativa — pedidos a mais bagunçam jogos Wine/SDL que
+    /// acabaram de voltar de minimizados (tela preta com o jogo rodando).
+    /// </summary>
     public static void RaiseWithRetry(Func<IntPtr> xid, Func<bool> stillWanted, bool above = true)
     {
-        foreach (var ms in new[] { 0, 150, 400 })
+        foreach (var ms in new[] { 1, 150, 400, 900 })
         {
             Avalonia.Threading.DispatcherTimer.RunOnce(() =>
             {
                 if (!stillWanted()) return;
-                Raise(xid(), above);
-            }, TimeSpan.FromMilliseconds(Math.Max(ms, 1)));
+                var target = xid();
+                if (target == IntPtr.Zero || GetActiveWindow() == target) return;
+                Raise(target, above);
+            }, TimeSpan.FromMilliseconds(ms));
         }
     }
 
