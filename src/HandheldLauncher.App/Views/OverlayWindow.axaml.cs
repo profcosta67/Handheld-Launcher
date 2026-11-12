@@ -1507,9 +1507,24 @@ public partial class OverlayWindow : Window
         {
             UpdateScreenInfoText();
             FitToScreen();
+            if (OperatingSystem.IsLinux()) RefitMainWindowLinux();
         }, TimeSpan.FromMilliseconds(1200));
 
         DebugLog.Write($"[TELA] QS 2.0: {w}x{h}@{hz}Hz aplicado.");
+    }
+
+    /// <summary>Linux: depois de trocar a resolução, a tela cheia da Home fica com o tamanho antigo — refaz.</summary>
+    private static void RefitMainWindowLinux()
+    {
+        try
+        {
+            var main = (Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+            if (main is null || main.WindowState != WindowState.FullScreen) return;
+            main.WindowState = WindowState.Normal;
+            DispatcherTimer.RunOnce(() => main.WindowState = WindowState.FullScreen, TimeSpan.FromMilliseconds(250));
+            DebugLog.Write("[TELA] Linux: Home reajustada à nova resolução.");
+        }
+        catch (Exception ex) { DebugLog.Write($"[TELA] Linux: falha ao reajustar a Home: {ex.Message}"); }
     }
 
     private void SetTdpButtonVisual(string activeMode)
