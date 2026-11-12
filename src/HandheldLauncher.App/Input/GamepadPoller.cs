@@ -36,8 +36,11 @@ public sealed class GamepadPoller
     private const int ReleaseCooldownMs = 120;
 
     // === Repeat ===
-    private const int RepeatInitialDelayMs = 500;
-    private const int RepeatIntervalMs = 220;
+    // v0.25.9: mais rápido (antes 500/220 ms). Depois de RepeatFastAfterMs segurando, acelera.
+    private const int RepeatInitialDelayMs = 330;
+    private const int RepeatIntervalMs = 110;
+    private const int RepeatFastAfterMs = 1500;
+    private const int RepeatFastIntervalMs = 70;
 
     private readonly XInput.Buttons[] _previousButtons = new XInput.Buttons[4];
 
@@ -237,7 +240,8 @@ public sealed class GamepadPoller
             if ((now - state.HeldSince).TotalMilliseconds < RepeatInitialDelayMs)
                 return false;
 
-            if ((now - state.LastRepeat).TotalMilliseconds < RepeatIntervalMs)
+            var heldMs = (now - state.HeldSince).TotalMilliseconds;
+            if ((now - state.LastRepeat).TotalMilliseconds < (heldMs >= RepeatFastAfterMs ? RepeatFastIntervalMs : RepeatIntervalMs))
                 return false;
 
             state.LastRepeat = now;
@@ -392,8 +396,26 @@ public sealed class GamepadPoller
         var dirKey = sx * 3 + sy;
         var now = DateTime.UtcNow;
         if (dirKey == 0) _linuxStickDir = 0;
-        else if (dirKey != _linuxStickDir) { _linuxStickDir = dirKey; _linuxStickNext = now.AddMilliseconds(400); AddStick(actions, sx, sy); }
-        else if (now >= _linuxStickNext) { _linuxStickNext = now.AddMilliseconds(120); AddStick(actions, sx, sy); }
+        else if (dirKey != _linuxStickDir) { _linuxStickDir = dirKey; _linuxStickNext = now.AddMilliseconds(RepeatInitialDelayMs); AddStick(actions, sx, sy); }
+        else if (now >= _linuxStickNext) { _linuxStickNext = now.AddMilliseconds(RepeatIntervalMs); AddStick(actions, sx, sy); }
+
+        // D-pad: repeat ao segurar (a primeira ação já saiu pela borda acima), com aceleração.
+        int dx = _evdev.HatX != 0 ? _evdev.HatX : down.Contains(EvdevGamepadReader.BtnDpadRight) ? 1 : down.Contains(EvdevGamepadReader.BtnDpadLeft) ? -1 : 0;
+        int dy = _evdev.HatY != 0 ? _evdev.HatY : down.Contains(EvdevGamepadReader.BtnDpadDown) ? 1 : down.Contains(EvdevGamepadReader.BtnDpadUp) ? -1 : 0;
+        var dKey = dx * 3 + dy;
+        if (dKey == 0) _linuxDpadDir = 0;
+        else if (dKey != _linuxDpadDir)
+        {
+            _linuxDpadDir = dKey;
+            _linuxDpadHeldSince = now;
+            _linuxDpadNext = now.AddMilliseconds(RepeatInitialDelayMs);
+        }
+        else if (now >= _linuxDpadNext)
+        {
+            var fast = (now - _linuxDpadHeldSince).TotalMilliseconds >= RepeatFastAfterMs;
+            _linuxDpadNext = now.AddMilliseconds(fast ? RepeatFastIntervalMs : RepeatIntervalMs);
+            AddStick(actions, dx, dy);
+        }
 
         // Combo L3+R3 abre o Quick Settings (equivalente ao GameInputHelper do Windows).
         if (down.Contains(EvdevGamepadReader.BtnThumbl) && down.Contains(EvdevGamepadReader.BtnThumbr)
@@ -411,6 +433,9 @@ public sealed class GamepadPoller
     private bool? _linuxSwapXY;
     private int _linuxStickDir;
     private DateTime _linuxStickNext;
+    private int _linuxDpadDir;
+    private DateTime _linuxDpadHeldSince;
+    private DateTime _linuxDpadNext;
 
     private static void AddStick(List<GamepadAction> actions, int sx, int sy)
     {

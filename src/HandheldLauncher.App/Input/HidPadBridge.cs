@@ -245,8 +245,11 @@ internal static class HidPadBridge
 /// </summary>
 internal sealed class HidPadReader : IDisposable
 {
-    private const int RepeatInitialDelayMs = 500;
-    private const int RepeatIntervalMs = 220;
+    // Mesmos tempos do GamepadPoller (v0.25.9): 330 ms inicial, 110 ms depois, 70 ms após 1,5 s.
+    private const int RepeatInitialDelayMs = 330;
+    private const int RepeatIntervalMs = 110;
+    private const int RepeatFastAfterMs = 1500;
+    private const int RepeatFastIntervalMs = 70;
     private static readonly TimeSpan OpenRetry = TimeSpan.FromSeconds(1);
 
     private MemoryMappedFile? _file;
@@ -337,7 +340,8 @@ internal sealed class HidPadReader : IDisposable
         }
 
         if ((now - _heldSince[index]).TotalMilliseconds < RepeatInitialDelayMs) return;
-        if ((now - _lastRepeat[index]).TotalMilliseconds < RepeatIntervalMs) return;
+        var heldMs = (now - _heldSince[index]).TotalMilliseconds;
+        if ((now - _lastRepeat[index]).TotalMilliseconds < (heldMs >= RepeatFastAfterMs ? RepeatFastIntervalMs : RepeatIntervalMs)) return;
         _lastRepeat[index] = now;
         actions.Add(action);
     }
