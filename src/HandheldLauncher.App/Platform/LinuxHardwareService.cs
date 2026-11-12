@@ -97,6 +97,11 @@ public class LinuxHardwareService : IHardwareService
 
         var xOut = FirstXrandrOutput() ?? "eDP";
         var xOk = Run("xrandr", $"--output {xOut} --mode {width}x{height} --rate {refreshRate}");
+        if (!xOk)
+        {
+            // Nem todo modo existe a essa taxa (ex.: 1600x900 só a 144 Hz) — tenta sem fixar a taxa.
+            xOk = Run("xrandr", $"--output {xOut} --mode {width}x{height}");
+        }
         DebugLog.Write($"[LINUX] Tela {width}x{height}@{refreshRate}Hz (xrandr): {(xOk ? "ok" : "falhou")}");
     }
 
