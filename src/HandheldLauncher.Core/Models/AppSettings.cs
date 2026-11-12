@@ -29,6 +29,12 @@ public class AppSettings
     // Sem interface (só settings.json): true troca X e Y no Linux.
     public bool LinuxSwapXY { get; set; } = false;
 
+    /// <summary>
+    /// Linux (experimental, settings.json): abre o Quick Settings como janela "filha" do jogo,
+    /// sem tirar o foco dele — evita o jogo minimizar/tela preta. Desligado por padrão.
+    /// </summary>
+    public bool LinuxQsSemFoco { get; set; } = false;
+
     // v0.24.1: caminho de recurso, DESLIGADO por padrão. Medido no driver
     // HidHide 1.5.230: as escritas passam sem administrador, por isso não é
     // preciso UAC nenhum para mascarar o controle. Se uma versão futura do

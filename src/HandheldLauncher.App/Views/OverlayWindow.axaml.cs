@@ -547,7 +547,7 @@ public partial class OverlayWindow : Window
         // de resolução desde a última abertura.
         FitToScreen();
 
-        if (OperatingSystem.IsLinux())
+        if (OperatingSystem.IsLinux() && !LinuxSemFoco)
         {
             // Linux/GNOME: sem isto o QS abre ATRÁS do jogo (só aparece a notificação "está pronto").
             HandheldLauncher.App.Platform.LinuxWindowActivator.RaiseWithRetry(
@@ -892,6 +892,8 @@ public partial class OverlayWindow : Window
     /// <summary>
     /// <summary>Linux: janela X11 que estava ativa (jogo ou launcher) antes do QS abrir.</summary>
     private IntPtr _linuxPrevActive;
+    /// <summary>Linux experimental: QS não pede foco (ver AppSettings.LinuxQsSemFoco).</summary>
+    public bool LinuxSemFoco { get; set; }
     public void SetLinuxPreviousActive(IntPtr xid) => _linuxPrevActive = xid;
 
     private void RestoreForegroundAfterClose()
@@ -900,6 +902,11 @@ public partial class OverlayWindow : Window
         {
             var prev = _linuxPrevActive;
             _linuxPrevActive = IntPtr.Zero;
+            // A janela do próprio launcher não precisa de "devolução": a Home se reativa sozinha, e
+            // um pedido atrasado desminimizava o launcher DEPOIS de abrir um jogo.
+            var mainXid = (Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow?.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+            if (prev == mainXid) prev = IntPtr.Zero;
+            if (prev == IntPtr.Zero) HandheldLauncher.App.Platform.LinuxWindowActivator.CancelPending();
             if (prev != IntPtr.Zero)
             {
                 DebugLog.Write($"[X11] Devolvendo o foco à janela 0x{prev.ToInt64():x} (ativa antes do QS).");

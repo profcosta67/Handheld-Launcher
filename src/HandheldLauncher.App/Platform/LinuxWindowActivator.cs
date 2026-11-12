@@ -20,6 +20,7 @@ internal static class LinuxWindowActivator
     [DllImport("libX11.so.6")] private static extern int XGetWindowProperty(IntPtr d, IntPtr w, IntPtr prop, long offset, long length, bool delete,
         IntPtr reqType, out IntPtr actualType, out int actualFormat, out IntPtr nItems, out IntPtr bytesAfter, out IntPtr data);
     [DllImport("libX11.so.6")] private static extern int XFree(IntPtr p);
+    [DllImport("libX11.so.6")] private static extern int XSetTransientForHint(IntPtr d, IntPtr w, IntPtr prop);
     [DllImport("libX11.so.6")] private static extern int XDefaultScreen(IntPtr d);
     [DllImport("libX11.so.6")] private static extern int XDisplayWidth(IntPtr d, int screen);
     [DllImport("libX11.so.6")] private static extern int XDisplayHeight(IntPtr d, int screen);
@@ -44,6 +45,28 @@ internal static class LinuxWindowActivator
             DebugLog.Write($"[X11] Ativação pedida para a janela 0x{xid.ToInt64():x}.");
         }
         catch (Exception ex) { DebugLog.Write($"[X11] Falha ao ativar janela: {ex.GetType().Name}: {ex.Message}"); }
+        finally { if (d != IntPtr.Zero) { try { XCloseDisplay(d); } catch { } } }
+    }
+
+    private static int _generation;
+
+    /// <summary>Cancela os Raise com retentativa que ainda estão agendados.</summary>
+    public static void CancelPending() => System.Threading.Interlocked.Increment(ref _generation);
+
+    /// <summary>Marca <paramref name="child"/> como janela transitória de <paramref name="parent"/> (fica por cima dela, mesmo em tela cheia, sem precisar de foco).</summary>
+    public static void SetTransientFor(IntPtr child, IntPtr parent)
+    {
+        if (!OperatingSystem.IsLinux() || child == IntPtr.Zero || parent == IntPtr.Zero || child == parent) return;
+        IntPtr d = IntPtr.Zero;
+        try
+        {
+            d = XOpenDisplay(IntPtr.Zero);
+            if (d == IntPtr.Zero) return;
+            XSetTransientForHint(d, child, parent);
+            XFlush(d);
+            DebugLog.Write($"[X11] QS 0x{child.ToInt64():x} marcado como filho de 0x{parent.ToInt64():x} (sem tirar o foco).");
+        }
+        catch (Exception ex) { DebugLog.Write($"[X11] Falha em transient_for: {ex.GetType().Name}: {ex.Message}"); }
         finally { if (d != IntPtr.Zero) { try { XCloseDisplay(d); } catch { } } }
     }
 
@@ -121,11 +144,12 @@ internal static class LinuxWindowActivator
     /// </summary>
     public static void RaiseWithRetry(Func<IntPtr> xid, Func<bool> stillWanted, bool above = true, int[]? delaysMs = null, bool logState = false)
     {
+        var gen = System.Threading.Interlocked.Increment(ref _generation);
         foreach (var ms in delaysMs ?? new[] { 1, 150, 400, 900 })
         {
             Avalonia.Threading.DispatcherTimer.RunOnce(() =>
             {
-                if (!stillWanted()) return;
+                if (gen != _generation || !stillWanted()) return; // um pedido mais novo (ou cancelamento) invalida este
                 var target = xid();
                 if (target == IntPtr.Zero) return;
                 var active = GetActiveWindow();

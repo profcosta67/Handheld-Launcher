@@ -138,6 +138,7 @@ public partial class MainWindow : Window
     private Image HeroImage = null!;
     private Image HeroBackImage = null!;
     private ILibraryLayout _libraryLayout = null!;
+    private bool _linuxQsSemFoco;
     private OverlayWindow? _overlayWindow;
     private DateTime _lastOverlayToggle = DateTime.MinValue;
 
@@ -517,14 +518,25 @@ public partial class MainWindow : Window
                 {
                     var prevX = HandheldLauncher.App.Platform.LinuxWindowActivator.GetActiveWindow();
                     var own = _overlayWindow.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
-                    _overlayWindow.SetLinuxPreviousActive(prevX == own ? IntPtr.Zero : prevX);
-                    DebugLog.Write($"[X11] Janela ativa antes do QS: 0x{prevX.ToInt64():x}");
+                    var semFoco = AppSettingsStore.Load().LinuxQsSemFoco;
+                    _linuxQsSemFoco = semFoco;
+                    _overlayWindow.LinuxSemFoco = semFoco;
+                    // Modo experimental: o QS vira "filho" da janela ativa e nunca pede foco — nada a devolver depois.
+                    _overlayWindow.SetLinuxPreviousActive(semFoco || prevX == own ? IntPtr.Zero : prevX);
+                    if (semFoco) HandheldLauncher.App.Platform.LinuxWindowActivator.SetTransientFor(own, prevX);
+                    DebugLog.Write($"[X11] Janela ativa antes do QS: 0x{prevX.ToInt64():x} (sem foco={semFoco})");
                 }
 
                 _overlayWindow.Opacity = 0;
                 _overlayWindow.SetInitialPosition(); 
                 _overlayWindow.Show();
-                if (OperatingSystem.IsLinux())
+                if (OperatingSystem.IsLinux() && _linuxQsSemFoco)
+                {
+                    var qsX = _overlayWindow.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+                    var parentX = HandheldLauncher.App.Platform.LinuxWindowActivator.GetActiveWindow();
+                    if (parentX != qsX) HandheldLauncher.App.Platform.LinuxWindowActivator.SetTransientFor(qsX, parentX);
+                }
+                if (OperatingSystem.IsLinux() && !_linuxQsSemFoco)
                     HandheldLauncher.App.Platform.LinuxWindowActivator.RaiseWithRetry(
                         () => _overlayWindow.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero, () => _overlayWindow.IsVisible);
 
