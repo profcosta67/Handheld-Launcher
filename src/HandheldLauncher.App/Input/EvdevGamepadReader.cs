@@ -55,6 +55,31 @@ internal sealed class EvdevGamepadReader : IDisposable
     [DllImport("libc", SetLastError = true, EntryPoint = "ioctl")]
     private static extern int Ioctl(int fd, ulong request, byte[] data);
 
+    [DllImport("libc", SetLastError = true, EntryPoint = "ioctl")]
+    private static extern int IoctlArg(int fd, ulong request, IntPtr arg);
+
+    private const ulong EVIOCGRAB = 0x40044590; // _IOW('E', 0x90, int)
+
+    /// <summary>Controle em uso exclusivo do launcher (o jogo deixa de receber os botões).</summary>
+    public bool Grabbed { get; private set; }
+
+    /// <summary>
+    /// Linux: EVIOCGRAB — enquanto ativo, só este processo recebe os eventos do controle
+    /// (equivalente ao HidHide do Windows). O kernel solta sozinho se o launcher fechar.
+    /// </summary>
+    public void SetGrab(bool on)
+    {
+        if (Grabbed == on) return;
+        var ok = 0;
+        foreach (var (path, fd) in _fdByPath)
+        {
+            if (IoctlArg(fd, EVIOCGRAB, on ? (IntPtr)1 : IntPtr.Zero) == 0) ok++;
+            else DebugLog.Write($"[EVDEV] EVIOCGRAB({(on ? 1 : 0)}) falhou em {path} (errno={Marshal.GetLastWin32Error()}).");
+        }
+        Grabbed = on;
+        DebugLog.Write($"[EVDEV] Controle {(on ? "isolado do jogo (exclusivo do QS)" : "devolvido ao jogo")} — {ok}/{_fdByPath.Count} dispositivo(s).");
+    }
+
     private const int O_RDONLY = 0;
     private const int O_NONBLOCK = 0x0800; // Linux
 
@@ -99,6 +124,7 @@ internal sealed class EvdevGamepadReader : IDisposable
                 // Só gamepads (BTN_SOUTH): descarta teclado, mouse, touchscreen, IMU.
                 if (!HasGamepadButtons(fd)) { try { Close(fd); } catch { } _notGamepad.Add(path); continue; }
                 _fdByPath[path] = fd;
+                if (Grabbed) IoctlArg(fd, EVIOCGRAB, (IntPtr)1);
                 _rangeX[fd] = ReadRange(fd, AbsX);
                 _rangeY[fd] = ReadRange(fd, AbsY);
                 _rawX[fd] = 0; _rawY[fd] = 0;

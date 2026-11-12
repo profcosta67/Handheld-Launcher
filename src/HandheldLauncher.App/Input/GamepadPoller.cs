@@ -336,6 +336,13 @@ public sealed class GamepadPoller
 
     private readonly EvdevGamepadReader? _evdev = OperatingSystem.IsLinux() ? new EvdevGamepadReader() : null;
     private HashSet<ushort> _prevDown = new();
+    private bool _wantExclusive;
+
+    /// <summary>
+    /// Linux: pede o controle só para o launcher (QS aberto) ou devolve ao jogo. Só é aplicado
+    /// com todos os botões soltos — assim o jogo não fica com L3/R3 "presos" nem recebe o B que fecha o QS.
+    /// </summary>
+    public void SetExclusive(bool on) => _wantExclusive = on;
     private int _prevHatX;
     private int _prevHatY;
 
@@ -347,6 +354,7 @@ public sealed class GamepadPoller
         _evdev.Poll();
         IsConnected = _evdev.IsConnected;
         var down = new HashSet<ushort>(_evdev.DownButtons);
+        if (_evdev.Grabbed != _wantExclusive && down.Count == 0) _evdev.SetGrab(_wantExclusive);
 
         // Edge detection: só emite na transição solto → pressionado.
         // (repeat automático do D-pad e sticks analógicos ficam para depois do
