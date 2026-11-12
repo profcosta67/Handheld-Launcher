@@ -44,7 +44,14 @@ public class LinuxHardwareService : IHardwareService
     {
         var percent = (int)Math.Clamp(level, 0, 100);
         var ok = Run("brightnessctl", $"set {percent}%");
-        DebugLog.Write($"[LINUX] Brilho: {percent}% (brightnessctl {(ok ? "ok" : "falhou")})");
+        var via = "brightnessctl";
+        if (!ok)
+        {
+            // GNOME sem brightnessctl/permissão: o próprio daemon de energia ajusta, sem root.
+            ok = Run("busctl", $"--user set-property org.gnome.SettingsDaemon.Power /org/gnome/SettingsDaemon/Power org.gnome.SettingsDaemon.Power.Screen Brightness i {percent}");
+            via = "GNOME Power (busctl)";
+        }
+        DebugLog.Write($"[LINUX] Brilho: {percent}% ({via} {(ok ? "ok" : "falhou")})");
     }
 
     public bool SetColorMode(string mode)
@@ -88,11 +95,27 @@ public class LinuxHardwareService : IHardwareService
             return;
         }
 
-        var xOk = Run("xrandr", $"--output eDP --mode {width}x{height} --rate {refreshRate}");
+        var xOut = FirstXrandrOutput() ?? "eDP";
+        var xOk = Run("xrandr", $"--output {xOut} --mode {width}x{height} --rate {refreshRate}");
         DebugLog.Write($"[LINUX] Tela {width}x{height}@{refreshRate}Hz (xrandr): {(xOk ? "ok" : "falhou")}");
     }
 
     // -------------------------- helpers --------------------------
+
+    /// <summary>Nome da saída principal ligada (eDP-1, eDP, HDMI-1…) lido do xrandr.</summary>
+    private static string? FirstXrandrOutput()
+    {
+        var text = RunCapture("xrandr") ?? string.Empty;
+        string? first = null;
+        foreach (var line in text.Split('\n'))
+        {
+            var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 2 || parts[1] != "connected") continue;
+            first ??= parts[0];
+            if (line.Contains(" primary ")) return parts[0];
+        }
+        return first;
+    }
 
     private static bool TryParseWatts(string mode, out int watts)
     {
