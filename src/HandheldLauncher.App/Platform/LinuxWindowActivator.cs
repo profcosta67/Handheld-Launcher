@@ -20,6 +20,10 @@ internal static class LinuxWindowActivator
     [DllImport("libX11.so.6")] private static extern int XGetWindowProperty(IntPtr d, IntPtr w, IntPtr prop, long offset, long length, bool delete,
         IntPtr reqType, out IntPtr actualType, out int actualFormat, out IntPtr nItems, out IntPtr bytesAfter, out IntPtr data);
     [DllImport("libX11.so.6")] private static extern int XFree(IntPtr p);
+    [DllImport("libX11.so.6")] private static extern int XDefaultScreen(IntPtr d);
+    [DllImport("libX11.so.6")] private static extern int XDisplayWidth(IntPtr d, int screen);
+    [DllImport("libX11.so.6")] private static extern int XDisplayHeight(IntPtr d, int screen);
+    [DllImport("libX11.so.6")] private static extern IntPtr XGetAtomName(IntPtr d, IntPtr atom);
 
     private const int ClientMessage = 33;
     private const long SubstructureNotifyMask = 0x80000;
@@ -40,6 +44,52 @@ internal static class LinuxWindowActivator
             DebugLog.Write($"[X11] Ativação pedida para a janela 0x{xid.ToInt64():x}.");
         }
         catch (Exception ex) { DebugLog.Write($"[X11] Falha ao ativar janela: {ex.GetType().Name}: {ex.Message}"); }
+        finally { if (d != IntPtr.Zero) { try { XCloseDisplay(d); } catch { } } }
+    }
+
+    /// <summary>Tamanho REAL da tela agora (o Avalonia guarda o antigo depois de um xrandr).</summary>
+    public static (int W, int H)? GetScreenSize()
+    {
+        if (!OperatingSystem.IsLinux()) return null;
+        IntPtr d = IntPtr.Zero;
+        try
+        {
+            d = XOpenDisplay(IntPtr.Zero);
+            if (d == IntPtr.Zero) return null;
+            var sc = XDefaultScreen(d);
+            return (XDisplayWidth(d, sc), XDisplayHeight(d, sc));
+        }
+        catch { return null; }
+        finally { if (d != IntPtr.Zero) { try { XCloseDisplay(d); } catch { } } }
+    }
+
+    /// <summary>Diagnóstico: estados _NET_WM_STATE da janela (HIDDEN = minimizada, FULLSCREEN…).</summary>
+    public static string DescribeState(IntPtr xid)
+    {
+        if (!OperatingSystem.IsLinux() || xid == IntPtr.Zero) return "n/d";
+        IntPtr d = IntPtr.Zero;
+        try
+        {
+            d = XOpenDisplay(IntPtr.Zero);
+            if (d == IntPtr.Zero) return "sem X11";
+            var prop = XInternAtom(d, "_NET_WM_STATE", false);
+            var rc = XGetWindowProperty(d, xid, prop, 0, 32, false, (IntPtr)4 /* XA_ATOM */,
+                out _, out var fmt, out var n, out _, out var data);
+            if (rc != 0 || data == IntPtr.Zero) return "(nenhum)";
+            try
+            {
+                var names = new List<string>();
+                for (var i = 0; i < (int)n.ToInt64() && fmt == 32; i++)
+                {
+                    var atom = Marshal.ReadIntPtr(data, i * IntPtr.Size);
+                    var namePtr = XGetAtomName(d, atom);
+                    if (namePtr != IntPtr.Zero) { names.Add((Marshal.PtrToStringAnsi(namePtr) ?? "?").Replace("_NET_WM_STATE_", "")); XFree(namePtr); }
+                }
+                return names.Count == 0 ? "(nenhum)" : string.Join(",", names);
+            }
+            finally { XFree(data); }
+        }
+        catch (Exception ex) { return $"erro {ex.GetType().Name}"; }
         finally { if (d != IntPtr.Zero) { try { XCloseDisplay(d); } catch { } } }
     }
 
@@ -69,15 +119,18 @@ internal static class LinuxWindowActivator
     /// alvo ainda não for a ativa — pedidos a mais bagunçam jogos Wine/SDL que
     /// acabaram de voltar de minimizados (tela preta com o jogo rodando).
     /// </summary>
-    public static void RaiseWithRetry(Func<IntPtr> xid, Func<bool> stillWanted, bool above = true)
+    public static void RaiseWithRetry(Func<IntPtr> xid, Func<bool> stillWanted, bool above = true, int[]? delaysMs = null, bool logState = false)
     {
-        foreach (var ms in new[] { 1, 150, 400, 900 })
+        foreach (var ms in delaysMs ?? new[] { 1, 150, 400, 900 })
         {
             Avalonia.Threading.DispatcherTimer.RunOnce(() =>
             {
                 if (!stillWanted()) return;
                 var target = xid();
-                if (target == IntPtr.Zero || GetActiveWindow() == target) return;
+                if (target == IntPtr.Zero) return;
+                var active = GetActiveWindow();
+                if (logState) DebugLog.Write($"[X11] Estado da janela 0x{target.ToInt64():x} ({ms} ms): {DescribeState(target)}; ativa=0x{active.ToInt64():x}");
+                if (active == target) return;
                 Raise(target, above);
             }, TimeSpan.FromMilliseconds(ms));
         }

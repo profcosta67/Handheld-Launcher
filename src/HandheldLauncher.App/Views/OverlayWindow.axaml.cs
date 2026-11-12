@@ -616,7 +616,7 @@ public partial class OverlayWindow : Window
             var screen = Screens.Primary ?? Screens.All.FirstOrDefault();
             if (screen == null) return;
 
-            var wa = screen.WorkingArea;
+            var wa = LinuxRealWorkArea(screen.WorkingArea);
             var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
 
             double actualWidth = (Width > 0 && !double.IsNaN(Width)) ? Width : (Bounds.Width > 0 ? Bounds.Width : 440);
@@ -665,7 +665,7 @@ public partial class OverlayWindow : Window
             var screen = Screens.ScreenFromWindow(this) ?? Screens.Primary ?? Screens.All.FirstOrDefault();
             if (screen == null) return;
 
-            var wa = screen.WorkingArea;
+            var wa = LinuxRealWorkArea(screen.WorkingArea);
             var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
 
             // 850 é a altura de desenho; nunca pode exceder o ecrã disponível,
@@ -682,6 +682,21 @@ public partial class OverlayWindow : Window
         }
     }
 
+    /// <summary>
+    /// Linux/X11: depois de um xrandr o Avalonia continua a reportar a área de trabalho antiga
+    /// (o QS ficava fora da tela). Usa o tamanho real do X quando difere.
+    /// </summary>
+    private static PixelRect LinuxRealWorkArea(PixelRect avaloniaArea)
+    {
+        if (!OperatingSystem.IsLinux()) return avaloniaArea;
+        var real = HandheldLauncher.App.Platform.LinuxWindowActivator.GetScreenSize();
+        if (real is null || real.Value.W <= 0 || real.Value.H <= 0) return avaloniaArea;
+        if (real.Value.W == avaloniaArea.X + avaloniaArea.Width && real.Value.H >= avaloniaArea.Y + avaloniaArea.Height) return avaloniaArea;
+        const int topBar = 40; // barra do GNOME
+        DebugLog.Write($"[TELA] Linux: tamanho real {real.Value.W}x{real.Value.H} difere do Avalonia ({avaloniaArea.Width}x{avaloniaArea.Height}) — usando o real.");
+        return new PixelRect(0, topBar, real.Value.W, real.Value.H - topBar);
+    }
+
     public void SetInitialPosition()
     {
         try
@@ -689,7 +704,7 @@ public partial class OverlayWindow : Window
             var screen = Screens.Primary ?? Screens.All.FirstOrDefault();
             if (screen == null) return;
 
-            var wa = screen.WorkingArea;
+            var wa = LinuxRealWorkArea(screen.WorkingArea);
             var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
             
             double w = (Width > 0 && !double.IsNaN(Width)) ? Width : 440;
@@ -888,7 +903,7 @@ public partial class OverlayWindow : Window
             if (prev != IntPtr.Zero)
             {
                 DebugLog.Write($"[X11] Devolvendo o foco à janela 0x{prev.ToInt64():x} (ativa antes do QS).");
-                HandheldLauncher.App.Platform.LinuxWindowActivator.RaiseWithRetry(() => prev, () => !IsVisible, above: false);
+                HandheldLauncher.App.Platform.LinuxWindowActivator.RaiseWithRetry(() => prev, () => !IsVisible, above: false, delaysMs: new[] { 250, 600, 1100, 1800 }, logState: true);
             }
             return;
         }
