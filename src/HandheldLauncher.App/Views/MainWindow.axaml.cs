@@ -202,7 +202,11 @@ public partial class MainWindow : Window
             // Linux: o evdev é global — com o QS aberto o jogo também recebia os botões.
             // Mesmo interruptor do HidHide do Windows ("isolar controle no QS").
             if (OperatingSystem.IsLinux())
-                _gamepad.SetExclusive(isOverlayVisible && AppSettingsStore.Load().IsolateControllerOnOverlay);
+            {
+                var isolar = AppSettingsStore.Load().IsolateControllerOnOverlay;
+                _gamepad.SetExclusive(isOverlayVisible && isolar);
+                DebugLog.Write($"[EVDEV] Isolamento do controle pedido={isOverlayVisible && isolar} (QS visível={isOverlayVisible}, opção 'isolar controle'={isolar}).");
+            }
 
             DebugLog.Write($"[PERF] QS visível={isOverlayVisible}; timer={_gamepadTimer.IsEnabled}; launcher visível={IsVisible}.");
             ResetOverlayInputState(); // v0.25.9: ponte HID e diagnóstico recomeçam a cada abertura

@@ -31,9 +31,10 @@ public class AppSettings
 
     /// <summary>
     /// Linux (experimental, settings.json): abre o Quick Settings como janela "filha" do jogo,
-    /// sem tirar o foco dele — evita o jogo minimizar/tela preta. Desligado por padrão.
+    /// sem tirar o foco dele — evita o jogo minimizar/tela preta. Ligado por padrão desde
+    /// o teste de 12/11 (GNOME/X11: jogo fica FOCUSED com o QS aberto). Só tem efeito no Linux.
     /// </summary>
-    public bool LinuxQsSemFoco { get; set; } = false;
+    public bool LinuxQsSemFoco { get; set; } = true;
 
     // v0.24.1: caminho de recurso, DESLIGADO por padrão. Medido no driver
     // HidHide 1.5.230: as escritas passam sem administrador, por isso não é
