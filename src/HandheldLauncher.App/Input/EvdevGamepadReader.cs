@@ -82,6 +82,7 @@ internal sealed class EvdevGamepadReader : IDisposable
 
     private const int O_RDONLY = 0;
     private const int O_NONBLOCK = 0x0800; // Linux
+    private const int O_CLOEXEC = 0x80000; // o jogo filho não herda o fd (e o grab)
 
     private readonly Dictionary<string, int> _fdByPath = new();
     private readonly Dictionary<int, (int Min, int Max)> _rangeX = new();
@@ -114,7 +115,7 @@ internal sealed class EvdevGamepadReader : IDisposable
             foreach (var path in Directory.EnumerateFiles("/dev/input", "event*"))
             {
                 if (_fdByPath.ContainsKey(path) || _notGamepad.Contains(path)) continue;
-                var fd = Open(path, O_RDONLY | O_NONBLOCK);
+                var fd = Open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
                 if (fd < 0)
                 {
                     if (_deniedLogged.Add(path))

@@ -342,7 +342,13 @@ public sealed class GamepadPoller
     /// Linux: pede o controle só para o launcher (QS aberto) ou devolve ao jogo. Só é aplicado
     /// com todos os botões soltos — assim o jogo não fica com L3/R3 "presos" nem recebe o B que fecha o QS.
     /// </summary>
-    public void SetExclusive(bool on) => _wantExclusive = on;
+    public void SetExclusive(bool on)
+    {
+        _wantExclusive = on;
+        // Ao desligar, solta já (sem esperar o próximo poll, que pode não vir se o timer parar).
+        // Soltar o grab com botão pressionado é inofensivo; o ioctl só retira o acesso exclusivo.
+        if (!on && _evdev is { Grabbed: true }) _evdev.SetGrab(false);
+    }
     private int _prevHatX;
     private int _prevHatY;
 
