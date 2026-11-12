@@ -3,6 +3,8 @@ using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Controls.Primitives;
+using Avalonia.Media;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
@@ -169,26 +171,43 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
 
         var content = GetContentFocusables();
 
-        if (_focusZone == FocusZone.Content && _contentIndex >= 0 && _contentIndex < content.Count
-            && content[_contentIndex] is ComboBox openCombo && openCombo.IsDropDownOpen)
+        // v0.25.9: lista de um ComboBox aberta pelo controle. ↑/↓ só movem o destaque; o valor (e,
+        // no caso do tema, as cores da janela inteira) só muda ao confirmar com A. Antes cada passo
+        // aplicava o tema ao vivo: as cores/ThemeVariant mudavam por baixo da lista, ela fechava
+        // e o direcional passava a navegar pelos controles — o tema "seguia o joystick" sem travar.
+        // A referência do ComboBox é guardada (não é mais procurada pelo índice na lista de
+        // controles, que muda quando a janela é reestilizada).
+        if (_activeCombo is not { IsDropDownOpen: true }
+            && _focusZone == FocusZone.Content && _contentIndex >= 0 && _contentIndex < content.Count
+            && content[_contentIndex] is ComboBox adopted && adopted.IsDropDownOpen)
+        {
+            BeginComboPick(adopted); // aberto pelo mouse/toque: adota
+        }
+
+        if (_activeCombo is { IsDropDownOpen: true } openCombo)
         {
             switch (action)
             {
                 case GamepadAction.MoveDown:
-                    openCombo.SelectedIndex = Math.Min(openCombo.ItemCount - 1, Math.Max(0, openCombo.SelectedIndex + 1));
+                    MoveComboPick(openCombo, +1);
                     return true;
                 case GamepadAction.MoveUp:
-                    openCombo.SelectedIndex = Math.Max(0, openCombo.SelectedIndex - 1);
+                    MoveComboPick(openCombo, -1);
                     return true;
                 case GamepadAction.Confirm:
+                    EndComboPick(openCombo, commit: true);
+                    return true;
                 case GamepadAction.Back:
-                    openCombo.IsDropDownOpen = false;
-                    FocusControl(openCombo);
+                    EndComboPick(openCombo, commit: false);
                     return true;
                 case GamepadAction.MoveLeft:
                 case GamepadAction.MoveRight:
                     return true;
             }
+        }
+        else
+        {
+            _activeCombo = null;
         }
 
         if (_focusZone == FocusZone.Tabs)
@@ -257,7 +276,12 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
                     return true;
 
                 case GamepadAction.Confirm:
-                    if (content.Count > 0) ActivateControl(content[_contentIndex]);
+                    if (content.Count > 0 && content[_contentIndex] is ComboBox toOpen)
+                    {
+                        toOpen.IsDropDownOpen = true;
+                        BeginComboPick(toOpen);
+                    }
+                    else if (content.Count > 0) ActivateControl(content[_contentIndex]);
                     return true;
 
                 case GamepadAction.Back:
@@ -355,6 +379,62 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
         }
 
         return false;
+    }
+
+    private ComboBox? _activeCombo;
+    private int _pendingComboIndex;
+
+    private void BeginComboPick(ComboBox combo)
+    {
+        _activeCombo = combo;
+        _pendingComboIndex = Math.Max(0, combo.SelectedIndex);
+        HighlightComboPick(combo);
+    }
+
+    private void MoveComboPick(ComboBox combo, int delta)
+    {
+        if (combo.ItemCount == 0) return;
+        _pendingComboIndex = Math.Clamp(_pendingComboIndex + delta, 0, combo.ItemCount - 1);
+        if (!HighlightComboPick(combo))
+            combo.SelectedIndex = _pendingComboIndex; // sem contêiner para destacar: cai no modo ao vivo
+    }
+
+    private void EndComboPick(ComboBox combo, bool commit)
+    {
+        ClearComboHighlight(combo);
+        if (commit && combo.ItemCount > 0) combo.SelectedIndex = _pendingComboIndex;
+        combo.IsDropDownOpen = false;
+        _activeCombo = null;
+        FocusControl(combo);
+    }
+
+    /// <summary>Destaca o item pendente. Devolve false se a lista ainda não criou os itens.</summary>
+    private bool HighlightComboPick(ComboBox combo)
+    {
+        var highlighted = false;
+        IBrush brush = this.TryFindResource("AccentBrush", ActualThemeVariant, out var res) && res is IBrush b
+            ? b
+            : Brushes.DodgerBlue;
+
+        for (var i = 0; i < combo.ItemCount; i++)
+        {
+            if (combo.ContainerFromIndex(i) is not ComboBoxItem item) continue;
+            if (i == _pendingComboIndex)
+            {
+                item.Background = brush;
+                item.BringIntoView();
+                highlighted = true;
+            }
+            else item.ClearValue(TemplatedControl.BackgroundProperty);
+        }
+
+        return highlighted;
+    }
+
+    private static void ClearComboHighlight(ComboBox combo)
+    {
+        for (var i = 0; i < combo.ItemCount; i++)
+            if (combo.ContainerFromIndex(i) is ComboBoxItem item) item.ClearValue(TemplatedControl.BackgroundProperty);
     }
 
     private static void ActivateControl(Control control)
