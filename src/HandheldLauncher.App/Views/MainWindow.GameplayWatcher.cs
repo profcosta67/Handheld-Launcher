@@ -665,6 +665,18 @@ private void SetAddButtonFocused(bool focused)
             // segundo plano), porque o XInput não chega a quem está sem foco.
             actions = ApplyHidBridge(actions);
 
+            // Linux: o evdev é global — o jogo e o launcher recebem os MESMOS botões. Com um
+            // jogo aberto e o launcher sem foco, só o atalho do QS vale; senão "B" no jogo fechava
+            // o jogo pelo launcher, "A" relançava e a janela voltava a brigar pela frente.
+            if (OperatingSystem.IsLinux() && actions.Count > 0
+                && (vm.IsLaunching || vm.RunningGame is not null)
+                && _overlayWindow is not { IsVisible: true }
+                && !IsActive && _activeDialog?.IsActive != true)
+            {
+                var onlyQs = actions.Where(a => a == GamepadAction.ToggleQuickSettings).ToList();
+                actions = onlyQs;
+            }
+
             // v0.25.9 (diagnóstico do "QS não responde ao controle"): enquanto
             // o painel está aberto, registra se o controle está chegando.
             TraceOverlayInput(actions.Count);

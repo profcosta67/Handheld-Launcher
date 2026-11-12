@@ -210,10 +210,18 @@ public partial class MainWindow : Window
             }
             else
             {
-                if (IsVisible)
+                // IsVisible também é true com a janela minimizada (Linux): ao fechar o QS com um
+                // jogo em andamento, o foco volta ao jogo, não ao launcher.
+                var gameRunning = DataContext is MainViewModel { RunningGame: not null };
+                if (IsVisible && WindowState != WindowState.Minimized && !gameRunning)
                 {
                     Activate();
                     DebugLog.Write("[PERF] Quick Settings fechou. Launcher re-focado para navegação.");
+                }
+                else if (!OperatingSystem.IsWindows())
+                {
+                    // Linux: o timer precisa continuar vivo para o L3+R3 abrir o QS durante o jogo.
+                    DebugLog.Write("[PERF] Quick Settings fechou. Foco fica com o jogo (timer do gamepad mantido).");
                 }
                 else if (_gamepadTimer.IsEnabled)
                 {
