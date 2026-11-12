@@ -27,6 +27,12 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        // v0.25.10: tecla que repete um movimento do controle (controle virando teclado)
+        // não move a seleção de novo — ver Input/InputDedup. Vale para todas as janelas.
+        Avalonia.Input.InputElement.KeyDownEvent.AddClassHandler<Avalonia.Controls.Window>(
+            (_, e) => { if (HandheldLauncher.App.Input.InputDedup.DropKey(e.Key)) e.Handled = true; },
+            Avalonia.Interactivity.RoutingStrategies.Tunnel);
+
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             // O manifesto exige elevação para que os controles de hardware

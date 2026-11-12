@@ -639,7 +639,10 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
     }
 
     private void OnFreezeCancelClick(object? sender, RoutedEventArgs e)
-        => ViewModel.IsFreezeConfirmOpen = false;
+    {
+        ViewModel.IsFreezeConfirmOpen = false;
+        DebugLog.Write("[CONGELAR] Aviso de risco cancelado; modo do QS mantido.");
+    }
 
     /// <summary>
     /// com o driver do HidHide (e o TDP) a funcionar de verdade. O reinício usa

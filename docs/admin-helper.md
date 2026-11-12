@@ -1,6 +1,8 @@
 # Proposta — Ajudante privilegiado (fim do "iniciar com admin")
 
-> Status: **proposta para aprovação** (11/11/2026). Nada disto está implementado.
+> Status: **aprovada (12/11/2026)** — implementação depois da 0.26, primeiro no
+> Windows (etapas 2 e 3), depois no Linux (etapa 4, marco 0.27). Até lá o
+> launcher continua abrindo sempre como administrador. Nada disto está implementado.
 > Nenhuma função existente é removida: o caminho atual (abrir elevado pela
 > tarefa de logon) continua funcionando até o novo estar validado no aparelho.
 

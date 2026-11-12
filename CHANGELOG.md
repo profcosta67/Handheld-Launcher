@@ -3,6 +3,9 @@
 Mais recente primeiro. Cada versão tem notas completas em [`release-notes/`](release-notes/).
 Betas não entram aqui: o que eles trazem aparece na versão estável que os junta.
 
+## [0.25.10] — em preparação
+Fecha o bloco 0.25: escolha do modo do Quick Settings dentro do jogo (pegar o foco, não pegar, congelar com aviso), toques fantasma corrigidos (ponte HID e controle virando teclado), QS sem passar pelo centro da tela, diagnóstico do estado do jogo. Decisões de QS e administrador registradas. [Notas](release-notes/0.25.10.md)
+
 ## [0.25.9] — 2026-11-12
 Estável que junta as betas 0.25.9: Quick Settings respondendo ao controle dentro do jogo, capas animadas de volta, teclado na tela com cursor ◀ ▶ e maiúscula, listas das Configurações que só aplicam ao confirmar, refinamento visual e suporte Linux (experimental). Conhecido: em tela cheia exclusiva do Windows o QS aparece sobre fundo preto. [Notas](release-notes/0.25.9.md)
 
