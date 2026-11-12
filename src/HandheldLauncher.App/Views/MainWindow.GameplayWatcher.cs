@@ -520,12 +520,195 @@ private void SetAddButtonFocused(bool focused)
         catch { return true; }
     }
 
+    // v0.25.9: ponte do controle para o QS com o jogo em foco (ver Input/HidPadBridge).
+    private HidPadReader? _hidPad;
+    private bool _hidPadArmed;
+    private bool _hidPadLoggedDuplicate;
+
+    /// <summary>
+    /// v0.25.9 (revisão): chamado a cada abertura/fechamento do QS. O tique do
+    /// controle PARA quando o QS fecha com o jogo na frente, então nenhum tique
+    /// "vê" o painel fechado — sem isto, a 2ª abertura reaproveitava a
+    /// referência antiga e os botões apertados jogando viravam ações no QS.
+    /// </summary>
+    private void ResetOverlayInputState()
+    {
+        _hidPadArmed = false;
+        _overlayTraceWasVisible = false;
+    }
+
+    private IReadOnlyList<GamepadAction> ApplyHidBridge(IReadOnlyList<GamepadAction> xinputActions)
+    {
+        var qsInGame = OperatingSystem.IsWindows()
+                       && _gamepadComboModeIsGame == true
+                       && _overlayWindow is { IsVisible: true };
+        if (!qsInGame)
+        {
+            _hidPadArmed = false;
+            return xinputActions;
+        }
+
+        if (_hidPad is null)
+        {
+            _hidPad = new HidPadReader();
+            Closed += (_, _) => { _hidPad?.Dispose(); _hidPad = null; };
+        }
+
+        if (!_hidPadArmed)
+        {
+            // Abertura do QS: apertos feitos jogando não viram ações no painel.
+            _hidPad.Resync();
+            _hidPadArmed = true;
+            _hidPadLoggedDuplicate = false;
+        }
+
+        var hidActions = _hidPad.Poll();
+        // Sem ponte (ou ajudante morto, com dado velho): fica como antes (XInput).
+        if (!_hidPad.HasData || !GameInputHelper.IsHelperRunning) return xinputActions;
+
+        // Com a ponte ativa, ela é a única fonte — se o XInput também entregar
+        // (launcher em foco), o mesmo aperto não pode valer duas vezes.
+        if (xinputActions.Count > 0 && !_hidPadLoggedDuplicate)
+        {
+            _hidPadLoggedDuplicate = true;
+            DebugLog.Write("[QS-INPUT] XInput também entregou botões; usando só a ponte HID para não duplicar.");
+        }
+        return hidActions;
+    }
+
+    // v0.25.9: diagnóstico de entrada com o Quick Settings aberto.
+    private bool _loggedOverlayOverDialog;
+    private bool _overlayTraceWasVisible;
+    private DateTime _overlayTraceOpenedAt;
+    private DateTime _overlayTraceLastInputAt;
+    private DateTime _overlayTraceLastReportAt;
+    private int _overlayTraceReports;
+    private bool _overlayTraceFirstInputLogged;
+
+    /// <summary>
+    /// v0.25.9: com o QS visível, anota no log o primeiro botão recebido e,
+    /// se nada chegar por 5 s, uma foto do estado (slots do XInput, slot
+    /// ativo, quem está na frente, diálogo aberto, ajudante do L3+R3). Até 6
+    /// fotos por abertura, pra não inundar o log. Só lê estado — não muda nada.
+    /// </summary>
+    private void TraceOverlayInput(int actionCount)
+    {
+        var visible = _overlayWindow is { IsVisible: true };
+        var now = DateTime.UtcNow;
+
+        if (visible && !_overlayTraceWasVisible)
+        {
+            _overlayTraceOpenedAt = now;
+            _overlayTraceLastInputAt = now;
+            _overlayTraceLastReportAt = now;
+            _overlayTraceReports = 0;
+            _overlayTraceFirstInputLogged = false;
+            _loggedOverlayOverDialog = false;
+        }
+        _overlayTraceWasVisible = visible;
+        if (!visible) return;
+
+        if (actionCount > 0)
+        {
+            _overlayTraceLastInputAt = now;
+            if (!_overlayTraceFirstInputLogged)
+            {
+                _overlayTraceFirstInputLogged = true;
+                DebugLog.Write($"[QS-INPUT] Primeiro botão recebido {(now - _overlayTraceOpenedAt).TotalMilliseconds:F0} ms após abrir (slot={_gamepad.ActiveSlot}).");
+            }
+            return;
+        }
+
+        if (_overlayTraceReports >= 6) return;
+        if (now - _overlayTraceLastInputAt < TimeSpan.FromSeconds(5)) return;
+        if (now - _overlayTraceLastReportAt < TimeSpan.FromSeconds(5)) return;
+
+        _overlayTraceLastReportAt = now;
+        _overlayTraceReports++;
+        DebugLog.Write($"[QS-INPUT] {(now - _overlayTraceLastInputAt).TotalSeconds:F0} s sem botão com o QS aberto · {DescribeInputState()}");
+    }
+
+    /// <summary>v0.25.9: foto do estado de entrada para o log (só leitura).</summary>
+    private string DescribeInputState()
+    {
+        try
+        {
+            var connected = "";
+            if (OperatingSystem.IsWindows())
+                for (uint slot = 0; slot < 4; slot++)
+                    if (XInput.TryGetState(slot, out _)) connected += slot;
+
+            var foreground = OperatingSystem.IsWindows() ? HidComboReader.ForegroundDescription() : "n/d";
+            var restart = OverlayWindow.LastControllerRestartUtc is { } r
+                ? $"{(DateTime.UtcNow - r).TotalSeconds:F0} s atrás"
+                : "nenhum";
+            return $"xinput=[{connected}], slot ativo={_gamepad.ActiveSlot}, conectado={_gamepad.IsConnected}, " +
+                   $"timer={_gamepadTimer.IsEnabled}, diálogo={_activeDialog?.GetType().Name ?? "nenhum"}, " +
+                   $"ajudante L3+R3={(GameInputHelper.IsHelperRunning ? "vivo" : "parado")}, " +
+                   $"reinício do controle: {restart} (pendente={_overlayWindow?.HasPendingControllerRestart ?? false}), " +
+                   $"elevado={ElevationService.IsElevated}, em foco: {foreground}";
+        }
+        catch (Exception ex)
+        {
+            return $"(falha ao descrever: {ex.GetType().Name})";
+        }
+    }
+
     private void OnGamepadTick(object? sender, EventArgs e)
     {
         try
         {
             if (DataContext is not MainViewModel vm) return;
             var actions = _gamepad.Poll();
+
+            // v0.25.9: QS aberto num jogo → botões vêm do ajudante (HID em
+            // segundo plano), porque o XInput não chega a quem está sem foco.
+            actions = ApplyHidBridge(actions);
+
+            // Linux: o evdev é global — o jogo e o launcher recebem os MESMOS botões. Com um
+            // jogo aberto e o launcher sem foco, só o atalho do QS vale; senão "B" no jogo fechava
+            // o jogo pelo launcher, "A" relançava e a janela voltava a brigar pela frente.
+            if (OperatingSystem.IsLinux() && actions.Count > 0
+                && (vm.IsLaunching || vm.RunningGame is not null)
+                && _overlayWindow is not { IsVisible: true }
+                && !IsActive && _activeDialog?.IsActive != true)
+            {
+                var onlyQs = actions.Where(a => a == GamepadAction.ToggleQuickSettings).ToList();
+                actions = onlyQs;
+            }
+
+            // v0.25.9 (diagnóstico do "QS não responde ao controle"): enquanto
+            // o painel está aberto, registra se o controle está chegando.
+            TraceOverlayInput(actions.Count);
+
+            // v0.25.9: o Quick Settings fica POR CIMA de tudo, inclusive de um
+            // diálogo modal (Detalhes, Configurações, Central de Ajuda…). Antes,
+            // com um diálogo registrado, o lote inteiro ia pro diálogo escondido
+            // atrás e o QS aberto não recebia nenhum botão. Só muda o caso em
+            // que os dois existem ao mesmo tempo; sem QS visível, nada muda.
+            if (_activeDialog is not null && _overlayWindow is { IsVisible: true } overlayOverDialog)
+            {
+                if (actions.Count > 0 && !_loggedOverlayOverDialog)
+                {
+                    _loggedOverlayOverDialog = true;
+                    DebugLog.Write($"[OVERLAY] Controle enviado ao QS (havia diálogo aberto por baixo: {_activeDialog.GetType().Name}).");
+                }
+
+                foreach (var overlayAction in actions)
+                {
+                    UiSounds.PlayForAction(overlayAction);
+                    if (overlayAction == GamepadAction.ToggleQuickSettings)
+                    {
+                        ToggleOverlay();
+                        return;
+                    }
+
+                    overlayOverDialog.HandleGamepadAction(overlayAction);
+                    if (!overlayOverDialog.IsVisible)
+                        return;
+                }
+                return;
+            }
 
             if (_activeDialog is { } dialog)
             {
@@ -540,6 +723,8 @@ private void SetAddButtonFocused(bool focused)
                 foreach (var dialogAction in actions)
                 {
                     UiSounds.PlayForAction(dialogAction);
+                    if (OperatingSystem.IsLinux())
+                        DebugLog.Write($"[DIALOG] {dialog.GetType().Name} ação={dialogAction} foco={dialog.FocusManager?.GetFocusedElement()?.GetType().Name ?? "nenhum"}");
                     // v0.24.2: teclado na tela — com ele aberto, D-Pad/A/B são
                     // dele (antes iam para o navegador genérico e o B fechava a
                     // janela em vez de esconder o teclado).

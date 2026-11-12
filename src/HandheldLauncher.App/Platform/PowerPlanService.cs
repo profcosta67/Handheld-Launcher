@@ -1,48 +1,68 @@
 using System;
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 using HandheldLauncher.App.Diagnostics;
 
 namespace HandheldLauncher.App.Platform;
 
+internal sealed record PowerPlanInfo(string Guid, string Name, bool IsActive);
+
 /// <summary>
-/// Troca o plano de energia ativo do Windows por <c>powercfg /setactive</c>.
+/// Lists and activates Windows power plans with <c>powercfg</c>.
 /// </summary>
 internal static class PowerPlanService
 {
-    // GUIDs nativos do Windows
-    private const string HighPerformanceGuid = "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c";
-    private const string BalancedGuid = "381b4222-f694-41f0-9685-ff5bb260df2e";
+    private static readonly Regex PlanLine = new(
+        @"(?<guid>[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})\s+\((?<name>.+)\)\s*(?<active>\*)?\s*$",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-    public static bool SetHighPerformance() => SetActive(HighPerformanceGuid, "Alto desempenho");
-    public static bool SetBalanced() => SetActive(BalancedGuid, "Equilibrado");
-
-    /// <summary>True quando o plano ativo é o "Alto desempenho".</summary>
-    public static bool IsHighPerformanceActive()
+    public static IReadOnlyList<PowerPlanInfo> GetAvailablePlans()
     {
-        if (!OperatingSystem.IsWindows()) return false;
-        var output = Run("powercfg", "/getactivescheme", out _);
-        return output.Contains(HighPerformanceGuid, StringComparison.OrdinalIgnoreCase);
+        if (!OperatingSystem.IsWindows()) return Array.Empty<PowerPlanInfo>();
+
+        var output = Run("/list", out var exitCode);
+        if (exitCode != 0)
+        {
+            DebugLog.Write($"[PLANO] Falha ao listar planos de energia; exit={exitCode}.");
+            return Array.Empty<PowerPlanInfo>();
+        }
+
+        var plans = new List<PowerPlanInfo>();
+        foreach (var line in output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var match = PlanLine.Match(line);
+            if (!match.Success) continue;
+
+            var guid = Guid.Parse(match.Groups["guid"].Value).ToString("D");
+            plans.Add(new PowerPlanInfo(guid, match.Groups["name"].Value.Trim(), match.Groups["active"].Success));
+        }
+
+        if (plans.Count == 0)
+            DebugLog.Write("[PLANO] powercfg não retornou planos de energia reconhecíveis.");
+
+        return plans;
     }
 
-    private static bool SetActive(string guid, string label)
+    public static bool SetActivePlan(string guid)
     {
-        if (!OperatingSystem.IsWindows()) return false;
+        if (!OperatingSystem.IsWindows() || !Guid.TryParse(guid, out var parsedGuid)) return false;
 
-        _ = Run("powercfg", $"/setactive {guid}", out var exit);
-        DebugLog.Write(exit == 0
-            ? $"[PLANO] Plano \"{label}\" ativado ({guid})."
-            : $"[PLANO] Falha ao ativar \"{label}\" ({guid}); exit={exit}.");
-        return exit == 0;
+        var normalizedGuid = parsedGuid.ToString("D");
+        _ = Run($"/setactive {normalizedGuid}", out var exitCode);
+        DebugLog.Write(exitCode == 0
+            ? $"[PLANO] Plano {normalizedGuid} ativado."
+            : $"[PLANO] Falha ao ativar o plano {normalizedGuid}; exit={exitCode}.");
+        return exitCode == 0;
     }
 
-    private static string Run(string file, string args, out int exitCode)
+    private static string Run(string arguments, out int exitCode)
     {
         try
         {
             using var process = Process.Start(new ProcessStartInfo
             {
-                FileName = file,
-                Arguments = args,
+                FileName = "powercfg",
+                Arguments = arguments,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
@@ -59,7 +79,7 @@ internal static class PowerPlanService
         }
         catch (Exception ex)
         {
-            DebugLog.Write($"[PLANO] Falha ao executar {file} {args}: {ex.Message}");
+            DebugLog.Write($"[PLANO] Falha ao executar powercfg {arguments}: {ex.Message}");
             exitCode = -1;
             return string.Empty;
         }

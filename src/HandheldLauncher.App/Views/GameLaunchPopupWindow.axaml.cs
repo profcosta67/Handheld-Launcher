@@ -26,6 +26,8 @@ public partial class GameLaunchPopupWindow : Window
     public GameLaunchPopupWindow(string title, string? iconPath)
     {
         InitializeComponent();
+        // Linux: popup sempre-no-topo cobriria o diálogo do Steam e bloquearia os cliques.
+        if (!OperatingSystem.IsWindows()) { Topmost = false; ShowActivated = false; ShowInTaskbar = false; }
 
         _spinnerTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(110) };
         _spinnerTimer.Tick += (_, _) =>

@@ -73,6 +73,7 @@ public partial class OverlayWindow
     /// </summary>
     private void LogFullscreenWindows()
     {
+        if (!OperatingSystem.IsWindows()) return; // usa user32.dll
         if (_fullscreenDumps >= 5) return;
         _fullscreenDumps++;
         try

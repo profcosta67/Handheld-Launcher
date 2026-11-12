@@ -43,8 +43,8 @@ public partial class BigScreenLibraryLayout : UserControl, ILibraryLayout
     private void OnTilePointerPressed(object? sender, PointerPressedEventArgs e) => Owner?.HandleTilePointerPressed(sender, e);
     private void OnTileDoubleTapped(object? sender, TappedEventArgs e) => Owner?.HandleTileDoubleTapped(sender, e);
     private void OnSubFilterClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => Owner?.HandleSubFilterClick(sender, e);
+    private void OnOpenNetworksClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => Owner?.ToggleControlCenter();
 
-    // 🟢 CORRIGIDO: abre o popup direto, sem depender do MainWindow ter esse método.
     private async void OnOpenWifiSettingsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (Owner is null) return;

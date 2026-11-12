@@ -12,6 +12,10 @@ public enum KeyboardKeyKind
     Page,
     Close,
     Clear,
+    /// <summary>Move o cursor do campo uma posição para a esquerda.</summary>
+    CaretLeft,
+    /// <summary>Move o cursor do campo uma posição para a direita.</summary>
+    CaretRight,
 }
 
 /// <summary>Direção do D-Pad dentro do teclado.</summary>
@@ -55,7 +59,7 @@ public static class OnScreenKeyboardLayout
 
         row1.Add(new KeyboardKey("backspace", "⌫", KeyboardKeyKind.Backspace, 1.5));
         row2.Add(new KeyboardKey("enter", "⏎", KeyboardKeyKind.Enter, 1.5));
-        row3.Add(new KeyboardKey("shift", shifted ? "⇧ fixo" : "⇧", KeyboardKeyKind.Shift, 1.5));
+        row3.Add(new KeyboardKey("shift", shifted ? "AA" : "Aa", KeyboardKeyKind.Shift, 1.5));
 
         return
         [
@@ -65,6 +69,8 @@ public static class OnScreenKeyboardLayout
             [
                 new KeyboardKey("page", "123", KeyboardKeyKind.Page, 1.5),
                 new KeyboardKey("space", "espaço", KeyboardKeyKind.Space, 4),
+                new KeyboardKey("caret-left", "◀", KeyboardKeyKind.CaretLeft, 1),
+                new KeyboardKey("caret-right", "▶", KeyboardKeyKind.CaretRight, 1),
                 new KeyboardKey("clear", "limpar", KeyboardKeyKind.Clear, 1.5),
                 new KeyboardKey("close", "fechar", KeyboardKeyKind.Close, 1.5),
             ],
@@ -97,6 +103,8 @@ public static class OnScreenKeyboardLayout
             [
                 new KeyboardKey("page", "abc", KeyboardKeyKind.Page, 1.5),
                 new KeyboardKey("space", "espaço", KeyboardKeyKind.Space, 4),
+                new KeyboardKey("caret-left", "◀", KeyboardKeyKind.CaretLeft, 1),
+                new KeyboardKey("caret-right", "▶", KeyboardKeyKind.CaretRight, 1),
                 new KeyboardKey("clear", "limpar", KeyboardKeyKind.Clear, 1.5),
                 new KeyboardKey("close", "fechar", KeyboardKeyKind.Close, 1.5),
             ],

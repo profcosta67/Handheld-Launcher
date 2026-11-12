@@ -17,20 +17,35 @@
   <UserControl.Styles>
     <Style Selector="Button.modernTab">
       <Setter Property="Background" Value="Transparent" />
-      <Setter Property="Foreground" Value="#99FFFFFF" />
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="BorderBrush" Value="Transparent" />
-      <Setter Property="Padding" Value="16,8" />
-      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="Padding" Value="18,9" />
+      <Setter Property="CornerRadius" Value="18" />
     </Style>
-    <Style Selector="Button.modernTab:pointerover">
-      <Setter Property="Background" Value="#20FFFFFF" />
-      <Setter Property="Foreground" Value="#FFFFFFFF" />
+    <Style Selector="Button.modernTab:pointerover /template/ ContentPresenter, Button.modernTab:focus /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentTranslucentBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     </Style>
     <Style Selector="Button.modernTab.active">
-      <Setter Property="Background" Value="#30FFFFFF" />
-      <Setter Property="Foreground" Value="#FFFFFFFF" />
-      <Setter Property="BorderBrush" Value="#40FFFFFF" />
+      <Setter Property="Background" Value="{DynamicResource AccentTranslucentBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <Style Selector="Button.modernTab.active /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentTranslucentBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+    <Style Selector="Border.bigScreenTile">
+      <Setter Property="CornerRadius" Value="22" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource TileSeparatorBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="ClipToBounds" Value="True" />
+    </Style>
+    <Style Selector="Border.bigScreenTile.focused">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="BorderThickness" Value="3" />
     </Style>
     <Style Selector="Button.addGhostCard">
       <Setter Property="Width" Value="320" />
@@ -52,7 +67,7 @@
     <Image x:Name="HeroBackImage" Stretch="UniformToFill" IsHitTestVisible="False">
       <Image.Effect><media:BlurEffect Radius="6" /></Image.Effect>
     </Image>
-    <Image x:Name="HeroImage" Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}" Stretch="UniformToFill" Opacity="0.48" IsHitTestVisible="False">
+    <Image x:Name="HeroImage" anim:ImageBehavior.AnimatedSource="{Binding SelectedTile.BannerImagePath}" Stretch="UniformToFill" Opacity="0.48" IsHitTestVisible="False">
       <Image.Effect><media:BlurEffect Radius="4" /></Image.Effect>
     </Image>
     <Border Background="#88070A12" IsHitTestVisible="False" />
@@ -73,8 +88,14 @@
         </Border>
       </StackPanel>
       
-      <Border Grid.Row="0" Background="#AA10131B" BorderBrush="#445F6F8D" BorderThickness="1" CornerRadius="14" Padding="16,9" VerticalAlignment="Top" HorizontalAlignment="Right">
+      <Border Grid.Row="0" Background="{DynamicResource PanelTranslucentBrush}" BorderBrush="{DynamicResource TileSeparatorBrush}" BorderThickness="1" CornerRadius="18" Padding="12,7" VerticalAlignment="Top" HorizontalAlignment="Right">
         <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+          <Button Classes="pill" Click="OnOpenNetworksClick" ToolTip.Tip="Central de Controle" FontSize="10" Padding="9,5">
+            <StackPanel Orientation="Horizontal" Spacing="5">
+              <PathIcon Width="13" Height="13" Data="{StaticResource IconWifi}" />
+              <TextBlock Text="Redes" FontWeight="SemiBold" />
+            </StackPanel>
+          </Button>
           <Button Classes="pill" Content="Wi-Fi" FontSize="10" Padding="8,5" Click="OnOpenWifiSettingsClick" />
           <Button Classes="pill" Content="Bluetooth" FontSize="10" Padding="8,5" Click="OnOpenBluetoothSettingsClick" />
           <Border Width="1" Height="22" Background="#556C7898" />
@@ -112,9 +133,9 @@
               <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="20" Margin="28,4,0,4" VerticalAlignment="Center" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:GameTileViewModel">
-                  <Border Width="320" Height="180" CornerRadius="17" Background="#D9151925" BorderBrush="#667B8499" BorderThickness="1" ClipToBounds="True" PointerPressed="OnTilePointerPressed" DoubleTapped="OnTileDoubleTapped">
+                  <Border Classes="bigScreenTile" Classes.focused="{Binding IsFocused}" Width="320" Height="180" PointerPressed="OnTilePointerPressed" DoubleTapped="OnTileDoubleTapped">
                     <Grid>
-                      <Image Source="{Binding WideCapsuleImagePath, Converter={StaticResource FileToBitmapConverter}}" Stretch="UniformToFill" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                      <Image anim:ImageBehavior.AnimatedSource="{Binding WideCapsuleImagePath}" Stretch="UniformToFill" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
                       <Border Background="#55000000" IsVisible="{Binding ShowEmptyWideCapsulePlaceholder}"><TextBlock Text="{Binding Title}" Foreground="#FFF5F7FF" FontSize="19" FontWeight="SemiBold" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="18" /></Border>
                       <Border Background="#B8000000" Height="48" VerticalAlignment="Bottom" Padding="14,7">
                         <Grid ColumnDefinitions="*,Auto">
@@ -123,8 +144,8 @@
                         </Grid>
                       </Border>
                       <PathIcon Width="18" Height="18" Data="{StaticResource IconStar}" Foreground="#FFFFC45C" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="12" IsVisible="{Binding IsFavorite}" />
-                      <Border BorderBrush="#FFF5F7FF" CornerRadius="14" BorderThickness="3" IsHitTestVisible="False" IsVisible="{Binding IsFocused}" />
-                      <Border BorderBrush="{DynamicResource AccentBrush}" CornerRadius="11" BorderThickness="2" Margin="5" IsHitTestVisible="False" IsVisible="{Binding IsFocused}" />
+                      <Border BorderBrush="#FFF5F7FF" CornerRadius="19" BorderThickness="2" IsHitTestVisible="False" IsVisible="{Binding IsFocused}" />
+                      <Border BorderBrush="{DynamicResource AccentBrush}" CornerRadius="15" BorderThickness="2" Margin="5" IsHitTestVisible="False" IsVisible="{Binding IsFocused}" />
                     </Grid>
                   </Border>
                 </DataTemplate>

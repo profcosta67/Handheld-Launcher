@@ -418,6 +418,7 @@ public sealed class SettingsViewModel : ViewModelBase
     private bool _isolateControllerOnOverlay = true;
     public bool IsolateControllerOnOverlay { get => _isolateControllerOnOverlay; set => SetField(ref _isolateControllerOnOverlay, value); }
 
+
     /// <summary>
     /// v0.24.1: quando o driver recusa a configuração (sem administrador), o
     /// mascaramento é delegado ao processo elevado — o UAC aparece uma vez por
@@ -749,7 +750,7 @@ public sealed class SettingsViewModel : ViewModelBase
 
         if (!_syncthingService.IsAvailable)
         {
-            SyncthingStatusText = "syncthing.exe não encontrado na pasta Tools do launcher.";
+            SyncthingStatusText = OperatingSystem.IsWindows() ? "syncthing.exe não encontrado na pasta Tools do launcher." : "syncthing não encontrado (instale o pacote syncthing ou coloque o binário na pasta Tools do launcher).";
             return false;
         }
 

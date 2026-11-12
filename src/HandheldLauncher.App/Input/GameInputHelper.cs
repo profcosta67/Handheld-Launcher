@@ -75,6 +75,30 @@ internal static unsafe class GameInputHelper
         }
     }
 
+    /// <summary>
+    /// v0.25.9: o ajudante morreu sozinho (crash ou saída) sem ninguém mandar
+    /// parar. StopHelperProcess zera a referência, então um Stop de propósito
+    /// (voltar pra biblioteca, atualização, fechar o launcher) nunca conta aqui.
+    /// </summary>
+    public static bool HelperDiedUnexpectedly
+    {
+        get
+        {
+            try { return _helper is { HasExited: true }; }
+            catch { return false; }
+        }
+    }
+
+    /// <summary>v0.25.9: código de saída do ajudante ATUAL (null se vivo ou ausente).</summary>
+    public static int? CurrentHelperExitCode
+    {
+        get
+        {
+            try { return _helper is { HasExited: true } h ? h.ExitCode : null; }
+            catch { return null; }
+        }
+    }
+
     public static int? LastExitCode { get; private set; }
     public static DateTime? LastExitAtLocal { get; private set; }
 
@@ -89,6 +113,13 @@ internal static unsafe class GameInputHelper
         try
         {
             if (_helper is { HasExited: false }) return;
+
+            // v0.25.9: o ajudante anterior morreu sozinho — libera o handle dele.
+            if (_helper is not null)
+            {
+                try { _helper.Dispose(); } catch { /* melhor esforço */ }
+                _helper = null;
+            }
 
             var exe = Environment.ProcessPath;
             if (string.IsNullOrEmpty(exe)) return;
@@ -207,6 +238,9 @@ internal static unsafe class GameInputHelper
             }
             signal.Set();
         }
+
+        // v0.25.9: ponte do controle para o Quick Settings (ver HidPadBridge).
+        HidPadBridge.InitWriter(parentPid);
 
         // v0.16.3: leitor HID (Raw Input em segundo plano) — o log do beta.9
         // mostrou que, com o jogo em foco, o GameInput não entrega botão

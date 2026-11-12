@@ -30,6 +30,7 @@ public sealed class NullHidHideService : IHidHideService
     {
     }
 
+
     public void ForceRestartController()
     {
     }

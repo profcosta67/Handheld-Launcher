@@ -21,7 +21,7 @@
     <Style Selector="Button.pill">
       <Setter Property="Background" Value="{StaticResource ButtonBackgroundBrush}" />
       <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="CornerRadius" Value="12" />
       <Setter Property="Padding" Value="12,7" />
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="FontSize" Value="12" />
@@ -68,8 +68,8 @@
 
     <!-- Grupo: sem fundo e sem sombra — só o contorno de foco quando navegas. -->
     <Style Selector="Border.qsGroup">
-      <Setter Property="Padding" Value="10,6" />
-      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="12,8" />
+      <Setter Property="CornerRadius" Value="16" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="BorderBrush" Value="Transparent" />
       <Setter Property="Background" Value="Transparent" />
@@ -211,13 +211,14 @@
             </StackPanel>
           </Border>
 
-          <!-- DESEMPENHO (bateria): força o plano Alto desempenho + brilho máximo + TDP salvo -->
-          <Border x:Name="PerformanceCard" Classes="qsGroup">
+          <!-- PLANO DE ENERGIA: seleção explícita, independente da tomada/bateria -->
+          <Border x:Name="PowerPlanCard" Classes="qsGroup">
             <StackPanel Spacing="0">
-              <TextBlock Text="Desempenho (bateria)" Classes="qsGroupTitle" />
-              <Button x:Name="BtnPerformanceToggle" Content="⚡  Ativar" Classes="pill"
-                      MinWidth="150" HorizontalAlignment="Center" Click="OnPerformanceToggleClick"
-                      ToolTip.Tip="Mesmo desempenho da tomada: plano Alto desempenho + brilho máximo + TDP" />
+              <TextBlock Text="Plano de energia (Windows)" Classes="qsGroupTitle" />
+              <WrapPanel x:Name="PowerPlanHost" HorizontalAlignment="Center" />
+              <TextBlock x:Name="TxtPowerPlanStatus" Text="" FontSize="10" Margin="0,6,0,0"
+                         Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"
+                         HorizontalAlignment="Center" TextAlignment="Center" />
             </StackPanel>
           </Border>
 
@@ -247,4 +248,3 @@
     </Grid>
   </Border>
 </UserControl>
-

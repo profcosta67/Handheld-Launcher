@@ -138,6 +138,7 @@ public partial class MainWindow : Window
     private Image HeroImage = null!;
     private Image HeroBackImage = null!;
     private ILibraryLayout _libraryLayout = null!;
+    private bool _linuxQsSemFoco;
     private OverlayWindow? _overlayWindow;
     private DateTime _lastOverlayToggle = DateTime.MinValue;
 
@@ -150,6 +151,13 @@ public partial class MainWindow : Window
         _hidHideService = hidHideService;
         _syncthingService = syncthingService;
         InitializeComponent();
+        if (OperatingSystem.IsLinux())
+        {
+            // Linux sem blur: Background "Transparent" deixava ver as janelas por trás.
+            TransparencyLevelHint = new[] { Avalonia.Controls.WindowTransparencyLevel.None };
+            ClearValue(BackgroundProperty);
+            Classes.Add("linuxSolid");
+        }
 
         ApplyLayoutTheme();
 
@@ -191,7 +199,17 @@ public partial class MainWindow : Window
 
         OverlayWindow.OnOverlayVisibilityChanged += (isOverlayVisible) =>
         {
+            // Linux: o evdev é global — com o QS aberto o jogo também recebia os botões.
+            // Mesmo interruptor do HidHide do Windows ("isolar controle no QS").
+            if (OperatingSystem.IsLinux())
+            {
+                var isolar = AppSettingsStore.Load().IsolateControllerOnOverlay;
+                _gamepad.SetExclusive(isOverlayVisible && isolar);
+                DebugLog.Write($"[EVDEV] Isolamento do controle pedido={isOverlayVisible && isolar} (QS visível={isOverlayVisible}, opção 'isolar controle'={isolar}).");
+            }
+
             DebugLog.Write($"[PERF] QS visível={isOverlayVisible}; timer={_gamepadTimer.IsEnabled}; launcher visível={IsVisible}.");
+            ResetOverlayInputState(); // v0.25.9: ponte HID e diagnóstico recomeçam a cada abertura
             if (isOverlayVisible)
             {
                 if (!_gamepadTimer.IsEnabled)
@@ -202,10 +220,19 @@ public partial class MainWindow : Window
             }
             else
             {
-                if (IsVisible)
+                // IsVisible também é true com a janela minimizada (Linux): ao fechar o QS com um
+                // jogo em andamento, o foco volta ao jogo, não ao launcher.
+                var linuxJogoEmFoco = OperatingSystem.IsLinux()
+                    && (WindowState == WindowState.Minimized || DataContext is MainViewModel { RunningGame: not null });
+                if (IsVisible && !linuxJogoEmFoco)
                 {
                     Activate();
                     DebugLog.Write("[PERF] Quick Settings fechou. Launcher re-focado para navegação.");
+                }
+                else if (!OperatingSystem.IsWindows())
+                {
+                    // Linux: o timer precisa continuar vivo para o L3+R3 abrir o QS durante o jogo.
+                    DebugLog.Write("[PERF] Quick Settings fechou. Foco fica com o jogo (timer do gamepad mantido).");
                 }
                 else if (_gamepadTimer.IsEnabled)
                 {
@@ -307,6 +334,50 @@ public partial class MainWindow : Window
         };
     }
 
+    // v0.25.9: vigia do ajudante do L3+R3. Com o jogo na frente, o QS só
+    // abre pelo ajudante (processo separado). Se ele morria no meio do jogo,
+    // ninguém o reabria e o L3+R3 parava de funcionar até voltar pra
+    // biblioteca. Agora, se ele morreu SOZINHO, é reaberto — no máximo uma
+    // vez a cada 15 s, pra nunca virar um laço se ele morrer na partida.
+    private DispatcherTimer? _helperWatchdog;
+    private DateTime _lastHelperRevive = DateTime.MinValue;
+    private int _helperRevivesThisGame;
+    private const int MaxHelperRevivesPerGame = 3;
+
+    private void EnsureHelperWatchdog()
+    {
+        if (_helperWatchdog is not null || !OperatingSystem.IsWindows()) return;
+        _helperWatchdog = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+        _helperWatchdog.Tick += (_, _) =>
+        {
+            try
+            {
+                if (_gamepadComboModeIsGame != true || !GameInputHelper.HelperDiedUnexpectedly) return;
+                if (DateTime.UtcNow - _lastHelperRevive < TimeSpan.FromSeconds(15)) return;
+                var code = GameInputHelper.CurrentHelperExitCode is { } c ? $"0x{c:X8}" : "?";
+                if (_helperRevivesThisGame >= MaxHelperRevivesPerGame)
+                {
+                    if (_helperRevivesThisGame == MaxHelperRevivesPerGame)
+                    {
+                        _helperRevivesThisGame++;
+                        DebugLog.Write($"[OVERLAY] Ajudante do L3+R3 morreu de novo (código={code}) — {MaxHelperRevivesPerGame} tentativas neste jogo, desistindo até o próximo jogo.");
+                    }
+                    return;
+                }
+                _lastHelperRevive = DateTime.UtcNow;
+                _helperRevivesThisGame++;
+                DebugLog.Write($"[OVERLAY] Ajudante do L3+R3 morreu com o jogo aberto (código={code}) — reabrindo ({_helperRevivesThisGame}/{MaxHelperRevivesPerGame}).");
+                GameInputHelper.StartHelperProcess();
+            }
+            catch (Exception ex)
+            {
+                DebugLog.Write($"[OVERLAY] Vigia do ajudante: {ex.GetType().Name}: {ex.Message}");
+            }
+        };
+        _helperWatchdog.Start();
+        Closed += (_, _) => { _helperWatchdog?.Stop(); _helperWatchdog = null; };
+    }
+
     private void SetGamepadComboDetectionForGame(bool gameRunning)
     {
         if (!OperatingSystem.IsWindows()) return;
@@ -315,6 +386,8 @@ public partial class MainWindow : Window
 
         if (gameRunning)
         {
+            EnsureHelperWatchdog();
+            _helperRevivesThisGame = 0;
             _overlayHotkeyWatcher?.Dispose();
             _overlayHotkeyWatcher = null;
             GameInputHelper.StartHelperProcess();
@@ -451,9 +524,41 @@ public partial class MainWindow : Window
 
                                 DebugLog.Write($"[OVERLAY] Antes Show: IsVisible={_overlayWindow.IsVisible}, Pos={_overlayWindow.Position}, GameHwnd=0x{gameHwnd:X}");
 
+                if (OperatingSystem.IsLinux())
+                {
+                    var prevX = HandheldLauncher.App.Platform.LinuxWindowActivator.GetActiveWindow();
+                    var own = _overlayWindow.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+                    var semFoco = AppSettingsStore.Load().LinuxQsSemFoco;
+                    _linuxQsSemFoco = semFoco;
+                    _overlayWindow.LinuxSemFoco = semFoco;
+                    // Modo experimental: o QS vira "filho" da janela ativa e nunca pede foco — nada a devolver depois.
+                    // Mesmo no modo sem foco guarda a janela anterior: se o jogo se minimizar mesmo
+                    // assim, o fecho do QS traz de volta (não faz nada se ele já estiver ativo).
+                    _overlayWindow.SetLinuxPreviousActive(prevX == own ? IntPtr.Zero : prevX);
+                    if (semFoco)
+                    {
+                        HandheldLauncher.App.Platform.LinuxWindowActivator.SetNoFocus(own);
+                        HandheldLauncher.App.Platform.LinuxWindowActivator.SetTransientFor(own, prevX);
+                        var gameX = prevX;
+                        DispatcherTimer.RunOnce(() => DebugLog.Write(
+                            $"[X11] Depois de abrir o QS (sem foco): janela 0x{gameX.ToInt64():x} = {HandheldLauncher.App.Platform.LinuxWindowActivator.DescribeState(gameX)}; ativa=0x{HandheldLauncher.App.Platform.LinuxWindowActivator.GetActiveWindow().ToInt64():x}"),
+                            TimeSpan.FromMilliseconds(400));
+                    }
+                    DebugLog.Write($"[X11] Janela ativa antes do QS: 0x{prevX.ToInt64():x} (sem foco={semFoco})");
+                }
+
                 _overlayWindow.Opacity = 0;
                 _overlayWindow.SetInitialPosition(); 
                 _overlayWindow.Show();
+                if (OperatingSystem.IsLinux() && _linuxQsSemFoco)
+                {
+                    var qsX = _overlayWindow.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+                    var parentX = HandheldLauncher.App.Platform.LinuxWindowActivator.GetActiveWindow();
+                    if (parentX != qsX) HandheldLauncher.App.Platform.LinuxWindowActivator.SetTransientFor(qsX, parentX);
+                }
+                if (OperatingSystem.IsLinux() && !_linuxQsSemFoco)
+                    HandheldLauncher.App.Platform.LinuxWindowActivator.RaiseWithRetry(
+                        () => _overlayWindow.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero, () => _overlayWindow.IsVisible);
 
                 // 🟢 REMOVIDO: O bloco que forçava Activate() e SetForegroundWindow()
                 // O WS_EX_NOACTIVATE dentro da OverlayWindow já garante que ela apareça por cima sem roubar o foco.
@@ -464,6 +569,8 @@ public partial class MainWindow : Window
                     {
                         _overlayWindow.Opacity = 1;
                         DebugLog.Write($"[OVERLAY] Mostrado (reposicionado pelo OnOpened). Pos={_overlayWindow.Position}, IsVisible={_overlayWindow.IsVisible}");
+                        // v0.25.9: foto do estado de entrada (depois de mostrar, pra não atrasar o painel).
+                        DebugLog.Write($"[QS-INPUT] Aberto · {DescribeInputState()}");
                     }
                     catch (Exception ex)
                     {
@@ -509,6 +616,12 @@ public partial class MainWindow : Window
                     DebugLog.Write($"[JOGO] '{vm.LaunchingGameTitle}' abriu — minimizando launcher + popup.");
                     if (IsVisible) MinimizeToTray();
                     ShowLaunchPopup(vm.LaunchingGameTitle, vm.LaunchingGameIconPath);
+                }
+                else if (!vm.IsLaunching && !OperatingSystem.IsWindows())
+                {
+                    // Linux: não há detector de janela do jogo (Win32); fecha o popup
+                    // pouco depois de o lançamento terminar.
+                    CloseLaunchPopupWithGrace();
                 }
                 return;
             }

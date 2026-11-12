@@ -229,6 +229,13 @@ public sealed class HidHideService : IHidHideService, IDisposable
             return;
         }
 
+        // Um reinício por vez: abrir e fechar o QS rápido não pode rodar dois pnputil juntos.
+        if (System.Threading.Interlocked.CompareExchange(ref _restartInFlight, 1, 0) != 0)
+        {
+            DebugLog.Write("[HIDHIDE] Reinício do gamepad já em andamento — ignorado.");
+            return;
+        }
+
         _ = Task.Run(() =>
         {
             try
@@ -238,6 +245,7 @@ public sealed class HidHideService : IHidHideService, IDisposable
                 var ids = HidHideTask.FindControllerInstanceIds()
                     .Where(id => id.Contains("IG_00", StringComparison.OrdinalIgnoreCase)
                               || id.Contains("SYNTHETICGAMEPAD", StringComparison.OrdinalIgnoreCase))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList();
 
                 foreach (var id in ids)
@@ -255,7 +263,7 @@ public sealed class HidHideService : IHidHideService, IDisposable
                         if (proc is null) continue;
                         if (!proc.WaitForExit(5000))
                         {
-                            try { proc.Kill(entireProcessTree: true); } catch (Exception swallowedEx) { DebugLog.Swallowed(swallowedEx); }
+                            try { proc.Kill(entireProcessTree: true); proc.WaitForExit(2000); } catch (Exception swallowedEx) { DebugLog.Swallowed(swallowedEx); }
                         }
                         DebugLog.Write($"[HIDHIDE] Gamepad re-enumerado ({id}): exit={proc.ExitCode}.");
                     }
@@ -269,8 +277,14 @@ public sealed class HidHideService : IHidHideService, IDisposable
             {
                 DebugLog.Write($"[HIDHIDE] ForceRestartController falhou: {ex.GetType().Name}: {ex.Message}");
             }
+            finally
+            {
+                System.Threading.Interlocked.Exchange(ref _restartInFlight, 0);
+            }
         });
     }
+
+    private int _restartInFlight;
 
     public void Dispose()
     {

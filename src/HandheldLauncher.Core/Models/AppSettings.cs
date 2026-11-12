@@ -6,6 +6,36 @@ public class AppSettings
       // 🟢 NOVO: Substitui o FreezeGameOnOverlay e o GameModeEnabled
     public bool IsolateControllerOnOverlay { get; set; } = true;
 
+    // v0.25.9: o reinício do controle (pnputil /restart-device) ao fechar o
+    // Quick Settings veio na 0.25.3 para jogos que não voltam a abrir o
+    // controle (Days Gone). Desde a 0.25.7 o launcher abre sempre como
+    // administrador, então ele passou a rodar em TODO fechamento — e no
+    // Legion Go 2 re-enumerar o controle é o que às vezes o faz sumir.
+    // Ligado por padrão (mantém o comportamento atual); desligar serve para
+    // testar se o controle travado vem daqui. Sem opção visível desde a
+    // limpeza do menu (11/11); só pelo settings.json.
+    public bool RestartControllerAfterOverlay { get; set; } = true;
+
+    // v0.25.9: o QS pega o foco ao abrir com jogo rodando. O Windows não
+    // entrega XInput a quem está em segundo plano, então o jogo para de
+    // receber o controle enquanto o painel está aberto (testado no Legion Go 2,
+    // 11/11). Em tela cheia o Windows mostra o fundo preto do sistema atrás do
+    // painel — aceito pelo usuário. Sem opção visível; fica aqui como saída de
+    // emergência (settings.json). Chave nova de propósito: quem testou o
+    // experimento antigo (FocusOverlayOnOpen=false gravado) recebe o padrão.
+    public bool OverlayTakesFocus { get; set; } = true;
+
+    // Linux: alguns drivers de controle Xbox usam X/Y "por posição" e outros "por nome".
+    // Sem interface (só settings.json): true troca X e Y no Linux.
+    public bool LinuxSwapXY { get; set; } = false;
+
+    /// <summary>
+    /// Linux (experimental, settings.json): abre o Quick Settings como janela "filha" do jogo,
+    /// sem tirar o foco dele — evita o jogo minimizar/tela preta. Ligado por padrão desde
+    /// o teste de 12/11 (GNOME/X11: jogo fica FOCUSED com o QS aberto). Só tem efeito no Linux.
+    /// </summary>
+    public bool LinuxQsSemFoco { get; set; } = true;
+
     // v0.24.1: caminho de recurso, DESLIGADO por padrão. Medido no driver
     // HidHide 1.5.230: as escritas passam sem administrador, por isso não é
     // preciso UAC nenhum para mascarar o controle. Se uma versão futura do

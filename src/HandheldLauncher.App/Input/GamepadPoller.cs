@@ -36,8 +36,11 @@ public sealed class GamepadPoller
     private const int ReleaseCooldownMs = 120;
 
     // === Repeat ===
-    private const int RepeatInitialDelayMs = 500;
-    private const int RepeatIntervalMs = 220;
+    // v0.25.9: mais rápido (antes 500/220 ms). Depois de RepeatFastAfterMs segurando, acelera.
+    private const int RepeatInitialDelayMs = 330;
+    private const int RepeatIntervalMs = 110;
+    private const int RepeatFastAfterMs = 1500;
+    private const int RepeatFastIntervalMs = 70;
 
     private readonly XInput.Buttons[] _previousButtons = new XInput.Buttons[4];
 
@@ -237,7 +240,8 @@ public sealed class GamepadPoller
             if ((now - state.HeldSince).TotalMilliseconds < RepeatInitialDelayMs)
                 return false;
 
-            if ((now - state.LastRepeat).TotalMilliseconds < RepeatIntervalMs)
+            var heldMs = (now - state.HeldSince).TotalMilliseconds;
+            if ((now - state.LastRepeat).TotalMilliseconds < (heldMs >= RepeatFastAfterMs ? RepeatFastIntervalMs : RepeatIntervalMs))
                 return false;
 
             state.LastRepeat = now;
@@ -336,6 +340,19 @@ public sealed class GamepadPoller
 
     private readonly EvdevGamepadReader? _evdev = OperatingSystem.IsLinux() ? new EvdevGamepadReader() : null;
     private HashSet<ushort> _prevDown = new();
+    private bool _wantExclusive;
+
+    /// <summary>
+    /// Linux: pede o controle só para o launcher (QS aberto) ou devolve ao jogo. Só é aplicado
+    /// com todos os botões soltos — assim o jogo não fica com L3/R3 "presos" nem recebe o B que fecha o QS.
+    /// </summary>
+    public void SetExclusive(bool on)
+    {
+        _wantExclusive = on;
+        // Ao desligar, solta já (sem esperar o próximo poll, que pode não vir se o timer parar).
+        // Soltar o grab com botão pressionado é inofensivo; o ioctl só retira o acesso exclusivo.
+        if (!on && _evdev is { Grabbed: true }) _evdev.SetGrab(false);
+    }
     private int _prevHatX;
     private int _prevHatY;
 
@@ -345,16 +362,25 @@ public sealed class GamepadPoller
         if (_evdev is null) return actions;
 
         _evdev.Poll();
+        IsConnected = _evdev.IsConnected;
         var down = new HashSet<ushort>(_evdev.DownButtons);
+        if (_evdev.Grabbed != _wantExclusive && down.Count == 0) _evdev.SetGrab(_wantExclusive);
 
         // Edge detection: só emite na transição solto → pressionado.
         // (repeat automático do D-pad e sticks analógicos ficam para depois do
         // primeiro teste no Bazzite)
         Emit(down, actions, EvdevGamepadReader.BtnSouth, GamepadAction.Confirm);
         Emit(down, actions, EvdevGamepadReader.BtnEast, GamepadAction.Back);
-        Emit(down, actions, EvdevGamepadReader.BtnNorth, GamepadAction.Connectivity);
-        Emit(down, actions, EvdevGamepadReader.BtnStart, GamepadAction.Menu);
-        Emit(down, actions, EvdevGamepadReader.BtnSelect, GamepadAction.GlobalMenu);
+        // xpad: Xbox Y = 0x134 ("BTN_Y"), Xbox X = 0x133 ("BTN_X") — nomes legados do kernel;
+        // outros drivers usam a posição. LinuxSwapXY (settings.json) inverte.
+        _linuxSwapXY ??= HandheldLauncher.Core.Services.AppSettingsStore.Load().LinuxSwapXY;
+        var yCode = _linuxSwapXY == true ? EvdevGamepadReader.BtnNorth : EvdevGamepadReader.BtnWest;
+        var xCode = _linuxSwapXY == true ? EvdevGamepadReader.BtnWest : EvdevGamepadReader.BtnNorth;
+        Emit(down, actions, yCode, GamepadAction.Connectivity);
+        // Igual ao Windows: Start (☰) = menu global, Select/View = Menu.
+        Emit(down, actions, EvdevGamepadReader.BtnStart, GamepadAction.GlobalMenu);
+        Emit(down, actions, EvdevGamepadReader.BtnSelect, GamepadAction.Menu);
+        Emit(down, actions, xCode, GamepadAction.GameDetails);
         Emit(down, actions, EvdevGamepadReader.BtnTl, GamepadAction.PreviousFilter);
         Emit(down, actions, EvdevGamepadReader.BtnTr, GamepadAction.NextFilter);
 
@@ -363,6 +389,33 @@ public sealed class GamepadPoller
         if (JustDown(down, EvdevGamepadReader.BtnDpadDown) || (_evdev.HatY == 1 && _prevHatY != 1)) actions.Add(GamepadAction.MoveDown);
         if (JustDown(down, EvdevGamepadReader.BtnDpadLeft) || (_evdev.HatX == -1 && _prevHatX != -1)) actions.Add(GamepadAction.MoveLeft);
         if (JustDown(down, EvdevGamepadReader.BtnDpadRight) || (_evdev.HatX == 1 && _prevHatX != 1)) actions.Add(GamepadAction.MoveRight);
+
+        // Analógico esquerdo: direção com repeat (400 ms inicial, depois 120 ms).
+        int sx = _evdev.StickX > 0.5 ? 1 : _evdev.StickX < -0.5 ? -1 : 0;
+        int sy = _evdev.StickY > 0.5 ? 1 : _evdev.StickY < -0.5 ? -1 : 0;
+        var dirKey = sx * 3 + sy;
+        var now = DateTime.UtcNow;
+        if (dirKey == 0) _linuxStickDir = 0;
+        else if (dirKey != _linuxStickDir) { _linuxStickDir = dirKey; _linuxStickNext = now.AddMilliseconds(RepeatInitialDelayMs); AddStick(actions, sx, sy); }
+        else if (now >= _linuxStickNext) { _linuxStickNext = now.AddMilliseconds(RepeatIntervalMs); AddStick(actions, sx, sy); }
+
+        // D-pad: repeat ao segurar (a primeira ação já saiu pela borda acima), com aceleração.
+        int dx = _evdev.HatX != 0 ? _evdev.HatX : down.Contains(EvdevGamepadReader.BtnDpadRight) ? 1 : down.Contains(EvdevGamepadReader.BtnDpadLeft) ? -1 : 0;
+        int dy = _evdev.HatY != 0 ? _evdev.HatY : down.Contains(EvdevGamepadReader.BtnDpadDown) ? 1 : down.Contains(EvdevGamepadReader.BtnDpadUp) ? -1 : 0;
+        var dKey = dx * 3 + dy;
+        if (dKey == 0) _linuxDpadDir = 0;
+        else if (dKey != _linuxDpadDir)
+        {
+            _linuxDpadDir = dKey;
+            _linuxDpadHeldSince = now;
+            _linuxDpadNext = now.AddMilliseconds(RepeatInitialDelayMs);
+        }
+        else if (now >= _linuxDpadNext)
+        {
+            var fast = (now - _linuxDpadHeldSince).TotalMilliseconds >= RepeatFastAfterMs;
+            _linuxDpadNext = now.AddMilliseconds(fast ? RepeatFastIntervalMs : RepeatIntervalMs);
+            AddStick(actions, dx, dy);
+        }
 
         // Combo L3+R3 abre o Quick Settings (equivalente ao GameInputHelper do Windows).
         if (down.Contains(EvdevGamepadReader.BtnThumbl) && down.Contains(EvdevGamepadReader.BtnThumbr)
@@ -375,6 +428,19 @@ public sealed class GamepadPoller
         _prevHatX = _evdev.HatX;
         _prevHatY = _evdev.HatY;
         return actions;
+    }
+
+    private bool? _linuxSwapXY;
+    private int _linuxStickDir;
+    private DateTime _linuxStickNext;
+    private int _linuxDpadDir;
+    private DateTime _linuxDpadHeldSince;
+    private DateTime _linuxDpadNext;
+
+    private static void AddStick(List<GamepadAction> actions, int sx, int sy)
+    {
+        if (Math.Abs(sx) >= Math.Abs(sy) && sx != 0) actions.Add(sx < 0 ? GamepadAction.MoveLeft : GamepadAction.MoveRight);
+        else if (sy != 0) actions.Add(sy < 0 ? GamepadAction.MoveUp : GamepadAction.MoveDown);
     }
 
     private void Emit(HashSet<ushort> down, List<GamepadAction> actions, ushort code, GamepadAction action)

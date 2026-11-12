@@ -51,6 +51,27 @@ public partial class OverlayWindow : Window
 
     private DispatcherTimer? _topmostEnforcer;
 
+    // v0.25.9: reinício do controle agendado pelo fechamento do QS. Fica num
+    // campo para poder ser CANCELADO se o painel reabrir antes de ele rodar —
+    // antes era um RunOnce solto: reabrir o QS logo depois de fechar fazia o
+    // controle ser re-enumerado com o painel aberto, e o painel ficava sem
+    // responder até o Windows devolver o dispositivo.
+    private IDisposable? _pendingControllerRestart;
+
+    /// <summary>Há reinício de controle agendado e ainda não executado?</summary>
+    public bool HasPendingControllerRestart => _pendingControllerRestart is not null;
+
+    /// <summary>Quando o último reinício de controle foi disparado (UTC).</summary>
+    public static DateTime? LastControllerRestartUtc { get; private set; }
+
+    private void CancelPendingControllerRestart(string reason)
+    {
+        if (_pendingControllerRestart is null) return;
+        _pendingControllerRestart.Dispose();
+        _pendingControllerRestart = null;
+        DebugLog.Write($"[HIDHIDE] Reinício do controle agendado CANCELADO ({reason}).");
+    }
+
     private enum SubMenuMode { None, Resolution, RefreshRate, Tdp, TdpCustom, Fan, Color, Hud, Volume, Brightness, Capture, Lossless }
 
     private const int CustomTdpIndex = 5;
@@ -92,6 +113,9 @@ public partial class OverlayWindow : Window
 
     [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hWnd);
+    [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    [DllImport("user32.dll", EntryPoint = "IsIconic")] private static extern bool IsMinimizedWindow(IntPtr hWnd);
+    private const int SwRestore = 9;
 
     // v0.25.2 (QS 2.0): o Windows recusa trocar o foreground vindo de um
     // processo que não está em primeiro plano (provado no log de 09/11:
@@ -479,8 +503,13 @@ public partial class OverlayWindow : Window
         base.OnOpened(e);
         DebugLog.Write($"[OVERLAY] OnOpened chamado. Width={Width}, Height={Height}");
 
+        // v0.25.9: o QS reabriu antes do reinício do controle do fechamento
+        // anterior rodar — não re-enumerar o controle com o painel aberto.
+        CancelPendingControllerRestart("Quick Settings reaberto");
+
         // 🟢 INTEGRAÇÃO HIDHIDE (B7): Esconde o controle apenas se o toggle estiver ligado
-        if (_gamePid > 0 && AppSettingsStore.Load().IsolateControllerOnOverlay)
+        var overlaySettings = AppSettingsStore.Load();
+        if (_gamePid > 0 && overlaySettings.IsolateControllerOnOverlay)
         {
             _hidHideService.HideControllerForProcess(_gamePid);
         }
@@ -518,6 +547,13 @@ public partial class OverlayWindow : Window
         // de resolução desde a última abertura.
         FitToScreen();
 
+        if (OperatingSystem.IsLinux() && !LinuxSemFoco)
+        {
+            // Linux/GNOME: sem isto o QS abre ATRÁS do jogo (só aparece a notificação "está pronto").
+            HandheldLauncher.App.Platform.LinuxWindowActivator.RaiseWithRetry(
+                () => TryGetPlatformHandle()?.Handle ?? IntPtr.Zero, () => IsVisible);
+        }
+
         if (OperatingSystem.IsWindows())
         {
             var h = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
@@ -525,6 +561,23 @@ public partial class OverlayWindow : Window
             {
                 var ex = GetWindowLong(h, GWL_EXSTYLE);
                 SetWindowLong(h, GWL_EXSTYLE, ex | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);
+
+                // v0.25.9: tirar o foco do jogo para ele deixar de receber XInput
+                // (padrão desde 11/11). O FullscreenDetector não distingue
+                // borderless "popup" de exclusivo (Days Gone aparece como
+                // FullscreenLikely), por isso vale para todos os modos — o fecho
+                // já restaura o jogo se ele tiver minimizado. Em tela cheia o
+                // Windows mostra um fundo preto atrás do painel (aceito).
+                if (_gamePid > 0 && overlaySettings.OverlayTakesFocus)
+                {
+                    SetWindowLong(h, GWL_EXSTYLE, (ex | WS_EX_TOOLWINDOW) & ~WS_EX_NOACTIVATE);
+                    // ALT descido e solto ANTES da troca: a liberação não pode ir
+                    // para o painel, senão o jogo fica a ver o ALT premido.
+                    keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);
+                    keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                    SetForegroundWindow(h);
+                    DebugLog.Write($"[QS] Foco pego pelo Quick Settings (modo={windowMode}, foreground agora=0x{GetForegroundWindow():X}, painel=0x{h:X}).");
+                }
             }
         }
 
@@ -563,7 +616,7 @@ public partial class OverlayWindow : Window
             var screen = Screens.Primary ?? Screens.All.FirstOrDefault();
             if (screen == null) return;
 
-            var wa = screen.WorkingArea;
+            var wa = LinuxRealWorkArea(screen.WorkingArea);
             var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
 
             double actualWidth = (Width > 0 && !double.IsNaN(Width)) ? Width : (Bounds.Width > 0 ? Bounds.Width : 440);
@@ -612,7 +665,7 @@ public partial class OverlayWindow : Window
             var screen = Screens.ScreenFromWindow(this) ?? Screens.Primary ?? Screens.All.FirstOrDefault();
             if (screen == null) return;
 
-            var wa = screen.WorkingArea;
+            var wa = LinuxRealWorkArea(screen.WorkingArea);
             var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
 
             // 850 é a altura de desenho; nunca pode exceder o ecrã disponível,
@@ -629,6 +682,21 @@ public partial class OverlayWindow : Window
         }
     }
 
+    /// <summary>
+    /// Linux/X11: depois de um xrandr o Avalonia continua a reportar a área de trabalho antiga
+    /// (o QS ficava fora da tela). Usa o tamanho real do X quando difere.
+    /// </summary>
+    private static PixelRect LinuxRealWorkArea(PixelRect avaloniaArea)
+    {
+        if (!OperatingSystem.IsLinux()) return avaloniaArea;
+        var real = HandheldLauncher.App.Platform.LinuxWindowActivator.GetScreenSize();
+        if (real is null || real.Value.W <= 0 || real.Value.H <= 0) return avaloniaArea;
+        if (real.Value.W == avaloniaArea.X + avaloniaArea.Width && real.Value.H >= avaloniaArea.Y + avaloniaArea.Height) return avaloniaArea;
+        const int topBar = 40; // barra do GNOME
+        DebugLog.Write($"[TELA] Linux: tamanho real {real.Value.W}x{real.Value.H} difere do Avalonia ({avaloniaArea.Width}x{avaloniaArea.Height}) — usando o real.");
+        return new PixelRect(0, topBar, real.Value.W, real.Value.H - topBar);
+    }
+
     public void SetInitialPosition()
     {
         try
@@ -636,7 +704,7 @@ public partial class OverlayWindow : Window
             var screen = Screens.Primary ?? Screens.All.FirstOrDefault();
             if (screen == null) return;
 
-            var wa = screen.WorkingArea;
+            var wa = LinuxRealWorkArea(screen.WorkingArea);
             var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
             
             double w = (Width > 0 && !double.IsNaN(Width)) ? Width : 440;
@@ -659,7 +727,7 @@ public partial class OverlayWindow : Window
 
      public void HideWithUnblock()
     {
-        DebugLog.Write($"[OVERLAY-CLOSE] origem=HideWithUnblock fullscreen-contexto; overlay={TryGetPlatformHandle()?.Handle}, game={_gameHwnd}, foreground={GetForegroundWindow()}, visible={IsVisible}, submenu={_activeSubMenu}");
+        DebugLog.Write($"[OVERLAY-CLOSE] origem=HideWithUnblock fullscreen-contexto; overlay={TryGetPlatformHandle()?.Handle}, game={_gameHwnd}, foreground={(OperatingSystem.IsWindows() ? GetForegroundWindow() : IntPtr.Zero)}, visible={IsVisible}, submenu={_activeSubMenu}");
         
         if (_activeSubMenu == SubMenuMode.TdpCustom) CancelTdpCustomEdit();
         FlushPendingCustomApply();
@@ -676,7 +744,28 @@ public partial class OverlayWindow : Window
             // v0.25.3: o HidHide devolve o dispositivo à lista, mas alguns jogos
             // (Days Gone) não voltam a abri-lo. Reiniciar o gamepad no Windows
             // força a re-detecção; é o mesmo controle, só re-enumerado.
-            DispatcherTimer.RunOnce(() => _hidHideService.ForceRestartController(), TimeSpan.FromMilliseconds(800));
+            // v0.25.9: pode ser desligado nas Configurações, é cancelado se o
+            // QS reabrir antes de rodar e nunca roda com o painel visível.
+            CancelPendingControllerRestart("novo fechamento");
+            if (AppSettingsStore.Load().RestartControllerAfterOverlay)
+            {
+                _pendingControllerRestart = DispatcherTimer.RunOnce(() =>
+                {
+                    _pendingControllerRestart = null;
+                    if (IsVisible)
+                    {
+                        DebugLog.Write("[HIDHIDE] Reinício do controle PULADO: o Quick Settings está aberto.");
+                        return;
+                    }
+                    if (ElevationService.IsElevated) LastControllerRestartUtc = DateTime.UtcNow;
+                    DebugLog.Write("[HIDHIDE] Reiniciando o controle (fechamento do Quick Settings).");
+                    _hidHideService.ForceRestartController();
+                }, TimeSpan.FromMilliseconds(800));
+            }
+            else
+            {
+                DebugLog.Write("[HIDHIDE] Reinício do controle ao fechar o QS desligado nas Configurações.");
+            }
         }
 
         // v0.24.1: retomar o jogo se ele chegou a ser congelado (é idempotente:
@@ -723,8 +812,17 @@ public partial class OverlayWindow : Window
         NewQsPanel.PrintRequested += (_, _) => OnScreenshotClick(this, new RoutedEventArgs());
         NewQsPanel.RecordRequested += (_, _) => OnRecordClick(this, new RoutedEventArgs());
         NewQsPanel.LosslessToggled += (_, _) => OnLsfgToggleClick(this, new RoutedEventArgs());
-        // v0.25.6: botão "Desempenho (bateria)" — replica o perfil de "tomada".
-        NewQsPanel.PerformanceModeRequested += (_, on) => ApplyPerformanceMode(on);
+        NewQsPanel.PowerPlanRequested += (_, guid) =>
+        {
+            if (PowerPlanService.SetActivePlan(guid))
+            {
+                NewQsPanel.SelectPowerPlan(guid);
+                NewQsPanel.SetPowerPlanStatus(string.Empty);
+                DebugLog.Write($"[PLANO] Seleção do Quick Settings aplicada: {guid}.");
+            }
+            else
+                NewQsPanel.SetPowerPlanStatus("Não foi possível aplicar esse plano de energia.");
+        };
         NewQsPanel.CloseRequested += (_, _) =>
         {
             DebugLog.Write("[QS] Fecho pedido pelo painel 2.0 (✕ / B / Fechar Menu).");
@@ -784,9 +882,7 @@ public partial class OverlayWindow : Window
         NewQsPanel.SetScreenInfo(TxtScreenInfo?.Text ?? "—");
         NewQsPanel.SetBattery(_viewModel.BatteryStatusText);
         NewQsPanel.SetHud(_currentHudIndex);
-        // v0.25.6: o botão "Desempenho" reflete o plano de energia ativo.
-        NewQsPanel.SetPerformanceMode(PowerPlanService.IsHighPerformanceActive());
-
+        NewQsPanel.InitializePowerPlans(PowerPlanService.GetAvailablePlans());
         // v0.25.3: o aviso "o TDP não aplica" era mostrado SEMPRE que o launcher
         // não estava elevado — mesmo com o PawnIO a aplicar TDP sem admin. Agora
         // só aparece quando uma tentativa real falhar (ver ApplyTdpWattsFromQs).
@@ -794,44 +890,36 @@ public partial class OverlayWindow : Window
     }
 
     /// <summary>
-    /// v0.25.6 — botão "Desempenho (bateria)" do Quick Settings: replica o perfil
-    /// de "tomada" na bateria. Liga o plano de energia "Alto desempenho" (o
-    /// powercfg não exige admin), força o brilho no máximo e reaplica o TDP salvo
-    /// (delegando ao processo elevado se não houver admin, ver ApplyTdp).
-    /// Desliga: volta ao "Equilibrado" e ao brilho guardado.
-    /// </summary>
-    private void ApplyPerformanceMode(bool on)
-    {
-        var settings = AppSettingsStore.Load();
+    /// <summary>Linux: janela X11 que estava ativa (jogo ou launcher) antes do QS abrir.</summary>
+    private IntPtr _linuxPrevActive;
+    /// <summary>Linux experimental: QS não pede foco (ver AppSettings.LinuxQsSemFoco).</summary>
+    public bool LinuxSemFoco { get; set; }
+    public void SetLinuxPreviousActive(IntPtr xid) => _linuxPrevActive = xid;
 
-        if (on)
-        {
-            PowerPlanService.SetHighPerformance();
-            _hardwareService?.SetBrightness(100);
-            NewQsPanel.SetBrightness(100);
-        }
-        else
-        {
-            PowerPlanService.SetBalanced();
-            var savedBrightness = Math.Clamp(settings.Brightness, 0, 100);
-            _hardwareService?.SetBrightness(savedBrightness);
-            NewQsPanel.SetBrightness(savedBrightness);
-        }
-
-        // Reaplica o TDP salvo (perfil completo de "tomada"; delega ao processo
-        // elevado se não houver admin — ver ApplyTdp/Camada 2).
-        var savedTdp = string.IsNullOrWhiteSpace(settings.TdpMode) ? "Normal" : settings.TdpMode;
-        ApplyTdp(savedTdp);
-    }
-
-    /// <summary>
     private void RestoreForegroundAfterClose()
     {
+        if (OperatingSystem.IsLinux())
+        {
+            var prev = _linuxPrevActive;
+            _linuxPrevActive = IntPtr.Zero;
+            // A janela do próprio launcher não precisa de "devolução": a Home se reativa sozinha, e
+            // um pedido atrasado desminimizava o launcher DEPOIS de abrir um jogo.
+            var mainXid = (Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow?.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+            if (prev == mainXid) prev = IntPtr.Zero;
+            if (prev == IntPtr.Zero) HandheldLauncher.App.Platform.LinuxWindowActivator.CancelPending();
+            if (prev != IntPtr.Zero)
+            {
+                DebugLog.Write($"[X11] Devolvendo o foco à janela 0x{prev.ToInt64():x} (ativa antes do QS).");
+                HandheldLauncher.App.Platform.LinuxWindowActivator.RaiseWithRetry(() => prev, () => !IsVisible, above: false, delaysMs: new[] { 250, 600, 1100, 1800 }, logState: true);
+            }
+            return;
+        }
         if (!OperatingSystem.IsWindows()) return;
 
         try
         {
             var target = _gameHwnd;
+            var targetIsGame = target != IntPtr.Zero;
 
             // Nalguns fechos o handle do jogo vem a 0x0 (a janela dele foi
             // recriada ou ainda não estava pronta) — procurar pelo PID.
@@ -841,6 +929,7 @@ public partial class OverlayWindow : Window
                 {
                     using var process = System.Diagnostics.Process.GetProcessById(_gamePid);
                     target = process.MainWindowHandle;
+                    targetIsGame = target != IntPtr.Zero;
                 }
                 catch (Exception swallowedEx) { DebugLog.Swallowed(swallowedEx); }
             }
@@ -854,6 +943,17 @@ public partial class OverlayWindow : Window
 
             if (target != IntPtr.Zero)
             {
+                // v0.25.9: jogo em fullscreen exclusivo se minimiza quando perde o
+                // foco com o QS por cima (log de 11/11: janela 160x28, foreground=0).
+                // Sem restaurar, o SetForegroundWindow não tem efeito e fica a tela cinza.
+                // Só a janela do jogo: o launcher minimizado não pode saltar
+                // por cima do jogo (revisão 11/11).
+                if (targetIsGame && IsMinimizedWindow(target))
+                {
+                    DebugLog.Write("[OVERLAY-CLOSE] Janela do jogo minimizada — restaurando.");
+                    ShowWindow(target, SwRestore);
+                }
+
                 // v0.25.2: ALT "premido" durante a troca — sem isto o Windows
                 // ignorava o SetForegroundWindow (foreground agora=0x0).
                 keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);
@@ -1429,9 +1529,24 @@ public partial class OverlayWindow : Window
         {
             UpdateScreenInfoText();
             FitToScreen();
+            if (OperatingSystem.IsLinux()) RefitMainWindowLinux();
         }, TimeSpan.FromMilliseconds(1200));
 
         DebugLog.Write($"[TELA] QS 2.0: {w}x{h}@{hz}Hz aplicado.");
+    }
+
+    /// <summary>Linux: depois de trocar a resolução, a tela cheia da Home fica com o tamanho antigo — refaz.</summary>
+    private static void RefitMainWindowLinux()
+    {
+        try
+        {
+            var main = (Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+            if (main is null || main.WindowState != WindowState.FullScreen) return;
+            main.WindowState = WindowState.Normal;
+            DispatcherTimer.RunOnce(() => main.WindowState = WindowState.FullScreen, TimeSpan.FromMilliseconds(250));
+            DebugLog.Write("[TELA] Linux: Home reajustada à nova resolução.");
+        }
+        catch (Exception ex) { DebugLog.Write($"[TELA] Linux: falha ao reajustar a Home: {ex.Message}"); }
     }
 
     private void SetTdpButtonVisual(string activeMode)

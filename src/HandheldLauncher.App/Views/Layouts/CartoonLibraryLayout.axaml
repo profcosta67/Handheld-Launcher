@@ -90,6 +90,10 @@
     <Style Selector="Button.toonTab:pointerover /template/ ContentPresenter">
       <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
     </Style>
+    <Style Selector="Button.toonTab:focus /template/ ContentPresenter">
+      <Setter Property="BorderBrush" Value="{StaticResource ToonSplatBrush}" />
+      <Setter Property="BorderThickness" Value="4" />
+    </Style>
 
     <!-- Aba ativa: carimbo de tinta laranja -->
     <Style Selector="Button.toonTab.active">
@@ -426,7 +430,7 @@
                             Width="{Binding TileWidth}" Height="{Binding TileHeight}"
                             PointerPressed="OnTilePointerPressed">
                       <Grid>
-                        <Image Source="{Binding TileImagePath, Converter={StaticResource FileToBitmapConverter}}" Stretch="UniformToFill" />
+                        <Image anim:ImageBehavior.AnimatedSource="{Binding TileImagePath}" Stretch="UniformToFill" />
                         <Border Background="#99383838" IsHitTestVisible="False" IsVisible="{Binding IsOwnedNotInstalled}" />
                         <TextBlock Text="{Binding Title}" Classes="gameTitle" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="10" IsVisible="{Binding ShowEmptyPlaceholder}" />
                         <Border Background="{Binding PlatformBadgeColorHex, Converter={StaticResource HexColorToBrushConverter}}" BorderBrush="{StaticResource ToonInkBrush}" BorderThickness="2" CornerRadius="6" Padding="5,2" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8" IsVisible="{Binding HasPlatformBadge}">
@@ -541,7 +545,7 @@
             <!-- Área da wide capsule: compacta, sem o vazio que sobrava em cima -->
             <Grid Height="310" ClipToBounds="True">
               <!-- WIDE CAPSULE como fundo do popup -->
-              <Image Source="{Binding SelectedTile.WideCapsuleImagePath, Converter={StaticResource FileToBitmapConverter}}" Stretch="UniformToFill" />
+              <Image anim:ImageBehavior.AnimatedSource="{Binding SelectedTile.WideCapsuleImagePath}" Stretch="UniformToFill" />
               <Border Background="{DynamicResource ToonVeilStrongBrush}" />
 
               <Grid Margin="24,16" RowDefinitions="Auto,Auto,*">

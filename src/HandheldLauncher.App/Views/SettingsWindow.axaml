@@ -20,11 +20,28 @@
     
     <Style Selector="Border.settingsCard">
       <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}"/>
-      <Setter Property="CornerRadius" Value="{DynamicResource TileCornerRadius}"/>
-      <Setter Property="Padding" Value="16"/>
+      <Setter Property="CornerRadius" Value="20"/>
+      <Setter Property="Padding" Value="18"/>
       <Setter Property="Margin" Value="0,0,0,12"/>
       <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="BorderBrush" Value="{StaticResource TileSeparatorBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource TileSeparatorBrush}"/>
+    </Style>
+    <Style Selector="Button.categoryTab">
+      <Setter Property="CornerRadius" Value="16"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="Transitions">
+        <Transitions>
+          <BrushTransition Property="Background" Duration="0:0:0.16"/>
+          <BrushTransition Property="BorderBrush" Duration="0:0:0.16"/>
+        </Transitions>
+      </Setter>
+    </Style>
+    <Style Selector="Button.categoryTab:pointerover /template/ ContentPresenter, Button.categoryTab:focus /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource TileHoverBrush}"/>
+    </Style>
+    <Style Selector="Button.categoryTab.active">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
     </Style>
     <Style Selector="TextBlock.sectionTitle">
       <Setter Property="FontSize" Value="14"/>
@@ -262,24 +279,19 @@
                      consegue tirá-lo a um jogo que já esteja a correr. Suspender
                      o processo consegue — mas tem risco em jogos competitivos,
                      daí o aviso e o "Aceito" antes de ligar. -->
-                <TextBlock Text="Se o jogo continuar a receber comandos com o Quick Settings aberto"
+                <TextBlock Text="⚠ Congelar o jogo (opcional)"
                            FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,10,0,0"/>
-                <TextBlock Text="O HidHide só esconde o controle de quem começa a usá-lo depois de ele estar ativo: um jogo já aberto continua a vê-lo. O congelamento resolve isso suspendendo o processo do jogo enquanto o painel está aberto (o vídeo do jogo fica parado)."
+                <TextBlock Text="Por padrão o Quick Settings pega o foco ao abrir e o jogo para de receber o controle (em tela cheia o Windows mostra um fundo preto atrás do painel). Se algum jogo ainda mexer por trás, o congelamento suspende o processo do jogo enquanto o painel está aberto. Pode causar banimento em jogos com anti-cheat — não use em jogos competitivos."
                            TextWrapping="Wrap" Foreground="Gray" FontSize="11" MaxWidth="450"/>
                 <TextBlock Text="{Binding FreezeStatusText}" Classes="subtle" FontSize="11"
                            TextWrapping="Wrap" MaxWidth="450"/>
                 <Button Content="{Binding FreezeButtonText}" Classes="pill" Click="OnFreezeClick"
                         HorizontalAlignment="Left" />
 
-                <ToggleSwitch IsChecked="{Binding HidHideElevateOnDemand}">
-                    <ToggleSwitch.Content>
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="Pedir permissão para isolar (UAC por overlay)" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <TextBlock Text="Só para quem abre o launcher sem administrador: cada abertura do Quick Settings pede permissão (UAC) para esconder o controle. Deixa desligado se preferires reiniciar como administrador uma vez."
-                                       TextWrapping="Wrap" Foreground="Gray" FontSize="11" MaxWidth="450"/>
-                        </StackPanel>
-                    </ToggleSwitch.Content>
-                </ToggleSwitch>
+                <!-- 11/11: "Pedir permissão para isolar (UAC por overlay)" saiu do
+                     menu — desde a 0.25.7 o launcher abre sempre como
+                     administrador. A opção continua no settings.json
+                     (HidHideElevateOnDemand) para quem precisar. -->
 
               </StackPanel>
             </Border>
