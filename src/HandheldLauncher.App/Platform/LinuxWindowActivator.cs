@@ -17,6 +17,9 @@ internal static class LinuxWindowActivator
     [DllImport("libX11.so.6")] private static extern IntPtr XInternAtom(IntPtr d, string name, bool onlyIfExists);
     [DllImport("libX11.so.6")] private static extern int XSendEvent(IntPtr d, IntPtr w, bool propagate, long mask, IntPtr ev);
     [DllImport("libX11.so.6")] private static extern int XFlush(IntPtr d);
+    [DllImport("libX11.so.6")] private static extern int XGetWindowProperty(IntPtr d, IntPtr w, IntPtr prop, long offset, long length, bool delete,
+        IntPtr reqType, out IntPtr actualType, out int actualFormat, out IntPtr nItems, out IntPtr bytesAfter, out IntPtr data);
+    [DllImport("libX11.so.6")] private static extern int XFree(IntPtr p);
 
     private const int ClientMessage = 33;
     private const long SubstructureNotifyMask = 0x80000;
@@ -38,6 +41,40 @@ internal static class LinuxWindowActivator
         }
         catch (Exception ex) { DebugLog.Write($"[X11] Falha ao ativar janela: {ex.GetType().Name}: {ex.Message}"); }
         finally { if (d != IntPtr.Zero) { try { XCloseDisplay(d); } catch { } } }
+    }
+
+    /// <summary>Janela ativa agora (_NET_ACTIVE_WINDOW da raiz), ou 0 se não der para saber.</summary>
+    public static IntPtr GetActiveWindow()
+    {
+        if (!OperatingSystem.IsLinux()) return IntPtr.Zero;
+        IntPtr d = IntPtr.Zero;
+        try
+        {
+            d = XOpenDisplay(IntPtr.Zero);
+            if (d == IntPtr.Zero) return IntPtr.Zero;
+            var root = XDefaultRootWindow(d);
+            var atom = XInternAtom(d, "_NET_ACTIVE_WINDOW", false);
+            var rc = XGetWindowProperty(d, root, atom, 0, 1, false, (IntPtr)33 /* XA_WINDOW */,
+                out _, out var fmt, out var n, out _, out var data);
+            if (rc != 0 || data == IntPtr.Zero) return IntPtr.Zero;
+            try { return fmt == 32 && n.ToInt64() >= 1 ? Marshal.ReadIntPtr(data) : IntPtr.Zero; }
+            finally { XFree(data); }
+        }
+        catch (Exception ex) { DebugLog.Write($"[X11] Falha ao ler a janela ativa: {ex.GetType().Name}: {ex.Message}"); return IntPtr.Zero; }
+        finally { if (d != IntPtr.Zero) { try { XCloseDisplay(d); } catch { } } }
+    }
+
+    /// <summary>Raise repetido (0/150/400 ms): a janela pode ainda não estar mapeada na 1ª tentativa.</summary>
+    public static void RaiseWithRetry(Func<IntPtr> xid, Func<bool> stillWanted, bool above = true)
+    {
+        foreach (var ms in new[] { 0, 150, 400 })
+        {
+            Avalonia.Threading.DispatcherTimer.RunOnce(() =>
+            {
+                if (!stillWanted()) return;
+                Raise(xid(), above);
+            }, TimeSpan.FromMilliseconds(Math.Max(ms, 1)));
+        }
     }
 
     private static void Send(IntPtr d, IntPtr root, IntPtr win, string msg, long l0, IntPtr l1, IntPtr l2)

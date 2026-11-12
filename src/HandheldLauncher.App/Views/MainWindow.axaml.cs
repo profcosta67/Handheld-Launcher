@@ -513,9 +513,20 @@ public partial class MainWindow : Window
 
                                 DebugLog.Write($"[OVERLAY] Antes Show: IsVisible={_overlayWindow.IsVisible}, Pos={_overlayWindow.Position}, GameHwnd=0x{gameHwnd:X}");
 
+                if (OperatingSystem.IsLinux())
+                {
+                    var prevX = HandheldLauncher.App.Platform.LinuxWindowActivator.GetActiveWindow();
+                    var own = _overlayWindow.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+                    _overlayWindow.SetLinuxPreviousActive(prevX == own ? IntPtr.Zero : prevX);
+                    DebugLog.Write($"[X11] Janela ativa antes do QS: 0x{prevX.ToInt64():x}");
+                }
+
                 _overlayWindow.Opacity = 0;
                 _overlayWindow.SetInitialPosition(); 
                 _overlayWindow.Show();
+                if (OperatingSystem.IsLinux())
+                    HandheldLauncher.App.Platform.LinuxWindowActivator.RaiseWithRetry(
+                        () => _overlayWindow.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero, () => _overlayWindow.IsVisible);
 
                 // 🟢 REMOVIDO: O bloco que forçava Activate() e SetForegroundWindow()
                 // O WS_EX_NOACTIVATE dentro da OverlayWindow já garante que ela apareça por cima sem roubar o foco.

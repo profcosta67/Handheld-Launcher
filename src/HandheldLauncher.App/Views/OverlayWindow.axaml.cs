@@ -550,8 +550,8 @@ public partial class OverlayWindow : Window
         if (OperatingSystem.IsLinux())
         {
             // Linux/GNOME: sem isto o QS abre ATRÁS do jogo (só aparece a notificação "está pronto").
-            var xid = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
-            Dispatcher.UIThread.Post(() => HandheldLauncher.App.Platform.LinuxWindowActivator.Raise(xid), DispatcherPriority.Background);
+            HandheldLauncher.App.Platform.LinuxWindowActivator.RaiseWithRetry(
+                () => TryGetPlatformHandle()?.Handle ?? IntPtr.Zero, () => IsVisible);
         }
 
         if (OperatingSystem.IsWindows())
@@ -875,8 +875,23 @@ public partial class OverlayWindow : Window
     }
 
     /// <summary>
+    /// <summary>Linux: janela X11 que estava ativa (jogo ou launcher) antes do QS abrir.</summary>
+    private IntPtr _linuxPrevActive;
+    public void SetLinuxPreviousActive(IntPtr xid) => _linuxPrevActive = xid;
+
     private void RestoreForegroundAfterClose()
     {
+        if (OperatingSystem.IsLinux())
+        {
+            var prev = _linuxPrevActive;
+            _linuxPrevActive = IntPtr.Zero;
+            if (prev != IntPtr.Zero)
+            {
+                DebugLog.Write($"[X11] Devolvendo o foco à janela 0x{prev.ToInt64():x} (ativa antes do QS).");
+                HandheldLauncher.App.Platform.LinuxWindowActivator.RaiseWithRetry(() => prev, () => !IsVisible, above: false);
+            }
+            return;
+        }
         if (!OperatingSystem.IsWindows()) return;
 
         try
