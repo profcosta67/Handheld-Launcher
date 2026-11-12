@@ -522,8 +522,18 @@ public partial class MainWindow : Window
                     _linuxQsSemFoco = semFoco;
                     _overlayWindow.LinuxSemFoco = semFoco;
                     // Modo experimental: o QS vira "filho" da janela ativa e nunca pede foco — nada a devolver depois.
-                    _overlayWindow.SetLinuxPreviousActive(semFoco || prevX == own ? IntPtr.Zero : prevX);
-                    if (semFoco) HandheldLauncher.App.Platform.LinuxWindowActivator.SetTransientFor(own, prevX);
+                    // Mesmo no modo sem foco guarda a janela anterior: se o jogo se minimizar mesmo
+                    // assim, o fecho do QS traz de volta (não faz nada se ele já estiver ativo).
+                    _overlayWindow.SetLinuxPreviousActive(prevX == own ? IntPtr.Zero : prevX);
+                    if (semFoco)
+                    {
+                        HandheldLauncher.App.Platform.LinuxWindowActivator.SetNoFocus(own);
+                        HandheldLauncher.App.Platform.LinuxWindowActivator.SetTransientFor(own, prevX);
+                        var gameX = prevX;
+                        DispatcherTimer.RunOnce(() => DebugLog.Write(
+                            $"[X11] Depois de abrir o QS (sem foco): janela 0x{gameX.ToInt64():x} = {HandheldLauncher.App.Platform.LinuxWindowActivator.DescribeState(gameX)}; ativa=0x{HandheldLauncher.App.Platform.LinuxWindowActivator.GetActiveWindow().ToInt64():x}"),
+                            TimeSpan.FromMilliseconds(400));
+                    }
                     DebugLog.Write($"[X11] Janela ativa antes do QS: 0x{prevX.ToInt64():x} (sem foco={semFoco})");
                 }
 

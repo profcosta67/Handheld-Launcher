@@ -20,6 +20,10 @@ internal static class LinuxWindowActivator
     [DllImport("libX11.so.6")] private static extern int XGetWindowProperty(IntPtr d, IntPtr w, IntPtr prop, long offset, long length, bool delete,
         IntPtr reqType, out IntPtr actualType, out int actualFormat, out IntPtr nItems, out IntPtr bytesAfter, out IntPtr data);
     [DllImport("libX11.so.6")] private static extern int XFree(IntPtr p);
+    [DllImport("libX11.so.6")] private static extern IntPtr XGetWMHints(IntPtr d, IntPtr w);
+    [DllImport("libX11.so.6")] private static extern IntPtr XAllocWMHints();
+    [DllImport("libX11.so.6")] private static extern int XSetWMHints(IntPtr d, IntPtr w, IntPtr hints);
+    [DllImport("libX11.so.6")] private static extern int XChangeProperty(IntPtr d, IntPtr w, IntPtr prop, IntPtr type, int format, int mode, IntPtr data, int n);
     [DllImport("libX11.so.6")] private static extern int XSetTransientForHint(IntPtr d, IntPtr w, IntPtr prop);
     [DllImport("libX11.so.6")] private static extern int XDefaultScreen(IntPtr d);
     [DllImport("libX11.so.6")] private static extern int XDisplayWidth(IntPtr d, int screen);
@@ -67,6 +71,42 @@ internal static class LinuxWindowActivator
             DebugLog.Write($"[X11] QS 0x{child.ToInt64():x} marcado como filho de 0x{parent.ToInt64():x} (sem tirar o foco).");
         }
         catch (Exception ex) { DebugLog.Write($"[X11] Falha em transient_for: {ex.GetType().Name}: {ex.Message}"); }
+        finally { if (d != IntPtr.Zero) { try { XCloseDisplay(d); } catch { } } }
+    }
+
+    /// <summary>
+    /// Pede ao gestor de janelas para NUNCA dar foco a esta janela (WM_HINTS input=False e
+    /// _NET_WM_USER_TIME=0). O QS lê o controle direto do evdev, não precisa de foco — e assim
+    /// o jogo em tela cheia não perde o foco nem se minimiza. Tem de ser feito antes do Show.
+    /// </summary>
+    public static void SetNoFocus(IntPtr w)
+    {
+        if (!OperatingSystem.IsLinux() || w == IntPtr.Zero) return;
+        IntPtr d = IntPtr.Zero;
+        try
+        {
+            d = XOpenDisplay(IntPtr.Zero);
+            if (d == IntPtr.Zero) return;
+            var hints = XGetWMHints(d, w);
+            if (hints == IntPtr.Zero) hints = XAllocWMHints();
+            if (hints != IntPtr.Zero)
+            {
+                Marshal.WriteInt64(hints, 0, Marshal.ReadInt64(hints, 0) | 1L); // flags |= InputHint
+                Marshal.WriteInt32(hints, 8, 0);                                  // input = False
+                XSetWMHints(d, w, hints);
+                XFree(hints);
+            }
+            var zero = Marshal.AllocHGlobal(8);
+            try
+            {
+                Marshal.WriteInt64(zero, 0, 0);
+                XChangeProperty(d, w, XInternAtom(d, "_NET_WM_USER_TIME", false), (IntPtr)6 /* XA_CARDINAL */, 32, 0, zero, 1);
+            }
+            finally { Marshal.FreeHGlobal(zero); }
+            XFlush(d);
+            DebugLog.Write($"[X11] QS 0x{w.ToInt64():x} marcado para não receber foco.");
+        }
+        catch (Exception ex) { DebugLog.Write($"[X11] Falha ao marcar sem foco: {ex.GetType().Name}: {ex.Message}"); }
         finally { if (d != IntPtr.Zero) { try { XCloseDisplay(d); } catch { } } }
     }
 
