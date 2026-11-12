@@ -353,12 +353,16 @@ public sealed class GamepadPoller
         // primeiro teste no Bazzite)
         Emit(down, actions, EvdevGamepadReader.BtnSouth, GamepadAction.Confirm);
         Emit(down, actions, EvdevGamepadReader.BtnEast, GamepadAction.Back);
-        // xpad: Xbox Y = BTN_WEST(0x134 "BTN_Y"), Xbox X = BTN_NORTH(0x133 "BTN_X") — nomes legados do kernel.
-        Emit(down, actions, EvdevGamepadReader.BtnWest, GamepadAction.Connectivity);
+        // xpad: Xbox Y = 0x134 ("BTN_Y"), Xbox X = 0x133 ("BTN_X") — nomes legados do kernel;
+        // outros drivers usam a posição. LinuxSwapXY (settings.json) inverte.
+        _linuxSwapXY ??= HandheldLauncher.Core.Services.AppSettingsStore.Load().LinuxSwapXY;
+        var yCode = _linuxSwapXY == true ? EvdevGamepadReader.BtnNorth : EvdevGamepadReader.BtnWest;
+        var xCode = _linuxSwapXY == true ? EvdevGamepadReader.BtnWest : EvdevGamepadReader.BtnNorth;
+        Emit(down, actions, yCode, GamepadAction.Connectivity);
         // Igual ao Windows: Start (☰) = menu global, Select/View = Menu.
         Emit(down, actions, EvdevGamepadReader.BtnStart, GamepadAction.GlobalMenu);
         Emit(down, actions, EvdevGamepadReader.BtnSelect, GamepadAction.Menu);
-        Emit(down, actions, EvdevGamepadReader.BtnNorth, GamepadAction.GameDetails);
+        Emit(down, actions, xCode, GamepadAction.GameDetails);
         Emit(down, actions, EvdevGamepadReader.BtnTl, GamepadAction.PreviousFilter);
         Emit(down, actions, EvdevGamepadReader.BtnTr, GamepadAction.NextFilter);
 
@@ -390,6 +394,7 @@ public sealed class GamepadPoller
         return actions;
     }
 
+    private bool? _linuxSwapXY;
     private int _linuxStickDir;
     private DateTime _linuxStickNext;
 

@@ -63,6 +63,7 @@ internal sealed class EvdevGamepadReader : IDisposable
     private readonly Dictionary<int, (int Min, int Max)> _rangeY = new();
     private readonly HashSet<string> _deniedLogged = new();
     private readonly HashSet<string> _notGamepad = new();
+    private int _buttonLogs;
     private DateTime _lastScan = DateTime.MinValue;
     private readonly Dictionary<int, int> _rawX = new();
     private readonly Dictionary<int, int> _rawY = new();
@@ -177,6 +178,11 @@ internal sealed class EvdevGamepadReader : IDisposable
 
                 if (type == EvKey)
                 {
+                    if (value == 1 && code is >= 0x130 and <= 0x13e && _buttonLogs < 60)
+                    {
+                        _buttonLogs++;
+                        DebugLog.Write($"[EVDEV] botão 0x{code:x} pressionado ({path}).");
+                    }
                     if (value == 1) _down.Add(code);
                     else if (value == 0) _down.Remove(code);
                 }

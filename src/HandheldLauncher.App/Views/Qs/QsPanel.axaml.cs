@@ -36,6 +36,13 @@ public partial class QsPanel : UserControl
     private int _maxWatts = 35;
     private int _customWatts = QsPowerPresets.DesempenhoWatts;
     private bool _customPresetActive;
+    // TDP personalizado: a barra fica TRAVADA até o usuário escolher "Person." (edição).
+    private bool _tdpEditing;
+    private int _tdpEditStartWatts;
+    private PowerPreset _activePreset = PowerPreset.Normal;
+    private PowerPreset _presetBeforeEdit = PowerPreset.Normal;
+    private const int TdpFineStep = 1;
+    private const int TdpCoarseStep = 10;
     private bool _suppressEvents = false;
     private bool _losslessOn = false;
 
@@ -46,9 +53,13 @@ public partial class QsPanel : UserControl
     {
         InitializeComponent();
 
+        TdpSlider.IsEnabled = false; // travada até escolher "Person."
+
         _tdpDebounce.Tick += (_, _) =>
         {
             _tdpDebounce.Stop();
+            // Ajuste por toque já aplicado: "cancelar" passa a voltar para este valor.
+            if (_tdpEditing) { _tdpEditStartWatts = _customWatts; _presetBeforeEdit = PowerPreset.Custom; }
             TdpWattsRequested?.Invoke(this, _customWatts);
         };
 
@@ -58,7 +69,7 @@ public partial class QsPanel : UserControl
             _customWatts = (int)Math.Round(TdpSlider.Value);
             TxtTdp.Text = $"{_customWatts} W";
             if (_suppressEvents) return;
-            SelectPowerPreset(PowerPreset.Custom);
+            if (!_tdpEditing) return;
             ScheduleTdpApply();
         };
 
@@ -218,9 +229,10 @@ public partial class QsPanel : UserControl
             _tdpButtons[i].Classes.Set("active", (PowerPreset)_tdpButtons[i].Tag! == preset);
 
         // v0.25.3: no "Person." o D-pad ajusta o slider diretamente.
+        _activePreset = preset;
         _customPresetActive = preset == PowerPreset.Custom;
-        if (TxtTdpHint is not null)
-            TxtTdpHint.Text = _customPresetActive ? "Personalizado: ←/→ ajusta 1 W" : "";
+        if (TxtTdpHint is not null && !_tdpEditing)
+            TxtTdpHint.Text = _customPresetActive ? "Personalizado ativo • selecione Person. e A para ajustar" : "";
     }
 
     // v0.25.3: HUD de desempenho de volta ao QS 2.0 (Off/Resumido/Médio/Completo).
@@ -343,8 +355,75 @@ public partial class QsPanel : UserControl
         };
     }
 
+    private void BeginTdpEdit()
+    {
+        _presetBeforeEdit = _activePreset;
+        _tdpEditing = true;
+        _tdpEditStartWatts = (int)Math.Round(TdpSlider.Value);
+        TdpSlider.IsEnabled = true;
+        SelectPowerPreset(PowerPreset.Custom);
+        TxtTdpHint.Text = $"◀ ▶ {TdpFineStep} W · ▲ ▼ {TdpCoarseStep} W · A aplica · B cancela";
+    }
+
+    private void EndTdpEdit(bool apply)
+    {
+        if (!_tdpEditing) return;
+        _tdpEditing = false;
+        TdpSlider.IsEnabled = false;
+        _tdpDebounce.Stop();
+
+        if (apply)
+        {
+            _customWatts = (int)Math.Round(TdpSlider.Value);
+            TxtTdp.Text = $"{_customWatts} W";
+            SelectPowerPreset(PowerPreset.Custom);
+            TdpWattsRequested?.Invoke(this, _customWatts);
+        }
+        else
+        {
+            _suppressEvents = true;
+            TdpSlider.Value = _tdpEditStartWatts;
+            _suppressEvents = false;
+            _customWatts = _tdpEditStartWatts;
+            TxtTdp.Text = $"{_tdpEditStartWatts} W";
+            SelectPowerPreset(_presetBeforeEdit);
+        }
+    }
+
+    private void AdjustTdpEdit(int delta)
+    {
+        var next = Math.Clamp((int)Math.Round(TdpSlider.Value) + delta, _minWatts, _maxWatts);
+        _suppressEvents = true;
+        TdpSlider.Value = next;
+        _suppressEvents = false;
+        _customWatts = next;
+        TxtTdp.Text = $"{next} W";
+    }
+
+    /// <summary>Com a edição do TDP aberta, o controle é só dela. true = ação consumida.</summary>
+    private bool HandleTdpEdit(GamepadAction action)
+    {
+        switch (action)
+        {
+            case GamepadAction.MoveLeft: AdjustTdpEdit(-TdpFineStep); return true;
+            case GamepadAction.MoveRight: AdjustTdpEdit(TdpFineStep); return true;
+            case GamepadAction.MoveUp: AdjustTdpEdit(TdpCoarseStep); return true;
+            case GamepadAction.MoveDown: AdjustTdpEdit(-TdpCoarseStep); return true;
+            case GamepadAction.Confirm: EndTdpEdit(apply: true); RefreshFocusVisual(); return true;
+            case GamepadAction.Back: EndTdpEdit(apply: false); RefreshFocusVisual(); return true;
+            case GamepadAction.GlobalMenu:
+            case GamepadAction.ToggleQuickSettings:
+                EndTdpEdit(apply: false);
+                return false; // deixa fechar o painel
+            default: return true;
+        }
+    }
+
     private void OnPowerPresetClick(PowerPreset preset)
     {
+        if (preset == PowerPreset.Custom) { BeginTdpEdit(); return; }
+        EndTdpEdit(apply: false);
+
         var watts = QsPowerPresets.Resolve(preset, _minWatts, _maxWatts, _customWatts);
 
         _suppressEvents = true;
@@ -455,7 +534,7 @@ public partial class QsPanel : UserControl
 
     // ----------------------------------------------------------------- cliques
 
-    private void OnCloseClick(object? sender, RoutedEventArgs e) => CloseRequested?.Invoke(this, EventArgs.Empty);
+    private void OnCloseClick(object? sender, RoutedEventArgs e) { EndTdpEdit(apply: false); CloseRequested?.Invoke(this, EventArgs.Empty); }
 
     // Engrenagem do rodapé: o OverlayWindow fecha o painel e pede as
     // Configurações ao MainViewModel (mesma rota do menu global).
@@ -485,6 +564,8 @@ public partial class QsPanel : UserControl
 
     public void HandleGamepadAction(GamepadAction action)
     {
+        if (_tdpEditing && HandleTdpEdit(action)) return;
+
         switch (action)
         {
             case GamepadAction.MoveUp: Move(-1); break;
@@ -515,14 +596,6 @@ public partial class QsPanel : UserControl
     {
         // v0.25.3: TDP personalizado — com o preset "Person." ativo, ←/→ altera
         // o slider de watts sem precisar de tocar no ecrã.
-        if (_focusGroup == 4 && !_subOpen && _customPresetActive && TdpSlider is not null)
-        {
-            var current = (int)Math.Round(TdpSlider.Value);
-            var next = Math.Clamp(current + dir, _minWatts, _maxWatts);
-            if (next != current) TdpSlider.Value = next;
-            return;
-        }
-
         var items = ItemsFor(_focusGroup);
         if (items is null)
         {

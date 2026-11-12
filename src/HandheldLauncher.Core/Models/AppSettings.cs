@@ -25,6 +25,10 @@ public class AppSettings
     // experimento antigo (FocusOverlayOnOpen=false gravado) recebe o padrão.
     public bool OverlayTakesFocus { get; set; } = true;
 
+    // Linux: alguns drivers de controle Xbox usam X/Y "por posição" e outros "por nome".
+    // Sem interface (só settings.json): true troca X e Y no Linux.
+    public bool LinuxSwapXY { get; set; } = false;
+
     // v0.24.1: caminho de recurso, DESLIGADO por padrão. Medido no driver
     // HidHide 1.5.230: as escritas passam sem administrador, por isso não é
     // preciso UAC nenhum para mascarar o controle. Se uma versão futura do

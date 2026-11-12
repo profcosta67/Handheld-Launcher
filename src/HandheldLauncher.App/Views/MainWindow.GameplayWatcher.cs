@@ -711,6 +711,8 @@ private void SetAddButtonFocused(bool focused)
                 foreach (var dialogAction in actions)
                 {
                     UiSounds.PlayForAction(dialogAction);
+                    if (OperatingSystem.IsLinux())
+                        DebugLog.Write($"[DIALOG] {dialog.GetType().Name} ação={dialogAction} foco={dialog.FocusManager?.GetFocusedElement()?.GetType().Name ?? "nenhum"}");
                     // v0.24.2: teclado na tela — com ele aberto, D-Pad/A/B são
                     // dele (antes iam para o navegador genérico e o B fechava a
                     // janela em vez de esconder o teclado).
