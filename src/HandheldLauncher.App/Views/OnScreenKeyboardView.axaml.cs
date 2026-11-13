@@ -112,6 +112,12 @@ public partial class OnScreenKeyboardView : UserControl
             case GamepadAction.NextFilter: // RB: cursor para a direita
                 MoveCaret(+1);
                 break;
+            case GamepadAction.GameDetails: // X: apaga (padrão de console)
+                Apply(TextEditOps.Backspace(TargetText(), SelectionStart(), SelectionLength()));
+                break;
+            case GamepadAction.Connectivity: // Y: espaço
+                Apply(TextEditOps.Insert(TargetText(), SelectionStart(), SelectionLength(), " "));
+                break;
             default:
                 // Qualquer outra ação com o teclado aberto é consumida de propósito.
                 break;

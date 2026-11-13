@@ -28,6 +28,11 @@
   </UserControl.Styles>
 
   <Border Background="#F21A1A1F" BorderBrush="#33FFFFFF" BorderThickness="0,1,0,0" Padding="8,6">
-    <StackPanel x:Name="RowsHost" Spacing="0" HorizontalAlignment="Center"/>
+    <StackPanel Spacing="4" HorizontalAlignment="Center">
+      <StackPanel x:Name="RowsHost" Spacing="0" HorizontalAlignment="Center"/>
+      <!-- v0.26: atalhos do controle, como nos consoles. -->
+      <TextBlock Text="A digita  ·  X apaga  ·  Y espaço  ·  LB / RB move o cursor  ·  B fecha"
+                 Foreground="#CCFFFFFF" FontSize="12" HorizontalAlignment="Center" Margin="0,2,0,2"/>
+    </StackPanel>
   </Border>
 </UserControl>

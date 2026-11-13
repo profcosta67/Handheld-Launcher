@@ -62,29 +62,17 @@
       <Grid>
         <Grid IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
           <Image Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}" Stretch="UniformToFill" Opacity="0.3" IsHitTestVisible="False"><Image.Effect><media:BlurEffect Radius="5" /></Image.Effect></Image>
-          <Image x:Name="HeroBackImage" Stretch="Uniform" IsHitTestVisible="False" />
-          <Image x:Name="HeroImage" anim:ImageBehavior.AnimatedSource="{Binding SelectedTile.BannerImagePath}" Stretch="Uniform" />
+          <Image x:Name="HeroBackImage" Stretch="Uniform" HorizontalAlignment="Right" IsHitTestVisible="False" />
+          <Image x:Name="HeroImage" anim:ImageBehavior.AnimatedSource="{Binding SelectedTile.BannerImagePath}" Stretch="Uniform" HorizontalAlignment="Right" />
           <Border IsHitTestVisible="False">
-            <Border.Background><LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%"><GradientStop Color="#1A1A1A" Offset="0.0" /><GradientStop Color="Transparent" Offset="0.10" /><GradientStop Color="Transparent" Offset="0.90" /><GradientStop Color="#1A1A1A" Offset="1.0" /></LinearGradientBrush></Border.Background>
+            <Border.Background><LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%"><GradientStop Color="#E6101014" Offset="0.0" /><GradientStop Color="#B3101014" Offset="0.35" /><GradientStop Color="Transparent" Offset="0.72" /><GradientStop Color="Transparent" Offset="1.0" /></LinearGradientBrush></Border.Background>
           </Border>
           <Grid ColumnDefinitions="*,Auto" Margin="44,20,42,20">
             <StackPanel Grid.Column="0" VerticalAlignment="Center" HorizontalAlignment="Left" Spacing="12">
-              <TextBlock Text="EM DESTAQUE" Foreground="{DynamicResource AccentBrush}" FontSize="12" FontWeight="Bold" IsVisible="{Binding SelectedTile.ShowCurrentLogo}" />
               <Image Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}" Width="320" Height="76" Stretch="Uniform" HorizontalAlignment="Left" IsVisible="{Binding SelectedTile.ShowCurrentLogo}" />
               <TextBlock Text="{Binding SelectedTile.Title}" Classes="heroTitle" FontSize="34" TextWrapping="Wrap" TextAlignment="Left" VerticalAlignment="Center" HorizontalAlignment="Left" MaxWidth="900" IsVisible="{Binding SelectedTile.ShowNameCaption}" />
             </StackPanel>
 
-            <Border Grid.Column="1" Width="132" Height="202" CornerRadius="22" Background="{DynamicResource SurfaceRaisedBrush}" BorderBrush="{DynamicResource TileSeparatorBrush}" BorderThickness="1" ClipToBounds="True" VerticalAlignment="Center" Margin="24,0,0,0">
-              <Grid>
-                <Image anim:ImageBehavior.AnimatedSource="{Binding SelectedTile.CarouselTileImagePath}" Stretch="UniformToFill" />
-                <Border Background="{DynamicResource SurfaceBrush}" IsVisible="{Binding SelectedTile.ShowEmptyCarouselPlaceholder}">
-                  <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12" Margin="12">
-                    <PathIcon Width="30" Height="30" Data="{StaticResource IconGamepad}" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" />
-                    <TextBlock Text="{Binding SelectedTile.Title}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap" MaxLines="3" />
-                  </StackPanel>
-                </Border>
-              </Grid>
-            </Border>
           </Grid>
         </Grid>
         <TextBlock Text="Nenhum jogo encontrado ainda.&#10;Adicione um jogo manualmente para começar." Classes="subtle" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="24" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
