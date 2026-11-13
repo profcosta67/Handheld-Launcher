@@ -173,9 +173,12 @@ public sealed class ArtworkService : IArtworkService
     public async Task<bool> FetchGridAsync(GameEntry game, CancellationToken ct = default)
     {
         if (!HasApiKey) return false;
-        var image = game.Source == GameSource.Steam && game.SteamAppId is { } appId
+        var image = (game.Source == GameSource.Steam && game.SteamAppId is { } appId
             ? await _client.GetBestGridForSteamAppAsync(appId, ct)
-            : await _client.GetBestGridForTitleAsync(SearchTitleFor(game), ct);
+            : null)
+            // v0.26: jogo Steam sem arte cadastrada no ID da loja (ex.: lançamento
+            // recente) cai na busca pelo nome, como os outros jogos.
+            ?? await _client.GetBestGridForTitleAsync(SearchTitleFor(game), ct);
         if (image is null) return false;
         var localPath = await DownloadToCache(image.Url, _cacheDir, $"{game.Id}_grid", ct);
         if (localPath is null) return false;
@@ -189,9 +192,12 @@ public sealed class ArtworkService : IArtworkService
     public async Task<bool> FetchHeroAsync(GameEntry game, CancellationToken ct = default)
     {
         if (!HasApiKey) return false;
-        var image = game.Source == GameSource.Steam && game.SteamAppId is { } appId
+        var image = (game.Source == GameSource.Steam && game.SteamAppId is { } appId
             ? await _client.GetBestHeroForSteamAppAsync(appId, ct)
-            : await _client.GetBestHeroForTitleAsync(SearchTitleFor(game), ct);
+            : null)
+            // v0.26: jogo Steam sem arte cadastrada no ID da loja (ex.: lançamento
+            // recente) cai na busca pelo nome, como os outros jogos.
+            ?? await _client.GetBestHeroForTitleAsync(SearchTitleFor(game), ct);
         if (image is null) return false;
         var localPath = await DownloadToCache(image.Url, _cacheDir, $"{game.Id}_hero", ct);
         if (localPath is null) return false;
@@ -205,9 +211,12 @@ public sealed class ArtworkService : IArtworkService
     public async Task<bool> FetchLogoAsync(GameEntry game, CancellationToken ct = default)
     {
         if (!HasApiKey) return false;
-        var image = game.Source == GameSource.Steam && game.SteamAppId is { } appId
+        var image = (game.Source == GameSource.Steam && game.SteamAppId is { } appId
             ? await _client.GetBestLogoForSteamAppAsync(appId, ct)
-            : await _client.GetBestLogoForTitleAsync(SearchTitleFor(game), ct);
+            : null)
+            // v0.26: jogo Steam sem arte cadastrada no ID da loja (ex.: lançamento
+            // recente) cai na busca pelo nome, como os outros jogos.
+            ?? await _client.GetBestLogoForTitleAsync(SearchTitleFor(game), ct);
         if (image is null) return false;
         var localPath = await DownloadToCache(image.Url, _cacheDir, $"{game.Id}_logo", ct);
         if (localPath is null) return false;
@@ -222,9 +231,12 @@ public sealed class ArtworkService : IArtworkService
     public async Task<bool> FetchIconAsync(GameEntry game, CancellationToken ct = default)
     {
         if (!HasApiKey) return false;
-        var image = game.Source == GameSource.Steam && game.SteamAppId is { } appId
+        var image = (game.Source == GameSource.Steam && game.SteamAppId is { } appId
             ? await _client.GetBestIconForSteamAppAsync(appId, ct)
-            : await _client.GetBestIconForTitleAsync(SearchTitleFor(game), ct);
+            : null)
+            // v0.26: jogo Steam sem arte cadastrada no ID da loja (ex.: lançamento
+            // recente) cai na busca pelo nome, como os outros jogos.
+            ?? await _client.GetBestIconForTitleAsync(SearchTitleFor(game), ct);
         if (image is null) return false;
         var localPath = await DownloadToCache(image.Url, _cacheDir, $"{game.Id}_icon", ct);
         if (localPath is null) return false;
@@ -238,9 +250,12 @@ public sealed class ArtworkService : IArtworkService
     public async Task<bool> FetchWideGridAsync(GameEntry game, CancellationToken ct = default)
     {
         if (!HasApiKey) return false;
-        var image = game.Source == GameSource.Steam && game.SteamAppId is { } appId
+        var image = (game.Source == GameSource.Steam && game.SteamAppId is { } appId
             ? await _client.GetBestWideGridForSteamAppAsync(appId, ct)
-            : await _client.GetBestWideGridForTitleAsync(SearchTitleFor(game), ct);
+            : null)
+            // v0.26: jogo Steam sem arte cadastrada no ID da loja (ex.: lançamento
+            // recente) cai na busca pelo nome, como os outros jogos.
+            ?? await _client.GetBestWideGridForTitleAsync(SearchTitleFor(game), ct);
         if (image is null) return false;
         var localPath = await DownloadToCache(image.Url, _cacheDir, $"{game.Id}_widegrid", ct);
         if (localPath is null) return false;
@@ -253,45 +268,63 @@ public sealed class ArtworkService : IArtworkService
 
     public Task<IReadOnlyList<ArtworkCandidate>> GetGridCandidatesAsync(GameEntry game, bool animatedOnly = false, CancellationToken ct = default)
         => FetchCandidatesCoreAsync(game, animatedOnly, ct, async () =>
-            game.Source == GameSource.Steam && game.SteamAppId is { } appId
-                ? await _client.GetGridCandidatesForSteamAppAsync(appId, animatedOnly, ct)
-                : await _client.GetGridCandidatesForTitleAsync(SearchTitleFor(game), animatedOnly, ct),
+            await SteamThenTitle(game,
+                appId => _client.GetGridCandidatesForSteamAppAsync(appId, animatedOnly, ct),
+                () => _client.GetGridCandidatesForTitleAsync(SearchTitleFor(game), animatedOnly, ct)),
             $"{game.Id}_grid_candidate");
 
     public Task<IReadOnlyList<ArtworkCandidate>> GetHeroCandidatesAsync(GameEntry game, bool animatedOnly = false, CancellationToken ct = default)
         => FetchCandidatesCoreAsync(game, animatedOnly, ct, async () =>
-            game.Source == GameSource.Steam && game.SteamAppId is { } appId
-                ? await _client.GetHeroCandidatesForSteamAppAsync(appId, animatedOnly, ct)
-                : await _client.GetHeroCandidatesForTitleAsync(SearchTitleFor(game), animatedOnly, ct),
+            await SteamThenTitle(game,
+                appId => _client.GetHeroCandidatesForSteamAppAsync(appId, animatedOnly, ct),
+                () => _client.GetHeroCandidatesForTitleAsync(SearchTitleFor(game), animatedOnly, ct)),
             $"{game.Id}_hero_candidate");
 
     public Task<IReadOnlyList<ArtworkCandidate>> GetLogoCandidatesAsync(GameEntry game, bool animatedOnly = false, CancellationToken ct = default)
         => FetchCandidatesCoreAsync(game, animatedOnly, ct, async () =>
-            game.Source == GameSource.Steam && game.SteamAppId is { } appId
-                ? await _client.GetLogoCandidatesForSteamAppAsync(appId, animatedOnly, ct)
-                : await _client.GetLogoCandidatesForTitleAsync(SearchTitleFor(game), animatedOnly, ct),
+            await SteamThenTitle(game,
+                appId => _client.GetLogoCandidatesForSteamAppAsync(appId, animatedOnly, ct),
+                () => _client.GetLogoCandidatesForTitleAsync(SearchTitleFor(game), animatedOnly, ct)),
             $"{game.Id}_logo_candidate");
 
     public Task<IReadOnlyList<ArtworkCandidate>> GetIconCandidatesAsync(GameEntry game, bool animatedOnly = false, CancellationToken ct = default)
         => FetchCandidatesCoreAsync(game, animatedOnly, ct, async () =>
-            game.Source == GameSource.Steam && game.SteamAppId is { } appId
-                ? await _client.GetIconCandidatesForSteamAppAsync(appId, animatedOnly, ct)
-                : await _client.GetIconCandidatesForTitleAsync(SearchTitleFor(game), animatedOnly, ct),
+            await SteamThenTitle(game,
+                appId => _client.GetIconCandidatesForSteamAppAsync(appId, animatedOnly, ct),
+                () => _client.GetIconCandidatesForTitleAsync(SearchTitleFor(game), animatedOnly, ct)),
             $"{game.Id}_icon_candidate");
 
     public Task<IReadOnlyList<ArtworkCandidate>> GetWideGridCandidatesAsync(GameEntry game, bool animatedOnly = false, CancellationToken ct = default)
         => FetchCandidatesCoreAsync(game, animatedOnly, ct, async () =>
-            game.Source == GameSource.Steam && game.SteamAppId is { } appId
-                ? await _client.GetWideGridCandidatesForSteamAppAsync(appId, animatedOnly, ct)
-                : await _client.GetWideGridCandidatesForTitleAsync(SearchTitleFor(game), animatedOnly, ct),
+            await SteamThenTitle(game,
+                appId => _client.GetWideGridCandidatesForSteamAppAsync(appId, animatedOnly, ct),
+                () => _client.GetWideGridCandidatesForTitleAsync(SearchTitleFor(game), animatedOnly, ct)),
             $"{game.Id}_widegrid_candidate");
 
     public Task<IReadOnlyList<ArtworkCandidate>> GetWideArtworkCandidatesAsync(GameEntry game, bool animatedOnly = false, CancellationToken ct = default)
         => FetchCandidatesCoreAsync(game, animatedOnly, ct, async () =>
-            game.Source == GameSource.Steam && game.SteamAppId is { } appId
-                ? await _client.GetWideGridCandidatesForSteamAppAsync(appId, animatedOnly, ct)
-                : await _client.GetWideGridCandidatesForTitleAsync(SearchTitleFor(game), animatedOnly, ct),
+            await SteamThenTitle(game,
+                appId => _client.GetWideGridCandidatesForSteamAppAsync(appId, animatedOnly, ct),
+                () => _client.GetWideGridCandidatesForTitleAsync(SearchTitleFor(game), animatedOnly, ct)),
             $"{game.Id}_widegrid_candidate");
+
+    /// <summary>
+    /// v0.26: jogo Steam busca primeiro pelo ID da loja; se o SteamGridDB não tiver nada
+    /// ligado a esse ID (ex.: EA SPORTS FC™ 27, lançamento recente), busca pelo nome —
+    /// a busca por nome já tenta sem ™/®/pontuação.
+    /// </summary>
+    private static async Task<IReadOnlyList<SteamGridDbImage>> SteamThenTitle(
+        GameEntry game,
+        Func<uint, Task<IReadOnlyList<SteamGridDbImage>>> bySteamApp,
+        Func<Task<IReadOnlyList<SteamGridDbImage>>> byTitle)
+    {
+        if (game.Source == GameSource.Steam && game.SteamAppId is { } appId)
+        {
+            var found = await bySteamApp(appId);
+            if (found.Count > 0) return found;
+        }
+        return await byTitle();
+    }
 
     private async Task<IReadOnlyList<ArtworkCandidate>> FetchCandidatesCoreAsync(
         GameEntry game, bool animatedOnly, CancellationToken ct,
