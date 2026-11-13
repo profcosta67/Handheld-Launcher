@@ -18,22 +18,23 @@
     <Style Selector="Slider"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="15" Margin="1"/></Template></Setter></Style>
     <Style Selector="Button.categoryTab"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="11" Margin="1"/></Template></Setter></Style>
     
+    <!-- v0.26: sem caixas. Cada grupo é só um título discreto e as opções. -->
     <Style Selector="Border.settingsCard">
-      <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}"/>
-      <Setter Property="CornerRadius" Value="20"/>
-      <Setter Property="Padding" Value="18"/>
-      <Setter Property="Margin" Value="0,0,0,12"/>
-      <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource TileSeparatorBrush}"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="CornerRadius" Value="0"/>
+      <Setter Property="Padding" Value="4,0,4,0"/>
+      <Setter Property="Margin" Value="0,0,0,26"/>
+      <Setter Property="BorderThickness" Value="0"/>
     </Style>
     <Style Selector="Button.categoryTab">
-      <Setter Property="CornerRadius" Value="16"/>
-      <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="FontSize" Value="15"/>
+      <Setter Property="Padding" Value="14,10"/>
       <Setter Property="Transitions">
         <Transitions>
           <BrushTransition Property="Background" Duration="0:0:0.16"/>
-          <BrushTransition Property="BorderBrush" Duration="0:0:0.16"/>
         </Transitions>
       </Setter>
     </Style>
@@ -41,58 +42,68 @@
       <Setter Property="Background" Value="{DynamicResource TileHoverBrush}"/>
     </Style>
     <Style Selector="Button.categoryTab.active">
-      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+      <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+    </Style>
+    <Style Selector="TextBlock.navGroup">
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+      <Setter Property="Margin" Value="14,14,0,2"/>
     </Style>
     <Style Selector="TextBlock.sectionTitle">
-      <Setter Property="FontSize" Value="14"/>
-      <Setter Property="FontWeight" Value="Bold"/>
-      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-      <Setter Property="Margin" Value="0,0,0,12"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontWeight" Value="Medium"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+      <Setter Property="Margin" Value="0,0,0,8"/>
     </Style>
   </Window.Styles>
 
   <Panel>
   <Grid RowDefinitions="*,Auto" Margin="24" IsEnabled="{Binding FormEnabled}">
-    <Grid Grid.Row="0" ColumnDefinitions="190,*">
+    <Grid Grid.Row="0" ColumnDefinitions="220,*,Auto">
         
       <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Spacing="6" Margin="0,0,16,8">
-          <TextBlock Text="Configurações" Classes="qsSectionTitle" Margin="8,0,0,8" />
+          <TextBlock Text="Configurações" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="14,0,0,4" />
+          <TextBlock Text="Sistema" Classes="navGroup" />
           <Button Classes="settingsTab categoryTab" Classes.active="{Binding IsCategoryModeActive}" Tag="0" Click="OnCategoryTabClick">
-            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Geral" VerticalAlignment="Center" /><TextBlock Grid.Column="1" Text="›" Opacity="0.65" VerticalAlignment="Center" /></Grid>
-          </Button>
-          <Button Classes="settingsTab categoryTab" Classes.active="{Binding IsCategoryAppearanceActive}" Tag="1" Click="OnCategoryTabClick">
-            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Aparência" VerticalAlignment="Center" /><TextBlock Grid.Column="1" Text="›" Opacity="0.65" VerticalAlignment="Center" /></Grid>
-          </Button>
-          <Button Classes="settingsTab categoryTab" Classes.active="{Binding IsCategorySoundsActive}" Tag="2" Click="OnCategoryTabClick">
-            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Sons" VerticalAlignment="Center" /><TextBlock Grid.Column="1" Text="›" Opacity="0.65" VerticalAlignment="Center" /></Grid>
-          </Button>
-          <Button Classes="settingsTab categoryTab" Classes.active="{Binding IsCategoryLibraryActive}" Tag="3" Click="OnCategoryTabClick">
-            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Biblioteca" VerticalAlignment="Center" /><TextBlock Grid.Column="1" Text="›" Opacity="0.65" VerticalAlignment="Center" /></Grid>
+            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Geral" VerticalAlignment="Center" /></Grid>
           </Button>
           <Button Classes="settingsTab categoryTab" Classes.active="{Binding IsCategoryShortcutsActive}" Tag="4" Click="OnCategoryTabClick">
-            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Controles" VerticalAlignment="Center" /><TextBlock Grid.Column="1" Text="›" Opacity="0.65" VerticalAlignment="Center" /></Grid>
-          </Button>
-          <Button Classes="settingsTab categoryTab" Classes.active="{Binding IsCategoryLosslessActive}" Tag="5" Click="OnCategoryTabClick">
-            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Lossless" VerticalAlignment="Center" /><TextBlock Grid.Column="1" Text="›" Opacity="0.65" VerticalAlignment="Center" /></Grid>
-          </Button>
-          <Button Classes="settingsTab categoryTab" Classes.active="{Binding IsCategoryAccountsActive}" Tag="6" Click="OnCategoryTabClick">
-            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Contas" VerticalAlignment="Center" /><TextBlock Grid.Column="1" Text="›" Opacity="0.65" VerticalAlignment="Center" /></Grid>
+            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Controles" VerticalAlignment="Center" /></Grid>
           </Button>
           <Button Classes="settingsTab categoryTab" Classes.active="{Binding IsCategoryConnectivityActive}" Tag="7" Click="OnCategoryTabClick">
-            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Rede" VerticalAlignment="Center" /><TextBlock Grid.Column="1" Text="›" Opacity="0.65" VerticalAlignment="Center" /></Grid>
-          </Button>
-          <Button Classes="settingsTab categoryTab" Classes.active="{Binding IsCategorySaveCenterActive}" Tag="8" Click="OnCategoryTabClick">
-            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Central de Saves" VerticalAlignment="Center" /><TextBlock Grid.Column="1" Text="›" Opacity="0.65" VerticalAlignment="Center" /></Grid>
+            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Rede" VerticalAlignment="Center" /></Grid>
           </Button>
           <Button Classes="settingsTab categoryTab" Classes.active="{Binding IsCategoryNewsActive}" Tag="9" Click="OnCategoryTabClick">
-            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Atualizações" VerticalAlignment="Center" /><TextBlock Grid.Column="1" Text="›" Opacity="0.65" VerticalAlignment="Center" /></Grid>
+            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Atualizações" VerticalAlignment="Center" /></Grid>
+          </Button>
+          <TextBlock Text="Aparência" Classes="navGroup" />
+          <Button Classes="settingsTab categoryTab" Classes.active="{Binding IsCategoryAppearanceActive}" Tag="1" Click="OnCategoryTabClick">
+            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Aparência" VerticalAlignment="Center" /></Grid>
+          </Button>
+          <Button Classes="settingsTab categoryTab" Classes.active="{Binding IsCategorySoundsActive}" Tag="2" Click="OnCategoryTabClick">
+            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Sons" VerticalAlignment="Center" /></Grid>
+          </Button>
+          <TextBlock Text="Jogos" Classes="navGroup" />
+          <Button Classes="settingsTab categoryTab" Classes.active="{Binding IsCategoryLibraryActive}" Tag="3" Click="OnCategoryTabClick">
+            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Biblioteca" VerticalAlignment="Center" /></Grid>
+          </Button>
+          <Button Classes="settingsTab categoryTab" Classes.active="{Binding IsCategoryAccountsActive}" Tag="6" Click="OnCategoryTabClick">
+            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Contas" VerticalAlignment="Center" /></Grid>
+          </Button>
+          <Button Classes="settingsTab categoryTab" Classes.active="{Binding IsCategoryLosslessActive}" Tag="5" Click="OnCategoryTabClick">
+            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Lossless" VerticalAlignment="Center" /></Grid>
+          </Button>
+          <Button Classes="settingsTab categoryTab" Classes.active="{Binding IsCategorySaveCenterActive}" Tag="8" Click="OnCategoryTabClick">
+            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Central de Saves" VerticalAlignment="Center" /></Grid>
           </Button>
         </StackPanel>
       </ScrollViewer>
       
       <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-        <StackPanel Spacing="4">
+        <StackPanel x:Name="ContentHost" Spacing="4" MaxWidth="820">
 
           <!-- Aparência -->
           <StackPanel Spacing="0" IsVisible="{Binding IsCategoryAppearanceActive}">
@@ -445,12 +456,21 @@
 
         </StackPanel>
       </ScrollViewer>
+
+      <!-- v0.26: explicação só da opção em foco (modo handheld, tela cheia). -->
+      <Border x:Name="HelpPane" Grid.Column="2" Width="340" Margin="24,0,0,0" Padding="24" CornerRadius="18"
+              Background="{DynamicResource SurfaceBrush}" VerticalAlignment="Top" IsVisible="False">
+        <StackPanel Spacing="12">
+          <TextBlock x:Name="HelpTitle" FontSize="18" FontWeight="Bold" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}" />
+          <TextBlock x:Name="HelpText" FontSize="14" LineHeight="22" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" />
+        </StackPanel>
+      </Border>
     </Grid>
 
     <StackPanel Grid.Row="1" Spacing="10" Margin="0,16,0,0">
       <TextBlock Text="{Binding UpdateResultText}" IsVisible="{Binding HasUpdateResult}" TextWrapping="Wrap" />
       <Grid ColumnDefinitions="*,Auto">
-        <TextBlock Grid.Column="0" Text="🎮 Start: Salvar | X: Salvar e Fechar" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" />
+        <TextBlock Grid.Column="0" Text="LB / RB: categoria     A: alterar     B: voltar     Start: salvar     X: salvar e fechar" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13" />
         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
           <Button Classes="pill" Content="⌨ Teclado" Click="OnKeyboardClick" />
           <Button Classes="pill primary" Content="{Binding SaveButtonText}" Click="OnSaveAndCloseClick" Height="40" Width="160" />
