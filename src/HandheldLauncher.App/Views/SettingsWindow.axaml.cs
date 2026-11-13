@@ -363,7 +363,9 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
 
         if (control is RadioButton)
         {
-            var siblings = content.OfType<RadioButton>().ToList();
+            // v0.25.10: só o grupo do próprio botão (a página tem "Modo" e o modo do QS).
+            var group = ((RadioButton)control).GroupName;
+            var siblings = content.OfType<RadioButton>().Where(r => r.GroupName == group).ToList();
             var idx = siblings.IndexOf((RadioButton)control);
             if (idx < 0) return false;
             var next = Math.Clamp(idx + direction, 0, siblings.Count - 1);
@@ -639,7 +641,10 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
     }
 
     private void OnFreezeCancelClick(object? sender, RoutedEventArgs e)
-        => ViewModel.IsFreezeConfirmOpen = false;
+    {
+        ViewModel.IsFreezeConfirmOpen = false;
+        DebugLog.Write("[CONGELAR] Aviso de risco cancelado; modo do QS mantido.");
+    }
 
     /// <summary>
     /// com o driver do HidHide (e o TDP) a funcionar de verdade. O reinício usa

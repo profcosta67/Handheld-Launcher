@@ -279,14 +279,36 @@
                      consegue tirá-lo a um jogo que já esteja a correr. Suspender
                      o processo consegue — mas tem risco em jogos competitivos,
                      daí o aviso e o "Aceito" antes de ligar. -->
-                <TextBlock Text="⚠ Congelar o jogo (opcional)"
+                <!-- v0.25.10: uma escolha só, com a recomendação de cada modo. -->
+                <TextBlock Text="Quando o Quick Settings abre dentro do jogo"
                            FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,10,0,0"/>
-                <TextBlock Text="Por padrão o Quick Settings pega o foco ao abrir e o jogo para de receber o controle (em tela cheia o Windows mostra um fundo preto atrás do painel). Se algum jogo ainda mexer por trás, o congelamento suspende o processo do jogo enquanto o painel está aberto. Pode causar banimento em jogos com anti-cheat — não use em jogos competitivos."
-                           TextWrapping="Wrap" Foreground="Gray" FontSize="11" MaxWidth="450"/>
+
+                <RadioButton GroupName="QsInGameMode" IsChecked="{Binding IsQsModeFocus}">
+                  <StackPanel Spacing="2">
+                    <TextBlock Text="Pegar o foco do jogo (recomendado)" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <TextBlock Text="O jogo para de receber o controle enquanto o painel está aberto. Alguns jogos escurecem ou minimizam ao perder o foco; em tela cheia exclusiva o Windows mostra um fundo preto atrás do painel."
+                               TextWrapping="Wrap" Foreground="Gray" FontSize="11" MaxWidth="430"/>
+                  </StackPanel>
+                </RadioButton>
+
+                <RadioButton GroupName="QsInGameMode" IsChecked="{Binding IsQsModeNoFocus}">
+                  <StackPanel Spacing="2">
+                    <TextBlock Text="Não pegar o foco" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <TextBlock Text="A imagem do jogo continua normal atrás do painel, mas o jogo também recebe os botões que você aperta no Quick Settings. Use em jogos que escurecem com o modo recomendado."
+                               TextWrapping="Wrap" Foreground="Gray" FontSize="11" MaxWidth="430"/>
+                  </StackPanel>
+                </RadioButton>
+
+                <RadioButton GroupName="QsInGameMode" IsChecked="{Binding IsQsModeFreeze}">
+                  <StackPanel Spacing="2">
+                    <TextBlock Text="⚠ Congelar o jogo" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <TextBlock Text="Suspende o jogo enquanto o painel está aberto. Pode causar banimento em jogos com anti-cheat — não use em jogos competitivos. Pede confirmação."
+                               TextWrapping="Wrap" Foreground="Gray" FontSize="11" MaxWidth="430"/>
+                  </StackPanel>
+                </RadioButton>
+
                 <TextBlock Text="{Binding FreezeStatusText}" Classes="subtle" FontSize="11"
                            TextWrapping="Wrap" MaxWidth="450"/>
-                <Button Content="{Binding FreezeButtonText}" Classes="pill" Click="OnFreezeClick"
-                        HorizontalAlignment="Left" />
 
                 <!-- 11/11: "Pedir permissão para isolar (UAC por overlay)" saiu do
                      menu — desde a 0.25.7 o launcher abre sempre como

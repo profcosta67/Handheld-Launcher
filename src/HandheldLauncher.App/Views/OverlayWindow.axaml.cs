@@ -492,6 +492,24 @@ public partial class OverlayWindow : Window
         }
     }
 
+    private bool _snapBackWired;
+
+    private void LogGameStateAfterOpen(IntPtr gameHwnd, string when)
+    {
+        try
+        {
+            if (!IsVisible) return;
+            var fg = GetForegroundWindow();
+            var mine = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+            var who = fg == gameHwnd ? "jogo" : fg == mine ? "QS" : fg == IntPtr.Zero ? "ninguém" : $"outra (0x{fg:X})";
+            DebugLog.Write($"[QS] Jogo {when} após abrir: minimizado={IsIconic(gameHwnd)}, visível={IsWindowVisible(gameHwnd)}, em foco={who}, posição do QS={Position.X},{Position.Y}.");
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[QS] Estado do jogo após abrir: falhou ({ex.GetType().Name}).");
+        }
+    }
+
     public void SetGamePid(int pid)
     {
         _gamePid = pid;
@@ -554,6 +572,16 @@ public partial class OverlayWindow : Window
                 () => TryGetPlatformHandle()?.Handle ?? IntPtr.Zero, () => IsVisible);
         }
 
+        // v0.25.10: posiciona à direita ANTES de pegar o foco, e volta na hora se algo
+        // de fora mover a janela (o vigia de 1 s deixava o QS "segundos" no centro).
+        PositionOnRightEdge();
+        ResetPositionGuardForShow();
+        if (OperatingSystem.IsWindows() && !_snapBackWired)
+        {
+            _snapBackWired = true;
+            PositionChanged += (_, _) => Dispatcher.UIThread.Post(GuardPosition, DispatcherPriority.Background);
+        }
+
         if (OperatingSystem.IsWindows())
         {
             var h = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
@@ -577,6 +605,19 @@ public partial class OverlayWindow : Window
                     keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
                     SetForegroundWindow(h);
                     DebugLog.Write($"[QS] Foco pego pelo Quick Settings (modo={windowMode}, foreground agora=0x{GetForegroundWindow():X}, painel=0x{h:X}).");
+                }
+                else if (_gamePid > 0)
+                {
+                    DebugLog.Write($"[QS] Modo sem foco: o jogo continua em foco (modo={windowMode}).");
+                }
+
+                // v0.25.10: diagnóstico — o que o jogo fez depois que o QS abriu
+                // (minimizou? sumiu? perdeu o foco?), sem adivinhar pelo relato.
+                if (_gamePid > 0 && _gameHwnd != IntPtr.Zero)
+                {
+                    var gameHwnd = _gameHwnd;
+                    DispatcherTimer.RunOnce(() => LogGameStateAfterOpen(gameHwnd, "0,5 s"), TimeSpan.FromMilliseconds(500));
+                    DispatcherTimer.RunOnce(() => LogGameStateAfterOpen(gameHwnd, "2 s"), TimeSpan.FromSeconds(2));
                 }
             }
         }

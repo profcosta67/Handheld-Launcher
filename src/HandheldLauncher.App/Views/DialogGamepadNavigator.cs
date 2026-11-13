@@ -92,8 +92,10 @@ internal static class DialogGamepadNavigator
             }
         }
 
-        // Opções de rádio (ex.: Tema/Layout): ↑/↓/←/→ percorrem o MESMO grupo e já marcam a
-        // opção — o foco por Tab trata o grupo como uma parada só e o controle ficava preso.
+        // Opções de rádio (ex.: Tema/Layout): ↑/↓/←/→ percorrem o MESMO grupo — o foco por Tab
+        // trata o grupo como uma parada só e o controle ficava preso.
+        // v0.25.10 (vídeo de 13/11): só o destaque anda; a bolinha (a escolha) só muda com A.
+        // Antes a marcação seguia o cursor e "Aplicar" pegava o último item por onde se passou.
         if (focused is RadioButton radioFocused
             && action is GamepadAction.MoveUp or GamepadAction.MoveDown or GamepadAction.MoveLeft or GamepadAction.MoveRight
             && MoveRadioInGroup(dialog, radioFocused, (action is GamepadAction.MoveDown or GamepadAction.MoveRight) ? 1 : -1))
@@ -267,7 +269,6 @@ internal static class DialogGamepadNavigator
         var index = group.IndexOf(current);
         var next = index + delta;
         if (group.Count < 2 || index < 0 || next < 0 || next >= group.Count) return false;
-        group[next].IsChecked = true;
         group[next].Focus(NavigationMethod.Directional);
         group[next].BringIntoView();
         return true;

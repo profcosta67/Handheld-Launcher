@@ -454,7 +454,61 @@ public sealed class SettingsViewModel : ViewModelBase
             if (!SetField(ref _freezeGameOnOverlay, value)) return;
             OnPropertyChanged(nameof(FreezeButtonText));
             OnPropertyChanged(nameof(FreezeStatusText));
+            RaiseQsInGameMode();
         }
+    }
+
+    /// <summary>v0.25.10: o QS pega o foco do jogo ao abrir (padrão). Antes só no settings.json.</summary>
+    private bool _overlayTakesFocus = true;
+    public bool OverlayTakesFocus
+    {
+        get => _overlayTakesFocus;
+        set { if (SetField(ref _overlayTakesFocus, value)) RaiseQsInGameMode(); }
+    }
+
+    // v0.25.10: uma escolha só para "o que acontece com o jogo quando o QS abre".
+    // Pegar o foco (recomendado) · Não pegar o foco · Congelar (com aviso de risco).
+    public bool IsQsModeFocus
+    {
+        get => OverlayTakesFocus && !FreezeGameOnOverlay;
+        set
+        {
+            if (!value) return;
+            FreezeGameOnOverlay = false;
+            OverlayTakesFocus = true;
+            RaiseQsInGameMode();
+        }
+    }
+
+    public bool IsQsModeNoFocus
+    {
+        get => !OverlayTakesFocus && !FreezeGameOnOverlay;
+        set
+        {
+            if (!value) return;
+            FreezeGameOnOverlay = false;
+            OverlayTakesFocus = false;
+            RaiseQsInGameMode();
+        }
+    }
+
+    /// <summary>Marcar abre o aviso de risco; só liga depois do "Aceito".</summary>
+    public bool IsQsModeFreeze
+    {
+        get => FreezeGameOnOverlay;
+        set
+        {
+            if (value && !FreezeGameOnOverlay) IsFreezeConfirmOpen = true;
+            // O RadioButton já se marcou; volta ao estado real até o "Aceito".
+            Avalonia.Threading.Dispatcher.UIThread.Post(RaiseQsInGameMode);
+        }
+    }
+
+    private void RaiseQsInGameMode()
+    {
+        OnPropertyChanged(nameof(IsQsModeFocus));
+        OnPropertyChanged(nameof(IsQsModeNoFocus));
+        OnPropertyChanged(nameof(IsQsModeFreeze));
     }
 
     /// <summary>Aviso de risco aberto (só ativa depois do "Aceito").</summary>
@@ -621,6 +675,7 @@ public sealed class SettingsViewModel : ViewModelBase
         IsolateControllerOnOverlay = settings.IsolateControllerOnOverlay;
         HidHideElevateOnDemand = settings.HidHideElevateOnDemand;
         FreezeGameOnOverlay = settings.FreezeGameOnOverlay;
+        OverlayTakesFocus = settings.OverlayTakesFocus;
         
         SoundThemeIndex = Math.Clamp(settings.SoundTheme, 0, HandheldLauncher.App.Platform.UiSounds.PackNames.Length - 1);
         SoundVolume = Math.Clamp(settings.SoundVolume, 0, 100);
@@ -824,6 +879,7 @@ public sealed class SettingsViewModel : ViewModelBase
         settings.IsolateControllerOnOverlay = IsolateControllerOnOverlay;
         settings.HidHideElevateOnDemand = HidHideElevateOnDemand;
         settings.FreezeGameOnOverlay = FreezeGameOnOverlay;
+        settings.OverlayTakesFocus = OverlayTakesFocus;
 
         // v0.25.2: o layout Cartoon é uma identidade fechada — paleta 16, fonte
         // Fredoka e som Bolha. Os combos ficam desligados na tela; gravar aqui

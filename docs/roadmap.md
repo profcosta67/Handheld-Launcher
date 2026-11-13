@@ -16,7 +16,7 @@ nem disputar espaço copiando suas interfaces.
 
 ## Estado de partida
 
-O repositório está na versão estável **0.25.8**. Já existem biblioteca multi-loja, layouts e temas,
+O repositório está na versão estável **0.25.9** (12/11/2026); a 0.25.10 fecha o bloco 0.25. Já existem biblioteca multi-loja, layouts e temas,
 detalhes e conquistas, Quick Settings, diário de sessões, Central de Ajuda,
 armazenamento, saúde do aparelho, guardião de suspensão, rede, Syncthing e
 atualizações beta. A versão 0.25 também acrescentou melhorias de instalação.
@@ -73,20 +73,24 @@ seus marcos já viraram produto; as maiores lacunas restantes são:
 ### 0.25.x — Estabilidade antes do visual
 
 **Objetivo:** fechar o que atrapalha o uso diário antes de seguir com o visual.
+**Situação (12/11/2026):** fechado na 0.25.10, com as decisões abaixo.
 
-1. Quick Settings dentro do jogo: o painel não recebia o controle (abre sem
-   foco e o XInput não chega a quem está em segundo plano). Na 0.25.9 o
-   ajudante passa os botões ao painel; falta validar no Go 2 e no Ally.
-2. Camada esbranquiçada ao abrir o QS sobre o jogo: investigar (efeito
-   Acrílico do painel, perfil de cor Vívido, HDR, congelamento do jogo).
-3. Administrador: medir no log quem abre o launcher e em que modo, e decidir
-   a proposta do ajudante privilegiado ([admin-helper.md](./admin-helper.md)).
-4. Processo: `beta/**` com CI, branch do beta mesclado no master depois de
-   cada oficial, VERSION do master sempre acima do último lançado.
+1. Quick Settings dentro do jogo — **decidido.** Sem controle virtual, o Windows
+   não permite ao mesmo tempo "jogo sem alteração atrás do painel" e "jogo sem
+   receber o controle". Configurações → Overlay oferece três modos: pegar o foco
+   (padrão, recomendado), não pegar o foco, congelar (opt-in com aviso de risco).
+   Toques duplicados (ponte HID + XInput; controle virando teclado) corrigidos.
+   Validado no Legion Go 2; **Ally pendente** (sem aparelho para teste).
+2. Camada esbranquiçada — causa: perfil de cor Vívido. O launcher não acumula a
+   curva; fica como problema conhecido ("use Padrão").
+3. Administrador — **decidido:** continua sempre admin na 0.25. O ajudante
+   privilegiado ([admin-helper.md](./admin-helper.md)) entra depois da 0.26,
+   primeiro no Windows, depois no Linux (0.27).
+4. Processo: branch de trabalho mesclado no master a cada oficial; VERSION
+   sempre acima do último lançado.
 
-**Critérios de aceite:** QS navegável e fechável pelo controle dentro de jogo
-em tela cheia sem bordas nos aparelhos suportados; sem camada branca; log
-mostra modo de abertura em todo início.
+**Para estudo depois da 0.26:** controle virtual (ViGEm) para isolar o jogo sem
+tirar o foco — exige driver e tem risco com anti-cheat; só como opção explícita.
 
 ### 0.26 — Identidade visual e experiência coesas
 

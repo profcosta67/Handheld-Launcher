@@ -566,12 +566,27 @@ private void SetAddButtonFocused(bool focused)
         // Sem ponte (ou ajudante morto, com dado velho): fica como antes (XInput).
         if (!_hidPad.HasData || !GameInputHelper.IsHelperRunning) return xinputActions;
 
-        // Com a ponte ativa, ela é a única fonte — se o XInput também entregar
-        // (launcher em foco), o mesmo aperto não pode valer duas vezes.
+        // v0.25.10 ("ghost" nos toques): com o QS EM FOCO (modo padrão desde 11/11) o
+        // XInput chega ao painel normalmente, com debounce e repeat. A ponte conta cada
+        // borda crua do HID (sem debounce) e entrava ~60 ms antes do XInput — no log de
+        // 12/11 13:15 apareciam movimentos da ponte sem aperto correspondente no XInput.
+        // Com foco, a fonte é o XInput; a ponte só vale quando o painel está SEM foco.
+        // Revisão 12/11: só se o XInput estiver vivo — slot morto (reinício do controle,
+        // HidHide) volta para a ponte, senão o QS ficaria sem input nenhum.
+        if (_overlayWindow is { IsActive: true } && _gamepad.IsConnected)
+        {
+            if (!_hidPadLoggedDuplicate)
+            {
+                _hidPadLoggedDuplicate = true;
+                DebugLog.Write("[QS-INPUT] QS em foco: usando o XInput (a ponte HID fica calada para não duplicar).");
+            }
+            return xinputActions;
+        }
+
         if (xinputActions.Count > 0 && !_hidPadLoggedDuplicate)
         {
             _hidPadLoggedDuplicate = true;
-            DebugLog.Write("[QS-INPUT] XInput também entregou botões; usando só a ponte HID para não duplicar.");
+            DebugLog.Write("[QS-INPUT] XInput também entregou botões com o QS sem foco; usando só a ponte HID.");
         }
         return hidActions;
     }
@@ -664,6 +679,10 @@ private void SetAddButtonFocused(bool focused)
             // v0.25.9: QS aberto num jogo → botões vêm do ajudante (HID em
             // segundo plano), porque o XInput não chega a quem está sem foco.
             actions = ApplyHidBridge(actions);
+
+            // v0.25.10: o mesmo aperto que já chegou como tecla (controle virando teclado) não vale duas vezes.
+            if (actions.Count > 0)
+                actions = actions.Where(a => !HandheldLauncher.App.Input.InputDedup.DropGamepad(a)).ToList();
 
             // Linux: o evdev é global — o jogo e o launcher recebem os MESMOS botões. Com um
             // jogo aberto e o launcher sem foco, só o atalho do QS vale; senão "B" no jogo fechava
