@@ -62,8 +62,9 @@
       <Grid>
         <Grid IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
           <Image Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}" Stretch="UniformToFill" Opacity="0.3" IsHitTestVisible="False"><Image.Effect><media:BlurEffect Radius="5" /></Image.Effect></Image>
-          <Image x:Name="HeroBackImage" Stretch="Uniform" HorizontalAlignment="Right" IsHitTestVisible="False" />
-          <Image x:Name="HeroImage" anim:ImageBehavior.AnimatedSource="{Binding SelectedTile.BannerImagePath}" Stretch="Uniform" HorizontalAlignment="Right" />
+          <!-- v0.26: a borda esquerda da arte nítida se dissolve no fundo desfocado. -->
+          <Image x:Name="HeroBackImage" Stretch="Uniform" HorizontalAlignment="Right" IsHitTestVisible="False"><Image.OpacityMask><LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%"><GradientStop Color="#00FFFFFF" Offset="0.0" /><GradientStop Color="#99FFFFFF" Offset="0.18" /><GradientStop Color="#FFFFFFFF" Offset="0.38" /><GradientStop Color="#FFFFFFFF" Offset="1.0" /></LinearGradientBrush></Image.OpacityMask></Image>
+          <Image x:Name="HeroImage" anim:ImageBehavior.AnimatedSource="{Binding SelectedTile.BannerImagePath}" Stretch="Uniform" HorizontalAlignment="Right"><Image.OpacityMask><LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%"><GradientStop Color="#00FFFFFF" Offset="0.0" /><GradientStop Color="#99FFFFFF" Offset="0.18" /><GradientStop Color="#FFFFFFFF" Offset="0.38" /><GradientStop Color="#FFFFFFFF" Offset="1.0" /></LinearGradientBrush></Image.OpacityMask></Image>
           <Border IsHitTestVisible="False">
             <Border.Background><LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%"><GradientStop Color="#E6101014" Offset="0.0" /><GradientStop Color="#B3101014" Offset="0.35" /><GradientStop Color="Transparent" Offset="0.72" /><GradientStop Color="Transparent" Offset="1.0" /></LinearGradientBrush></Border.Background>
           </Border>
