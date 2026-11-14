@@ -87,6 +87,7 @@ internal sealed class SmartTdpService : IDisposable
         public bool StartResumed;
         public string UserFan = "";
         public string? FanMode;      // curva posta pelo modo inteligente (null = ainda não mexeu)
+        public int FanTouches;
         public bool FanOff;          // o usuário escolheu uma curva à mão: não mexemos mais
         public DateTime? FanLowerSince;
         public DateTime LastStatusLog = DateTime.MinValue;
@@ -145,6 +146,8 @@ internal sealed class SmartTdpService : IDisposable
             return;
         }
 
+        if (_session is not null) _session.OffSeen = false; // ligado de novo: a próxima saída volta a esperar um ciclo
+
         if (_session is null || _session.GameId != game.Id)
         {
             EndSession("outro jogo");
@@ -170,6 +173,7 @@ internal sealed class SmartTdpService : IDisposable
                 StartLearned = learned is not null,
                 StartResumed = resumed is not null,
                 UserFan = _settings.FanMode ?? "",
+                FanTouches = GameSessionInfo.FanTouches,
                 SavedWatts = learned?.Watts ?? 0,
             };
             var origin = learned is not null ? "aprendido antes" : resumed is not null ? "retomado desta sessão de jogo" : "ponto de partida, aprendendo";
@@ -177,8 +181,7 @@ internal sealed class SmartTdpService : IDisposable
 
             // Aplica já, sem esperar o jogo aparecer: o carregamento não fica preso no perfil
             // baixo do usuário e o painel/HUD mostram na hora que o modo inteligente assumiu.
-            Apply(_session, start, "início");
-            UpdateFan(_session, start, DateTime.UtcNow);
+            if (Apply(_session, start, "início")) UpdateFan(_session, start, DateTime.UtcNow);
         }
 
         var s = _session;
@@ -188,6 +191,7 @@ internal sealed class SmartTdpService : IDisposable
         if (currentUserMode != s.UserMode)
         {
             s.Suspended = true;
+            GameSessionInfo.SmartTdpWatts = 0;
             // Garante que o que está no hardware é a escolha do usuário, não o nosso último valor.
             var ok = !s.Applied || _hardware.SetTdpMode(currentUserMode);
             Dispatcher.UIThread.Post(() => _viewModel.UpdateHudTdpStatus(currentUserMode));
@@ -195,7 +199,7 @@ internal sealed class SmartTdpService : IDisposable
             return;
         }
 
-        if (!s.FanOff && !string.Equals(_settings.FanMode ?? "", s.UserFan, StringComparison.Ordinal))
+        if (!s.FanOff && (GameSessionInfo.FanTouches != s.FanTouches || !string.Equals(_settings.FanMode ?? "", s.UserFan, StringComparison.Ordinal)))
         {
             s.FanOff = true;
             s.FanMode = null; // a curva agora é a que o usuário escolheu; nada a devolver
@@ -217,7 +221,7 @@ internal sealed class SmartTdpService : IDisposable
             // O Quick Settings reaplica o TDP salvo ao abrir; de volta ao jogo, o valor do
             // modo inteligente é reafirmado.
             s.Away = false;
-            if (s.Applied && s.Controller is not null) Apply(s, s.Controller.Watts, "de volta ao jogo");
+            if (s.Applied) Apply(s, s.Controller?.Watts ?? s.StartWatts, "de volta ao jogo");
         }
 
         FrameStats? frames;
@@ -260,7 +264,7 @@ internal sealed class SmartTdpService : IDisposable
                 : "na meta, testando para baixo";
             DebugLog.Write($"[TDP-AUTO] Estado: {s.Controller.Watts} W, FPS {f.Fps:0} (meta {TargetFps}), ventoinha {s.FanMode ?? (s.FanOff ? "do usuário" : s.UserFan)} — {state}.");
         }
-        GameSessionInfo.SmartTdpWatts = s.Controller.Watts;
+        if (s.Applied) GameSessionInfo.SmartTdpWatts = s.Controller.Watts;
 
         if (s.Controller.IsSettled && s.SavedWatts != s.Controller.Watts)
         {
@@ -292,6 +296,7 @@ internal sealed class SmartTdpService : IDisposable
         if (s.Failures >= 3)
         {
             s.Suspended = true;
+            GameSessionInfo.SmartTdpWatts = 0;
             DebugLog.Write("[TDP-AUTO] Três falhas seguidas; modo inteligente pausado até o jogo fechar.");
         }
         return false;

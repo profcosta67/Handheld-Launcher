@@ -253,7 +253,7 @@ public partial class QsPanel : UserControl
 
         // Com o modo inteligente no comando, o número mostrado é o que ele está aplicando.
         var watts = HandheldLauncher.App.Platform.GameSessionInfo.SmartTdpWatts;
-        if (_smartOn && watts > 0 && !_tdpEditing) TxtTdp.Text = $"{watts} W";
+        if (!_tdpEditing) TxtTdp.Text = _smartOn && watts > 0 ? $"{watts} W" : $"{_customWatts} W";
     }
 
     private static string SmartHint()
@@ -288,6 +288,7 @@ public partial class QsPanel : UserControl
         HandheldLauncher.App.Diagnostics.DebugLog.Write($"[QS] TDP inteligente {(on ? "ligado" : "desligado")} pelo painel.");
         if (on) EndTdpEdit(apply: false);
         SelectPowerPreset(_activePreset);
+        if (!on && !_tdpEditing) TxtTdp.Text = $"{_customWatts} W";
     }
 
     // v0.25.3: HUD de desempenho de volta ao QS 2.0 (Off/Resumido/Médio/Completo).

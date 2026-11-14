@@ -1834,6 +1834,7 @@ public partial class OverlayWindow : Window
 
     private void ApplyFanMode(string mode)
     {
+        GameSessionInfo.NoteFanTouch(); // o TDP inteligente deixa a ventoinha com o usuário quando ele mexe nela
         if (mode == "Automático")
         {
             _fanCurveService?.RestoreOriginal(); _currentFanMode = mode; SetFanButtonVisual(mode);
@@ -1873,7 +1874,8 @@ public partial class OverlayWindow : Window
         if (mode is null)
         {
             string saved;
-            try { saved = AppSettingsStore.Load().FanMode ?? "Automático"; } catch { saved = "Automático"; }
+            try { saved = AppSettingsStore.Load().FanMode; } catch { saved = ""; }
+            if (string.IsNullOrWhiteSpace(saved)) saved = "Automático";
             DebugLog.Write($"[FAN] Modo inteligente saiu: ventoinha de volta a {saved}.");
             ApplyFanMode(saved);
             return;

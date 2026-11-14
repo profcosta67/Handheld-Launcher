@@ -12,6 +12,12 @@ internal static class GameSessionInfo
         set => _detectedGamePid = value;
     }
 
+    private static int _fanTouches;
+
+    /// <summary>Conta cada vez que a ventoinha é aplicada pelo caminho do usuário (botões, perfil de TDP).</summary>
+    public static int FanTouches => Volatile.Read(ref _fanTouches);
+    public static void NoteFanTouch() => Interlocked.Increment(ref _fanTouches);
+
     private static volatile int _smartTdpWatts;
 
     /// <summary>Watts que o TDP inteligente está aplicando agora; 0 quando não está no comando.</summary>
