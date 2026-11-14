@@ -24,7 +24,7 @@
       <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}" />
       <Setter Property="Padding" Value="12,7" />
       <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontSize" Value="{DynamicResource TextSmall}" />
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="MinWidth" Value="66" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
@@ -58,7 +58,7 @@
 
     <!-- Título de grupo: centralizado, sem caixa, discreto (muted). -->
     <Style Selector="TextBlock.qsGroupTitle">
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource TextCaption}" />
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
       <Setter Property="HorizontalAlignment" Value="Center" />
@@ -93,13 +93,13 @@
       <Border Grid.Row="0" Padding="18,14,12,8">
         <Grid ColumnDefinitions="*,Auto">
           <StackPanel Grid.Column="0" Spacing="1" VerticalAlignment="Center">
-            <TextBlock Text="Quick Settings" FontSize="20" FontWeight="Bold"
+            <TextBlock Text="Quick Settings" FontSize="{DynamicResource TextHeading}" FontWeight="Bold"
                        Foreground="{DynamicResource TextPrimaryBrush}" />
-            <TextBlock x:Name="TxtScreenInfo" Text="—" FontSize="11"
+            <TextBlock x:Name="TxtScreenInfo" Text="—" FontSize="{DynamicResource TextCaption}"
                        Foreground="{DynamicResource TextSecondaryBrush}" />
           </StackPanel>
           <Button Grid.Column="1" x:Name="BtnClose" Content="✕" Classes="pill"
-                  Width="36" Height="36" CornerRadius="{DynamicResource RadiusLarge}" Padding="0" FontSize="14" MinWidth="0"
+                  Width="36" Height="36" CornerRadius="{DynamicResource RadiusLarge}" Padding="0" FontSize="{DynamicResource TextBodyLarge}" MinWidth="0"
                   HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Click="OnCloseClick" />
         </Grid>
       </Border>
@@ -111,7 +111,7 @@
           <Border x:Name="ElevationWarning" IsVisible="False" Background="#33FF6B6B"
                   BorderBrush="#66FF6B6B" BorderThickness="1" CornerRadius="{DynamicResource RadiusMedium}"
                   Padding="10" Margin="6,0,6,6">
-            <TextBlock x:Name="TxtElevationWarning" FontSize="11" Foreground="#FFD8D8"
+            <TextBlock x:Name="TxtElevationWarning" FontSize="{DynamicResource TextCaption}" Foreground="#FFD8D8"
                        TextWrapping="Wrap" Text="Modo padrão: o TDP não aplica. Reinicia como administrador." />
           </Border>
 
@@ -120,10 +120,10 @@
             <StackPanel Spacing="0">
               <TextBlock Text="Brilho" Classes="qsGroupTitle" />
               <Grid ColumnDefinitions="Auto,*,Auto">
-                <TextBlock Grid.Column="0" Text="☀️" FontSize="15" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="0" Text="☀️" FontSize="{DynamicResource TextBodyLarge}" VerticalAlignment="Center" />
                 <Slider Grid.Column="1" x:Name="BrightnessSlider" Minimum="0" Maximum="100"
                         TickFrequency="5" IsSnapToTickEnabled="True" Margin="12,0" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="2" x:Name="TxtBrightness" Text="70%" FontSize="12" FontWeight="SemiBold"
+                <TextBlock Grid.Column="2" x:Name="TxtBrightness" Text="70%" FontSize="{DynamicResource TextSmall}" FontWeight="SemiBold"
                            Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"
                            MinWidth="40" TextAlignment="Right" />
               </Grid>
@@ -151,7 +151,7 @@
             <StackPanel Spacing="0">
               <TextBlock Text="Refrigeração" Classes="qsGroupTitle" />
               <StackPanel x:Name="FanHost" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" />
-              <TextBlock x:Name="TxtFanStatus" Text="" FontSize="10" Margin="0,6,0,0"
+              <TextBlock x:Name="TxtFanStatus" Text="" FontSize="{DynamicResource TextMicro}" Margin="0,6,0,0"
                          Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"
                          HorizontalAlignment="Center" TextAlignment="Center" />
             </StackPanel>
@@ -164,13 +164,13 @@
               <Grid ColumnDefinitions="*,Auto">
                 <Slider Grid.Column="0" x:Name="TdpSlider" Minimum="5" Maximum="35"
                         TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="1" x:Name="TxtTdp" Text="20 W" FontSize="14" FontWeight="Bold"
+                <TextBlock Grid.Column="1" x:Name="TxtTdp" Text="20 W" FontSize="{DynamicResource TextBodyLarge}" FontWeight="Bold"
                            Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"
                            MinWidth="54" TextAlignment="Right" />
               </Grid>
               <StackPanel x:Name="TdpPresetsHost" Orientation="Horizontal" Spacing="6"
                           HorizontalAlignment="Center" Margin="0,8,0,0" />
-              <TextBlock x:Name="TxtTdpHint" Text="" FontSize="10"
+              <TextBlock x:Name="TxtTdpHint" Text="" FontSize="{DynamicResource TextMicro}"
                          Foreground="{StaticResource TextSecondaryBrush}"
                          HorizontalAlignment="Center" TextAlignment="Center"
                          TextWrapping="Wrap" Margin="0,4,0,0" />
@@ -216,7 +216,7 @@
             <StackPanel Spacing="0">
               <TextBlock Text="Plano de energia (Windows)" Classes="qsGroupTitle" />
               <WrapPanel x:Name="PowerPlanHost" HorizontalAlignment="Center" />
-              <TextBlock x:Name="TxtPowerPlanStatus" Text="" FontSize="10" Margin="0,6,0,0"
+              <TextBlock x:Name="TxtPowerPlanStatus" Text="" FontSize="{DynamicResource TextMicro}" Margin="0,6,0,0"
                          Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"
                          HorizontalAlignment="Center" TextAlignment="Center" />
             </StackPanel>
@@ -230,16 +230,16 @@
               BorderBrush="{StaticResource TileSeparatorBrush}" BorderThickness="0,1,0,0">
         <Grid ColumnDefinitions="Auto,*,Auto,Auto">
           <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-            <TextBlock Text="🔋" FontSize="13" VerticalAlignment="Center" />
-            <TextBlock x:Name="TxtBattery" Text="—" FontSize="12" FontWeight="SemiBold"
+            <TextBlock Text="🔋" FontSize="{DynamicResource TextBody}" VerticalAlignment="Center" />
+            <TextBlock x:Name="TxtBattery" Text="—" FontSize="{DynamicResource TextSmall}" FontWeight="SemiBold"
                        Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
           </StackPanel>
           <Button Grid.Column="2" x:Name="BtnCloseMenu" Content="✕" Classes="pill"
-                  Width="36" Height="36" MinWidth="0" CornerRadius="{DynamicResource RadiusLarge}" Padding="0" FontSize="13"
+                  Width="36" Height="36" MinWidth="0" CornerRadius="{DynamicResource RadiusLarge}" Padding="0" FontSize="{DynamicResource TextBody}"
                   Margin="0,0,6,0" ToolTip.Tip="Fechar menu (B)"
                   HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Click="OnCloseClick" />
           <Button Grid.Column="3" x:Name="BtnSettings" Content="⚙" Classes="pill"
-                  Width="36" Height="36" MinWidth="0" CornerRadius="{DynamicResource RadiusLarge}" Padding="0" FontSize="15"
+                  Width="36" Height="36" MinWidth="0" CornerRadius="{DynamicResource RadiusLarge}" Padding="0" FontSize="{DynamicResource TextBodyLarge}"
                   ToolTip.Tip="Configurações"
                   HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Click="OnSettingsClick" />
         </Grid>

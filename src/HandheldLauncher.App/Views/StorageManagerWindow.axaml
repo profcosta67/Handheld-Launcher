@@ -47,8 +47,8 @@
       <ScrollViewer x:Name="ContentScroll" Grid.Row="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
         <StackPanel Spacing="14">
 
-          <TextBlock Text="💾 Gerenciador de Armazenamento" FontSize="20" FontWeight="Bold" />
-          <TextBlock Text="↑/↓ escolhe um jogo · A mostra como mover · Y limpa o cache de shader · B fecha" Classes="subtle" FontSize="12" TextWrapping="Wrap" />
+          <TextBlock Text="💾 Gerenciador de Armazenamento" FontSize="{DynamicResource TextHeading}" FontWeight="Bold" />
+          <TextBlock Text="↑/↓ escolhe um jogo · A mostra como mover · Y limpa o cache de shader · B fecha" Classes="subtle" FontSize="{DynamicResource TextSmall}" TextWrapping="Wrap" />
 
           <Border x:Name="LowSpaceWarning" Background="#2A1B1B" BorderBrush="#C0392B" BorderThickness="1.5" CornerRadius="{DynamicResource RadiusMedium}" Padding="14" IsVisible="False">
             <TextBlock x:Name="TxtLowSpaceWarning" Foreground="#FFB3A7" TextWrapping="Wrap" FontWeight="SemiBold" />
@@ -56,14 +56,14 @@
 
           <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="{DynamicResource RadiusLarge}" Padding="18">
             <StackPanel Spacing="10">
-              <TextBlock Text="Discos" FontSize="16" FontWeight="Bold" />
+              <TextBlock Text="Discos" FontSize="{DynamicResource TextSubtitle}" FontWeight="Bold" />
               <ItemsControl x:Name="DriveList">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:DriveRowViewModel">
                     <StackPanel Spacing="4" Margin="0,0,0,8">
                       <Grid ColumnDefinitions="*,Auto">
                         <TextBlock Text="{Binding Label}" FontWeight="Bold" />
-                        <TextBlock Grid.Column="1" Text="{Binding UsageText}" Classes="subtle" FontSize="12" />
+                        <TextBlock Grid.Column="1" Text="{Binding UsageText}" Classes="subtle" FontSize="{DynamicResource TextSmall}" />
                       </Grid>
                       <ProgressBar Minimum="0" Maximum="100" Value="{Binding UsedPercent}" Height="10" CornerRadius="5" />
                     </StackPanel>
@@ -76,8 +76,8 @@
           <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="{DynamicResource RadiusLarge}" Padding="18">
             <Grid ColumnDefinitions="*,Auto">
               <StackPanel Spacing="4">
-                <TextBlock Text="Cache de shader" FontSize="16" FontWeight="Bold" />
-                <TextBlock x:Name="TxtShaderCache" Text="Calculando..." Classes="subtle" FontSize="12" TextWrapping="Wrap" />
+                <TextBlock Text="Cache de shader" FontSize="{DynamicResource TextSubtitle}" FontWeight="Bold" />
+                <TextBlock x:Name="TxtShaderCache" Text="Calculando..." Classes="subtle" FontSize="{DynamicResource TextSmall}" TextWrapping="Wrap" />
               </StackPanel>
               <Button x:Name="BtnClearShaderCache" Grid.Column="1" Classes="pill" Content="Y  Limpar" VerticalAlignment="Center" Click="OnClearShaderCacheClick" Focusable="False" />
             </Grid>
@@ -86,8 +86,8 @@
           <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="{DynamicResource RadiusLarge}" Padding="18">
             <StackPanel Spacing="10">
               <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Text="Jogos (maior → menor)" FontSize="16" FontWeight="Bold" />
-                <TextBlock x:Name="TxtTotalGamesSize" Grid.Column="1" Classes="subtle" FontSize="12" VerticalAlignment="Center" />
+                <TextBlock Text="Jogos (maior → menor)" FontSize="{DynamicResource TextSubtitle}" FontWeight="Bold" />
+                <TextBlock x:Name="TxtTotalGamesSize" Grid.Column="1" Classes="subtle" FontSize="{DynamicResource TextSmall}" VerticalAlignment="Center" />
               </Grid>
               <ItemsControl x:Name="GameList">
                 <ItemsControl.ItemTemplate>
@@ -96,7 +96,7 @@
                       <Grid ColumnDefinitions="*,Auto">
                         <StackPanel Spacing="1">
                           <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
-                          <TextBlock Text="{Binding MoveLabel}" Classes="subtle" FontSize="11" />
+                          <TextBlock Text="{Binding MoveLabel}" Classes="subtle" FontSize="{DynamicResource TextCaption}" />
                         </StackPanel>
                         <TextBlock Grid.Column="1" Text="{Binding SizeText}" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" />
                       </Grid>
@@ -121,11 +121,11 @@
       <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="{DynamicResource RadiusLarge}" Padding="22" Margin="28"
               VerticalAlignment="Center" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1">
         <StackPanel Spacing="12">
-          <TextBlock x:Name="TxtPanelTitle" FontSize="18" FontWeight="Bold" TextWrapping="Wrap" />
+          <TextBlock x:Name="TxtPanelTitle" FontSize="{DynamicResource TextTitle}" FontWeight="Bold" TextWrapping="Wrap" />
           <TextBlock x:Name="TxtPanelBody" TextWrapping="Wrap" Classes="subtle" />
           <StackPanel x:Name="PanelProgress" Spacing="6" IsVisible="False">
             <ProgressBar x:Name="PanelProgressBar" Minimum="0" Maximum="100" Height="10" CornerRadius="5" Foreground="{DynamicResource AccentBrush}" />
-            <TextBlock x:Name="TxtPanelProgress" Classes="subtle" FontSize="12" />
+            <TextBlock x:Name="TxtPanelProgress" Classes="subtle" FontSize="{DynamicResource TextSmall}" />
           </StackPanel>
           <StackPanel x:Name="PanelOptions" Spacing="8" />
         </StackPanel>

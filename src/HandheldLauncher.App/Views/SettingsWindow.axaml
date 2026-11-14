@@ -30,7 +30,7 @@
       <Setter Property="Background" Value="Transparent"/>
       <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}"/>
       <Setter Property="BorderThickness" Value="0"/>
-      <Setter Property="FontSize" Value="15"/>
+      <Setter Property="FontSize" Value="{DynamicResource TextBodyLarge}"/>
       <Setter Property="Padding" Value="14,10"/>
       <Setter Property="Transitions">
         <Transitions>
@@ -47,12 +47,12 @@
       <Setter Property="FontWeight" Value="Bold"/>
     </Style>
     <Style Selector="TextBlock.navGroup">
-      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="FontSize" Value="{DynamicResource TextSmall}"/>
       <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
       <Setter Property="Margin" Value="14,14,0,2"/>
     </Style>
     <Style Selector="TextBlock.sectionTitle">
-      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontSize" Value="{DynamicResource TextBody}"/>
       <Setter Property="FontWeight" Value="Medium"/>
       <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
       <Setter Property="Margin" Value="0,0,0,8"/>
@@ -65,7 +65,7 @@
         
       <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Spacing="6" Margin="0,0,16,8">
-          <TextBlock Text="Configurações" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="14,0,0,4" />
+          <TextBlock Text="Configurações" FontSize="{DynamicResource TextHeadingLarge}" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="14,0,0,4" />
           <TextBlock Text="Sistema" Classes="navGroup" />
           <Button Classes="settingsTab categoryTab" Classes.active="{Binding IsCategoryModeActive}" Tag="0" Click="OnCategoryTabClick">
             <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Geral" VerticalAlignment="Center" /></Grid>
@@ -123,7 +123,7 @@
                 <!-- v0.25.2: identidade fechada do layout Cartoon -->
                 <TextBlock Text="O layout Cartoon usa cores, fonte (Fredoka) e som (Bolha) exclusivos — a personalização fica bloqueada enquanto ele estiver ativo."
                            IsVisible="{Binding IsCartoonThemeActive}"
-                           Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+                           Classes="subtle" FontSize="{DynamicResource TextCaption}" TextWrapping="Wrap" />
 
                 <!-- v0.25.2: única escolha do Cartoon: versão escura ou clara -->
                 <TextBlock Text="Versão do Cartoon" Classes="label" Margin="0,8,0,4" IsVisible="{Binding IsCartoonThemeActive}" />
@@ -174,11 +174,11 @@
                 <!-- 🟢 AVISO DO TEMA CLEAN -->
                 <TextBlock Text="O tema Clean usa o carrossel (fileira) por padrão e ignora a grade vertical." 
                            IsVisible="{Binding IsCleanThemeActive}" 
-                           Classes="subtle" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                           Classes="subtle" FontSize="{DynamicResource TextCaption}" TextWrapping="Wrap" Margin="0,4,0,0"/>
                 <!-- v0.25.2: o Cartoon é sempre grade vertical (blocos) -->
                 <TextBlock Text="O tema Cartoon usa sempre a grade vertical (blocos) — a opção fica bloqueada."
                            IsVisible="{Binding IsCartoonThemeActive}"
-                           Classes="subtle" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                           Classes="subtle" FontSize="{DynamicResource TextCaption}" TextWrapping="Wrap" Margin="0,4,0,0"/>
                            
                 <ToggleSwitch IsChecked="{Binding Animations}" Content="Animações (zoom e rolagem suave)" Margin="0,8,0,0" />
                 
@@ -187,7 +187,7 @@
                   <ComboBoxItem Content="Padrão" /><ComboBoxItem Content="Vívido" /><ComboBoxItem Content="OLED (contraste alto)" />
                   <ComboBoxItem Content="Noturno (luz quente)" /><ComboBoxItem Content="Confortável" />
                 </ComboBox>
-                <TextBlock Text="Ajusta a cor da tela inteira (fora do launcher também) enquanto ele estiver aberto." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+                <TextBlock Text="Ajusta a cor da tela inteira (fora do launcher também) enquanto ele estiver aberto." Classes="subtle" FontSize="{DynamicResource TextCaption}" TextWrapping="Wrap" />
               </StackPanel>
             </Border>
           </StackPanel>
@@ -207,7 +207,7 @@
                 <!-- v0.25.2: o layout Cartoon fixa o pacote Bolha -->
                 <TextBlock Text="O layout Cartoon usa o som Bolha — o estilo fica bloqueado enquanto ele estiver ativo."
                            IsVisible="{Binding IsCartoonThemeActive}"
-                           Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+                           Classes="subtle" FontSize="{DynamicResource TextCaption}" TextWrapping="Wrap" />
                 
                 <TextBlock Text="{Binding SoundVolume, StringFormat='Volume dos Efeitos ({0}%)'}" Classes="label" Margin="0,8,0,4"/>
                 <Slider Minimum="0" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" Value="{Binding SoundVolume}" IsEnabled="{Binding SoundEffects}" />
@@ -233,7 +233,7 @@
                   <TextBox Grid.Column="0" Text="{Binding EdenExecutablePath}" Watermark="C:\Eden Emu\eden.exe" Height="36" />
                   <Button Grid.Column="1" Classes="pill" Content="Procurar…" Click="OnBrowseEdenClick" Margin="8,0,0,0" />
                 </Grid>
-                <TextBlock Text="{Binding EdenStatusText}" Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding EdenStatusText}" Classes="subtle" FontSize="{DynamicResource TextCaption}" TextWrapping="Wrap" />
                 
                 <TextBlock Text="Pastas de ROMs (uma por linha)" Classes="label" Margin="0,8,0,4" />
                 <TextBox Text="{Binding EdenRomFoldersText}" Watermark="D:\Roms\Switch" AcceptsReturn="True" Height="60" TextWrapping="Wrap" />
@@ -241,8 +241,8 @@
                   <Button Classes="pill" Content="+ Adicionar pasta…" Click="OnAddRomFolderClick" />
                   <Button Classes="pill" Content="Testar agora" Click="OnTestEdenScanClick" />
                 </StackPanel>
-                <TextBlock Text="{Binding EdenScanResultText}" IsVisible="{Binding HasEdenScanResult}" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource AccentBrush}" />
-                <TextBlock Text="Formatos: .nsp, .xci, .nsz, .xcz. DLCs são ignorados. Mudanças só valem após reiniciar o launcher." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding EdenScanResultText}" IsVisible="{Binding HasEdenScanResult}" FontSize="{DynamicResource TextCaption}" TextWrapping="Wrap" Foreground="{DynamicResource AccentBrush}" />
+                <TextBlock Text="Formatos: .nsp, .xci, .nsz, .xcz. DLCs são ignorados. Mudanças só valem após reiniciar o launcher." Classes="subtle" FontSize="{DynamicResource TextCaption}" TextWrapping="Wrap" />
               </StackPanel>
             </Border>
           </StackPanel>
@@ -253,10 +253,10 @@
               <StackPanel Spacing="8">
                 <TextBlock Text="Modo de Uso" Classes="sectionTitle" />
                 <RadioButton GroupName="Modo" IsChecked="{Binding IsHandheldMode}" Content="Handheld (Tela Cheia)" Margin="0,4,0,0"/>
-                <TextBlock Text="Recomendado no aparelho. Abre sozinho e reabre se fechar." Classes="subtle" FontSize="11" Margin="28,0,0,8" />
+                <TextBlock Text="Recomendado no aparelho. Abre sozinho e reabre se fechar." Classes="subtle" FontSize="{DynamicResource TextCaption}" Margin="28,0,0,8" />
                 
                 <RadioButton GroupName="Modo" IsChecked="{Binding IsDesktopMode}" Content="Uso em PC (Janela)" />
-                <TextBlock Text="Janela normal. Não abre sozinho, e 'Sair' fecha de verdade." Classes="subtle" FontSize="11" Margin="28,0,0,8" />
+                <TextBlock Text="Janela normal. Não abre sozinho, e 'Sair' fecha de verdade." Classes="subtle" FontSize="{DynamicResource TextCaption}" Margin="28,0,0,8" />
               </StackPanel>
             </Border>
 
@@ -270,7 +270,7 @@
                         <StackPanel Spacing="4">
                             <TextBlock Text="Isolar controle no Overlay (HidHide)" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <TextBlock Text="Esconde o controle físico do jogo enquanto o Quick Settings está aberto. O jogo continua rodando no fundo, mas não recebe comandos duplicados. Recomendado para evitar banimentos em anti-cheat." 
-                                       TextWrapping="Wrap" Foreground="Gray" FontSize="11" MaxWidth="450"/>
+                                       TextWrapping="Wrap" Foreground="Gray" FontSize="{DynamicResource TextCaption}" MaxWidth="450"/>
                         </StackPanel>
                     </ToggleSwitch.Content>
                 </ToggleSwitch>
@@ -279,7 +279,7 @@
                      administrador. Em vez de falhar em silêncio, o cartão diz em
                      que modo está e oferece o reinício elevado. -->
                 <TextBlock Text="{Binding HidHideModeText}" Classes="subtle"
-                           TextWrapping="Wrap" FontSize="11" MaxWidth="450" />
+                           TextWrapping="Wrap" FontSize="{DynamicResource TextCaption}" MaxWidth="450" />
 
                 <Button Content="Reiniciar como administrador" Classes="pill"
                         IsVisible="{Binding CanRestartAsAdmin}" Click="OnRestartAsAdminClick"
@@ -298,7 +298,7 @@
                   <StackPanel Spacing="2">
                     <TextBlock Text="Pegar o foco do jogo (recomendado)" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                     <TextBlock Text="O jogo para de receber o controle enquanto o painel está aberto. Alguns jogos escurecem ou minimizam ao perder o foco; em tela cheia exclusiva o Windows mostra um fundo preto atrás do painel."
-                               TextWrapping="Wrap" Foreground="Gray" FontSize="11" MaxWidth="430"/>
+                               TextWrapping="Wrap" Foreground="Gray" FontSize="{DynamicResource TextCaption}" MaxWidth="430"/>
                   </StackPanel>
                 </RadioButton>
 
@@ -306,7 +306,7 @@
                   <StackPanel Spacing="2">
                     <TextBlock Text="Não pegar o foco" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                     <TextBlock Text="A imagem do jogo continua normal atrás do painel, mas o jogo também recebe os botões que você aperta no Quick Settings. Use em jogos que escurecem com o modo recomendado."
-                               TextWrapping="Wrap" Foreground="Gray" FontSize="11" MaxWidth="430"/>
+                               TextWrapping="Wrap" Foreground="Gray" FontSize="{DynamicResource TextCaption}" MaxWidth="430"/>
                   </StackPanel>
                 </RadioButton>
 
@@ -314,11 +314,11 @@
                   <StackPanel Spacing="2">
                     <TextBlock Text="⚠ Congelar o jogo" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                     <TextBlock Text="Suspende o jogo enquanto o painel está aberto. Pode causar banimento em jogos com anti-cheat — não use em jogos competitivos. Pede confirmação."
-                               TextWrapping="Wrap" Foreground="Gray" FontSize="11" MaxWidth="430"/>
+                               TextWrapping="Wrap" Foreground="Gray" FontSize="{DynamicResource TextCaption}" MaxWidth="430"/>
                   </StackPanel>
                 </RadioButton>
 
-                <TextBlock Text="{Binding FreezeStatusText}" Classes="subtle" FontSize="11"
+                <TextBlock Text="{Binding FreezeStatusText}" Classes="subtle" FontSize="{DynamicResource TextCaption}"
                            TextWrapping="Wrap" MaxWidth="450"/>
 
                 <!-- 11/11: "Pedir permissão para isolar (UAC por overlay)" saiu do
@@ -335,14 +335,14 @@
             <Border Classes="settingsCard">
               <StackPanel Spacing="6">
                 <TextBlock Text="Status das Contas" Classes="sectionTitle" />
-                <TextBlock FontSize="12"><Run Text="SteamGridDB (capas): " /><Run Text="{Binding SteamGridDbStatusText}" /></TextBlock>
-                <TextBlock FontSize="12"><Run Text="Steam Web API (downloads): " /><Run Text="{Binding SteamWebApiStatusText}" /></TextBlock>
-                <TextBlock FontSize="12"><Run Text="Conta Steam (SteamID64): " /><Run Text="{Binding SteamIdStatusText}" /></TextBlock>
-                <TextBlock FontSize="12"><Run Text="RAWG API (metadados): " /><Run Text="{Binding RawgApiStatusText}" /></TextBlock>
-                <TextBlock FontSize="12"><Run Text="IGDB (Twitch): " /><Run Text="{Binding IgdbApiStatusText}" /></TextBlock>
+                <TextBlock FontSize="{DynamicResource TextSmall}"><Run Text="SteamGridDB (capas): " /><Run Text="{Binding SteamGridDbStatusText}" /></TextBlock>
+                <TextBlock FontSize="{DynamicResource TextSmall}"><Run Text="Steam Web API (downloads): " /><Run Text="{Binding SteamWebApiStatusText}" /></TextBlock>
+                <TextBlock FontSize="{DynamicResource TextSmall}"><Run Text="Conta Steam (SteamID64): " /><Run Text="{Binding SteamIdStatusText}" /></TextBlock>
+                <TextBlock FontSize="{DynamicResource TextSmall}"><Run Text="RAWG API (metadados): " /><Run Text="{Binding RawgApiStatusText}" /></TextBlock>
+                <TextBlock FontSize="{DynamicResource TextSmall}"><Run Text="IGDB (Twitch): " /><Run Text="{Binding IgdbApiStatusText}" /></TextBlock>
                 
                 <Button Classes="pill primary" Content="🔒 Gerenciar contas e chaves de API" Click="OnManageAccountsClick" HorizontalAlignment="Left" Margin="0,12,0,0" />
-                <TextBlock Text="As chaves ficam criptografadas neste PC." Classes="subtle" FontSize="11" Margin="0,8,0,0" />
+                <TextBlock Text="As chaves ficam criptografadas neste PC." Classes="subtle" FontSize="{DynamicResource TextCaption}" Margin="0,8,0,0" />
               </StackPanel>
             </Border>
           </StackPanel>
@@ -351,22 +351,22 @@
           <StackPanel Spacing="0" IsVisible="{Binding IsCategoryShortcutsActive}">
             <Border Background="#14251D" BorderBrush="#347A50" BorderThickness="1.5" CornerRadius="{DynamicResource RadiusMedium}" Padding="16" Margin="0,0,0,12">
               <StackPanel Spacing="10">
-                <TextBlock Text="🎮 CONTROLE" FontSize="13" FontWeight="Bold" Foreground="#75D99A" />
-                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Navegar na biblioteca" Foreground="#D6F5E0"/><TextBlock Grid.Column="1" Text="D-Pad" FontWeight="Bold" Foreground="#8FE3AC"/></Grid>
-                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Confirmar / Abrir jogo" Foreground="#D6F5E0"/><TextBlock Grid.Column="1" Text="A" FontWeight="Bold" Foreground="#8FE3AC"/></Grid>
-                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Voltar / Fechar" Foreground="#D6F5E0"/><TextBlock Grid.Column="1" Text="B" FontWeight="Bold" Foreground="#8FE3AC"/></Grid>
-                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Opções do jogo" Foreground="#D6F5E0"/><TextBlock Grid.Column="1" Text="Select" FontWeight="Bold" Foreground="#8FE3AC"/></Grid>
-                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Menu global" Foreground="#D6F5E0"/><TextBlock Grid.Column="1" Text="Start" FontWeight="Bold" Foreground="#8FE3AC"/></Grid>
-                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Filtros (Anterior/Próximo)" Foreground="#D6F5E0"/><TextBlock Grid.Column="1" Text="LB / RB" FontWeight="Bold" Foreground="#8FE3AC"/></Grid>
+                <TextBlock Text="🎮 CONTROLE" FontSize="{DynamicResource TextBody}" FontWeight="Bold" Foreground="{DynamicResource SuccessBrush}" />
+                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Navegar na biblioteca" Foreground="{DynamicResource SuccessTextBrush}"/><TextBlock Grid.Column="1" Text="D-Pad" FontWeight="Bold" Foreground="{DynamicResource SuccessSoftBrush}"/></Grid>
+                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Confirmar / Abrir jogo" Foreground="{DynamicResource SuccessTextBrush}"/><TextBlock Grid.Column="1" Text="A" FontWeight="Bold" Foreground="{DynamicResource SuccessSoftBrush}"/></Grid>
+                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Voltar / Fechar" Foreground="{DynamicResource SuccessTextBrush}"/><TextBlock Grid.Column="1" Text="B" FontWeight="Bold" Foreground="{DynamicResource SuccessSoftBrush}"/></Grid>
+                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Opções do jogo" Foreground="{DynamicResource SuccessTextBrush}"/><TextBlock Grid.Column="1" Text="Select" FontWeight="Bold" Foreground="{DynamicResource SuccessSoftBrush}"/></Grid>
+                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Menu global" Foreground="{DynamicResource SuccessTextBrush}"/><TextBlock Grid.Column="1" Text="Start" FontWeight="Bold" Foreground="{DynamicResource SuccessSoftBrush}"/></Grid>
+                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Filtros (Anterior/Próximo)" Foreground="{DynamicResource SuccessTextBrush}"/><TextBlock Grid.Column="1" Text="LB / RB" FontWeight="Bold" Foreground="{DynamicResource SuccessSoftBrush}"/></Grid>
               </StackPanel>
             </Border>
             <Border Background="#1D1B30" BorderBrush="#7054C7" BorderThickness="1.5" CornerRadius="{DynamicResource RadiusMedium}" Padding="16">
               <StackPanel Spacing="10">
-                <TextBlock Text="⌨ TECLADO" FontSize="13" FontWeight="Bold" Foreground="#B9A5FF" />
-                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Navegar na biblioteca" Foreground="#E6E0FF"/><TextBlock Grid.Column="1" Text="← ↑ ↓ →" FontWeight="Bold" Foreground="#C6B5FF"/></Grid>
-                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Abrir jogo selecionado" Foreground="#E6E0FF"/><TextBlock Grid.Column="1" Text="Enter" FontWeight="Bold" Foreground="#C6B5FF"/></Grid>
-                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Menu de opções do jogo" Foreground="#E6E0FF"/><TextBlock Grid.Column="1" Text="Space" FontWeight="Bold" Foreground="#C6B5FF"/></Grid>
-                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Menu global" Foreground="#E6E0FF"/><TextBlock Grid.Column="1" Text="Escape" FontWeight="Bold" Foreground="#C6B5FF"/></Grid>
+                <TextBlock Text="⌨ TECLADO" FontSize="{DynamicResource TextBody}" FontWeight="Bold" Foreground="#B9A5FF" />
+                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Navegar na biblioteca" Foreground="{DynamicResource AccentTextSoftBrush}"/><TextBlock Grid.Column="1" Text="← ↑ ↓ →" FontWeight="Bold" Foreground="{DynamicResource AccentTextBrush}"/></Grid>
+                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Abrir jogo selecionado" Foreground="{DynamicResource AccentTextSoftBrush}"/><TextBlock Grid.Column="1" Text="Enter" FontWeight="Bold" Foreground="{DynamicResource AccentTextBrush}"/></Grid>
+                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Menu de opções do jogo" Foreground="{DynamicResource AccentTextSoftBrush}"/><TextBlock Grid.Column="1" Text="Space" FontWeight="Bold" Foreground="{DynamicResource AccentTextBrush}"/></Grid>
+                <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Menu global" Foreground="{DynamicResource AccentTextSoftBrush}"/><TextBlock Grid.Column="1" Text="Escape" FontWeight="Bold" Foreground="{DynamicResource AccentTextBrush}"/></Grid>
               </StackPanel>
             </Border>
           </StackPanel>
@@ -380,7 +380,7 @@
             <Border Classes="settingsCard">
               <Grid ColumnDefinitions="*,Auto">
                 <StackPanel Spacing="4">
-                  <TextBlock Text="Wi-Fi" FontSize="16" FontWeight="Bold" />
+                  <TextBlock Text="Wi-Fi" FontSize="{DynamicResource TextSubtitle}" FontWeight="Bold" />
                   <TextBlock Text="Conectar a uma rede ou esquecer redes salvas." Classes="subtle" TextWrapping="Wrap" />
                 </StackPanel>
                 <Button Grid.Column="1" Classes="pill primary" Content="Abrir Wi-Fi" Click="OnOpenWifiSettingsClick" VerticalAlignment="Center" />
@@ -389,7 +389,7 @@
             <Border Classes="settingsCard">
               <Grid ColumnDefinitions="*,Auto">
                 <StackPanel Spacing="4">
-                  <TextBlock Text="Bluetooth" FontSize="16" FontWeight="Bold" />
+                  <TextBlock Text="Bluetooth" FontSize="{DynamicResource TextSubtitle}" FontWeight="Bold" />
                   <TextBlock Text="Parear controles, fones e outros acessórios." Classes="subtle" TextWrapping="Wrap" />
                 </StackPanel>
                 <Button Grid.Column="1" Classes="pill primary" Content="Abrir Bluetooth" Click="OnOpenBluetoothSettingsClick" VerticalAlignment="Center" />
@@ -403,12 +403,12 @@
               <StackPanel Spacing="8">
                 <TextBlock Text="Sincronização (Syncthing)" Classes="sectionTitle" />
                 <ToggleSwitch IsChecked="{Binding SyncthingEnabled}" Content="Ativar sincronização em segundo plano" />
-                <TextBlock Text="Mantém seus saves e configurações sincronizados entre o handheld e o PC. Ao entrar nesta aba a central abre sozinha, com o painel do Syncthing embutido." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+                <TextBlock Text="Mantém seus saves e configurações sincronizados entre o handheld e o PC. Ao entrar nesta aba a central abre sozinha, com o painel do Syncthing embutido." Classes="subtle" FontSize="{DynamicResource TextCaption}" TextWrapping="Wrap" />
                 <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
                   <Button Classes="pill primary" Content="🔄 Abrir Central de Saves" Command="{Binding OpenSyncthingCommand}" />
                   <Button Classes="pill" Content="Abrir no navegador" Click="OnOpenSyncthingWebUiClick" />
                 </StackPanel>
-                <TextBlock Text="{Binding SyncthingStatusText}" IsVisible="{Binding HasSyncthingStatus}" Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding SyncthingStatusText}" IsVisible="{Binding HasSyncthingStatus}" Classes="subtle" FontSize="{DynamicResource TextCaption}" TextWrapping="Wrap" />
               </StackPanel>
             </Border>
           </StackPanel>
@@ -418,7 +418,7 @@
             <Border Classes="settingsCard">
               <StackPanel Spacing="8">
                 <ToggleSwitch IsChecked="{Binding BetaChannelOptIn}" Content="Receber atualizações beta" />
-                <TextBlock Text="Versões de teste, antes de virarem lançamento oficial. Pode desativar quando quiser." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+                <TextBlock Text="Versões de teste, antes de virarem lançamento oficial. Pode desativar quando quiser." Classes="subtle" FontSize="{DynamicResource TextCaption}" TextWrapping="Wrap" />
               </StackPanel>
             </Border>
             <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoadingReleases}" Height="4" Margin="0,10" />
@@ -428,10 +428,10 @@
                   <Border Classes="settingsCard">
                     <StackPanel Spacing="8">
                       <StackPanel Orientation="Horizontal" Spacing="12">
-                        <TextBlock Text="{Binding TagName}" FontSize="17" FontWeight="Bold" Foreground="#75D99A"/>
+                        <TextBlock Text="{Binding TagName}" FontSize="{DynamicResource TextTitle}" FontWeight="Bold" Foreground="{DynamicResource SuccessBrush}"/>
                         <TextBlock Text="{Binding Name}" Foreground="#BFA9FF" VerticalAlignment="Center" FontWeight="SemiBold"/>
                       </StackPanel>
-                      <TextBlock Text="{Binding Body}" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                      <TextBlock Text="{Binding Body}" TextWrapping="Wrap" FontSize="{DynamicResource TextSmall}" Foreground="{DynamicResource TextSecondaryBrush}" />
                     </StackPanel>
                   </Border>
                 </DataTemplate>
@@ -449,7 +449,7 @@
                   <TextBox Grid.Column="0" Text="{Binding LosslessScalingPath}" Watermark="C:\Steam\...\LosslessScaling.exe" Height="36" />
                   <Button Grid.Column="1" Classes="pill" Content="Procurar…" Click="OnBrowseLosslessClick" Margin="8,0,0,0"/>
                 </Grid>
-                <TextBlock Text="Se o app estiver na Steam, ele é detectado automaticamente." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+                <TextBlock Text="Se o app estiver na Steam, ele é detectado automaticamente." Classes="subtle" FontSize="{DynamicResource TextCaption}" TextWrapping="Wrap" />
               </StackPanel>
             </Border>
           </StackPanel>
@@ -461,8 +461,8 @@
       <Border x:Name="HelpPane" Grid.Column="2" Width="340" Margin="24,0,0,0" Padding="24" CornerRadius="{DynamicResource RadiusLarge}"
               Background="{DynamicResource SurfaceBrush}" VerticalAlignment="Top" IsVisible="False">
         <StackPanel Spacing="12">
-          <TextBlock x:Name="HelpTitle" FontSize="18" FontWeight="Bold" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}" />
-          <TextBlock x:Name="HelpText" FontSize="14" LineHeight="22" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" />
+          <TextBlock x:Name="HelpTitle" FontSize="{DynamicResource TextTitle}" FontWeight="Bold" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}" />
+          <TextBlock x:Name="HelpText" FontSize="{DynamicResource TextBodyLarge}" LineHeight="22" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" />
         </StackPanel>
       </Border>
     </Grid>
@@ -470,7 +470,7 @@
     <StackPanel Grid.Row="1" Spacing="10" Margin="0,16,0,0">
       <TextBlock Text="{Binding UpdateResultText}" IsVisible="{Binding HasUpdateResult}" TextWrapping="Wrap" />
       <Grid ColumnDefinitions="*,Auto">
-        <TextBlock Grid.Column="0" Text="LB / RB: categoria     Esquerda / Direita: trocar o valor     A: abrir     B: voltar     Tudo é salvo ao fechar" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13" />
+        <TextBlock Grid.Column="0" Text="LB / RB: categoria     Esquerda / Direita: trocar o valor     A: abrir     B: voltar     Tudo é salvo ao fechar" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource TextBody}" />
         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
           <Button Classes="pill" Content="⌨ Teclado" Click="OnKeyboardClick" />
           <Button Classes="pill primary" Content="{Binding SaveButtonText}" Click="OnSaveAndCloseClick" Height="40" Width="160" />
@@ -483,7 +483,7 @@
     <Border Classes="contextMenuOverlay" />
     <Border Classes="contextMenuCard" Width="440" Padding="28" HorizontalAlignment="Center" VerticalAlignment="Center">
       <StackPanel Spacing="16" HorizontalAlignment="Center">
-        <TextBlock Text="✓ Configurações salvas" Classes="menuHeaderTitle" FontSize="20" HorizontalAlignment="Center" />
+        <TextBlock Text="✓ Configurações salvas" Classes="menuHeaderTitle" FontSize="{DynamicResource TextHeading}" HorizontalAlignment="Center" />
         <TextBlock Text="{Binding SavedMessage}" Classes="subtle" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="380" />
         <Button x:Name="SavedOkButton" Classes="pill primary" Content="OK" Click="OnSavedOkClick" HorizontalAlignment="Center" />
       </StackPanel>
@@ -501,7 +501,7 @@
     <Border Classes="contextMenuOverlay" />
     <Border Classes="contextMenuCard" Width="540" Padding="28" HorizontalAlignment="Center" VerticalAlignment="Center">
       <StackPanel Spacing="14">
-        <TextBlock Text="⚠ Congelar o jogo no Quick Settings" Classes="menuHeaderTitle" FontSize="18" TextWrapping="Wrap" />
+        <TextBlock Text="⚠ Congelar o jogo no Quick Settings" Classes="menuHeaderTitle" FontSize="{DynamicResource TextTitle}" TextWrapping="Wrap" />
         <TextBlock TextWrapping="Wrap" Classes="subtle" MaxWidth="480"
                    Text="Ligado, o launcher SUSPENDE o processo do jogo enquanto o Quick Settings está aberto. É a única forma de o jogo parar de receber comandos quando já está a correr — o isolamento por HidHide não consegue revogar um controle que o jogo já abriu." />
         <TextBlock TextWrapping="Wrap" Classes="subtle" MaxWidth="480"

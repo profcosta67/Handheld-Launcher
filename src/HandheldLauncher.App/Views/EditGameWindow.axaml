@@ -27,13 +27,13 @@
       <TextBlock Text="Nome" Classes="subtle" />
       <TextBox x:Name="TitleBox" Watermark="Deixe em branco pra voltar ao nome original" />
       <TextBlock Text="Vale pra qualquer entrada, inclusive jogo encontrado automaticamente — o nome escolhido sobrevive às próximas verificações da biblioteca."
-                 Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+                 Classes="subtle" FontSize="{DynamicResource TextCaption}" TextWrapping="Wrap" />
 
       <CheckBox x:Name="IsApplicationBox"
                 Content="É um programa, não um jogo"
                 Margin="0,8,0,0" />
       <TextBlock Text="Programas (navegador, gerenciador de arquivos...) aparecem só na aba Programas, fora da biblioteca de jogos."
-                 Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+                 Classes="subtle" FontSize="{DynamicResource TextCaption}" TextWrapping="Wrap" />
     </StackPanel>
 
     <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,20,0,0">

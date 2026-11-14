@@ -20,14 +20,14 @@
             <Border Grid.Column="0"
                     Width="56" Height="56"
                     CornerRadius="{DynamicResource RadiusMedium}"
-                    Background="#252A36"
+                    Background="{DynamicResource PanelSurfaceAltBrush}"
                     VerticalAlignment="Center">
                 <Grid>
                     <Image x:Name="GameIcon" Stretch="UniformToFill"/>
                     <TextBlock x:Name="TxtIconFallback"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"
-                               FontSize="24"
+                               FontSize="{DynamicResource TextDisplay}"
                                FontWeight="Bold"
                                Foreground="{DynamicResource AccentBrush}"
                                IsVisible="False"/>
@@ -37,16 +37,16 @@
             <StackPanel Grid.Column="1" Spacing="4" Margin="16,0,0,0" VerticalAlignment="Center">
                 <TextBlock x:Name="TxtGameTitle"
                            Foreground="White"
-                           FontSize="16"
+                           FontSize="{DynamicResource TextSubtitle}"
                            FontWeight="SemiBold"
                            TextTrimming="CharacterEllipsis"
                            MaxLines="1"/>
-                <TextBlock Text="Abrindo..." Foreground="#AAAAAA" FontSize="12"/>
+                <TextBlock Text="Abrindo..." Foreground="#AAAAAA" FontSize="{DynamicResource TextSmall}"/>
             </StackPanel>
 
             <TextBlock Grid.Column="2"
                        x:Name="TxtLoadingSpinner" Text="◐"
-                       FontSize="22"
+                       FontSize="{DynamicResource TextHeadingLarge}"
                        Foreground="{DynamicResource AccentBrush}"
                        VerticalAlignment="Center"
                        HorizontalAlignment="Center"/>

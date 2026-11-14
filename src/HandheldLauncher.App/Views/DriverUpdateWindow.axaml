@@ -5,19 +5,19 @@
         Width="600" Height="400"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
-        Background="#1E1E2E">
+        Background="{DynamicResource PanelSurfaceDeepBrush}">
 
     <Grid RowDefinitions="Auto,*,Auto" Margin="20">
         
         <StackPanel Grid.Row="0" Spacing="10" Margin="0,0,0,15">
-            <TextBlock Text="Instalação de Drivers" FontSize="24" FontWeight="Bold" Foreground="White"/>
+            <TextBlock Text="Instalação de Drivers" FontSize="{DynamicResource TextDisplay}" FontWeight="Bold" Foreground="White"/>
             <TextBlock Text="Selecione o arquivo .inf do driver que deseja instalar." Foreground="LightGray"/>
         </StackPanel>
 
-        <Border Grid.Row="1" Background="#252A36" CornerRadius="{DynamicResource RadiusSmall}" Padding="20" VerticalAlignment="Center">
+        <Border Grid.Row="1" Background="{DynamicResource PanelSurfaceAltBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="20" VerticalAlignment="Center">
             <StackPanel Spacing="15" HorizontalAlignment="Center">
                 <TextBlock x:Name="TxtFilePath" Text="Nenhum arquivo selecionado." Foreground="Gray" TextWrapping="Wrap" TextAlignment="Center"/>
-                <Button Content="Selecionar Arquivo .inf" Click="OnSelectFileClick" Background="#424A5D" Foreground="White" CornerRadius="{DynamicResource RadiusSmall}" Padding="20,10"/>
+                <Button Content="Selecionar Arquivo .inf" Click="OnSelectFileClick" Background="{DynamicResource PanelBorderBrush}" Foreground="White" CornerRadius="{DynamicResource RadiusSmall}" Padding="20,10"/>
             </StackPanel>
         </Border>
 

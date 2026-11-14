@@ -14,9 +14,9 @@
   <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="{DynamicResource RadiusLarge}"
           BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1.5" Padding="22">
     <StackPanel Spacing="12">
-      <TextBlock x:Name="TxtTitle" FontSize="17" FontWeight="Bold"
+      <TextBlock x:Name="TxtTitle" FontSize="{DynamicResource TextTitle}" FontWeight="Bold"
                  Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
-      <TextBlock x:Name="TxtMessage" FontSize="13"
+      <TextBlock x:Name="TxtMessage" FontSize="{DynamicResource TextBody}"
                  Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
       <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" Margin="0,6,0,0">
         <Button x:Name="BtnPlayAnyway" Content="Jogar mesmo assim" IsCancel="True" Click="OnPlayAnywayClick"/>

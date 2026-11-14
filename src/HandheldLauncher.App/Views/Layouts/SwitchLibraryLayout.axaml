@@ -23,7 +23,7 @@
       <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
       <Setter Property="Padding" Value="10,8" />
       <Setter Property="MinHeight" Value="58" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="{DynamicResource TextCaption}" />
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="HorizontalAlignment" Value="Stretch" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
@@ -92,7 +92,7 @@
         <Grid Height="100" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
           <Image Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}" Width="260" Height="60" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding SelectedTile.ShowCurrentLogo}" />
           <Border Background="{DynamicResource SurfaceRaisedBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusLarge}" Padding="20,8" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="900" IsVisible="{Binding SelectedTile.ShowNameCaption}">
-            <TextBlock Text="{Binding SelectedTile.Title}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="26" FontWeight="SemiBold" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+            <TextBlock Text="{Binding SelectedTile.Title}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="{DynamicResource TextDisplay}" FontWeight="SemiBold" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
           </Border>
         </Grid>
 
@@ -143,10 +143,10 @@
                         <Border Background="{DynamicResource BackdropDimBrush}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" IsVisible="{Binding ShowEmptyCarouselPlaceholder}">
                           <TextBlock Text="{Binding Title}" Classes="gameTitle" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="8" />
                         </Border>
-                        <Border Background="{DynamicResource SurfaceBrush}" IsHitTestVisible="False" IsVisible="{Binding IsOwnedNotInstalled}" />
+                        <!-- v0.26: véu translúcido, como nos outros temas (era SurfaceBrush opaco: a capa sumia). --><Border Background="{DynamicResource NotInstalledVeilBrush}" IsHitTestVisible="False" IsVisible="{Binding IsOwnedNotInstalled}" />
                         <PathIcon Width="18" Height="18" Data="{StaticResource IconStar}" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="6" IsVisible="{Binding IsFavorite}" />
                         <Border Background="{Binding PlatformBadgeColorHex, Converter={StaticResource HexColorToBrushConverter}}" CornerRadius="4" Padding="4,1" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="6" IsVisible="{Binding HasPlatformBadge}">
-                          <TextBlock Text="{Binding PlatformBadgeText}" FontSize="9" FontWeight="Bold" Foreground="White" />
+                          <TextBlock Text="{Binding PlatformBadgeText}" FontSize="{DynamicResource TextMicro}" FontWeight="Bold" Foreground="White" />
                         </Border>
                         <Border BorderBrush="{DynamicResource TextPrimaryBrush}" CornerRadius="19" BorderThickness="2" IsHitTestVisible="False" IsVisible="{Binding IsFocused}" />
                         <Border BorderBrush="{DynamicResource AccentBrush}" CornerRadius="15" BorderThickness="2" Margin="5" IsHitTestVisible="False" IsVisible="{Binding IsFocused}" />
@@ -160,7 +160,7 @@
             <Button x:Name="AddProgramButton" Classes="addGhostCard" Click="OnAddProgramClick" IsVisible="{Binding IsFilterApplicationsActive}" VerticalAlignment="Center">
               <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
                 <PathIcon Width="48" Height="48" Data="{StaticResource IconPlus}" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
-                <TextBlock Text="Adicionar Jogo" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                <TextBlock Text="Adicionar Jogo" FontSize="{DynamicResource TextSubtitle}" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
               </StackPanel>
             </Button>
           </WrapPanel>

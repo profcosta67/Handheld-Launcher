@@ -20,9 +20,9 @@
           BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1.5" Padding="18"
           PointerPressed="OnPressed">
     <StackPanel Spacing="6">
-      <TextBlock x:Name="TxtTitle" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
-      <TextBlock x:Name="TxtMessage" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
-      <TextBlock Text="Detalhes em 🌡 Saúde do Aparelho, no menu." FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+      <TextBlock x:Name="TxtTitle" FontSize="{DynamicResource TextSubtitle}" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
+      <TextBlock x:Name="TxtMessage" FontSize="{DynamicResource TextBody}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+      <TextBlock Text="Detalhes em 🌡 Saúde do Aparelho, no menu." FontSize="{DynamicResource TextCaption}" Foreground="{DynamicResource TextSecondaryBrush}" />
     </StackPanel>
   </Border>
 </Window>

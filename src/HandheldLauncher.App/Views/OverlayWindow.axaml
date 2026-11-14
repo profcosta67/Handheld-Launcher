@@ -44,7 +44,7 @@
             <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,15">
                 <StackPanel VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                        <TextBlock Text="⚙️ Quick Settings" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="22" FontWeight="Bold" VerticalAlignment="Center"/>
+                        <TextBlock Text="⚙️ Quick Settings" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="{DynamicResource TextHeadingLarge}" FontWeight="Bold" VerticalAlignment="Center"/>
                         
                         <!-- Alerta de Gravação -->
                         <Border x:Name="RecordingBadge" 
@@ -68,15 +68,15 @@
                                 </Style>
                             </Border.Styles>
                             <StackPanel Orientation="Horizontal" Spacing="4">
-                                <TextBlock Text="🔴" FontSize="10" VerticalAlignment="Center"/>
-                                <TextBlock Text="REC" Foreground="White" FontSize="12" FontWeight="Bold" VerticalAlignment="Center"/>
+                                <TextBlock Text="🔴" FontSize="{DynamicResource TextMicro}" VerticalAlignment="Center"/>
+                                <TextBlock Text="REC" Foreground="White" FontSize="{DynamicResource TextSmall}" FontWeight="Bold" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>
-                    <TextBlock x:Name="TxtScreenInfo" Text="Carregando..." Foreground="Gray" FontSize="12" Margin="0,4,0,0"/>
+                    <TextBlock x:Name="TxtScreenInfo" Text="Carregando..." Foreground="Gray" FontSize="{DynamicResource TextSmall}" Margin="0,4,0,0"/>
                 </StackPanel>
                 
-                <Button x:Name="BtnClose" Grid.Column="1" Content="✕" Width="40" Height="40" CornerRadius="{DynamicResource RadiusXLarge}" Background="{StaticResource TileHoverBrush}" Foreground="{DynamicResource TextPrimaryBrush}" Click="OnCloseClick" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="16" FontWeight="Bold" />
+                <Button x:Name="BtnClose" Grid.Column="1" Content="✕" Width="40" Height="40" CornerRadius="{DynamicResource RadiusXLarge}" Background="{StaticResource TileHoverBrush}" Foreground="{DynamicResource TextPrimaryBrush}" Click="OnCloseClick" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="{DynamicResource TextSubtitle}" FontWeight="Bold" />
             </Grid>
 
             <!-- Scroll Principal -->
@@ -87,16 +87,16 @@
                     <!-- Seção: Resolução -->
                     <Border x:Name="ResolutionSection" CornerRadius="{DynamicResource RadiusMedium}" BorderThickness="2" BorderBrush="Transparent" Padding="10" Background="{StaticResource SurfaceRaisedBrush}">
                         <StackPanel Spacing="6">
-                            <TextBlock Text="🖥️ Resolução" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" FontSize="14" />
+                            <TextBlock Text="🖥️ Resolução" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" FontSize="{DynamicResource TextBodyLarge}" />
                             <Grid ColumnDefinitions="*,*,*" Margin="0,0,0,4">
-                                <Button x:Name="BtnRes720" Grid.Column="0" Tag="1280x720" Content="720p" Click="OnResolutionClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="6" Margin="0,0,4,0" FontSize="12"/>
-                                <Button x:Name="BtnRes900" Grid.Column="1" Tag="1600x900" Content="900p" Click="OnResolutionClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="6" Margin="2,0" FontSize="12"/>
-                                <Button x:Name="BtnRes1080" Grid.Column="2" Tag="1920x1080" Content="1080p" Click="OnResolutionClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="6" Margin="4,0,0,0" FontSize="12"/>
+                                <Button x:Name="BtnRes720" Grid.Column="0" Tag="1280x720" Content="720p" Click="OnResolutionClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="6" Margin="0,0,4,0" FontSize="{DynamicResource TextSmall}"/>
+                                <Button x:Name="BtnRes900" Grid.Column="1" Tag="1600x900" Content="900p" Click="OnResolutionClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="6" Margin="2,0" FontSize="{DynamicResource TextSmall}"/>
+                                <Button x:Name="BtnRes1080" Grid.Column="2" Tag="1920x1080" Content="1080p" Click="OnResolutionClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="6" Margin="4,0,0,0" FontSize="{DynamicResource TextSmall}"/>
                             </Grid>
                             <Grid ColumnDefinitions="*,*,*">
-                                <Button x:Name="BtnRes1200" Grid.Column="0" Tag="1920x1200" Content="1200p" Click="OnResolutionClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="6" Margin="0,0,4,0" FontSize="12"/>
-                                <Button x:Name="BtnRes2K" Grid.Column="1" Tag="2560x1440" Content="2K" Click="OnResolutionClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="6" Margin="2,0" FontSize="12"/>
-                                <Button x:Name="BtnResGo" Grid.Column="2" Tag="2560x1600" Content="2560" Click="OnResolutionClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="6" Margin="4,0,0,0" FontSize="12"/>
+                                <Button x:Name="BtnRes1200" Grid.Column="0" Tag="1920x1200" Content="1200p" Click="OnResolutionClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="6" Margin="0,0,4,0" FontSize="{DynamicResource TextSmall}"/>
+                                <Button x:Name="BtnRes2K" Grid.Column="1" Tag="2560x1440" Content="2K" Click="OnResolutionClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="6" Margin="2,0" FontSize="{DynamicResource TextSmall}"/>
+                                <Button x:Name="BtnResGo" Grid.Column="2" Tag="2560x1600" Content="2560" Click="OnResolutionClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="6" Margin="4,0,0,0" FontSize="{DynamicResource TextSmall}"/>
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -104,12 +104,12 @@
                     <!-- Seção: Taxa de Atualização -->
                     <Border x:Name="RefreshSection" CornerRadius="{DynamicResource RadiusMedium}" BorderThickness="2" BorderBrush="Transparent" Padding="10" Background="{StaticResource SurfaceRaisedBrush}">
                         <StackPanel Spacing="6">
-                            <TextBlock Text="🔄 Taxa (Hz)" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" FontSize="14" />
+                            <TextBlock Text="🔄 Taxa (Hz)" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" FontSize="{DynamicResource TextBodyLarge}" />
                             <Grid ColumnDefinitions="*,*,*,*">
-                                <Button x:Name="BtnHz60" Grid.Column="0" Tag="60" Content="60" Click="OnRefreshClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="6" Margin="0,0,4,0" FontSize="12"/>
-                                <Button x:Name="BtnHz120" Grid.Column="1" Tag="120" Content="120" Click="OnRefreshClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="6" Margin="2,0" FontSize="12"/>
-                                <Button x:Name="BtnHz144" Grid.Column="2" Tag="144" Content="144" Click="OnRefreshClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="6" Margin="2,0" FontSize="12"/>
-                                <Button x:Name="BtnHz240" Grid.Column="3" Tag="240" Content="240" Click="OnRefreshClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="6" Margin="4,0,0,0" FontSize="12"/>
+                                <Button x:Name="BtnHz60" Grid.Column="0" Tag="60" Content="60" Click="OnRefreshClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="6" Margin="0,0,4,0" FontSize="{DynamicResource TextSmall}"/>
+                                <Button x:Name="BtnHz120" Grid.Column="1" Tag="120" Content="120" Click="OnRefreshClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="6" Margin="2,0" FontSize="{DynamicResource TextSmall}"/>
+                                <Button x:Name="BtnHz144" Grid.Column="2" Tag="144" Content="144" Click="OnRefreshClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="6" Margin="2,0" FontSize="{DynamicResource TextSmall}"/>
+                                <Button x:Name="BtnHz240" Grid.Column="3" Tag="240" Content="240" Click="OnRefreshClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="6" Margin="4,0,0,0" FontSize="{DynamicResource TextSmall}"/>
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -117,45 +117,45 @@
                     <!-- Seção: TDP -->
                     <Border x:Name="TdpSection" CornerRadius="{DynamicResource RadiusMedium}" BorderThickness="2" BorderBrush="Transparent" Padding="10" Background="{StaticResource SurfaceRaisedBrush}">
                         <StackPanel Spacing="8">
-                            <TextBlock Text="⚡ Desempenho (TDP)" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" FontSize="14" />
+                            <TextBlock Text="⚡ Desempenho (TDP)" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" FontSize="{DynamicResource TextBodyLarge}" />
                             <Grid RowDefinitions="Auto,Auto">
                                 <Grid Grid.Row="0" ColumnDefinitions="*,*,*" Margin="0,0,0,6">
                                     <Button x:Name="BtnUltraEco" Grid.Column="0" Tag="UltraEco" ToolTip.Tip="UltraEco • 8 W" Click="OnTdpClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Margin="0,0,4,0" Padding="4" Height="46" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
                                         <StackPanel Orientation="Vertical" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock Text="🪫" FontSize="16" HorizontalAlignment="Center"/>
-                                            <TextBlock Text="U.Eco" FontSize="10" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="🪫" FontSize="{DynamicResource TextSubtitle}" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="U.Eco" FontSize="{DynamicResource TextMicro}" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                     <Button x:Name="BtnEco" Grid.Column="1" Tag="Eco" ToolTip.Tip="Eco • 15 W" Click="OnTdpClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Margin="2,0" Padding="4" Height="46" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
                                         <StackPanel Orientation="Vertical" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock Text="🍃" FontSize="16" HorizontalAlignment="Center"/>
-                                            <TextBlock Text="Eco" FontSize="10" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="🍃" FontSize="{DynamicResource TextSubtitle}" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Eco" FontSize="{DynamicResource TextMicro}" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                     <Button x:Name="BtnNormal" Grid.Column="2" Tag="Normal" ToolTip.Tip="Normal • 20 W" Click="OnTdpClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Margin="4,0,0,0" Padding="4" Height="46" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
                                         <StackPanel Orientation="Vertical" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock Text="🎯" FontSize="16" HorizontalAlignment="Center"/>
-                                            <TextBlock Text="Normal" FontSize="10" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="🎯" FontSize="{DynamicResource TextSubtitle}" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Normal" FontSize="{DynamicResource TextMicro}" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                 </Grid>
                                 <Grid Grid.Row="1" ColumnDefinitions="*,*,*">
                                     <Button x:Name="BtnDesempenho" Grid.Column="0" Tag="Desempenho" ToolTip.Tip="Desempenho • 25 W" Click="OnTdpClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Margin="0,0,4,0" Padding="4" Height="46" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
                                         <StackPanel Orientation="Vertical" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock Text="🚀" FontSize="16" HorizontalAlignment="Center"/>
-                                            <TextBlock Text="Desemp." FontSize="10" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="🚀" FontSize="{DynamicResource TextSubtitle}" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Desemp." FontSize="{DynamicResource TextMicro}" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                     <Button x:Name="BtnBoost" Grid.Column="1" Tag="Boost" ToolTip.Tip="Boost • 30 W" Click="OnTdpClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Margin="2,0" Padding="4" Height="46" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
                                         <StackPanel Orientation="Vertical" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock Text="🔥" FontSize="16" HorizontalAlignment="Center"/>
-                                            <TextBlock Text="Boost" FontSize="10" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="🔥" FontSize="{DynamicResource TextSubtitle}" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Boost" FontSize="{DynamicResource TextMicro}" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                     <Button x:Name="BtnTdpCustom" Grid.Column="2" Tag="Custom" ToolTip.Tip="Personalizado • até o limite do aparelho" Click="OnTdpClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Margin="4,0,0,0" Padding="4" Height="46" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
                                         <StackPanel Orientation="Vertical" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock Text="🎚" FontSize="16" HorizontalAlignment="Center"/>
-                                            <TextBlock x:Name="TdpCustomButtonText" Text="Person." FontSize="10" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="🎚" FontSize="{DynamicResource TextSubtitle}" HorizontalAlignment="Center"/>
+                                            <TextBlock x:Name="TdpCustomButtonText" Text="Person." FontSize="{DynamicResource TextMicro}" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                 </Grid>
@@ -163,68 +163,68 @@
                             <Border x:Name="TdpCustomPanel" IsVisible="False" Background="{StaticResource ButtonBackgroundBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="10,8" BorderThickness="2" BorderBrush="Transparent">
                                 <StackPanel Spacing="6">
                                     <Grid ColumnDefinitions="Auto,*,Auto">
-                                        <Button x:Name="BtnTdpMinus" Grid.Column="0" Tag="-1" Click="OnTdpCustomStepClick" Content="−" FontSize="18" Width="44" Height="36" Background="{StaticResource TileHoverBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
-                                        <TextBlock x:Name="TdpCustomValueText" Grid.Column="1" Text="20 W" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        <Button x:Name="BtnTdpPlus" Grid.Column="2" Tag="1" Click="OnTdpCustomStepClick" Content="+" FontSize="18" Width="44" Height="36" Background="{StaticResource TileHoverBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+                                        <Button x:Name="BtnTdpMinus" Grid.Column="0" Tag="-1" Click="OnTdpCustomStepClick" Content="−" FontSize="{DynamicResource TextTitle}" Width="44" Height="36" Background="{StaticResource TileHoverBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+                                        <TextBlock x:Name="TdpCustomValueText" Grid.Column="1" Text="20 W" FontSize="{DynamicResource TextHeading}" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <Button x:Name="BtnTdpPlus" Grid.Column="2" Tag="1" Click="OnTdpCustomStepClick" Content="+" FontSize="{DynamicResource TextTitle}" Width="44" Height="36" Background="{StaticResource TileHoverBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
                                     </Grid>
-                                    <TextBlock x:Name="TdpCustomPeaksText" Text="" FontSize="11" Foreground="#C8C8D0" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="TdpCustomPeaksText" Text="" FontSize="{DynamicResource TextCaption}" Foreground="#C8C8D0" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"/>
                                     <Slider x:Name="TdpCustomSlider" Minimum="5" Maximum="30" TickFrequency="1" IsSnapToTickEnabled="True" SmallChange="1" LargeChange="5" ValueChanged="OnTdpCustomSliderChanged" IsHitTestVisible="False" Focusable="False"/>
-                                    <TextBlock x:Name="TdpCustomHint" Text="" FontSize="10" Foreground="#9A9CAB" HorizontalAlignment="Center"/>
+                                    <TextBlock x:Name="TdpCustomHint" Text="" FontSize="{DynamicResource TextMicro}" Foreground="#9A9CAB" HorizontalAlignment="Center"/>
                                 </StackPanel>
                             </Border>
-                            <TextBlock x:Name="TxtTdpStatus" Text="" Foreground="#B8B8C0" FontSize="11" TextWrapping="Wrap" TextAlignment="Center" Margin="0,4,0,0" IsVisible="False"/>
+                            <TextBlock x:Name="TxtTdpStatus" Text="" Foreground="#B8B8C0" FontSize="{DynamicResource TextCaption}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,4,0,0" IsVisible="False"/>
                         </StackPanel>
                     </Border>
 
                     <!-- Seção: Curva das ventoinhas -->
                     <Border x:Name="FanSection" CornerRadius="{DynamicResource RadiusMedium}" BorderThickness="2" BorderBrush="Transparent" Padding="10" Background="{StaticResource SurfaceRaisedBrush}">
                         <StackPanel Spacing="8">
-                            <TextBlock Text="❄️ Refrigeração (ventoinhas)" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" FontSize="14" />
+                            <TextBlock Text="❄️ Refrigeração (ventoinhas)" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" FontSize="{DynamicResource TextBodyLarge}" />
                             <UniformGrid Columns="5" Margin="0,4">
                                 <Button x:Name="BtnFanAuto" Tag="Automático" Click="OnFanClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Margin="2" Padding="2" Height="60" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
                                     <StackPanel Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <TextBlock Text="🤖" FontSize="18" HorizontalAlignment="Center"/>
-                                        <TextBlock Text="Auto" FontSize="9" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="🤖" FontSize="{DynamicResource TextTitle}" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Auto" FontSize="{DynamicResource TextMicro}" HorizontalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <Button x:Name="BtnFanSilent" Tag="Silencioso" Click="OnFanClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Margin="2" Padding="2" Height="60" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
                                     <StackPanel Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <TextBlock Text="✣" FontSize="18" HorizontalAlignment="Center"/>
-                                        <TextBlock Text="Silenc" FontSize="9" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="✣" FontSize="{DynamicResource TextTitle}" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Silenc" FontSize="{DynamicResource TextMicro}" HorizontalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <Button x:Name="BtnFanNormal" Tag="Normal" Click="OnFanClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Margin="2" Padding="2" Height="60" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
                                     <StackPanel Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <TextBlock Text="✣" FontSize="18" HorizontalAlignment="Center"/>
-                                        <TextBlock Text="Normal" FontSize="9" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="✣" FontSize="{DynamicResource TextTitle}" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Normal" FontSize="{DynamicResource TextMicro}" HorizontalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <Button x:Name="BtnFanPerformance" Tag="Desempenho" Click="OnFanClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Margin="2" Padding="2" Height="60" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
                                     <StackPanel Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <TextBlock Text="✣" FontSize="18" HorizontalAlignment="Center"/>
-                                        <TextBlock Text="Desemp" FontSize="9" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="✣" FontSize="{DynamicResource TextTitle}" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Desemp" FontSize="{DynamicResource TextMicro}" HorizontalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <Button x:Name="BtnFanBoost" Tag="Boost" Click="OnFanClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Margin="2" Padding="2" Height="60" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
                                     <StackPanel Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <TextBlock Text="✣" FontSize="18" HorizontalAlignment="Center"/>
-                                        <TextBlock Text="Boost" FontSize="9" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="✣" FontSize="{DynamicResource TextTitle}" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Boost" FontSize="{DynamicResource TextMicro}" HorizontalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                             </UniformGrid>
-                            <TextBlock x:Name="TxtFanStatus" Text="Lendo tabela original..." Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11" TextWrapping="Wrap" TextAlignment="Center" Margin="0,4,0,0" Height="36" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="TxtFanStatus" Text="Lendo tabela original..." Foreground="{DynamicResource TextPrimaryBrush}" FontSize="{DynamicResource TextCaption}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,4,0,0" Height="36" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
 
                     <!-- Seção: Cor -->
                     <Border x:Name="ColorSection" CornerRadius="{DynamicResource RadiusMedium}" BorderThickness="2" BorderBrush="Transparent" Padding="10" Background="{StaticResource SurfaceRaisedBrush}">
                         <StackPanel Spacing="6">
-                            <TextBlock Text="🎨 Modo de Cor" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" FontSize="14" />
+                            <TextBlock Text="🎨 Modo de Cor" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" FontSize="{DynamicResource TextBodyLarge}" />
                             <Grid ColumnDefinitions="*,*,*,*">
-                                <Button x:Name="BtnColorDefault" Grid.Column="0" Tag="0" Content="Padrão" Click="OnColorClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="5" Margin="0,0,4,0" FontSize="11"/>
-                                <Button x:Name="BtnColorVivid" Grid.Column="1" Tag="1" Content="Vívido" Click="OnColorClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="5" Margin="2,0" FontSize="11"/>
-                                <Button x:Name="BtnColorOled" Grid.Column="2" Tag="2" Content="OLED" Click="OnColorClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="5" Margin="2,0" FontSize="11"/>
-                                <Button x:Name="BtnColorNight" Grid.Column="3" Tag="3" Content="Noturno" Click="OnColorClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="5" Margin="4,0,0,0" FontSize="11"/>
+                                <Button x:Name="BtnColorDefault" Grid.Column="0" Tag="0" Content="Padrão" Click="OnColorClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="5" Margin="0,0,4,0" FontSize="{DynamicResource TextCaption}"/>
+                                <Button x:Name="BtnColorVivid" Grid.Column="1" Tag="1" Content="Vívido" Click="OnColorClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="5" Margin="2,0" FontSize="{DynamicResource TextCaption}"/>
+                                <Button x:Name="BtnColorOled" Grid.Column="2" Tag="2" Content="OLED" Click="OnColorClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="5" Margin="2,0" FontSize="{DynamicResource TextCaption}"/>
+                                <Button x:Name="BtnColorNight" Grid.Column="3" Tag="3" Content="Noturno" Click="OnColorClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="5" Margin="4,0,0,0" FontSize="{DynamicResource TextCaption}"/>
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -232,12 +232,12 @@
                     <!-- Seção: HUD -->
                     <Border x:Name="HudSection" CornerRadius="{DynamicResource RadiusMedium}" BorderThickness="2" BorderBrush="Transparent" Padding="10" Background="{StaticResource SurfaceRaisedBrush}">
                         <StackPanel Spacing="6">
-                            <TextBlock Text="📊 HUD de Desempenho" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" FontSize="14" />
+                            <TextBlock Text="📊 HUD de Desempenho" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" FontSize="{DynamicResource TextBodyLarge}" />
                             <Grid ColumnDefinitions="*,*,*,*">
-                                <Button x:Name="BtnHudOff" Grid.Column="0" Tag="0" Content="Off" Click="OnHudClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="8" Margin="0,0,4,0" FontSize="12"/>
-                                <Button x:Name="BtnHudMin" Grid.Column="1" Tag="1" Content="Min" Click="OnHudClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="8" Margin="2,0" FontSize="12"/>
-                                <Button x:Name="BtnHudMed" Grid.Column="2" Tag="2" Content="Méd" Click="OnHudClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="8" Margin="2,0" FontSize="12"/>
-                                <Button x:Name="BtnHudFull" Grid.Column="3" Tag="3" Content="Full" Click="OnHudClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="8" Margin="4,0,0,0" FontSize="12"/>
+                                <Button x:Name="BtnHudOff" Grid.Column="0" Tag="0" Content="Off" Click="OnHudClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="8" Margin="0,0,4,0" FontSize="{DynamicResource TextSmall}"/>
+                                <Button x:Name="BtnHudMin" Grid.Column="1" Tag="1" Content="Min" Click="OnHudClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="8" Margin="2,0" FontSize="{DynamicResource TextSmall}"/>
+                                <Button x:Name="BtnHudMed" Grid.Column="2" Tag="2" Content="Méd" Click="OnHudClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="8" Margin="2,0" FontSize="{DynamicResource TextSmall}"/>
+                                <Button x:Name="BtnHudFull" Grid.Column="3" Tag="3" Content="Full" Click="OnHudClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="8" Margin="4,0,0,0" FontSize="{DynamicResource TextSmall}"/>
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -245,7 +245,7 @@
                     <!-- Seção: Volume -->
                     <Border x:Name="VolumeSection" CornerRadius="{DynamicResource RadiusMedium}" BorderThickness="2" BorderBrush="Transparent" Padding="10" Background="{StaticResource SurfaceRaisedBrush}">
                         <StackPanel Spacing="4">
-                            <TextBlock Text="🔊 Volume" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" FontSize="14" />
+                            <TextBlock Text="🔊 Volume" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" FontSize="{DynamicResource TextBodyLarge}" />
                             <Slider x:Name="VolumeSlider" ValueChanged="OnVolumeChanged" Minimum="0" Maximum="100" />
                         </StackPanel>
                     </Border>
@@ -253,7 +253,7 @@
                     <!-- Seção: Brilho -->
                     <Border x:Name="BrightnessSection" CornerRadius="{DynamicResource RadiusMedium}" BorderThickness="2" BorderBrush="Transparent" Padding="10" Background="{StaticResource SurfaceRaisedBrush}">
                         <StackPanel Spacing="4">
-                            <TextBlock Text="☀️ Brilho" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" FontSize="14" />
+                            <TextBlock Text="☀️ Brilho" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" FontSize="{DynamicResource TextBodyLarge}" />
                             <Slider x:Name="BrightnessSlider" ValueChanged="OnBrightnessChanged" Minimum="0" Maximum="100" />
                         </StackPanel>
                     </Border>
@@ -261,17 +261,17 @@
                     <!-- Seção: Lossless Scaling -->
                     <Border x:Name="LosslessSection" CornerRadius="{DynamicResource RadiusMedium}" BorderThickness="2" BorderBrush="Transparent" Padding="10" Background="{StaticResource SurfaceRaisedBrush}">
                         <StackPanel Spacing="10">
-                            <TextBlock Text="🖼 Lossless Scaling" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" FontSize="14" />
+                            <TextBlock Text="🖼 Lossless Scaling" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" FontSize="{DynamicResource TextBodyLarge}" />
                             
                             <TextBlock x:Name="LsfgStatusText" 
                                        Text="Verificando..." 
-                                       Foreground="#9BA8C4" 
-                                       FontSize="11" 
+                                       Foreground="{DynamicResource PanelTextMutedBrush}" 
+                                       FontSize="{DynamicResource TextCaption}" 
                                        TextAlignment="Center"/>
                             
                             <Button x:Name="BtnLsfgToggle" 
                                     Content="⚪ Desativado" 
-                                    FontSize="14" 
+                                    FontSize="{DynamicResource TextBodyLarge}" 
                                     FontWeight="SemiBold"
                                     Padding="16,10"
                                     Background="{StaticResource ButtonBackgroundBrush}"
@@ -283,19 +283,19 @@
                                     Click="OnLsfgToggleClick"/>
                             
                             <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" Margin="0,4,0,0">
-                                <TextBlock Text="Multiplicador:" Foreground="#9BA8C4" FontSize="11" VerticalAlignment="Center"/>
+                                <TextBlock Text="Multiplicador:" Foreground="{DynamicResource PanelTextMutedBrush}" FontSize="{DynamicResource TextCaption}" VerticalAlignment="Center"/>
                                 <Border x:Name="LsfgMultiplierBorder" BorderThickness="2" BorderBrush="Transparent" CornerRadius="{DynamicResource RadiusSmall}" Padding="2">
                                     <StackPanel Orientation="Horizontal" Spacing="4">
-                                        <Button x:Name="BtnMult2x" Content="2x" Tag="0" Click="OnMultiplierClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusXSmall}" Padding="10,4" FontSize="11" MinWidth="36"/>
-                                        <Button x:Name="BtnMult3x" Content="3x" Tag="1" Click="OnMultiplierClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusXSmall}" Padding="10,4" FontSize="11" MinWidth="36"/>
-                                        <Button x:Name="BtnMult4x" Content="4x" Tag="2" Click="OnMultiplierClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusXSmall}" Padding="10,4" FontSize="11" MinWidth="36"/>
+                                        <Button x:Name="BtnMult2x" Content="2x" Tag="0" Click="OnMultiplierClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusXSmall}" Padding="10,4" FontSize="{DynamicResource TextCaption}" MinWidth="36"/>
+                                        <Button x:Name="BtnMult3x" Content="3x" Tag="1" Click="OnMultiplierClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusXSmall}" Padding="10,4" FontSize="{DynamicResource TextCaption}" MinWidth="36"/>
+                                        <Button x:Name="BtnMult4x" Content="4x" Tag="2" Click="OnMultiplierClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusXSmall}" Padding="10,4" FontSize="{DynamicResource TextCaption}" MinWidth="36"/>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
                             
                             <TextBlock Text="⚠️ Configure o multiplicador no Lossless Scaling (perfil do jogo ou global)." 
                                        Foreground="#FF9D00" 
-                                       FontSize="10" 
+                                       FontSize="{DynamicResource TextMicro}" 
                                        TextWrapping="Wrap" 
                                        TextAlignment="Center"
                                        MaxWidth="300"
@@ -306,18 +306,18 @@
                     <!-- Seção: Captura -->
                     <Border x:Name="CaptureSection" CornerRadius="{DynamicResource RadiusMedium}" BorderThickness="2" BorderBrush="Transparent" Padding="10" Background="{StaticResource SurfaceRaisedBrush}">
                         <StackPanel Spacing="8">
-                            <TextBlock Text="📸 Captura" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" FontSize="14" />
+                            <TextBlock Text="📸 Captura" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" FontSize="{DynamicResource TextBodyLarge}" />
                             <Grid ColumnDefinitions="*,*">
                                 <Button x:Name="BtnScreenshot" Grid.Column="0" Click="OnScreenshotClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="8" Margin="0,0,4,0">
                                     <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <TextBlock Text="📷" FontSize="14" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Print" FontSize="12" VerticalAlignment="Center"/>
+                                        <TextBlock Text="📷" FontSize="{DynamicResource TextBodyLarge}" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Print" FontSize="{DynamicResource TextSmall}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <Button x:Name="BtnRecord" Grid.Column="1" Click="OnRecordClick" Background="{StaticResource ButtonBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="8" Margin="4,0,0,0">
                                     <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <TextBlock Text="🎥" FontSize="14" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Gravar" FontSize="12" VerticalAlignment="Center"/>
+                                        <TextBlock Text="🎥" FontSize="{DynamicResource TextBodyLarge}" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Gravar" FontSize="{DynamicResource TextSmall}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                             </Grid>
@@ -336,7 +336,7 @@
                      pode deixar o jogo preto quando ele está em fullscreen). -->
                 <Border x:Name="FullscreenWarning" IsVisible="False" Background="#33FF6B6B"
                         BorderBrush="#66FF6B6B" BorderThickness="1" CornerRadius="{DynamicResource RadiusMedium}" Padding="10">
-                    <TextBlock x:Name="TxtFullscreenWarning" FontSize="11" Foreground="#FFD8D8"
+                    <TextBlock x:Name="TxtFullscreenWarning" FontSize="{DynamicResource TextCaption}" Foreground="#FFD8D8"
                                TextWrapping="Wrap" Text="" />
                 </Border>
 

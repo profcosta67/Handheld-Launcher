@@ -32,7 +32,7 @@
                     </Border>
                     <TextBlock Text="{Binding SelectedTile.Title}" 
                                Foreground="{DynamicResource TextPrimaryBrush}"
-                               FontSize="20" 
+                               FontSize="{DynamicResource TextHeading}" 
                                FontWeight="Bold" 
                                TextTrimming="CharacterEllipsis" 
                                MaxWidth="250"
@@ -41,14 +41,14 @@
                 
                 <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
                     <Border Background="{Binding SelectedTile.PlatformBadgeColorHex, Converter={StaticResource HexColorToBrushConverter}}" CornerRadius="4" Padding="6,2" IsVisible="{Binding SelectedTile.HasPlatformBadge}">
-                        <TextBlock Text="{Binding SelectedTile.PlatformBadgeText}" Foreground="White" FontSize="10" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding SelectedTile.PlatformBadgeText}" Foreground="White" FontSize="{DynamicResource TextMicro}" FontWeight="Bold"/>
                     </Border>
                     <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="4" Padding="6,2">
-                        <TextBlock Text="{Binding SelectedTile.InstallStatusLabel}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding SelectedTile.InstallStatusLabel}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource TextMicro}" FontWeight="Bold"/>
                     </Border>
                     <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding SelectedTile.IsFavorite}" VerticalAlignment="Center">
-                        <PathIcon Width="14" Height="14" Data="{StaticResource IconStar}" Foreground="#FFFFC45C" VerticalAlignment="Center"/>
-                        <TextBlock Text="Favorito" Foreground="#FFFFC45C" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <PathIcon Width="14" Height="14" Data="{StaticResource IconStar}" Foreground="{DynamicResource FavoriteBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="Favorito" Foreground="{DynamicResource FavoriteBrush}" FontSize="{DynamicResource TextSmall}" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     </StackPanel>
                 </StackPanel>
             </StackPanel>
@@ -63,11 +63,11 @@
                 <StackPanel Orientation="Horizontal" Spacing="8"
                             IsVisible="{Binding SelectedTile.HasReviewData}">
                     <TextBlock Text="{Binding SelectedTile.StarsString}"
-                               FontSize="15"
+                               FontSize="{DynamicResource TextBodyLarge}"
                                Foreground="#FFC83D"
                                VerticalAlignment="Center"/>
                     <TextBlock Text="{Binding SelectedTile.ReviewLabel}"
-                               FontSize="11"
+                               FontSize="{DynamicResource TextCaption}"
                                Foreground="{DynamicResource TextSecondaryBrush}"
                                VerticalAlignment="Center"/>
                 </StackPanel>
@@ -80,7 +80,7 @@
                         <PathIcon Width="14" Height="14" Data="{StaticResource IconClock}" VerticalAlignment="Center"/>
                         <TextBlock Text="{Binding SelectedTile.PlaytimeLabel}"
                                    Foreground="{DynamicResource TextPrimaryBrush}"
-                                   FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                   FontSize="{DynamicResource TextSmall}" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     </StackPanel>
 
                     <!-- 🕒 Última Sessão -->
@@ -89,7 +89,7 @@
                         <PathIcon Width="14" Height="14" Data="{StaticResource IconCalendar}" VerticalAlignment="Center"/>
                         <TextBlock Text="{Binding SelectedTile.LastPlayedLabel}"
                                    Foreground="{DynamicResource TextPrimaryBrush}"
-                                   FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                   FontSize="{DynamicResource TextSmall}" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     </StackPanel>
 
                     <!-- 🏷️ Gênero -->
@@ -98,14 +98,14 @@
                         <PathIcon Width="14" Height="14" Data="{StaticResource IconTag}" VerticalAlignment="Center"/>
                         <TextBlock Text="{Binding SelectedTile.Genre}"
                                    Foreground="{DynamicResource TextPrimaryBrush}"
-                                   FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                   FontSize="{DynamicResource TextSmall}" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     </StackPanel>
 
                     <!-- Adicione isso na linha de estatísticas (junto com tempo, última sessão e gênero) -->
                 <StackPanel Orientation="Horizontal" Spacing="4"
                             IsVisible="{Binding SelectedTile.HasAchievements}">
                     <PathIcon Width="12" Height="12" Data="{StaticResource IconTrophy}" VerticalAlignment="Center"/>
-                    <TextBlock Text="{Binding SelectedTile.AchievementBadgeLabel}" FontSize="11"
+                    <TextBlock Text="{Binding SelectedTile.AchievementBadgeLabel}" FontSize="{DynamicResource TextCaption}"
                             Foreground="{DynamicResource TextMuted}"/>
                 </StackPanel>
                     
@@ -114,7 +114,7 @@
                 <!-- Descrição -->
                 <TextBlock Text="{Binding SelectedTile.Description, Converter={x:Static conv:HtmlDecodeConverter.Instance}}" 
                            Foreground="{DynamicResource TextSecondaryBrush}" 
-                           FontSize="12" 
+                           FontSize="{DynamicResource TextSmall}" 
                            TextWrapping="Wrap" 
                            MaxLines="2" 
                            TextTrimming="CharacterEllipsis" 
@@ -130,7 +130,7 @@
                     VerticalAlignment="Center"
                     Width="140" Height="46" 
                     FontWeight="Bold" 
-                    FontSize="14" />
+                    FontSize="{DynamicResource TextBodyLarge}" />
         </Grid>
     </Border>
 </UserControl>

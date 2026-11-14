@@ -35,14 +35,14 @@
   <Grid RowDefinitions="Auto,*,Auto" Margin="24">
 
     <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,14">
-      <TextBlock Text="🛟 Central de Ajuda" FontSize="22" FontWeight="Bold" />
+      <TextBlock Text="🛟 Central de Ajuda" FontSize="{DynamicResource TextHeadingLarge}" FontWeight="Bold" />
       <TextBlock Text="Verificação rápida do launcher e do aparelho, e um manual com soluções. Nada aqui muda suas configurações."
-                 Classes="subtle" FontSize="12" TextWrapping="Wrap" />
+                 Classes="subtle" FontSize="{DynamicResource TextSmall}" TextWrapping="Wrap" />
       <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,10,0,0">
         <Button x:Name="BtnTabChecks" Classes="pill" Content="🩺 Verificações" Click="OnTabChecksClick" />
         <Button x:Name="BtnTabManual" Classes="pill" Content="📖 Manual" Click="OnTabManualClick" />
       </StackPanel>
-      <TextBlock x:Name="TxtSummary" Text="Verificando..." FontSize="13" FontWeight="SemiBold" Margin="0,8,0,0" />
+      <TextBlock x:Name="TxtSummary" Text="Verificando..." FontSize="{DynamicResource TextBody}" FontWeight="SemiBold" Margin="0,8,0,0" />
     </StackPanel>
 
     <Panel Grid.Row="1">
@@ -61,17 +61,17 @@
       <ScrollViewer x:Name="ReportScroll" IsVisible="False" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Spacing="12" Margin="0,0,10,8">
           <Button Classes="pill" Content="← Voltar" HorizontalAlignment="Left" Click="OnReportBackClick" />
-          <TextBlock Text="🐞 Reportar erro" FontSize="18" FontWeight="Bold" />
-          <TextBlock x:Name="TxtReportStatus" Text="Preparando o pacote..." FontSize="14" TextWrapping="Wrap" />
+          <TextBlock Text="🐞 Reportar erro" FontSize="{DynamicResource TextTitle}" FontWeight="Bold" />
+          <TextBlock x:Name="TxtReportStatus" Text="Preparando o pacote..." FontSize="{DynamicResource TextBodyLarge}" TextWrapping="Wrap" />
           <Border Background="#202536" CornerRadius="{DynamicResource RadiusMedium}" Padding="14" TextElement.Foreground="#E6E9F2">
             <StackPanel Spacing="6">
               <TextBlock Text="O que vai no pacote" FontWeight="Bold" />
-              <TextBlock Classes="subtle" FontSize="12" TextWrapping="Wrap"
+              <TextBlock Classes="subtle" FontSize="{DynamicResource TextSmall}" TextWrapping="Wrap"
                          Text="O relatório das verificações, o debug.log e as configurações. Antes de salvar, o launcher remove as chaves de API, o SteamID, o seu nome de usuário e o nome do PC. Nada é enviado sozinho — você escolhe pra onde mandar." />
             </StackPanel>
           </Border>
           <StackPanel x:Name="ReportActions" Spacing="10" IsVisible="False">
-            <TextBlock Classes="subtle" FontSize="12" TextWrapping="Wrap"
+            <TextBlock Classes="subtle" FontSize="{DynamicResource TextSmall}" TextWrapping="Wrap"
                        Text="Mande o arquivo pelo grupo/WhatsApp, ou abra o relato no GitHub (precisa de conta) e arraste o arquivo pra lá." />
             <Button x:Name="BtnShowReport" Classes="pill" Content="📂 Mostrar o arquivo" HorizontalAlignment="Left" Click="OnShowReportClick" />
             <Button x:Name="BtnOpenIssue" Classes="pill primary" Content="🌐 Abrir relato no GitHub" HorizontalAlignment="Left" Click="OnOpenIssueClick" />
@@ -83,7 +83,7 @@
     <StackPanel Grid.Row="2" Spacing="10" Margin="0,16,0,0">
       <Grid ColumnDefinitions="*,Auto">
         <TextBlock Grid.Column="0" x:Name="TxtControls" Text="🎮 ↑↓: navegar | A: abrir | LB/RB: trocar aba | B: fechar"
-                   VerticalAlignment="Center" Foreground="#8794AE" FontSize="11" TextWrapping="Wrap" />
+                   VerticalAlignment="Center" Foreground="#8794AE" FontSize="{DynamicResource TextCaption}" TextWrapping="Wrap" />
         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
           <Button x:Name="BtnRerun" Classes="pill" Content="🔄 Verificar de novo" Click="OnRerunClick" />
           <Button x:Name="BtnReport" Classes="pill" Content="🐞 Reportar erro" Click="OnReportClick" />

@@ -66,6 +66,35 @@
       <CornerRadius x:Key="RadiusLarge">18</CornerRadius>
       <CornerRadius x:Key="RadiusXLarge">22</CornerRadius>
 
+      <!-- v0.26: escala única de texto (antes havia 18 tamanhos soltos). Estes são fixos;
+           FontSizeBody/Title/Caption acima continuam seguindo a opção "Tamanho do Texto". -->
+      <x:Double x:Key="TextMicro">10</x:Double>
+      <x:Double x:Key="TextCaption">11</x:Double>
+      <x:Double x:Key="TextSmall">12</x:Double>
+      <x:Double x:Key="TextBody">13</x:Double>
+      <x:Double x:Key="TextBodyLarge">14</x:Double>
+      <x:Double x:Key="TextSubtitle">16</x:Double>
+      <x:Double x:Key="TextTitle">18</x:Double>
+      <x:Double x:Key="TextHeading">20</x:Double>
+      <x:Double x:Key="TextHeadingLarge">22</x:Double>
+      <x:Double x:Key="TextDisplay">24</x:Double>
+
+      <!-- v0.26: cores que apareciam repetidas direto nas telas, agora com nome (mesmos valores). -->
+      <SolidColorBrush x:Key="PanelTextBrush" Color="#F5F7FF" />
+      <SolidColorBrush x:Key="PanelTextMutedBrush" Color="#9BA8C4" />
+      <SolidColorBrush x:Key="SuccessTextBrush" Color="#D6F5E0" />
+      <SolidColorBrush x:Key="SuccessSoftBrush" Color="#8FE3AC" />
+      <SolidColorBrush x:Key="SuccessBrush" Color="#75D99A" />
+      <SolidColorBrush x:Key="FavoriteBrush" Color="#FFC45C" />
+      <SolidColorBrush x:Key="AccentTextSoftBrush" Color="#E6E0FF" />
+      <SolidColorBrush x:Key="AccentTextBrush" Color="#C6B5FF" />
+      <SolidColorBrush x:Key="PanelDividerBrush" Color="#556C7898" />
+      <SolidColorBrush x:Key="PanelBorderBrush" Color="#424A5D" />
+      <SolidColorBrush x:Key="PanelSurfaceAltBrush" Color="#252A36" />
+      <SolidColorBrush x:Key="PanelSurfaceBrush" Color="#202638" />
+      <SolidColorBrush x:Key="PanelSurfaceDeepBrush" Color="#1E1E2E" />
+      <SolidColorBrush x:Key="NotInstalledVeilBrush" Color="#99383838" />
+
       <x:Double x:Key="TypeScale1">11</x:Double>
       <x:Double x:Key="TypeScale2">12</x:Double>
       <x:Double x:Key="TypeScale3">14</x:Double>
@@ -267,7 +296,7 @@
 
   <Style Selector="Button.subFilter">
     <Setter Property="Padding" Value="12,5" />
-    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontSize" Value="{DynamicResource TextCaption}" />
   </Style>
 
   <Style Selector="Button.subFilter.cursor">
@@ -308,7 +337,7 @@
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="Width" Value="40" />
     <Setter Property="Height" Value="40" />
-    <Setter Property="FontSize" Value="16" />
+    <Setter Property="FontSize" Value="{DynamicResource TextSubtitle}" />
     <Setter Property="FontWeight" Value="Bold" />
     <Setter Property="HorizontalContentAlignment" Value="Center" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -375,7 +404,7 @@
 
   <Style Selector="TextBlock.qsSectionTitle">
     <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontSize" Value="{DynamicResource TextBody}" />
     <Setter Property="FontWeight" Value="Bold" />
     <Setter Property="Margin" Value="4,6,0,2" />
   </Style>
@@ -392,7 +421,7 @@
     <Setter Property="HorizontalAlignment" Value="Stretch" />
     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
-    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontSize" Value="{DynamicResource TextBody}" />
   </Style>
 
   <Style Selector="Button.settingsTab:pointerover /template/ ContentPresenter">
@@ -452,7 +481,7 @@
     <Setter Property="HorizontalContentAlignment" Value="Center" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
     <Setter Property="Padding" Value="0" />
-    <Setter Property="FontSize" Value="15" />
+    <Setter Property="FontSize" Value="{DynamicResource TextBodyLarge}" />
     <Setter Property="CornerRadius" Value="0" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="Opacity" Value="0.5" />
