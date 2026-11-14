@@ -118,7 +118,15 @@ public sealed class PerformanceHud : IDisposable
         try
         {
             var preset = _preset;
-            if (preset == 0) { if (_isShowing) ClearNow(); Status = "desligado"; return; }
+            var notice = CurrentNotice();
+            if (preset == 0)
+            {
+                // HUD desligado: o aviso aparece sozinho, pelo tempo dele, e some.
+                if (notice is null) { if (_isShowing) ClearNow(); Status = "desligado"; return; }
+                lock (_rtss) { if (_rtss.WriteOsd($"<C=C6B5FF>{notice}<C>")) _isShowing = true; }
+                Status = "desligado";
+                return;
+            }
 
             _metrics ??= new SystemMetrics();
             var metrics = _metrics.Read();
@@ -138,6 +146,8 @@ public sealed class PerformanceHud : IDisposable
                     CpuTemperature, GetResolutionInfo(),
                     TdpStatusText, RealTdpText, recIndicator, ColorModeText,
                     RealGpuWatts);
+                // v0.27: aviso curto logo abaixo do HUD (ex.: "Modo inteligente aplicado").
+                if (notice is not null) text += $"\n<C=C6B5FF>{notice}<C>";
                 written = _rtss.WriteOsd(text);
             }
 
@@ -145,6 +155,25 @@ public sealed class PerformanceHud : IDisposable
             else { Status = _rtss.LastError ?? "RTSS indisponível"; LogOnce(Status); }
         }
         catch (Exception ex) { Status = "erro: " + ex.Message; LogOnce(ex.ToString()); }
+    }
+
+    private static string _notice = "";
+    private static DateTime _noticeUntilUtc = DateTime.MinValue;
+    private static readonly object NoticeGate = new();
+
+    /// <summary>Mostra uma linha discreta abaixo do HUD por alguns segundos.</summary>
+    public static void ShowNotice(string text, double seconds = 6)
+    {
+        lock (NoticeGate)
+        {
+            _notice = text;
+            _noticeUntilUtc = DateTime.UtcNow.AddSeconds(seconds);
+        }
+    }
+
+    private static string? CurrentNotice()
+    {
+        lock (NoticeGate) return DateTime.UtcNow < _noticeUntilUtc ? _notice : null;
     }
 
     private void LogOnce(string message)
