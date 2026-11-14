@@ -27,6 +27,7 @@ internal sealed class SmartTdpService : IDisposable
 {
     private const int TickSeconds = 2;
     private const double WarmupSeconds = 15;
+    private const double MidGameWarmupSeconds = 4;
     private const int MinFloorWatts = 8;
 
     private readonly MainViewModel _viewModel;
@@ -46,12 +47,18 @@ internal sealed class SmartTdpService : IDisposable
     private Session? _session;
     private bool? _lastEnabled;
 
+    // Último valor do modo inteligente neste jogo, enquanto ele continuar aberto. Desligar e
+    // religar o Auto no meio do jogo retoma daqui em vez de recomeçar do perfil manual
+    // (na beta.58 recomeçava dos 8 W do Eco e demorava a subir).
+    private (string GameId, int Watts)? _resume;
+
     private sealed class Session
     {
         public required string GameId;
         public required string Title;
         public required string UserMode;
         public bool OffSeen;
+        public bool MidGame; // ligado com o jogo já rodando: sem a espera de abertura
         public DateTime ControlStartedUtc = DateTime.UtcNow;
         public SmartTdpController? Controller;
         public bool Applied;
@@ -108,6 +115,7 @@ internal sealed class SmartTdpService : IDisposable
                 live.UserMode = string.IsNullOrWhiteSpace(_settings.TdpMode) ? live.UserMode : _settings.TdpMode;
             }
 
+            if (game is null) _resume = null;
             EndSession(_settings.SmartTdpEnabled ? "jogo fechado" : "modo desligado");
             return;
         }
@@ -121,6 +129,7 @@ internal sealed class SmartTdpService : IDisposable
                 GameId = game.Id,
                 Title = game.Title,
                 UserMode = string.IsNullOrWhiteSpace(_settings.TdpMode) ? "Normal" : _settings.TdpMode,
+                MidGame = GameSessionInfo.DetectedGamePid != 0,
             };
             DebugLog.Write($"[TDP-AUTO] Sessão iniciada: '{game.Title}', meta {TargetFps} FPS, TDP do usuário = {_session.UserMode}.");
         }
@@ -174,10 +183,13 @@ internal sealed class SmartTdpService : IDisposable
             var limits = DeviceTdpLimits.Current();
             var min = Math.Min(Math.Max(limits.SplMin, MinFloorWatts), limits.SplMax);
             var learned = _store.Get(s.GameId, TargetFps);
-            var start = learned?.Watts ?? TdpProfiles.WattsFor(s.UserMode) ?? TdpProfiles.DefaultCustomWatts;
+            int? resumed = learned is null && _resume is { } r && r.GameId == s.GameId ? r.Watts : null;
+            var start = learned?.Watts ?? resumed ?? TdpProfiles.WattsFor(s.UserMode) ?? TdpProfiles.DefaultCustomWatts;
             s.Controller = new SmartTdpController(TargetFps, min, limits.SplMax, start, startIsLearned: learned is not null);
             s.ControlStartedUtc = DateTime.UtcNow;
-            DebugLog.Write($"[TDP-AUTO] Janela {min}–{limits.SplMax} W; início em {s.Controller.Watts} W ({(learned is not null ? "aprendido antes" : "TDP atual, aprendendo")}).");
+            DebugLog.Write($"[TDP-AUTO] Janela {min}–{limits.SplMax} W; início em {s.Controller.Watts} W ({(learned is not null ? "aprendido antes" : resumed is not null ? "retomado desta sessão de jogo" : "TDP atual, aprendendo")}).");
+
+            if (resumed is not null) Apply(s, s.Controller.Watts, "retomando o modo inteligente");
 
             if (learned is not null)
             {
@@ -189,7 +201,7 @@ internal sealed class SmartTdpService : IDisposable
         }
 
         var elapsed = (DateTime.UtcNow - s.ControlStartedUtc).TotalSeconds; // conta da 1ª leitura do jogo
-        if (elapsed < WarmupSeconds) return; // abertura/carregamento do jogo
+        if (elapsed < (s.MidGame ? MidGameWarmupSeconds : WarmupSeconds)) return; // abertura/carregamento do jogo
 
         var before = s.Controller.Watts;
         var change = s.Controller.OnSample(f.Fps, elapsed);
@@ -234,6 +246,9 @@ internal sealed class SmartTdpService : IDisposable
         var s = _session;
         if (s is null) return;
         _session = null;
+
+        if (why != "modo desligado") _resume = null;
+        else if (s.Applied && s.Controller is not null) _resume = (s.GameId, s.Controller.Watts);
 
         if (s.Applied && !s.Suspended)
         {
