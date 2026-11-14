@@ -90,6 +90,12 @@
              HorizontalAlignment="Center" Margin="20,16" IsVisible="{Binding HasCloudFilterEmptyText}" />
 
   <ScrollViewer x:Name="CloudScroll" Grid.Row="2" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+    <!-- v0.26: a última fileira se dissolve no fundo (igual à grade da biblioteca). -->
+    <ScrollViewer.OpacityMask>
+      <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+        <GradientStop Color="#FFFFFFFF" Offset="0" /><GradientStop Color="#FFFFFFFF" Offset="0.88" /><GradientStop Color="#00FFFFFF" Offset="1" />
+      </LinearGradientBrush>
+    </ScrollViewer.OpacityMask>
     <ScrollViewer.Transitions>
       <Transitions>
         <VectorTransition Property="Offset" Duration="0:0:0.22" Easing="CubicEaseOut" />

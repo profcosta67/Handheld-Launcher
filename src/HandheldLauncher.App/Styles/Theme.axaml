@@ -162,10 +162,11 @@
     <Setter Property="BorderThickness" Value="1.5" />
   </Style>
 
+  <!-- v0.26: título do menu sem a caixa colorida (menos "caixa dentro de caixa"). -->
   <Style Selector="Border.menuHeader">
-    <Setter Property="Background" Value="{StaticResource AccentTranslucentBrush}" />
+    <Setter Property="Background" Value="Transparent" />
     <Setter Property="CornerRadius" Value="14" />
-    <Setter Property="Padding" Value="16,12" />
+    <Setter Property="Padding" Value="16,4" />
     <Setter Property="HorizontalAlignment" Value="Stretch" />
     <Setter Property="Margin" Value="0,0,0,4" />
   </Style>

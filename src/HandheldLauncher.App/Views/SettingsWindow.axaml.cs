@@ -348,6 +348,11 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
             SystemDecorations = SystemDecorations.None;
             WindowState = WindowState.FullScreen;
             _consoleLayout = true;
+            // Opções encostadas na navegação (antes ficavam centralizadas, com um vão no meio).
+            ContentHost.MaxWidth = double.PositiveInfinity;
+            ContentHost.Width = 860;
+            ContentHost.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
+            ContentHost.Margin = new Thickness(28, 0, 0, 0);
             AdoptDescriptions();
         }
         catch (Exception ex)
