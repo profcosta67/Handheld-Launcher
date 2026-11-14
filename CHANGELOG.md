@@ -3,6 +3,9 @@
 Mais recente primeiro. Cada versão tem notas completas em [`release-notes/`](release-notes/).
 Betas não entram aqui: o que eles trazem aparece na versão estável que os junta.
 
+## [0.26.2] — 2026-11-14
+TDP inteligente (experimental): ajusta watts e ventoinha pela meta de FPS, aprende por jogo, botão Auto no Quick Settings; capas voltam ao quadro nos temas BigScreen, Clássico e Cartoon. [Notas](release-notes/0.26.2.md)
+
 ## [0.26.0] — 2026-11-14
 Identidade visual: Configurações em estilo de console, hero do Clássico limpo, capas dissolvendo nas bordas e preenchendo o quadro, Detalhes do jogo em popup, menus com ícones próprios, "Sobre" reformulado, teclado com atalhos de console e tokens de tema (cantos, texto, cores repetidas). [Notas](release-notes/0.26.0.md)
 
