@@ -405,6 +405,15 @@ public partial class MainWindow : Window
 
     // ---------- carga das listas ----------
 
+    /// <summary>v0.26: lista vazia não ocupa espaço (antes ficava um quadro em branco).</summary>
+    private void ShowListCardIfAny(string cardName, System.Collections.IEnumerable? items)
+    {
+        if (this.FindControl<Border>(cardName) is not { } card) return;
+        var any = false;
+        if (items is not null) foreach (var _ in items) { any = true; break; }
+        card.IsVisible = any;
+    }
+
     private async Task LoadNetworksAndDevicesAsync(bool keepFocus = false, bool discoverBluetooth = false)
     {
         try
@@ -413,7 +422,10 @@ public partial class MainWindow : Window
             if (!keepFocus) _controlCenterCurrent = null;
 
             if (this.FindControl<ItemsControl>("WifiList") is { } wifiList)
+            {
                 wifiList.ItemsSource = await _wifiService.GetAvailableNetworksAsync();
+                ShowListCardIfAny("WifiListCard", wifiList.ItemsSource);
+            }
 
             if (this.FindControl<ItemsControl>("BluetoothList") is { } btList)
             {
@@ -421,6 +433,7 @@ public partial class MainWindow : Window
                 // 8 s deixaria o Bluetooth lento e gastaria bateria.
                 var window = discoverBluetooth ? TimeSpan.FromSeconds(6) : TimeSpan.Zero;
                 btList.ItemsSource = await _btService.GetDevicesAsync(window);
+                ShowListCardIfAny("BluetoothListCard", btList.ItemsSource);
             }
 
             // Os itens foram recriados: refaz a grade e devolve o cursor.

@@ -11,11 +11,11 @@
         Background="{StaticResource BackgroundBrush}">
 
   <Window.Styles>
-    <Style Selector="ComboBox"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="9" Margin="1"/></Template></Setter></Style>
-    <Style Selector="TextBox"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="9" Margin="1"/></Template></Setter></Style>
-    <Style Selector="ToggleSwitch"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="9" Margin="1"/></Template></Setter></Style>
-    <Style Selector="RadioButton"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="9" Margin="1"/></Template></Setter></Style>
-    <Style Selector="Slider"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="15" Margin="1"/></Template></Setter></Style>
+    <Style Selector="ComboBox"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="12" Margin="-8,-5" Background="{DynamicResource AccentTranslucentBrush}"/></Template></Setter></Style>
+    <Style Selector="TextBox"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="12" Margin="-8,-5" Background="{DynamicResource AccentTranslucentBrush}"/></Template></Setter></Style>
+    <Style Selector="ToggleSwitch"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="12" Margin="-8,-5" Background="{DynamicResource AccentTranslucentBrush}"/></Template></Setter></Style>
+    <Style Selector="RadioButton"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="12" Margin="-8,-5" Background="{DynamicResource AccentTranslucentBrush}"/></Template></Setter></Style>
+    <Style Selector="Slider"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="12" Margin="-8,-5" Background="{DynamicResource AccentTranslucentBrush}"/></Template></Setter></Style>
     <Style Selector="Button.categoryTab"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="11" Margin="1"/></Template></Setter></Style>
     
     <!-- v0.26: sem caixas. Cada grupo é só um título discreto e as opções. -->
@@ -470,7 +470,7 @@
     <StackPanel Grid.Row="1" Spacing="10" Margin="0,16,0,0">
       <TextBlock Text="{Binding UpdateResultText}" IsVisible="{Binding HasUpdateResult}" TextWrapping="Wrap" />
       <Grid ColumnDefinitions="*,Auto">
-        <TextBlock Grid.Column="0" Text="LB / RB: categoria     A: alterar     B: voltar     Start: salvar     X: salvar e fechar" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13" />
+        <TextBlock Grid.Column="0" Text="LB / RB: categoria     Esquerda / Direita: trocar o valor     A: abrir     B: voltar     Tudo é salvo ao fechar" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13" />
         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
           <Button Classes="pill" Content="⌨ Teclado" Click="OnKeyboardClick" />
           <Button Classes="pill primary" Content="{Binding SaveButtonText}" Click="OnSaveAndCloseClick" Height="40" Width="160" />

@@ -166,6 +166,22 @@ public partial class MainWindow : Window
         scroll.VerticalScrollBarVisibility = vertical ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
         scroll.Offset = default;
 
+        // v0.26: na grade vertical a última fileira visível quase sempre aparece pela metade;
+        // em vez do corte seco, ela se dissolve no fundo. No carrossel não há máscara.
+        scroll.OpacityMask = vertical
+            ? new Avalonia.Media.LinearGradientBrush
+            {
+                StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
+                EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
+                GradientStops =
+                {
+                    new Avalonia.Media.GradientStop(Avalonia.Media.Colors.White, 0),
+                    new Avalonia.Media.GradientStop(Avalonia.Media.Colors.White, 0.88),
+                    new Avalonia.Media.GradientStop(Avalonia.Media.Colors.Transparent, 1),
+                },
+            }
+            : null;
+
         foreach (var container in items.GetRealizedContainers()) container.Margin = ContainerMargin();
 
         // 🟢 NOVO: avisa o layout pra ajustar o container externo (WrapPanel Horizontal↔Vertical).

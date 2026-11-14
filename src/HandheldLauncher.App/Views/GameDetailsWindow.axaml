@@ -11,7 +11,8 @@
         SystemDecorations="None"
         ShowInTaskbar="False"
         WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource BackgroundBrush}">
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
 
   <Window.Resources>
     <DataTemplate x:Key="AchievementRowTemplate" x:DataType="vm:AchievementItemViewModel">
@@ -94,6 +95,21 @@
     </Style>
   </Window.Styles>
 
+  <!-- v0.26: popup. A janela cobre a tela só para escurecer a biblioteca atrás; o
+       conteúdo fica num cartão central que abre com um zoom curto. -->
+  <Panel x:Name="Backdrop" Background="#C0000000" PointerPressed="OnBackdropPressed">
+  <Border x:Name="PopupCard" Background="{DynamicResource BackgroundBrush}"
+          BorderBrush="{DynamicResource TileSeparatorBrush}" BorderThickness="1"
+          CornerRadius="22" ClipToBounds="True"
+          MaxWidth="1240" MaxHeight="780" Margin="40,32"
+          BoxShadow="0 24 70 0 #99000000"
+          Opacity="0" RenderTransform="scale(0.9)" RenderTransformOrigin="50%,50%">
+    <Border.Transitions>
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.16" />
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2" Easing="CubicEaseOut" />
+      </Transitions>
+    </Border.Transitions>
   <Grid RowDefinitions="Auto,Auto,*,Auto">
 
     <!-- ===== Cabeçalho: banner + capa + logo + faixa de informações ===== -->
@@ -323,4 +339,6 @@
       </Grid>
     </Border>
   </Grid>
+  </Border>
+  </Panel>
 </Window>

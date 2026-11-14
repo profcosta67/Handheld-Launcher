@@ -260,7 +260,7 @@
                             </StackPanel>
                         </Button>
                         <Border Grid.Column="1" Classes="qsTileDivider"/>
-                        <Button Grid.Column="2" Classes="qsTileArrow" Content="→" Click="OnArtworkDetailsClick"/>
+                        <Button Grid.Column="2" Classes="qsTileArrow" Content="›" FontSize="20" Click="OnArtworkDetailsClick"/>
                     </Grid>
                 </Border>
 
@@ -278,7 +278,7 @@
                             </StackPanel>
                         </Button>
                         <Border Grid.Column="1" Classes="qsTileDivider"/>
-                        <Button Grid.Column="2" Classes="qsTileArrow" Content="→" Click="OnWifiDetailsClick"/>
+                        <Button Grid.Column="2" Classes="qsTileArrow" Content="›" FontSize="20" Click="OnWifiDetailsClick"/>
                     </Grid>
                 </Border>
 
@@ -296,7 +296,7 @@
                             </StackPanel>
                         </Button>
                         <Border Grid.Column="1" Classes="qsTileDivider"/>
-                        <Button Grid.Column="2" Classes="qsTileArrow" Content="→" Click="OnBluetoothDetailsClick"/>
+                        <Button Grid.Column="2" Classes="qsTileArrow" Content="›" FontSize="20" Click="OnBluetoothDetailsClick"/>
                     </Grid>
                 </Border>
                 <!-- Luz Noturna (filtro âmbar sobre o launcher) -->
@@ -313,7 +313,7 @@
                             </StackPanel>
                         </Button>
                         <Border Grid.Column="1" Classes="qsTileDivider"/>
-                        <Button Grid.Column="2" Classes="qsTileArrow" Content="→" Click="OnNightLightDetailsClick"/>
+                        <Button Grid.Column="2" Classes="qsTileArrow" Content="›" FontSize="20" Click="OnNightLightDetailsClick"/>
                     </Grid>
                 </Border>
 
@@ -331,7 +331,7 @@
                             </StackPanel>
                         </Button>
                         <Border Grid.Column="1" Classes="qsTileDivider"/>
-                        <Button Grid.Column="2" Classes="qsTileArrow" Content="→" Click="OnDarkModeDetailsClick"/>
+                        <Button Grid.Column="2" Classes="qsTileArrow" Content="›" FontSize="20" Click="OnDarkModeDetailsClick"/>
                     </Grid>
                 </Border>
 
@@ -349,7 +349,7 @@
                             </StackPanel>
                         </Button>
                         <Border Grid.Column="1" Classes="qsTileDivider"/>
-                        <Button Grid.Column="2" Classes="qsTileArrow" Content="→" Click="OnAirplaneDetailsClick"/>
+                        <Button Grid.Column="2" Classes="qsTileArrow" Content="›" FontSize="20" Click="OnAirplaneDetailsClick"/>
                     </Grid>
                 </Border>
             </UniformGrid>
@@ -370,7 +370,7 @@
                             </StackPanel>
                         </Button>
                         <Border Grid.Column="1" Classes="qsTileDivider"/>
-                        <Button Grid.Column="2" Classes="qsTileArrow" Content="→" Click="OnSyncDetailsClick"/>
+                        <Button Grid.Column="2" Classes="qsTileArrow" Content="›" FontSize="20" Click="OnSyncDetailsClick"/>
                     </Grid>
                 </Border>
 
@@ -393,11 +393,11 @@
             </Grid>
 
             <!-- Listas -->
-            <Grid ColumnDefinitions="*,*" Height="190">
+            <Grid ColumnDefinitions="*,*" MaxHeight="190">
                 <!-- Wi-Fi List -->
-                <Border Grid.Column="0" Classes="qsCard" Padding="12" Margin="0,0,6,0">
+                <Border x:Name="WifiListCard" Grid.Column="0" Padding="4,0" Margin="0,0,6,0" IsVisible="False">
                     <Grid RowDefinitions="Auto,*">
-                        <TextBlock Text="Redes Wi-Fi" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,8"/>
+                        <TextBlock Text="Redes Wi-Fi" Classes="qsSectionTitle" Margin="6,0,0,8"/>
                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                             <ItemsControl x:Name="WifiList">
                                 <ItemsControl.ItemTemplate>
@@ -422,9 +422,9 @@
                 </Border>
 
                 <!-- Bluetooth List -->
-                <Border Grid.Column="1" Classes="qsCard" Padding="12" Margin="6,0,0,0">
+                <Border x:Name="BluetoothListCard" Grid.Column="1" Padding="4,0" Margin="6,0,0,0" IsVisible="False">
                     <Grid RowDefinitions="Auto,*">
-                        <TextBlock Text="Bluetooth Pareados" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,8"/>
+                        <TextBlock Text="Bluetooth pareados" Classes="qsSectionTitle" Margin="6,0,0,8"/>
                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                             <ItemsControl x:Name="BluetoothList">
                                 <ItemsControl.ItemTemplate>
@@ -453,7 +453,7 @@
             </Grid>
             <!-- Feedback da última ação (conectar/desconectar) e dica de navegação -->
             <TextBlock x:Name="ControlCenterFeedback" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
-            <TextBlock Text="A conecta/desconecta · X atualiza · Y/B fecha" FontSize="11"
+            <TextBlock Text="A: liga ou conecta     X: atualiza     B: fecha" FontSize="11"
                        Foreground="{DynamicResource TextSecondaryBrush}" Opacity="0.7"/>
         </StackPanel>
         </ScrollViewer>
