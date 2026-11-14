@@ -483,10 +483,11 @@
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:ContextMenuItemViewModel">
                   <Border Classes="menuItem" Classes.selected="{Binding IsSelected}" Classes.danger="{Binding IsDanger}" Padding="16,12" Cursor="Hand" PointerPressed="OnContextMenuItemPressed">
-                    <Grid ColumnDefinitions="*,Auto">
-                      <TextBlock Grid.Column="0" Text="{Binding Label}" Classes="gameTitle" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                      <PathIcon Width="18" Height="18" Data="{Binding IconData}" IsVisible="{Binding HasIcon}" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                      <TextBlock Grid.Column="1" Text="{Binding DisplayLabel}" Classes="gameTitle" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
                       <!-- Só as "pastas" (abrem outra página) levam a seta — mesmo padrão dos tiles. -->
-                      <TextBlock Grid.Column="1" Text="›" FontSize="18" Opacity="0.7" VerticalAlignment="Center"
+                      <TextBlock Grid.Column="2" Text="›" FontSize="18" Opacity="0.7" VerticalAlignment="Center"
                                  IsVisible="{Binding IsFolder}" />
                     </Grid>
                   </Border>
@@ -511,7 +512,10 @@
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:ContextMenuItemViewModel">
                 <Border Classes="menuItem" Classes.selected="{Binding IsSelected}" Classes.danger="{Binding IsDanger}" Padding="16,12" Cursor="Hand" PointerPressed="OnGlobalMenuItemPressed">
-                  <TextBlock Text="{Binding Label}" Classes="gameTitle" FontSize="{DynamicResource FontSizeBody}" />
+                  <StackPanel Orientation="Horizontal">
+                    <PathIcon Width="18" Height="18" Data="{Binding IconData}" IsVisible="{Binding HasIcon}" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                    <TextBlock Text="{Binding DisplayLabel}" Classes="gameTitle" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
+                  </StackPanel>
                 </Border>
               </DataTemplate>
             </ItemsControl.ItemTemplate>

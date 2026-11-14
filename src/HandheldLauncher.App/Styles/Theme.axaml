@@ -156,6 +156,9 @@
   <Style Selector="Border.menuItem.danger TextBlock.gameTitle">
     <Setter Property="Foreground" Value="#FF5C5C" />
   </Style>
+  <Style Selector="Border.menuItem.danger PathIcon">
+    <Setter Property="Foreground" Value="#FF5C5C" />
+  </Style>
   <Style Selector="Border.menuItem.danger.selected">
     <Setter Property="Background" Value="#332E2E" />
     <Setter Property="BorderBrush" Value="#FF5C5C" />
