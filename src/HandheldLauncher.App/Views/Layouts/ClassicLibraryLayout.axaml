@@ -18,7 +18,7 @@
     <Style Selector="Button.addGhostCard">
       <Setter Property="Width" Value="180" />
       <Setter Property="Height" Value="250" />
-      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}" />
       <Setter Property="Background" Value="#40151515" />
       <Setter Property="BorderBrush" Value="#66FFFFFF" />
       <Setter Property="BorderThickness" Value="2" />
@@ -30,7 +30,7 @@
       <Setter Property="Background" Value="#60151925" />
     </Style>
     <Style Selector="Border.gameTile">
-      <Setter Property="CornerRadius" Value="24" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusXLarge}" />
     </Style>
     <Style Selector="Border.gameTile.focused">
       <Setter Property="BorderThickness" Value="2" />
@@ -39,7 +39,7 @@
     <Style Selector="Button.filterTab">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
-      <Setter Property="CornerRadius" Value="18" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
       <Setter Property="Padding" Value="12,9" />
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="MinHeight" Value="44" />
@@ -62,29 +62,18 @@
       <Grid>
         <Grid IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
           <Image Source="{Binding SelectedTile.BannerImagePath, Converter={StaticResource FileToBitmapConverter}}" Stretch="UniformToFill" Opacity="0.3" IsHitTestVisible="False"><Image.Effect><media:BlurEffect Radius="5" /></Image.Effect></Image>
-          <Image x:Name="HeroBackImage" Stretch="Uniform" IsHitTestVisible="False" />
-          <Image x:Name="HeroImage" anim:ImageBehavior.AnimatedSource="{Binding SelectedTile.BannerImagePath}" Stretch="Uniform" />
+          <!-- v0.26: a borda esquerda da arte nítida se dissolve no fundo desfocado. -->
+          <Image x:Name="HeroBackImage" Stretch="Uniform" HorizontalAlignment="Right" IsHitTestVisible="False"><Image.OpacityMask><LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%"><GradientStop Color="#00FFFFFF" Offset="0.0" /><GradientStop Color="#99FFFFFF" Offset="0.18" /><GradientStop Color="#FFFFFFFF" Offset="0.38" /><GradientStop Color="#FFFFFFFF" Offset="1.0" /></LinearGradientBrush></Image.OpacityMask></Image>
+          <Image x:Name="HeroImage" anim:ImageBehavior.AnimatedSource="{Binding SelectedTile.BannerImagePath}" Stretch="Uniform" HorizontalAlignment="Right"><Image.OpacityMask><LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%"><GradientStop Color="#00FFFFFF" Offset="0.0" /><GradientStop Color="#99FFFFFF" Offset="0.18" /><GradientStop Color="#FFFFFFFF" Offset="0.38" /><GradientStop Color="#FFFFFFFF" Offset="1.0" /></LinearGradientBrush></Image.OpacityMask></Image>
           <Border IsHitTestVisible="False">
-            <Border.Background><LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%"><GradientStop Color="#1A1A1A" Offset="0.0" /><GradientStop Color="Transparent" Offset="0.10" /><GradientStop Color="Transparent" Offset="0.90" /><GradientStop Color="#1A1A1A" Offset="1.0" /></LinearGradientBrush></Border.Background>
+            <Border.Background><LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%"><GradientStop Color="#E6101014" Offset="0.0" /><GradientStop Color="#B3101014" Offset="0.35" /><GradientStop Color="Transparent" Offset="0.72" /><GradientStop Color="Transparent" Offset="1.0" /></LinearGradientBrush></Border.Background>
           </Border>
           <Grid ColumnDefinitions="*,Auto" Margin="44,20,42,20">
             <StackPanel Grid.Column="0" VerticalAlignment="Center" HorizontalAlignment="Left" Spacing="12">
-              <TextBlock Text="EM DESTAQUE" Foreground="{DynamicResource AccentBrush}" FontSize="12" FontWeight="Bold" IsVisible="{Binding SelectedTile.ShowCurrentLogo}" />
               <Image Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}" Width="320" Height="76" Stretch="Uniform" HorizontalAlignment="Left" IsVisible="{Binding SelectedTile.ShowCurrentLogo}" />
               <TextBlock Text="{Binding SelectedTile.Title}" Classes="heroTitle" FontSize="34" TextWrapping="Wrap" TextAlignment="Left" VerticalAlignment="Center" HorizontalAlignment="Left" MaxWidth="900" IsVisible="{Binding SelectedTile.ShowNameCaption}" />
             </StackPanel>
 
-            <Border Grid.Column="1" Width="132" Height="202" CornerRadius="22" Background="{DynamicResource SurfaceRaisedBrush}" BorderBrush="{DynamicResource TileSeparatorBrush}" BorderThickness="1" ClipToBounds="True" VerticalAlignment="Center" Margin="24,0,0,0">
-              <Grid>
-                <Image anim:ImageBehavior.AnimatedSource="{Binding SelectedTile.CarouselTileImagePath}" Stretch="UniformToFill" />
-                <Border Background="{DynamicResource SurfaceBrush}" IsVisible="{Binding SelectedTile.ShowEmptyCarouselPlaceholder}">
-                  <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12" Margin="12">
-                    <PathIcon Width="30" Height="30" Data="{StaticResource IconGamepad}" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" />
-                    <TextBlock Text="{Binding SelectedTile.Title}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap" MaxLines="3" />
-                  </StackPanel>
-                </Border>
-              </Grid>
-            </Border>
           </Grid>
         </Grid>
         <TextBlock Text="Nenhum jogo encontrado ainda.&#10;Adicione um jogo manualmente para começar." Classes="subtle" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="24" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNull}}" />
@@ -93,43 +82,43 @@
 
     <StackPanel Grid.Row="1" Spacing="16" Margin="0,0,0,10">
       <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center">
-        <Button Classes="pill filterTab" Classes.active="{Binding IsFilterFavoritesActive}" Command="{Binding SetFilterFavoritesCommand}" HorizontalAlignment="Center" Margin="3,0" FontSize="13">
+        <Button Classes="pill filterTab" Classes.active="{Binding IsFilterFavoritesActive}" Command="{Binding SetFilterFavoritesCommand}" HorizontalAlignment="Center" Margin="3,0" FontSize="{DynamicResource TextBody}">
           <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
             <PathIcon Width="16" Height="16" Data="{StaticResource IconStar}"/>
             <TextBlock Text="Favoritos" VerticalAlignment="Center"/>
           </StackPanel>
         </Button>
-        <Button Classes="pill filterTab" Classes.active="{Binding IsFilterAllActive}" Command="{Binding SetFilterAllCommand}" HorizontalAlignment="Center" Margin="3,0" FontSize="13">
+        <Button Classes="pill filterTab" Classes.active="{Binding IsFilterAllActive}" Command="{Binding SetFilterAllCommand}" HorizontalAlignment="Center" Margin="3,0" FontSize="{DynamicResource TextBody}">
           <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
             <PathIcon Width="16" Height="16" Data="{StaticResource IconGrid}"/>
             <TextBlock Text="Todos" VerticalAlignment="Center"/>
           </StackPanel>
         </Button>
-        <Button Classes="pill filterTab" Classes.active="{Binding IsFilterComputerActive}" Command="{Binding SetFilterComputerCommand}" HorizontalAlignment="Center" Margin="3,0" FontSize="13">
+        <Button Classes="pill filterTab" Classes.active="{Binding IsFilterComputerActive}" Command="{Binding SetFilterComputerCommand}" HorizontalAlignment="Center" Margin="3,0" FontSize="{DynamicResource TextBody}">
           <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
             <PathIcon Width="16" Height="16" Data="{StaticResource IconMonitor}"/>
             <TextBlock Text="Computador" VerticalAlignment="Center"/>
           </StackPanel>
         </Button>
-        <Button Classes="pill filterTab" Classes.active="{Binding IsFilterEmulatorsActive}" Command="{Binding SetFilterEmulatorsCommand}" HorizontalAlignment="Center" Margin="3,0" FontSize="13">
+        <Button Classes="pill filterTab" Classes.active="{Binding IsFilterEmulatorsActive}" Command="{Binding SetFilterEmulatorsCommand}" HorizontalAlignment="Center" Margin="3,0" FontSize="{DynamicResource TextBody}">
           <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
             <PathIcon Width="16" Height="16" Data="{StaticResource IconGamepad}"/>
             <TextBlock Text="Emuladores" VerticalAlignment="Center"/>
           </StackPanel>
         </Button>
-        <Button Classes="pill filterTab" Classes.active="{Binding IsFilterApplicationsActive}" Command="{Binding SetFilterApplicationsCommand}" HorizontalAlignment="Center" Margin="3,0" FontSize="13">
+        <Button Classes="pill filterTab" Classes.active="{Binding IsFilterApplicationsActive}" Command="{Binding SetFilterApplicationsCommand}" HorizontalAlignment="Center" Margin="3,0" FontSize="{DynamicResource TextBody}">
           <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
             <PathIcon Width="16" Height="16" Data="{StaticResource IconAppWindow}"/>
             <TextBlock Text="Programas" VerticalAlignment="Center"/>
           </StackPanel>
         </Button>
-        <Button Classes="pill filterTab" Classes.active="{Binding IsFilterNotInstalledActive}" Command="{Binding SetFilterNotInstalledCommand}" HorizontalAlignment="Center" Margin="3,0" FontSize="13">
+        <Button Classes="pill filterTab" Classes.active="{Binding IsFilterNotInstalledActive}" Command="{Binding SetFilterNotInstalledCommand}" HorizontalAlignment="Center" Margin="3,0" FontSize="{DynamicResource TextBody}">
           <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
             <PathIcon Width="16" Height="16" Data="{StaticResource IconDownload}"/>
             <TextBlock Text="Não instalados" VerticalAlignment="Center"/>
           </StackPanel>
         </Button>
-        <Button Classes="pill filterTab" Classes.active="{Binding IsFilterCloudActive}" Command="{Binding SetFilterCloudCommand}" HorizontalAlignment="Center" Margin="3,0" FontSize="13">
+        <Button Classes="pill filterTab" Classes.active="{Binding IsFilterCloudActive}" Command="{Binding SetFilterCloudCommand}" HorizontalAlignment="Center" Margin="3,0" FontSize="{DynamicResource TextBody}">
           <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
             <PathIcon Width="16" Height="16" Data="{StaticResource IconCloud}"/>
             <TextBlock Text="Nuvem" VerticalAlignment="Center"/>
@@ -166,12 +155,12 @@
 
                 <Border Classes="gameTile" Classes.focused="{Binding IsFocused}" Classes.lastPlayed="{Binding IsLastPlayed}" Width="{Binding TileWidth}" Height="{Binding TileHeight}" PointerPressed="OnTilePointerPressed" DoubleTapped="OnTileDoubleTapped">
                   <Grid>
-                    <Image anim:ImageBehavior.AnimatedSource="{Binding TileImagePath}" Stretch="UniformToFill" />
-                    <Border Background="#99383838" IsHitTestVisible="False" IsVisible="{Binding IsOwnedNotInstalled}" />
+                    <!-- v0.26: a Viewbox garante que a capa preencha o quadro inteiro (sem faixas nas laterais), seja qual for a proporção da arte. --><Viewbox Stretch="UniformToFill" ClipToBounds="True"><Image anim:ImageBehavior.AnimatedSource="{Binding TileImagePath}" Stretch="None" /></Viewbox>
+                    <Border Background="{DynamicResource NotInstalledVeilBrush}" IsHitTestVisible="False" IsVisible="{Binding IsOwnedNotInstalled}" />
                     <TextBlock Text="{Binding Title}" Classes="gameTitle" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="10" IsVisible="{Binding ShowEmptyPlaceholder}" />
-                    <Border Background="{Binding PlatformBadgeColorHex, Converter={StaticResource HexColorToBrushConverter}}" CornerRadius="4" Padding="5,2" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8" IsVisible="{Binding HasPlatformBadge}"><TextBlock Text="{Binding PlatformBadgeText}" FontSize="10" FontWeight="Bold" Foreground="White" /></Border>
-                    <PathIcon Width="18" Height="18" Data="{StaticResource IconStar}" Foreground="#FFFFC45C" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="8" IsVisible="{Binding IsFavorite}" />
-                    <Border Background="#CC000000" CornerRadius="4" Padding="6,3" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="8" IsVisible="{Binding IsOwnedNotInstalled}"><StackPanel Orientation="Horizontal" Spacing="4"><PathIcon Width="11" Height="11" Data="{StaticResource IconDownload}" Foreground="White"/><TextBlock Text="Instalar" FontSize="11" Foreground="White" VerticalAlignment="Center"/></StackPanel></Border>
+                    <Border Background="{Binding PlatformBadgeColorHex, Converter={StaticResource HexColorToBrushConverter}}" CornerRadius="4" Padding="5,2" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8" IsVisible="{Binding HasPlatformBadge}"><TextBlock Text="{Binding PlatformBadgeText}" FontSize="{DynamicResource TextMicro}" FontWeight="Bold" Foreground="White" /></Border>
+                    <PathIcon Width="18" Height="18" Data="{StaticResource IconStar}" Foreground="{DynamicResource FavoriteBrush}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="8" IsVisible="{Binding IsFavorite}" />
+                    <Border Background="#CC000000" CornerRadius="4" Padding="6,3" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="8" IsVisible="{Binding IsOwnedNotInstalled}"><StackPanel Orientation="Horizontal" Spacing="4"><PathIcon Width="11" Height="11" Data="{StaticResource IconDownload}" Foreground="White"/><TextBlock Text="Instalar" FontSize="{DynamicResource TextCaption}" Foreground="White" VerticalAlignment="Center"/></StackPanel></Border>
                   </Grid>
                 </Border>
               </StackPanel>
@@ -182,7 +171,7 @@
         <Button x:Name="AddProgramButton" Classes="addGhostCard" Click="OnAddProgramClick" IsVisible="{Binding IsFilterApplicationsActive}" VerticalAlignment="Top">
           <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
             <PathIcon Width="36" Height="36" Data="{StaticResource IconPlus}" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
-            <TextBlock Text="Adicionar Jogo" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+            <TextBlock Text="Adicionar Jogo" FontSize="{DynamicResource TextBodyLarge}" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
           </StackPanel>
         </Button>
       </WrapPanel>

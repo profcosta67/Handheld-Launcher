@@ -11,13 +11,13 @@
       <Setter Property="Height" Value="38"/>
       <Setter Property="Margin" Value="2"/>
       <Setter Property="Padding" Value="0"/>
-      <Setter Property="FontSize" Value="15"/>
+      <Setter Property="FontSize" Value="{DynamicResource TextBodyLarge}"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Foreground" Value="White"/>
       <Setter Property="Background" Value="#22FFFFFF"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="BorderBrush" Value="#33FFFFFF"/>
-      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusXSmall}"/>
       <Setter Property="HorizontalContentAlignment" Value="Center"/>
       <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
@@ -28,6 +28,11 @@
   </UserControl.Styles>
 
   <Border Background="#F21A1A1F" BorderBrush="#33FFFFFF" BorderThickness="0,1,0,0" Padding="8,6">
-    <StackPanel x:Name="RowsHost" Spacing="0" HorizontalAlignment="Center"/>
+    <StackPanel Spacing="4" HorizontalAlignment="Center">
+      <StackPanel x:Name="RowsHost" Spacing="0" HorizontalAlignment="Center"/>
+      <!-- v0.26: atalhos do controle, como nos consoles. -->
+      <TextBlock Text="A digita  ·  X apaga  ·  Y espaço  ·  LB / RB move o cursor  ·  B fecha"
+                 Foreground="#CCFFFFFF" FontSize="{DynamicResource TextSmall}" HorizontalAlignment="Center" Margin="0,2,0,2"/>
+    </StackPanel>
   </Border>
 </UserControl>

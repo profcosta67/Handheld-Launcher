@@ -33,7 +33,74 @@ public sealed class ContextMenuItemViewModel : ViewModelBase
     public string Label
     {
         get => _label;
-        set => SetField(ref _label, value);
+        set
+        {
+            if (!SetField(ref _label, value)) return;
+            OnPropertyChanged(nameof(DisplayLabel));
+            OnPropertyChanged(nameof(IconData));
+            OnPropertyChanged(nameof(HasIcon));
+        }
+    }
+
+    // v0.26: os rótulos nasceram com um emoji na frente ("🎨 Tema"). O menu agora mostra
+    // um ícone do próprio launcher, escolhido pelo nome do item, e o texto sem o emoji.
+    // Label continua igual para o resto do código.
+    public string DisplayLabel => StripLeadingSymbol(_label);
+
+    public Avalonia.Media.Geometry? IconData
+    {
+        get
+        {
+            var key = IconKeyFor(DisplayLabel);
+            if (key is null) return null;
+            try
+            {
+                if (Avalonia.Application.Current is not { } app) return null;
+                return app.Resources.TryGetResource(key, null, out var res) ? res as Avalonia.Media.Geometry : null;
+            }
+            catch { return null; }
+        }
+    }
+
+    public bool HasIcon => IconData is not null;
+
+    internal static string StripLeadingSymbol(string? label)
+    {
+        if (string.IsNullOrEmpty(label)) return string.Empty;
+        var space = label.IndexOf(' ');
+        if (space <= 0 || space > 4) return label;
+        for (var i = 0; i < space; i++)
+        {
+            var c = label[i];
+            if (c < 0x250 && char.IsLetterOrDigit(c)) return label; // primeira "palavra" é texto de verdade
+        }
+        return label[(space + 1)..].TrimStart();
+    }
+
+    // Ordem importa: os mais específicos primeiro.
+    private static readonly (string Word, string Icon)[] IconRules =
+    {
+        ("fechar launcher", "IconExit"), ("fechar o jogo", "IconStop"), ("fechar xbox", "IconStop"),
+        ("desligar tela", "IconMoon"), ("reiniciar", "IconRefresh"), ("desligar", "IconPower"),
+        ("quick settings", "IconGamepad"), ("biblioteca", "IconGrid"), ("hud", "IconMonitor"),
+        ("tema", "IconPalette"), ("personalizar", "IconPalette"), ("configura", "IconSettings"),
+        ("armazenamento", "IconStorage"), ("saúde", "IconHeart"), ("ajuda", "IconHelp"),
+        ("energia", "IconPower"), ("atalhos", "IconKeyboard"), ("sobre", "IconInfo"),
+        ("detalhes", "IconInfo"), ("editar", "IconEdit"), ("excluir", "IconTrash"),
+        ("voltar", "IconBack"), ("cancelar", "IconClose"), ("adicionar", "IconPlus"),
+        ("capa", "IconPicture"), ("banner", "IconPicture"), ("logo", "IconPicture"), ("ícone", "IconPicture"),
+        ("recarregar", "IconRefresh"), ("verificar", "IconRefresh"), ("atualiza", "IconRefresh"),
+        ("windows", "IconAppWindow"), ("driver", "IconSettings"),
+        ("instalar", "IconDownload"), ("download", "IconDownload"), ("baixa", "IconDownload"), ("rtss", "IconDownload"),
+        ("nuvem", "IconCloud"), ("favorit", "IconStar"), ("abrir jogo", "IconPlay"), ("jogar", "IconPlay"),
+    };
+
+    private static string? IconKeyFor(string text)
+    {
+        var lower = text.ToLowerInvariant();
+        foreach (var (word, icon) in IconRules)
+            if (lower.Contains(word)) return icon;
+        return null;
     }
 
     private bool _isSelected;

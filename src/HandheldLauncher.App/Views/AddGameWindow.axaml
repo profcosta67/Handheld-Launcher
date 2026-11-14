@@ -14,13 +14,13 @@
 
   <Window.Styles>
     <Style Selector="TextBlock.header">
-      <Setter Property="FontSize" Value="16"/>
+      <Setter Property="FontSize" Value="{DynamicResource TextSubtitle}"/>
       <Setter Property="FontWeight" Value="Bold"/>
       <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
       <Setter Property="Margin" Value="0,16,0,8"/>
     </Style>
     <Style Selector="TextBlock.label">
-      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="FontSize" Value="{DynamicResource TextSmall}"/>
       <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
       <Setter Property="Margin" Value="0,0,0,4"/>
     </Style>
@@ -31,14 +31,14 @@
       <StackPanel Spacing="4">
 
         <!-- Card: Programas instalados (v0.25.3) -->
-        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="12" Padding="16" Margin="0,0,0,12">
+        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="{DynamicResource RadiusMedium}" Padding="16" Margin="0,0,0,12">
           <StackPanel Spacing="10">
             <Grid ColumnDefinitions="*,Auto">
               <TextBlock Text="Programas instalados" Classes="header" Margin="0"/>
-              <Button Grid.Column="1" Classes="pill" Content="Atualizar" Click="OnRefreshProgramsClick" Height="32" FontSize="12" Padding="14,0"/>
+              <Button Grid.Column="1" Classes="pill" Content="Atualizar" Click="OnRefreshProgramsClick" Height="32" FontSize="{DynamicResource TextSmall}" Padding="14,0"/>
             </Grid>
             <TextBlock Text="Escolhe um programa da lista ou preenche os campos abaixo à mão." Classes="label" TextWrapping="Wrap"/>
-            <TextBox Text="{Binding ProgramSearch, Mode=TwoWay}" Watermark="Buscar programa instalado..." Height="38" FontSize="13"/>
+            <TextBox Text="{Binding ProgramSearch, Mode=TwoWay}" Watermark="Buscar programa instalado..." Height="38" FontSize="{DynamicResource TextBody}"/>
             <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsScanningPrograms}" Height="3"/>
             <TextBlock Text="{Binding ProgramStatusText}" Classes="label" IsVisible="{Binding !IsScanningPrograms}"/>
             <ListBox x:Name="ProgramsList"
@@ -58,8 +58,8 @@
                               Data="{StaticResource IconAppWindow}"
                               Foreground="{DynamicResource AccentBrush}" Margin="0,0,10,0"/>
                     <StackPanel Grid.Column="1" Spacing="1">
-                      <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis"/>
-                      <TextBlock Text="{Binding ExecutablePath}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
+                      <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="{DynamicResource TextBody}" TextTrimming="CharacterEllipsis"/>
+                      <TextBlock Text="{Binding ExecutablePath}" FontSize="{DynamicResource TextMicro}" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
                   </Grid>
                 </DataTemplate>
@@ -71,29 +71,29 @@
         </Border>
 
         <!-- Card: Informações Básicas -->
-        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="12" Padding="16" Margin="0,0,0,12">
+        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="{DynamicResource RadiusMedium}" Padding="16" Margin="0,0,0,12">
           <StackPanel Spacing="12">
             <TextBlock Text="Nome do Jogo" Classes="header" Margin="0,0,0,4"/>
-            <TextBox Text="{Binding Title}" Watermark="Ex: Hollow Knight" Height="40" FontSize="14"/>
+            <TextBox Text="{Binding Title}" Watermark="Ex: Hollow Knight" Height="40" FontSize="{DynamicResource TextBodyLarge}"/>
             <CheckBox Content="É um jogo do Xbox app / Game Pass" IsChecked="{Binding IsXboxSource}" Margin="0,4,0,0"/>
             <CheckBox Content="Adicionar como Programa (não aparece na biblioteca de jogos)" IsChecked="{Binding IsApplication}" Margin="0,4,0,0"/>
           </StackPanel>
         </Border>
 
         <!-- Card: Execução -->
-        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="12" Padding="16" Margin="0,0,0,12">
+        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="{DynamicResource RadiusMedium}" Padding="16" Margin="0,0,0,12">
           <StackPanel Spacing="12">
             <TextBlock Text="Arquivo Executável" Classes="header" Margin="0,0,0,4"/>
             <Grid ColumnDefinitions="*,Auto">
-              <TextBox Grid.Column="0" Text="{Binding ExecutablePath}" Watermark="C:\Jogos\jogo.exe" Height="40" FontSize="14"/>
+              <TextBox Grid.Column="0" Text="{Binding ExecutablePath}" Watermark="C:\Jogos\jogo.exe" Height="40" FontSize="{DynamicResource TextBodyLarge}"/>
               <Button Grid.Column="1" Classes="pill" Content="Procurar..." Click="OnBrowseClick" Margin="8,0,0,0" Height="40"/>
             </Grid>
             
             <TextBlock Text="Argumentos (opcional)" Classes="header" Margin="0,8,0,4"/>
-            <TextBox Text="{Binding LaunchArguments}" Watermark="Ex: --fullscreen" Height="40" FontSize="14"/>
+            <TextBox Text="{Binding LaunchArguments}" Watermark="Ex: --fullscreen" Height="40" FontSize="{DynamicResource TextBodyLarge}"/>
 
             <TextBlock Text="Pasta de trabalho (opcional)" Classes="header" Margin="0,8,0,4"/>
-            <TextBox Text="{Binding WorkingDirectory}" Watermark="Em branco = pasta do executável" Height="40" FontSize="14"/>
+            <TextBox Text="{Binding WorkingDirectory}" Watermark="Em branco = pasta do executável" Height="40" FontSize="{DynamicResource TextBodyLarge}"/>
           </StackPanel>
         </Border>
 
@@ -101,8 +101,8 @@
     </ScrollViewer>
 
     <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12" Margin="0,20,0,0">
-      <Button Classes="pill" Content="Cancelar" Click="OnCancelClick" Width="120" Height="44" FontSize="14"/>
-      <Button Classes="pill primary" Content="Salvar Jogo" Click="OnAddClick" IsEnabled="{Binding CanSave}" Width="160" Height="44" FontSize="14" FontWeight="Bold"/>
+      <Button Classes="pill" Content="Cancelar" Click="OnCancelClick" Width="120" Height="44" FontSize="{DynamicResource TextBodyLarge}"/>
+      <Button Classes="pill primary" Content="Salvar Jogo" Click="OnAddClick" IsEnabled="{Binding CanSave}" Width="160" Height="44" FontSize="{DynamicResource TextBodyLarge}" FontWeight="Bold"/>
     </StackPanel>
 
     <!-- v0.24.2: teclado do launcher (o TabTip do Windows não recebia o controle). -->

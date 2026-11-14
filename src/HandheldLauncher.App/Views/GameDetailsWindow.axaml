@@ -11,19 +11,20 @@
         SystemDecorations="None"
         ShowInTaskbar="False"
         WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource BackgroundBrush}">
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
 
   <Window.Resources>
     <DataTemplate x:Key="AchievementRowTemplate" x:DataType="vm:AchievementItemViewModel">
       <Border Classes="detailsSurface" Padding="12" Margin="0,0,0,8" Opacity="{Binding RowOpacity}">
         <Grid ColumnDefinitions="56,*">
-          <Border Width="48" Height="48" CornerRadius="8" ClipToBounds="True" Background="{DynamicResource SurfaceBrush}" VerticalAlignment="Top">
+          <Border Width="48" Height="48" CornerRadius="{DynamicResource RadiusSmall}" ClipToBounds="True" Background="{DynamicResource SurfaceBrush}" VerticalAlignment="Top">
             <Image Source="{Binding IconLocalPath, Converter={x:Static conv:FileToBitmapConverter.Instance}}" Stretch="UniformToFill" />
           </Border>
           <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
             <TextBlock Text="{Binding DisplayName}" FontWeight="Bold" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}" />
-            <TextBlock Text="{Binding DescriptionText}" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13" />
-            <TextBlock Text="{Binding StatusText}" Foreground="{DynamicResource AccentBrush}" FontSize="12" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding DescriptionText}" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource TextBody}" />
+            <TextBlock Text="{Binding StatusText}" Foreground="{DynamicResource AccentBrush}" FontSize="{DynamicResource TextSmall}" FontWeight="SemiBold" />
           </StackPanel>
         </Grid>
       </Border>
@@ -35,25 +36,25 @@
       <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource TileSeparatorBrush}" />
       <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="18" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
     </Style>
     <Style Selector="Border.detailsCover">
       <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource TileSeparatorBrush}" />
       <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="18" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
       <Setter Property="ClipToBounds" Value="True" />
     </Style>
     <Style Selector="Border.infoChip">
       <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource TileSeparatorBrush}" />
       <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="14" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
       <Setter Property="Padding" Value="11,5" />
       <Setter Property="Margin" Value="0,0,8,6" />
     </Style>
     <Style Selector="Border.infoChip TextBlock">
-      <Setter Property="FontSize" Value="13" />
+      <Setter Property="FontSize" Value="{DynamicResource TextBody}" />
       <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     </Style>
     <Style Selector="Border.buttonGlyph">
@@ -68,7 +69,7 @@
       <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
       <Setter Property="BorderBrush" Value="Transparent" />
       <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="16" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
       <Setter Property="Padding" Value="14,8" />
       <Setter Property="MinHeight" Value="42" />
     </Style>
@@ -86,7 +87,7 @@
       <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     </Style>
     <Style Selector="Border.buttonGlyph TextBlock">
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontSize" Value="{DynamicResource TextSmall}" />
       <Setter Property="FontWeight" Value="Bold" />
       <Setter Property="HorizontalAlignment" Value="Center" />
       <Setter Property="VerticalAlignment" Value="Center" />
@@ -94,6 +95,21 @@
     </Style>
   </Window.Styles>
 
+  <!-- v0.26: popup. A janela cobre a tela só para escurecer a biblioteca atrás; o
+       conteúdo fica num cartão central que abre com um zoom curto. -->
+  <Panel x:Name="Backdrop" Background="#C0000000" PointerPressed="OnBackdropPressed">
+  <Border x:Name="PopupCard" Background="{DynamicResource BackgroundBrush}"
+          BorderBrush="{DynamicResource TileSeparatorBrush}" BorderThickness="1"
+          CornerRadius="{DynamicResource RadiusXLarge}" ClipToBounds="True"
+          MaxWidth="1240" MaxHeight="780" Margin="40,32"
+          BoxShadow="0 24 70 0 #99000000"
+          Opacity="0" RenderTransform="scale(0.9)" RenderTransformOrigin="50%,50%">
+    <Border.Transitions>
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.16" />
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2" Easing="CubicEaseOut" />
+      </Transitions>
+    </Border.Transitions>
   <Grid RowDefinitions="Auto,Auto,*,Auto">
 
     <!-- ===== Cabeçalho: banner + capa + logo + faixa de informações ===== -->
@@ -136,7 +152,7 @@
         </StackPanel>
 
         <TextBlock Grid.Column="2" Text="{Binding FavoriteBadge}" Foreground="{DynamicResource AccentBrush}"
-                   FontWeight="Bold" FontSize="16" VerticalAlignment="Top" Margin="12,0,0,0" />
+                   FontWeight="Bold" FontSize="{DynamicResource TextSubtitle}" VerticalAlignment="Top" Margin="12,0,0,0" />
       </Grid>
     </Panel>
 
@@ -167,8 +183,8 @@
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:DetailsTagItem">
-                <Border Background="{DynamicResource AccentSoftBrush}" CornerRadius="8" Padding="10,4" Margin="0,0,8,8">
-                  <TextBlock Text="{Binding Text}" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" />
+                <Border Background="{DynamicResource AccentSoftBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="10,4" Margin="0,0,8,8">
+                  <TextBlock Text="{Binding Text}" FontSize="{DynamicResource TextBody}" Foreground="{DynamicResource TextPrimaryBrush}" />
                 </Border>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
@@ -182,7 +198,7 @@
         <StackPanel Spacing="16" IsVisible="{Binding IsAchievementsSection}">
           <!-- Status -->
           <TextBlock Text="{Binding AchievementsStatusText}" 
-                     FontSize="14" FontWeight="SemiBold"
+                     FontSize="{DynamicResource TextBodyLarge}" FontWeight="SemiBold"
                      Foreground="{DynamicResource TextPrimaryBrush}"/>
 
           <!-- Barra de Progresso -->
@@ -195,12 +211,12 @@
 
           <!-- Seção "Próximas conquistas" (Corrigida) -->
 <StackPanel IsVisible="{Binding HasNextAchievements}" Spacing="8">
-    <TextBlock Text="🎯 Mais próximas de desbloquear" FontSize="14" FontWeight="SemiBold" 
+    <TextBlock Text="🎯 Mais próximas de desbloquear" FontSize="{DynamicResource TextBodyLarge}" FontWeight="SemiBold" 
                Foreground="{DynamicResource TextPrimaryBrush}"/>
     <ItemsControl ItemsSource="{Binding NextAchievements}">
         <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:AchievementItemViewModel">
-                <Border Classes="detailsSurface" CornerRadius="14" Padding="10" Margin="0,0,0,4">
+                <Border Classes="detailsSurface" CornerRadius="{DynamicResource RadiusLarge}" Padding="10" Margin="0,0,0,4">
                     <Grid ColumnDefinitions="Auto, *">
                         
                         <!-- Ícone da Conquista (Cinza, pois está bloqueada) -->
@@ -214,9 +230,9 @@
                         
                         <!-- Textos -->
                         <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="13" 
+                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="{DynamicResource TextBody}" 
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <TextBlock Text="{Binding StatusText}" FontSize="11" 
+                            <TextBlock Text="{Binding StatusText}" FontSize="{DynamicResource TextCaption}" 
                                        Foreground="{DynamicResource TextSecondaryBrush}"/>
                         </StackPanel>
                         
@@ -241,7 +257,7 @@
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:DetailsImageItem">
-                <Border Width="340" Height="191" CornerRadius="12" ClipToBounds="True" Margin="0,0,12,12"
+                <Border Width="340" Height="191" CornerRadius="{DynamicResource RadiusMedium}" ClipToBounds="True" Margin="0,0,12,12"
                         Background="{DynamicResource SurfaceRaisedBrush}">
                   <Image Source="{Binding Path, Converter={x:Static conv:FileToBitmapConverter.Instance}}" Stretch="UniformToFill" />
                 </Border>
@@ -289,7 +305,7 @@
             <StackPanel Spacing="6">
               <TextBlock Text="Pasta de saves" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
               <TextBlock Text="{Binding SaveFolderText}" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" />
-              <TextBlock Text="{Binding SaveFolderHint}" TextWrapping="Wrap" Classes="subtle" FontSize="12" />
+              <TextBlock Text="{Binding SaveFolderHint}" TextWrapping="Wrap" Classes="subtle" FontSize="{DynamicResource TextSmall}" />
             </StackPanel>
           </Border>
           <TextBlock Classes="subtle" TextWrapping="Wrap"
@@ -302,7 +318,7 @@
     <!-- ===== Barra de ações (controle + toque) ===== -->
     <Border Grid.Row="3" Classes="topBar" Padding="20,10">
       <Grid ColumnDefinitions="*,Auto">
-        <TextBlock Text="{Binding DataSourceNote}" Classes="subtle" FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0" />
+        <TextBlock Text="{Binding DataSourceNote}" Classes="subtle" FontSize="{DynamicResource TextSmall}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0" />
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
           <Button Classes="pill primary" Click="OnPlayClick" Focusable="False">
             <StackPanel Orientation="Horizontal" Spacing="8"><Border Classes="buttonGlyph"><TextBlock Text="A" /></Border><TextBlock Text="Jogar" VerticalAlignment="Center" /></StackPanel>
@@ -323,4 +339,6 @@
       </Grid>
     </Border>
   </Grid>
+  </Border>
+  </Panel>
 </Window>

@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using Avalonia;
@@ -7,6 +9,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Media;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using HandheldLauncher.App.Diagnostics;
@@ -48,7 +51,8 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
 
         Opened += async (_, _) => 
         { 
-            FitToScreen(); 
+            EnterConsoleLayoutIfHandheld();
+            if (!_consoleLayout) FitToScreen();
             FocusActiveTab(); 
             await ViewModel.LoadReleaseNotesAsync();
         };
@@ -61,6 +65,7 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
         {
             if (e.Source is TextBox box && !ReferenceEquals(Keyboard.Target, box))
                 Keyboard.Show(box);
+            if (_consoleLayout && e.Source is Visual focused) UpdateHelp(focused);
         }, RoutingStrategies.Bubble);
 
         // ⏎ ou "fechar" só escondem o teclado; a janela continua aberta.
@@ -153,6 +158,20 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
             return true;
         }
 
+        // v0.26: com a Central de Saves aberta, B volta para as Configurações (antes o B caía
+        // nas abas e fechava a janela inteira). O resto do controle pertence à central.
+        if (ViewModel.IsSyncthingOpen)
+        {
+            if (action == GamepadAction.Back)
+            {
+                ViewModel.CloseSyncthingCommand.Execute(null);
+                _focusZone = FocusZone.Tabs;
+                _contentIndex = 0;
+                FocusActiveTab();
+            }
+            return true;
+        }
+
         if (action == GamepadAction.GameDetails)
         {
             ViewModel.SaveTo(_settings);
@@ -217,14 +236,14 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
                 case GamepadAction.MoveUp:
                 case GamepadAction.PreviousFilter:
                     _tabIndex = (_tabIndex - 1 + tabs.Count) % tabs.Count;
-                    ViewModel.CategoryIndex = _tabIndex;
+                    ViewModel.CategoryIndex = TabCategory(tabs[_tabIndex]);
                     FocusControl(tabs[_tabIndex]);
                     return true;
 
                 case GamepadAction.MoveDown:
                 case GamepadAction.NextFilter:
                     _tabIndex = (_tabIndex + 1) % tabs.Count;
-                    ViewModel.CategoryIndex = _tabIndex;
+                    ViewModel.CategoryIndex = TabCategory(tabs[_tabIndex]);
                     FocusControl(tabs[_tabIndex]);
                     return true;
 
@@ -291,7 +310,7 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
 
                 case GamepadAction.PreviousFilter:
                     _tabIndex = (_tabIndex - 1 + tabs.Count) % tabs.Count;
-                    ViewModel.CategoryIndex = _tabIndex;
+                    ViewModel.CategoryIndex = TabCategory(tabs[_tabIndex]);
                     _focusZone = FocusZone.Tabs;
                     _contentIndex = 0;
                     FocusControl(tabs[_tabIndex]);
@@ -299,7 +318,7 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
 
                 case GamepadAction.NextFilter:
                     _tabIndex = (_tabIndex + 1) % tabs.Count;
-                    ViewModel.CategoryIndex = _tabIndex;
+                    ViewModel.CategoryIndex = TabCategory(tabs[_tabIndex]);
                     _focusZone = FocusZone.Tabs;
                     _contentIndex = 0;
                     FocusControl(tabs[_tabIndex]);
@@ -314,9 +333,121 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
     {
         var tabs = GetTabButtons();
         if (tabs.Count == 0) return;
-        _tabIndex = Math.Clamp(ViewModel.CategoryIndex, 0, tabs.Count - 1);
+        _tabIndex = TabPositionOf(tabs, ViewModel.CategoryIndex);
         _focusZone = FocusZone.Tabs;
         FocusControl(tabs[_tabIndex]);
+    }
+
+    // v0.26: as abas estão agrupadas na tela (Sistema, Aparência, Jogos), então a posição
+    // na lista não é mais o índice da categoria — o índice vem do Tag do botão.
+    private static int TabCategory(Button tab) => tab.Tag is string tag && int.TryParse(tag, out var i) ? i : 0;
+
+    private static int TabPositionOf(List<Button> tabs, int category)
+    {
+        var position = tabs.FindIndex(b => TabCategory(b) == category);
+        return position < 0 ? 0 : position;
+    }
+
+    // ---- v0.26: layout de console (modo handheld) --------------------------------
+    // Tela cheia sem a moldura do Windows, e a explicação aparece só para a opção em
+    // foco, no painel da direita. Em "Uso em PC" a janela continua como era.
+    private bool _consoleLayout;
+    private readonly Dictionary<Control, (TextBlock? Title, List<TextBlock> Text)> _help = new();
+
+    private void EnterConsoleLayoutIfHandheld()
+    {
+        try
+        {
+            if (Owner is not Window { WindowState: WindowState.FullScreen }) return;
+            SystemDecorations = SystemDecorations.None;
+            WindowState = WindowState.FullScreen;
+            _consoleLayout = true;
+            // Opções encostadas na navegação (antes ficavam centralizadas, com um vão no meio).
+            ContentHost.MaxWidth = double.PositiveInfinity;
+            ContentHost.Width = 860;
+            ContentHost.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
+            ContentHost.Margin = new Thickness(28, 0, 0, 0);
+            AdoptDescriptions();
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[CONFIG] Layout de console não aplicado: {ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Liga cada opção ao seu rótulo e às explicações vizinhas, e tira as explicações da
+    /// lista (passam a aparecer no painel da direita). Explicações com visibilidade
+    /// própria (ligada a uma condição) ficam onde estão.
+    /// </summary>
+    private void AdoptDescriptions()
+    {
+        var adopted = new HashSet<TextBlock>();
+        foreach (var panel in ContentHost.GetLogicalDescendants().OfType<Panel>().ToList())
+        {
+            var kids = panel.Children;
+            for (var i = 0; i < kids.Count; i++)
+            {
+                if (kids[i] is not (ComboBox or ToggleSwitch or Slider or TextBox)) continue;
+                TextBlock? title = null;
+                var text = new List<TextBlock>();
+
+                for (var j = i - 1; j >= 0 && kids[j] is TextBlock before && !adopted.Contains(before); j--)
+                {
+                    if (!before.Classes.Contains("subtle")) { title = before; break; }
+                    if (before.IsSet(IsVisibleProperty)) break;
+                    text.Insert(0, before);
+                }
+                for (var j = i + 1; j < kids.Count && kids[j] is TextBlock after && after.Classes.Contains("subtle"); j++)
+                {
+                    if (after.IsSet(IsVisibleProperty)) break;
+                    text.Add(after);
+                }
+
+                foreach (var t in text) { adopted.Add(t); t.IsVisible = false; }
+                _help[(Control)kids[i]] = (title, text);
+            }
+        }
+    }
+
+    private void UpdateHelp(Visual focused)
+    {
+        try
+        {
+            string title = "", text = "";
+            for (Visual? v = focused; v is not null && !ReferenceEquals(v, this); v = v.GetVisualParent())
+            {
+                if (v is Control c && _help.TryGetValue(c, out var entry))
+                {
+                    title = entry.Title?.Text ?? "";
+                    text = string.Join("\n\n", entry.Text.Select(t => t.Text).Where(t => !string.IsNullOrWhiteSpace(t)));
+                    break;
+                }
+                if (v is RadioButton radio)
+                {
+                    var lines = radio.GetLogicalDescendants().OfType<TextBlock>().Select(t => t.Text ?? "").ToList();
+                    title = lines.Count > 0 ? lines[0] : radio.Content as string ?? "";
+                    text = string.Join("\n\n", lines.Skip(1));
+                    break;
+                }
+                if (v is Button button)
+                {
+                    title = button.Content as string
+                            ?? button.GetLogicalDescendants().OfType<TextBlock>().FirstOrDefault()?.Text ?? "";
+                    text = button.Classes.Contains("categoryTab") ? "Aperte A ou direita para entrar nesta categoria." : "";
+                    break;
+                }
+            }
+
+            HelpTitle.Text = title;
+            HelpText.Text = text;
+            HelpText.IsVisible = text.Length > 0;
+            HelpPane.IsVisible = title.Length > 0 || text.Length > 0;
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Swallowed(ex);
+        }
     }
 
     private void FocusControl(Control control)
@@ -485,7 +616,7 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
             var wasAlreadyHere = ViewModel.CategoryIndex == index;
 
             ViewModel.CategoryIndex = index;
-            _tabIndex = index;
+            _tabIndex = TabPositionOf(GetTabButtons(), index);
             _focusZone = FocusZone.Tabs;
             _contentIndex = 0;
 

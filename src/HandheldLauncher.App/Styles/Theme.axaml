@@ -57,6 +57,43 @@
       <CornerRadius x:Key="TileCornerRadius">16</CornerRadius>
       <CornerRadius x:Key="PillCornerRadius">999</CornerRadius>
       <CornerRadius x:Key="BarCornerRadius">18</CornerRadius>
+      <!-- v0.26: escala única de cantos (antes havia 16 valores soltos nas telas).
+           XSmall = selos e itens de lista · Small = campos e botões pequenos ·
+           Medium = botões e itens de menu · Large = cartões e painéis · XLarge = popups. -->
+      <CornerRadius x:Key="RadiusXSmall">6</CornerRadius>
+      <CornerRadius x:Key="RadiusSmall">8</CornerRadius>
+      <CornerRadius x:Key="RadiusMedium">12</CornerRadius>
+      <CornerRadius x:Key="RadiusLarge">18</CornerRadius>
+      <CornerRadius x:Key="RadiusXLarge">22</CornerRadius>
+
+      <!-- v0.26: escala única de texto (antes havia 18 tamanhos soltos). Estes são fixos;
+           FontSizeBody/Title/Caption acima continuam seguindo a opção "Tamanho do Texto". -->
+      <x:Double x:Key="TextMicro">10</x:Double>
+      <x:Double x:Key="TextCaption">11</x:Double>
+      <x:Double x:Key="TextSmall">12</x:Double>
+      <x:Double x:Key="TextBody">13</x:Double>
+      <x:Double x:Key="TextBodyLarge">14</x:Double>
+      <x:Double x:Key="TextSubtitle">16</x:Double>
+      <x:Double x:Key="TextTitle">18</x:Double>
+      <x:Double x:Key="TextHeading">20</x:Double>
+      <x:Double x:Key="TextHeadingLarge">22</x:Double>
+      <x:Double x:Key="TextDisplay">24</x:Double>
+
+      <!-- v0.26: cores que apareciam repetidas direto nas telas, agora com nome (mesmos valores). -->
+      <SolidColorBrush x:Key="PanelTextBrush" Color="#F5F7FF" />
+      <SolidColorBrush x:Key="PanelTextMutedBrush" Color="#9BA8C4" />
+      <SolidColorBrush x:Key="SuccessTextBrush" Color="#D6F5E0" />
+      <SolidColorBrush x:Key="SuccessSoftBrush" Color="#8FE3AC" />
+      <SolidColorBrush x:Key="SuccessBrush" Color="#75D99A" />
+      <SolidColorBrush x:Key="FavoriteBrush" Color="#FFC45C" />
+      <SolidColorBrush x:Key="AccentTextSoftBrush" Color="#E6E0FF" />
+      <SolidColorBrush x:Key="AccentTextBrush" Color="#C6B5FF" />
+      <SolidColorBrush x:Key="PanelDividerBrush" Color="#556C7898" />
+      <SolidColorBrush x:Key="PanelBorderBrush" Color="#424A5D" />
+      <SolidColorBrush x:Key="PanelSurfaceAltBrush" Color="#252A36" />
+      <SolidColorBrush x:Key="PanelSurfaceBrush" Color="#202638" />
+      <SolidColorBrush x:Key="PanelSurfaceDeepBrush" Color="#1E1E2E" />
+      <SolidColorBrush x:Key="NotInstalledVeilBrush" Color="#99383838" />
 
       <x:Double x:Key="TypeScale1">11</x:Double>
       <x:Double x:Key="TypeScale2">12</x:Double>
@@ -145,7 +182,7 @@
   </Style>
 
   <Style Selector="Border.menuItem">
-    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}" />
     <Setter Property="Background" Value="Transparent" />
   </Style>
 
@@ -156,16 +193,20 @@
   <Style Selector="Border.menuItem.danger TextBlock.gameTitle">
     <Setter Property="Foreground" Value="#FF5C5C" />
   </Style>
+  <Style Selector="Border.menuItem.danger PathIcon">
+    <Setter Property="Foreground" Value="#FF5C5C" />
+  </Style>
   <Style Selector="Border.menuItem.danger.selected">
     <Setter Property="Background" Value="#332E2E" />
     <Setter Property="BorderBrush" Value="#FF5C5C" />
     <Setter Property="BorderThickness" Value="1.5" />
   </Style>
 
+  <!-- v0.26: título do menu sem a caixa colorida (menos "caixa dentro de caixa"). -->
   <Style Selector="Border.menuHeader">
-    <Setter Property="Background" Value="{StaticResource AccentTranslucentBrush}" />
-    <Setter Property="CornerRadius" Value="14" />
-    <Setter Property="Padding" Value="16,12" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
+    <Setter Property="Padding" Value="16,4" />
     <Setter Property="HorizontalAlignment" Value="Stretch" />
     <Setter Property="Margin" Value="0,0,0,4" />
   </Style>
@@ -179,7 +220,7 @@
 
   <Style Selector="Border.coverCandidate">
     <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
-    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}" />
     <Setter Property="ClipToBounds" Value="True" />
     <Setter Property="BorderThickness" Value="3" />
     <Setter Property="BorderBrush" Value="Transparent" />
@@ -192,7 +233,7 @@
   <Style Selector="TextBox">
     <Setter Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
     <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}" />
     <Setter Property="Padding" Value="10,8" />
     <Setter Property="BorderThickness" Value="0" />
   </Style>
@@ -255,7 +296,7 @@
 
   <Style Selector="Button.subFilter">
     <Setter Property="Padding" Value="12,5" />
-    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontSize" Value="{DynamicResource TextCaption}" />
   </Style>
 
   <Style Selector="Button.subFilter.cursor">
@@ -296,7 +337,7 @@
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="Width" Value="40" />
     <Setter Property="Height" Value="40" />
-    <Setter Property="FontSize" Value="16" />
+    <Setter Property="FontSize" Value="{DynamicResource TextSubtitle}" />
     <Setter Property="FontWeight" Value="Bold" />
     <Setter Property="HorizontalContentAlignment" Value="Center" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -355,7 +396,7 @@
 
   <Style Selector="Border.qsCard">
     <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
-    <Setter Property="CornerRadius" Value="18" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
     <Setter Property="Padding" Value="14,12" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="BorderBrush" Value="{DynamicResource TileSeparatorBrush}" />
@@ -363,7 +404,7 @@
 
   <Style Selector="TextBlock.qsSectionTitle">
     <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontSize" Value="{DynamicResource TextBody}" />
     <Setter Property="FontWeight" Value="Bold" />
     <Setter Property="Margin" Value="4,6,0,2" />
   </Style>
@@ -373,14 +414,14 @@
   <Style Selector="Button.settingsTab">
     <Setter Property="Background" Value="{StaticResource ButtonBackgroundBrush}" />
     <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-    <Setter Property="CornerRadius" Value="16" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
     <Setter Property="Padding" Value="14,11" />
     <Setter Property="BorderBrush" Value="{StaticResource TileSeparatorBrush}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="HorizontalAlignment" Value="Stretch" />
     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
-    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontSize" Value="{DynamicResource TextBody}" />
   </Style>
 
   <Style Selector="Button.settingsTab:pointerover /template/ ContentPresenter">
@@ -407,7 +448,7 @@
     <Setter Property="Background" Value="{DynamicResource ButtonBackgroundBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource TileSeparatorBrush}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="18" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
     <Setter Property="ClipToBounds" Value="True" />
     <Setter Property="Margin" Value="5" />
   </Style>
@@ -440,17 +481,19 @@
     <Setter Property="HorizontalContentAlignment" Value="Center" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
     <Setter Property="Padding" Value="0" />
-    <Setter Property="FontSize" Value="15" />
+    <Setter Property="FontSize" Value="{DynamicResource TextBodyLarge}" />
     <Setter Property="CornerRadius" Value="0" />
     <Setter Property="BorderThickness" Value="0" />
-    <Setter Property="Opacity" Value="0.85" />
+    <Setter Property="Opacity" Value="0.5" />
   </Style>
 
   <Style Selector="Button.qsTileArrow:pointerover /template/ ContentPresenter">
     <Setter Property="Background" Value="{StaticResource TileHoverBrush}" />
   </Style>
 
+  <!-- v0.26: sem o risco entre o botão e a seta (menos "caixa dentro de caixa"). -->
   <Style Selector="Border.qsTileDivider">
+    <Setter Property="IsVisible" Value="False" />
     <Setter Property="Width" Value="1" />
     <Setter Property="Background" Value="{StaticResource TileSeparatorBrush}" />
     <Setter Property="VerticalAlignment" Value="Stretch" />
@@ -461,7 +504,7 @@
   <Style Selector="Button.qsTileMain.focused">
     <Setter Property="BorderThickness" Value="2" />
     <Setter Property="BorderBrush" Value="{DynamicResource TextPrimaryBrush}" />
-    <Setter Property="CornerRadius" Value="16" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
   </Style>
 
   <!-- Slider minimalista -->

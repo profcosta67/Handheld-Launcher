@@ -28,12 +28,12 @@
       <Setter Property="Padding" Value="0" />
       <Setter Property="MinWidth" Value="30" />
       <Setter Property="Height" Value="30" />
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontSize" Value="{DynamicResource TextSmall}" />
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
       <Setter Property="Margin" Value="2" />
-      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusSmall}" />
       <Setter Property="Focusable" Value="False" />
     </Style>
     <Style Selector="Button.cloudLetter.active /template/ ContentPresenter">
@@ -49,7 +49,7 @@
     </Style>
     <Style Selector="TextBox.cloudSearch">
       <Setter Property="MinHeight" Value="44" />
-      <Setter Property="CornerRadius" Value="16" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
       <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource TileSeparatorBrush}" />
       <Setter Property="BorderThickness" Value="1" />
@@ -82,7 +82,7 @@
         </DataTemplate>
       </ItemsControl.ItemTemplate>
     </ItemsControl>
-    <TextBlock Text="X escolhe a letra · ←/→ · A aplica" Classes="subtle" FontSize="11" HorizontalAlignment="Center"
+    <TextBlock Text="X escolhe a letra · ←/→ · A aplica" Classes="subtle" FontSize="{DynamicResource TextCaption}" HorizontalAlignment="Center"
                IsVisible="{Binding IsCloudLetterBarFocused}" />
   </StackPanel>
 
@@ -90,6 +90,12 @@
              HorizontalAlignment="Center" Margin="20,16" IsVisible="{Binding HasCloudFilterEmptyText}" />
 
   <ScrollViewer x:Name="CloudScroll" Grid.Row="2" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+    <!-- v0.26: a última fileira se dissolve no fundo (igual à grade da biblioteca). -->
+    <ScrollViewer.OpacityMask>
+      <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+        <GradientStop Color="#FFFFFFFF" Offset="0" /><GradientStop Color="#FFFFFFFF" Offset="0.88" /><GradientStop Color="#00FFFFFF" Offset="1" />
+      </LinearGradientBrush>
+    </ScrollViewer.OpacityMask>
     <ScrollViewer.Transitions>
       <Transitions>
         <VectorTransition Property="Offset" Duration="0:0:0.22" Easing="CubicEaseOut" />
@@ -116,11 +122,11 @@
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="10" Spacing="6"
                             IsVisible="{Binding ShowEmptyPlaceholder}">
                   <PathIcon Width="34" Height="34" Data="{StaticResource IconCloud}" HorizontalAlignment="Center" Foreground="{DynamicResource AccentBrush}" />
-                  <TextBlock Text="{Binding Title}" Classes="gameTitle" FontSize="14" TextWrapping="Wrap" TextAlignment="Center" />
+                  <TextBlock Text="{Binding Title}" Classes="gameTitle" FontSize="{DynamicResource TextBodyLarge}" TextWrapping="Wrap" TextAlignment="Center" />
                 </StackPanel>
               </Grid>
             </Border>
-            <TextBlock Text="{Binding Title}" FontSize="12" TextTrimming="CharacterEllipsis" MaxLines="1"
+            <TextBlock Text="{Binding Title}" FontSize="{DynamicResource TextSmall}" TextTrimming="CharacterEllipsis" MaxLines="1"
                        HorizontalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" />
           </StackPanel>
         </DataTemplate>

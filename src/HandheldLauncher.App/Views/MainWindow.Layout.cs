@@ -166,6 +166,14 @@ public partial class MainWindow : Window
         scroll.VerticalScrollBarVisibility = vertical ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
         scroll.Offset = default;
 
+        // v0.26: capas que passam da borda se dissolvem no fundo em vez do corte seco —
+        // embaixo na grade vertical, nas duas laterais no carrossel. Vale para todos os temas.
+        // O carrossel do Clean amplia a capa em foco para fora da área de rolagem; a máscara
+        // cortaria esse excesso, então lá o carrossel fica sem ela.
+        scroll.OpacityMask = vertical ? EdgeFade(vertical: true)
+            : _libraryLayout is Layouts.SwitchLibraryLayout ? null
+            : EdgeFade(vertical: false);
+
         foreach (var container in items.GetRealizedContainers()) container.Margin = ContainerMargin();
 
         // 🟢 NOVO: avisa o layout pra ajustar o container externo (WrapPanel Horizontal↔Vertical).
@@ -227,4 +235,29 @@ public partial class MainWindow : Window
     private void OnPowerMenuClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => (DataContext as MainViewModel)?.TogglePowerMenu();
     private void OnCloseGameClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => (DataContext as MainViewModel)?.CloseRunningGame();
     private void OnCloseDownloadsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => (DataContext as MainViewModel)?.CloseDownloads();
+
+    private static Avalonia.Media.IBrush EdgeFade(bool vertical)
+    {
+        var white = Avalonia.Media.Colors.White;
+        var clear = Avalonia.Media.Colors.Transparent;
+        var brush = new Avalonia.Media.LinearGradientBrush
+        {
+            StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
+            EndPoint = vertical ? new RelativePoint(0, 1, RelativeUnit.Relative) : new RelativePoint(1, 0, RelativeUnit.Relative),
+        };
+        if (vertical)
+        {
+            brush.GradientStops.Add(new Avalonia.Media.GradientStop(white, 0));
+            brush.GradientStops.Add(new Avalonia.Media.GradientStop(white, 0.88));
+            brush.GradientStops.Add(new Avalonia.Media.GradientStop(clear, 1));
+        }
+        else
+        {
+            brush.GradientStops.Add(new Avalonia.Media.GradientStop(clear, 0));
+            brush.GradientStops.Add(new Avalonia.Media.GradientStop(white, 0.05));
+            brush.GradientStops.Add(new Avalonia.Media.GradientStop(white, 0.95));
+            brush.GradientStops.Add(new Avalonia.Media.GradientStop(clear, 1));
+        }
+        return brush;
+    }
 }

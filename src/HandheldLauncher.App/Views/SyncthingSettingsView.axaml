@@ -13,14 +13,14 @@
       <Button Grid.Column="0" Classes="pill" Content="← Voltar" Click="OnBackClick" />
       <TextBlock Grid.Column="1" Text="Central de Saves · Syncthing"
                  HorizontalAlignment="Center" VerticalAlignment="Center"
-                 FontSize="13" FontWeight="Bold" Opacity="0.75" />
+                 FontSize="{DynamicResource TextBody}" FontWeight="Bold" Opacity="0.75" />
       <ToggleSwitch Grid.Column="2" x:Name="SyncToggle"
                     IsChecked="{Binding SyncthingEnabled}"
                     OnContent="Sincronização ativa" OffContent="Sincronização desligada"
                     VerticalAlignment="Center" Margin="0,0,16,0"
                     IsCheckedChanged="OnSyncToggleChanged" />
       <TextBlock Grid.Column="3" Text="127.0.0.1:8384"
-                 VerticalAlignment="Center" FontSize="11" Opacity="0.45" />
+                 VerticalAlignment="Center" FontSize="{DynamicResource TextCaption}" Opacity="0.45" />
     </Grid>
 
     <NativeWebView Grid.Row="1" x:Name="Browser"

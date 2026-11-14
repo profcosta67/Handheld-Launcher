@@ -46,9 +46,21 @@ public partial class GameDetailsWindow : Window
     {
         InitializeComponent();
         KeyDown += OnKeyDownHandler;
+        // v0.26: abre com um zoom curto (escala 0,9 → 1 e aparece).
+        Opened += (_, _) =>
+        {
+            PopupCard.Opacity = 1;
+            PopupCard.RenderTransform = Avalonia.Media.Transformation.TransformOperations.Parse("scale(1)");
+        };
     }
 
     private GameDetailsViewModel? Vm => DataContext as GameDetailsViewModel;
+
+    /// <summary>Toque/clique fora do cartão fecha, como em qualquer popup.</summary>
+    private void OnBackdropPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (ReferenceEquals(e.Source, Backdrop)) Close();
+    }
 
     /// <summary>
     /// Ocupa a tela inteira quando o launcher está em tela cheia (modo

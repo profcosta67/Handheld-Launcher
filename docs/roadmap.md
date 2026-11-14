@@ -16,7 +16,7 @@ nem disputar espaço copiando suas interfaces.
 
 ## Estado de partida
 
-O repositório está na versão estável **0.25.9** (12/11/2026); a 0.25.10 fecha o bloco 0.25. Já existem biblioteca multi-loja, layouts e temas,
+O repositório está na versão estável **0.26.0** (14/11/2026): blocos 0.25 (estabilidade) e 0.26 (identidade visual) fechados. Já existem biblioteca multi-loja, layouts e temas,
 detalhes e conquistas, Quick Settings, diário de sessões, Central de Ajuda,
 armazenamento, saúde do aparelho, guardião de suspensão, rede, Syncthing e
 atualizações beta. A versão 0.25 também acrescentou melhorias de instalação.

@@ -341,7 +341,9 @@ public sealed class GameTileViewModel : ViewModelBase
     private int ClampedDistance => System.Math.Min(System.Math.Abs(_carouselDistance), 4);
 
     public double CarouselScale => 1.0 - ClampedDistance * 0.12; 
-    public double CarouselOffsetY => ClampedDistance * ClampedDistance * 10.0; 
+    // v0.26: era d²×10 (160 px no 4º vizinho) — as capas das pontas desciam para fora da
+    // área do carrossel e apareciam cortadas no tema Clean. Agora o degrau é suave (máx. 64 px).
+    public double CarouselOffsetY => ClampedDistance * ClampedDistance * 4.0;
     public double CarouselOpacity => 1.0 - ClampedDistance * 0.15;
     public int CarouselZIndex => 100 - ClampedDistance;
 

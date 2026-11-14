@@ -13,7 +13,7 @@
   <Grid RowDefinitions="*,Auto,Auto" Margin="24">
     <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="12">
-        <TextBlock Text="As chaves ficam mascaradas por padrão — toque no 👁 pra revelar." Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+        <TextBlock Text="As chaves ficam mascaradas por padrão — toque no 👁 pra revelar." Classes="subtle" FontSize="{DynamicResource TextCaption}" TextWrapping="Wrap" />
 
         <TextBlock Text="SteamGridDB API key (capas)" Classes="subtle" Margin="0,8,0,0" />
         <Grid ColumnDefinitions="*,Auto">
@@ -34,7 +34,7 @@
           <TextBox x:Name="SteamIdBox" Grid.Column="0" Text="{Binding SteamId64}" PasswordChar="•" Watermark="Preenchido sozinho com a conta da Steam deste PC" />
           <Button Grid.Column="1" Classes="pill" Content="👁" Padding="12,6" Margin="6,0,0,0" Click="OnToggleSteamIdVisibilityClick" ToolTip.Tip="Mostrar/ocultar" />
         </Grid>
-        <TextBlock Text="{Binding SteamAccountText}" Classes="subtle" FontSize="12" TextWrapping="Wrap" />
+        <TextBlock Text="{Binding SteamAccountText}" Classes="subtle" FontSize="{DynamicResource TextSmall}" TextWrapping="Wrap" />
         <Button Classes="pill" Content="Usar conta da Steam deste PC" Click="OnUseSteamAccountClick" HorizontalAlignment="Left" />
 
         <TextBlock Text="RAWG API key (descrições e metadados de jogos que não são da Steam)" Classes="subtle" Margin="0,8,0,0" />
@@ -59,12 +59,12 @@
         <Button Classes="pill" Content="Obter credenciais do IGDB (abre o Dev Console da Twitch)" Click="OnGetIgdbKeyClick" HorizontalAlignment="Left" />
 
         <TextBlock Text="O launcher nunca pede nem guarda a senha da Steam. As chaves ficam criptografadas neste PC (só o seu usuário do Windows consegue ler)."
-                   Classes="subtle" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0" />
+                   Classes="subtle" FontSize="{DynamicResource TextCaption}" TextWrapping="Wrap" Margin="0,8,0,0" />
       </StackPanel>
     </ScrollViewer>
 
     <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,16,0,0">
-      <TextBlock Text="Lembra de clicar Salvar na tela de Configurações pra valer" Classes="subtle" FontSize="11" VerticalAlignment="Center" />
+      <TextBlock Text="Lembra de clicar Salvar na tela de Configurações pra valer" Classes="subtle" FontSize="{DynamicResource TextCaption}" VerticalAlignment="Center" />
       <Button Classes="pill" Content="Fechar" Click="OnCloseClick" />
     </StackPanel>
 

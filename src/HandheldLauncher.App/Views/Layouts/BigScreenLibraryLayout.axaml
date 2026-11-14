@@ -21,7 +21,7 @@
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="BorderBrush" Value="Transparent" />
       <Setter Property="Padding" Value="18,9" />
-      <Setter Property="CornerRadius" Value="18" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
     </Style>
     <Style Selector="Button.modernTab:pointerover /template/ ContentPresenter, Button.modernTab:focus /template/ ContentPresenter">
       <Setter Property="Background" Value="{DynamicResource AccentTranslucentBrush}" />
@@ -37,7 +37,7 @@
       <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     </Style>
     <Style Selector="Border.bigScreenTile">
-      <Setter Property="CornerRadius" Value="22" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusXLarge}" />
       <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource TileSeparatorBrush}" />
       <Setter Property="BorderThickness" Value="1" />
@@ -75,35 +75,35 @@
     <Grid ColumnDefinitions="*" RowDefinitions="Auto,*,Auto" Margin="24,14,32,20">
 
       <StackPanel Grid.Column="0" Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Top" HorizontalAlignment="Center" Spacing="8" Margin="0,0,0,18">
-        <Border Background="#20FFFFFF" BorderBrush="#15FFFFFF" BorderThickness="1" CornerRadius="18" Padding="6" BoxShadow="0 4 12 0 #40000000">
+        <Border Background="#20FFFFFF" BorderBrush="#15FFFFFF" BorderThickness="1" CornerRadius="{DynamicResource RadiusLarge}" Padding="6" BoxShadow="0 4 12 0 #40000000">
             <StackPanel Orientation="Horizontal" Spacing="4">
-                <Button Classes="modernTab" Classes.active="{Binding IsFilterFavoritesActive}" Command="{Binding SetFilterFavoritesCommand}"><StackPanel Orientation="Horizontal" Spacing="8"><PathIcon Width="16" Height="16" Data="{StaticResource IconStar}"/><TextBlock Text="Favoritos" FontSize="13" FontWeight="SemiBold"/></StackPanel></Button>
-                <Button Classes="modernTab" Classes.active="{Binding IsFilterAllActive}" Command="{Binding SetFilterAllCommand}"><StackPanel Orientation="Horizontal" Spacing="8"><PathIcon Width="16" Height="16" Data="{StaticResource IconGrid}"/><TextBlock Text="Todos" FontSize="13" FontWeight="SemiBold"/></StackPanel></Button>
-                <Button Classes="modernTab" Classes.active="{Binding IsFilterComputerActive}" Command="{Binding SetFilterComputerCommand}"><StackPanel Orientation="Horizontal" Spacing="8"><PathIcon Width="16" Height="16" Data="{StaticResource IconMonitor}"/><TextBlock Text="Computador" FontSize="13" FontWeight="SemiBold"/></StackPanel></Button>
-                <Button Classes="modernTab" Classes.active="{Binding IsFilterEmulatorsActive}" Command="{Binding SetFilterEmulatorsCommand}"><StackPanel Orientation="Horizontal" Spacing="8"><PathIcon Width="16" Height="16" Data="{StaticResource IconGamepad}"/><TextBlock Text="Emuladores" FontSize="13" FontWeight="SemiBold"/></StackPanel></Button>
-                <Button Classes="modernTab" Classes.active="{Binding IsFilterApplicationsActive}" Command="{Binding SetFilterApplicationsCommand}"><StackPanel Orientation="Horizontal" Spacing="8"><PathIcon Width="16" Height="16" Data="{StaticResource IconAppWindow}"/><TextBlock Text="Programas" FontSize="13" FontWeight="SemiBold"/></StackPanel></Button>
-                <Button Classes="modernTab" Classes.active="{Binding IsFilterNotInstalledActive}" Command="{Binding SetFilterNotInstalledCommand}"><StackPanel Orientation="Horizontal" Spacing="8"><PathIcon Width="16" Height="16" Data="{StaticResource IconDownload}"/><TextBlock Text="Não instalados" FontSize="13" FontWeight="SemiBold"/></StackPanel></Button>
-                <Button Classes="modernTab" Classes.active="{Binding IsFilterCloudActive}" Command="{Binding SetFilterCloudCommand}"><StackPanel Orientation="Horizontal" Spacing="8"><PathIcon Width="16" Height="16" Data="{StaticResource IconCloud}"/><TextBlock Text="Nuvem" FontSize="13" FontWeight="SemiBold"/></StackPanel></Button>
+                <Button Classes="modernTab" Classes.active="{Binding IsFilterFavoritesActive}" Command="{Binding SetFilterFavoritesCommand}"><StackPanel Orientation="Horizontal" Spacing="8"><PathIcon Width="16" Height="16" Data="{StaticResource IconStar}"/><TextBlock Text="Favoritos" FontSize="{DynamicResource TextBody}" FontWeight="SemiBold"/></StackPanel></Button>
+                <Button Classes="modernTab" Classes.active="{Binding IsFilterAllActive}" Command="{Binding SetFilterAllCommand}"><StackPanel Orientation="Horizontal" Spacing="8"><PathIcon Width="16" Height="16" Data="{StaticResource IconGrid}"/><TextBlock Text="Todos" FontSize="{DynamicResource TextBody}" FontWeight="SemiBold"/></StackPanel></Button>
+                <Button Classes="modernTab" Classes.active="{Binding IsFilterComputerActive}" Command="{Binding SetFilterComputerCommand}"><StackPanel Orientation="Horizontal" Spacing="8"><PathIcon Width="16" Height="16" Data="{StaticResource IconMonitor}"/><TextBlock Text="Computador" FontSize="{DynamicResource TextBody}" FontWeight="SemiBold"/></StackPanel></Button>
+                <Button Classes="modernTab" Classes.active="{Binding IsFilterEmulatorsActive}" Command="{Binding SetFilterEmulatorsCommand}"><StackPanel Orientation="Horizontal" Spacing="8"><PathIcon Width="16" Height="16" Data="{StaticResource IconGamepad}"/><TextBlock Text="Emuladores" FontSize="{DynamicResource TextBody}" FontWeight="SemiBold"/></StackPanel></Button>
+                <Button Classes="modernTab" Classes.active="{Binding IsFilterApplicationsActive}" Command="{Binding SetFilterApplicationsCommand}"><StackPanel Orientation="Horizontal" Spacing="8"><PathIcon Width="16" Height="16" Data="{StaticResource IconAppWindow}"/><TextBlock Text="Programas" FontSize="{DynamicResource TextBody}" FontWeight="SemiBold"/></StackPanel></Button>
+                <Button Classes="modernTab" Classes.active="{Binding IsFilterNotInstalledActive}" Command="{Binding SetFilterNotInstalledCommand}"><StackPanel Orientation="Horizontal" Spacing="8"><PathIcon Width="16" Height="16" Data="{StaticResource IconDownload}"/><TextBlock Text="Não instalados" FontSize="{DynamicResource TextBody}" FontWeight="SemiBold"/></StackPanel></Button>
+                <Button Classes="modernTab" Classes.active="{Binding IsFilterCloudActive}" Command="{Binding SetFilterCloudCommand}"><StackPanel Orientation="Horizontal" Spacing="8"><PathIcon Width="16" Height="16" Data="{StaticResource IconCloud}"/><TextBlock Text="Nuvem" FontSize="{DynamicResource TextBody}" FontWeight="SemiBold"/></StackPanel></Button>
             </StackPanel>
         </Border>
       </StackPanel>
       
-      <Border Grid.Row="0" Background="{DynamicResource PanelTranslucentBrush}" BorderBrush="{DynamicResource TileSeparatorBrush}" BorderThickness="1" CornerRadius="18" Padding="12,7" VerticalAlignment="Top" HorizontalAlignment="Right">
+      <Border Grid.Row="0" Background="{DynamicResource PanelTranslucentBrush}" BorderBrush="{DynamicResource TileSeparatorBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusLarge}" Padding="12,7" VerticalAlignment="Top" HorizontalAlignment="Right">
         <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-          <Button Classes="pill" Click="OnOpenNetworksClick" ToolTip.Tip="Central de Controle" FontSize="10" Padding="9,5">
+          <Button Classes="pill" Click="OnOpenNetworksClick" ToolTip.Tip="Central de Controle" FontSize="{DynamicResource TextMicro}" Padding="9,5">
             <StackPanel Orientation="Horizontal" Spacing="5">
               <PathIcon Width="13" Height="13" Data="{StaticResource IconWifi}" />
               <TextBlock Text="Redes" FontWeight="SemiBold" />
             </StackPanel>
           </Button>
-          <Button Classes="pill" Content="Wi-Fi" FontSize="10" Padding="8,5" Click="OnOpenWifiSettingsClick" />
-          <Button Classes="pill" Content="Bluetooth" FontSize="10" Padding="8,5" Click="OnOpenBluetoothSettingsClick" />
-          <Border Width="1" Height="22" Background="#556C7898" />
-          <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center"><TextBlock Text="⚡" Foreground="#FFFFB84D" FontSize="13" VerticalAlignment="Center" /><TextBlock Text="{Binding TopBarTdpText}" Foreground="#FFF5F7FF" FontSize="14" FontWeight="Bold" VerticalAlignment="Center" /><TextBlock Text="TDP" Foreground="#FF9BA8C4" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center" /></StackPanel>
-          <Border Width="1" Height="22" Background="#556C7898" />
-          <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center"><TextBlock Text="◷" Foreground="#FF9BA8C4" FontSize="16" VerticalAlignment="Center" /><TextBlock Text="{Binding ClockText}" Foreground="#FFF5F7FF" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" /></StackPanel>
-          <Border Width="1" Height="22" Background="#556C7898" />
-          <TextBlock Text="{Binding BatteryStatusText}" Foreground="#FFB8C1D4" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" />
+          <Button Classes="pill" Content="Wi-Fi" FontSize="{DynamicResource TextMicro}" Padding="8,5" Click="OnOpenWifiSettingsClick" />
+          <Button Classes="pill" Content="Bluetooth" FontSize="{DynamicResource TextMicro}" Padding="8,5" Click="OnOpenBluetoothSettingsClick" />
+          <Border Width="1" Height="22" Background="{DynamicResource PanelDividerBrush}" />
+          <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center"><TextBlock Text="⚡" Foreground="#FFFFB84D" FontSize="{DynamicResource TextBody}" VerticalAlignment="Center" /><TextBlock Text="{Binding TopBarTdpText}" Foreground="{DynamicResource PanelTextBrush}" FontSize="{DynamicResource TextBodyLarge}" FontWeight="Bold" VerticalAlignment="Center" /><TextBlock Text="TDP" Foreground="{DynamicResource PanelTextMutedBrush}" FontSize="{DynamicResource TextMicro}" FontWeight="SemiBold" VerticalAlignment="Center" /></StackPanel>
+          <Border Width="1" Height="22" Background="{DynamicResource PanelDividerBrush}" />
+          <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center"><TextBlock Text="◷" Foreground="{DynamicResource PanelTextMutedBrush}" FontSize="{DynamicResource TextSubtitle}" VerticalAlignment="Center" /><TextBlock Text="{Binding ClockText}" Foreground="{DynamicResource PanelTextBrush}" FontSize="{DynamicResource TextBodyLarge}" FontWeight="SemiBold" VerticalAlignment="Center" /></StackPanel>
+          <Border Width="1" Height="22" Background="{DynamicResource PanelDividerBrush}" />
+          <TextBlock Text="{Binding BatteryStatusText}" Foreground="#FFB8C1D4" FontSize="{DynamicResource TextBodyLarge}" FontWeight="SemiBold" VerticalAlignment="Center" />
         </StackPanel>
       </Border>
 
@@ -113,7 +113,7 @@
         <!-- 🟢 MUDANÇA: altura 132→160 e vertical alinhado ao centro (logo/nome não gruda mais na grade) -->
         <Grid Grid.Row="0" Height="160" ColumnDefinitions="*,Auto,*" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
           <Image Grid.Column="1" Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}" Width="320" Height="76" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding SelectedTile.ShowCurrentLogo}" />
-          <TextBlock Grid.Column="1" Text="{Binding SelectedTile.Title}" Foreground="#FFF5F7FF" FontSize="30" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" IsVisible="{Binding SelectedTile.ShowNameCaption}" />
+          <TextBlock Grid.Column="1" Text="{Binding SelectedTile.Title}" Foreground="{DynamicResource PanelTextBrush}" FontSize="30" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" IsVisible="{Binding SelectedTile.ShowNameCaption}" />
         </Grid>
 
         <ItemsControl Grid.Row="1" ItemsSource="{Binding SubFilters}" IsVisible="{Binding HasSubFilters}" HorizontalAlignment="Center" Margin="0,16,0,8">
@@ -135,16 +135,16 @@
                 <DataTemplate x:DataType="vm:GameTileViewModel">
                   <Border Classes="bigScreenTile" Classes.focused="{Binding IsFocused}" Width="320" Height="180" PointerPressed="OnTilePointerPressed" DoubleTapped="OnTileDoubleTapped">
                     <Grid>
-                      <Image anim:ImageBehavior.AnimatedSource="{Binding WideCapsuleImagePath}" Stretch="UniformToFill" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
-                      <Border Background="#55000000" IsVisible="{Binding ShowEmptyWideCapsulePlaceholder}"><TextBlock Text="{Binding Title}" Foreground="#FFF5F7FF" FontSize="19" FontWeight="SemiBold" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="18" /></Border>
+                      <!-- v0.26: a Viewbox garante que a capa preencha o quadro inteiro (sem faixas nas laterais), seja qual for a proporção da arte. --><Viewbox Stretch="UniformToFill" ClipToBounds="True"><Image anim:ImageBehavior.AnimatedSource="{Binding WideCapsuleImagePath}" Stretch="None" /></Viewbox>
+                      <Border Background="#55000000" IsVisible="{Binding ShowEmptyWideCapsulePlaceholder}"><TextBlock Text="{Binding Title}" Foreground="{DynamicResource PanelTextBrush}" FontSize="{DynamicResource TextHeading}" FontWeight="SemiBold" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="18" /></Border>
                       <Border Background="#B8000000" Height="48" VerticalAlignment="Bottom" Padding="14,7">
                         <Grid ColumnDefinitions="*,Auto">
-                          <TextBlock Grid.Column="0" Text="{Binding Title}" Foreground="#FFF5F7FF" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                          <Border Grid.Column="1" Background="{Binding PlatformBadgeColorHex, Converter={StaticResource HexColorToBrushConverter}}" CornerRadius="5" Padding="6,2" VerticalAlignment="Center" IsVisible="{Binding HasPlatformBadge}"><TextBlock Text="{Binding PlatformBadgeText}" FontSize="10" FontWeight="Bold" Foreground="White" /></Border>
+                          <TextBlock Grid.Column="0" Text="{Binding Title}" Foreground="{DynamicResource PanelTextBrush}" FontSize="{DynamicResource TextBodyLarge}" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                          <Border Grid.Column="1" Background="{Binding PlatformBadgeColorHex, Converter={StaticResource HexColorToBrushConverter}}" CornerRadius="5" Padding="6,2" VerticalAlignment="Center" IsVisible="{Binding HasPlatformBadge}"><TextBlock Text="{Binding PlatformBadgeText}" FontSize="{DynamicResource TextMicro}" FontWeight="Bold" Foreground="White" /></Border>
                         </Grid>
                       </Border>
-                      <PathIcon Width="18" Height="18" Data="{StaticResource IconStar}" Foreground="#FFFFC45C" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="12" IsVisible="{Binding IsFavorite}" />
-                      <Border BorderBrush="#FFF5F7FF" CornerRadius="19" BorderThickness="2" IsHitTestVisible="False" IsVisible="{Binding IsFocused}" />
+                      <PathIcon Width="18" Height="18" Data="{StaticResource IconStar}" Foreground="{DynamicResource FavoriteBrush}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="12" IsVisible="{Binding IsFavorite}" />
+                      <Border BorderBrush="{DynamicResource PanelTextBrush}" CornerRadius="19" BorderThickness="2" IsHitTestVisible="False" IsVisible="{Binding IsFocused}" />
                       <Border BorderBrush="{DynamicResource AccentBrush}" CornerRadius="15" BorderThickness="2" Margin="5" IsHitTestVisible="False" IsVisible="{Binding IsFocused}" />
                     </Grid>
                   </Border>
@@ -155,7 +155,7 @@
             <Button x:Name="AddProgramButton" Classes="addGhostCard" Click="OnAddProgramClick" IsVisible="{Binding IsFilterApplicationsActive}">
               <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
                 <PathIcon Width="42" Height="42" Data="{StaticResource IconPlus}" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
-                <TextBlock Text="Adicionar Jogo" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                <TextBlock Text="Adicionar Jogo" FontSize="{DynamicResource TextSubtitle}" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
               </StackPanel>
             </Button>
           </WrapPanel>

@@ -10,7 +10,7 @@
         Background="#1A1A1A"
         SystemDecorations="None"
         TransparencyLevelHint="Mica,Blur,None">
-  <Border CornerRadius="16" Background="#1A1A1A" BorderBrush="#2A2A2A" BorderThickness="1" Padding="20">
+  <Border CornerRadius="{DynamicResource RadiusLarge}" Background="#1A1A1A" BorderBrush="#2A2A2A" BorderThickness="1" Padding="20">
     <Grid RowDefinitions="*,Auto">
 
       <!-- Centro: círculo + título + número -->
@@ -27,7 +27,7 @@
 
         <!-- Título -->
         <TextBlock Text="Baixando Capas"
-                   FontSize="20" FontWeight="Bold"
+                   FontSize="{DynamicResource TextHeading}" FontWeight="Bold"
                    Foreground="White"
                    HorizontalAlignment="Center" />
 
@@ -41,7 +41,7 @@
         <!-- Nome do jogo (subtítulo discreto) -->
         <TextBlock x:Name="CurrentGameText"
                    Text=""
-                   FontSize="11"
+                   FontSize="{DynamicResource TextCaption}"
                    Foreground="#707070"
                    HorizontalAlignment="Center"
                    TextAlignment="Center"
@@ -60,15 +60,15 @@
         <Button x:Name="PauseButton"
                 Content="⏸"
                 Width="56" Height="44"
-                FontSize="18"
-                CornerRadius="10"
+                FontSize="{DynamicResource TextTitle}"
+                CornerRadius="{DynamicResource RadiusMedium}"
                 Background="#2A2A3A"
                 Foreground="White" />
         <Button x:Name="CancelButton"
                 Content="✕"
                 Width="56" Height="44"
-                FontSize="18"
-                CornerRadius="10"
+                FontSize="{DynamicResource TextTitle}"
+                CornerRadius="{DynamicResource RadiusMedium}"
                 Background="#3A1A1A"
                 Foreground="White" />
       </StackPanel>

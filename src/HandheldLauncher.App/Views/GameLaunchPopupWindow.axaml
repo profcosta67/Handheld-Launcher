@@ -12,22 +12,22 @@
         CanResize="False">
 
     <Border Background="#F01A1A1A"
-            CornerRadius="16"
+            CornerRadius="{DynamicResource RadiusLarge}"
             BorderBrush="#444444"
             BorderThickness="1"
             Padding="20">
         <Grid ColumnDefinitions="64,*,40">
             <Border Grid.Column="0"
                     Width="56" Height="56"
-                    CornerRadius="12"
-                    Background="#252A36"
+                    CornerRadius="{DynamicResource RadiusMedium}"
+                    Background="{DynamicResource PanelSurfaceAltBrush}"
                     VerticalAlignment="Center">
                 <Grid>
                     <Image x:Name="GameIcon" Stretch="UniformToFill"/>
                     <TextBlock x:Name="TxtIconFallback"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"
-                               FontSize="24"
+                               FontSize="{DynamicResource TextDisplay}"
                                FontWeight="Bold"
                                Foreground="{DynamicResource AccentBrush}"
                                IsVisible="False"/>
@@ -37,16 +37,16 @@
             <StackPanel Grid.Column="1" Spacing="4" Margin="16,0,0,0" VerticalAlignment="Center">
                 <TextBlock x:Name="TxtGameTitle"
                            Foreground="White"
-                           FontSize="16"
+                           FontSize="{DynamicResource TextSubtitle}"
                            FontWeight="SemiBold"
                            TextTrimming="CharacterEllipsis"
                            MaxLines="1"/>
-                <TextBlock Text="Abrindo..." Foreground="#AAAAAA" FontSize="12"/>
+                <TextBlock Text="Abrindo..." Foreground="#AAAAAA" FontSize="{DynamicResource TextSmall}"/>
             </StackPanel>
 
             <TextBlock Grid.Column="2"
                        x:Name="TxtLoadingSpinner" Text="◐"
-                       FontSize="22"
+                       FontSize="{DynamicResource TextHeadingLarge}"
                        Foreground="{DynamicResource AccentBrush}"
                        VerticalAlignment="Center"
                        HorizontalAlignment="Center"/>

@@ -254,7 +254,7 @@ public sealed class SettingsViewModel : ViewModelBase
     /// <summary>Índice da aba "Central de Saves" (logo abaixo de Rede).</summary>
     public const int SaveCenterCategoryIndex = 8;
 
-    public string SaveButtonText => "✕ Salvar e fechar";
+    public string SaveButtonText => "Fechar"; // v0.26: fechar já salva (OnClosing)
 
     private int _fontIndex;
     public int FontIndex 
