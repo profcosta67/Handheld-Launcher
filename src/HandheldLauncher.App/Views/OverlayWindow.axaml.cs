@@ -242,6 +242,7 @@ public partial class OverlayWindow : Window
             if (OperatingSystem.IsWindows())
             {
                 _fanCurveService = new LenovoFanCurveService();
+                SmartTdpService.FanApplier = ApplySmartFan; // v0.27: a ventoinha acompanha o TDP inteligente
                 if (_tdpHardwareSupported && !_fanCurveService.IsSupportedModel)
                 {
                     _showUnvalidatedNotice = true;
@@ -844,7 +845,6 @@ public partial class OverlayWindow : Window
             _viewModel.SetOverlayPreset(_currentHudIndex);
             SetHudButtonVisual(_currentHudIndex);
             NewQsPanel.SetHud(_currentHudIndex);
-        NewQsPanel.RefreshSmartTdp();
             DebugLog.Write($"[HUD] Preset escolhido no QS: '{PerformanceHud.PresetNames[_currentHudIndex]}'.");
         };
         NewQsPanel.ResolutionRequested += (_, button) => ApplyResolutionFromQs(button.Tag?.ToString() ?? string.Empty);
@@ -924,6 +924,7 @@ public partial class OverlayWindow : Window
         NewQsPanel.SetScreenInfo(TxtScreenInfo?.Text ?? "—");
         NewQsPanel.SetBattery(_viewModel.BatteryStatusText);
         NewQsPanel.SetHud(_currentHudIndex);
+        NewQsPanel.RefreshSmartTdp(); // a opção pode ter mudado nas Configurações
         NewQsPanel.InitializePowerPlans(PowerPlanService.GetAvailablePlans());
         // v0.25.3: o aviso "o TDP não aplica" era mostrado SEMPRE que o launcher
         // não estava elevado — mesmo com o PawnIO a aplicar TDP sem admin. Agora
@@ -1861,6 +1862,31 @@ public partial class OverlayWindow : Window
             });
         }
         else TxtFanStatus.Text = message + " Curva anterior preservada.";
+    }
+
+    /// <summary>
+    /// v0.27 — ventoinha comandada pelo TDP inteligente. Aplica a curva sem gravar nas
+    /// configurações (a escolha do usuário fica guardada); com null devolve a curva gravada.
+    /// </summary>
+    public void ApplySmartFan(string? mode)
+    {
+        if (mode is null)
+        {
+            string saved;
+            try { saved = AppSettingsStore.Load().FanMode ?? "Automático"; } catch { saved = "Automático"; }
+            DebugLog.Write($"[FAN] Modo inteligente saiu: ventoinha de volta a {saved}.");
+            ApplyFanMode(saved);
+            return;
+        }
+
+        if (_fanCurveService is null || mode == _currentFanMode) return;
+        if (_fanCurveService.TryApplyPreset(mode, out var message))
+        {
+            _currentFanMode = mode;
+            SetFanButtonVisual(mode);
+            TxtFanStatus.Text = message + " (modo inteligente)";
+        }
+        else DebugLog.Write($"[FAN] Modo inteligente não conseguiu aplicar {mode}: {message}");
     }
 
     private void SetFanButtonVisual(string mode)

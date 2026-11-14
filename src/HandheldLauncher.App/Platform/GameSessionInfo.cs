@@ -11,4 +11,13 @@ internal static class GameSessionInfo
         get => _detectedGamePid;
         set => _detectedGamePid = value;
     }
+
+    private static volatile int _smartTdpWatts;
+
+    /// <summary>Watts que o TDP inteligente está aplicando agora; 0 quando não está no comando.</summary>
+    public static int SmartTdpWatts
+    {
+        get => _smartTdpWatts;
+        set => _smartTdpWatts = value;
+    }
 }

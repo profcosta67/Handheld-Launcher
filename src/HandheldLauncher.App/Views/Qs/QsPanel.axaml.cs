@@ -236,7 +236,7 @@ public partial class QsPanel : UserControl
         _activePreset = preset;
         _customPresetActive = preset == PowerPreset.Custom;
         if (TxtTdpHint is not null && !_tdpEditing)
-            TxtTdpHint.Text = _smartOn ? "Modo inteligente: o TDP se ajusta sozinho no jogo • escolha um perfil para desligar"
+            TxtTdpHint.Text = _smartOn ? SmartHint()
                 : _customPresetActive ? "Personalizado ativo • selecione Person. e A para ajustar" : "";
     }
 
@@ -248,10 +248,20 @@ public partial class QsPanel : UserControl
     /// <summary>Relê a opção a cada abertura do painel (pode ter mudado nas Configurações).</summary>
     public void RefreshSmartTdp()
     {
-        var on = OperatingSystem.IsWindows() && ReadSmartTdpSetting();
-        if (on == _smartOn) return;
-        _smartOn = on;
+        _smartOn = OperatingSystem.IsWindows() && ReadSmartTdpSetting();
         SelectPowerPreset(_activePreset);
+
+        // Com o modo inteligente no comando, o número mostrado é o que ele está aplicando.
+        var watts = HandheldLauncher.App.Platform.GameSessionInfo.SmartTdpWatts;
+        if (_smartOn && watts > 0 && !_tdpEditing) TxtTdp.Text = $"{watts} W";
+    }
+
+    private static string SmartHint()
+    {
+        var watts = HandheldLauncher.App.Platform.GameSessionInfo.SmartTdpWatts;
+        return watts > 0
+            ? $"Modo inteligente no comando: {watts} W agora, TDP e ventoinha • escolha um perfil para desligar"
+            : "Modo inteligente: ajusta TDP e ventoinha sozinho durante o jogo • escolha um perfil para desligar";
     }
 
     private static bool ReadSmartTdpSetting()

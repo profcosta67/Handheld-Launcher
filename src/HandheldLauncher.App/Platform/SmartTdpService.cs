@@ -29,6 +29,18 @@ internal sealed class SmartTdpService : IDisposable
     private const double WarmupSeconds = 15;
     private const double MidGameWarmupSeconds = 4;
     private const int MinFloorWatts = 8;
+    // Sem valor aprendido, o modo inteligente parte de pelo menos isto (ou do perfil do
+    // usuário, se for maior) e ajusta a partir daí. Partir de um Eco de 8 W deixava o jogo
+    // travado por um bom tempo até a subida começar (testes de 14/11).
+    private const int StartFloorWatts = 20;
+    private const double FanDownAfterSeconds = 30;
+    private const double StatusLogSeconds = 10;
+
+    /// <summary>
+    /// Ligação com a ventoinha (preenchida pelo Quick Settings, roda na UI thread):
+    /// nome da curva a aplicar, ou null para devolver a curva escolhida pelo usuário.
+    /// </summary>
+    public static Action<string?>? FanApplier { get; set; }
 
     private readonly MainViewModel _viewModel;
     private readonly RtssSharedMemory _rtss = new();
@@ -68,6 +80,17 @@ internal sealed class SmartTdpService : IDisposable
         public int Failures;
         public bool LoggedNoFrames;
         public bool Away;
+        public int Min;
+        public int Max;
+        public int StartWatts;
+        public bool StartLearned;
+        public bool StartResumed;
+        public string UserFan = "";
+        public string? FanMode;      // curva posta pelo modo inteligente (null = ainda não mexeu)
+        public bool FanOff;          // o usuário escolheu uma curva à mão: não mexemos mais
+        public DateTime? FanLowerSince;
+        public DateTime LastStatusLog = DateTime.MinValue;
+        public double LastFps = double.NaN;
     }
 
     public SmartTdpService(MainViewModel viewModel)
@@ -110,7 +133,7 @@ internal sealed class SmartTdpService : IDisposable
             // Desligado pelo Quick Settings ao escolher um perfil: o painel grava o "desligado"
             // antes de aplicar/gravar o perfil novo. Espera um ciclo e devolve o TDP que estiver
             // gravado nessa altura — nunca o do início da sessão por cima da escolha nova.
-            if (!_settings.SmartTdpEnabled && game is not null && _session is { Applied: true, Suspended: false } live)
+            if (!_settings.SmartTdpEnabled && game is not null && _session is { Suspended: false } live && (live.Applied || live.FanMode is not null))
             {
                 if (!live.OffSeen) { live.OffSeen = true; return; }
                 live.UserMode = string.IsNullOrWhiteSpace(_settings.TdpMode) ? live.UserMode : _settings.TdpMode;
@@ -126,14 +149,36 @@ internal sealed class SmartTdpService : IDisposable
         {
             EndSession("outro jogo");
             _settings = AppSettingsStore.Load();
+            var userMode = string.IsNullOrWhiteSpace(_settings.TdpMode) ? "Normal" : _settings.TdpMode;
+            var limits = DeviceTdpLimits.Current();
+            var min = Math.Min(Math.Max(limits.SplMin, MinFloorWatts), limits.SplMax);
+            var max = limits.SplMax;
+            var learned = _store.Get(game.Id, TargetFps);
+            int? resumed = learned is null && _resume is { } r && r.GameId == game.Id ? r.Watts : null;
+            var userWatts = TdpProfiles.WattsFor(userMode) ?? TdpProfiles.DefaultCustomWatts;
+            var start = Math.Clamp(learned?.Watts ?? resumed ?? Math.Max(userWatts, StartFloorWatts), min, max);
+
             _session = new Session
             {
                 GameId = game.Id,
                 Title = game.Title,
-                UserMode = string.IsNullOrWhiteSpace(_settings.TdpMode) ? "Normal" : _settings.TdpMode,
+                UserMode = userMode,
                 MidGame = _offWithGame, // o Auto foi ligado com este jogo já aberto
+                Min = min,
+                Max = max,
+                StartWatts = start,
+                StartLearned = learned is not null,
+                StartResumed = resumed is not null,
+                UserFan = _settings.FanMode ?? "",
+                SavedWatts = learned?.Watts ?? 0,
             };
-            DebugLog.Write($"[TDP-AUTO] Sessão iniciada: '{game.Title}', meta {TargetFps} FPS, TDP do usuário = {_session.UserMode}.");
+            var origin = learned is not null ? "aprendido antes" : resumed is not null ? "retomado desta sessão de jogo" : "ponto de partida, aprendendo";
+            DebugLog.Write($"[TDP-AUTO] Sessão iniciada: '{game.Title}', meta {TargetFps} FPS, janela {min}–{max} W, TDP do usuário = {userMode}, início em {start} W ({origin}).");
+
+            // Aplica já, sem esperar o jogo aparecer: o carregamento não fica preso no perfil
+            // baixo do usuário e o painel/HUD mostram na hora que o modo inteligente assumiu.
+            Apply(_session, start, "início");
+            UpdateFan(_session, start, DateTime.UtcNow);
         }
 
         var s = _session;
@@ -148,6 +193,13 @@ internal sealed class SmartTdpService : IDisposable
             Dispatcher.UIThread.Post(() => _viewModel.UpdateHudTdpStatus(currentUserMode));
             DebugLog.Write($"[TDP-AUTO] TDP trocado à mão ({s.UserMode} → {currentUserMode}); modo inteligente pausado até o jogo fechar (escolha do usuário {(ok ? "mantida" : "NÃO reaplicada")}).");
             return;
+        }
+
+        if (!s.FanOff && !string.Equals(_settings.FanMode ?? "", s.UserFan, StringComparison.Ordinal))
+        {
+            s.FanOff = true;
+            s.FanMode = null; // a curva agora é a que o usuário escolheu; nada a devolver
+            DebugLog.Write($"[TDP-AUTO] Ventoinha trocada à mão ({s.UserFan} → {_settings.FanMode}); o modo inteligente deixa a ventoinha com o usuário até o jogo fechar.");
         }
 
         var gamePid = GameSessionInfo.DetectedGamePid;
@@ -182,23 +234,10 @@ internal sealed class SmartTdpService : IDisposable
 
         if (s.Controller is null)
         {
-            var limits = DeviceTdpLimits.Current();
-            var min = Math.Min(Math.Max(limits.SplMin, MinFloorWatts), limits.SplMax);
-            var learned = _store.Get(s.GameId, TargetFps);
-            int? resumed = learned is null && _resume is { } r && r.GameId == s.GameId ? r.Watts : null;
-            var start = learned?.Watts ?? resumed ?? TdpProfiles.WattsFor(s.UserMode) ?? TdpProfiles.DefaultCustomWatts;
-            s.Controller = new SmartTdpController(TargetFps, min, limits.SplMax, start, startIsLearned: learned is not null);
+            s.Controller = new SmartTdpController(TargetFps, s.Min, s.Max, s.StartWatts, startIsLearned: s.StartLearned);
             s.ControlStartedUtc = DateTime.UtcNow;
-            DebugLog.Write($"[TDP-AUTO] Janela {min}–{limits.SplMax} W; início em {s.Controller.Watts} W ({(learned is not null ? "aprendido antes" : resumed is not null ? "retomado desta sessão de jogo" : "TDP atual, aprendendo")}).");
-
-            if (resumed is not null) Apply(s, s.Controller.Watts, "retomando o modo inteligente");
-
-            if (learned is not null)
-            {
-                s.SavedWatts = learned.Watts;
-                if (Apply(s, s.Controller.Watts, "valor aprendido"))
-                    PerformanceHud.ShowNotice("Modo inteligente aplicado");
-            }
+            DebugLog.Write($"[TDP-AUTO] Jogo medindo FPS ({f.Fps:0}); controle começa em {s.Controller.Watts} W.");
+            if (s.StartLearned && s.Applied) PerformanceHud.ShowNotice("Modo inteligente aplicado");
             return;
         }
 
@@ -209,6 +248,19 @@ internal sealed class SmartTdpService : IDisposable
         var change = s.Controller.OnSample(f.Fps, elapsed);
         if (change != SmartTdpChange.None)
             Apply(s, s.Controller.Watts, $"{(change == SmartTdpChange.Up ? "subiu" : "desceu")} de {before} W, FPS {f.Fps:0}");
+
+        s.LastFps = f.Fps;
+        var now = DateTime.UtcNow;
+        UpdateFan(s, s.Controller.Watts, now);
+        if ((now - s.LastStatusLog).TotalSeconds >= StatusLogSeconds)
+        {
+            s.LastStatusLog = now;
+            var state = s.Controller.IsSettled ? "estável"
+                : f.Fps < TargetFps * SmartTdpController.BelowRatio ? (s.Controller.Watts >= s.Max ? "abaixo da meta mesmo no teto" : "abaixo da meta, subindo")
+                : "na meta, testando para baixo";
+            DebugLog.Write($"[TDP-AUTO] Estado: {s.Controller.Watts} W, FPS {f.Fps:0} (meta {TargetFps}), ventoinha {s.FanMode ?? (s.FanOff ? "do usuário" : s.UserFan)} — {state}.");
+        }
+        GameSessionInfo.SmartTdpWatts = s.Controller.Watts;
 
         if (s.Controller.IsSettled && s.SavedWatts != s.Controller.Watts)
         {
@@ -223,10 +275,12 @@ internal sealed class SmartTdpService : IDisposable
     private bool Apply(Session s, int watts, string why)
     {
         var mode = TdpProfiles.CustomMode(watts);
-        var ok = _hardware.SetTdpMode(mode);
+        bool ok;
+        lock (WindowsHardwareService.TdpApplyLock) ok = _hardware.SetTdpMode(mode);
         if (ok)
         {
             s.Applied = true;
+            GameSessionInfo.SmartTdpWatts = watts;
             s.Failures = 0;
             DebugLog.Write($"[TDP-AUTO] {watts} W aplicado ({why}).");
             Dispatcher.UIThread.Post(() => _viewModel.UpdateHudTdpStatus(mode));
@@ -243,11 +297,55 @@ internal sealed class SmartTdpService : IDisposable
         return false;
     }
 
+    private static int FanRank(string? mode) => mode switch
+    {
+        "Silencioso" => 0,
+        "Normal" => 1,
+        "Desempenho" => 2,
+        "Boost" => 3,
+        _ => -1,
+    };
+
+    /// <summary>
+    /// Ventoinha acompanha os watts do modo inteligente, pela mesma tabela dos perfis
+    /// manuais. Sobe de curva na hora; só desce depois de 30 s na faixa de baixo, para não
+    /// ficar trocando quando o TDP oscila 1 W em volta de um limite.
+    /// </summary>
+    private void UpdateFan(Session s, int watts, DateTime now)
+    {
+        if (s.FanOff || s.Suspended || FanApplier is null) return;
+        if (FanRank(s.UserFan) < 0 && s.UserFan != "Automático" && s.UserFan != "") return; // curva personalizada do usuário: não mexe
+
+        var wanted = TdpProfiles.LinkedFanMode(TdpProfiles.CustomMode(watts));
+        var current = s.FanMode ?? s.UserFan;
+        if (wanted == current) { s.FanLowerSince = null; return; }
+
+        var up = FanRank(wanted) > FanRank(current);
+        if (!up)
+        {
+            s.FanLowerSince ??= now;
+            if ((now - s.FanLowerSince.Value).TotalSeconds < FanDownAfterSeconds) return;
+        }
+
+        s.FanLowerSince = null;
+        s.FanMode = wanted;
+        DebugLog.Write($"[TDP-AUTO] Ventoinha → {wanted} ({watts} W).");
+        var applier = FanApplier;
+        Dispatcher.UIThread.Post(() => { try { applier?.Invoke(wanted); } catch (Exception ex) { DebugLog.Write($"[TDP-AUTO] Ventoinha: {ex.Message}"); } });
+    }
+
     private void EndSession(string why)
     {
         var s = _session;
         if (s is null) return;
         _session = null;
+        GameSessionInfo.SmartTdpWatts = 0;
+
+        if (s.FanMode is not null && !s.FanOff)
+        {
+            var applier = FanApplier;
+            Dispatcher.UIThread.Post(() => { try { applier?.Invoke(null); } catch (Exception ex) { DebugLog.Write($"[TDP-AUTO] Ventoinha: {ex.Message}"); } });
+        }
 
         if (why != "modo desligado") _resume = null;
         else if (s.Applied && !s.Suspended && s.Controller is not null && _viewModel.RunningGame?.Id == s.GameId)
@@ -255,7 +353,8 @@ internal sealed class SmartTdpService : IDisposable
 
         if (s.Applied && !s.Suspended)
         {
-            var ok = _hardware.SetTdpMode(s.UserMode);
+            bool ok;
+            lock (WindowsHardwareService.TdpApplyLock) ok = _hardware.SetTdpMode(s.UserMode);
             DebugLog.Write($"[TDP-AUTO] Sessão encerrada ({why}); TDP do usuário {(ok ? "restaurado" : "NÃO restaurado")}: {s.UserMode}.");
             var mode = s.UserMode;
             Dispatcher.UIThread.Post(() => _viewModel.UpdateHudTdpStatus(mode));
