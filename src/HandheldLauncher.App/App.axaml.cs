@@ -190,6 +190,13 @@ public partial class App : Application
             var mainViewModel = new MainViewModel(libraryService, gameLauncher, artworkService, performanceOverlay, updateService, performanceHud, steamOwnedGamesClient, steamAchievementsClient, syncthingService);
             desktop.Exit += (_, _) => mainViewModel.Dispose();
 
+            // v0.27: TDP inteligente (só age com a opção ligada e um jogo aberto).
+            if (OperatingSystem.IsWindows())
+            {
+                var smartTdp = new SmartTdpService(mainViewModel);
+                desktop.Exit += (_, _) => smartTdp.Dispose();
+            }
+
             var mainWindow = new MainWindow(mainViewModel, hidHideService, syncthingService)
             {
                 DataContext = mainViewModel,

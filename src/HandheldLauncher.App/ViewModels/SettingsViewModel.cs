@@ -458,6 +458,15 @@ public sealed class SettingsViewModel : ViewModelBase
         }
     }
 
+    // v0.27: TDP inteligente.
+    public bool IsWindows => OperatingSystem.IsWindows();
+    private bool _smartTdpEnabled;
+    public bool SmartTdpEnabled { get => _smartTdpEnabled; set => SetField(ref _smartTdpEnabled, value); }
+
+    private static readonly int[] SmartTdpTargets = { 30, 40, 45, 60, 90, 120 };
+    private int _smartTdpTargetIndex = 3;
+    public int SmartTdpTargetIndex { get => _smartTdpTargetIndex; set => SetField(ref _smartTdpTargetIndex, Math.Clamp(value, 0, SmartTdpTargets.Length - 1)); }
+
     /// <summary>v0.25.10: o QS pega o foco do jogo ao abrir (padrão). Antes só no settings.json.</summary>
     private bool _overlayTakesFocus = true;
     public bool OverlayTakesFocus
@@ -676,6 +685,9 @@ public sealed class SettingsViewModel : ViewModelBase
         HidHideElevateOnDemand = settings.HidHideElevateOnDemand;
         FreezeGameOnOverlay = settings.FreezeGameOnOverlay;
         OverlayTakesFocus = settings.OverlayTakesFocus;
+        SmartTdpEnabled = settings.SmartTdpEnabled;
+        var targetIndex = Array.IndexOf(SmartTdpTargets, settings.SmartTdpTargetFps);
+        SmartTdpTargetIndex = targetIndex < 0 ? 3 : targetIndex;
         
         SoundThemeIndex = Math.Clamp(settings.SoundTheme, 0, HandheldLauncher.App.Platform.UiSounds.PackNames.Length - 1);
         SoundVolume = Math.Clamp(settings.SoundVolume, 0, 100);
@@ -880,6 +892,8 @@ public sealed class SettingsViewModel : ViewModelBase
         settings.HidHideElevateOnDemand = HidHideElevateOnDemand;
         settings.FreezeGameOnOverlay = FreezeGameOnOverlay;
         settings.OverlayTakesFocus = OverlayTakesFocus;
+        settings.SmartTdpEnabled = SmartTdpEnabled;
+        settings.SmartTdpTargetFps = SmartTdpTargets[SmartTdpTargetIndex];
 
         // v0.25.2: o layout Cartoon é uma identidade fechada — paleta 16, fonte
         // Fredoka e som Bolha. Os combos ficam desligados na tela; gravar aqui

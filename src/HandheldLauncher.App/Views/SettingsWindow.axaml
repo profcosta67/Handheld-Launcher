@@ -261,6 +261,22 @@
             </Border>
 
             <!-- 🟢 NOVO BLOCO DO OVERLAY (LIVRE DE FREEZE) -->
+            <Border Classes="settingsCard" IsVisible="{Binding IsWindows}">
+              <StackPanel Spacing="8">
+                <TextBlock Text="TDP inteligente (experimental)" Classes="sectionTitle" />
+                <TextBlock Text="Ajustar o TDP sozinho durante o jogo" Classes="label"/>
+                <ToggleSwitch IsChecked="{Binding SmartTdpEnabled}" />
+                <TextBlock Text="Com um jogo aberto, o launcher lê o FPS e ajusta os watts para manter a meta sem gastar bateria à toa. O valor em que cada jogo estabiliza é lembrado e aplicado na próxima vez. Precisa do RTSS (o mesmo do HUD). Se você trocar o TDP à mão durante o jogo, o modo inteligente sai da frente até o jogo fechar."
+                           Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+                <TextBlock Text="Meta de FPS" Classes="label" Margin="0,8,0,4"/>
+                <ComboBox SelectedIndex="{Binding SmartTdpTargetIndex}" HorizontalAlignment="Stretch" Height="36">
+                  <ComboBoxItem Content="30 FPS" /><ComboBoxItem Content="40 FPS" /><ComboBoxItem Content="45 FPS" />
+                  <ComboBoxItem Content="60 FPS" /><ComboBoxItem Content="90 FPS" /><ComboBoxItem Content="120 FPS" />
+                </ComboBox>
+                <TextBlock Text="Use a mesma taxa em que o jogo está limitado. O jogo precisa conseguir chegar nela: o modo inteligente corta sobra de potência, não cria desempenho."
+                           Classes="subtle" FontSize="11" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
             <Border Classes="settingsCard">
               <StackPanel Spacing="8">
                 <TextBlock Text="Overlay (Quick Settings)" Classes="sectionTitle" />
