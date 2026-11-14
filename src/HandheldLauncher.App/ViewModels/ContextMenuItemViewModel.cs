@@ -55,8 +55,8 @@ public sealed class ContextMenuItemViewModel : ViewModelBase
             if (key is null) return null;
             try
             {
-                return Avalonia.Application.Current is { } app
-                       && app.TryFindResource(key, out var res) && res is Avalonia.Media.Geometry g ? g : null;
+                if (Avalonia.Application.Current is not { } app) return null;
+                return app.Resources.TryGetResource(key, null, out var res) ? res as Avalonia.Media.Geometry : null;
             }
             catch { return null; }
         }
