@@ -38,9 +38,13 @@ internal sealed class SmartTdpService : IDisposable
     private readonly object _gate = new();
 
     private AppSettings _settings = new();
-    private int _settingsAge = int.MaxValue;
+    // Começa "vencido" para ler as configurações já no 1º ciclo. (Na beta.57 isto era
+    // int.MaxValue: o ++ estourava para negativo e as configurações nunca eram lidas —
+    // por isso o modo inteligente não fez nada no primeiro teste.)
+    private int _settingsAge = 1000;
 
     private Session? _session;
+    private bool? _lastEnabled;
 
     private sealed class Session
     {
@@ -83,6 +87,12 @@ internal sealed class SmartTdpService : IDisposable
         {
             _settings = AppSettingsStore.Load();
             _settingsAge = 0;
+        }
+
+        if (_settings.SmartTdpEnabled != _lastEnabled)
+        {
+            _lastEnabled = _settings.SmartTdpEnabled;
+            DebugLog.Write($"[TDP-AUTO] Modo inteligente {(_lastEnabled == true ? "LIGADO" : "desligado")} (meta {TargetFps} FPS).");
         }
 
         var game = _viewModel.RunningGame;

@@ -155,7 +155,7 @@
 
                 <Border Classes="gameTile" Classes.focused="{Binding IsFocused}" Classes.lastPlayed="{Binding IsLastPlayed}" Width="{Binding TileWidth}" Height="{Binding TileHeight}" PointerPressed="OnTilePointerPressed" DoubleTapped="OnTileDoubleTapped">
                   <Grid>
-                    <!-- v0.26: a Viewbox garante que a capa preencha o quadro inteiro (sem faixas nas laterais), seja qual for a proporção da arte. --><Viewbox Stretch="UniformToFill" ClipToBounds="True"><Image anim:ImageBehavior.AnimatedSource="{Binding TileImagePath}" Stretch="None" /></Viewbox>
+                    <!-- v0.27: tamanho explícito do quadro + UniformToFill (como no Clean). A Viewbox da 0.26 deslocava algumas artes para fora do quadro. --><Image anim:ImageBehavior.AnimatedSource="{Binding TileImagePath}" Width="{Binding TileWidth}" Height="{Binding TileHeight}" Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center" />
                     <Border Background="{DynamicResource NotInstalledVeilBrush}" IsHitTestVisible="False" IsVisible="{Binding IsOwnedNotInstalled}" />
                     <TextBlock Text="{Binding Title}" Classes="gameTitle" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="10" IsVisible="{Binding ShowEmptyPlaceholder}" />
                     <Border Background="{Binding PlatformBadgeColorHex, Converter={StaticResource HexColorToBrushConverter}}" CornerRadius="4" Padding="5,2" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8" IsVisible="{Binding HasPlatformBadge}"><TextBlock Text="{Binding PlatformBadgeText}" FontSize="{DynamicResource TextMicro}" FontWeight="Bold" Foreground="White" /></Border>

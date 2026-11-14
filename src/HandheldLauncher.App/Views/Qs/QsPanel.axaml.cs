@@ -153,6 +153,7 @@ public partial class QsPanel : UserControl
             BuildFanChips(fanModes);
             BuildColorChips(colorModes);
 
+            _smartOn = ReadSmartTdpSetting(); // pode ter mudado nas Configurações
             SelectPowerPreset(currentPreset);
             SelectFan(currentFan);
             SelectColor(currentColor);
@@ -226,13 +227,49 @@ public partial class QsPanel : UserControl
     public void SelectPowerPreset(PowerPreset preset)
     {
         for (var i = 0; i < _tdpButtons.Count; i++)
-            _tdpButtons[i].Classes.Set("active", (PowerPreset)_tdpButtons[i].Tag! == preset);
+        {
+            var isSmart = ReferenceEquals(_tdpButtons[i], _smartButton);
+            _tdpButtons[i].Classes.Set("active", isSmart ? _smartOn : !_smartOn && _tdpButtons[i].Tag is PowerPreset p && p == preset);
+            _tdpButtons[i].Opacity = _smartOn && !isSmart ? 0.5 : 1;
+        }
 
         // v0.25.3: no "Person." o D-pad ajusta o slider diretamente.
         _activePreset = preset;
         _customPresetActive = preset == PowerPreset.Custom;
         if (TxtTdpHint is not null && !_tdpEditing)
-            TxtTdpHint.Text = _customPresetActive ? "Personalizado ativo • selecione Person. e A para ajustar" : "";
+            TxtTdpHint.Text = _smartOn ? "Modo inteligente: o TDP se ajusta sozinho no jogo • escolha um perfil para desligar"
+                : _customPresetActive ? "Personalizado ativo • selecione Person. e A para ajustar" : "";
+    }
+
+    // ---- v0.27: TDP inteligente no painel
+    private const string SmartTag = "smart";
+    private Button? _smartButton;
+    private bool _smartOn;
+
+    private static bool ReadSmartTdpSetting()
+    {
+        try { return HandheldLauncher.Core.Services.AppSettingsStore.Load().SmartTdpEnabled; }
+        catch { return false; }
+    }
+
+    private void SetSmartTdp(bool on)
+    {
+        try
+        {
+            var settings = HandheldLauncher.Core.Services.AppSettingsStore.Load();
+            settings.SmartTdpEnabled = on;
+            HandheldLauncher.Core.Services.AppSettingsStore.Save(settings);
+        }
+        catch (Exception ex)
+        {
+            HandheldLauncher.App.Diagnostics.DebugLog.Write($"[QS] Não consegui gravar o modo inteligente: {ex.Message}");
+            return;
+        }
+
+        _smartOn = on;
+        HandheldLauncher.App.Diagnostics.DebugLog.Write($"[QS] TDP inteligente {(on ? "ligado" : "desligado")} pelo painel.");
+        if (on) EndTdpEdit(apply: false);
+        SelectPowerPreset(_activePreset);
     }
 
     // v0.25.3: HUD de desempenho de volta ao QS 2.0 (Off/Resumido/Médio/Completo).
@@ -312,6 +349,15 @@ public partial class QsPanel : UserControl
             _tdpButtons.Add(button);
             TdpPresetsHost.Children.Add(button);
         }
+
+        // v0.27: TDP inteligente como mais uma opção da fila. É exclusiva: ligar o Auto
+        // desmarca os perfis; escolher um perfil desliga o Auto.
+        _smartButton = MakeChip("🧠", "Auto");
+        _smartButton.Tag = SmartTag;
+        _smartButton.Click += (_, _) => SetSmartTdp(!_smartOn);
+        _tdpButtons.Add(_smartButton);
+        TdpPresetsHost.Children.Add(_smartButton);
+        _smartOn = ReadSmartTdpSetting();
 
         SelectPowerPreset(PowerPreset.Normal);
     }
@@ -421,6 +467,7 @@ public partial class QsPanel : UserControl
 
     private void OnPowerPresetClick(PowerPreset preset)
     {
+        if (_smartOn) SetSmartTdp(false); // escolher um perfil desliga o modo inteligente
         if (preset == PowerPreset.Custom) { BeginTdpEdit(); return; }
         EndTdpEdit(apply: false);
 
@@ -657,6 +704,8 @@ public partial class QsPanel : UserControl
             case 4:
                 if (index >= 0 && index < _tdpButtons.Count && _tdpButtons[index].Tag is PowerPreset p)
                     OnPowerPresetClick(p);
+                else if (index >= 0 && index < _tdpButtons.Count && ReferenceEquals(_tdpButtons[index], _smartButton))
+                    SetSmartTdp(!_smartOn);
                 break;
             case 5:
                 if (index >= 0 && index < _hudButtons.Count)
