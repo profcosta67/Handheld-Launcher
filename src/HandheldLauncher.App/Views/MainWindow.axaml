@@ -47,7 +47,7 @@
     <!-- Estilos do Control Center (movidos para o lugar correto) -->
     <Style Selector="Button.controlTile">
         <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}"/>
-        <Setter Property="CornerRadius" Value="16"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}"/>
         <Setter Property="Margin" Value="5"/>
         <Setter Property="HorizontalAlignment" Value="Stretch"/>
         <Setter Property="VerticalAlignment" Value="Stretch"/>
@@ -91,7 +91,7 @@
 
           <Button Classes="iconGhost"
                   Width="32" Height="32"
-                  CornerRadius="16"
+                  CornerRadius="{DynamicResource RadiusLarge}"
                   Content="i"
                   FontFamily="Georgia"
                   FontStyle="Italic"
@@ -110,7 +110,7 @@
                   IsVisible="{Binding HasUpdateStatus}"
                   Click="OnUpdateBadgeClick" />
 
-          <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="12" Padding="14,6" VerticalAlignment="Center">
+          <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="{DynamicResource RadiusMedium}" Padding="14,6" VerticalAlignment="Center">
             <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
 
               <!-- 🟢 NOVO BOTÃO ÚNICO DA CENTRAL DE CONTROLE -->
@@ -406,7 +406,7 @@
                                                 Classes.connected="{Binding IsConnected}" 
                                                 Padding="10,8" 
                                                 Margin="0,0,0,4" 
-                                                CornerRadius="6" 
+                                                CornerRadius="{DynamicResource RadiusXSmall}" 
                                                 Background="Transparent"
                                                 PointerPressed="OnWifiNetworkClick">
                                             <Grid ColumnDefinitions="*,Auto">
@@ -433,7 +433,7 @@
                                                 Classes.connected="{Binding IsConnected}" 
                                                 Padding="10,8" 
                                                 Margin="0,0,0,4" 
-                                                CornerRadius="6" 
+                                                CornerRadius="{DynamicResource RadiusXSmall}" 
                                                 Background="Transparent"
                                                 PointerPressed="OnBluetoothDeviceClick">
                                             <Grid ColumnDefinitions="*,Auto">
@@ -580,7 +580,7 @@
               </ItemsControl.ItemsPanel>
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:ArtworkCandidateViewModel">
-                  <Border Classes="coverCandidate" Classes.selected="{Binding IsSelected}" Cursor="Hand" PointerPressed="OnCoverCandidatePressed" Width="150" Height="170" Margin="6" CornerRadius="8" ClipToBounds="True" HorizontalAlignment="Center" VerticalAlignment="Center">
+                  <Border Classes="coverCandidate" Classes.selected="{Binding IsSelected}" Cursor="Hand" PointerPressed="OnCoverCandidatePressed" Width="150" Height="170" Margin="6" CornerRadius="{DynamicResource RadiusSmall}" ClipToBounds="True" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <Grid>
                       <Image Source="{Binding LocalThumbnailPath, Converter={StaticResource FileToBitmapConverter}}" Stretch="Uniform" />
                       <Border Background="#CC6B4EFF" CornerRadius="5" Padding="6,3"
@@ -601,21 +601,50 @@
     <!-- "Sobre" -->
     <Panel Classes="fadeIn" IsVisible="{Binding IsAboutOpen}">
       <Border Classes="contextMenuOverlay" PointerPressed="OnAboutOverlayPressed" />
-      <Border Classes="contextMenuCard" Width="480" Padding="32" HorizontalAlignment="Center" VerticalAlignment="Center">
-        <StackPanel Spacing="14" HorizontalAlignment="Center">
-          <Image Source="avares://HandheldLauncher/Assets/app-icon.ico" Width="56" Height="56" HorizontalAlignment="Center" />
-          <TextBlock Text="Handheld Launcher" Classes="menuHeaderTitle" FontSize="{DynamicResource FontSizeTitle}" />
-          <TextBlock Text="{Binding AboutVersionText}" Classes="subtle" FontSize="{DynamicResource FontSizeBody}" HorizontalAlignment="Center" />
-          <TextBlock Text="Um launcher em tela cheia para PCs portáteis como o Legion Go e o ROG Ally. Reúne seus jogos da Steam, do Xbox e outros num só lugar, com capas do SteamGridDB, HUD de desempenho e atualização automática." Classes="gameTitle" FontSize="{DynamicResource FontSizeBody}" TextWrapping="Wrap" TextAlignment="Center" FontWeight="Normal" />
-          <Border Classes="menuHeader" Padding="12,8">
-            <StackPanel Spacing="2" HorizontalAlignment="Center">
-              <TextBlock Text="Criado por profcosta67" Classes="gameTitle" FontSize="{DynamicResource FontSizeBody}" HorizontalAlignment="Center" FontWeight="SemiBold" />
-              <TextBlock Text="Desenvolvido com Claude (Anthropic)" Classes="subtle" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center" />
+      <!-- v0.26: "Sobre" reformulado — cabeçalho com a marca e a versão, uma frase do que o
+           launcher é, e os fatos em linhas (rótulo à esquerda, valor à direita). -->
+      <Border Classes="contextMenuCard" Width="620" Padding="36" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <StackPanel Spacing="22">
+          <Grid ColumnDefinitions="Auto,*">
+            <Image Source="avares://HandheldLauncher/Assets/app-icon.ico" Width="64" Height="64" VerticalAlignment="Center" />
+            <StackPanel Grid.Column="1" Margin="18,0,0,0" Spacing="2" VerticalAlignment="Center">
+              <TextBlock Text="Handheld Launcher" FontSize="26" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <TextBlock Text="{Binding AboutVersionText}" FontSize="{DynamicResource FontSizeBody}" Foreground="{DynamicResource AccentBrush}" FontWeight="SemiBold" />
             </StackPanel>
-          </Border>
-          <TextBlock Text="github.com/profcosta67/Handheld-Launcher" Classes="subtle" FontSize="{DynamicResource FontSizeBody}" HorizontalAlignment="Center" />
-          <TextBlock Text="Projeto independente, sem vínculo com Valve, Epic, Microsoft, Lenovo ou ASUS. Marcas pertencem aos seus donos. Fornecido como está, sem garantias. Não coleta dados: tudo fica neste PC." Classes="subtle" FontSize="{DynamicResource FontSizeCaption}" TextWrapping="Wrap" TextAlignment="Center" />
-          <TextBlock Text="Feito com Avalonia · Capas: SteamGridDB · HUD: RTSS · Atualizações: Velopack" Classes="subtle" FontSize="{DynamicResource FontSizeCaption}" TextWrapping="Wrap" TextAlignment="Center" />
+          </Grid>
+
+          <TextBlock Text="Um launcher em tela cheia para PCs portáteis como o Legion Go e o ROG Ally. Reúne seus jogos da Steam, do Xbox e de outras lojas num só lugar, com capas, HUD de desempenho e atualização automática."
+                     FontSize="{DynamicResource FontSizeBody}" LineHeight="22" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}" />
+
+          <StackPanel Spacing="0">
+            <Grid ColumnDefinitions="150,*" MinHeight="40">
+              <TextBlock Text="Criado por" Classes="subtle" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" Text="profcosta67" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+            </Grid>
+            <Border Height="1" Background="{DynamicResource TileSeparatorBrush}" />
+            <Grid ColumnDefinitions="150,*" MinHeight="40">
+              <TextBlock Text="Desenvolvido com" Classes="subtle" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" Text="Claude (Anthropic)" FontSize="{DynamicResource FontSizeBody}" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+            </Grid>
+            <Border Height="1" Background="{DynamicResource TileSeparatorBrush}" />
+            <Grid ColumnDefinitions="150,*" MinHeight="40">
+              <TextBlock Text="Código" Classes="subtle" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" Text="github.com/profcosta67/Handheld-Launcher" FontSize="{DynamicResource FontSizeBody}" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" TextWrapping="Wrap" />
+            </Grid>
+            <Border Height="1" Background="{DynamicResource TileSeparatorBrush}" />
+            <Grid ColumnDefinitions="150,*" MinHeight="40">
+              <TextBlock Text="Usa" Classes="subtle" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" Text="Avalonia, SteamGridDB (capas), RTSS (HUD), Velopack (atualizações)" FontSize="{DynamicResource FontSizeBody}" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" TextWrapping="Wrap" />
+            </Grid>
+            <Border Height="1" Background="{DynamicResource TileSeparatorBrush}" />
+            <Grid ColumnDefinitions="150,*" MinHeight="40">
+              <TextBlock Text="Seus dados" Classes="subtle" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" Text="Nada é coletado. Tudo fica neste PC." FontSize="{DynamicResource FontSizeBody}" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+            </Grid>
+          </StackPanel>
+
+          <TextBlock Text="Projeto independente, sem vínculo com Valve, Epic, Microsoft, Lenovo ou ASUS. As marcas pertencem aos seus donos. Fornecido como está, sem garantias."
+                     Classes="subtle" FontSize="{DynamicResource FontSizeCaption}" TextWrapping="Wrap" />
         </StackPanel>
       </Border>
     </Panel>
@@ -636,7 +665,7 @@
     <Panel Classes="fadeIn" IsVisible="{Binding IsShortcutsHelpOpen}">
       <Border Classes="contextMenuOverlay" PointerPressed="OnShortcutsOverlayPressed" />
       
-      <Border Width="860" Padding="32" CornerRadius="20"
+      <Border Width="860" Padding="32" CornerRadius="{DynamicResource RadiusXLarge}"
               Background="#161B24"
               BorderBrush="#333A4A" BorderThickness="1"
               HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -644,7 +673,7 @@
           
           <StackPanel Spacing="6">
             <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-              <Border Background="{StaticResource AccentBrush}" CornerRadius="8" Padding="8,4">
+              <Border Background="{StaticResource AccentBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="8,4">
                 <TextBlock Text="F1" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource OnAccentBrush}" FontSize="14" />
               </Border>
               <TextBlock Text="Atalhos" FontSize="24" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" />
@@ -669,9 +698,9 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
-                    <Border Background="#1A1F2B" CornerRadius="10" Padding="12,10" Margin="4">
+                    <Border Background="#1A1F2B" CornerRadius="{DynamicResource RadiusMedium}" Padding="12,10" Margin="4">
                       <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                        <Border Background="#1E2B1F" CornerRadius="6" Padding="8,4" BorderBrush="#2D4A2F" BorderThickness="1" MinWidth="72">
+                        <Border Background="#1E2B1F" CornerRadius="{DynamicResource RadiusXSmall}" Padding="8,4" BorderBrush="#2D4A2F" BorderThickness="1" MinWidth="72">
                           <TextBlock Text="{Binding Key}" FontFamily="Consolas" FontSize="12" FontWeight="Bold" Foreground="#3FB950" HorizontalAlignment="Center" />
                         </Border>
                         <TextBlock Text="{Binding Label}" FontSize="12" Foreground="#E0E0E0" VerticalAlignment="Center" TextWrapping="Wrap" />
@@ -696,9 +725,9 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
-                    <Border Background="#1A1F2B" CornerRadius="10" Padding="12,10" Margin="4">
+                    <Border Background="#1A1F2B" CornerRadius="{DynamicResource RadiusMedium}" Padding="12,10" Margin="4">
                       <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                        <Border Background="{StaticResource ButtonBackgroundBrush}" CornerRadius="6" Padding="8,4" BorderBrush="{StaticResource TileSeparatorBrush}" BorderThickness="1" MinWidth="72">
+                        <Border Background="{StaticResource ButtonBackgroundBrush}" CornerRadius="{DynamicResource RadiusXSmall}" Padding="8,4" BorderBrush="{StaticResource TileSeparatorBrush}" BorderThickness="1" MinWidth="72">
                           <TextBlock Text="{Binding Key}" FontFamily="Consolas" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" />
                         </Border>
                         <TextBlock Text="{Binding Label}" FontSize="12" Foreground="#E0E0E0" VerticalAlignment="Center" TextWrapping="Wrap" />

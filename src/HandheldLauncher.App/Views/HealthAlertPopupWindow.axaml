@@ -16,7 +16,7 @@
     tirar o foco do launcher (e o MainWindow nunca mostra isto com jogo
     aberto). Fecha sozinho em ~7s ou com um toque.
   -->
-  <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="16"
+  <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="{DynamicResource RadiusLarge}"
           BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1.5" Padding="18"
           PointerPressed="OnPressed">
     <StackPanel Spacing="6">

@@ -158,6 +158,20 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
             return true;
         }
 
+        // v0.26: com a Central de Saves aberta, B volta para as Configurações (antes o B caía
+        // nas abas e fechava a janela inteira). O resto do controle pertence à central.
+        if (ViewModel.IsSyncthingOpen)
+        {
+            if (action == GamepadAction.Back)
+            {
+                ViewModel.CloseSyncthingCommand.Execute(null);
+                _focusZone = FocusZone.Tabs;
+                _contentIndex = 0;
+                FocusActiveTab();
+            }
+            return true;
+        }
+
         if (action == GamepadAction.GameDetails)
         {
             ViewModel.SaveTo(_settings);

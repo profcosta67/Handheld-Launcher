@@ -18,7 +18,7 @@
     <Style Selector="Button.addGhostCard">
       <Setter Property="Width" Value="180" />
       <Setter Property="Height" Value="250" />
-      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}" />
       <Setter Property="Background" Value="#40151515" />
       <Setter Property="BorderBrush" Value="#66FFFFFF" />
       <Setter Property="BorderThickness" Value="2" />
@@ -30,7 +30,7 @@
       <Setter Property="Background" Value="#60151925" />
     </Style>
     <Style Selector="Border.gameTile">
-      <Setter Property="CornerRadius" Value="24" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusXLarge}" />
     </Style>
     <Style Selector="Border.gameTile.focused">
       <Setter Property="BorderThickness" Value="2" />
@@ -39,7 +39,7 @@
     <Style Selector="Button.filterTab">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
-      <Setter Property="CornerRadius" Value="18" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
       <Setter Property="Padding" Value="12,9" />
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="MinHeight" Value="44" />

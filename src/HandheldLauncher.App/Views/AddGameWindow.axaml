@@ -31,7 +31,7 @@
       <StackPanel Spacing="4">
 
         <!-- Card: Programas instalados (v0.25.3) -->
-        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="12" Padding="16" Margin="0,0,0,12">
+        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="{DynamicResource RadiusMedium}" Padding="16" Margin="0,0,0,12">
           <StackPanel Spacing="10">
             <Grid ColumnDefinitions="*,Auto">
               <TextBlock Text="Programas instalados" Classes="header" Margin="0"/>
@@ -71,7 +71,7 @@
         </Border>
 
         <!-- Card: Informações Básicas -->
-        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="12" Padding="16" Margin="0,0,0,12">
+        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="{DynamicResource RadiusMedium}" Padding="16" Margin="0,0,0,12">
           <StackPanel Spacing="12">
             <TextBlock Text="Nome do Jogo" Classes="header" Margin="0,0,0,4"/>
             <TextBox Text="{Binding Title}" Watermark="Ex: Hollow Knight" Height="40" FontSize="14"/>
@@ -81,7 +81,7 @@
         </Border>
 
         <!-- Card: Execução -->
-        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="12" Padding="16" Margin="0,0,0,12">
+        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="{DynamicResource RadiusMedium}" Padding="16" Margin="0,0,0,12">
           <StackPanel Spacing="12">
             <TextBlock Text="Arquivo Executável" Classes="header" Margin="0,0,0,4"/>
             <Grid ColumnDefinitions="*,Auto">

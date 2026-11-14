@@ -11,7 +11,7 @@
         CanResize="False">
 
   <!-- v0.26 (Camada 1): guarda de elevação no lançamento de um jogo. -->
-  <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="16"
+  <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="{DynamicResource RadiusLarge}"
           BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1.5" Padding="22">
     <StackPanel Spacing="12">
       <TextBlock x:Name="TxtTitle" FontSize="17" FontWeight="Bold"

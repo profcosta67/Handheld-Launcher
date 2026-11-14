@@ -20,7 +20,7 @@
       <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource TileSeparatorBrush}" />
       <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="18" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
       <Setter Property="Padding" Value="10,8" />
       <Setter Property="MinHeight" Value="58" />
       <Setter Property="FontSize" Value="11" />
@@ -47,7 +47,7 @@
       <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
     </Style>
     <Style Selector="Border.switchTile">
-      <Setter Property="CornerRadius" Value="22" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusXLarge}" />
       <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource TileSeparatorBrush}" />
       <Setter Property="BorderThickness" Value="1" />
@@ -60,7 +60,7 @@
     <Style Selector="Button.addGhostCard">
       <Setter Property="Width" Value="200" />
       <Setter Property="Height" Value="300" />
-      <Setter Property="CornerRadius" Value="16" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderBrush" Value="{DynamicResource TextSecondaryBrush}" />
       <Setter Property="BorderThickness" Value="3" />
@@ -91,7 +91,7 @@
         <!-- 🟢 LOGO / NOME: Height=100 + VerticalAlignment=Center mantém o conjunto centralizado -->
         <Grid Height="100" IsVisible="{Binding SelectedTile, Converter={x:Static dataConv:ObjectConverters.IsNotNull}}">
           <Image Source="{Binding SelectedTile.LogoImagePath, Converter={StaticResource FileToBitmapConverter}}" Width="260" Height="60" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding SelectedTile.ShowCurrentLogo}" />
-          <Border Background="{DynamicResource SurfaceRaisedBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" CornerRadius="14" Padding="20,8" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="900" IsVisible="{Binding SelectedTile.ShowNameCaption}">
+          <Border Background="{DynamicResource SurfaceRaisedBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusLarge}" Padding="20,8" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="900" IsVisible="{Binding SelectedTile.ShowNameCaption}">
             <TextBlock Text="{Binding SelectedTile.Title}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="26" FontWeight="SemiBold" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
           </Border>
         </Grid>

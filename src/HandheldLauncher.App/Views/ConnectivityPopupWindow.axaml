@@ -8,7 +8,7 @@
         WindowStartupLocation="CenterOwner"
         Background="#10131C"
         Topmost="True">
-  <Border Padding="28" Background="#10131C" BorderBrush="#394257" BorderThickness="1" CornerRadius="18">
+  <Border Padding="28" Background="#10131C" BorderBrush="#394257" BorderThickness="1" CornerRadius="{DynamicResource RadiusLarge}">
     <Grid RowDefinitions="Auto,Auto,Auto,Auto,*">
       
       <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,20">
@@ -19,7 +19,7 @@
         <Button x:Name="BtnClose" Grid.Column="1" Content="✕" Width="38" Height="38"/>
       </Grid>
 
-      <Border Grid.Row="1" Background="#202638" CornerRadius="12" Padding="16" Margin="0,0,0,16">
+      <Border Grid.Row="1" Background="#202638" CornerRadius="{DynamicResource RadiusMedium}" Padding="16" Margin="0,0,0,16">
         <Grid ColumnDefinitions="*,Auto">
           <StackPanel Spacing="4" VerticalAlignment="Center">
             <TextBlock Text="Wi-Fi" FontSize="18" FontWeight="Bold" Foreground="#F5F7FF"/>
@@ -29,7 +29,7 @@
         </Grid>
       </Border>
 
-      <Border Grid.Row="2" Background="#202638" CornerRadius="12" Padding="16" Margin="0,0,0,16">
+      <Border Grid.Row="2" Background="#202638" CornerRadius="{DynamicResource RadiusMedium}" Padding="16" Margin="0,0,0,16">
         <Grid ColumnDefinitions="*,Auto">
           <StackPanel Spacing="4" VerticalAlignment="Center">
             <TextBlock Text="Bluetooth" FontSize="18" FontWeight="Bold" Foreground="#F5F7FF"/>
@@ -39,7 +39,7 @@
         </Grid>
       </Border>
 
-      <Border Grid.Row="3" Background="#202638" CornerRadius="12" Padding="16">
+      <Border Grid.Row="3" Background="#202638" CornerRadius="{DynamicResource RadiusMedium}" Padding="16">
         <StackPanel Spacing="10">
           <Grid ColumnDefinitions="*,Auto">
             <TextBlock Text="Dispositivos Bluetooth" FontSize="15" FontWeight="SemiBold" Foreground="#F5F7FF" VerticalAlignment="Center"/>

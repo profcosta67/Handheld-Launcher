@@ -26,7 +26,7 @@
         <TextBlock Text="Só leitura — nenhum ajuste é feito por aqui." Classes="subtle" FontSize="12" />
 
         <!-- v0.18: alertas (antecipados da v1.0 a pedido do usuário). -->
-        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="14" Padding="18">
+        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="{DynamicResource RadiusLarge}" Padding="18">
           <StackPanel Spacing="8">
             <TextBlock Text="Alertas recentes" FontSize="16" FontWeight="Bold" />
             <TextBlock x:Name="TxtNoAlerts" Text="Nenhum alerta nesta sessão." Classes="subtle" />
@@ -48,7 +48,7 @@
           </StackPanel>
         </Border>
 
-        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="14" Padding="18">
+        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="{DynamicResource RadiusLarge}" Padding="18">
           <StackPanel Spacing="8">
             <TextBlock Text="Temperatura (CPU)" FontSize="16" FontWeight="Bold" />
             <Grid ColumnDefinitions="*,Auto">
@@ -62,7 +62,7 @@
           </StackPanel>
         </Border>
 
-        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="14" Padding="18">
+        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="{DynamicResource RadiusLarge}" Padding="18">
           <StackPanel Spacing="8">
             <TextBlock Text="Bateria" FontSize="16" FontWeight="Bold" />
             <Grid ColumnDefinitions="*,Auto">
@@ -77,7 +77,7 @@
           </StackPanel>
         </Border>
 
-        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="14" Padding="18">
+        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="{DynamicResource RadiusLarge}" Padding="18">
           <StackPanel Spacing="10">
             <TextBlock Text="Armazenamento" FontSize="16" FontWeight="Bold" />
             <ItemsControl x:Name="DriveList">

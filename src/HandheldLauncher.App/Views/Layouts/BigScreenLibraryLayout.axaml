@@ -21,7 +21,7 @@
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="BorderBrush" Value="Transparent" />
       <Setter Property="Padding" Value="18,9" />
-      <Setter Property="CornerRadius" Value="18" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
     </Style>
     <Style Selector="Button.modernTab:pointerover /template/ ContentPresenter, Button.modernTab:focus /template/ ContentPresenter">
       <Setter Property="Background" Value="{DynamicResource AccentTranslucentBrush}" />
@@ -37,7 +37,7 @@
       <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     </Style>
     <Style Selector="Border.bigScreenTile">
-      <Setter Property="CornerRadius" Value="22" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusXLarge}" />
       <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource TileSeparatorBrush}" />
       <Setter Property="BorderThickness" Value="1" />
@@ -75,7 +75,7 @@
     <Grid ColumnDefinitions="*" RowDefinitions="Auto,*,Auto" Margin="24,14,32,20">
 
       <StackPanel Grid.Column="0" Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Top" HorizontalAlignment="Center" Spacing="8" Margin="0,0,0,18">
-        <Border Background="#20FFFFFF" BorderBrush="#15FFFFFF" BorderThickness="1" CornerRadius="18" Padding="6" BoxShadow="0 4 12 0 #40000000">
+        <Border Background="#20FFFFFF" BorderBrush="#15FFFFFF" BorderThickness="1" CornerRadius="{DynamicResource RadiusLarge}" Padding="6" BoxShadow="0 4 12 0 #40000000">
             <StackPanel Orientation="Horizontal" Spacing="4">
                 <Button Classes="modernTab" Classes.active="{Binding IsFilterFavoritesActive}" Command="{Binding SetFilterFavoritesCommand}"><StackPanel Orientation="Horizontal" Spacing="8"><PathIcon Width="16" Height="16" Data="{StaticResource IconStar}"/><TextBlock Text="Favoritos" FontSize="13" FontWeight="SemiBold"/></StackPanel></Button>
                 <Button Classes="modernTab" Classes.active="{Binding IsFilterAllActive}" Command="{Binding SetFilterAllCommand}"><StackPanel Orientation="Horizontal" Spacing="8"><PathIcon Width="16" Height="16" Data="{StaticResource IconGrid}"/><TextBlock Text="Todos" FontSize="13" FontWeight="SemiBold"/></StackPanel></Button>
@@ -88,7 +88,7 @@
         </Border>
       </StackPanel>
       
-      <Border Grid.Row="0" Background="{DynamicResource PanelTranslucentBrush}" BorderBrush="{DynamicResource TileSeparatorBrush}" BorderThickness="1" CornerRadius="18" Padding="12,7" VerticalAlignment="Top" HorizontalAlignment="Right">
+      <Border Grid.Row="0" Background="{DynamicResource PanelTranslucentBrush}" BorderBrush="{DynamicResource TileSeparatorBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusLarge}" Padding="12,7" VerticalAlignment="Top" HorizontalAlignment="Right">
         <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
           <Button Classes="pill" Click="OnOpenNetworksClick" ToolTip.Tip="Central de Controle" FontSize="10" Padding="9,5">
             <StackPanel Orientation="Horizontal" Spacing="5">

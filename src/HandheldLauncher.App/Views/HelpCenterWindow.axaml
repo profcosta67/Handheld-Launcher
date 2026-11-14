@@ -13,7 +13,7 @@
       <!-- v0.16.3: o cartão é sempre escuro; sem fixar a cor do texto, no tema
            Claro o texto vinha escuro sobre fundo escuro (print de 05/11). -->
       <Setter Property="Foreground" Value="#E6E9F2" />
-      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}" />
       <Setter Property="Padding" Value="14" />
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="HorizontalAlignment" Value="Stretch" />
@@ -63,7 +63,7 @@
           <Button Classes="pill" Content="← Voltar" HorizontalAlignment="Left" Click="OnReportBackClick" />
           <TextBlock Text="🐞 Reportar erro" FontSize="18" FontWeight="Bold" />
           <TextBlock x:Name="TxtReportStatus" Text="Preparando o pacote..." FontSize="14" TextWrapping="Wrap" />
-          <Border Background="#202536" CornerRadius="12" Padding="14" TextElement.Foreground="#E6E9F2">
+          <Border Background="#202536" CornerRadius="{DynamicResource RadiusMedium}" Padding="14" TextElement.Foreground="#E6E9F2">
             <StackPanel Spacing="6">
               <TextBlock Text="O que vai no pacote" FontWeight="Bold" />
               <TextBlock Classes="subtle" FontSize="12" TextWrapping="Wrap"

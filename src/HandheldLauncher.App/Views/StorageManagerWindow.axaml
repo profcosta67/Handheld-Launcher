@@ -21,7 +21,7 @@
   <Window.Styles>
     <Style Selector="Border.gameRow">
       <Setter Property="Background" Value="Transparent" />
-      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}" />
       <Setter Property="Padding" Value="10,6" />
       <Setter Property="Margin" Value="0,0,0,4" />
       <Setter Property="BorderThickness" Value="2" />
@@ -50,11 +50,11 @@
           <TextBlock Text="💾 Gerenciador de Armazenamento" FontSize="20" FontWeight="Bold" />
           <TextBlock Text="↑/↓ escolhe um jogo · A mostra como mover · Y limpa o cache de shader · B fecha" Classes="subtle" FontSize="12" TextWrapping="Wrap" />
 
-          <Border x:Name="LowSpaceWarning" Background="#2A1B1B" BorderBrush="#C0392B" BorderThickness="1.5" CornerRadius="12" Padding="14" IsVisible="False">
+          <Border x:Name="LowSpaceWarning" Background="#2A1B1B" BorderBrush="#C0392B" BorderThickness="1.5" CornerRadius="{DynamicResource RadiusMedium}" Padding="14" IsVisible="False">
             <TextBlock x:Name="TxtLowSpaceWarning" Foreground="#FFB3A7" TextWrapping="Wrap" FontWeight="SemiBold" />
           </Border>
 
-          <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="14" Padding="18">
+          <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="{DynamicResource RadiusLarge}" Padding="18">
             <StackPanel Spacing="10">
               <TextBlock Text="Discos" FontSize="16" FontWeight="Bold" />
               <ItemsControl x:Name="DriveList">
@@ -73,7 +73,7 @@
             </StackPanel>
           </Border>
 
-          <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="14" Padding="18">
+          <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="{DynamicResource RadiusLarge}" Padding="18">
             <Grid ColumnDefinitions="*,Auto">
               <StackPanel Spacing="4">
                 <TextBlock Text="Cache de shader" FontSize="16" FontWeight="Bold" />
@@ -83,7 +83,7 @@
             </Grid>
           </Border>
 
-          <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="14" Padding="18">
+          <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="{DynamicResource RadiusLarge}" Padding="18">
             <StackPanel Spacing="10">
               <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Text="Jogos (maior → menor)" FontSize="16" FontWeight="Bold" />
@@ -118,7 +118,7 @@
 
     <!-- Painel de ação / confirmação / progresso (por cima da lista). -->
     <Border x:Name="ActionPanel" IsVisible="False" Background="{DynamicResource BackdropDimBrush}">
-      <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="16" Padding="22" Margin="28"
+      <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="{DynamicResource RadiusLarge}" Padding="22" Margin="28"
               VerticalAlignment="Center" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1">
         <StackPanel Spacing="12">
           <TextBlock x:Name="TxtPanelTitle" FontSize="18" FontWeight="Bold" TextWrapping="Wrap" />

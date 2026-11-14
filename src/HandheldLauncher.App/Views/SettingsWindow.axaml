@@ -11,11 +11,11 @@
         Background="{StaticResource BackgroundBrush}">
 
   <Window.Styles>
-    <Style Selector="ComboBox"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="12" Margin="-8,-5" Background="{DynamicResource AccentTranslucentBrush}"/></Template></Setter></Style>
-    <Style Selector="TextBox"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="12" Margin="-8,-5" Background="{DynamicResource AccentTranslucentBrush}"/></Template></Setter></Style>
-    <Style Selector="ToggleSwitch"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="12" Margin="-8,-5" Background="{DynamicResource AccentTranslucentBrush}"/></Template></Setter></Style>
-    <Style Selector="RadioButton"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="12" Margin="-8,-5" Background="{DynamicResource AccentTranslucentBrush}"/></Template></Setter></Style>
-    <Style Selector="Slider"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="12" Margin="-8,-5" Background="{DynamicResource AccentTranslucentBrush}"/></Template></Setter></Style>
+    <Style Selector="ComboBox"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="{DynamicResource RadiusMedium}" Margin="-8,-5" Background="{DynamicResource AccentTranslucentBrush}"/></Template></Setter></Style>
+    <Style Selector="TextBox"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="{DynamicResource RadiusMedium}" Margin="-8,-5" Background="{DynamicResource AccentTranslucentBrush}"/></Template></Setter></Style>
+    <Style Selector="ToggleSwitch"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="{DynamicResource RadiusMedium}" Margin="-8,-5" Background="{DynamicResource AccentTranslucentBrush}"/></Template></Setter></Style>
+    <Style Selector="RadioButton"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="{DynamicResource RadiusMedium}" Margin="-8,-5" Background="{DynamicResource AccentTranslucentBrush}"/></Template></Setter></Style>
+    <Style Selector="Slider"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="{DynamicResource RadiusMedium}" Margin="-8,-5" Background="{DynamicResource AccentTranslucentBrush}"/></Template></Setter></Style>
     <Style Selector="Button.categoryTab"><Setter Property="FocusAdorner"><Template><Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="11" Margin="1"/></Template></Setter></Style>
     
     <!-- v0.26: sem caixas. Cada grupo é só um título discreto e as opções. -->
@@ -28,7 +28,7 @@
     </Style>
     <Style Selector="Button.categoryTab">
       <Setter Property="Background" Value="Transparent"/>
-      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}"/>
       <Setter Property="BorderThickness" Value="0"/>
       <Setter Property="FontSize" Value="15"/>
       <Setter Property="Padding" Value="14,10"/>
@@ -349,7 +349,7 @@
 
           <!-- Atalhos -->
           <StackPanel Spacing="0" IsVisible="{Binding IsCategoryShortcutsActive}">
-            <Border Background="#14251D" BorderBrush="#347A50" BorderThickness="1.5" CornerRadius="12" Padding="16" Margin="0,0,0,12">
+            <Border Background="#14251D" BorderBrush="#347A50" BorderThickness="1.5" CornerRadius="{DynamicResource RadiusMedium}" Padding="16" Margin="0,0,0,12">
               <StackPanel Spacing="10">
                 <TextBlock Text="🎮 CONTROLE" FontSize="13" FontWeight="Bold" Foreground="#75D99A" />
                 <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Navegar na biblioteca" Foreground="#D6F5E0"/><TextBlock Grid.Column="1" Text="D-Pad" FontWeight="Bold" Foreground="#8FE3AC"/></Grid>
@@ -360,7 +360,7 @@
                 <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Filtros (Anterior/Próximo)" Foreground="#D6F5E0"/><TextBlock Grid.Column="1" Text="LB / RB" FontWeight="Bold" Foreground="#8FE3AC"/></Grid>
               </StackPanel>
             </Border>
-            <Border Background="#1D1B30" BorderBrush="#7054C7" BorderThickness="1.5" CornerRadius="12" Padding="16">
+            <Border Background="#1D1B30" BorderBrush="#7054C7" BorderThickness="1.5" CornerRadius="{DynamicResource RadiusMedium}" Padding="16">
               <StackPanel Spacing="10">
                 <TextBlock Text="⌨ TECLADO" FontSize="13" FontWeight="Bold" Foreground="#B9A5FF" />
                 <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Navegar na biblioteca" Foreground="#E6E0FF"/><TextBlock Grid.Column="1" Text="← ↑ ↓ →" FontWeight="Bold" Foreground="#C6B5FF"/></Grid>
@@ -458,7 +458,7 @@
       </ScrollViewer>
 
       <!-- v0.26: explicação só da opção em foco (modo handheld, tela cheia). -->
-      <Border x:Name="HelpPane" Grid.Column="2" Width="340" Margin="24,0,0,0" Padding="24" CornerRadius="18"
+      <Border x:Name="HelpPane" Grid.Column="2" Width="340" Margin="24,0,0,0" Padding="24" CornerRadius="{DynamicResource RadiusLarge}"
               Background="{DynamicResource SurfaceBrush}" VerticalAlignment="Top" IsVisible="False">
         <StackPanel Spacing="12">
           <TextBlock x:Name="HelpTitle" FontSize="18" FontWeight="Bold" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}" />

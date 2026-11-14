@@ -57,6 +57,14 @@
       <CornerRadius x:Key="TileCornerRadius">16</CornerRadius>
       <CornerRadius x:Key="PillCornerRadius">999</CornerRadius>
       <CornerRadius x:Key="BarCornerRadius">18</CornerRadius>
+      <!-- v0.26: escala única de cantos (antes havia 16 valores soltos nas telas).
+           XSmall = selos e itens de lista · Small = campos e botões pequenos ·
+           Medium = botões e itens de menu · Large = cartões e painéis · XLarge = popups. -->
+      <CornerRadius x:Key="RadiusXSmall">6</CornerRadius>
+      <CornerRadius x:Key="RadiusSmall">8</CornerRadius>
+      <CornerRadius x:Key="RadiusMedium">12</CornerRadius>
+      <CornerRadius x:Key="RadiusLarge">18</CornerRadius>
+      <CornerRadius x:Key="RadiusXLarge">22</CornerRadius>
 
       <x:Double x:Key="TypeScale1">11</x:Double>
       <x:Double x:Key="TypeScale2">12</x:Double>
@@ -145,7 +153,7 @@
   </Style>
 
   <Style Selector="Border.menuItem">
-    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}" />
     <Setter Property="Background" Value="Transparent" />
   </Style>
 
@@ -168,7 +176,7 @@
   <!-- v0.26: título do menu sem a caixa colorida (menos "caixa dentro de caixa"). -->
   <Style Selector="Border.menuHeader">
     <Setter Property="Background" Value="Transparent" />
-    <Setter Property="CornerRadius" Value="14" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
     <Setter Property="Padding" Value="16,4" />
     <Setter Property="HorizontalAlignment" Value="Stretch" />
     <Setter Property="Margin" Value="0,0,0,4" />
@@ -183,7 +191,7 @@
 
   <Style Selector="Border.coverCandidate">
     <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
-    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}" />
     <Setter Property="ClipToBounds" Value="True" />
     <Setter Property="BorderThickness" Value="3" />
     <Setter Property="BorderBrush" Value="Transparent" />
@@ -196,7 +204,7 @@
   <Style Selector="TextBox">
     <Setter Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
     <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}" />
     <Setter Property="Padding" Value="10,8" />
     <Setter Property="BorderThickness" Value="0" />
   </Style>
@@ -359,7 +367,7 @@
 
   <Style Selector="Border.qsCard">
     <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
-    <Setter Property="CornerRadius" Value="18" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
     <Setter Property="Padding" Value="14,12" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="BorderBrush" Value="{DynamicResource TileSeparatorBrush}" />
@@ -377,7 +385,7 @@
   <Style Selector="Button.settingsTab">
     <Setter Property="Background" Value="{StaticResource ButtonBackgroundBrush}" />
     <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-    <Setter Property="CornerRadius" Value="16" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
     <Setter Property="Padding" Value="14,11" />
     <Setter Property="BorderBrush" Value="{StaticResource TileSeparatorBrush}" />
     <Setter Property="BorderThickness" Value="1" />
@@ -411,7 +419,7 @@
     <Setter Property="Background" Value="{DynamicResource ButtonBackgroundBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource TileSeparatorBrush}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="18" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
     <Setter Property="ClipToBounds" Value="True" />
     <Setter Property="Margin" Value="5" />
   </Style>
@@ -467,7 +475,7 @@
   <Style Selector="Button.qsTileMain.focused">
     <Setter Property="BorderThickness" Value="2" />
     <Setter Property="BorderBrush" Value="{DynamicResource TextPrimaryBrush}" />
-    <Setter Property="CornerRadius" Value="16" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
   </Style>
 
   <!-- Slider minimalista -->

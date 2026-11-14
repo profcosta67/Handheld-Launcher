@@ -33,7 +33,7 @@
       <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
       <Setter Property="Margin" Value="2" />
-      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusSmall}" />
       <Setter Property="Focusable" Value="False" />
     </Style>
     <Style Selector="Button.cloudLetter.active /template/ ContentPresenter">
@@ -49,7 +49,7 @@
     </Style>
     <Style Selector="TextBox.cloudSearch">
       <Setter Property="MinHeight" Value="44" />
-      <Setter Property="CornerRadius" Value="16" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
       <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource TileSeparatorBrush}" />
       <Setter Property="BorderThickness" Value="1" />

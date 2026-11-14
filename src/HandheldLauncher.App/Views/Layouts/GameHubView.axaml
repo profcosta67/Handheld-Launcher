@@ -27,7 +27,7 @@
             <!-- 1. Identidade do Jogo -->
             <StackPanel Grid.Column="0" Spacing="6" Margin="0,0,20,0">
                 <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                    <Border Width="40" Height="40" CornerRadius="8" Background="#33232B3B" ClipToBounds="True">
+                    <Border Width="40" Height="40" CornerRadius="{DynamicResource RadiusSmall}" Background="#33232B3B" ClipToBounds="True">
                         <Image Source="{Binding SelectedTile.IconImagePath, Converter={StaticResource FileToBitmapConverter}}" Stretch="Uniform" Margin="4" />
                     </Border>
                     <TextBlock Text="{Binding SelectedTile.Title}" 

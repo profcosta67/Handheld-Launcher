@@ -14,16 +14,16 @@
             <TextBlock Text="Selecione o arquivo .inf do driver que deseja instalar." Foreground="LightGray"/>
         </StackPanel>
 
-        <Border Grid.Row="1" Background="#252A36" CornerRadius="8" Padding="20" VerticalAlignment="Center">
+        <Border Grid.Row="1" Background="#252A36" CornerRadius="{DynamicResource RadiusSmall}" Padding="20" VerticalAlignment="Center">
             <StackPanel Spacing="15" HorizontalAlignment="Center">
                 <TextBlock x:Name="TxtFilePath" Text="Nenhum arquivo selecionado." Foreground="Gray" TextWrapping="Wrap" TextAlignment="Center"/>
-                <Button Content="Selecionar Arquivo .inf" Click="OnSelectFileClick" Background="#424A5D" Foreground="White" CornerRadius="8" Padding="20,10"/>
+                <Button Content="Selecionar Arquivo .inf" Click="OnSelectFileClick" Background="#424A5D" Foreground="White" CornerRadius="{DynamicResource RadiusSmall}" Padding="20,10"/>
             </StackPanel>
         </Border>
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" Margin="0,15,0,0">
-            <Button x:Name="BtnInstall" Content="Instalar Driver" Click="OnInstallClick" IsEnabled="False" Background="{StaticResource AccentBrush}" Foreground="White" CornerRadius="8" Padding="15,10" FontWeight="Bold"/>
-            <Button Content="Fechar" Click="OnCloseClick" Background="#FF4040" Foreground="White" CornerRadius="8" Padding="15,10"/>
+            <Button x:Name="BtnInstall" Content="Instalar Driver" Click="OnInstallClick" IsEnabled="False" Background="{StaticResource AccentBrush}" Foreground="White" CornerRadius="{DynamicResource RadiusSmall}" Padding="15,10" FontWeight="Bold"/>
+            <Button Content="Fechar" Click="OnCloseClick" Background="#FF4040" Foreground="White" CornerRadius="{DynamicResource RadiusSmall}" Padding="15,10"/>
         </StackPanel>
     </Grid>
 </Window>

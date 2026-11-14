@@ -10,7 +10,7 @@
         Background="#1A1A1A"
         SystemDecorations="None"
         TransparencyLevelHint="Mica,Blur,None">
-  <Border CornerRadius="16" Background="#1A1A1A" BorderBrush="#2A2A2A" BorderThickness="1" Padding="20">
+  <Border CornerRadius="{DynamicResource RadiusLarge}" Background="#1A1A1A" BorderBrush="#2A2A2A" BorderThickness="1" Padding="20">
     <Grid RowDefinitions="*,Auto">
 
       <!-- Centro: círculo + título + número -->
@@ -61,14 +61,14 @@
                 Content="⏸"
                 Width="56" Height="44"
                 FontSize="18"
-                CornerRadius="10"
+                CornerRadius="{DynamicResource RadiusMedium}"
                 Background="#2A2A3A"
                 Foreground="White" />
         <Button x:Name="CancelButton"
                 Content="✕"
                 Width="56" Height="44"
                 FontSize="18"
-                CornerRadius="10"
+                CornerRadius="{DynamicResource RadiusMedium}"
                 Background="#3A1A1A"
                 Foreground="White" />
       </StackPanel>

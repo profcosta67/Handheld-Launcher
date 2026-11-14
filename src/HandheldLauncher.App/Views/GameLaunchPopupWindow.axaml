@@ -12,14 +12,14 @@
         CanResize="False">
 
     <Border Background="#F01A1A1A"
-            CornerRadius="16"
+            CornerRadius="{DynamicResource RadiusLarge}"
             BorderBrush="#444444"
             BorderThickness="1"
             Padding="20">
         <Grid ColumnDefinitions="64,*,40">
             <Border Grid.Column="0"
                     Width="56" Height="56"
-                    CornerRadius="12"
+                    CornerRadius="{DynamicResource RadiusMedium}"
                     Background="#252A36"
                     VerticalAlignment="Center">
                 <Grid>
