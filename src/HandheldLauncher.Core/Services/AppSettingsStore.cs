@@ -19,7 +19,16 @@ public static class AppSettingsStore
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "HandheldLauncher", "settings.json");
 
+    // v0.27: o serviço do TDP inteligente lê as configurações de outra thread; sem esta trava
+    // uma leitura podia apanhar o arquivo a meio de uma gravação.
+    private static readonly object IoGate = new();
+
     public static AppSettings Load(string? pathOverride = null)
+    {
+        lock (IoGate) return LoadCore(pathOverride);
+    }
+
+    private static AppSettings LoadCore(string? pathOverride)
     {
         var path = pathOverride ?? DefaultPath;
 
@@ -117,6 +126,11 @@ public static class AppSettingsStore
     }
 
     public static void Save(AppSettings settings, string? pathOverride = null)
+    {
+        lock (IoGate) SaveCore(settings, pathOverride);
+    }
+
+    private static void SaveCore(AppSettings settings, string? pathOverride)
     {
         var path = pathOverride ?? DefaultPath;
         var dir = Path.GetDirectoryName(path);

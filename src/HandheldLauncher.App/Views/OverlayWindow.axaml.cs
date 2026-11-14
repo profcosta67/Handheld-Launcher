@@ -844,6 +844,7 @@ public partial class OverlayWindow : Window
             _viewModel.SetOverlayPreset(_currentHudIndex);
             SetHudButtonVisual(_currentHudIndex);
             NewQsPanel.SetHud(_currentHudIndex);
+        NewQsPanel.RefreshSmartTdp();
             DebugLog.Write($"[HUD] Preset escolhido no QS: '{PerformanceHud.PresetNames[_currentHudIndex]}'.");
         };
         NewQsPanel.ResolutionRequested += (_, button) => ApplyResolutionFromQs(button.Tag?.ToString() ?? string.Empty);

@@ -461,6 +461,7 @@ public sealed class SettingsViewModel : ViewModelBase
     // v0.27: TDP inteligente.
     public bool IsWindows => OperatingSystem.IsWindows();
     private bool _smartTdpEnabled;
+    private bool _smartTdpLoaded;
     public bool SmartTdpEnabled { get => _smartTdpEnabled; set => SetField(ref _smartTdpEnabled, value); }
 
     private static readonly int[] SmartTdpTargets = { 30, 40, 45, 60, 90, 120 };
@@ -686,6 +687,7 @@ public sealed class SettingsViewModel : ViewModelBase
         FreezeGameOnOverlay = settings.FreezeGameOnOverlay;
         OverlayTakesFocus = settings.OverlayTakesFocus;
         SmartTdpEnabled = settings.SmartTdpEnabled;
+        _smartTdpLoaded = settings.SmartTdpEnabled;
         var targetIndex = Array.IndexOf(SmartTdpTargets, settings.SmartTdpTargetFps);
         SmartTdpTargetIndex = targetIndex < 0 ? 3 : targetIndex;
         
@@ -892,6 +894,13 @@ public sealed class SettingsViewModel : ViewModelBase
         settings.HidHideElevateOnDemand = HidHideElevateOnDemand;
         settings.FreezeGameOnOverlay = FreezeGameOnOverlay;
         settings.OverlayTakesFocus = OverlayTakesFocus;
+        // O "Auto" também liga/desliga pelo Quick Settings (que pode abrir por cima desta janela).
+        // Se aqui ninguém mexeu na opção, vale o que estiver gravado — não o valor de quando abriu.
+        if (SmartTdpEnabled == _smartTdpLoaded)
+        {
+            try { SmartTdpEnabled = AppSettingsStore.Load().SmartTdpEnabled; } catch { }
+        }
+        _smartTdpLoaded = SmartTdpEnabled;
         settings.SmartTdpEnabled = SmartTdpEnabled;
         settings.SmartTdpTargetFps = SmartTdpTargets[SmartTdpTargetIndex];
 

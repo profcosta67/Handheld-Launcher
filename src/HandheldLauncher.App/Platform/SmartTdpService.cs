@@ -51,6 +51,7 @@ internal sealed class SmartTdpService : IDisposable
         public required string GameId;
         public required string Title;
         public required string UserMode;
+        public bool OffSeen;
         public DateTime ControlStartedUtc = DateTime.UtcNow;
         public SmartTdpController? Controller;
         public bool Applied;
@@ -98,6 +99,15 @@ internal sealed class SmartTdpService : IDisposable
         var game = _viewModel.RunningGame;
         if (!_settings.SmartTdpEnabled || game is null)
         {
+            // Desligado pelo Quick Settings ao escolher um perfil: o painel grava o "desligado"
+            // antes de aplicar/gravar o perfil novo. Espera um ciclo e devolve o TDP que estiver
+            // gravado nessa altura — nunca o do início da sessão por cima da escolha nova.
+            if (!_settings.SmartTdpEnabled && game is not null && _session is { Applied: true, Suspended: false } live)
+            {
+                if (!live.OffSeen) { live.OffSeen = true; return; }
+                live.UserMode = string.IsNullOrWhiteSpace(_settings.TdpMode) ? live.UserMode : _settings.TdpMode;
+            }
+
             EndSession(_settings.SmartTdpEnabled ? "jogo fechado" : "modo desligado");
             return;
         }

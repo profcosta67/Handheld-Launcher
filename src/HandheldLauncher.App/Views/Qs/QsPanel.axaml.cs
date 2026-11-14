@@ -153,7 +153,6 @@ public partial class QsPanel : UserControl
             BuildFanChips(fanModes);
             BuildColorChips(colorModes);
 
-            _smartOn = ReadSmartTdpSetting(); // pode ter mudado nas Configurações
             SelectPowerPreset(currentPreset);
             SelectFan(currentFan);
             SelectColor(currentColor);
@@ -245,6 +244,15 @@ public partial class QsPanel : UserControl
     private const string SmartTag = "smart";
     private Button? _smartButton;
     private bool _smartOn;
+
+    /// <summary>Relê a opção a cada abertura do painel (pode ter mudado nas Configurações).</summary>
+    public void RefreshSmartTdp()
+    {
+        var on = OperatingSystem.IsWindows() && ReadSmartTdpSetting();
+        if (on == _smartOn) return;
+        _smartOn = on;
+        SelectPowerPreset(_activePreset);
+    }
 
     private static bool ReadSmartTdpSetting()
     {
@@ -355,9 +363,13 @@ public partial class QsPanel : UserControl
         _smartButton = MakeChip("🧠", "Auto");
         _smartButton.Tag = SmartTag;
         _smartButton.Click += (_, _) => SetSmartTdp(!_smartOn);
-        _tdpButtons.Add(_smartButton);
-        TdpPresetsHost.Children.Add(_smartButton);
-        _smartOn = ReadSmartTdpSetting();
+        // O serviço do modo inteligente só existe no Windows.
+        if (OperatingSystem.IsWindows())
+        {
+            _tdpButtons.Add(_smartButton);
+            TdpPresetsHost.Children.Add(_smartButton);
+        }
+        _smartOn = OperatingSystem.IsWindows() && ReadSmartTdpSetting();
 
         SelectPowerPreset(PowerPreset.Normal);
     }
