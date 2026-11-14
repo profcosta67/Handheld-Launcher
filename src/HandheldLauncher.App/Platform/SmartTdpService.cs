@@ -51,6 +51,7 @@ internal sealed class SmartTdpService : IDisposable
     // religar o Auto no meio do jogo retoma daqui em vez de recomeçar do perfil manual
     // (na beta.58 recomeçava dos 8 W do Eco e demorava a subir).
     private (string GameId, int Watts)? _resume;
+    private bool _offWithGame;
 
     private sealed class Session
     {
@@ -116,6 +117,7 @@ internal sealed class SmartTdpService : IDisposable
             }
 
             if (game is null) _resume = null;
+            _offWithGame = game is not null;
             EndSession(_settings.SmartTdpEnabled ? "jogo fechado" : "modo desligado");
             return;
         }
@@ -129,7 +131,7 @@ internal sealed class SmartTdpService : IDisposable
                 GameId = game.Id,
                 Title = game.Title,
                 UserMode = string.IsNullOrWhiteSpace(_settings.TdpMode) ? "Normal" : _settings.TdpMode,
-                MidGame = GameSessionInfo.DetectedGamePid != 0,
+                MidGame = _offWithGame, // o Auto foi ligado com este jogo já aberto
             };
             DebugLog.Write($"[TDP-AUTO] Sessão iniciada: '{game.Title}', meta {TargetFps} FPS, TDP do usuário = {_session.UserMode}.");
         }
@@ -248,7 +250,8 @@ internal sealed class SmartTdpService : IDisposable
         _session = null;
 
         if (why != "modo desligado") _resume = null;
-        else if (s.Applied && s.Controller is not null) _resume = (s.GameId, s.Controller.Watts);
+        else if (s.Applied && !s.Suspended && s.Controller is not null && _viewModel.RunningGame?.Id == s.GameId)
+            _resume = (s.GameId, s.Controller.Watts);
 
         if (s.Applied && !s.Suspended)
         {
