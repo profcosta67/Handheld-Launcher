@@ -14,13 +14,19 @@ public enum SmartTdpChange { None, Up, Down }
 /// </summary>
 public sealed class SmartTdpController
 {
-    public const double BelowRatio = 0.93;   // abaixo disto o jogo está engasgando
-    public const double MeetRatio = 0.985;   // a partir disto a meta está cumprida
+    // Folga maior que na 1ª versão (0,93 / 0,985): num jogo real o FPS oscila uns 5% em volta
+    // da meta com qualquer potência, e isso travava a descida e disparava subidas à toa.
+    public const double BelowRatio = 0.90;   // abaixo disto o jogo está engasgando
+    public const double MeetRatio = 0.95;    // a partir disto a meta está cumprida
     public const double IgnoreBelowFps = 10; // carregamento/pausa: a leitura não vale
     public const int StepUpWatts = 3;
     public const int StepDownWatts = 1;
     public const double UpCooldownSeconds = 4;
     public const double DownAfterGoodSeconds = 12;
+    // Enquanto nenhuma descida falhou ainda, desce mais depressa (2 W a cada 8 s): partindo de
+    // 34 W num jogo que se contenta com 20 W, a 1 W / 12 s levava quase 3 minutos.
+    public const int CoarseStepDownWatts = 2;
+    public const double CoarseDownAfterGoodSeconds = 8;
     public const double FloorHoldSeconds = 180;
     public const double SettleSeconds = 30;
     public const double MaxFloorHoldSeconds = 1800;
@@ -49,9 +55,11 @@ public sealed class SmartTdpController
         Watts = Math.Clamp(startWatts, _min, _max);
         _floor = _min;
         _startIsLearned = startIsLearned;
+        _coarse = !startIsLearned;
     }
 
     private readonly bool _startIsLearned;
+    private bool _coarse; // ainda não encontrou o ponto em que falta potência
 
     public int Watts { get; private set; }
     public int TargetFps => _target;
@@ -175,6 +183,7 @@ public sealed class SmartTdpController
             }
 
             var afterProbe = _lastChangeWasDown && nowSeconds - _lastChange <= 30;
+            _coarse = false;
             RaiseFloor(Watts + 1, nowSeconds, afterProbe);
             Watts = Math.Min(_max, Watts + (below ? StepUpWatts : 1));
             _lastChange = nowSeconds;
@@ -189,11 +198,12 @@ public sealed class SmartTdpController
         _futileHold = FutileHoldSeconds;
 
         var lowerBound = nowSeconds < _floorUntil ? Math.Max(_min, _floor) : _min;
+        var downAfter = _coarse ? CoarseDownAfterGoodSeconds : DownAfterGoodSeconds;
         if (Watts > lowerBound
-            && nowSeconds - _goodSince >= DownAfterGoodSeconds
-            && nowSeconds - _lastChange >= DownAfterGoodSeconds)
+            && nowSeconds - _goodSince >= downAfter
+            && nowSeconds - _lastChange >= downAfter)
         {
-            Watts = Math.Max(lowerBound, Watts - StepDownWatts);
+            Watts = Math.Max(lowerBound, Watts - (_coarse ? CoarseStepDownWatts : StepDownWatts));
             _lastChange = nowSeconds;
             _lastChangeWasDown = true;
             IsSettled = false;

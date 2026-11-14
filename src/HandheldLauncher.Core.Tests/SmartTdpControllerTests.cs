@@ -28,7 +28,8 @@ public class SmartTdpControllerTests
     {
         var c = new SmartTdpController(60, 8, 35, 10);
         var watts = Run(c, need: 25, target: 60, seconds: 60);
-        Assert.True(watts >= 25, $"ficou em {watts} W");
+        // Com a folga de 5% na meta, 24 W (57,6 FPS de 60) já conta como meta cumprida.
+        Assert.True(watts >= 24, $"ficou em {watts} W");
     }
 
     [Fact]
@@ -77,6 +78,15 @@ public class SmartTdpControllerTests
         Assert.Equal(SmartTdpChange.None, c.OnSample(40, 2));
         Assert.Equal(SmartTdpChange.None, c.OnSample(60, 4));
         Assert.Equal(20, c.Watts);
+    }
+
+    [Fact]
+    public void FindsALowNeedFromAHighStartWithinTwoMinutes()
+    {
+        // Caso real (14/11): jogo que segura 30 FPS com 20 W, modo inteligente partindo de 34 W.
+        var c = new SmartTdpController(30, 8, 35, 34);
+        var watts = Run(c, need: 20, target: 30, seconds: 120);
+        Assert.InRange(watts, 19, 23);
     }
 
     [Fact]

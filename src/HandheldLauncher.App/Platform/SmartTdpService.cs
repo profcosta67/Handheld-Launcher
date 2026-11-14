@@ -92,6 +92,8 @@ internal sealed class SmartTdpService : IDisposable
         public DateTime? FanLowerSince;
         public DateTime LastStatusLog = DateTime.MinValue;
         public double LastFps = double.NaN;
+        public readonly double[] Recent = new double[3];
+        public int RecentCount;
     }
 
     public SmartTdpService(MainViewModel viewModel)
@@ -159,6 +161,9 @@ internal sealed class SmartTdpService : IDisposable
             var learned = _store.Get(game.Id, TargetFps);
             int? resumed = learned is null && _resume is { } r && r.GameId == game.Id ? r.Watts : null;
             var userWatts = TdpProfiles.WattsFor(userMode) ?? TdpProfiles.DefaultCustomWatts;
+            // Um perfil manual de 20 W ou mais é a informação mais recente que temos (o usuário
+            // acabou de ver o jogo rodar com ele): parte dali, não do valor antigo da sessão.
+            if (resumed is not null && userWatts >= StartFloorWatts) resumed = null;
             var start = Math.Clamp(learned?.Watts ?? resumed ?? Math.Max(userWatts, StartFloorWatts), min, max);
 
             _session = new Session
@@ -248,10 +253,19 @@ internal sealed class SmartTdpService : IDisposable
         var elapsed = (DateTime.UtcNow - s.ControlStartedUtc).TotalSeconds; // conta da 1ª leitura do jogo
         if (elapsed < (s.MidGame ? MidGameWarmupSeconds : WarmupSeconds)) return; // abertura/carregamento do jogo
 
+        // Mediana das 3 últimas leituras (~6 s): uma engasgada isolada não mexe no TDP.
+        s.Recent[s.RecentCount++ % 3] = f.Fps;
+        var fps = f.Fps;
+        if (s.RecentCount >= 3)
+        {
+            double a = s.Recent[0], b = s.Recent[1], c = s.Recent[2];
+            fps = Math.Max(Math.Min(a, b), Math.Min(Math.Max(a, b), c));
+        }
+
         var before = s.Controller.Watts;
-        var change = s.Controller.OnSample(f.Fps, elapsed);
+        var change = s.Controller.OnSample(fps, elapsed);
         if (change != SmartTdpChange.None)
-            Apply(s, s.Controller.Watts, $"{(change == SmartTdpChange.Up ? "subiu" : "desceu")} de {before} W, FPS {f.Fps:0}");
+            Apply(s, s.Controller.Watts, $"{(change == SmartTdpChange.Up ? "subiu" : "desceu")} de {before} W, FPS {fps:0}");
 
         s.LastFps = f.Fps;
         var now = DateTime.UtcNow;
@@ -260,9 +274,9 @@ internal sealed class SmartTdpService : IDisposable
         {
             s.LastStatusLog = now;
             var state = s.Controller.IsSettled ? "estável"
-                : f.Fps < TargetFps * SmartTdpController.BelowRatio ? (s.Controller.Watts >= s.Max ? "abaixo da meta mesmo no teto" : "abaixo da meta, subindo")
+                : fps < TargetFps * SmartTdpController.BelowRatio ? (s.Controller.Watts >= s.Max ? "abaixo da meta mesmo no teto" : "abaixo da meta, subindo")
                 : "na meta, testando para baixo";
-            DebugLog.Write($"[TDP-AUTO] Estado: {s.Controller.Watts} W, FPS {f.Fps:0} (meta {TargetFps}), ventoinha {s.FanMode ?? (s.FanOff ? "do usuário" : s.UserFan)} — {state}.");
+            DebugLog.Write($"[TDP-AUTO] Estado: {s.Controller.Watts} W, FPS {fps:0} (meta {TargetFps}), ventoinha {s.FanMode ?? (s.FanOff ? "do usuário" : s.UserFan)} — {state}.");
         }
         if (s.Applied) GameSessionInfo.SmartTdpWatts = s.Controller.Watts;
 
