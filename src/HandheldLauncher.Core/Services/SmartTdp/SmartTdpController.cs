@@ -47,7 +47,7 @@ public sealed class SmartTdpController
     private double _floorUntil = double.NegativeInfinity;
     private bool _started;
 
-    public SmartTdpController(int targetFps, int minWatts, int maxWatts, int startWatts, bool startIsLearned = false)
+    public SmartTdpController(int targetFps, int minWatts, int maxWatts, int startWatts, bool startIsLearned = false, bool coarseDescent = true)
     {
         _target = Math.Max(15, targetFps);
         _min = Math.Min(minWatts, maxWatts);
@@ -55,7 +55,7 @@ public sealed class SmartTdpController
         Watts = Math.Clamp(startWatts, _min, _max);
         _floor = _min;
         _startIsLearned = startIsLearned;
-        _coarse = !startIsLearned;
+        _coarse = !startIsLearned && coarseDescent;
     }
 
     private readonly bool _startIsLearned;
@@ -81,6 +81,7 @@ public sealed class SmartTdpController
     private int _climbFloor;
     private double _climbFloorUntil;
     private bool _climbFloorConfirmed;
+    private bool _climbCoarse;
     private double _futileUntil = double.NegativeInfinity;
     private double _futileHold = FutileHoldSeconds;
 
@@ -163,6 +164,7 @@ public sealed class SmartTdpController
                 _floor = _climbFloor;
                 _floorUntil = _climbFloorUntil;
                 _floorConfirmed = _climbFloorConfirmed;
+                _coarse = _climbCoarse; // a subida não adiantou: a descida rápida continua valendo
                 _climbWatts = null;
                 _futileUntil = nowSeconds + _futileHold;
                 _futileHold = Math.Min(MaxFloorHoldSeconds, _futileHold * 2);
@@ -180,6 +182,7 @@ public sealed class SmartTdpController
                 _climbFloor = _floor;
                 _climbFloorUntil = _floorUntil;
                 _climbFloorConfirmed = _floorConfirmed;
+                _climbCoarse = _coarse;
             }
 
             var afterProbe = _lastChangeWasDown && nowSeconds - _lastChange <= 30;

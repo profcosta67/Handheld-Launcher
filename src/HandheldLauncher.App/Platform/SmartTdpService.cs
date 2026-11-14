@@ -62,7 +62,7 @@ internal sealed class SmartTdpService : IDisposable
     // Último valor do modo inteligente neste jogo, enquanto ele continuar aberto. Desligar e
     // religar o Auto no meio do jogo retoma daqui em vez de recomeçar do perfil manual
     // (na beta.58 recomeçava dos 8 W do Eco e demorava a subir).
-    private (string GameId, int Watts)? _resume;
+    private (string GameId, int Watts, string UserMode)? _resume;
     private bool _offWithGame;
 
     private sealed class Session
@@ -70,6 +70,7 @@ internal sealed class SmartTdpService : IDisposable
         public required string GameId;
         public required string Title;
         public required string UserMode;
+        public string UserModeAtStart = "";
         public bool OffSeen;
         public bool MidGame; // ligado com o jogo já rodando: sem a espera de abertura
         public DateTime ControlStartedUtc = DateTime.UtcNow;
@@ -163,7 +164,7 @@ internal sealed class SmartTdpService : IDisposable
             var userWatts = TdpProfiles.WattsFor(userMode) ?? TdpProfiles.DefaultCustomWatts;
             // Um perfil manual de 20 W ou mais é a informação mais recente que temos (o usuário
             // acabou de ver o jogo rodar com ele): parte dali, não do valor antigo da sessão.
-            if (resumed is not null && userWatts >= StartFloorWatts) resumed = null;
+            if (resumed is not null && userWatts >= StartFloorWatts && _resume is { } prev && prev.UserMode != userMode) resumed = null;
             var start = Math.Clamp(learned?.Watts ?? resumed ?? Math.Max(userWatts, StartFloorWatts), min, max);
 
             _session = new Session
@@ -171,6 +172,7 @@ internal sealed class SmartTdpService : IDisposable
                 GameId = game.Id,
                 Title = game.Title,
                 UserMode = userMode,
+                UserModeAtStart = userMode,
                 MidGame = _offWithGame, // o Auto foi ligado com este jogo já aberto
                 Min = min,
                 Max = max,
@@ -217,6 +219,7 @@ internal sealed class SmartTdpService : IDisposable
         var foregroundPid = GetForegroundProcessId();
         if (foregroundPid != gamePid)
         {
+            s.RecentCount = 0;
             s.Away = true; // Quick Settings, launcher ou outra janela na frente
             return;
         }
@@ -233,6 +236,7 @@ internal sealed class SmartTdpService : IDisposable
         lock (_rtss) frames = _rtss.ReadFrameStats(foregroundPid);
         if (frames is not { } f || f.ProcessId != foregroundPid)
         {
+            s.RecentCount = 0;
             if (!s.LoggedNoFrames)
             {
                 s.LoggedNoFrames = true;
@@ -243,7 +247,7 @@ internal sealed class SmartTdpService : IDisposable
 
         if (s.Controller is null)
         {
-            s.Controller = new SmartTdpController(TargetFps, s.Min, s.Max, s.StartWatts, startIsLearned: s.StartLearned);
+            s.Controller = new SmartTdpController(TargetFps, s.Min, s.Max, s.StartWatts, startIsLearned: s.StartLearned, coarseDescent: !s.StartResumed);
             s.ControlStartedUtc = DateTime.UtcNow;
             DebugLog.Write($"[TDP-AUTO] Jogo medindo FPS ({f.Fps:0}); controle começa em {s.Controller.Watts} W.");
             if (s.StartLearned && s.Applied) PerformanceHud.ShowNotice("Modo inteligente aplicado");
@@ -368,7 +372,7 @@ internal sealed class SmartTdpService : IDisposable
 
         if (why != "modo desligado") _resume = null;
         else if (s.Applied && !s.Suspended && s.Controller is not null && _viewModel.RunningGame?.Id == s.GameId)
-            _resume = (s.GameId, s.Controller.Watts);
+            _resume = (s.GameId, s.Controller.Watts, s.UserModeAtStart);
 
         if (s.Applied && !s.Suspended)
         {
