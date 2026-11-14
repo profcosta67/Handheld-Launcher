@@ -64,7 +64,18 @@ public partial class MainWindow : Window
 
     private bool _gameWatcherDiagnosticLogged = false;
 
-    private int _detectedGamePid = 0;
+    // v0.27: o PID também fica visível para o TDP inteligente (GameSessionInfo), que só
+    // pode medir o FPS do jogo — nunca do lançador da loja que estiver na frente.
+    private int _detectedGamePidValue;
+    private int _detectedGamePid
+    {
+        get => _detectedGamePidValue;
+        set
+        {
+            _detectedGamePidValue = value;
+            HandheldLauncher.App.Platform.GameSessionInfo.DetectedGamePid = value;
+        }
+    }
 
     private string _lastLoggedExeHint = string.Empty;
    private bool _addButtonFocused;

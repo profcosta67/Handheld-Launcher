@@ -24,6 +24,10 @@ public sealed class SmartTdpController
     public const double FloorHoldSeconds = 180;
     public const double SettleSeconds = 30;
     public const double MaxFloorHoldSeconds = 1800;
+    public const double IgnoreLowFpsForSeconds = 20;
+    public const int FutileClimbWatts = 6;
+    public const double FutileGainRatio = 1.05;
+    public const double FutileHoldSeconds = 300;
     public const int NearSamplesToNudge = 4;
 
     private readonly int _target;
@@ -49,27 +53,44 @@ public sealed class SmartTdpController
 
     private readonly bool _startIsLearned;
 
-    private int _nearCount;
-    private double _floorHold = FloorHoldSeconds;
-
-    /// <summary>
-    /// Marca o piso depois de uma descida que não deu certo. Se o mesmo ponto falhar de
-    /// novo, o intervalo até a próxima tentativa dobra (3, 6, 12… até 30 min): o sistema
-    /// continua se adaptando, mas para de incomodar quando já achou o valor do jogo.
-    /// </summary>
-    private void RaiseFloor(int floor, double nowSeconds)
-    {
-        floor = Math.Clamp(floor, _min, _max);
-        _floorHold = floor == _floor ? Math.Min(MaxFloorHoldSeconds, _floorHold * 2) : FloorHoldSeconds;
-        _floor = floor;
-        _floorUntil = nowSeconds + _floorHold;
-    }
-
     public int Watts { get; private set; }
     public int TargetFps => _target;
 
     /// <summary>true quando o valor atual se manteve sem quedas — vale a pena lembrar para a próxima vez.</summary>
     public bool IsSettled { get; private set; }
+
+    private int _nearCount;
+    private double _floorHold = FloorHoldSeconds;
+    private bool _floorConfirmed;
+    private bool _lastChangeWasDown;
+    private double? _lowFpsSince;
+
+    // Subida em andamento: de onde partiu e com que FPS — para perceber quando mais
+    // potência não está ajudando (jogo limitado abaixo da meta, tela de carregamento,
+    // cena presa na CPU) e voltar em vez de ir até o teto.
+    private int? _climbWatts;
+    private double _climbFps;
+    private int _climbFloor;
+    private double _climbFloorUntil;
+    private bool _climbFloorConfirmed;
+    private double _futileUntil = double.NegativeInfinity;
+    private double _futileHold = FutileHoldSeconds;
+
+    /// <summary>
+    /// Marca o piso depois de uma falta de potência. Se o mesmo ponto falhar de novo, o
+    /// intervalo até a próxima tentativa dobra (3, 6, 12… até 30 min). O piso só é
+    /// "confirmado" (vale como aprendizado) quando veio de uma descida de teste que não
+    /// deu certo — não de uma subida por causa de uma cena pesada ou de um carregamento.
+    /// </summary>
+    private void RaiseFloor(int floor, double nowSeconds, bool confirmed)
+    {
+        floor = Math.Clamp(floor, _min, _max);
+        var same = floor == _floor;
+        _floorHold = same ? Math.Min(MaxFloorHoldSeconds, _floorHold * 2) : FloorHoldSeconds;
+        _floorConfirmed = confirmed || (same && _floorConfirmed);
+        _floor = floor;
+        _floorUntil = nowSeconds + _floorHold;
+    }
 
     public SmartTdpChange OnSample(double fps, double nowSeconds)
     {
@@ -83,53 +104,89 @@ public sealed class SmartTdpController
                 // Valor aprendido: não sai testando para baixo logo de cara.
                 _floor = Watts;
                 _floorUntil = nowSeconds + FloorHoldSeconds;
+                _floorConfirmed = true;
             }
         }
 
-        if (double.IsNaN(fps) || fps < IgnoreBelowFps)
+        if (double.IsNaN(fps)) return SmartTdpChange.None;
+
+        if (fps < IgnoreBelowFps)
         {
-            _belowCount = 0;
-            _goodSince = nowSeconds;
-            return SmartTdpChange.None;
+            // Carregamento/pausa: ignora por um tempo. Se durar, é o jogo que está sem
+            // potência (ex.: começou em 8 W) e passa a contar como "abaixo da meta".
+            _lowFpsSince ??= nowSeconds;
+            if (nowSeconds - _lowFpsSince.Value < IgnoreLowFpsForSeconds)
+            {
+                _belowCount = 0;
+                _nearCount = 0;
+                _goodSince = nowSeconds;
+                return SmartTdpChange.None;
+            }
+        }
+        else
+        {
+            _lowFpsSince = null;
         }
 
-        if (fps < _target * BelowRatio)
+        var below = fps < _target * BelowRatio;
+        var near = !below && fps < _target * MeetRatio;
+
+        if (below || near)
         {
-            _belowCount++;
             _goodSince = nowSeconds;
             IsSettled = false;
-            if (_belowCount < 2 || nowSeconds - _lastChange < UpCooldownSeconds) return SmartTdpChange.None;
+            if (nowSeconds < _futileUntil) return SmartTdpChange.None;
+
+            bool enough;
+            if (below) { _belowCount++; _nearCount = 0; enough = _belowCount >= 2; }
+            else { _nearCount++; _belowCount = 0; enough = _nearCount >= NearSamplesToNudge; }
+            if (!enough || nowSeconds - _lastChange < UpCooldownSeconds) return SmartTdpChange.None;
 
             _belowCount = 0;
             _nearCount = 0;
-            RaiseFloor(Watts + 1, nowSeconds);
+
+            // Subiu bastante (ou bateu no teto) e o FPS não saiu do lugar: potência não é
+            // o problema. Volta para onde estava e espera alguns minutos.
+            if (_climbWatts is { } from && Watts > from
+                && (Watts - from >= FutileClimbWatts || Watts >= _max)
+                && fps < _climbFps * FutileGainRatio)
+            {
+                Watts = from;
+                _floor = _climbFloor;
+                _floorUntil = _climbFloorUntil;
+                _floorConfirmed = _climbFloorConfirmed;
+                _climbWatts = null;
+                _futileUntil = nowSeconds + _futileHold;
+                _futileHold = Math.Min(MaxFloorHoldSeconds, _futileHold * 2);
+                _lastChange = nowSeconds;
+                _lastChangeWasDown = false;
+                return SmartTdpChange.Down;
+            }
+
             if (Watts >= _max) return SmartTdpChange.None;
 
-            Watts = Math.Min(_max, Watts + StepUpWatts);
+            if (_climbWatts is null)
+            {
+                _climbWatts = Watts;
+                _climbFps = fps;
+                _climbFloor = _floor;
+                _climbFloorUntil = _floorUntil;
+                _climbFloorConfirmed = _floorConfirmed;
+            }
+
+            var afterProbe = _lastChangeWasDown && nowSeconds - _lastChange <= 30;
+            RaiseFloor(Watts + 1, nowSeconds, afterProbe);
+            Watts = Math.Min(_max, Watts + (below ? StepUpWatts : 1));
             _lastChange = nowSeconds;
+            _lastChangeWasDown = false;
             return SmartTdpChange.Up;
         }
 
+        // Meta cumprida.
         _belowCount = 0;
-
-        if (fps < _target * MeetRatio)
-        {
-            // Quase lá: não é hora de tirar potência. Se ficar "quase" por vários segundos,
-            // falta um pouco — sobe 1 W e guarda este ponto como piso.
-            _goodSince = nowSeconds;
-            IsSettled = false;
-            _nearCount++;
-            if (_nearCount < NearSamplesToNudge || nowSeconds - _lastChange < UpCooldownSeconds || Watts >= _max)
-                return SmartTdpChange.None;
-
-            _nearCount = 0;
-            RaiseFloor(Watts + 1, nowSeconds);
-            Watts = Math.Min(_max, Watts + 1);
-            _lastChange = nowSeconds;
-            return SmartTdpChange.Up;
-        }
-
         _nearCount = 0;
+        _climbWatts = null;
+        _futileHold = FutileHoldSeconds;
 
         var lowerBound = nowSeconds < _floorUntil ? Math.Max(_min, _floor) : _min;
         if (Watts > lowerBound
@@ -138,11 +195,13 @@ public sealed class SmartTdpController
         {
             Watts = Math.Max(lowerBound, Watts - StepDownWatts);
             _lastChange = nowSeconds;
+            _lastChangeWasDown = true;
             IsSettled = false;
             return SmartTdpChange.Down;
         }
 
-        if (Watts <= lowerBound && nowSeconds - _lastChange >= SettleSeconds) IsSettled = true;
+        if (Watts <= lowerBound && nowSeconds - _lastChange >= SettleSeconds && (Watts == _min || _floorConfirmed))
+            IsSettled = true;
         return SmartTdpChange.None;
     }
 }

@@ -43,11 +43,30 @@ public class SmartTdpControllerTests
     }
 
     [Fact]
-    public void IgnoresLoadingScreens()
+    public void IgnoresShortLoadingScreens()
     {
         var c = new SmartTdpController(60, 8, 35, 20);
-        for (var t = 0.0; t < 120; t += 2) Assert.Equal(SmartTdpChange.None, c.OnSample(3, t));
+        for (var t = 0.0; t < 18; t += 2) Assert.Equal(SmartTdpChange.None, c.OnSample(3, t));
         Assert.Equal(20, c.Watts);
+    }
+
+    [Fact]
+    public void GameCappedBelowTargetDoesNotClimbToTheCeiling()
+    {
+        // Jogo travado em 30 FPS com meta 60: mais potência não muda nada.
+        var c = new SmartTdpController(60, 8, 35, 20);
+        for (var t = 0.0; t < 120; t += 2) c.OnSample(30, t);
+        Assert.Equal(20, c.Watts);
+        Assert.False(c.IsSettled);
+    }
+
+    [Fact]
+    public void HeavySceneAtTheCeilingIsNotLearnedAsTheGameNeed()
+    {
+        var c = new SmartTdpController(60, 8, 35, 33);
+        for (var t = 0.0; t < 60; t += 2) c.OnSample(40, t);   // cena pesada: nem o teto resolve
+        for (var t = 60.0; t < 100; t += 2) c.OnSample(60, t); // voltou ao normal
+        Assert.False(c.IsSettled);
     }
 
     [Fact]

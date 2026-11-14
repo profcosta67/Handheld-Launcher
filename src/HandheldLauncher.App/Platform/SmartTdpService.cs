@@ -35,6 +35,7 @@ internal sealed class SmartTdpService : IDisposable
     private readonly SmartTdpStore _store = new();
     private readonly Thread _thread;
     private volatile bool _stop;
+    private readonly object _gate = new();
 
     private AppSettings _settings = new();
     private int _settingsAge = int.MaxValue;
@@ -46,7 +47,7 @@ internal sealed class SmartTdpService : IDisposable
         public required string GameId;
         public required string Title;
         public required string UserMode;
-        public DateTime StartedUtc = DateTime.UtcNow;
+        public DateTime ControlStartedUtc = DateTime.UtcNow;
         public SmartTdpController? Controller;
         public bool Applied;
         public bool Suspended;
@@ -68,7 +69,7 @@ internal sealed class SmartTdpService : IDisposable
         Thread.Sleep(TimeSpan.FromSeconds(8));
         while (!_stop)
         {
-            try { Tick(); }
+            try { lock (_gate) { if (!_stop) Tick(); } }
             catch (Exception ex) { DebugLog.Write($"[TDP-AUTO] Erro no ciclo: {ex.GetType().Name}: {ex.Message}"); }
             Thread.Sleep(TimeSpan.FromSeconds(TickSeconds));
         }
@@ -76,7 +77,9 @@ internal sealed class SmartTdpService : IDisposable
 
     private void Tick()
     {
-        if (++_settingsAge >= 3)
+        // Com sessão aberta as configurações são relidas a cada ciclo: uma troca de TDP feita
+        // no Quick Settings tem de ser vista antes de qualquer gravação nossa (revisão 14/11).
+        if (_session is not null || ++_settingsAge >= 3)
         {
             _settings = AppSettingsStore.Load();
             _settingsAge = 0;
@@ -92,6 +95,7 @@ internal sealed class SmartTdpService : IDisposable
         if (_session is null || _session.GameId != game.Id)
         {
             EndSession("outro jogo");
+            _settings = AppSettingsStore.Load();
             _session = new Session
             {
                 GameId = game.Id,
@@ -108,14 +112,20 @@ internal sealed class SmartTdpService : IDisposable
         if (currentUserMode != s.UserMode)
         {
             s.Suspended = true;
-            DebugLog.Write($"[TDP-AUTO] TDP trocado à mão ({s.UserMode} → {currentUserMode}); modo inteligente pausado até o jogo fechar.");
+            // Garante que o que está no hardware é a escolha do usuário, não o nosso último valor.
+            var ok = !s.Applied || _hardware.SetTdpMode(currentUserMode);
+            Dispatcher.UIThread.Post(() => _viewModel.UpdateHudTdpStatus(currentUserMode));
+            DebugLog.Write($"[TDP-AUTO] TDP trocado à mão ({s.UserMode} → {currentUserMode}); modo inteligente pausado até o jogo fechar (escolha do usuário {(ok ? "mantida" : "NÃO reaplicada")}).");
             return;
         }
 
+        var gamePid = GameSessionInfo.DetectedGamePid;
+        if (gamePid == 0) return; // a janela do jogo ainda não apareceu (lançador da loja, abertura)
+
         var foregroundPid = GetForegroundProcessId();
-        if (foregroundPid == 0 || foregroundPid == Environment.ProcessId)
+        if (foregroundPid != gamePid)
         {
-            s.Away = true; // Quick Settings ou o próprio launcher na frente
+            s.Away = true; // Quick Settings, launcher ou outra janela na frente
             return;
         }
 
@@ -146,6 +156,7 @@ internal sealed class SmartTdpService : IDisposable
             var learned = _store.Get(s.GameId, TargetFps);
             var start = learned?.Watts ?? TdpProfiles.WattsFor(s.UserMode) ?? TdpProfiles.DefaultCustomWatts;
             s.Controller = new SmartTdpController(TargetFps, min, limits.SplMax, start, startIsLearned: learned is not null);
+            s.ControlStartedUtc = DateTime.UtcNow;
             DebugLog.Write($"[TDP-AUTO] Janela {min}–{limits.SplMax} W; início em {s.Controller.Watts} W ({(learned is not null ? "aprendido antes" : "TDP atual, aprendendo")}).");
 
             if (learned is not null)
@@ -157,7 +168,7 @@ internal sealed class SmartTdpService : IDisposable
             return;
         }
 
-        var elapsed = (DateTime.UtcNow - s.StartedUtc).TotalSeconds;
+        var elapsed = (DateTime.UtcNow - s.ControlStartedUtc).TotalSeconds; // conta da 1ª leitura do jogo
         if (elapsed < WarmupSeconds) return; // abertura/carregamento do jogo
 
         var before = s.Controller.Watts;
@@ -235,7 +246,10 @@ internal sealed class SmartTdpService : IDisposable
     public void Dispose()
     {
         _stop = true;
-        try { EndSession("launcher fechando"); } catch { /* melhor esforço */ }
-        _rtss.Dispose();
+        lock (_gate)
+        {
+            try { EndSession("launcher fechando"); } catch { /* melhor esforço */ }
+            _rtss.Dispose();
+        }
     }
 }
