@@ -135,7 +135,7 @@
                 <DataTemplate x:DataType="vm:GameTileViewModel">
                   <Border Classes="bigScreenTile" Classes.focused="{Binding IsFocused}" Width="320" Height="180" PointerPressed="OnTilePointerPressed" DoubleTapped="OnTileDoubleTapped">
                     <Grid>
-                      <Image anim:ImageBehavior.AnimatedSource="{Binding WideCapsuleImagePath}" Stretch="UniformToFill" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                      <!-- v0.26: a Viewbox garante que a capa preencha o quadro inteiro (sem faixas nas laterais), seja qual for a proporção da arte. --><Viewbox Stretch="UniformToFill" ClipToBounds="True"><Image anim:ImageBehavior.AnimatedSource="{Binding WideCapsuleImagePath}" Stretch="None" /></Viewbox>
                       <Border Background="#55000000" IsVisible="{Binding ShowEmptyWideCapsulePlaceholder}"><TextBlock Text="{Binding Title}" Foreground="#FFF5F7FF" FontSize="19" FontWeight="SemiBold" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="18" /></Border>
                       <Border Background="#B8000000" Height="48" VerticalAlignment="Bottom" Padding="14,7">
                         <Grid ColumnDefinitions="*,Auto">
