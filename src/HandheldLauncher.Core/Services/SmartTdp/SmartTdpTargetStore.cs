@@ -89,9 +89,16 @@ public sealed class SmartTdpTargetStore
             if (File.Exists(_path))
                 _entries = JsonSerializer.Deserialize<Dictionary<string, SmartTdpGameTarget>>(File.ReadAllText(_path));
         }
+        catch (JsonException)
+        {
+            // Arquivo estragado: guarda uma cópia e recomeça (o próximo gravar não apaga nada útil).
+            try { File.Move(_path, _path + ".bad", overwrite: true); } catch { }
+            _entries = null;
+        }
         catch
         {
-            _entries = null;
+            // Arquivo preso (antivírus, indexador): não guarda o vazio, tenta de novo na próxima.
+            return new Dictionary<string, SmartTdpGameTarget>();
         }
         return _entries ??= new Dictionary<string, SmartTdpGameTarget>();
     }

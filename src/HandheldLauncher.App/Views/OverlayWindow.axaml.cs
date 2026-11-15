@@ -924,6 +924,7 @@ public partial class OverlayWindow : Window
         NewQsPanel.SetScreenInfo(TxtScreenInfo?.Text ?? "—");
         NewQsPanel.SetBattery(_viewModel.BatteryStatusText);
         NewQsPanel.SetHud(_currentHudIndex);
+        NewQsPanel.RunningGameProvider ??= () => (_viewModel.RunningGame?.Id, _viewModel.RunningGame?.Title);
         NewQsPanel.SetRunningGame(_viewModel.RunningGame?.Id, _viewModel.RunningGame?.Title); // meta de FPS por jogo
         NewQsPanel.RefreshSmartTdp(); // a opção pode ter mudado nas Configurações
         NewQsPanel.InitializePowerPlans(PowerPlanService.GetAvailablePlans());

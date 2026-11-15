@@ -61,6 +61,24 @@ public partial class QsPanel : UserControl
     /// Jogo aberto agora (ou null). Com jogo aberto, a meta escolhida no painel vale só
     /// para ele e fica guardada; sem jogo, muda a meta padrão.
     /// </summary>
+    /// <summary>Quem informa o jogo aberto agora (a janela do QS), para conferir no clique.</summary>
+    public Func<(string? Id, string? Title)>? RunningGameProvider { get; set; }
+
+    /// <summary>
+    /// O jogo pode ter fechado (ou aberto) com o painel aberto: confere antes de gravar a
+    /// meta. Se mudou, só atualiza a tela — o toque seguinte já vale para o estado certo.
+    /// </summary>
+    private bool RunningGameChanged()
+    {
+        if (RunningGameProvider is null) return false;
+        var (id, title) = RunningGameProvider();
+        var normalized = string.IsNullOrWhiteSpace(id) ? null : id;
+        if (normalized == _runningGameId) return false;
+        SetRunningGame(normalized, title);
+        RefreshSmartTdp();
+        return true;
+    }
+
     public void SetRunningGame(string? gameId, string? title)
     {
         _runningGameId = string.IsNullOrWhiteSpace(gameId) ? null : gameId;
@@ -368,6 +386,7 @@ public partial class QsPanel : UserControl
     private void SetSmartTdpTargetFps(int fps)
     {
         fps = NormalizeSmartTarget(fps);
+        if (RunningGameChanged()) return;
 
         if (_runningGameId is { } gameId)
         {
@@ -403,6 +422,7 @@ public partial class QsPanel : UserControl
     /// <summary>O jogo aberto volta a usar a meta padrão.</summary>
     private void ClearGameSmartTarget()
     {
+        if (RunningGameChanged()) return;
         if (_runningGameId is not { } gameId || _gameTargetFps is null) return;
         HandheldLauncher.Core.Services.SmartTdp.SmartTdpTargetStore.Shared.Set(gameId, _runningGameTitle, null);
         _gameTargetFps = null;

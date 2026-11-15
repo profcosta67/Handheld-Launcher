@@ -208,9 +208,14 @@ internal sealed class SmartTdpService : IDisposable
             var previousTarget = s.TargetFps;
             s.TargetFps = sessionTarget;
             var learnedForTarget = _store.Get(s.GameId, sessionTarget);
+            var current = s.Controller?.BaselineWatts ?? s.StartWatts;
+            // Meta mais alta sem nada aprendido: parte de pelo menos 20 W, como no início do
+            // jogo (o valor de uma meta baixa pode estar muito abaixo do que a nova pede).
             var from = learnedForTarget is not null
                 ? Math.Clamp(learnedForTarget.Watts, s.Min, s.Max)
-                : s.Controller?.BaselineWatts ?? s.StartWatts;
+                : sessionTarget > previousTarget
+                    ? Math.Clamp(Math.Max(current, StartFloorWatts), s.Min, s.Max)
+                    : current;
             s.StartWatts = from;
             s.StartLearned = learnedForTarget is not null;
             s.StartResumed = false;

@@ -54,7 +54,8 @@ public class SmartTdpTargetStoreTests
             Assert.False(store.Set("", "x", 30));
             Assert.True(store.Set("dg", "Days Gone", 30));
             Assert.Equal(30, new SmartTdpTargetStore(path).Get("dg"));
+            Assert.True(File.Exists(path + ".bad")); // o arquivo estragado foi guardado
         }
-        finally { File.Delete(path); }
+        finally { File.Delete(path); File.Delete(path + ".bad"); }
     }
 }
