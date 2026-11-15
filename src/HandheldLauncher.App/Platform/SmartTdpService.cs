@@ -84,6 +84,7 @@ internal sealed class SmartTdpService : IDisposable
         public int Min;
         public int Max;
         public int StartWatts;
+        public int TargetFps;
         public bool StartLearned;
         public bool StartResumed;
         public string UserFan = "";
@@ -177,6 +178,7 @@ internal sealed class SmartTdpService : IDisposable
                 Min = min,
                 Max = max,
                 StartWatts = start,
+                TargetFps = TargetFps,
                 StartLearned = learned is not null,
                 StartResumed = resumed is not null,
                 UserFan = _settings.FanMode ?? "",
@@ -192,6 +194,19 @@ internal sealed class SmartTdpService : IDisposable
         }
 
         var s = _session;
+        if (s.TargetFps != TargetFps)
+        {
+            var previousTarget = s.TargetFps;
+            s.TargetFps = TargetFps;
+            if (s.Controller is not null)
+            {
+                var currentWatts = s.Controller.Watts;
+                s.Controller = new SmartTdpController(TargetFps, s.Min, s.Max, currentWatts);
+                s.ControlStartedUtc = DateTime.UtcNow;
+                s.RecentCount = 0;
+            }
+            DebugLog.Write($"[TDP-AUTO] Meta alterada durante a sessão: {previousTarget} → {TargetFps} FPS.");
+        }
         if (s.Suspended) return;
 
         var currentUserMode = string.IsNullOrWhiteSpace(_settings.TdpMode) ? "Normal" : _settings.TdpMode;
