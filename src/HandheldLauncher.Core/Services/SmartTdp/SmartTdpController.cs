@@ -64,6 +64,27 @@ public sealed class SmartTdpController
     public int Watts { get; private set; }
     public int TargetFps => _target;
 
+    /// <summary>
+    /// Retomada do jogo após perder o foco: aplica uma margem temporária de potência
+    /// antes de voltar a depender das amostras do RTSS. Mantém o piso aprendido, mas
+    /// limpa contadores/cooldowns da sessão em segundo plano.
+    /// </summary>
+    public int PrepareForResume(double nowSeconds, int minimumWatts, int boostWatts)
+    {
+        Watts = Math.Clamp(Math.Max(minimumWatts, Watts + Math.Max(0, boostWatts)), _min, _max);
+        _started = true;
+        _belowCount = 0;
+        _nearCount = 0;
+        _goodSince = nowSeconds;
+        _lastChange = nowSeconds - UpCooldownSeconds;
+        _lowFpsSince = null;
+        _climbWatts = null;
+        _futileUntil = double.NegativeInfinity;
+        _futileHold = FutileHoldSeconds;
+        IsSettled = false;
+        return Watts;
+    }
+
     /// <summary>true quando o valor atual se manteve sem quedas — vale a pena lembrar para a próxima vez.</summary>
     public bool IsSettled { get; private set; }
 
