@@ -252,6 +252,7 @@ internal sealed class SmartTdpService : IDisposable
             var resumeTime = (DateTime.UtcNow - s.ControlStartedUtc).TotalSeconds;
             var resumeWatts = s.Controller?.PrepareForResume(resumeTime, StartFloorWatts, ResumeBoostWatts)
                 ?? Math.Max(s.StartWatts, StartFloorWatts);
+            if (s.Controller is null) s.StartWatts = resumeWatts;
             if (s.Applied)
             {
                 Apply(s, resumeWatts, "retomada do jogo (boost temporário)");
