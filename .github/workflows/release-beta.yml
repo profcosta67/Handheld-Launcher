@@ -185,38 +185,6 @@ jobs:
           vpk upload github --repoUrl "${{ github.server_url }}/${{ github.repository }}" --token "${{ secrets.GITHUB_TOKEN }}" --channel beta --tag $tag --releaseName "Handheld Launcher ${{ steps.ver.outputs.version }} (Beta)" --outputDir Releases --merge --publish
           if ($LASTEXITCODE -ne 0) { throw "Falha ao publicar os artefatos Velopack (beta)." }
 
-      - name: Limpar betas antigas (mantém as 3 mais recentes)
-        shell: bash
-        run: |
-          # v0.16.3: ordena pelo id da release (único e crescente), não pelo
-          # created_at — no GitHub o created_at é a data do COMMIT, então betas
-          # do mesmo commit empatavam e a ordem ficava aleatória. E apaga pelo
-          # id: apagar pelo nome da tag era ambíguo quando duas releases
-          # tinham a mesma tag (caso do beta.8). A tag só é apagada se nenhuma
-          # release mantida usar o mesmo nome. Rascunhos e releases sem
-          # arquivos (restos de publicação que falhou) são sempre apagados e
-          # não ocupam vaga — o workflow tem concurrency, então não há outra
-          # publicação em andamento ao mesmo tempo.
-          gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
-            --jq '[.[] | select(.tag_name | test("-beta\\."))] | sort_by(.id) | reverse | .[] | "\(.id) \(.tag_name) \(.draft) \(.assets | length)"' > beta_releases.txt
-          n=0
-          kept=" "
-          while read -r id t draft assets; do
-            [ -z "$id" ] && continue
-            junk=0
-            if [ "$draft" = "true" ] || [ "$assets" = "0" ]; then junk=1; fi
-            if [ "$junk" -eq 0 ]; then n=$((n+1)); fi
-            if [ "$junk" -eq 0 ] && [ "$n" -le 3 ]; then
-              kept="${kept}${t} "
-              continue
-            fi
-            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/releases/${id}" || true
-            case "$kept" in
-              *" ${t} "*) ;;
-              *) gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${t}" || true ;;
-            esac
-          done < beta_releases.txt
-
   linux-beta-package:
     needs: release-beta
     runs-on: ubuntu-latest
