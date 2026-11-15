@@ -33,6 +33,9 @@ internal sealed class SmartTdpService : IDisposable
     // usuário, se for maior) e ajusta a partir daí. Partir de um Eco de 8 W deixava o jogo
     // travado por um bom tempo até a subida começar (testes de 14/11).
     private const int StartFloorWatts = 20;
+    // Ao voltar do Quick Settings, dá uma margem imediata para evitar queda de FPS
+    // enquanto o RTSS entrega as primeiras amostras do jogo.
+    private const int ResumeBoostWatts = 6;
     private const double FanDownAfterSeconds = 30;
     private const double StatusLogSeconds = 10;
 
@@ -241,10 +244,20 @@ internal sealed class SmartTdpService : IDisposable
 
         if (s.Away)
         {
-            // O Quick Settings reaplica o TDP salvo ao abrir; de volta ao jogo, o valor do
-            // modo inteligente é reafirmado.
+            // O Quick Settings pode deixar o TDP em um valor baixo enquanto está aberto.
+            // Na volta, sobe imediatamente pelo menos até 20 W e acrescenta 6 W ao último
+            // valor controlado. O controlador mantém o piso aprendido e volta a reduzir
+            // gradualmente depois que confirmar a meta de FPS.
             s.Away = false;
-            if (s.Applied) Apply(s, s.Controller?.Watts ?? s.StartWatts, "de volta ao jogo");
+            var resumeTime = (DateTime.UtcNow - s.ControlStartedUtc).TotalSeconds;
+            var resumeWatts = s.Controller?.PrepareForResume(resumeTime, StartFloorWatts, ResumeBoostWatts)
+                ?? Math.Max(s.StartWatts, StartFloorWatts);
+            if (s.Applied)
+            {
+                Apply(s, resumeWatts, "retomada do jogo (boost temporário)");
+                UpdateFan(s, resumeWatts, DateTime.UtcNow);
+            }
+            DebugLog.Write($"[TDP-AUTO] Retomada após janela externa: margem temporária de +{ResumeBoostWatts} W (mínimo {StartFloorWatts} W), controlador em {resumeWatts} W.");
         }
 
         FrameStats? frames;
