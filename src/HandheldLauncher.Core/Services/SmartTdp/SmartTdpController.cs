@@ -69,6 +69,15 @@ public sealed class SmartTdpController
     public const double ResumeBoostHoldSeconds = 8;
 
     private int? _resumeReturnTo;
+    private double _resumeAt;
+
+    // Subida por queda de FPS que não veio de um teste de descida (pausa, replay, cena
+    // pesada passageira): quando a meta volta, retorna a este valor em vez de ficar preso lá
+    // em cima.
+    private int? _returnAfterClimb;
+    private int? _provenWatts;   // último valor em que a meta se manteve por alguns segundos
+    private bool _climbFromProbe; // a subida atual veio de um teste de descida que falhou
+    public const double ProvenAfterSeconds = 6;
 
     /// <summary>
     /// Retomada do jogo após perder o foco (Quick Settings, outra janela): dá um reforço
@@ -97,6 +106,7 @@ public sealed class SmartTdpController
         var boosted = Math.Min(_max, baseline + boostWatts);
         if (boosted <= Watts) return Watts;
         _resumeReturnTo = baseline;
+        _resumeAt = nowSeconds;
         Watts = boosted;
         _lastChange = nowSeconds;
         IsSettled = false;
@@ -200,6 +210,20 @@ public sealed class SmartTdpController
         var below = fps < _target * BelowRatio;
         var near = !below && fps < _target * MeetRatio;
 
+        // Reforço da volta ao jogo: passado o prazo sem faltar FPS de verdade, devolve.
+        // (Conta pelo relógio: uma leitura "quase na meta" não segura o reforço.)
+        if (_resumeReturnTo is { } back && !below && nowSeconds - _resumeAt >= ResumeBoostHoldSeconds)
+        {
+            _resumeReturnTo = null;
+            if (back < Watts)
+            {
+                Watts = back;
+                _lastChange = nowSeconds;
+                _lastChangeWasDown = false; // devolução do reforço, não teste
+                return SmartTdpChange.Down;
+            }
+        }
+
         if (below || near)
         {
             _goodSince = nowSeconds;
@@ -222,6 +246,7 @@ public sealed class SmartTdpController
             {
                 Watts = from;
                 _resumeReturnTo = null;
+                _returnAfterClimb = null;
                 _floor = _climbFloor;
                 _floorUntil = _climbFloorUntil;
                 _floorConfirmed = _climbFloorConfirmed;
@@ -250,8 +275,21 @@ public sealed class SmartTdpController
 
             _resumeReturnTo = null; // faltou FPS mesmo com o reforço: ele fica, e sobe mais
             var afterProbe = _lastChangeWasDown && nowSeconds - _lastChange <= 30;
-            _coarse = false;
-            RaiseFloor(Watts + 1, nowSeconds, afterProbe);
+            if (afterProbe)
+            {
+                // Uma descida de teste falhou: este é o ponto em que falta potência. Só isto
+                // vira piso. (Antes toda subida virava piso por minutos: uma pausa ou um
+                // replay a 30 FPS prendia o TDP no teto com o jogo sobrando FPS.)
+                _coarse = false;
+                _returnAfterClimb = null;
+                _climbFromProbe = true;
+                RaiseFloor(Watts + 1, nowSeconds, confirmed: true);
+            }
+            else if (!_climbFromProbe && _climbWatts is { } climbBase && _provenWatts == climbBase)
+            {
+                // Só volta de uma vez para um valor que já tinha se mostrado suficiente.
+                _returnAfterClimb ??= climbBase;
+            }
             Watts = Math.Min(_max, Watts + (below ? StepUpWatts : 1));
             _lastChange = nowSeconds;
             _lastChangeWasDown = false;
@@ -262,23 +300,30 @@ public sealed class SmartTdpController
         _belowCount = 0;
         _nearCount = 0;
         _climbWatts = null;
+        _climbFromProbe = false;
         _futileHold = FutileHoldSeconds;
-
-        if (_resumeReturnTo is { } back)
-        {
-            if (nowSeconds - _goodSince < ResumeBoostHoldSeconds) return SmartTdpChange.None;
-            _resumeReturnTo = null;
-            if (back < Watts)
-            {
-                Watts = back;
-                _lastChange = nowSeconds;
-                _lastChangeWasDown = false; // devolução do reforço, não teste
-                return SmartTdpChange.Down;
-            }
-        }
+        if (nowSeconds - Math.Max(_goodSince, _lastChange) >= ProvenAfterSeconds) _provenWatts = Watts;
 
         var lowerBound = nowSeconds < _floorUntil ? Math.Max(_min, _floor) : _min;
         var downAfter = _coarse ? CoarseDownAfterGoodSeconds : DownAfterGoodSeconds;
+
+        // A meta voltou depois de uma subida passageira: retorna de uma vez ao valor de antes.
+        // Vale como teste: se faltar FPS logo em seguida, aí sim vira piso e sobe de novo.
+        if (_returnAfterClimb is { } baseWatts)
+        {
+            if (nowSeconds - _goodSince < DownAfterGoodSeconds || nowSeconds - _lastChange < DownAfterGoodSeconds)
+                return SmartTdpChange.None;
+            _returnAfterClimb = null;
+            var to = Math.Max(lowerBound, baseWatts);
+            if (to < Watts)
+            {
+                Watts = to;
+                _lastChange = nowSeconds;
+                _lastChangeWasDown = true;
+                IsSettled = false;
+                return SmartTdpChange.Down;
+            }
+        }
         if (Watts > lowerBound
             && nowSeconds - _goodSince >= downAfter
             && nowSeconds - _lastChange >= downAfter)

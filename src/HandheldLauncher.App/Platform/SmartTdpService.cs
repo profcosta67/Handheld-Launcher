@@ -101,6 +101,7 @@ internal sealed class SmartTdpService : IDisposable
         public readonly double[] Recent = new double[3];
         public int RecentCount;
         public DateTime ResumedUtc;
+        public int AltPid;
     }
 
     public SmartTdpService(MainViewModel viewModel)
@@ -257,9 +258,34 @@ internal sealed class SmartTdpService : IDisposable
         var foregroundPid = GetForegroundProcessId();
         if (foregroundPid != gamePid)
         {
-            s.RecentCount = 0;
-            s.Away = true; // Quick Settings, launcher ou outra janela na frente
-            return;
+            // Jogos com mais de um processo (lançador próprio, anti-cheat): a janela detectada
+            // pode não ser a que desenha. Se o RTSS não mede o processo detectado mas mede o
+            // que está na frente (e não é o próprio launcher), é por ele que se controla.
+            var measured = false;
+            if (foregroundPid != 0 && foregroundPid != Environment.ProcessId)
+            {
+                FrameStats? own, front;
+                lock (_rtss)
+                {
+                    own = _rtss.ReadFrameStats(gamePid);
+                    front = _rtss.ReadFrameStats(foregroundPid);
+                }
+                measured = (own is not { } o || o.ProcessId != gamePid) && front is { } fr && fr.ProcessId == foregroundPid;
+            }
+
+            if (!measured)
+            {
+                if (!s.Away) DebugLog.Write($"[TDP-AUTO] Jogo fora do primeiro plano (pid {foregroundPid} na frente, jogo {gamePid}); controle em espera.");
+                s.RecentCount = 0;
+                s.Away = true; // Quick Settings, launcher ou outra janela na frente
+                return;
+            }
+
+            if (s.AltPid != foregroundPid)
+            {
+                s.AltPid = foregroundPid;
+                DebugLog.Write($"[TDP-AUTO] O processo detectado ({gamePid}) não é medido pelo RTSS; controlando pelo processo em primeiro plano ({foregroundPid}).");
+            }
         }
 
         if (s.Away)

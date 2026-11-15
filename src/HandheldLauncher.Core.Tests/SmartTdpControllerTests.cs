@@ -176,6 +176,45 @@ public class SmartTdpControllerTests
     }
 
     [Fact]
+    public void PauseOrReplayDoesNotPinTheCeiling()
+    {
+        // Caso real (15/11, EA FC): o jogo segura a meta com 20 W; numa pausa/replay o FPS
+        // cai e sobe um pouco com a potência (não parece "inútil"), e o TDP vai ao teto.
+        // Quando o jogo volta, tem de voltar aos 20 W — não ficar preso lá em cima.
+        var c = new SmartTdpController(60, 8, 35, 20, startIsLearned: true);
+        for (var t = 0.0; t < 40; t += 2) c.OnSample(60, t);
+        for (var t = 40.0; t < 80; t += 2) c.OnSample(40 + (c.Watts - 20), t);
+        Assert.Equal(35, c.Watts);
+
+        for (var t = 80.0; t <= 100; t += 2) c.OnSample(60, t);
+        Assert.Equal(20, c.Watts);
+    }
+
+    [Fact]
+    public void ReturnThatFailsBecomesAFloorWithoutYoYo()
+    {
+        // O jogo passou a precisar de 26 W de verdade: a volta aos 20 W falha uma vez,
+        // vira piso e ele se acomoda perto do que precisa, sem ficar indo e voltando.
+        var c = new SmartTdpController(60, 8, 35, 20, startIsLearned: true);
+        for (var t = 0.0; t < 40; t += 2) c.OnSample(60, t);
+        Run(c, need: 26, target: 60, seconds: 160, start: 40);
+        var changes = 0;
+        for (var t = 200.0; t < 400; t += 2)
+            if (c.OnSample(Fps(c.Watts, 26, 60), t) != SmartTdpChange.None) changes++;
+        Assert.InRange(c.Watts, 25, 27);
+        Assert.True(changes <= 3, $"{changes} trocas");
+    }
+
+    [Fact]
+    public void FirstClimbFromAnUnprovenStartDoesNotJumpBack()
+    {
+        // Partiu baixo demais (10 W) e subiu: não volta para um valor que nunca serviu.
+        var c = new SmartTdpController(60, 8, 35, 10);
+        Run(c, need: 25, target: 60, seconds: 120);
+        Assert.InRange(c.Watts, 24, 26);
+    }
+
+    [Fact]
     public void OneIsolatedDipDoesNotRaiseThePower()
     {
         var c = new SmartTdpController(60, 8, 35, 20);
