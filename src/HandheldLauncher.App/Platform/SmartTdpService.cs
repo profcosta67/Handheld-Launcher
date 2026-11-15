@@ -33,8 +33,8 @@ internal sealed class SmartTdpService : IDisposable
     // usuário, se for maior) e ajusta a partir daí. Partir de um Eco de 8 W deixava o jogo
     // travado por um bom tempo até a subida começar (testes de 14/11).
     private const int StartFloorWatts = 20;
-    // Ao voltar do Quick Settings, dá uma margem imediata para evitar queda de FPS
-    // enquanto o RTSS entrega as primeiras amostras do jogo.
+    // Ao voltar do Quick Settings, dá uma margem curta (desfeita em ~8 s se a meta se
+    // mantiver) para o jogo não engasgar enquanto volta a rodar.
     private const int ResumeBoostWatts = 6;
     private const double FanDownAfterSeconds = 30;
     private const double StatusLogSeconds = 10;
@@ -199,16 +199,27 @@ internal sealed class SmartTdpService : IDisposable
         var s = _session;
         if (s.TargetFps != TargetFps)
         {
+            // Meta trocada no Quick Settings com o jogo aberto: recomeça o controle com a meta
+            // nova, partindo do valor aprendido para ela (se houver) ou dos watts atuais.
             var previousTarget = s.TargetFps;
             s.TargetFps = TargetFps;
+            var learnedForTarget = _store.Get(s.GameId, TargetFps);
+            var from = learnedForTarget is not null
+                ? Math.Clamp(learnedForTarget.Watts, s.Min, s.Max)
+                : s.Controller?.Watts ?? s.StartWatts;
+            s.StartWatts = from;
+            s.StartLearned = learnedForTarget is not null;
+            s.StartResumed = false;
+            s.SavedWatts = 0; // o que foi aprendido valia para a meta antiga
+            s.MidGame = true; // o jogo já está rodando: espera curta
+            s.RecentCount = 0;
             if (s.Controller is not null)
             {
-                var currentWatts = s.Controller.Watts;
-                s.Controller = new SmartTdpController(TargetFps, s.Min, s.Max, currentWatts);
+                s.Controller = new SmartTdpController(TargetFps, s.Min, s.Max, from, startIsLearned: s.StartLearned);
                 s.ControlStartedUtc = DateTime.UtcNow;
-                s.RecentCount = 0;
             }
-            DebugLog.Write($"[TDP-AUTO] Meta alterada durante a sessão: {previousTarget} → {TargetFps} FPS.");
+            DebugLog.Write($"[TDP-AUTO] Meta alterada durante a sessão: {previousTarget} → {TargetFps} FPS; recomeça em {from} W ({(s.StartLearned ? "aprendido para esta meta" : "watts atuais")}).");
+            if (s.Applied && !s.Suspended) Apply(s, from, "meta alterada");
         }
         if (s.Suspended) return;
 
@@ -244,21 +255,14 @@ internal sealed class SmartTdpService : IDisposable
 
         if (s.Away)
         {
-            // O Quick Settings pode deixar o TDP em um valor baixo enquanto está aberto.
-            // Na volta, sobe imediatamente pelo menos até 20 W e acrescenta 6 W ao último
-            // valor controlado. O controlador mantém o piso aprendido e volta a reduzir
-            // gradualmente depois que confirmar a meta de FPS.
+            // De volta ao jogo: reafirma o valor do modo inteligente com um reforço curto
+            // (o controlador devolve os watts de antes se a meta se mantiver ~8 s). Sem piso
+            // fixo: um jogo leve que roda a 12 W não pula para 20 W a cada visita ao QS.
             s.Away = false;
             var resumeTime = (DateTime.UtcNow - s.ControlStartedUtc).TotalSeconds;
-            var resumeWatts = s.Controller?.PrepareForResume(resumeTime, StartFloorWatts, ResumeBoostWatts)
-                ?? Math.Max(s.StartWatts, StartFloorWatts);
-            if (s.Controller is null) s.StartWatts = resumeWatts;
-            if (s.Applied)
-            {
-                Apply(s, resumeWatts, "retomada do jogo (boost temporário)");
-                UpdateFan(s, resumeWatts, DateTime.UtcNow);
-            }
-            DebugLog.Write($"[TDP-AUTO] Retomada após janela externa: margem temporária de +{ResumeBoostWatts} W (mínimo {StartFloorWatts} W), controlador em {resumeWatts} W.");
+            var resumeWatts = s.Controller?.PrepareForResume(resumeTime, ResumeBoostWatts) ?? s.StartWatts;
+            if (s.Applied) Apply(s, resumeWatts, "de volta ao jogo");
+            DebugLog.Write($"[TDP-AUTO] De volta ao jogo: {resumeWatts} W (reforço curto de até +{ResumeBoostWatts} W; volta ao valor anterior se a meta se mantiver).");
         }
 
         FrameStats? frames;

@@ -444,8 +444,9 @@ public partial class QsPanel : UserControl
             TdpPresetsHost.Children.Add(button);
         }
 
-        // v0.27: TDP inteligente como mais uma opção da fila. É exclusiva: ligar o Auto
-        // desmarca os perfis; escolher um perfil desliga o Auto.
+        // v0.27: TDP inteligente como mais uma opção da fila. Com o Auto ligado os perfis e o
+        // slider ficam travados e aparece a escolha da meta de FPS; para voltar ao manual,
+        // desliga-se o Auto.
         _smartButton = MakeChip("🧠", "Auto");
         _smartButton.Tag = SmartTag;
         _smartButton.Click += (_, _) => SetSmartTdp(!_smartOn);

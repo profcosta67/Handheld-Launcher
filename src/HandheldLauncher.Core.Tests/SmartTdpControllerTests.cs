@@ -33,25 +33,58 @@ public class SmartTdpControllerTests
     }
 
     [Fact]
-    public void BoostsImmediatelyWhenReturningFromQuickSettings()
+    public void ResumeBoostIsTemporaryWhenTheTargetHolds()
+    {
+        var c = new SmartTdpController(60, 8, 35, 12, startIsLearned: true);
+        Assert.Equal(SmartTdpChange.None, c.OnSample(60, 0));
+
+        Assert.Equal(18, c.PrepareForResume(nowSeconds: 100, boostWatts: 6));
+        Assert.Equal(SmartTdpChange.None, c.OnSample(60, 102));
+        Assert.Equal(SmartTdpChange.None, c.OnSample(60, 104));
+        Assert.Equal(SmartTdpChange.Down, c.OnSample(60, 108));
+        Assert.Equal(12, c.Watts); // jogo leve volta ao que já usava, sem piso de 20 W
+    }
+
+    [Fact]
+    public void ResumeBoostStaysWhenFpsDropsAndClimbsAfterCooldown()
     {
         var c = new SmartTdpController(60, 8, 35, 16, startIsLearned: true);
-        var resumed = c.PrepareForResume(nowSeconds: 100, minimumWatts: 20, boostWatts: 6);
+        c.OnSample(60, 0);
+        Assert.Equal(22, c.PrepareForResume(100, 6));
 
-        Assert.Equal(22, resumed);
-        Assert.Equal(22, c.Watts);
-
-        // Com a carga do jogo de volta, a próxima amostra baixa já pode iniciar a recuperação.
-        Assert.Equal(SmartTdpChange.None, c.OnSample(35, 100));
-        Assert.Equal(SmartTdpChange.Up, c.OnSample(35, 102));
+        // Engasgo logo na volta: espera a pausa normal antes de subir mais.
+        Assert.Equal(SmartTdpChange.None, c.OnSample(35, 102));
+        Assert.Equal(SmartTdpChange.Up, c.OnSample(35, 104));
         Assert.Equal(25, c.Watts);
+
+        // O reforço não é devolvido depois de faltar FPS.
+        for (var t = 106; t <= 130; t += 2) c.OnSample(60, t);
+        Assert.True(c.Watts >= 23, $"devolveu o reforço: {c.Watts} W");
+    }
+
+    [Fact]
+    public void ResumeDoesNotResetTheFutileClimbHold()
+    {
+        // Jogo que não chega na meta: a subida se mostra inútil e ele volta.
+        var c = new SmartTdpController(40, 8, 35, 20);
+        double t = 0;
+        var reverted = false;
+        for (; t < 120 && !reverted; t += 2)
+            reverted = c.OnSample(30, t) == SmartTdpChange.Down && c.Watts == 20;
+        Assert.True(reverted, "não detectou a subida inútil");
+
+        // Voltar do QS não reabre a subida nem dá reforço.
+        Assert.Equal(20, c.PrepareForResume(t, 6));
+        for (var u = t + 2; u < t + 60; u += 2) c.OnSample(30, u);
+        Assert.Equal(20, c.Watts);
     }
 
     [Fact]
     public void ResumeBoostNeverExceedsDeviceMaximum()
     {
         var c = new SmartTdpController(60, 8, 25, 23);
-        Assert.Equal(25, c.PrepareForResume(100, minimumWatts: 20, boostWatts: 6));
+        c.OnSample(60, 0);
+        Assert.Equal(25, c.PrepareForResume(100, boostWatts: 6));
     }
 
     [Fact]

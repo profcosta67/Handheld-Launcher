@@ -64,23 +64,36 @@ public sealed class SmartTdpController
     public int Watts { get; private set; }
     public int TargetFps => _target;
 
+    // Reforço da volta ao jogo: por quanto tempo a meta tem de se manter para devolver
+    // os watts de antes de sair.
+    public const double ResumeBoostHoldSeconds = 8;
+
+    private int? _resumeReturnTo;
+
     /// <summary>
-    /// Retomada do jogo após perder o foco: aplica uma margem temporária de potência
-    /// antes de voltar a depender das amostras do RTSS. Mantém o piso aprendido, mas
-    /// limpa contadores/cooldowns da sessão em segundo plano.
+    /// Retomada do jogo após perder o foco (Quick Settings, outra janela): dá um reforço
+    /// curto de potência enquanto o jogo volta a rodar. Se a meta se mantém por
+    /// <see cref="ResumeBoostHoldSeconds"/>, volta direto aos watts de antes; se o FPS
+    /// cair, o reforço fica (era preciso). Piso, aprendizado e a proteção contra subida
+    /// sem ganho são mantidos — o jogo é o mesmo de antes da saída.
     /// </summary>
-    public int PrepareForResume(double nowSeconds, int minimumWatts, int boostWatts)
+    public int PrepareForResume(double nowSeconds, int boostWatts)
     {
-        Watts = Math.Clamp(Math.Max(minimumWatts, Watts + Math.Max(0, boostWatts)), _min, _max);
-        _started = true;
         _belowCount = 0;
         _nearCount = 0;
         _goodSince = nowSeconds;
-        _lastChange = nowSeconds - UpCooldownSeconds;
         _lowFpsSince = null;
         _climbWatts = null;
-        _futileUntil = double.NegativeInfinity;
-        _futileHold = FutileHoldSeconds;
+        _lastChangeWasDown = false; // a volta não é uma descida de teste
+        _resumeReturnTo = null;
+
+        // Ainda na abertura do jogo (sem nenhuma leitura avaliada) não há o que reforçar; e
+        // durante a espera por subida inútil, mais potência já se mostrou sem efeito.
+        if (!_started || nowSeconds < _futileUntil || boostWatts <= 0 || Watts >= _max) return Watts;
+
+        _resumeReturnTo = Watts;
+        Watts = Math.Min(_max, Watts + boostWatts);
+        _lastChange = nowSeconds;
         IsSettled = false;
         return Watts;
     }
@@ -165,6 +178,7 @@ public sealed class SmartTdpController
         {
             _goodSince = nowSeconds;
             IsSettled = false;
+            _resumeReturnTo = null; // faltou FPS com o reforço: ele fica
             if (nowSeconds < _futileUntil) return SmartTdpChange.None;
 
             bool enough;
@@ -220,6 +234,19 @@ public sealed class SmartTdpController
         _nearCount = 0;
         _climbWatts = null;
         _futileHold = FutileHoldSeconds;
+
+        if (_resumeReturnTo is { } back)
+        {
+            if (nowSeconds - _goodSince < ResumeBoostHoldSeconds) return SmartTdpChange.None;
+            _resumeReturnTo = null;
+            if (back < Watts)
+            {
+                Watts = back;
+                _lastChange = nowSeconds;
+                _lastChangeWasDown = false; // devolução do reforço, não teste
+                return SmartTdpChange.Down;
+            }
+        }
 
         var lowerBound = nowSeconds < _floorUntil ? Math.Max(_min, _floor) : _min;
         var downAfter = _coarse ? CoarseDownAfterGoodSeconds : DownAfterGoodSeconds;

@@ -27,11 +27,17 @@ public sealed class SmartTdpStore
             Path.GetDirectoryName(AppSettingsStore.DefaultPath) ?? ".", "smart-tdp.json");
     }
 
+    // Um valor por jogo e por meta ("id@60"): trocar a meta no Quick Settings não apaga o
+    // que foi aprendido para a outra. Arquivos antigos (chave só com o id) continuam lidos.
+    private static string KeyFor(string gameId, int targetFps) => $"{gameId}@{targetFps}";
+
     public SmartTdpEntry? Get(string gameId, int targetFps)
     {
         lock (_gate)
         {
-            return Load().TryGetValue(gameId, out var e) && e.TargetFps == targetFps && e.Watts > 0 ? e : null;
+            var all = Load();
+            if (all.TryGetValue(KeyFor(gameId, targetFps), out var e) && e.Watts > 0) return e;
+            return all.TryGetValue(gameId, out var legacy) && legacy.TargetFps == targetFps && legacy.Watts > 0 ? legacy : null;
         }
     }
 
@@ -40,7 +46,8 @@ public sealed class SmartTdpStore
         lock (_gate)
         {
             var all = Load();
-            all[gameId] = new SmartTdpEntry { Watts = watts, TargetFps = targetFps, Title = title, UpdatedUtc = DateTime.UtcNow };
+            if (all.TryGetValue(gameId, out var legacy) && legacy.TargetFps == targetFps) all.Remove(gameId);
+            all[KeyFor(gameId, targetFps)] = new SmartTdpEntry { Watts = watts, TargetFps = targetFps, Title = title, UpdatedUtc = DateTime.UtcNow };
             try
             {
                 var dir = Path.GetDirectoryName(_path);
