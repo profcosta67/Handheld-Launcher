@@ -241,7 +241,7 @@ public partial class QsPanel : UserControl
         // v0.25.3: no "Person." o D-pad ajusta o slider diretamente.
         _activePreset = preset;
         _customPresetActive = preset == PowerPreset.Custom;
-        if (TdpSlider is not null) TdpSlider.IsEnabled = !_smartOn && !_tdpEditing;
+        if (TdpSlider is not null) TdpSlider.IsEnabled = !_smartOn && _tdpEditing;
         if (TxtTdpHint is not null && !_tdpEditing)
             TxtTdpHint.Text = _smartOn ? SmartHint()
                 : _customPresetActive ? "Personalizado ativo • selecione Person. e A para ajustar" : "";
@@ -308,7 +308,7 @@ public partial class QsPanel : UserControl
     private void RefreshSmartFpsVisuals()
     {
         SmartFpsCard.IsVisible = _smartOn;
-        TdpSlider.IsEnabled = !_smartOn && !_tdpEditing;
+        TdpSlider.IsEnabled = !_smartOn && _tdpEditing;
         foreach (var button in _tdpButtons)
         {
             var isSmart = ReferenceEquals(button, _smartButton);
