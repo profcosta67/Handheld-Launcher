@@ -18,6 +18,8 @@ namespace HandheldLauncher.App.Views.Qs;
 public partial class QsPanel : UserControl
 {
     private readonly List<Button> _tdpButtons = new();
+    private readonly List<Button> _smartFpsButtons = new();
+    private readonly List<Button> _smartNavigationButtons = new();
     private readonly List<Button> _resolutionButtons = new();
     private readonly List<Button> _fanButtons = new();
     private readonly List<Button> _colorButtons = new();
@@ -45,6 +47,8 @@ public partial class QsPanel : UserControl
     private const int TdpCoarseStep = 10;
     private bool _suppressEvents = false;
     private bool _losslessOn = false;
+    private static readonly int[] SmartTdpTargets = { 30, 40, 45, 60, 90, 120 };
+    private int _smartTargetFps = 60;
 
     // O TDP demora ~500 ms a aplicar no EC: só mandamos depois de o dedo parar.
     private readonly DispatcherTimer _tdpDebounce = new() { Interval = TimeSpan.FromMilliseconds(450) };
@@ -83,6 +87,7 @@ public partial class QsPanel : UserControl
         };
 
         BuildPowerPresets();
+        BuildSmartFpsChips();
         BuildHudChips();
 
         // Ordem vertical do D-pad acompanha a ordem visual dos cartões.
@@ -113,6 +118,7 @@ public partial class QsPanel : UserControl
     // Tag no formato que os handlers existentes esperam ("Eco", "1600x900",
     // "Automático", "1"). Assim nada do OverlayWindow é reescrito.
     public event EventHandler<int>? TdpWattsRequested;
+    public event EventHandler<int>? SmartTdpTargetFpsChanged;
     public event EventHandler<Button>? ResolutionRequested;
     public event EventHandler<Button>? FanRequested;
     public event EventHandler<Button>? ColorRequested;
@@ -235,6 +241,7 @@ public partial class QsPanel : UserControl
         // v0.25.3: no "Person." o D-pad ajusta o slider diretamente.
         _activePreset = preset;
         _customPresetActive = preset == PowerPreset.Custom;
+        if (TdpSlider is not null) TdpSlider.IsEnabled = !_smartOn && !_tdpEditing;
         if (TxtTdpHint is not null && !_tdpEditing)
             TxtTdpHint.Text = _smartOn ? SmartHint()
                 : _customPresetActive ? "Personalizado ativo • selecione Person. e A para ajustar" : "";
@@ -249,7 +256,14 @@ public partial class QsPanel : UserControl
     public void RefreshSmartTdp()
     {
         _smartOn = OperatingSystem.IsWindows() && ReadSmartTdpSetting();
+        try
+        {
+            var settings = HandheldLauncher.Core.Services.AppSettingsStore.Load();
+            _smartTargetFps = NormalizeSmartTarget(settings.SmartTdpTargetFps);
+        }
+        catch { _smartTargetFps = 60; }
         SelectPowerPreset(_activePreset);
+        RefreshSmartFpsVisuals();
 
         // Com o modo inteligente no comando, o número mostrado é o que ele está aplicando.
         var watts = HandheldLauncher.App.Platform.GameSessionInfo.SmartTdpWatts;
@@ -270,6 +284,68 @@ public partial class QsPanel : UserControl
         catch { return false; }
     }
 
+    private static int NormalizeSmartTarget(int fps) =>
+        SmartTdpTargets.Contains(fps) ? fps : 60;
+
+    private void BuildSmartFpsChips()
+    {
+        SmartFpsHost.Children.Clear();
+        _smartFpsButtons.Clear();
+        _smartNavigationButtons.Clear();
+
+        foreach (var fps in SmartTdpTargets)
+        {
+            var button = MakeChip("🎯", fps.ToString());
+            button.Tag = fps;
+            button.Click += (_, _) => SetSmartTdpTargetFps(fps);
+            _smartFpsButtons.Add(button);
+            SmartFpsHost.Children.Add(button);
+        }
+
+        RefreshSmartFpsVisuals();
+    }
+
+    private void RefreshSmartFpsVisuals()
+    {
+        SmartFpsCard.IsVisible = _smartOn;
+        TdpSlider.IsEnabled = !_smartOn && !_tdpEditing;
+        foreach (var button in _tdpButtons)
+        {
+            var isSmart = ReferenceEquals(button, _smartButton);
+            button.IsEnabled = !_smartOn || isSmart;
+        }
+
+        foreach (var button in _smartFpsButtons)
+            button.Classes.Set("active", Equals(button.Tag, _smartTargetFps));
+
+        _smartNavigationButtons.Clear();
+        if (_smartButton is not null) _smartNavigationButtons.Add(_smartButton);
+        _smartNavigationButtons.AddRange(_smartFpsButtons);
+    }
+
+    private void SetSmartTdpTargetFps(int fps)
+    {
+        fps = NormalizeSmartTarget(fps);
+        if (fps == _smartTargetFps) return;
+
+        try
+        {
+            var settings = HandheldLauncher.Core.Services.AppSettingsStore.Load();
+            settings.SmartTdpTargetFps = fps;
+            HandheldLauncher.Core.Services.AppSettingsStore.Save(settings);
+        }
+        catch (Exception ex)
+        {
+            HandheldLauncher.App.Diagnostics.DebugLog.Write($"[QS] Não consegui salvar a meta de FPS: {ex.Message}");
+            return;
+        }
+
+        _smartTargetFps = fps;
+        RefreshSmartFpsVisuals();
+        SmartTdpTargetFpsChanged?.Invoke(this, fps);
+        HandheldLauncher.App.Diagnostics.DebugLog.Write($"[QS] Meta do TDP inteligente alterada para {fps} FPS.");
+    }
+
     private void SetSmartTdp(bool on)
     {
         try
@@ -288,6 +364,7 @@ public partial class QsPanel : UserControl
         HandheldLauncher.App.Diagnostics.DebugLog.Write($"[QS] TDP inteligente {(on ? "ligado" : "desligado")} pelo painel.");
         if (on) EndTdpEdit(apply: false);
         SelectPowerPreset(_activePreset);
+        RefreshSmartFpsVisuals();
         if (!on && !_tdpEditing) TxtTdp.Text = $"{_customWatts} W";
     }
 
@@ -383,6 +460,7 @@ public partial class QsPanel : UserControl
         _smartOn = OperatingSystem.IsWindows() && ReadSmartTdpSetting();
 
         SelectPowerPreset(PowerPreset.Normal);
+        RefreshSmartFpsVisuals();
     }
 
     private static string EmojiFor(PowerPreset preset) => preset switch
@@ -490,7 +568,7 @@ public partial class QsPanel : UserControl
 
     private void OnPowerPresetClick(PowerPreset preset)
     {
-        if (_smartOn) SetSmartTdp(false); // escolher um perfil desliga o modo inteligente
+        if (_smartOn) return; // o modo inteligente bloqueia ajustes manuais
         if (preset == PowerPreset.Custom) { BeginTdpEdit(); return; }
         EndTdpEdit(apply: false);
 
@@ -700,7 +778,7 @@ public partial class QsPanel : UserControl
         1 => _resolutionButtons,
         2 => _colorButtons,
         3 => _fanButtons,
-        4 => _tdpButtons,
+        4 => _smartOn ? _smartNavigationButtons : _tdpButtons,
         5 => _hudButtons,
         6 => _losslessButtons,
         7 => _captureButtons,
@@ -725,7 +803,14 @@ public partial class QsPanel : UserControl
                     ActivateFan(_fanButtons[index]);
                 break;
             case 4:
-                if (index >= 0 && index < _tdpButtons.Count && _tdpButtons[index].Tag is PowerPreset p)
+                if (_smartOn)
+                {
+                    if (index == 0) SetSmartTdp(false);
+                    else if (index > 0 && index - 1 < _smartFpsButtons.Count &&
+                             _smartFpsButtons[index - 1].Tag is int target)
+                        SetSmartTdpTargetFps(target);
+                }
+                else if (index >= 0 && index < _tdpButtons.Count && _tdpButtons[index].Tag is PowerPreset p)
                     OnPowerPresetClick(p);
                 else if (index >= 0 && index < _tdpButtons.Count && ReferenceEquals(_tdpButtons[index], _smartButton))
                     SetSmartTdp(!_smartOn);
