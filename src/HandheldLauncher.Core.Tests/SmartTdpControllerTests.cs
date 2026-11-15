@@ -80,6 +80,56 @@ public class SmartTdpControllerTests
     }
 
     [Fact]
+    public void ReturningDuringAClimbOnACappedGameEndsWhereTheClimbStarted()
+    {
+        // Jogo travado em 30 FPS com meta 60: a primeira subida sai de 20 W.
+        var c = new SmartTdpController(60, 8, 35, 20);
+        double t = 0;
+        for (; c.Watts == 20 && t < 60; t += 2) c.OnSample(30, t);
+        Assert.Equal(23, c.Watts);
+
+        // Abre e fecha o QS no meio da subida.
+        c.PrepareForResume(t, 6);
+        for (var u = t + 2; u < t + 100; u += 2) c.OnSample(30, u);
+        Assert.Equal(20, c.Watts); // nem o reforço nem a subida ficam
+    }
+
+    [Fact]
+    public void RepeatedReturnsDoNotStackTheBoost()
+    {
+        var c = new SmartTdpController(60, 8, 35, 12, startIsLearned: true);
+        c.OnSample(60, 0);
+        Assert.Equal(18, c.PrepareForResume(100, 6));
+        Assert.Equal(18, c.PrepareForResume(103, 6));
+        Assert.Equal(12, c.BaselineWatts);
+        for (var t = 105; t <= 111; t += 2) c.OnSample(60, t);
+        Assert.Equal(12, c.Watts);
+    }
+
+    [Fact]
+    public void OneNoisySampleAfterReturningDoesNotKeepTheBoost()
+    {
+        var c = new SmartTdpController(60, 8, 35, 12, startIsLearned: true);
+        c.OnSample(60, 0);
+        c.PrepareForResume(100, 6);
+        Assert.Equal(SmartTdpChange.None, c.OnSample(56, 102)); // um pouco abaixo, uma vez
+        for (var t = 104; t <= 110; t += 2) c.OnSample(60, t);
+        Assert.Equal(12, c.Watts);
+    }
+
+    [Fact]
+    public void BoostCanBeDroppedWithoutSamples()
+    {
+        var c = new SmartTdpController(60, 8, 35, 14, startIsLearned: true);
+        c.OnSample(60, 0);
+        c.PrepareForResume(100, 6);
+        Assert.True(c.ResumeBoostPending);
+        Assert.Equal(14, c.DropResumeBoost(120));
+        Assert.False(c.ResumeBoostPending);
+        Assert.Null(c.DropResumeBoost(122));
+    }
+
+    [Fact]
     public void ResumeBoostNeverExceedsDeviceMaximum()
     {
         var c = new SmartTdpController(60, 8, 25, 23);

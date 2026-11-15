@@ -83,18 +83,44 @@ public sealed class SmartTdpController
         _nearCount = 0;
         _goodSince = nowSeconds;
         _lowFpsSince = null;
-        _climbWatts = null;
         _lastChangeWasDown = false; // a volta não é uma descida de teste
-        _resumeReturnTo = null;
+        // Uma subida em andamento continua sendo medida a partir de onde começou: se ela se
+        // mostrar inútil, volta para antes dela (e não para o valor com reforço).
 
         // Ainda na abertura do jogo (sem nenhuma leitura avaliada) não há o que reforçar; e
-        // durante a espera por subida inútil, mais potência já se mostrou sem efeito.
-        if (!_started || nowSeconds < _futileUntil || boostWatts <= 0 || Watts >= _max) return Watts;
+        // durante a espera por subida inútil, mais potência já se mostrou sem efeito. Um
+        // reforço que ainda não foi devolvido continua pendente.
+        if (!_started || nowSeconds < _futileUntil || boostWatts <= 0) return Watts;
 
-        _resumeReturnTo = Watts;
-        Watts = Math.Min(_max, Watts + boostWatts);
+        // Voltas seguidas não acumulam: o reforço é sempre sobre o valor de antes da 1ª saída.
+        var baseline = _resumeReturnTo ?? Watts;
+        var boosted = Math.Min(_max, baseline + boostWatts);
+        if (boosted <= Watts) return Watts;
+        _resumeReturnTo = baseline;
+        Watts = boosted;
         _lastChange = nowSeconds;
         IsSettled = false;
+        return Watts;
+    }
+
+    /// <summary>Há um reforço de volta ao jogo ainda não devolvido.</summary>
+    public bool ResumeBoostPending => _resumeReturnTo is not null;
+
+    /// <summary>Watts sem o reforço da volta ao jogo (o que vale lembrar ou retomar).</summary>
+    public int BaselineWatts => _resumeReturnTo ?? Watts;
+
+    /// <summary>
+    /// Devolve o reforço sem esperar leituras (o jogo parou de entregar FPS). Retorna os
+    /// watts de antes, ou null se não havia reforço.
+    /// </summary>
+    public int? DropResumeBoost(double nowSeconds)
+    {
+        if (_resumeReturnTo is not { } back) return null;
+        _resumeReturnTo = null;
+        if (back >= Watts) return null;
+        Watts = back;
+        _lastChange = nowSeconds;
+        _lastChangeWasDown = false;
         return Watts;
     }
 
@@ -178,7 +204,6 @@ public sealed class SmartTdpController
         {
             _goodSince = nowSeconds;
             IsSettled = false;
-            _resumeReturnTo = null; // faltou FPS com o reforço: ele fica
             if (nowSeconds < _futileUntil) return SmartTdpChange.None;
 
             bool enough;
@@ -196,6 +221,7 @@ public sealed class SmartTdpController
                 && fps < _climbFps * FutileGainRatio)
             {
                 Watts = from;
+                _resumeReturnTo = null;
                 _floor = _climbFloor;
                 _floorUntil = _climbFloorUntil;
                 _floorConfirmed = _climbFloorConfirmed;
@@ -212,7 +238,9 @@ public sealed class SmartTdpController
 
             if (_climbWatts is null)
             {
-                _climbWatts = Watts;
+                // Com reforço pendente a subida conta a partir do valor de antes dele: se não
+                // adiantar, volta para lá.
+                _climbWatts = _resumeReturnTo ?? Watts;
                 _climbFps = fps;
                 _climbFloor = _floor;
                 _climbFloorUntil = _floorUntil;
@@ -220,6 +248,7 @@ public sealed class SmartTdpController
                 _climbCoarse = _coarse;
             }
 
+            _resumeReturnTo = null; // faltou FPS mesmo com o reforço: ele fica, e sobe mais
             var afterProbe = _lastChangeWasDown && nowSeconds - _lastChange <= 30;
             _coarse = false;
             RaiseFloor(Watts + 1, nowSeconds, afterProbe);

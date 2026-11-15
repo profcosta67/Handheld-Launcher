@@ -36,6 +36,7 @@ internal sealed class SmartTdpService : IDisposable
     // Ao voltar do Quick Settings, dá uma margem curta (desfeita em ~8 s se a meta se
     // mantiver) para o jogo não engasgar enquanto volta a rodar.
     private const int ResumeBoostWatts = 6;
+    private const double ResumeBoostNoFramesSeconds = 15;
     private const double FanDownAfterSeconds = 30;
     private const double StatusLogSeconds = 10;
 
@@ -99,6 +100,7 @@ internal sealed class SmartTdpService : IDisposable
         public double LastFps = double.NaN;
         public readonly double[] Recent = new double[3];
         public int RecentCount;
+        public DateTime ResumedUtc;
     }
 
     public SmartTdpService(MainViewModel viewModel)
@@ -206,7 +208,7 @@ internal sealed class SmartTdpService : IDisposable
             var learnedForTarget = _store.Get(s.GameId, TargetFps);
             var from = learnedForTarget is not null
                 ? Math.Clamp(learnedForTarget.Watts, s.Min, s.Max)
-                : s.Controller?.Watts ?? s.StartWatts;
+                : s.Controller?.BaselineWatts ?? s.StartWatts;
             s.StartWatts = from;
             s.StartLearned = learnedForTarget is not null;
             s.StartResumed = false;
@@ -261,6 +263,7 @@ internal sealed class SmartTdpService : IDisposable
             s.Away = false;
             var resumeTime = (DateTime.UtcNow - s.ControlStartedUtc).TotalSeconds;
             var resumeWatts = s.Controller?.PrepareForResume(resumeTime, ResumeBoostWatts) ?? s.StartWatts;
+            s.ResumedUtc = DateTime.UtcNow;
             if (s.Applied) Apply(s, resumeWatts, "de volta ao jogo");
             DebugLog.Write($"[TDP-AUTO] De volta ao jogo: {resumeWatts} W (reforço curto de até +{ResumeBoostWatts} W; volta ao valor anterior se a meta se mantiver).");
         }
@@ -270,6 +273,12 @@ internal sealed class SmartTdpService : IDisposable
         if (frames is not { } f || f.ProcessId != foregroundPid)
         {
             s.RecentCount = 0;
+            // Sem leituras depois da volta ao jogo, o reforço não seria devolvido nunca.
+            if (s.Controller is { ResumeBoostPending: true } ctl && (DateTime.UtcNow - s.ResumedUtc).TotalSeconds >= ResumeBoostNoFramesSeconds)
+            {
+                var back = ctl.DropResumeBoost((DateTime.UtcNow - s.ControlStartedUtc).TotalSeconds);
+                if (back is { } w && s.Applied) Apply(s, w, "reforço devolvido sem leitura de FPS");
+            }
             if (!s.LoggedNoFrames)
             {
                 s.LoggedNoFrames = true;
@@ -405,7 +414,7 @@ internal sealed class SmartTdpService : IDisposable
 
         if (why != "modo desligado") _resume = null;
         else if (s.Applied && !s.Suspended && s.Controller is not null && _viewModel.RunningGame?.Id == s.GameId)
-            _resume = (s.GameId, s.Controller.Watts, s.UserModeAtStart);
+            _resume = (s.GameId, s.Controller.BaselineWatts, s.UserModeAtStart);
 
         if (s.Applied && !s.Suspended)
         {

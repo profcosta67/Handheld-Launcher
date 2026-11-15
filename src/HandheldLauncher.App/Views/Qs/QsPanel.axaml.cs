@@ -255,6 +255,7 @@ public partial class QsPanel : UserControl
     public void RefreshSmartTdp()
     {
         _smartOn = OperatingSystem.IsWindows() && ReadSmartTdpSetting();
+        if (_smartOn) EndTdpEdit(apply: false); // ligado em outro lugar: o ajuste manual aberto não vale mais
         try
         {
             var settings = HandheldLauncher.Core.Services.AppSettingsStore.Load();
@@ -273,8 +274,8 @@ public partial class QsPanel : UserControl
     {
         var watts = HandheldLauncher.App.Platform.GameSessionInfo.SmartTdpWatts;
         return watts > 0
-            ? $"Modo inteligente no comando: {watts} W agora, TDP e ventoinha • escolha um perfil para desligar"
-            : "Modo inteligente: ajusta TDP e ventoinha sozinho durante o jogo • escolha um perfil para desligar";
+            ? $"Modo inteligente no comando: {watts} W agora, TDP e ventoinha • toque em Auto para voltar ao manual"
+            : "Modo inteligente: ajusta TDP e ventoinha sozinho durante o jogo • toque em Auto para voltar ao manual";
     }
 
     private static bool ReadSmartTdpSetting()

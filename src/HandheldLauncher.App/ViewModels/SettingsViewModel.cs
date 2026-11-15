@@ -462,6 +462,7 @@ public sealed class SettingsViewModel : ViewModelBase
     public bool IsWindows => OperatingSystem.IsWindows();
     private bool _smartTdpEnabled;
     private bool _smartTdpLoaded;
+    private int _smartTargetLoadedIndex = -1;
     public bool SmartTdpEnabled { get => _smartTdpEnabled; set => SetField(ref _smartTdpEnabled, value); }
 
     private static readonly int[] SmartTdpTargets = { 30, 40, 45, 60, 90, 120 };
@@ -690,6 +691,7 @@ public sealed class SettingsViewModel : ViewModelBase
         _smartTdpLoaded = settings.SmartTdpEnabled;
         var targetIndex = Array.IndexOf(SmartTdpTargets, settings.SmartTdpTargetFps);
         SmartTdpTargetIndex = targetIndex < 0 ? 3 : targetIndex;
+        _smartTargetLoadedIndex = SmartTdpTargetIndex;
         
         SoundThemeIndex = Math.Clamp(settings.SoundTheme, 0, HandheldLauncher.App.Platform.UiSounds.PackNames.Length - 1);
         SoundVolume = Math.Clamp(settings.SoundVolume, 0, 100);
@@ -902,6 +904,17 @@ public sealed class SettingsViewModel : ViewModelBase
         }
         _smartTdpLoaded = SmartTdpEnabled;
         settings.SmartTdpEnabled = SmartTdpEnabled;
+        // A meta também muda pelo Quick Settings: mesma regra do "Auto" acima.
+        if (SmartTdpTargetIndex == _smartTargetLoadedIndex)
+        {
+            try
+            {
+                var onDisk = Array.IndexOf(SmartTdpTargets, AppSettingsStore.Load().SmartTdpTargetFps);
+                if (onDisk >= 0) SmartTdpTargetIndex = onDisk;
+            }
+            catch { }
+        }
+        _smartTargetLoadedIndex = SmartTdpTargetIndex;
         settings.SmartTdpTargetFps = SmartTdpTargets[SmartTdpTargetIndex];
 
         // v0.25.2: o layout Cartoon é uma identidade fechada — paleta 16, fonte
