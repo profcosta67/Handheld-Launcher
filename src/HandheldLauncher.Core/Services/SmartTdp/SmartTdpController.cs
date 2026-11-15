@@ -77,6 +77,13 @@ public sealed class SmartTdpController
     private int? _returnAfterClimb;
     private int? _provenWatts;   // último valor em que a meta se manteve por alguns segundos
     private bool _climbFromProbe; // a subida atual veio de um teste de descida que falhou
+    private bool _lastDownWasReturn; // a última descida foi a volta de uma vez (não um passo de teste)
+    private int _lastDownStep = StepDownWatts;
+    private bool _probeWasReturn;
+    private int _probeFrom;
+    // Piso de antes de um "teste falhado", para desfazer se a queda não era culpa do teste.
+    private (int Floor, double Until, bool Confirmed, double Hold)? _preProbeFloor;
+    private double _futileFps;
     public const double ProvenAfterSeconds = 6;
 
     /// <summary>
@@ -228,7 +235,13 @@ public sealed class SmartTdpController
         {
             _goodSince = nowSeconds;
             IsSettled = false;
-            if (nowSeconds < _futileUntil) return SmartTdpChange.None;
+            if (nowSeconds < _futileUntil)
+            {
+                // A espera vale enquanto o FPS continua no mesmo patamar em que a subida não
+                // adiantou. Se mudou (a pausa acabou e agora falta potência de verdade), reage.
+                if (Math.Abs(fps - _futileFps) <= 0.10 * _futileFps) return SmartTdpChange.None;
+                _futileUntil = double.NegativeInfinity;
+            }
 
             bool enough;
             if (below) { _belowCount++; _nearCount = 0; enough = _belowCount >= 2; }
@@ -252,6 +265,7 @@ public sealed class SmartTdpController
                 _floorConfirmed = _climbFloorConfirmed;
                 _coarse = _climbCoarse; // a subida não adiantou: a descida rápida continua valendo
                 _climbWatts = null;
+                _futileFps = fps;
                 _futileUntil = nowSeconds + _futileHold;
                 _futileHold = Math.Min(MaxFloorHoldSeconds, _futileHold * 2);
                 _lastChange = nowSeconds;
@@ -283,7 +297,19 @@ public sealed class SmartTdpController
                 _coarse = false;
                 _returnAfterClimb = null;
                 _climbFromProbe = true;
+                _probeWasReturn = _lastDownWasReturn;
+                _preProbeFloor = (_floor, _floorUntil, _floorConfirmed, _floorHold);
+                _probeFrom = Watts + (_probeWasReturn ? 1 : _lastDownStep);
                 RaiseFloor(Watts + 1, nowSeconds, confirmed: true);
+            }
+            else if (_climbFromProbe && below && !_probeWasReturn && Watts >= _floor && _preProbeFloor is { } pre)
+            {
+                // Já voltou ao valor de antes do teste e continua faltando FPS: a queda não foi
+                // culpa do teste (pausa, replay). Desfaz o piso e trata como subida passageira.
+                (_floor, _floorUntil, _floorConfirmed, _floorHold) = pre;
+                _preProbeFloor = null;
+                _climbFromProbe = false;
+                if (_provenWatts is { } proven && proven >= _probeFrom) _returnAfterClimb = _probeFrom;
             }
             else if (!_climbFromProbe && _climbWatts is { } climbBase && _provenWatts == climbBase)
             {
@@ -303,6 +329,7 @@ public sealed class SmartTdpController
         _climbFromProbe = false;
         _futileHold = FutileHoldSeconds;
         if (nowSeconds - Math.Max(_goodSince, _lastChange) >= ProvenAfterSeconds) _provenWatts = Watts;
+        if (nowSeconds - _goodSince >= DownAfterGoodSeconds) _futileUntil = double.NegativeInfinity;
 
         var lowerBound = nowSeconds < _floorUntil ? Math.Max(_min, _floor) : _min;
         var downAfter = _coarse ? CoarseDownAfterGoodSeconds : DownAfterGoodSeconds;
@@ -320,6 +347,7 @@ public sealed class SmartTdpController
                 Watts = to;
                 _lastChange = nowSeconds;
                 _lastChangeWasDown = true;
+                _lastDownWasReturn = true;
                 IsSettled = false;
                 return SmartTdpChange.Down;
             }
@@ -328,7 +356,10 @@ public sealed class SmartTdpController
             && nowSeconds - _goodSince >= downAfter
             && nowSeconds - _lastChange >= downAfter)
         {
+            var beforeStep = Watts;
             Watts = Math.Max(lowerBound, Watts - (_coarse ? CoarseStepDownWatts : StepDownWatts));
+            _lastDownStep = beforeStep - Watts;
+            _lastDownWasReturn = false;
             _lastChange = nowSeconds;
             _lastChangeWasDown = true;
             IsSettled = false;

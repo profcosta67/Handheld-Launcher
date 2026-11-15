@@ -215,6 +215,33 @@ public class SmartTdpControllerTests
     }
 
     [Fact]
+    public void PauseDuringTheDescentIsNotTakenAsAFailedTest()
+    {
+        // Ainda descendo (sempre há uma descida recente) quando vem a pausa: a queda não é
+        // culpa da descida, então não pode virar piso lá em cima.
+        var c = new SmartTdpController(60, 8, 35, 30);
+        for (var t = 0.0; t < 20; t += 2) c.OnSample(60, t);
+        for (var t = 20.0; t < 60; t += 2) c.OnSample(40 + (c.Watts - 20), t);
+        for (var t = 60.0; t < 200; t += 2) c.OnSample(Fps(c.Watts, 18, 60), t);
+        Assert.InRange(c.Watts, 18, 24);
+    }
+
+    [Fact]
+    public void ReactsWhenTheGameReallyNeedsMoreAfterACappedPause()
+    {
+        // Pausa travada em 30 FPS (subida inútil, entra em espera) e depois o jogo passa a
+        // precisar de 26 W: a espera não pode esconder a falta de potência por minutos.
+        var c = new SmartTdpController(60, 8, 35, 20, startIsLearned: true);
+        for (var t = 0.0; t < 40; t += 2) c.OnSample(60, t);
+        for (var t = 40.0; t < 70; t += 2) c.OnSample(30, t);
+        Assert.Equal(20, c.Watts);
+        for (var t = 70.0; t < 84; t += 2) c.OnSample(Fps(c.Watts, 26, 60), t);
+        Assert.True(c.Watts >= 23, $"não reagiu: {c.Watts} W");
+        for (var t = 84.0; t < 260; t += 2) c.OnSample(Fps(c.Watts, 26, 60), t);
+        Assert.InRange(c.Watts, 25, 27);
+    }
+
+    [Fact]
     public void OneIsolatedDipDoesNotRaiseThePower()
     {
         var c = new SmartTdpController(60, 8, 35, 20);

@@ -37,6 +37,7 @@ internal sealed class SmartTdpService : IDisposable
     // mantiver) para o jogo não engasgar enquanto volta a rodar.
     private const int ResumeBoostWatts = 6;
     private const double ResumeBoostNoFramesSeconds = 15;
+    private const double ReassertSeconds = 30;
     private const double FanDownAfterSeconds = 30;
     private const double StatusLogSeconds = 10;
 
@@ -102,6 +103,9 @@ internal sealed class SmartTdpService : IDisposable
         public int RecentCount;
         public DateTime ResumedUtc;
         public int AltPid;
+        public int AltRejectedPid;
+        public bool OwnMeasured;
+        public DateTime LastAssertUtc = DateTime.UtcNow;
     }
 
     public SmartTdpService(MainViewModel viewModel)
@@ -261,8 +265,11 @@ internal sealed class SmartTdpService : IDisposable
             // Jogos com mais de um processo (lançador próprio, anti-cheat): a janela detectada
             // pode não ser a que desenha. Se o RTSS não mede o processo detectado mas mede o
             // que está na frente (e não é o próprio launcher), é por ele que se controla.
+            // Só vale se o processo detectado NUNCA foi medido nesta sessão (senão é só o jogo
+            // minimizado com outro programa na frente) e se o da frente é do mesmo jogo (mesma
+            // pasta do executável). Um navegador ou a loja na frente nunca comanda o TDP.
             var measured = false;
-            if (foregroundPid != 0 && foregroundPid != Environment.ProcessId)
+            if (!s.OwnMeasured && foregroundPid != 0 && foregroundPid != Environment.ProcessId)
             {
                 FrameStats? own, front;
                 lock (_rtss)
@@ -270,7 +277,20 @@ internal sealed class SmartTdpService : IDisposable
                     own = _rtss.ReadFrameStats(gamePid);
                     front = _rtss.ReadFrameStats(foregroundPid);
                 }
-                measured = (own is not { } o || o.ProcessId != gamePid) && front is { } fr && fr.ProcessId == foregroundPid;
+                if (own is { } o && o.ProcessId == gamePid) s.OwnMeasured = true;
+                else if (front is { } fr && fr.ProcessId == foregroundPid)
+                {
+                    if (s.AltPid != foregroundPid && s.AltRejectedPid != foregroundPid)
+                    {
+                        if (SameGameFolder(gamePid, foregroundPid))
+                        {
+                            s.AltPid = foregroundPid;
+                            DebugLog.Write($"[TDP-AUTO] O processo detectado ({gamePid}) não é medido pelo RTSS; controlando pelo processo do jogo em primeiro plano ({foregroundPid}).");
+                        }
+                        else s.AltRejectedPid = foregroundPid;
+                    }
+                    measured = s.AltPid == foregroundPid;
+                }
             }
 
             if (!measured)
@@ -279,12 +299,6 @@ internal sealed class SmartTdpService : IDisposable
                 s.RecentCount = 0;
                 s.Away = true; // Quick Settings, launcher ou outra janela na frente
                 return;
-            }
-
-            if (s.AltPid != foregroundPid)
-            {
-                s.AltPid = foregroundPid;
-                DebugLog.Write($"[TDP-AUTO] O processo detectado ({gamePid}) não é medido pelo RTSS; controlando pelo processo em primeiro plano ({foregroundPid}).");
             }
         }
 
@@ -320,6 +334,8 @@ internal sealed class SmartTdpService : IDisposable
             return;
         }
 
+        if (foregroundPid == gamePid) s.OwnMeasured = true;
+
         if (s.Controller is null)
         {
             s.Controller = new SmartTdpController(s.TargetFps, s.Min, s.Max, s.StartWatts, startIsLearned: s.StartLearned, coarseDescent: !s.StartResumed);
@@ -344,7 +360,17 @@ internal sealed class SmartTdpService : IDisposable
         var before = s.Controller.Watts;
         var change = s.Controller.OnSample(fps, elapsed);
         if (change != SmartTdpChange.None)
+        {
             Apply(s, s.Controller.Watts, $"{(change == SmartTdpChange.Up ? "subiu" : "desceu")} de {before} W, FPS {fps:0}");
+            s.LastAssertUtc = DateTime.UtcNow;
+        }
+        else if (s.Applied && (DateTime.UtcNow - s.LastAssertUtc).TotalSeconds >= ReassertSeconds)
+        {
+            // Outras partes do launcher reaplicam o perfil do usuário (volta da suspensão, troca
+            // tomada/bateria). Reafirma o valor do modo inteligente de tempos em tempos.
+            s.LastAssertUtc = DateTime.UtcNow;
+            Apply(s, s.Controller.Watts, "reafirmado", quiet: true);
+        }
 
         s.LastFps = f.Fps;
         var now = DateTime.UtcNow;
@@ -374,7 +400,27 @@ internal sealed class SmartTdpService : IDisposable
     /// <summary>Meta escolhida para o jogo no Quick Settings, ou a padrão.</summary>
     private int TargetFor(string gameId) => SmartTdpTargetStore.Shared.Get(gameId) ?? DefaultTargetFps;
 
-    private bool Apply(Session s, int watts, string why)
+    /// <summary>Os dois processos são do mesmo jogo (executáveis na mesma pasta ou em subpasta)?</summary>
+    private static bool SameGameFolder(int gamePid, int otherPid)
+    {
+        try
+        {
+            using var a = System.Diagnostics.Process.GetProcessById(gamePid);
+            using var b = System.Diagnostics.Process.GetProcessById(otherPid);
+            var da = Path.GetDirectoryName(a.MainModule?.FileName);
+            var db = Path.GetDirectoryName(b.MainModule?.FileName);
+            if (string.IsNullOrEmpty(da) || string.IsNullOrEmpty(db)) return false;
+            da = da.TrimEnd('\\', '/') + Path.DirectorySeparatorChar;
+            db = db.TrimEnd('\\', '/') + Path.DirectorySeparatorChar;
+            return da.StartsWith(db, StringComparison.OrdinalIgnoreCase) || db.StartsWith(da, StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false; // processo protegido (anti-cheat) ou já fechado: na dúvida, não usa
+        }
+    }
+
+    private bool Apply(Session s, int watts, string why, bool quiet = false)
     {
         var mode = TdpProfiles.CustomMode(watts);
         bool ok;
@@ -384,7 +430,7 @@ internal sealed class SmartTdpService : IDisposable
             s.Applied = true;
             GameSessionInfo.SmartTdpWatts = watts;
             s.Failures = 0;
-            DebugLog.Write($"[TDP-AUTO] {watts} W aplicado ({why}).");
+            if (!quiet) DebugLog.Write($"[TDP-AUTO] {watts} W aplicado ({why}).");
             Dispatcher.UIThread.Post(() => _viewModel.UpdateHudTdpStatus(mode));
             return true;
         }

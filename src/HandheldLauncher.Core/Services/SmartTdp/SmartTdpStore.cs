@@ -52,7 +52,9 @@ public sealed class SmartTdpStore
             {
                 var dir = Path.GetDirectoryName(_path);
                 if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-                File.WriteAllText(_path, JsonSerializer.Serialize(all, new JsonSerializerOptions { WriteIndented = true }));
+                var tmp = _path + ".tmp";
+                File.WriteAllText(tmp, JsonSerializer.Serialize(all, new JsonSerializerOptions { WriteIndented = true }));
+                File.Move(tmp, _path, overwrite: true);
             }
             catch
             {
