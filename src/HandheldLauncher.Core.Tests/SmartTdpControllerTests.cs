@@ -33,6 +33,28 @@ public class SmartTdpControllerTests
     }
 
     [Fact]
+    public void BoostsImmediatelyWhenReturningFromQuickSettings()
+    {
+        var c = new SmartTdpController(60, 8, 35, 16, startIsLearned: true);
+        var resumed = c.PrepareForResume(nowSeconds: 100, minimumWatts: 20, boostWatts: 6);
+
+        Assert.Equal(22, resumed);
+        Assert.Equal(22, c.Watts);
+
+        // Com a carga do jogo de volta, a próxima amostra baixa já pode iniciar a recuperação.
+        Assert.Equal(SmartTdpChange.None, c.OnSample(35, 100));
+        Assert.Equal(SmartTdpChange.Up, c.OnSample(35, 102));
+        Assert.Equal(25, c.Watts);
+    }
+
+    [Fact]
+    public void ResumeBoostNeverExceedsDeviceMaximum()
+    {
+        var c = new SmartTdpController(60, 8, 25, 23);
+        Assert.Equal(25, c.PrepareForResume(100, minimumWatts: 20, boostWatts: 6));
+    }
+
+    [Fact]
     public void NeverLeavesTheDeviceWindow()
     {
         var c = new SmartTdpController(60, 8, 35, 20);
