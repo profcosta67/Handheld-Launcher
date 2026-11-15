@@ -171,7 +171,8 @@
               <StackPanel x:Name="TdpPresetsHost" Orientation="Horizontal" Spacing="6"
                           HorizontalAlignment="Center" Margin="0,8,0,0" />
               <StackPanel x:Name="SmartFpsCard" IsVisible="False" Spacing="5" Margin="0,10,0,0">
-                <TextBlock Text="Meta de FPS" Classes="qsGroupTitle" Margin="0,0,0,4" />
+                <TextBlock x:Name="TxtSmartFpsTitle" Text="Meta de FPS" Classes="qsGroupTitle" Margin="0,0,0,4"
+                           TextTrimming="CharacterEllipsis" />
                 <WrapPanel x:Name="SmartFpsHost" HorizontalAlignment="Center" />
               </StackPanel>
               <TextBlock x:Name="TxtTdpHint" Text="" FontSize="{DynamicResource TextMicro}"

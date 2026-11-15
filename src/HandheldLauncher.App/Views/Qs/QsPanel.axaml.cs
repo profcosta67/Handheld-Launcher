@@ -48,7 +48,24 @@ public partial class QsPanel : UserControl
     private bool _suppressEvents = false;
     private bool _losslessOn = false;
     private static readonly int[] SmartTdpTargets = { 30, 40, 45, 60, 90, 120 };
-    private int _smartTargetFps = 60;
+    private int _smartTargetFps = 60;          // meta em vigor (do jogo ou a padrão)
+    private int _defaultTargetFps = 60;        // meta das Configurações
+    private int? _gameTargetFps;               // meta própria do jogo aberto
+    private string? _runningGameId;
+    private string _runningGameTitle = "";
+    private Button? _smartDefaultButton;
+    private TextBlock? _smartDefaultLabel;
+    private const string SmartDefaultTag = "smart-default";
+
+    /// <summary>
+    /// Jogo aberto agora (ou null). Com jogo aberto, a meta escolhida no painel vale só
+    /// para ele e fica guardada; sem jogo, muda a meta padrão.
+    /// </summary>
+    public void SetRunningGame(string? gameId, string? title)
+    {
+        _runningGameId = string.IsNullOrWhiteSpace(gameId) ? null : gameId;
+        _runningGameTitle = title ?? "";
+    }
 
     // O TDP demora ~500 ms a aplicar no EC: só mandamos depois de o dedo parar.
     private readonly DispatcherTimer _tdpDebounce = new() { Interval = TimeSpan.FromMilliseconds(450) };
@@ -259,9 +276,13 @@ public partial class QsPanel : UserControl
         try
         {
             var settings = HandheldLauncher.Core.Services.AppSettingsStore.Load();
-            _smartTargetFps = NormalizeSmartTarget(settings.SmartTdpTargetFps);
+            _defaultTargetFps = NormalizeSmartTarget(settings.SmartTdpTargetFps);
         }
-        catch { _smartTargetFps = 60; }
+        catch { _defaultTargetFps = 60; }
+        _gameTargetFps = _runningGameId is null
+            ? null
+            : HandheldLauncher.Core.Services.SmartTdp.SmartTdpTargetStore.Shared.Get(_runningGameId);
+        _smartTargetFps = _gameTargetFps ?? _defaultTargetFps;
         SelectPowerPreset(_activePreset);
         RefreshSmartFpsVisuals();
 
@@ -293,6 +314,13 @@ public partial class QsPanel : UserControl
         _smartFpsButtons.Clear();
         _smartNavigationButtons.Clear();
 
+        // "Padrão": o jogo aberto volta a seguir a meta das Configurações.
+        _smartDefaultButton = MakeChip("↺", "Padrão");
+        _smartDefaultButton.Tag = SmartDefaultTag;
+        _smartDefaultLabel = (_smartDefaultButton.Content as StackPanel)?.Children.OfType<TextBlock>().LastOrDefault();
+        _smartDefaultButton.Click += (_, _) => ClearGameSmartTarget();
+        SmartFpsHost.Children.Add(_smartDefaultButton);
+
         foreach (var fps in SmartTdpTargets)
         {
             var button = MakeChip("🎯", fps.ToString());
@@ -315,19 +343,45 @@ public partial class QsPanel : UserControl
             button.IsEnabled = !_smartOn || isSmart;
         }
 
+        var gameOpen = _runningGameId is not null;
+        TxtSmartFpsTitle.Text = gameOpen && !string.IsNullOrWhiteSpace(_runningGameTitle)
+            ? $"Meta de FPS em {_runningGameTitle}"
+            : "Meta de FPS padrão";
+        if (_smartDefaultButton is not null)
+        {
+            _smartDefaultButton.IsVisible = gameOpen;
+            _smartDefaultButton.Classes.Set("active", gameOpen && _gameTargetFps is null);
+        }
+        if (_smartDefaultLabel is not null) _smartDefaultLabel.Text = $"Padrão {_defaultTargetFps}";
+
+        // Com jogo aberto seguindo o padrão, só o "Padrão" fica marcado.
+        var marked = gameOpen ? _gameTargetFps : _defaultTargetFps;
         foreach (var button in _smartFpsButtons)
-            button.Classes.Set("active", Equals(button.Tag, _smartTargetFps));
+            button.Classes.Set("active", marked is { } m && Equals(button.Tag, m));
 
         _smartNavigationButtons.Clear();
         if (_smartButton is not null) _smartNavigationButtons.Add(_smartButton);
+        if (gameOpen && _smartDefaultButton is not null) _smartNavigationButtons.Add(_smartDefaultButton);
         _smartNavigationButtons.AddRange(_smartFpsButtons);
     }
 
     private void SetSmartTdpTargetFps(int fps)
     {
         fps = NormalizeSmartTarget(fps);
-        if (fps == _smartTargetFps) return;
 
+        if (_runningGameId is { } gameId)
+        {
+            if (_gameTargetFps == fps) return;
+            if (!HandheldLauncher.Core.Services.SmartTdp.SmartTdpTargetStore.Shared.Set(gameId, _runningGameTitle, fps))
+                HandheldLauncher.App.Diagnostics.DebugLog.Write("[QS] Não consegui gravar a meta do jogo no disco; vale até o launcher fechar.");
+            _gameTargetFps = fps;
+            _smartTargetFps = fps;
+            RefreshSmartFpsVisuals();
+            HandheldLauncher.App.Diagnostics.DebugLog.Write($"[QS] Meta do TDP inteligente para '{_runningGameTitle}': {fps} FPS.");
+            return;
+        }
+
+        if (fps == _defaultTargetFps) return;
         try
         {
             var settings = HandheldLauncher.Core.Services.AppSettingsStore.Load();
@@ -340,9 +394,21 @@ public partial class QsPanel : UserControl
             return;
         }
 
+        _defaultTargetFps = fps;
         _smartTargetFps = fps;
         RefreshSmartFpsVisuals();
-        HandheldLauncher.App.Diagnostics.DebugLog.Write($"[QS] Meta do TDP inteligente alterada para {fps} FPS.");
+        HandheldLauncher.App.Diagnostics.DebugLog.Write($"[QS] Meta padrão do TDP inteligente alterada para {fps} FPS.");
+    }
+
+    /// <summary>O jogo aberto volta a usar a meta padrão.</summary>
+    private void ClearGameSmartTarget()
+    {
+        if (_runningGameId is not { } gameId || _gameTargetFps is null) return;
+        HandheldLauncher.Core.Services.SmartTdp.SmartTdpTargetStore.Shared.Set(gameId, _runningGameTitle, null);
+        _gameTargetFps = null;
+        _smartTargetFps = _defaultTargetFps;
+        RefreshSmartFpsVisuals();
+        HandheldLauncher.App.Diagnostics.DebugLog.Write($"[QS] '{_runningGameTitle}' volta à meta padrão ({_defaultTargetFps} FPS).");
     }
 
     private void SetSmartTdp(bool on)
@@ -805,10 +871,11 @@ public partial class QsPanel : UserControl
             case 4:
                 if (_smartOn)
                 {
-                    if (index == 0) SetSmartTdp(false);
-                    else if (index > 0 && index - 1 < _smartFpsButtons.Count &&
-                             _smartFpsButtons[index - 1].Tag is int target)
-                        SetSmartTdpTargetFps(target);
+                    if (index < 0 || index >= _smartNavigationButtons.Count) break;
+                    var item = _smartNavigationButtons[index];
+                    if (ReferenceEquals(item, _smartButton)) SetSmartTdp(false);
+                    else if (Equals(item.Tag, SmartDefaultTag)) ClearGameSmartTarget();
+                    else if (item.Tag is int target) SetSmartTdpTargetFps(target);
                 }
                 else if (index >= 0 && index < _tdpButtons.Count && _tdpButtons[index].Tag is PowerPreset p)
                     OnPowerPresetClick(p);

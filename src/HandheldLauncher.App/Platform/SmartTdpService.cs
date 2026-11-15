@@ -134,7 +134,7 @@ internal sealed class SmartTdpService : IDisposable
         if (_settings.SmartTdpEnabled != _lastEnabled)
         {
             _lastEnabled = _settings.SmartTdpEnabled;
-            DebugLog.Write($"[TDP-AUTO] Modo inteligente {(_lastEnabled == true ? "LIGADO" : "desligado")} (meta {TargetFps} FPS).");
+            DebugLog.Write($"[TDP-AUTO] Modo inteligente {(_lastEnabled == true ? "LIGADO" : "desligado")} (meta padrão {DefaultTargetFps} FPS).");
         }
 
         var game = _viewModel.RunningGame;
@@ -165,7 +165,8 @@ internal sealed class SmartTdpService : IDisposable
             var limits = DeviceTdpLimits.Current();
             var min = Math.Min(Math.Max(limits.SplMin, MinFloorWatts), limits.SplMax);
             var max = limits.SplMax;
-            var learned = _store.Get(game.Id, TargetFps);
+            var target = TargetFor(game.Id);
+            var learned = _store.Get(game.Id, target);
             int? resumed = learned is null && _resume is { } r && r.GameId == game.Id ? r.Watts : null;
             var userWatts = TdpProfiles.WattsFor(userMode) ?? TdpProfiles.DefaultCustomWatts;
             // Um perfil manual de 20 W ou mais é a informação mais recente que temos (o usuário
@@ -183,7 +184,7 @@ internal sealed class SmartTdpService : IDisposable
                 Min = min,
                 Max = max,
                 StartWatts = start,
-                TargetFps = TargetFps,
+                TargetFps = target,
                 StartLearned = learned is not null,
                 StartResumed = resumed is not null,
                 UserFan = _settings.FanMode ?? "",
@@ -191,7 +192,7 @@ internal sealed class SmartTdpService : IDisposable
                 SavedWatts = learned?.Watts ?? 0,
             };
             var origin = learned is not null ? "aprendido antes" : resumed is not null ? "retomado desta sessão de jogo" : "ponto de partida, aprendendo";
-            DebugLog.Write($"[TDP-AUTO] Sessão iniciada: '{game.Title}', meta {TargetFps} FPS, janela {min}–{max} W, TDP do usuário = {userMode}, início em {start} W ({origin}).");
+            DebugLog.Write($"[TDP-AUTO] Sessão iniciada: '{game.Title}', meta {target} FPS{(SmartTdpTargetStore.Shared.Get(game.Id) is null ? " (padrão)" : " (deste jogo)")}, janela {min}–{max} W, TDP do usuário = {userMode}, início em {start} W ({origin}).");
 
             // Aplica já, sem esperar o jogo aparecer: o carregamento não fica preso no perfil
             // baixo do usuário e o painel/HUD mostram na hora que o modo inteligente assumiu.
@@ -199,28 +200,29 @@ internal sealed class SmartTdpService : IDisposable
         }
 
         var s = _session;
-        if (s.TargetFps != TargetFps)
+        var sessionTarget = TargetFor(s.GameId);
+        if (s.TargetFps != sessionTarget)
         {
             // Meta trocada no Quick Settings com o jogo aberto: recomeça o controle com a meta
             // nova, partindo do valor aprendido para ela (se houver) ou dos watts atuais.
             var previousTarget = s.TargetFps;
-            s.TargetFps = TargetFps;
-            var learnedForTarget = _store.Get(s.GameId, TargetFps);
+            s.TargetFps = sessionTarget;
+            var learnedForTarget = _store.Get(s.GameId, sessionTarget);
             var from = learnedForTarget is not null
                 ? Math.Clamp(learnedForTarget.Watts, s.Min, s.Max)
                 : s.Controller?.BaselineWatts ?? s.StartWatts;
             s.StartWatts = from;
             s.StartLearned = learnedForTarget is not null;
             s.StartResumed = false;
-            s.SavedWatts = 0; // o que foi aprendido valia para a meta antiga
+            s.SavedWatts = learnedForTarget?.Watts ?? 0; // o que havia antes valia para a meta antiga
             s.MidGame = true; // o jogo já está rodando: espera curta
             s.RecentCount = 0;
             if (s.Controller is not null)
             {
-                s.Controller = new SmartTdpController(TargetFps, s.Min, s.Max, from, startIsLearned: s.StartLearned);
+                s.Controller = new SmartTdpController(sessionTarget, s.Min, s.Max, from, startIsLearned: s.StartLearned);
                 s.ControlStartedUtc = DateTime.UtcNow;
             }
-            DebugLog.Write($"[TDP-AUTO] Meta alterada durante a sessão: {previousTarget} → {TargetFps} FPS; recomeça em {from} W ({(s.StartLearned ? "aprendido para esta meta" : "watts atuais")}).");
+            DebugLog.Write($"[TDP-AUTO] Meta alterada durante a sessão: {previousTarget} → {sessionTarget} FPS; recomeça em {from} W ({(s.StartLearned ? "aprendido para esta meta" : "watts atuais")}).");
             if (s.Applied && !s.Suspended) Apply(s, from, "meta alterada");
         }
         if (s.Suspended) return;
@@ -289,7 +291,7 @@ internal sealed class SmartTdpService : IDisposable
 
         if (s.Controller is null)
         {
-            s.Controller = new SmartTdpController(TargetFps, s.Min, s.Max, s.StartWatts, startIsLearned: s.StartLearned, coarseDescent: !s.StartResumed);
+            s.Controller = new SmartTdpController(s.TargetFps, s.Min, s.Max, s.StartWatts, startIsLearned: s.StartLearned, coarseDescent: !s.StartResumed);
             s.ControlStartedUtc = DateTime.UtcNow;
             DebugLog.Write($"[TDP-AUTO] Jogo medindo FPS ({f.Fps:0}); controle começa em {s.Controller.Watts} W.");
             if (s.StartLearned && s.Applied) PerformanceHud.ShowNotice("Modo inteligente aplicado");
@@ -320,21 +322,26 @@ internal sealed class SmartTdpService : IDisposable
         {
             s.LastStatusLog = now;
             var state = s.Controller.IsSettled ? "estável"
-                : fps < TargetFps * SmartTdpController.BelowRatio ? (s.Controller.Watts >= s.Max ? "abaixo da meta mesmo no teto" : "abaixo da meta, subindo")
+                : fps < s.TargetFps * SmartTdpController.BelowRatio ? (s.Controller.Watts >= s.Max ? "abaixo da meta mesmo no teto" : "abaixo da meta, subindo")
                 : "na meta, testando para baixo";
-            DebugLog.Write($"[TDP-AUTO] Estado: {s.Controller.Watts} W, FPS {fps:0} (meta {TargetFps}), ventoinha {s.FanMode ?? (s.FanOff ? "do usuário" : s.UserFan)} — {state}.");
+            DebugLog.Write($"[TDP-AUTO] Estado: {s.Controller.Watts} W, FPS {fps:0} (meta {s.TargetFps}), ventoinha {s.FanMode ?? (s.FanOff ? "do usuário" : s.UserFan)} — {state}.");
         }
         if (s.Applied) GameSessionInfo.SmartTdpWatts = s.Controller.Watts;
 
         if (s.Controller.IsSettled && s.SavedWatts != s.Controller.Watts)
         {
             s.SavedWatts = s.Controller.Watts;
-            _store.Set(s.GameId, s.Title, s.SavedWatts, TargetFps);
-            DebugLog.Write($"[TDP-AUTO] Aprendido: '{s.Title}' fica bem com {s.SavedWatts} W a {TargetFps} FPS.");
+            _store.Set(s.GameId, s.Title, s.SavedWatts, s.TargetFps);
+            DebugLog.Write($"[TDP-AUTO] Aprendido: '{s.Title}' fica bem com {s.SavedWatts} W a {s.TargetFps} FPS.");
         }
     }
 
-    private int TargetFps => Math.Clamp(_settings.SmartTdpTargetFps <= 0 ? 60 : _settings.SmartTdpTargetFps, 20, 240);
+    /// <summary>Meta das Configurações, para jogos sem meta própria.</summary>
+    private int DefaultTargetFps => Math.Clamp(_settings.SmartTdpTargetFps <= 0 ? 60 : _settings.SmartTdpTargetFps,
+        SmartTdpTargetStore.MinTargetFps, SmartTdpTargetStore.MaxTargetFps);
+
+    /// <summary>Meta escolhida para o jogo no Quick Settings, ou a padrão.</summary>
+    private int TargetFor(string gameId) => SmartTdpTargetStore.Shared.Get(gameId) ?? DefaultTargetFps;
 
     private bool Apply(Session s, int watts, string why)
     {
