@@ -118,7 +118,6 @@ public partial class QsPanel : UserControl
     // Tag no formato que os handlers existentes esperam ("Eco", "1600x900",
     // "Automático", "1"). Assim nada do OverlayWindow é reescrito.
     public event EventHandler<int>? TdpWattsRequested;
-    public event EventHandler<int>? SmartTdpTargetFpsChanged;
     public event EventHandler<Button>? ResolutionRequested;
     public event EventHandler<Button>? FanRequested;
     public event EventHandler<Button>? ColorRequested;
@@ -342,7 +341,6 @@ public partial class QsPanel : UserControl
 
         _smartTargetFps = fps;
         RefreshSmartFpsVisuals();
-        SmartTdpTargetFpsChanged?.Invoke(this, fps);
         HandheldLauncher.App.Diagnostics.DebugLog.Write($"[QS] Meta do TDP inteligente alterada para {fps} FPS.");
     }
 
