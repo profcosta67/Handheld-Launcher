@@ -113,7 +113,8 @@ public sealed class SmartTdpController
         // Ainda na abertura do jogo (sem nenhuma leitura avaliada) não há o que reforçar; e
         // durante a espera por subida inútil, mais potência já se mostrou sem efeito. Um
         // reforço que ainda não foi devolvido continua pendente.
-        if (!_started || nowSeconds < _futileUntil || boostWatts <= 0) return Watts;
+        _atMaxSince = null;
+        if (!_started || nowSeconds < _futileUntil || _unreachable || boostWatts <= 0) return Watts;
 
         // Voltas seguidas não acumulam: o reforço é sempre sobre o valor de antes da 1ª saída.
         var baseline = _resumeReturnTo ?? Watts;
@@ -170,10 +171,17 @@ public sealed class SmartTdpController
     private double _futileHold = FutileHoldSeconds;
 
     // Meta fora de alcance: mais potência não aumenta o FPS (jogo preso na GPU, limitado
-    // abaixo da meta). Em vez de ficar no teto, passa a segurar o FPS que o jogo consegue
-    // (com uma pequena folga) usando o menor TDP — e volta à meta real se o jogo mudar.
-    public const double UnreachableDelaySeconds = 30; // um replay curto não dispara a descida
+    // abaixo da meta). Para de subir e fica no menor valor da subida que já dava esse FPS,
+    // segurando o FPS possível; volta à meta real se o jogo mudar e tenta de novo de tempos
+    // em tempos. Não desce abaixo desse ponto: numa pausa ou replay longo (FPS travado) isso
+    // deixaria o jogo sem potência na volta.
+    public const double UnreachableNoticeSeconds = 30; // um replay curto não é "fora de alcance"
     public const double UnreachableAtMaxSeconds = 20;
+    public const double UnreachableMaxHoldSeconds = 240; // nova tentativa no máximo a cada 4 min
+    private int _exitSamples;
+
+    /// <summary>Instante (no relógio do controle) em que a meta passou a estar fora de alcance.</summary>
+    public double UnreachableSinceSeconds => _unreachableSince;
     private double _effectiveTarget;
     private bool _unreachable;
     private double _unreachableUntil = double.NegativeInfinity;
@@ -189,6 +197,14 @@ public sealed class SmartTdpController
     /// <summary>FPS que o controle está segurando (a meta, ou o que o jogo consegue quando ela é inalcançável).</summary>
     public int EffectiveTargetFps => (int)Math.Round(_effectiveTarget);
 
+    private void LeaveUnreachable()
+    {
+        _unreachable = false;
+        _effectiveTarget = _target;
+        _futileUntil = double.NegativeInfinity;
+        _exitSamples = 0;
+    }
+
     private void MarkUnreachable(double fps, double nowSeconds)
     {
         _unreachable = true;
@@ -198,8 +214,9 @@ public sealed class SmartTdpController
         _effectiveTarget = Math.Max(15.0, Math.Min(_target, _plateauFps * 0.97));
         _futileFps = fps;
         _futileUntil = nowSeconds + _futileHold;
-        _futileHold = Math.Min(MaxFloorHoldSeconds, _futileHold * 2);
+        _futileHold = Math.Min(UnreachableMaxHoldSeconds, _futileHold * 2);
         _atMaxSince = null;
+        _exitSamples = 0;
         IsSettled = false;
     }
 
@@ -248,6 +265,7 @@ public sealed class SmartTdpController
             _lowFpsSince ??= nowSeconds;
             if (nowSeconds - _lowFpsSince.Value < IgnoreLowFpsForSeconds)
             {
+                _atMaxSince = null;
                 _belowCount = 0;
                 _nearCount = 0;
                 _goodSince = nowSeconds;
@@ -261,15 +279,15 @@ public sealed class SmartTdpController
 
         // Sai do modo "meta fora de alcance" quando a meta real volta a ser cumprida, quando o
         // FPS sobe bem acima do patamar (a cena mudou) ou quando passa o prazo de nova tentativa.
+        // (Duas leituras seguidas: uma só, por oscilação, não conta.)
         if (_unreachable)
         {
             var changed = fps >= _target * MeetRatio || fps > _plateauFps * 1.20;
-            if (changed || nowSeconds >= _unreachableUntil)
+            _exitSamples = changed ? _exitSamples + 1 : 0;
+            if (_exitSamples >= 2 || nowSeconds >= _unreachableUntil)
             {
-                if (changed) _futileHold = FutileHoldSeconds;
-                _unreachable = false;
-                _effectiveTarget = _target;
-                _futileUntil = double.NegativeInfinity;
+                if (_exitSamples >= 2) _futileHold = FutileHoldSeconds;
+                LeaveUnreachable();
             }
         }
 
@@ -310,6 +328,9 @@ public sealed class SmartTdpController
             else { _nearCount++; _belowCount = 0; enough = _nearCount >= NearSamplesToNudge; }
             if (_climbWatts is not null) _climbBestFps = Math.Max(_climbBestFps, fps);
             if (!enough || nowSeconds - _lastChange < UpCooldownSeconds) return SmartTdpChange.None;
+
+            // Caiu abaixo até do FPS possível: a situação mudou, volta ao controle normal.
+            if (_unreachable && below) LeaveUnreachable();
 
             _belowCount = 0;
             _nearCount = 0;
@@ -442,8 +463,8 @@ public sealed class SmartTdpController
 
         // A meta voltou depois de uma subida passageira: retorna de uma vez ao valor de antes.
         // Vale como teste: se faltar FPS logo em seguida, aí sim vira piso e sobe de novo.
-        // Meta fora de alcance há pouco: espera antes de descer (pode ser só um replay curto).
-        if (_unreachable && nowSeconds - _unreachableSince < UnreachableDelaySeconds) return SmartTdpChange.None;
+        // Meta fora de alcance: segura onde está (ver comentário de UnreachableNoticeSeconds).
+        if (_unreachable) return SmartTdpChange.None;
 
         if (_returnAfterClimb is { } baseWatts)
         {

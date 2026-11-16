@@ -77,7 +77,7 @@ public class SmartTdpControllerTests
         // Voltar do QS não reabre a subida nem dá reforço.
         Assert.Equal(20, c.PrepareForResume(t, 6));
         for (var u = t + 2; u < t + 60; u += 2) c.OnSample(30, u);
-        Assert.True(c.Watts <= 20, $"voltou a subir: {c.Watts} W");
+        Assert.Equal(20, c.Watts);
         Assert.True(c.TargetUnreachable);
     }
 
@@ -93,7 +93,7 @@ public class SmartTdpControllerTests
         // Abre e fecha o QS no meio da subida.
         c.PrepareForResume(t, 6);
         for (var u = t + 2; u < t + 100; u += 2) c.OnSample(30, u);
-        Assert.True(c.Watts <= 20, $"ficou em {c.Watts} W"); // nem o reforço nem a subida ficam
+        Assert.Equal(20, c.Watts); // nem o reforço nem a subida ficam
     }
 
     [Fact]
@@ -164,37 +164,56 @@ public class SmartTdpControllerTests
         // Jogo travado em 30 FPS com meta 60: mais potência não muda nada.
         var c = new SmartTdpController(60, 8, 35, 20);
         for (var t = 0.0; t < 120; t += 2) c.OnSample(30, t);
-        Assert.True(c.Watts <= 20, $"ficou em {c.Watts} W");
+        Assert.Equal(20, c.Watts);
         Assert.True(c.TargetUnreachable);
         Assert.False(c.IsSettled);
     }
 
     [Fact]
-    public void UnreachableTargetOnAGpuBoundGameHoldsThePossibleFpsWithLessPower()
+    public void UnreachableTargetOnAGpuBoundGameStopsClimbing()
     {
         // Caso real (16/11, Days Gone): ~28 FPS de 14 W para cima, com metas de 35 a 55.
-        // Em vez de ir ao teto, segura os ~28 FPS com o menor TDP.
+        // Sobe 6 W, vê que não adianta, volta e para de subir — em vez de ir ao teto.
         static double Game(int watts) => Math.Min(28.0, 28.0 * watts / 14);
 
-        var fromNormal = new SmartTdpController(45, 8, 35, 20);
-        for (var t = 0.0; t < 200; t += 2) fromNormal.OnSample(Game(fromNormal.Watts), t);
-        Assert.InRange(fromNormal.Watts, 13, 16);
-        Assert.True(fromNormal.TargetUnreachable);
-        Assert.InRange(fromNormal.EffectiveTargetFps, 26, 28);
-        Assert.False(fromNormal.IsSettled); // não vira "aprendido" para a meta de 45
+        var c = new SmartTdpController(45, 8, 35, 20);
+        var peakAfterFirstTry = 0;
+        for (var t = 0.0; t < 100; t += 2)
+        {
+            c.OnSample(Game(c.Watts), t);
+            if (t >= 20) peakAfterFirstTry = Math.Max(peakAfterFirstTry, c.Watts);
+        }
+        Assert.Equal(20, c.Watts);
+        Assert.Equal(20, peakAfterFirstTry);
+        Assert.True(c.TargetUnreachable);
+        Assert.InRange(c.EffectiveTargetFps, 26, 28);
+        Assert.False(c.IsSettled); // não vira "aprendido" para a meta de 45
 
-        var fromCeiling = new SmartTdpController(45, 8, 35, 35);
-        for (var t = 0.0; t < 300; t += 2) fromCeiling.OnSample(Game(fromCeiling.Watts), t);
-        Assert.InRange(fromCeiling.Watts, 13, 16);
+        // Tenta de novo de tempos em tempos, mas nunca passa de +6 W nem fica lá.
+        var peakLater = 0;
+        for (var t = 100.0; t < 600; t += 2) { c.OnSample(Game(c.Watts), t); peakLater = Math.Max(peakLater, c.Watts); }
+        Assert.InRange(peakLater, 20, 26);
+        Assert.Equal(20, c.Watts);
+    }
+
+    [Fact]
+    public void UnreachableTargetDoesNotDropPowerDuringALongPause()
+    {
+        // Pausa longa travada em 30 FPS num jogo que segura 60 com 20 W: o TDP não pode
+        // descer na pausa (o jogo voltaria sem potência).
+        var c = new SmartTdpController(60, 8, 35, 20, startIsLearned: true);
+        for (var t = 0.0; t < 40; t += 2) c.OnSample(60, t);
+        for (var t = 40.0; t < 440; t += 2) c.OnSample(30, t);
+        Assert.True(c.Watts >= 20, $"desceu para {c.Watts} W na pausa");
     }
 
     [Fact]
     public void UnreachableTargetKeepsThePowerWhenMoreWattsStillGiveMoreFps()
     {
-        // Jogo que não chega a 60 mas ganha FPS a cada watt (40 FPS no teto): fica perto do teto.
+        // Jogo que não chega a 60 mas ganha FPS a cada watt (40 FPS no teto): fica no teto.
         var c = new SmartTdpController(60, 8, 35, 20);
         for (var t = 0.0; t < 300; t += 2) c.OnSample(40.0 * c.Watts / 35, t);
-        Assert.True(c.Watts >= 31, $"ficou em {c.Watts} W");
+        Assert.Equal(35, c.Watts);
     }
 
     [Fact]

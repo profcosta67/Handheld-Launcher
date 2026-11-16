@@ -335,7 +335,11 @@ public partial class QsPanel : UserControl
         var watts = HandheldLauncher.App.Platform.GameSessionInfo.SmartTdpWatts;
         var possible = HandheldLauncher.App.Platform.GameSessionInfo.SmartTdpPossibleFps;
         if (watts > 0 && possible > 0)
-            return $"Meta fora de alcance neste jogo: segurando ~{possible} FPS com {watts} W • baixe a meta para perto disso";
+        {
+            // Sugere uma meta que o jogo alcança com folga (múltiplo de 5 abaixo do possível).
+            var suggested = Math.Max(FpsMin, (int)Math.Floor(possible * 0.95 / FpsFineStep) * FpsFineStep);
+            return $"Meta fora de alcance agora: o jogo dá ~{possible} FPS ({watts} W) • para economizar, baixe a meta para {suggested}";
+        }
         return watts > 0
             ? $"Modo inteligente no comando: {watts} W agora, TDP e ventoinha • TDP alto demais? use Resetar"
             : "Modo inteligente: ajusta TDP e ventoinha sozinho durante o jogo • TDP alto demais? use Resetar";

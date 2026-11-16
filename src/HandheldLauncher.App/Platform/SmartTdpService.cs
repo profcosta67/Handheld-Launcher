@@ -241,6 +241,7 @@ internal sealed class SmartTdpService : IDisposable
             if (s.Controller is not null)
             {
                 s.Controller = new SmartTdpController(s.TargetFps, s.Min, s.Max, from, startIsLearned: false);
+                GameSessionInfo.SmartTdpPossibleFps = 0;
                 s.ControlStartedUtc = DateTime.UtcNow;
                 s.MidGame = true; // o jogo já está rodando: espera curta
             }
@@ -273,6 +274,7 @@ internal sealed class SmartTdpService : IDisposable
             if (s.Controller is not null)
             {
                 s.Controller = new SmartTdpController(sessionTarget, s.Min, s.Max, from, startIsLearned: s.StartLearned);
+                GameSessionInfo.SmartTdpPossibleFps = 0;
                 s.ControlStartedUtc = DateTime.UtcNow;
             }
             DebugLog.Write($"[TDP-AUTO] Meta alterada durante a sessão: {previousTarget} → {sessionTarget} FPS; recomeça em {from} W ({(s.StartLearned ? "aprendido para esta meta" : "watts atuais")}).");
@@ -284,6 +286,7 @@ internal sealed class SmartTdpService : IDisposable
         if (currentUserMode != s.UserMode)
         {
             s.Suspended = true;
+            GameSessionInfo.SmartTdpPossibleFps = 0;
             GameSessionInfo.SmartTdpWatts = 0;
             // Garante que o que está no hardware é a escolha do usuário, não o nosso último valor.
             var ok = !s.Applied || _hardware.SetTdpMode(currentUserMode);
@@ -421,7 +424,7 @@ internal sealed class SmartTdpService : IDisposable
         if ((now - s.LastStatusLog).TotalSeconds >= StatusLogSeconds)
         {
             s.LastStatusLog = now;
-            var state = s.Controller.TargetUnreachable ? $"meta fora de alcance; segurando ~{s.Controller.EffectiveTargetFps} FPS com o menor TDP"
+            var state = s.Controller.TargetUnreachable ? $"meta fora de alcance; segurando ~{s.Controller.EffectiveTargetFps} FPS"
                 : s.Controller.IsSettled ? "estável"
                 : fps < s.TargetFps * SmartTdpController.BelowRatio ? (s.Controller.Watts >= s.Max ? "abaixo da meta mesmo no teto" : "abaixo da meta, subindo")
                 : "na meta, testando para baixo";
@@ -430,13 +433,15 @@ internal sealed class SmartTdpService : IDisposable
         if (s.Applied) GameSessionInfo.SmartTdpWatts = s.Controller.Watts;
 
         // Meta fora de alcance: avisa uma vez por meta (e o Quick Settings mostra enquanto durar).
-        var unreachable = s.Controller.TargetUnreachable;
+        // Só depois de 30 s nesse estado: um replay ou carregamento curto não é "fora de alcance".
+        var unreachable = s.Controller.TargetUnreachable
+                          && elapsed - s.Controller.UnreachableSinceSeconds >= SmartTdpController.UnreachableNoticeSeconds;
         GameSessionInfo.SmartTdpPossibleFps = unreachable ? s.Controller.EffectiveTargetFps : 0;
-        if (unreachable && s.UnreachableNoticedFor != s.TargetFps)
+        if (unreachable && s.Applied && s.UnreachableNoticedFor != s.TargetFps)
         {
             s.UnreachableNoticedFor = s.TargetFps;
-            DebugLog.Write($"[TDP-AUTO] Meta de {s.TargetFps} FPS fora de alcance em '{s.Title}': mais potência não aumenta o FPS. Segurando ~{s.Controller.EffectiveTargetFps} FPS com o menor TDP.");
-            if (s.Applied) PerformanceHud.ShowNotice($"Meta de {s.TargetFps} FPS fora de alcance · segurando ~{s.Controller.EffectiveTargetFps} FPS");
+            DebugLog.Write($"[TDP-AUTO] Meta de {s.TargetFps} FPS fora de alcance em '{s.Title}': mais potência não aumenta o FPS. Segurando ~{s.Controller.EffectiveTargetFps} FPS em {s.Controller.Watts} W.");
+            PerformanceHud.ShowNotice($"Meta de {s.TargetFps} FPS fora de alcance · segurando ~{s.Controller.EffectiveTargetFps} FPS");
         }
 
         if (s.Controller.IsSettled && s.SavedWatts != s.Controller.Watts)
@@ -494,6 +499,7 @@ internal sealed class SmartTdpService : IDisposable
         if (s.Failures >= 3)
         {
             s.Suspended = true;
+            GameSessionInfo.SmartTdpPossibleFps = 0;
             GameSessionInfo.SmartTdpWatts = 0;
             DebugLog.Write("[TDP-AUTO] Três falhas seguidas; modo inteligente pausado até o jogo fechar.");
         }
