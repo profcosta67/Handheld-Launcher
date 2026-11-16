@@ -51,6 +51,8 @@ public partial class QsPanel : UserControl
     private bool _fpsEditing;
     private int _fpsEditStart;
     private Button? _smartTargetButton;
+    private Button? _smartResetButton;
+    private string? _smartResetNotice;
     private readonly DispatcherTimer _fpsDebounce = new() { Interval = TimeSpan.FromMilliseconds(450) };
     private int _smartTargetFps = 60;          // meta em vigor (do jogo ou a padrão)
     private int _defaultTargetFps = 60;        // meta das Configurações
@@ -317,8 +319,8 @@ public partial class QsPanel : UserControl
     {
         var watts = HandheldLauncher.App.Platform.GameSessionInfo.SmartTdpWatts;
         return watts > 0
-            ? $"Modo inteligente no comando: {watts} W agora, TDP e ventoinha • toque em Auto para voltar ao manual"
-            : "Modo inteligente: ajusta TDP e ventoinha sozinho durante o jogo • toque em Auto para voltar ao manual";
+            ? $"Modo inteligente no comando: {watts} W agora, TDP e ventoinha • TDP alto demais? use Resetar"
+            : "Modo inteligente: ajusta TDP e ventoinha sozinho durante o jogo • TDP alto demais? use Resetar";
     }
 
     private static bool ReadSmartTdpSetting()
@@ -348,6 +350,11 @@ public partial class QsPanel : UserControl
         _smartDefaultLabel = (_smartDefaultButton.Content as StackPanel)?.Children.OfType<TextBlock>().LastOrDefault();
         _smartDefaultButton.Click += (_, _) => { EndFpsEdit(apply: false); ClearGameSmartTarget(); };
         SmartFpsHost.Children.Add(_smartDefaultButton);
+
+        // "Resetar": esquece o TDP aprendido (do jogo aberto, ou de todos sem jogo aberto).
+        _smartResetButton = MakeChip("🧹", "Resetar");
+        _smartResetButton.Click += (_, _) => { EndFpsEdit(apply: false); ResetSmartLearning(); };
+        SmartFpsHost.Children.Add(_smartResetButton);
 
         _fpsDebounce.Tick += (_, _) =>
         {
@@ -406,6 +413,7 @@ public partial class QsPanel : UserControl
         if (_smartButton is not null) _smartNavigationButtons.Add(_smartButton);
         _smartNavigationButtons.AddRange(_smartFpsButtons);
         if (gameOpen && _smartDefaultButton is not null) _smartNavigationButtons.Add(_smartDefaultButton);
+        if (_smartResetButton is not null) _smartNavigationButtons.Add(_smartResetButton);
     }
 
     private void SetSmartTdpTargetFps(int fps)
@@ -611,6 +619,31 @@ public partial class QsPanel : UserControl
             Height = 46,
             Padding = new Avalonia.Thickness(10, 4),
         };
+    }
+
+    /// <summary>
+    /// Esquece o TDP aprendido — do jogo aberto (todas as metas) ou, sem jogo aberto, de todos
+    /// os jogos. Para quando o Auto ficou preso num valor alto: ele volta a procurar do zero.
+    /// </summary>
+    private void ResetSmartLearning()
+    {
+        RunningGameChanged();
+        var gameId = _runningGameId;
+        int cleared;
+        try { cleared = HandheldLauncher.Core.Services.SmartTdp.SmartTdpStore.Shared.Clear(gameId); }
+        catch (Exception ex)
+        {
+            HandheldLauncher.App.Diagnostics.DebugLog.Write($"[QS] Não consegui resetar o aprendizado: {ex.Message}");
+            return;
+        }
+
+        HandheldLauncher.App.Platform.GameSessionInfo.NoteLearningReset();
+        var where = gameId is null ? "todos os jogos" : $"'{_runningGameTitle}'";
+        _smartResetNotice = gameId is null
+            ? "Aprendizado apagado de todos os jogos. Cada jogo volta a procurar o TDP do zero."
+            : $"Aprendizado de {_runningGameTitle} apagado. O Auto volta a procurar o TDP agora.";
+        TxtTdpHint.Text = _smartResetNotice;
+        HandheldLauncher.App.Diagnostics.DebugLog.Write($"[QS] Aprendizado do TDP inteligente resetado ({where}; {cleared} valor(es)).");
     }
 
     // ---- Meta de FPS: ajuste pela barra (mesmo jeito do TDP personalizado) ----
@@ -974,6 +1007,7 @@ public partial class QsPanel : UserControl
                     if (ReferenceEquals(item, _smartButton)) SetSmartTdp(false);
                     else if (Equals(item.Tag, SmartDefaultTag)) ClearGameSmartTarget();
                     else if (ReferenceEquals(item, _smartTargetButton)) BeginFpsEdit();
+                    else if (ReferenceEquals(item, _smartResetButton)) ResetSmartLearning();
                 }
                 else if (index >= 0 && index < _tdpButtons.Count && _tdpButtons[index].Tag is PowerPreset p)
                     OnPowerPresetClick(p);

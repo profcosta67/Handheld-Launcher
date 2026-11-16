@@ -19,6 +19,10 @@ public sealed class SmartTdpEntry
 /// </summary>
 public sealed class SmartTdpStore
 {
+    private static readonly Lazy<SmartTdpStore> _shared = new(() => new SmartTdpStore());
+    /// <summary>Instância única do launcher (o serviço e o Quick Settings veem os mesmos valores).</summary>
+    public static SmartTdpStore Shared => _shared.Value;
+
     private readonly string _path;
     private readonly object _gate = new();
     private Dictionary<string, SmartTdpEntry>? _entries;
@@ -53,18 +57,41 @@ public sealed class SmartTdpStore
             var all = Load();
             if (all.TryGetValue(gameId, out var legacy) && legacy.TargetFps == targetFps) all.Remove(gameId);
             all[KeyFor(gameId, targetFps)] = new SmartTdpEntry { Watts = watts, TargetFps = targetFps, Title = title, UpdatedUtc = DateTime.UtcNow, Rev = CurrentRev };
-            try
-            {
-                var dir = Path.GetDirectoryName(_path);
-                if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-                var tmp = _path + ".tmp";
-                File.WriteAllText(tmp, JsonSerializer.Serialize(all, new JsonSerializerOptions { WriteIndented = true }));
-                File.Move(tmp, _path, overwrite: true);
-            }
-            catch
-            {
-                // Aprendizado é melhor esforço: sem disco, vale só para esta sessão.
-            }
+            Persist(all);
+        }
+    }
+
+    /// <summary>
+    /// Esquece o que foi aprendido: de um jogo (todas as metas) ou, com gameId nulo, de
+    /// todos. Devolve quantos valores foram apagados.
+    /// </summary>
+    public int Clear(string? gameId)
+    {
+        lock (_gate)
+        {
+            var all = Load();
+            var keys = string.IsNullOrWhiteSpace(gameId)
+                ? all.Keys.ToList()
+                : all.Keys.Where(k => k == gameId || k.StartsWith(gameId + "@", StringComparison.Ordinal)).ToList();
+            foreach (var key in keys) all.Remove(key);
+            if (keys.Count > 0) Persist(all);
+            return keys.Count;
+        }
+    }
+
+    private void Persist(Dictionary<string, SmartTdpEntry> all)
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(_path);
+            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+            var tmp = _path + ".tmp";
+            File.WriteAllText(tmp, JsonSerializer.Serialize(all, new JsonSerializerOptions { WriteIndented = true }));
+            File.Move(tmp, _path, overwrite: true);
+        }
+        catch
+        {
+            // Aprendizado é melhor esforço: sem disco, vale só para esta sessão.
         }
     }
 

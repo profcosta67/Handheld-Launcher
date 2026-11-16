@@ -36,6 +36,12 @@ internal static class GameSessionInfo
         }
     }
 
+    private static int _learningResets;
+
+    /// <summary>Conta cada "resetar aprendizado" pedido no Quick Settings.</summary>
+    public static int LearningResets => Volatile.Read(ref _learningResets);
+    public static void NoteLearningReset() => Interlocked.Increment(ref _learningResets);
+
     private static volatile int _smartTdpWatts;
 
     /// <summary>Watts que o TDP inteligente está aplicando agora; 0 quando não está no comando.</summary>

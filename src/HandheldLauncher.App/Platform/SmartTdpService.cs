@@ -51,7 +51,8 @@ internal sealed class SmartTdpService : IDisposable
     private readonly MainViewModel _viewModel;
     private readonly RtssSharedMemory _rtss = new();
     private readonly WindowsHardwareService _hardware = new();
-    private readonly SmartTdpStore _store = new();
+    private readonly SmartTdpStore _store = SmartTdpStore.Shared;
+    private int _learningResets = GameSessionInfo.LearningResets;
     private readonly Thread _thread;
     private volatile bool _stop;
     private readonly object _gate = new();
@@ -217,6 +218,28 @@ internal sealed class SmartTdpService : IDisposable
         }
 
         var s = _session;
+
+        // "Resetar aprendizado" no Quick Settings: os valores já foram apagados; a sessão em
+        // curso recomeça a procurar a partir dos watts atuais, como se nunca tivesse aprendido.
+        var resets = GameSessionInfo.LearningResets;
+        if (resets != _learningResets)
+        {
+            _learningResets = resets;
+            var from = s.Controller?.BaselineWatts ?? s.StartWatts;
+            s.StartWatts = from;
+            s.StartLearned = false;
+            s.StartResumed = false;
+            s.SavedWatts = 0;
+            s.RecentCount = 0;
+            if (s.Controller is not null)
+            {
+                s.Controller = new SmartTdpController(s.TargetFps, s.Min, s.Max, from, startIsLearned: false);
+                s.ControlStartedUtc = DateTime.UtcNow;
+                s.MidGame = true; // o jogo já está rodando: espera curta
+            }
+            DebugLog.Write($"[TDP-AUTO] Aprendizado resetado pelo usuário; recomeça a procurar a partir de {from} W.");
+        }
+
         var sessionTarget = TargetFor(s.GameId);
         if (s.TargetFps != sessionTarget)
         {
