@@ -1,6 +1,7 @@
 # Roadmap do Handheld Launcher — da 0.25 à 1.0
 
-> Plano de produto atualizado em 11/11/2026. As versões abaixo são marcos
+> Plano de produto atualizado em 16/11/2026 (reordenado: Windows primeiro, Linux
+> depois da 1.0; sobras do plano original de 04/11 incorporadas). As versões abaixo são marcos
 > propostos, sem datas prometidas. O conteúdo e a numeração podem ser ajustados
 > após validação técnica e em aparelho real. Uma versão só é considerada pronta
 > quando seus critérios de aceite forem cumpridos; código compilando, por si só,
@@ -16,7 +17,7 @@ nem disputar espaço copiando suas interfaces.
 
 ## Estado de partida
 
-O repositório está na versão estável **0.26.0** (14/11/2026): blocos 0.25 (estabilidade) e 0.26 (identidade visual) fechados. Já existem biblioteca multi-loja, layouts e temas,
+O repositório está na versão estável **0.26.2** (14/11/2026), com a **0.27 (TDP inteligente)** em beta: blocos 0.25 (estabilidade) e 0.26 (identidade visual) fechados. Já existem biblioteca multi-loja, layouts e temas,
 detalhes e conquistas, Quick Settings, diário de sessões, Central de Ajuda,
 armazenamento, saúde do aparelho, guardião de suspensão, rede, Syncthing e
 atualizações beta. A versão 0.25 também acrescentou melhorias de instalação.
@@ -84,8 +85,8 @@ seus marcos já viraram produto; as maiores lacunas restantes são:
 2. Camada esbranquiçada — causa: perfil de cor Vívido. O launcher não acumula a
    curva; fica como problema conhecido ("use Padrão").
 3. Administrador — **decidido:** continua sempre admin na 0.25. O ajudante
-   privilegiado ([admin-helper.md](./admin-helper.md)) entra depois da 0.26,
-   primeiro no Windows, depois no Linux (0.27).
+   privilegiado ([admin-helper.md](./admin-helper.md)) entra na 0.30, no
+   Windows; a versão Linux fica para depois da 1.0.
 4. Processo: branch de trabalho mesclado no master a cada oficial; VERSION
    sempre acima do último lançado.
 
@@ -131,7 +132,203 @@ Handheld Launcher e os layouts que as pessoas já usam.
   são perceptíveis nos temas suportados.
 - As paletas e layouts existentes permanecem disponíveis durante a transição.
 
-### 0.27 — Linux integrado ao ecossistema Bazzite
+### 0.27 — TDP inteligente (em beta)
+
+**Objetivo:** o launcher ajusta TDP e ventoinha sozinho para manter uma meta de
+FPS, aprende o valor por jogo e sai da frente quando o usuário mexe à mão.
+
+**Situação (16/11/2026):** em beta (beta.64). Entregue: controlador por meta de
+FPS, botão Auto e meta no Quick Settings, meta por jogo, valor aprendido por
+jogo e por meta, ventoinha ligada ao TDP, restauração ao sair. A base foi
+publicada como estável **0.26.2**.
+
+**Falta para fechar**
+
+1. Confirmar a beta.64 no Legion Go 2 (EA FC com replays; um jogo leve; um jogo
+   que não alcança a meta).
+2. Aviso de meta inalcançável (hoje ele fica no teto calado).
+3. Limites de tomada/bateria relidos no meio do jogo.
+4. Restaurar o TDP do usuário se o launcher reiniciar com jogo aberto.
+
+**Conhecido e aceito por ora:** quedas curtas muito frequentes ainda empurram o
+TDP para cima; jogo com vsync que precisa de bem mais potência numa área pesada
+demora a ser atendido. Só no Windows.
+
+### 0.28 — Otimização e base (Windows)
+
+**Objetivo:** launcher mais leve e código mais fácil de manter antes de crescer
+de novo. Nenhum recurso novo visível além do que a otimização trouxer.
+
+**Passo a passo**
+
+1. Medir antes de mexer: tempo até a biblioteca ficar utilizável, memória e uso
+   de CPU/GPU parado e com jogo aberto. Meta do plano original: pronto em até
+   3 s no Legion Go 2.
+2. Com jogo aberto, o launcher não deve gastar: rever timers, leituras de
+   sensores e o que fica rodando em segundo plano.
+3. Desfoque de fundo pré-calculado e guardado em cache por jogo (item da v0.17
+   original que não foi feito); animações reduzidas na bateria.
+4. Log mais enxuto: a sequência do PawnIO repete 15 linhas a cada troca de TDP.
+5. Quebrar os arquivos gigantes: `OverlayWindow.axaml.cs` (2.231 linhas),
+   `MainViewModel.cs` (2.167), `MainWindow.GameplayWatcher.cs` (1.427).
+6. Reduzir o que esconde erro ou trava: 37 `catch` vazios, 29 `async void`,
+   28 `Thread.Sleep` (contagem de 16/11).
+7. Faxina do repositório: 27 branches remotas, betas antigas, backlog e
+   `aparelhos.md` (ainda fala em 5–30 W) atualizados.
+
+**Critérios de aceite**
+
+- Números de antes e depois registrados em `docs/testing/`.
+- Nenhuma regressão de controle, Quick Settings ou TDP numa rodada de beta.
+- Nenhum arquivo de tela acima de ~1.200 linhas sem motivo anotado.
+
+### 0.29 — Receitas por jogo
+
+**Objetivo:** o diferencial central do projeto: cada jogo abre com a
+configuração escolhida e o aparelho volta ao padrão ao fechar. A meta de FPS e o
+TDP aprendido por jogo (0.27) já são o começo.
+
+**Passo a passo**
+
+1. Receita local por jogo com o que já é verificável: TDP (perfil, watts ou Auto
+   com meta), ventoinha, resolução e taxa, Lossless (ligado e multiplicador),
+   preset do HUD e notas em texto para o que o launcher não controla.
+2. Criar e editar na página de detalhes (botão Y) e "salvar o estado atual" pelo
+   Quick Settings com o jogo aberto.
+3. Aplicar ao abrir, mostrando o que foi aplicado; restaurar ao fechar, também
+   depois de falha no lançamento, fechamento inesperado ou suspensão.
+4. Padrão global e "ignorar a receita desta vez".
+5. Receita de dock (monitor externo) só depois da individual estável.
+6. A avaliar: limitador de FPS.
+
+**Critérios de aceite**
+
+- Receita sobrevive a reinicialização e não se mistura entre jogos.
+- Aplicação e restauração registradas; erro aparece, não vira sucesso aparente.
+- Repetir, cancelar ou falhar um lançamento não deixa o sistema diferente sem
+  avisar.
+
+### 0.30 — Hardware confiável e primeira execução (Windows)
+
+**Objetivo:** fechar as sobras da "v0.19 Multi-aparelho" do plano original.
+
+**Passo a passo**
+
+1. **Lossless confiável:** ler o atalho configurado no próprio Lossless (hoje
+   envia Ctrl+Alt+S fixo) e confirmar se o frame generation ligou antes de dizer
+   que ligou.
+2. **Ajudante privilegiado** ([admin-helper.md](./admin-helper.md)): o launcher
+   deixa de rodar sempre como administrador; só TDP e ventoinha passam pelo
+   ajudante. Jogos e lojas deixam de herdar o admin.
+3. **Assistente de primeira execução:** aparelho detectado, modo, PawnIO e
+   HidHide explicados e instalados com consentimento, chave do SteamGridDB,
+   conta Steam, registro no Modo Xbox. Instalação do zero sem abrir o PowerShell.
+4. **ROG Ally:** perfil preparado e marcado como não validado; TDP próprio só
+   quando houver aparelho para testar.
+5. Estudo, sem compromisso: controle virtual (ViGEm) para o Quick Settings em
+   tela cheia exclusiva.
+
+**Critérios de aceite**
+
+- Lossless informa o estado real; sem atalho configurado, explica como resolver.
+- Launcher abre sem UAC e TDP/ventoinha continuam funcionando.
+- Instalação limpa concluída só pelo assistente.
+
+### 0.31 — Diário de sessões e bateria
+
+**Objetivo:** dados que ajudam a decidir, sem prometer precisão que o hardware
+não dá. O TDP inteligente já lê o FPS pelo RTSS; aqui ele passa a ser guardado.
+
+**Passo a passo**
+
+1. Por sessão: jogo, duração, receita usada, FPS médio, 1% low quando houver,
+   consumo médio em watts e bateria gasta.
+2. Aba **Desempenho** na página do jogo, com médias só quando houver sessões
+   suficientes e a fonte de cada dado indicada.
+3. Previsão de bateria por jogo a partir da terceira sessão ("cerca de 1h40
+   nesta receita"), com a qualidade da estimativa.
+
+**Critérios de aceite**
+
+- Sem RTSS ou sem sensor, o jogo abre normalmente e nada é inventado.
+- Histórico local, com opção de limpar.
+
+### 0.32 — Página do jogo e descoberta
+
+**Objetivo:** fechar as sobras de "Detalhes 2.0" e as pendências visuais da 0.26.
+
+**Passo a passo**
+
+1. Página do jogo: seção **Mídia** (capturas e trailer), seção **Arquivos**
+   (pasta do jogo, pasta de saves, espaço), zoom a partir da capa e animação ao
+   fechar, descrição curta.
+2. Card **Grátis agora** (GamerPower, com cache e falha silenciosa).
+3. Fila **Jogar depois** e filtros para escolher o próximo jogo.
+4. Configurações: valor como texto na linha, sem listas suspensas.
+5. Ícones do Quick Settings sem emoji; cores de uso único restantes para o tema.
+
+**Critério de aceite:** tudo navegável pelo controle em 1280×800 e 1920×1200,
+com prints aprovados depois da beta.
+
+### 0.33 — Backup e diagnóstico
+
+**Objetivo:** facilitar reinstalação e suporte sem conta nem serviço remoto.
+
+1. Exportar e importar configurações, temas, receitas e referências de artes.
+   Não copiar jogos nem credenciais por padrão; mostrar o conteúdo antes de
+   restaurar.
+2. Diagnóstico guiado na Central de Ajuda: sintoma, verificação, ação reversível.
+3. Revisar logs e relatórios para tirar dados sensíveis antes de exportar.
+
+**Critério de aceite:** arquivo inválido não apaga configurações existentes;
+credenciais não são exportadas sem pedido explícito.
+
+## 1.0 — Primeira versão estável pública
+
+A 1.0 não significa que o launcher nunca mais terá versões. Significa que há
+uma base estável, documentada e segura para o público; melhorias e novas
+funcionalidades continuam depois dela.
+
+**Checklist obrigatório**
+
+- Receitas por jogo implementadas e aprovadas nos aparelhos oficialmente
+  suportados.
+- Interface em inglês revisada, com textos separados do código e idioma padrão
+  definido.
+- Executáveis Windows assinados e processo de distribuição/verificação
+  documentado. Avaliar publicação no WinGet depois de a identidade e os pacotes
+  oficiais estarem estabelecidos.
+- Instalação, atualização, beta → estável, desinstalação e recuperação testadas
+  numa instalação limpa.
+- Linux declarado como experimental e fora do suporte oficial da 1.0.
+- Documentação de primeiros passos, aparelhos, permissões, limitações, perguntas
+  frequentes, privacidade e remoção de componentes de terceiros.
+- Build e testes automatizados verdes; sem falhas conhecidas críticas; relatório
+  de erro sem segredos ou identificadores desnecessários.
+- Testes práticos de controle, resolução, escala e suspensão nos aparelhos
+  suportados; período de beta sem regressões bloqueadoras.
+- Pessoa que não participou do desenvolvimento consegue instalar, adicionar/
+  detectar jogos, configurar o launcher e reportar um problema seguindo apenas
+  a documentação.
+
+Se um critério depender de aparelho, certificado ou acesso externo ainda
+indisponível, a 1.0 deve esperar ou o suporte correspondente deve permanecer
+explicitamente fora do escopo oficial.
+
+## Depois da 1.0
+
+Estas ideias não bloqueiam a primeira versão estável:
+
+- **Linux/Bazzite** (decisão de 16/11/2026: fica de lado até a 1.0; o build e os
+  providers continuam compilando, sem trabalho novo). Plano guardado abaixo.
+- Compatibilidade comunitária: relatos e catálogo de receitas por jogo e aparelho.
+- Laboratório A/B de receitas, quando o diário de sessões for confiável.
+- Orçamento de bateria ("preciso de 2 horas"), sobre o TDP inteligente e o diário.
+- Central de saves com sincronização, replay instantâneo, modo conforto noturno,
+  painel no celular, agenda do Game Pass, alertas de saúde do aparelho.
+- Extensões/plugins, depois de estabilizar APIs e modelo de permissões.
+
+### Linux integrado ao ecossistema Bazzite (plano guardado)
 
 **Objetivo:** transformar o suporte Linux de “compila e tem providers” em uma
 experiência validada, que trabalha junto às ferramentas já instaladas.
@@ -167,160 +364,6 @@ experiência validada, que trabalha junto às ferramentas já instaladas.
 - Sessão Gamescope/Wayland, controles e suspensão são testados e documentados.
 - Recursos não validados aparecem como indisponíveis ou não validados, sem
   alegar suporte confirmado.
-
-### 0.28 — Receitas por jogo
-
-**Objetivo:** entregar o diferencial central do projeto: cada jogo abrir com o
-perfil que o usuário escolheu, sem tornar mudanças de hardware imprevisíveis.
-
-**Passo a passo**
-
-1. Definir e persistir uma receita local por jogo. Na primeira etapa, incluir
-   somente configurações já suportadas e verificáveis no aparelho: TDP/preset,
-   resolução e taxa quando aplicáveis, ventoinha quando suportada e opções de
-   HUD/Lossless onde houver integração real.
-2. Criar/editar a receita nos detalhes do jogo e permitir salvar o estado atual
-   do Quick Settings para o jogo ativo.
-3. Ao iniciar, aplicar a receita depois que o jogo e o dispositivo estiverem
-   identificados; mostrar quais itens foram aplicados e quais não são suportados.
-4. Ao encerrar, restaurar o estado anterior de forma confiável, inclusive após
-   falha no lançamento, fechamento inesperado ou suspensão.
-5. Manter um padrão global e uma ação simples para ignorar a receita numa
-   execução; não alterar opções gráficas internas do jogo automaticamente.
-6. Adicionar receitas por aparelho/dock apenas depois de a receita individual
-   estar estável e de haver sinal confiável para detectar a tela externa.
-
-**Critérios de aceite**
-
-- Receita sobrevive a reinicialização e não se mistura entre jogos da mesma
-  plataforma.
-- Aplicação e restauração são registradas; erros ficam visíveis e não são
-  convertidos em sucesso aparente.
-- TDP respeita os limites do perfil validado; função não suportada não é
-  simulada.
-- Repetir, cancelar ou falhar um lançamento não deixa o sistema num estado
-  diferente sem informar o usuário.
-
-### 0.29 — Desempenho e histórico que ajudam a decidir
-
-**Objetivo:** evoluir o diário de sessões para dar contexto útil sobre
-desempenho e autonomia, sem prometer precisão que o hardware não oferece.
-
-**Passo a passo**
-
-1. Unificar metadados da sessão: jogo, duração, receita usada, dispositivo e
-   fonte dos dados.
-2. Consumir métricas de uma fonte disponível e explicitamente identificada —
-   por exemplo MangoHud no Linux ou a fonte compatível já configurada no Windows.
-   Não inventar ou estimar FPS quando a coleta falhar.
-3. Mostrar histórico simples por jogo, com médias e tendência somente quando
-   houver amostras suficientes.
-4. Estimar duração de bateria por jogo apenas quando houver sessões e leitura de
-   bateria suficientes; mostrar intervalo/qualidade da estimativa e permitir
-   ignorá-la.
-5. Avaliar logs de FPS e métricas avançadas (como 1% low) como opcionais,
-   considerando custo de bateria, compatibilidade e retenção local.
-
-**Critérios de aceite**
-
-- Usuário consegue ver de onde vêm os dados e quantas sessões sustentam cada
-  resumo.
-- Ausência de ferramenta ou sensor não bloqueia o jogo nem produz dados falsos.
-- Histórico permanece local, com opção de limpar e sem incluir identificadores
-  pessoais no relatório.
-
-### 0.30 — Preparação para uso cotidiano e migração
-
-**Objetivo:** facilitar reinstalação, suporte e descoberta da biblioteca sem
-acrescentar dependência de conta ou serviço remoto.
-
-**Passo a passo**
-
-1. Criar exportação/importação de configurações, temas, preferências e referências
-   de biblioteca/artes. Não copiar jogos nem credenciais por padrão.
-2. Exibir o conteúdo do backup antes de restaurar; oferecer mesclagem ou
-   substituição com confirmação clara e permitir desfazer quando possível.
-3. Transformar verificações existentes da Central de Ajuda em diagnóstico
-   guiado: descrever sintoma, verificar condições e sugerir ação reversível,
-   sem executar alterações de driver ou sistema sem consentimento.
-4. Adicionar uma fila pessoal “Jogar depois” e filtros úteis para decidir o
-   próximo jogo, sem impor recomendações automáticas ou coleta na nuvem.
-5. Revisar logs e relatórios locais para garantir mensagens úteis e remover
-   dados sensíveis antes de qualquer exportação.
-
-**Critérios de aceite**
-
-- Backup é legível/validado antes de restaurar; arquivos inválidos não apagam
-  configurações existentes.
-- Credenciais e tokens não são exportados sem pedido explícito.
-- Diagnóstico explica o que verificou e o usuário mantém controle sobre ações.
-- Fila de jogos funciona offline e com navegação por controle.
-
-### 0.31 — Compatibilidade comunitária (piloto, se houver capacidade)
-
-**Objetivo:** ajudar usuários a descobrir o que foi testado em cada combinação
-de aparelho e jogo, sem lançar uma plataforma social antes de haver processo de
-privacidade e moderação.
-
-**Passo a passo**
-
-1. Definir um formato portátil de relato: aparelho, jogo, recurso, versão do
-   launcher, resultado e notas opcionais.
-2. Permitir exportar e importar relatos manualmente; revisar anonimização e
-   conteúdo antes de compartilhar.
-3. Experimentar catálogo público curado ou colaboração por repositório, com
-   política de validade, atualização e remoção.
-4. Só então decidir se vale a pena adicionar serviço online, conta ou envio
-   direto pelo app.
-
-**Critério de aceite:** a função é útil sem conta; nenhum dado é enviado
-automaticamente; os relatos distinguem “funcionou para alguém” de “validado pela
-equipe”.
-
-## 1.0 — Primeira versão estável pública
-
-A 1.0 não significa que o launcher nunca mais terá versões. Significa que há
-uma base estável, documentada e segura para o público; melhorias e novas
-funcionalidades continuam depois dela.
-
-**Checklist obrigatório**
-
-- Receitas por jogo implementadas e aprovadas nos aparelhos oficialmente
-  suportados.
-- Interface em inglês revisada, com textos separados do código e idioma padrão
-  definido.
-- Executáveis Windows assinados e processo de distribuição/verificação
-  documentado. Avaliar publicação no WinGet depois de a identidade e os pacotes
-  oficiais estarem estabelecidos.
-- Instalação, atualização, beta → estável, desinstalação e recuperação testadas
-  numa instalação limpa.
-- Linux com escopo de suporte explicitamente declarado; recurso experimental
-  não aparece como validado.
-- Documentação de primeiros passos, aparelhos, permissões, limitações, perguntas
-  frequentes, privacidade e remoção de componentes de terceiros.
-- Build e testes automatizados verdes; sem falhas conhecidas críticas; relatório
-  de erro sem segredos ou identificadores desnecessários.
-- Testes práticos de controle, resolução, escala e suspensão nos aparelhos
-  suportados; período de beta sem regressões bloqueadoras.
-- Pessoa que não participou do desenvolvimento consegue instalar, adicionar/
-  detectar jogos, configurar o launcher e reportar um problema seguindo apenas
-  a documentação.
-
-Se um critério depender de aparelho, certificado ou acesso externo ainda
-indisponível, a 1.0 deve esperar ou o suporte correspondente deve permanecer
-explicitamente fora do escopo oficial.
-
-## Depois da 1.0
-
-Estas ideias não bloqueiam a primeira versão estável:
-
-- Catálogo comunitário de receitas e relatos de compatibilidade.
-- Laboratório A/B de receitas, somente quando a coleta de métricas for confiável.
-- Orçamento de bateria e ajuste automático de TDP por meta de FPS, com limites
-  seguros e validação por modelo.
-- Extensões/plugins, depois de estabilizar APIs e modelo de permissões.
-- Painel remoto no celular, replay instantâneo e agenda de jogos que saem do
-  Game Pass, após avaliar manutenção, privacidade e fonte de dados.
 
 ## Manutenção contínua entre marcos
 
