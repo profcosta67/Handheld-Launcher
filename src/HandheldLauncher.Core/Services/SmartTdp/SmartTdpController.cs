@@ -85,7 +85,7 @@ public sealed class SmartTdpController
     private bool _probeWasReturn;
     private int _probeFrom;
     // Piso de antes de um "teste falhado", para desfazer se a queda não era culpa do teste.
-    private (int Floor, double Until, bool Confirmed, double Hold)? _preProbeFloor;
+    private (int Floor, double Until, bool Confirmed, double Hold, bool Learned)? _preProbeFloor;
     private double _futileFps;
     private bool _floorIsLearned; // o piso atual é só o valor aprendido (não um teste desta sessão)
     public const double ProvenAfterSeconds = 6;
@@ -162,6 +162,7 @@ public sealed class SmartTdpController
     private int _climbFloor;
     private double _climbFloorUntil;
     private bool _climbFloorConfirmed;
+    private bool _climbFloorIsLearned;
     private bool _climbCoarse;
     private double _futileUntil = double.NegativeInfinity;
     private double _futileHold = FutileHoldSeconds;
@@ -278,6 +279,7 @@ public sealed class SmartTdpController
                     _floor = _climbFloor;
                     _floorUntil = _climbFloorUntil;
                     _floorConfirmed = _climbFloorConfirmed;
+                    _floorIsLearned = _climbFloorIsLearned;
                 }
                 Watts = revertTo;
                 _resumeReturnTo = null;
@@ -303,6 +305,7 @@ public sealed class SmartTdpController
                 _climbFloor = _floor;
                 _climbFloorUntil = _floorUntil;
                 _climbFloorConfirmed = _floorConfirmed;
+                _climbFloorIsLearned = _floorIsLearned;
                 _climbCoarse = _coarse;
             }
 
@@ -316,7 +319,7 @@ public sealed class SmartTdpController
                 _coarse = false;
                 _climbFromProbe = true;
                 _probeWasReturn = _lastDownWasReturn;
-                _preProbeFloor = (_floor, _floorUntil, _floorConfirmed, _floorHold);
+                _preProbeFloor = (_floor, _floorUntil, _floorConfirmed, _floorHold, _floorIsLearned);
                 _probeFrom = Watts + (_probeWasReturn ? 1 : _lastDownStep);
                 RaiseFloor(Watts + 1, nowSeconds, confirmed: true);
                 // Quando a meta voltar, retorna ao valor de antes do teste (que servia) em vez
@@ -327,7 +330,7 @@ public sealed class SmartTdpController
             {
                 // Já voltou ao valor de antes do teste e continua faltando FPS: a queda não foi
                 // culpa do teste (pausa, replay). Desfaz o piso e trata como subida passageira.
-                (_floor, _floorUntil, _floorConfirmed, _floorHold) = pre;
+                (_floor, _floorUntil, _floorConfirmed, _floorHold, _floorIsLearned) = pre;
                 _preProbeFloor = null;
                 _climbFromProbe = false;
             }
@@ -382,7 +385,10 @@ public sealed class SmartTdpController
             && nowSeconds - _lastChange >= downAfter)
         {
             var beforeStep = Watts;
-            Watts = Math.Max(lowerBound, Watts - (fast ? CoarseStepDownWatts : StepDownWatts));
+            // Perto de um piso confirmado nesta sessão o passo é de 1 W: o de 2 W pulava o nível
+            // que já falhou e repetia o mesmo teste a cada expiração do piso.
+            var bigStep = fast && !(!_coarse && _floorConfirmed && !_floorIsLearned && Watts - CoarseStepDownWatts < _floor);
+            Watts = Math.Max(lowerBound, Watts - (bigStep ? CoarseStepDownWatts : StepDownWatts));
             _lastDownStep = beforeStep - Watts;
             _lastDownWasReturn = false;
             _lastChange = nowSeconds;

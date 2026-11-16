@@ -23,6 +23,9 @@ internal static class GameSessionInfo
     /// <summary>Marca um pedido de TDP feito pelo usuário (perfil ou watts no Quick Settings).</summary>
     public static void NoteUserTdpRequest() => Interlocked.Exchange(ref _userTdpRequestTicks, Environment.TickCount64);
 
+    /// <summary>Instante (TickCount64) do último pedido de TDP do usuário; 0 se nunca pediu.</summary>
+    public static long UserTdpRequestTicks => Interlocked.Read(ref _userTdpRequestTicks);
+
     /// <summary>Há quantos segundos o usuário pediu um TDP à mão (muito grande se nunca pediu).</summary>
     public static double SecondsSinceUserTdpRequest
     {

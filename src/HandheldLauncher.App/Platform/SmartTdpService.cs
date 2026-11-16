@@ -104,6 +104,8 @@ internal sealed class SmartTdpService : IDisposable
         public int RecentCount;
         public DateTime ResumedUtc;
         public bool UserTookOver; // o usuário escolheu um perfil ao desligar o Auto: nada a repor
+        public long LastOnTicks = Environment.TickCount64; // último ciclo em que o Auto estava ligado
+        public long? OffSinceTicks;
         public int AltPid;
         public int AltRejectedPid;
         public bool OwnMeasured;
@@ -130,6 +132,7 @@ internal sealed class SmartTdpService : IDisposable
 
     private void Tick()
     {
+        var tickStart = Environment.TickCount64; // antes de ler as configurações
         // Com sessão aberta as configurações são relidas a cada ciclo: uma troca de TDP feita
         // no Quick Settings tem de ser vista antes de qualquer gravação nossa (revisão 14/11).
         if (_session is not null || ++_settingsAge >= 3)
@@ -157,7 +160,10 @@ internal sealed class SmartTdpService : IDisposable
                 // O usuário acabou de escolher um perfil no painel: esse pedido está sendo aplicado
                 // (ou já foi) e é ele que vale. Repor o perfil antigo aqui atropelava a escolha
                 // (log de 16/11: pediu 15 W e ficou em 35 W).
-                if (GameSessionInfo.SecondsSinceUserTdpRequest <= UserRequestGraceSeconds) live.UserTookOver = true;
+                // Só conta um pedido feito depois que o Auto foi desligado (com ele ligado o painel
+                // bloqueia os perfis; um pedido anterior não é "assumir").
+                live.OffSinceTicks ??= tickStart;
+                if (UserAskedSince(live)) live.UserTookOver = true;
             }
 
             if (game is null) _resume = null;
@@ -166,7 +172,7 @@ internal sealed class SmartTdpService : IDisposable
             return;
         }
 
-        if (_session is not null) _session.OffSeen = false; // ligado de novo: a próxima saída volta a esperar um ciclo
+        if (_session is not null) { _session.OffSeen = false; _session.OffSinceTicks = null; _session.LastOnTicks = tickStart; } // ligado de novo: a próxima saída volta a esperar um ciclo
 
         if (_session is null || _session.GameId != game.Id)
         {
@@ -489,6 +495,9 @@ internal sealed class SmartTdpService : IDisposable
         Dispatcher.UIThread.Post(() => { try { applier?.Invoke(wanted); } catch (Exception ex) { DebugLog.Write($"[TDP-AUTO] Ventoinha: {ex.Message}"); } });
     }
 
+    /// <summary>O usuário pediu um perfil de TDP depois do último ciclo com o Auto ligado?</summary>
+    private static bool UserAskedSince(Session s) => GameSessionInfo.UserTdpRequestTicks > s.LastOnTicks;
+
     private void EndSession(string why)
     {
         var s = _session;
@@ -520,9 +529,19 @@ internal sealed class SmartTdpService : IDisposable
         {
             // A volta da ventoinha ao modo do firmware pode repor os limites de potência; o
             // TDP do usuário é aplicado depois dela, não ao mesmo tempo.
-            if (fanRestored) Thread.Sleep(1200);
+            if (fanRestored && !Dispatcher.UIThread.CheckAccess()) Thread.Sleep(1200);
             bool ok;
-            lock (WindowsHardwareService.TdpApplyLock) ok = _hardware.SetTdpMode(s.UserMode);
+            lock (WindowsHardwareService.TdpApplyLock)
+            {
+                // Dentro da trava: se o usuário pediu um perfil enquanto esperávamos, o pedido
+                // dele já está na fila desta mesma trava (ou já foi aplicado) — não repomos.
+                if (why == "modo desligado" && UserAskedSince(s))
+                {
+                    DebugLog.Write($"[TDP-AUTO] Sessão encerrada ({why}); o usuário escolheu um perfil no painel — TDP não reposto.");
+                    return;
+                }
+                ok = _hardware.SetTdpMode(s.UserMode);
+            }
             DebugLog.Write($"[TDP-AUTO] Sessão encerrada ({why}); TDP do usuário {(ok ? "restaurado" : "NÃO restaurado")}: {s.UserMode}.");
             var mode = s.UserMode;
             Dispatcher.UIThread.Post(() => _viewModel.UpdateHudTdpStatus(mode));
