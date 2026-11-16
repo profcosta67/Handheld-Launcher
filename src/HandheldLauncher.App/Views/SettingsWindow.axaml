@@ -57,6 +57,54 @@
       <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
       <Setter Property="Margin" Value="0,0,0,8"/>
     </Style>
+    <!-- v0.27: linhas do modo handheld (montadas em SettingsWindow.ConsoleRows.cs). -->
+    <Style Selector="Border.optRow">
+      <Setter Property="MinHeight" Value="52"/>
+      <Setter Property="Padding" Value="16,6"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}"/>
+      <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="Border.optRow.focused">
+      <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+    </Style>
+    <Style Selector="Border.optRow TextBlock.rowLabel">
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="Border.optRow.focused TextBlock.rowLabel">
+      <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+    </Style>
+    <Style Selector="Border.optRow TextBlock.rowChevron">
+      <Setter Property="IsVisible" Value="False"/>
+      <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
+    </Style>
+    <Style Selector="Border.optRow.focused TextBlock.rowChevron">
+      <Setter Property="IsVisible" Value="True"/>
+    </Style>
+    <Style Selector="ComboBox.rowValue">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Padding" Value="4,0"/>
+      <Setter Property="HorizontalContentAlignment" Value="Right"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+    </Style>
+    <Style Selector="ComboBox.rowValue /template/ PathIcon#DropDownGlyph">
+      <Setter Property="IsVisible" Value="False"/>
+    </Style>
+    <Style Selector="ComboBox.rowValue:pointerover /template/ Border#Background, ComboBox.rowValue:focus /template/ Border#Background, ComboBox.rowValue:pressed /template/ Border#Background">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+    <Style Selector="Border.optRow.focused ComboBox.rowValue">
+      <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style Selector="Border.optRow ToggleSwitch">
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+    </Style>
+    <Style Selector="Border.optRow.focused ToggleSwitch">
+      <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
+    </Style>
   </Window.Styles>
 
   <Panel>
@@ -260,23 +308,7 @@
               </StackPanel>
             </Border>
 
-            <!-- 🟢 NOVO BLOCO DO OVERLAY (LIVRE DE FREEZE) -->
-            <Border Classes="settingsCard" IsVisible="{Binding IsWindows}">
-              <StackPanel Spacing="8">
-                <TextBlock Text="TDP inteligente (experimental)" Classes="sectionTitle" />
-                <TextBlock Text="Ajustar o TDP sozinho durante o jogo" Classes="label"/>
-                <ToggleSwitch IsChecked="{Binding SmartTdpEnabled}" />
-                <TextBlock Text="Com um jogo aberto, o launcher lê o FPS e ajusta os watts para manter a meta sem gastar bateria à toa. O valor em que cada jogo estabiliza é lembrado e aplicado na próxima vez. Precisa do RTSS (o mesmo do HUD). Se você trocar o TDP à mão durante o jogo, o modo inteligente sai da frente até o jogo fechar."
-                           Classes="subtle" FontSize="11" TextWrapping="Wrap" />
-                <TextBlock Text="Meta de FPS padrão" Classes="label" Margin="0,8,0,4"/>
-                <ComboBox SelectedIndex="{Binding SmartTdpTargetIndex}" HorizontalAlignment="Stretch" Height="36">
-                  <ComboBoxItem Content="30 FPS" /><ComboBoxItem Content="40 FPS" /><ComboBoxItem Content="45 FPS" />
-                  <ComboBoxItem Content="60 FPS" /><ComboBoxItem Content="90 FPS" /><ComboBoxItem Content="120 FPS" />
-                </ComboBox>
-                <TextBlock Text="Vale para os jogos sem meta própria. Com um jogo aberto, a meta escolhida no Quick Settings fica guardada só para ele. Use a mesma taxa em que o jogo está limitado: o modo inteligente corta sobra de potência, não cria desempenho."
-                           Classes="subtle" FontSize="11" TextWrapping="Wrap" />
-              </StackPanel>
-            </Border>
+            <!-- v0.27: o TDP inteligente e a meta de FPS saíram daqui: ficam só no Quick Settings. -->
             <Border Classes="settingsCard">
               <StackPanel Spacing="8">
                 <TextBlock Text="Overlay (Quick Settings)" Classes="sectionTitle" />
@@ -530,6 +562,9 @@
     </Border>
   </Panel>
 
+  <!-- v0.27: contorno da janela compacta do modo handheld (sem a moldura do Windows). -->
+  <Border x:Name="ConsoleFrame" IsVisible="False" IsHitTestVisible="False"
+          BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="1" />
 
   <!-- v0.24: tela cheia do Syncthing (WebView nativo). É o último filho do
        Panel raiz porque controle nativo não respeita z-order do Avalonia.
