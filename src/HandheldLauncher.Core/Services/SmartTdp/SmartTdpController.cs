@@ -54,6 +54,7 @@ public sealed class SmartTdpController
     public SmartTdpController(int targetFps, int minWatts, int maxWatts, int startWatts, bool startIsLearned = false, bool coarseDescent = true)
     {
         _target = Math.Max(15, targetFps);
+        _effectiveTarget = _target;
         _min = Math.Min(minWatts, maxWatts);
         _max = Math.Max(minWatts, maxWatts);
         Watts = Math.Clamp(startWatts, _min, _max);
@@ -160,7 +161,6 @@ public sealed class SmartTdpController
     // potência não está ajudando (jogo limitado abaixo da meta, tela de carregamento,
     // cena presa na CPU) e voltar em vez de ir até o teto.
     private int? _climbWatts;
-    private double _climbFps;
     private int _climbFloor;
     private double _climbFloorUntil;
     private bool _climbFloorConfirmed;
@@ -168,6 +168,40 @@ public sealed class SmartTdpController
     private bool _climbCoarse;
     private double _futileUntil = double.NegativeInfinity;
     private double _futileHold = FutileHoldSeconds;
+
+    // Meta fora de alcance: mais potência não aumenta o FPS (jogo preso na GPU, limitado
+    // abaixo da meta). Em vez de ficar no teto, passa a segurar o FPS que o jogo consegue
+    // (com 10% de folga) usando o menor TDP — e volta à meta real se o jogo mudar.
+    public const double UnreachableDelaySeconds = 30; // um replay curto não dispara a descida
+    public const double UnreachableAtMaxSeconds = 20;
+    private double _effectiveTarget;
+    private bool _unreachable;
+    private double _unreachableUntil = double.NegativeInfinity;
+    private double _unreachableSince;
+    private double _plateauFps;
+    private double _climbBestFps;
+    private double? _atMaxSince;
+    private readonly List<(int Watts, double Fps)> _climbHistory = new();
+
+    /// <summary>A meta não é alcançável agora: o controle segura <see cref="EffectiveTargetFps"/>.</summary>
+    public bool TargetUnreachable => _unreachable;
+
+    /// <summary>FPS que o controle está segurando (a meta, ou o que o jogo consegue quando ela é inalcançável).</summary>
+    public int EffectiveTargetFps => (int)Math.Round(_effectiveTarget);
+
+    private void MarkUnreachable(double fps, double nowSeconds)
+    {
+        _unreachable = true;
+        _unreachableUntil = nowSeconds + _futileHold;
+        _unreachableSince = nowSeconds;
+        _plateauFps = Math.Max(_climbBestFps, fps);
+        _effectiveTarget = Math.Max(15.0, Math.Min(_target, _plateauFps * 0.90));
+        _futileFps = fps;
+        _futileUntil = nowSeconds + _futileHold;
+        _futileHold = Math.Min(MaxFloorHoldSeconds, _futileHold * 2);
+        _atMaxSince = null;
+        IsSettled = false;
+    }
 
     /// <summary>
     /// Marca o piso depois de uma falta de potência. Se o mesmo ponto falhar de novo, o
@@ -225,8 +259,22 @@ public sealed class SmartTdpController
             _lowFpsSince = null;
         }
 
-        var below = fps < _target * BelowRatio;
-        var near = !below && fps < _target * MeetRatio;
+        // Sai do modo "meta fora de alcance" quando a meta real volta a ser cumprida, quando o
+        // FPS sobe bem acima do patamar (a cena mudou) ou quando passa o prazo de nova tentativa.
+        if (_unreachable)
+        {
+            var changed = fps >= _target * MeetRatio || fps > _plateauFps * 1.20;
+            if (changed || nowSeconds >= _unreachableUntil)
+            {
+                if (changed) _futileHold = FutileHoldSeconds;
+                _unreachable = false;
+                _effectiveTarget = _target;
+                _futileUntil = double.NegativeInfinity;
+            }
+        }
+
+        var below = fps < _effectiveTarget * BelowRatio;
+        var near = !below && fps < _effectiveTarget * MeetRatio;
 
         // Reforço da volta ao jogo: passado o prazo sem faltar FPS de verdade, devolve.
         // (Conta pelo relógio: uma leitura "quase na meta" não segura o reforço.)
@@ -260,52 +308,76 @@ public sealed class SmartTdpController
             bool enough;
             if (below) { _belowCount++; _nearCount = 0; enough = _belowCount >= 2; }
             else { _nearCount++; _belowCount = 0; enough = _nearCount >= NearSamplesToNudge; }
+            if (_climbWatts is not null) _climbBestFps = Math.Max(_climbBestFps, fps);
             if (!enough || nowSeconds - _lastChange < UpCooldownSeconds) return SmartTdpChange.None;
 
             _belowCount = 0;
             _nearCount = 0;
 
-            // Subiu bastante (ou bateu no teto) e o FPS não saiu do lugar: potência não é
-            // o problema. Volta para onde estava e espera alguns minutos.
-            if (_climbWatts is { } from && Watts > from
-                && (Watts - from >= FutileClimbWatts || Watts >= _max)
-                && fps < _climbFps * FutileGainRatio)
+            // Subida que não adianta: compara com o FPS de 6 W atrás nesta mesma subida (ou
+            // com o início, se bateu no teto). Sem ganho de 5%, potência não é o problema:
+            // volta ao menor valor da subida que já dava este FPS e segura o FPS possível.
+            (int Watts, double Fps)? reference = null;
+            if (_climbWatts is { } from && Watts > from)
             {
-                // Volta para onde a subida começou — ou, se ela começou num teste de descida que
-                // falhou, para o valor de antes do teste (o nível testado já se mostrou baixo).
-                var revertTo = from;
-                if (_returnAfterClimb is { } beforeProbe && beforeProbe > from)
+                foreach (var point in _climbHistory)
+                    if (point.Watts <= Watts - FutileClimbWatts && (reference is null || point.Watts > reference.Value.Watts))
+                        reference = point;
+                if (reference is null && Watts >= _max && _climbHistory.Count > 0) reference = _climbHistory[0];
+
+                if (reference is { } r && fps < r.Fps * FutileGainRatio)
                 {
-                    revertTo = Math.Min(Watts, beforeProbe);
+                    var knee = Watts;
+                    foreach (var point in _climbHistory)
+                        if (point.Fps >= fps * 0.95 && point.Watts < knee) knee = point.Watts;
+                    var revertTo = Math.Max(from, knee);
+
+                    if (_returnAfterClimb is { } beforeProbe && beforeProbe > revertTo)
+                    {
+                        // A subida começou num teste de descida que falhou: o nível testado já
+                        // se mostrou baixo, volta para o de antes do teste.
+                        revertTo = Math.Min(Watts, beforeProbe);
+                    }
+                    else if (revertTo == from)
+                    {
+                        _floor = _climbFloor;
+                        _floorUntil = _climbFloorUntil;
+                        _floorConfirmed = _climbFloorConfirmed;
+                        _floorIsLearned = _climbFloorIsLearned;
+                    }
+                    Watts = revertTo;
+                    _resumeReturnTo = null;
+                    _returnAfterClimb = null;
+                    _coarse = _climbCoarse; // a subida não adiantou: a descida rápida continua valendo
+                    _climbWatts = null;
+                    MarkUnreachable(fps, nowSeconds);
+                    _lastChange = nowSeconds;
+                    _lastChangeWasDown = false;
+                    return SmartTdpChange.Down;
                 }
-                else
-                {
-                    _floor = _climbFloor;
-                    _floorUntil = _climbFloorUntil;
-                    _floorConfirmed = _climbFloorConfirmed;
-                    _floorIsLearned = _climbFloorIsLearned;
-                }
-                Watts = revertTo;
-                _resumeReturnTo = null;
-                _returnAfterClimb = null;
-                _coarse = _climbCoarse; // a subida não adiantou: a descida rápida continua valendo
-                _climbWatts = null;
-                _futileFps = fps;
-                _futileUntil = nowSeconds + _futileHold;
-                _futileHold = Math.Min(MaxFloorHoldSeconds, _futileHold * 2);
-                _lastChange = nowSeconds;
-                _lastChangeWasDown = false;
-                return SmartTdpChange.Down;
             }
 
-            if (Watts >= _max) return SmartTdpChange.None;
+            if (Watts >= _max)
+            {
+                // No teto sem alcançar a meta e sem subida para comparar (ex.: começou em 35 W):
+                // depois de 20 s assim, a meta está fora de alcance.
+                if (_atMaxSince is null) { _atMaxSince = nowSeconds; _climbBestFps = fps; }
+                _climbBestFps = Math.Max(_climbBestFps, fps);
+                if (nowSeconds - _atMaxSince.Value >= UnreachableAtMaxSeconds)
+                {
+                    _climbWatts = null;
+                    MarkUnreachable(fps, nowSeconds);
+                }
+                return SmartTdpChange.None;
+            }
 
             if (_climbWatts is null)
             {
                 // Com reforço pendente a subida conta a partir do valor de antes dele: se não
                 // adiantar, volta para lá.
                 _climbWatts = _resumeReturnTo ?? Watts;
-                _climbFps = fps;
+                _climbBestFps = fps;
+                _climbHistory.Clear();
                 _climbFloor = _floor;
                 _climbFloorUntil = _floorUntil;
                 _climbFloorConfirmed = _floorConfirmed;
@@ -343,6 +415,7 @@ public sealed class SmartTdpController
                 // Só volta de uma vez para um valor que já tinha se mostrado suficiente.
                 _returnAfterClimb ??= climbBase;
             }
+            _climbHistory.Add((Watts, fps));
             Watts = Math.Min(_max, Watts + (below ? StepUpWatts : 1));
             _lastChange = nowSeconds;
             _lastChangeWasDown = false;
@@ -354,13 +427,14 @@ public sealed class SmartTdpController
         _nearCount = 0;
         _climbWatts = null;
         _climbFromProbe = false;
-        _futileHold = FutileHoldSeconds;
+        _atMaxSince = null;
+        if (!_unreachable) _futileHold = FutileHoldSeconds;
         if (nowSeconds - Math.Max(_goodSince, _lastChange) >= ProvenAfterSeconds) _provenWatts = Watts;
         if (nowSeconds - _goodSince >= DownAfterGoodSeconds) _futileUntil = double.NegativeInfinity;
 
         // Folga clara (FPS 25% acima da meta): o valor aprendido não segura a descida — pode
         // ter ficado alto demais numa sessão anterior — e os passos são os rápidos.
-        var surplus = fps >= _target * SurplusRatio;
+        var surplus = fps >= _effectiveTarget * SurplusRatio;
         var floorActive = nowSeconds < _floorUntil && !(surplus && _floorIsLearned);
         var lowerBound = floorActive ? Math.Max(_min, _floor) : _min;
         var fast = _coarse || surplus;
@@ -368,6 +442,9 @@ public sealed class SmartTdpController
 
         // A meta voltou depois de uma subida passageira: retorna de uma vez ao valor de antes.
         // Vale como teste: se faltar FPS logo em seguida, aí sim vira piso e sobe de novo.
+        // Meta fora de alcance há pouco: espera antes de descer (pode ser só um replay curto).
+        if (_unreachable && nowSeconds - _unreachableSince < UnreachableDelaySeconds) return SmartTdpChange.None;
+
         if (_returnAfterClimb is { } baseWatts)
         {
             if (nowSeconds - _goodSince < ReturnAfterGoodSeconds || nowSeconds - _lastChange < ReturnAfterGoodSeconds)
@@ -405,7 +482,11 @@ public sealed class SmartTdpController
             return SmartTdpChange.Down;
         }
 
-        if (Watts <= lowerBound && nowSeconds - _lastChange >= SettleSeconds && (Watts == _min || _floorConfirmed))
+        if (_unreachable)
+        {
+            // Não se aprende um valor enquanto a meta não é a real.
+        }
+        else if (Watts <= lowerBound && nowSeconds - _lastChange >= SettleSeconds && (Watts == _min || _floorConfirmed))
             IsSettled = true;
         // Jogos com pausas/replays frequentes nunca passam 30 s sem mexer: também vale como
         // acomodado estar no piso confirmado por um teste desta sessão, com a meta cumprida.

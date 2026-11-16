@@ -51,6 +51,15 @@ internal static class GameSessionInfo
     /// <summary>Jogo do último reset (null = todos os jogos).</summary>
     public static string? LearningResetGameId => _learningResetGameId;
 
+    private static volatile int _smartTdpPossibleFps;
+
+    /// <summary>Meta fora de alcance: FPS que o jogo consegue e que o modo inteligente está segurando; 0 se a meta vale.</summary>
+    public static int SmartTdpPossibleFps
+    {
+        get => _smartTdpPossibleFps;
+        set => _smartTdpPossibleFps = value;
+    }
+
     private static volatile int _smartTdpWatts;
 
     /// <summary>Watts que o TDP inteligente está aplicando agora; 0 quando não está no comando.</summary>

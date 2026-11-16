@@ -77,7 +77,8 @@ public class SmartTdpControllerTests
         // Voltar do QS não reabre a subida nem dá reforço.
         Assert.Equal(20, c.PrepareForResume(t, 6));
         for (var u = t + 2; u < t + 60; u += 2) c.OnSample(30, u);
-        Assert.Equal(20, c.Watts);
+        Assert.True(c.Watts <= 20, $"voltou a subir: {c.Watts} W");
+        Assert.True(c.TargetUnreachable);
     }
 
     [Fact]
@@ -92,7 +93,7 @@ public class SmartTdpControllerTests
         // Abre e fecha o QS no meio da subida.
         c.PrepareForResume(t, 6);
         for (var u = t + 2; u < t + 100; u += 2) c.OnSample(30, u);
-        Assert.Equal(20, c.Watts); // nem o reforço nem a subida ficam
+        Assert.True(c.Watts <= 20, $"ficou em {c.Watts} W"); // nem o reforço nem a subida ficam
     }
 
     [Fact]
@@ -163,8 +164,37 @@ public class SmartTdpControllerTests
         // Jogo travado em 30 FPS com meta 60: mais potência não muda nada.
         var c = new SmartTdpController(60, 8, 35, 20);
         for (var t = 0.0; t < 120; t += 2) c.OnSample(30, t);
-        Assert.Equal(20, c.Watts);
+        Assert.True(c.Watts <= 20, $"ficou em {c.Watts} W");
+        Assert.True(c.TargetUnreachable);
         Assert.False(c.IsSettled);
+    }
+
+    [Fact]
+    public void UnreachableTargetOnAGpuBoundGameHoldsThePossibleFpsWithLessPower()
+    {
+        // Caso real (16/11, Days Gone): ~28 FPS de 14 W para cima, com metas de 35 a 55.
+        // Em vez de ir ao teto, segura os ~28 FPS com o menor TDP.
+        static double Game(int watts) => Math.Min(28.0, 28.0 * watts / 14);
+
+        var fromNormal = new SmartTdpController(45, 8, 35, 20);
+        for (var t = 0.0; t < 200; t += 2) fromNormal.OnSample(Game(fromNormal.Watts), t);
+        Assert.InRange(fromNormal.Watts, 13, 16);
+        Assert.True(fromNormal.TargetUnreachable);
+        Assert.InRange(fromNormal.EffectiveTargetFps, 26, 28);
+        Assert.False(fromNormal.IsSettled); // não vira "aprendido" para a meta de 45
+
+        var fromCeiling = new SmartTdpController(45, 8, 35, 35);
+        for (var t = 0.0; t < 300; t += 2) fromCeiling.OnSample(Game(fromCeiling.Watts), t);
+        Assert.InRange(fromCeiling.Watts, 13, 16);
+    }
+
+    [Fact]
+    public void UnreachableTargetKeepsThePowerWhenMoreWattsStillGiveMoreFps()
+    {
+        // Jogo que não chega a 60 mas ganha FPS a cada watt (40 FPS no teto): fica perto do teto.
+        var c = new SmartTdpController(60, 8, 35, 20);
+        for (var t = 0.0; t < 300; t += 2) c.OnSample(40.0 * c.Watts / 35, t);
+        Assert.True(c.Watts >= 31, $"ficou em {c.Watts} W");
     }
 
     [Fact]

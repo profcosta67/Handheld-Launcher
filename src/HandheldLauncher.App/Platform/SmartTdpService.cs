@@ -104,6 +104,7 @@ internal sealed class SmartTdpService : IDisposable
         public readonly double[] Recent = new double[3];
         public int RecentCount;
         public DateTime ResumedUtc;
+        public int UnreachableNoticedFor; // meta para a qual o aviso já foi mostrado
         public bool UserTookOver; // o usuário escolheu um perfil ao desligar o Auto: nada a repor
         public long LastOnTicks = Environment.TickCount64; // último ciclo em que o Auto estava ligado
         public long? OffSinceTicks;
@@ -420,12 +421,23 @@ internal sealed class SmartTdpService : IDisposable
         if ((now - s.LastStatusLog).TotalSeconds >= StatusLogSeconds)
         {
             s.LastStatusLog = now;
-            var state = s.Controller.IsSettled ? "estável"
+            var state = s.Controller.TargetUnreachable ? $"meta fora de alcance; segurando ~{s.Controller.EffectiveTargetFps} FPS com o menor TDP"
+                : s.Controller.IsSettled ? "estável"
                 : fps < s.TargetFps * SmartTdpController.BelowRatio ? (s.Controller.Watts >= s.Max ? "abaixo da meta mesmo no teto" : "abaixo da meta, subindo")
                 : "na meta, testando para baixo";
             DebugLog.Write($"[TDP-AUTO] Estado: {s.Controller.Watts} W, FPS {fps:0} (meta {s.TargetFps}), ventoinha {s.FanMode ?? (s.FanOff ? "do usuário" : s.UserFan)} — {state}.");
         }
         if (s.Applied) GameSessionInfo.SmartTdpWatts = s.Controller.Watts;
+
+        // Meta fora de alcance: avisa uma vez por meta (e o Quick Settings mostra enquanto durar).
+        var unreachable = s.Controller.TargetUnreachable;
+        GameSessionInfo.SmartTdpPossibleFps = unreachable ? s.Controller.EffectiveTargetFps : 0;
+        if (unreachable && s.UnreachableNoticedFor != s.TargetFps)
+        {
+            s.UnreachableNoticedFor = s.TargetFps;
+            DebugLog.Write($"[TDP-AUTO] Meta de {s.TargetFps} FPS fora de alcance em '{s.Title}': mais potência não aumenta o FPS. Segurando ~{s.Controller.EffectiveTargetFps} FPS com o menor TDP.");
+            if (s.Applied) PerformanceHud.ShowNotice($"Meta de {s.TargetFps} FPS fora de alcance · segurando ~{s.Controller.EffectiveTargetFps} FPS");
+        }
 
         if (s.Controller.IsSettled && s.SavedWatts != s.Controller.Watts)
         {
@@ -534,6 +546,7 @@ internal sealed class SmartTdpService : IDisposable
         if (s is null) return;
         _session = null;
         GameSessionInfo.SmartTdpWatts = 0;
+        GameSessionInfo.SmartTdpPossibleFps = 0;
 
         if (s.UserTookOver)
         {

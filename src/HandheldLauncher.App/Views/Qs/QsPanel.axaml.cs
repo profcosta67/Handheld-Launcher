@@ -333,6 +333,9 @@ public partial class QsPanel : UserControl
     private static string SmartHint()
     {
         var watts = HandheldLauncher.App.Platform.GameSessionInfo.SmartTdpWatts;
+        var possible = HandheldLauncher.App.Platform.GameSessionInfo.SmartTdpPossibleFps;
+        if (watts > 0 && possible > 0)
+            return $"Meta fora de alcance neste jogo: segurando ~{possible} FPS com {watts} W • baixe a meta para perto disso";
         return watts > 0
             ? $"Modo inteligente no comando: {watts} W agora, TDP e ventoinha • TDP alto demais? use Resetar"
             : "Modo inteligente: ajusta TDP e ventoinha sozinho durante o jogo • TDP alto demais? use Resetar";
