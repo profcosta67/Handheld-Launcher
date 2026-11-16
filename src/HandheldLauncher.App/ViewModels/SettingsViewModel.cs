@@ -905,17 +905,10 @@ public sealed class SettingsViewModel : ViewModelBase
         _smartTdpLoaded = SmartTdpEnabled;
         settings.SmartTdpEnabled = SmartTdpEnabled;
         // A meta também muda pelo Quick Settings: mesma regra do "Auto" acima.
-        if (SmartTdpTargetIndex == _smartTargetLoadedIndex)
-        {
-            try
-            {
-                var onDisk = Array.IndexOf(SmartTdpTargets, AppSettingsStore.Load().SmartTdpTargetFps);
-                if (onDisk >= 0) SmartTdpTargetIndex = onDisk;
-            }
-            catch { }
-        }
-        _smartTargetLoadedIndex = SmartTdpTargetIndex;
-        settings.SmartTdpTargetFps = SmartTdpTargets[SmartTdpTargetIndex];
+        // v0.27: a meta saiu desta janela (fica só no Quick Settings, agora em passos de 5 FPS):
+        // ao salvar, vale o que estiver gravado — nunca o valor de quando a janela abriu.
+        try { settings.SmartTdpTargetFps = AppSettingsStore.Load().SmartTdpTargetFps; }
+        catch (Exception ex) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(ex); }
 
         // v0.25.2: o layout Cartoon é uma identidade fechada — paleta 16, fonte
         // Fredoka e som Bolha. Os combos ficam desligados na tela; gravar aqui

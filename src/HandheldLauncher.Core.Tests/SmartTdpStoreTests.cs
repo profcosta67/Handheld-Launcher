@@ -27,18 +27,19 @@ public class SmartTdpStoreTests
     }
 
     [Fact]
-    public void ReadsTheOldFileFormat()
+    public void IgnoresValuesLearnedByOlderRules()
     {
         var path = TempPath();
         try
         {
-            File.WriteAllText(path, "{\"dg\":{\"Watts\":18,\"TargetFps\":30,\"Title\":\"Days Gone\",\"UpdatedUtc\":\"2026-11-14T00:00:00Z\"}}");
+            // Formato antigo (chave só com o id) e formato por meta sem a marca da regra atual.
+            File.WriteAllText(path, "{\"dg\":{\"Watts\":18,\"TargetFps\":30,\"Title\":\"Days Gone\"},\"fc@60\":{\"Watts\":34,\"TargetFps\":60,\"Title\":\"FC\"}}");
             var store = new SmartTdpStore(path);
-            Assert.Equal(18, store.Get("dg", 30)?.Watts);
-            Assert.Null(store.Get("dg", 60));
+            Assert.Null(store.Get("dg", 30));
+            Assert.Null(store.Get("fc", 60));
 
-            store.Set("dg", "Days Gone", 17, 30);
-            Assert.Equal(17, new SmartTdpStore(path).Get("dg", 30)?.Watts);
+            store.Set("fc", "FC", 20, 60);
+            Assert.Equal(20, new SmartTdpStore(path).Get("fc", 60)?.Watts);
         }
         finally { File.Delete(path); }
     }

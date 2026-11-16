@@ -58,7 +58,7 @@ public class SmartTdpControllerTests
         Assert.Equal(25, c.Watts);
 
         // O reforço não é devolvido depois de faltar FPS.
-        for (var t = 106; t <= 130; t += 2) c.OnSample(60, t);
+        for (var t = 106; t <= 114; t += 2) c.OnSample(60, t);
         Assert.True(c.Watts >= 23, $"devolveu o reforço: {c.Watts} W");
     }
 
@@ -186,7 +186,7 @@ public class SmartTdpControllerTests
         for (var t = 40.0; t < 80; t += 2) c.OnSample(40 + (c.Watts - 20), t);
         Assert.Equal(35, c.Watts);
 
-        for (var t = 80.0; t <= 100; t += 2) c.OnSample(60, t);
+        for (var t = 80.0; t <= 92; t += 2) c.OnSample(60, t);
         Assert.Equal(20, c.Watts);
     }
 
@@ -297,8 +297,18 @@ public class SmartTdpControllerTests
     public void LearnedStartDoesNotProbeDownRightAway()
     {
         var c = new SmartTdpController(60, 8, 35, 22, startIsLearned: true);
-        Run(c, need: 15, target: 60, seconds: 120);
+        Run(c, need: 15, target: 60, seconds: 50);
         Assert.Equal(22, c.Watts);
+    }
+
+    [Fact]
+    public void StaleLearnedValueIsCorrectedEvenWithoutFpsSurplus()
+    {
+        // Caso real (16/11): aprendeu 34 W para 60 FPS, mas o jogo segura 60 com 20 W e é
+        // limitado a 60 (não há "FPS sobrando" para denunciar o exagero).
+        var c = new SmartTdpController(60, 8, 35, 34, startIsLearned: true);
+        Run(c, need: 20, target: 60, seconds: 180);
+        Assert.InRange(c.Watts, 19, 22);
     }
 
     [Fact]

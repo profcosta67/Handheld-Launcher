@@ -9,6 +9,8 @@ public sealed class SmartTdpEntry
     public int TargetFps { get; set; }
     public string Title { get; set; } = "";
     public DateTime UpdatedUtc { get; set; }
+    /// <summary>Regra de aprendizado que gravou o valor. Valores de regras antigas são ignorados.</summary>
+    public int Rev { get; set; }
 }
 
 /// <summary>
@@ -29,6 +31,8 @@ public sealed class SmartTdpStore
 
     // Um valor por jogo e por meta ("id@60"): trocar a meta no Quick Settings não apaga o
     // que foi aprendido para a outra. Arquivos antigos (chave só com o id) continuam lidos.
+    public const int CurrentRev = 2;
+
     private static string KeyFor(string gameId, int targetFps) => $"{gameId}@{targetFps}";
 
     public SmartTdpEntry? Get(string gameId, int targetFps)
@@ -36,8 +40,9 @@ public sealed class SmartTdpStore
         lock (_gate)
         {
             var all = Load();
-            if (all.TryGetValue(KeyFor(gameId, targetFps), out var e) && e.Watts > 0) return e;
-            return all.TryGetValue(gameId, out var legacy) && legacy.TargetFps == targetFps && legacy.Watts > 0 ? legacy : null;
+            // Só vale o que foi aprendido pela regra atual: as betas até a 64 gravaram valores
+            // altos demais (ex.: 34 W para 60 FPS num jogo que segura 60 com 20 W).
+            return all.TryGetValue(KeyFor(gameId, targetFps), out var e) && e.Watts > 0 && e.Rev >= CurrentRev ? e : null;
         }
     }
 
@@ -47,7 +52,7 @@ public sealed class SmartTdpStore
         {
             var all = Load();
             if (all.TryGetValue(gameId, out var legacy) && legacy.TargetFps == targetFps) all.Remove(gameId);
-            all[KeyFor(gameId, targetFps)] = new SmartTdpEntry { Watts = watts, TargetFps = targetFps, Title = title, UpdatedUtc = DateTime.UtcNow };
+            all[KeyFor(gameId, targetFps)] = new SmartTdpEntry { Watts = watts, TargetFps = targetFps, Title = title, UpdatedUtc = DateTime.UtcNow, Rev = CurrentRev };
             try
             {
                 var dir = Path.GetDirectoryName(_path);

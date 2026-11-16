@@ -47,7 +47,11 @@ public partial class QsPanel : UserControl
     private const int TdpCoarseStep = 10;
     private bool _suppressEvents = false;
     private bool _losslessOn = false;
-    private static readonly int[] SmartTdpTargets = { 30, 40, 45, 60, 90, 120 };
+    private const int FpsMin = 20, FpsMax = 120, FpsFineStep = 5, FpsCoarseStep = 10;
+    private bool _fpsEditing;
+    private int _fpsEditStart;
+    private Button? _smartTargetButton;
+    private readonly DispatcherTimer _fpsDebounce = new() { Interval = TimeSpan.FromMilliseconds(450) };
     private int _smartTargetFps = 60;          // meta em vigor (do jogo ou a padrão)
     private int _defaultTargetFps = 60;        // meta das Configurações
     private int? _gameTargetFps;               // meta própria do jogo aberto
@@ -324,7 +328,7 @@ public partial class QsPanel : UserControl
     }
 
     private static int NormalizeSmartTarget(int fps) =>
-        SmartTdpTargets.Contains(fps) ? fps : 60;
+        fps <= 0 ? 60 : Math.Clamp((int)Math.Round(fps / (double)FpsFineStep) * FpsFineStep, FpsMin, FpsMax);
 
     private void BuildSmartFpsChips()
     {
@@ -332,21 +336,36 @@ public partial class QsPanel : UserControl
         _smartFpsButtons.Clear();
         _smartNavigationButtons.Clear();
 
-        // "Padrão": o jogo aberto volta a seguir a meta das Configurações.
+        // "Meta": abre o ajuste da barra (◀ ▶ mudam, A aplica, B cancela), como o "Person." do TDP.
+        _smartTargetButton = MakeChip("🎯", "Meta");
+        _smartTargetButton.Click += (_, _) => { if (_fpsEditing) EndFpsEdit(apply: true); else BeginFpsEdit(); };
+        _smartFpsButtons.Add(_smartTargetButton);
+        SmartFpsHost.Children.Add(_smartTargetButton);
+
+        // "Padrão": o jogo aberto volta a seguir a meta padrão.
         _smartDefaultButton = MakeChip("↺", "Padrão");
         _smartDefaultButton.Tag = SmartDefaultTag;
         _smartDefaultLabel = (_smartDefaultButton.Content as StackPanel)?.Children.OfType<TextBlock>().LastOrDefault();
-        _smartDefaultButton.Click += (_, _) => ClearGameSmartTarget();
+        _smartDefaultButton.Click += (_, _) => { EndFpsEdit(apply: false); ClearGameSmartTarget(); };
         SmartFpsHost.Children.Add(_smartDefaultButton);
 
-        foreach (var fps in SmartTdpTargets)
+        _fpsDebounce.Tick += (_, _) =>
         {
-            var button = MakeChip("🎯", fps.ToString());
-            button.Tag = fps;
-            button.Click += (_, _) => SetSmartTdpTargetFps(fps);
-            _smartFpsButtons.Add(button);
-            SmartFpsHost.Children.Add(button);
-        }
+            _fpsDebounce.Stop();
+            if (!_fpsEditing) return;
+            // Ajuste por toque já aplicado: "cancelar" passa a voltar para este valor.
+            var touched = NormalizeSmartTarget((int)Math.Round(FpsSlider.Value));
+            _fpsEditStart = touched;
+            SetSmartTdpTargetFps(touched);
+        };
+        FpsSlider.PropertyChanged += (_, e) =>
+        {
+            if (e.Property != Slider.ValueProperty) return;
+            TxtFps.Text = $"{(int)Math.Round(FpsSlider.Value)} FPS";
+            if (_suppressEvents || !_fpsEditing) return;
+            _fpsDebounce.Stop();
+            _fpsDebounce.Start();
+        };
 
         RefreshSmartFpsVisuals();
     }
@@ -372,15 +391,21 @@ public partial class QsPanel : UserControl
         }
         if (_smartDefaultLabel is not null) _smartDefaultLabel.Text = $"Padrão {_defaultTargetFps}";
 
-        // Com jogo aberto seguindo o padrão, só o "Padrão" fica marcado.
-        var marked = gameOpen ? _gameTargetFps : _defaultTargetFps;
-        foreach (var button in _smartFpsButtons)
-            button.Classes.Set("active", marked is { } m && Equals(button.Tag, m));
+        if (!_smartOn && _fpsEditing) EndFpsEdit(apply: false);
+        _smartTargetButton?.Classes.Set("active", _fpsEditing);
+        if (!_fpsEditing)
+        {
+            _suppressEvents = true;
+            FpsSlider.Value = _smartTargetFps;
+            _suppressEvents = false;
+            TxtFps.Text = $"{_smartTargetFps} FPS";
+        }
+        FpsSlider.IsEnabled = _smartOn && _fpsEditing;
 
         _smartNavigationButtons.Clear();
         if (_smartButton is not null) _smartNavigationButtons.Add(_smartButton);
-        if (gameOpen && _smartDefaultButton is not null) _smartNavigationButtons.Add(_smartDefaultButton);
         _smartNavigationButtons.AddRange(_smartFpsButtons);
+        if (gameOpen && _smartDefaultButton is not null) _smartNavigationButtons.Add(_smartDefaultButton);
     }
 
     private void SetSmartTdpTargetFps(int fps)
@@ -447,7 +472,7 @@ public partial class QsPanel : UserControl
 
         _smartOn = on;
         HandheldLauncher.App.Diagnostics.DebugLog.Write($"[QS] TDP inteligente {(on ? "ligado" : "desligado")} pelo painel.");
-        if (on) EndTdpEdit(apply: false);
+        if (on) EndTdpEdit(apply: false); else EndFpsEdit(apply: false);
         SelectPowerPreset(_activePreset);
         RefreshSmartFpsVisuals();
         if (!on && !_tdpEditing) TxtTdp.Text = $"{_customWatts} W";
@@ -586,6 +611,58 @@ public partial class QsPanel : UserControl
             Height = 46,
             Padding = new Avalonia.Thickness(10, 4),
         };
+    }
+
+    // ---- Meta de FPS: ajuste pela barra (mesmo jeito do TDP personalizado) ----
+    private void BeginFpsEdit()
+    {
+        if (!_smartOn) return;
+        _fpsEditing = true;
+        _fpsEditStart = _smartTargetFps;
+        FpsSlider.IsEnabled = true;
+        _smartTargetButton?.Classes.Set("active", true);
+        TxtTdpHint.Text = $"◀ ▶ {FpsFineStep} FPS · ▲ ▼ {FpsCoarseStep} FPS · A aplica · B cancela";
+    }
+
+    private void EndFpsEdit(bool apply)
+    {
+        if (!_fpsEditing) return;
+        _fpsEditing = false;
+        _fpsDebounce.Stop();
+        FpsSlider.IsEnabled = false;
+        var chosen = NormalizeSmartTarget((int)Math.Round(FpsSlider.Value));
+        if (apply && chosen != _smartTargetFps) SetSmartTdpTargetFps(chosen);
+        else if (!apply && _fpsEditStart != _smartTargetFps) SetSmartTdpTargetFps(_fpsEditStart);
+        SelectPowerPreset(_activePreset); // repõe a dica da linha
+        RefreshSmartFpsVisuals();
+    }
+
+    private void AdjustFpsEdit(int delta)
+    {
+        var next = Math.Clamp((int)Math.Round(FpsSlider.Value) + delta, FpsMin, FpsMax);
+        _suppressEvents = true;
+        FpsSlider.Value = next;
+        _suppressEvents = false;
+        TxtFps.Text = $"{next} FPS";
+    }
+
+    /// <summary>Com o ajuste da meta aberto, o controle é só dele. true = ação consumida.</summary>
+    private bool HandleFpsEdit(GamepadAction action)
+    {
+        switch (action)
+        {
+            case GamepadAction.MoveLeft: AdjustFpsEdit(-FpsFineStep); return true;
+            case GamepadAction.MoveRight: AdjustFpsEdit(FpsFineStep); return true;
+            case GamepadAction.MoveUp: AdjustFpsEdit(FpsCoarseStep); return true;
+            case GamepadAction.MoveDown: AdjustFpsEdit(-FpsCoarseStep); return true;
+            case GamepadAction.Confirm: EndFpsEdit(apply: true); RefreshFocusVisual(); return true;
+            case GamepadAction.Back: EndFpsEdit(apply: false); RefreshFocusVisual(); return true;
+            case GamepadAction.GlobalMenu:
+            case GamepadAction.ToggleQuickSettings:
+                EndFpsEdit(apply: false);
+                return false; // deixa fechar o painel
+            default: return true;
+        }
     }
 
     private void BeginTdpEdit()
@@ -768,7 +845,7 @@ public partial class QsPanel : UserControl
 
     // ----------------------------------------------------------------- cliques
 
-    private void OnCloseClick(object? sender, RoutedEventArgs e) { EndTdpEdit(apply: false); CloseRequested?.Invoke(this, EventArgs.Empty); }
+    private void OnCloseClick(object? sender, RoutedEventArgs e) { EndTdpEdit(apply: false); EndFpsEdit(apply: false); CloseRequested?.Invoke(this, EventArgs.Empty); }
 
     // Engrenagem do rodapé: o OverlayWindow fecha o painel e pede as
     // Configurações ao MainViewModel (mesma rota do menu global).
@@ -799,6 +876,7 @@ public partial class QsPanel : UserControl
     public void HandleGamepadAction(GamepadAction action)
     {
         if (_tdpEditing && HandleTdpEdit(action)) return;
+        if (_fpsEditing && HandleFpsEdit(action)) return;
 
         switch (action)
         {
@@ -895,7 +973,7 @@ public partial class QsPanel : UserControl
                     var item = _smartNavigationButtons[index];
                     if (ReferenceEquals(item, _smartButton)) SetSmartTdp(false);
                     else if (Equals(item.Tag, SmartDefaultTag)) ClearGameSmartTarget();
-                    else if (item.Tag is int target) SetSmartTdpTargetFps(target);
+                    else if (ReferenceEquals(item, _smartTargetButton)) BeginFpsEdit();
                 }
                 else if (index >= 0 && index < _tdpButtons.Count && _tdpButtons[index].Tag is PowerPreset p)
                     OnPowerPresetClick(p);

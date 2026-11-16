@@ -28,6 +28,7 @@ public sealed class SmartTdpController
     public const int CoarseStepDownWatts = 2;
     public const double CoarseDownAfterGoodSeconds = 8;
     public const double FloorHoldSeconds = 180;
+    public const double LearnedFloorHoldSeconds = 60;
     public const double SettleSeconds = 30;
     public const double MaxFloorHoldSeconds = 1800;
     public const double IgnoreLowFpsForSeconds = 20;
@@ -58,7 +59,7 @@ public sealed class SmartTdpController
         Watts = Math.Clamp(startWatts, _min, _max);
         _floor = _min;
         _startIsLearned = startIsLearned;
-        _coarse = !startIsLearned && coarseDescent;
+        _coarse = coarseDescent;
     }
 
     private readonly bool _startIsLearned;
@@ -193,9 +194,10 @@ public sealed class SmartTdpController
             _lastChange = nowSeconds;
             if (_startIsLearned)
             {
-                // Valor aprendido: não sai testando para baixo logo de cara.
+                // Valor aprendido: segura por um minuto e depois confere para baixo (o valor
+                // pode ter ficado alto; se estiver certo, o teste falha uma vez e ele volta).
                 _floor = Watts;
-                _floorUntil = nowSeconds + FloorHoldSeconds;
+                _floorUntil = nowSeconds + LearnedFloorHoldSeconds;
                 _floorConfirmed = true;
                 _floorIsLearned = true;
             }
