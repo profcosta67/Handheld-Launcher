@@ -171,7 +171,7 @@ public sealed class SmartTdpController
 
     // Meta fora de alcance: mais potência não aumenta o FPS (jogo preso na GPU, limitado
     // abaixo da meta). Em vez de ficar no teto, passa a segurar o FPS que o jogo consegue
-    // (com 10% de folga) usando o menor TDP — e volta à meta real se o jogo mudar.
+    // (com uma pequena folga) usando o menor TDP — e volta à meta real se o jogo mudar.
     public const double UnreachableDelaySeconds = 30; // um replay curto não dispara a descida
     public const double UnreachableAtMaxSeconds = 20;
     private double _effectiveTarget;
@@ -195,7 +195,7 @@ public sealed class SmartTdpController
         _unreachableUntil = nowSeconds + _futileHold;
         _unreachableSince = nowSeconds;
         _plateauFps = Math.Max(_climbBestFps, fps);
-        _effectiveTarget = Math.Max(15.0, Math.Min(_target, _plateauFps * 0.90));
+        _effectiveTarget = Math.Max(15.0, Math.Min(_target, _plateauFps * 0.97));
         _futileFps = fps;
         _futileUntil = nowSeconds + _futileHold;
         _futileHold = Math.Min(MaxFloorHoldSeconds, _futileHold * 2);
