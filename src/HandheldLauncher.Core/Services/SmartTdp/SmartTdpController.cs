@@ -33,7 +33,10 @@ public sealed class SmartTdpController
     public const double IgnoreLowFpsForSeconds = 20;
     public const int FutileClimbWatts = 6;
     public const double FutileGainRatio = 1.05;
-    public const double FutileHoldSeconds = 300;
+    public const double FutileHoldSeconds = 120;
+    // FPS bem acima da meta: há folga clara, desce depressa e o valor aprendido não segura.
+    public const double SurplusRatio = 1.25;
+    public const double ReturnAfterGoodSeconds = 8;
     public const int NearSamplesToNudge = 4;
 
     private readonly int _target;
@@ -84,6 +87,7 @@ public sealed class SmartTdpController
     // Piso de antes de um "teste falhado", para desfazer se a queda não era culpa do teste.
     private (int Floor, double Until, bool Confirmed, double Hold)? _preProbeFloor;
     private double _futileFps;
+    private bool _floorIsLearned; // o piso atual é só o valor aprendido (não um teste desta sessão)
     public const double ProvenAfterSeconds = 6;
 
     /// <summary>
@@ -176,6 +180,7 @@ public sealed class SmartTdpController
         _floorConfirmed = confirmed || (same && _floorConfirmed);
         _floor = floor;
         _floorUntil = nowSeconds + _floorHold;
+        _floorIsLearned = false;
     }
 
     public SmartTdpChange OnSample(double fps, double nowSeconds)
@@ -191,6 +196,7 @@ public sealed class SmartTdpController
                 _floor = Watts;
                 _floorUntil = nowSeconds + FloorHoldSeconds;
                 _floorConfirmed = true;
+                _floorIsLearned = true;
             }
         }
 
@@ -239,7 +245,10 @@ public sealed class SmartTdpController
             {
                 // A espera vale enquanto o FPS continua no mesmo patamar em que a subida não
                 // adiantou. Se mudou (a pausa acabou e agora falta potência de verdade), reage.
-                if (Math.Abs(fps - _futileFps) <= 0.10 * _futileFps) return SmartTdpChange.None;
+                // Exceção: logo depois de uma descida de teste a queda pode ser culpa dela (jogos
+                // com vsync caem para metade do FPS) — aí não espera.
+                var justProbed = _lastChangeWasDown && nowSeconds - _lastChange <= 30;
+                if (!justProbed && Math.Abs(fps - _futileFps) <= 0.10 * _futileFps) return SmartTdpChange.None;
                 _futileUntil = double.NegativeInfinity;
             }
 
@@ -257,12 +266,22 @@ public sealed class SmartTdpController
                 && (Watts - from >= FutileClimbWatts || Watts >= _max)
                 && fps < _climbFps * FutileGainRatio)
             {
-                Watts = from;
+                // Volta para onde a subida começou — ou, se ela começou num teste de descida que
+                // falhou, para o valor de antes do teste (o nível testado já se mostrou baixo).
+                var revertTo = from;
+                if (_returnAfterClimb is { } beforeProbe && beforeProbe > from)
+                {
+                    revertTo = Math.Min(Watts, beforeProbe);
+                }
+                else
+                {
+                    _floor = _climbFloor;
+                    _floorUntil = _climbFloorUntil;
+                    _floorConfirmed = _climbFloorConfirmed;
+                }
+                Watts = revertTo;
                 _resumeReturnTo = null;
                 _returnAfterClimb = null;
-                _floor = _climbFloor;
-                _floorUntil = _climbFloorUntil;
-                _floorConfirmed = _climbFloorConfirmed;
                 _coarse = _climbCoarse; // a subida não adiantou: a descida rápida continua valendo
                 _climbWatts = null;
                 _futileFps = fps;
@@ -295,12 +314,14 @@ public sealed class SmartTdpController
                 // vira piso. (Antes toda subida virava piso por minutos: uma pausa ou um
                 // replay a 30 FPS prendia o TDP no teto com o jogo sobrando FPS.)
                 _coarse = false;
-                _returnAfterClimb = null;
                 _climbFromProbe = true;
                 _probeWasReturn = _lastDownWasReturn;
                 _preProbeFloor = (_floor, _floorUntil, _floorConfirmed, _floorHold);
                 _probeFrom = Watts + (_probeWasReturn ? 1 : _lastDownStep);
                 RaiseFloor(Watts + 1, nowSeconds, confirmed: true);
+                // Quando a meta voltar, retorna ao valor de antes do teste (que servia) em vez
+                // de ficar onde a subida parar. Se o que falhou foi a própria volta, não repete.
+                _returnAfterClimb = _probeWasReturn ? null : Math.Min(_max, _probeFrom);
             }
             else if (_climbFromProbe && below && !_probeWasReturn && Watts >= _floor && _preProbeFloor is { } pre)
             {
@@ -309,7 +330,6 @@ public sealed class SmartTdpController
                 (_floor, _floorUntil, _floorConfirmed, _floorHold) = pre;
                 _preProbeFloor = null;
                 _climbFromProbe = false;
-                if (_provenWatts is { } proven && proven >= _probeFrom) _returnAfterClimb = _probeFrom;
             }
             else if (!_climbFromProbe && _climbWatts is { } climbBase && _provenWatts == climbBase)
             {
@@ -331,14 +351,19 @@ public sealed class SmartTdpController
         if (nowSeconds - Math.Max(_goodSince, _lastChange) >= ProvenAfterSeconds) _provenWatts = Watts;
         if (nowSeconds - _goodSince >= DownAfterGoodSeconds) _futileUntil = double.NegativeInfinity;
 
-        var lowerBound = nowSeconds < _floorUntil ? Math.Max(_min, _floor) : _min;
-        var downAfter = _coarse ? CoarseDownAfterGoodSeconds : DownAfterGoodSeconds;
+        // Folga clara (FPS 25% acima da meta): o valor aprendido não segura a descida — pode
+        // ter ficado alto demais numa sessão anterior — e os passos são os rápidos.
+        var surplus = fps >= _target * SurplusRatio;
+        var floorActive = nowSeconds < _floorUntil && !(surplus && _floorIsLearned);
+        var lowerBound = floorActive ? Math.Max(_min, _floor) : _min;
+        var fast = _coarse || surplus;
+        var downAfter = fast ? CoarseDownAfterGoodSeconds : DownAfterGoodSeconds;
 
         // A meta voltou depois de uma subida passageira: retorna de uma vez ao valor de antes.
         // Vale como teste: se faltar FPS logo em seguida, aí sim vira piso e sobe de novo.
         if (_returnAfterClimb is { } baseWatts)
         {
-            if (nowSeconds - _goodSince < DownAfterGoodSeconds || nowSeconds - _lastChange < DownAfterGoodSeconds)
+            if (nowSeconds - _goodSince < ReturnAfterGoodSeconds || nowSeconds - _lastChange < ReturnAfterGoodSeconds)
                 return SmartTdpChange.None;
             _returnAfterClimb = null;
             var to = Math.Max(lowerBound, baseWatts);
@@ -357,7 +382,7 @@ public sealed class SmartTdpController
             && nowSeconds - _lastChange >= downAfter)
         {
             var beforeStep = Watts;
-            Watts = Math.Max(lowerBound, Watts - (_coarse ? CoarseStepDownWatts : StepDownWatts));
+            Watts = Math.Max(lowerBound, Watts - (fast ? CoarseStepDownWatts : StepDownWatts));
             _lastDownStep = beforeStep - Watts;
             _lastDownWasReturn = false;
             _lastChange = nowSeconds;
@@ -367,6 +392,11 @@ public sealed class SmartTdpController
         }
 
         if (Watts <= lowerBound && nowSeconds - _lastChange >= SettleSeconds && (Watts == _min || _floorConfirmed))
+            IsSettled = true;
+        // Jogos com pausas/replays frequentes nunca passam 30 s sem mexer: também vale como
+        // acomodado estar no piso confirmado por um teste desta sessão, com a meta cumprida.
+        else if (Watts <= lowerBound && _floorConfirmed && !_floorIsLearned && nowSeconds < _floorUntil
+                 && nowSeconds - Math.Max(_goodSince, _lastChange) >= DownAfterGoodSeconds)
             IsSettled = true;
         return SmartTdpChange.None;
     }

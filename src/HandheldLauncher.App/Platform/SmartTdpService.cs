@@ -37,7 +37,8 @@ internal sealed class SmartTdpService : IDisposable
     // mantiver) para o jogo não engasgar enquanto volta a rodar.
     private const int ResumeBoostWatts = 6;
     private const double ResumeBoostNoFramesSeconds = 15;
-    private const double ReassertSeconds = 30;
+    private const double ReassertSeconds = 60;
+    private const double UserRequestGraceSeconds = 20;
     private const double FanDownAfterSeconds = 30;
     private const double StatusLogSeconds = 10;
 
@@ -102,6 +103,7 @@ internal sealed class SmartTdpService : IDisposable
         public readonly double[] Recent = new double[3];
         public int RecentCount;
         public DateTime ResumedUtc;
+        public bool UserTookOver; // o usuário escolheu um perfil ao desligar o Auto: nada a repor
         public int AltPid;
         public int AltRejectedPid;
         public bool OwnMeasured;
@@ -152,6 +154,10 @@ internal sealed class SmartTdpService : IDisposable
             {
                 if (!live.OffSeen) { live.OffSeen = true; return; }
                 live.UserMode = string.IsNullOrWhiteSpace(_settings.TdpMode) ? live.UserMode : _settings.TdpMode;
+                // O usuário acabou de escolher um perfil no painel: esse pedido está sendo aplicado
+                // (ou já foi) e é ele que vale. Repor o perfil antigo aqui atropelava a escolha
+                // (log de 16/11: pediu 15 W e ficou em 35 W).
+                if (GameSessionInfo.SecondsSinceUserTdpRequest <= UserRequestGraceSeconds) live.UserTookOver = true;
             }
 
             if (game is null) _resume = null;
@@ -490,8 +496,18 @@ internal sealed class SmartTdpService : IDisposable
         _session = null;
         GameSessionInfo.SmartTdpWatts = 0;
 
+        if (s.UserTookOver)
+        {
+            // O perfil escolhido pelo usuário cuida do TDP e da ventoinha ligada a ele.
+            if (why != "modo desligado") _resume = null;
+            DebugLog.Write($"[TDP-AUTO] Sessão encerrada ({why}); o usuário escolheu um perfil no painel — nada a repor.");
+            return;
+        }
+
+        var fanRestored = false;
         if (s.FanMode is not null && !s.FanOff)
         {
+            fanRestored = true;
             var applier = FanApplier;
             Dispatcher.UIThread.Post(() => { try { applier?.Invoke(null); } catch (Exception ex) { DebugLog.Write($"[TDP-AUTO] Ventoinha: {ex.Message}"); } });
         }
@@ -502,6 +518,9 @@ internal sealed class SmartTdpService : IDisposable
 
         if (s.Applied && !s.Suspended)
         {
+            // A volta da ventoinha ao modo do firmware pode repor os limites de potência; o
+            // TDP do usuário é aplicado depois dela, não ao mesmo tempo.
+            if (fanRestored) Thread.Sleep(1200);
             bool ok;
             lock (WindowsHardwareService.TdpApplyLock) ok = _hardware.SetTdpMode(s.UserMode);
             DebugLog.Write($"[TDP-AUTO] Sessão encerrada ({why}); TDP do usuário {(ok ? "restaurado" : "NÃO restaurado")}: {s.UserMode}.");

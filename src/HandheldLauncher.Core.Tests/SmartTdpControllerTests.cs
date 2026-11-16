@@ -241,6 +241,39 @@ public class SmartTdpControllerTests
         Assert.InRange(c.Watts, 25, 27);
     }
 
+    /// <summary>Jogo com vsync (log de 16/11, EA FC): 60 FPS a partir de 16 W, 30 FPS abaixo disso.</summary>
+    private static double VsyncGame(int watts) => watts >= 16 ? 60 : 30;
+
+    [Fact]
+    public void StaleLearnedValueDoesNotHoldWhenFpsIsWellAboveTarget()
+    {
+        // Aprendeu 26 W para 40 FPS numa sessão antiga, mas o jogo dá 60 FPS com 16 W:
+        // com folga clara não fica "estável" em 26 W.
+        var c = new SmartTdpController(40, 8, 35, 26, startIsLearned: true);
+        for (var t = 0.0; t < 120; t += 2) c.OnSample(VsyncGame(c.Watts), t);
+        Assert.InRange(c.Watts, 16, 18);
+    }
+
+    [Fact]
+    public void FrequentReplaysDoNotKeepThePowerHigh()
+    {
+        // Replays a ~28 FPS a cada minuto (mais potência não muda nada neles).
+        var c = new SmartTdpController(40, 8, 35, 26, startIsLearned: true);
+        double sum = 0;
+        var n = 0;
+        var learnedSomething = false;
+        for (var t = 0.0; t < 600; t += 2)
+        {
+            var replay = t % 60 >= 46;
+            c.OnSample(replay ? 28 : VsyncGame(c.Watts), t);
+            learnedSomething |= c.IsSettled && c.Watts <= 18;
+            if (t >= 120) { sum += c.Watts; n++; }
+        }
+        Assert.InRange(c.Watts, 15, 18);
+        Assert.True(sum / n <= 20, $"média de {sum / n:0.0} W");
+        Assert.True(learnedSomething, "nunca chegou a aprender um valor");
+    }
+
     [Fact]
     public void OneIsolatedDipDoesNotRaiseThePower()
     {

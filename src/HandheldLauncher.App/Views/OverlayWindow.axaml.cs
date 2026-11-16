@@ -1481,6 +1481,10 @@ public partial class OverlayWindow : Window
         _customApplyTimer?.Stop();
         if (!_tdpHardwareSupported) return false;
 
+        // O TDP inteligente, ao sair, não pode repor o perfil antigo por cima deste pedido
+        // (o perfil novo só é gravado depois que o hardware confirma, segundos depois).
+        GameSessionInfo.NoteUserTdpRequest();
+
         _ = Task.Run(() =>
         {
             bool success = false;

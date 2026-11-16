@@ -18,6 +18,21 @@ internal static class GameSessionInfo
     public static int FanTouches => Volatile.Read(ref _fanTouches);
     public static void NoteFanTouch() => Interlocked.Increment(ref _fanTouches);
 
+    private static long _userTdpRequestTicks;
+
+    /// <summary>Marca um pedido de TDP feito pelo usuário (perfil ou watts no Quick Settings).</summary>
+    public static void NoteUserTdpRequest() => Interlocked.Exchange(ref _userTdpRequestTicks, Environment.TickCount64);
+
+    /// <summary>Há quantos segundos o usuário pediu um TDP à mão (muito grande se nunca pediu).</summary>
+    public static double SecondsSinceUserTdpRequest
+    {
+        get
+        {
+            var at = Interlocked.Read(ref _userTdpRequestTicks);
+            return at == 0 ? double.MaxValue : (Environment.TickCount64 - at) / 1000.0;
+        }
+    }
+
     private static volatile int _smartTdpWatts;
 
     /// <summary>Watts que o TDP inteligente está aplicando agora; 0 quando não está no comando.</summary>
