@@ -33,6 +33,12 @@ internal sealed class SmartTdpService : IDisposable
     // usuário, se for maior) e ajusta a partir daí. Partir de um Eco de 8 W deixava o jogo
     // travado por um bom tempo até a subida começar (testes de 14/11).
     private const int StartFloorWatts = 20;
+    // Ao voltar do Quick Settings, dá uma margem curta (desfeita em ~8 s se a meta se
+    // mantiver) para o jogo não engasgar enquanto volta a rodar.
+    private const int ResumeBoostWatts = 6;
+    private const double ResumeBoostNoFramesSeconds = 15;
+    private const double ReassertSeconds = 60;
+    private const double UserRequestGraceSeconds = 20;
     private const double FanDownAfterSeconds = 30;
     private const double StatusLogSeconds = 10;
 
@@ -45,7 +51,8 @@ internal sealed class SmartTdpService : IDisposable
     private readonly MainViewModel _viewModel;
     private readonly RtssSharedMemory _rtss = new();
     private readonly WindowsHardwareService _hardware = new();
-    private readonly SmartTdpStore _store = new();
+    private readonly SmartTdpStore _store = SmartTdpStore.Shared;
+    private int _learningResets = GameSessionInfo.LearningResets;
     private readonly Thread _thread;
     private volatile bool _stop;
     private readonly object _gate = new();
@@ -84,6 +91,7 @@ internal sealed class SmartTdpService : IDisposable
         public int Min;
         public int Max;
         public int StartWatts;
+        public int TargetFps;
         public bool StartLearned;
         public bool StartResumed;
         public string UserFan = "";
@@ -95,6 +103,15 @@ internal sealed class SmartTdpService : IDisposable
         public double LastFps = double.NaN;
         public readonly double[] Recent = new double[3];
         public int RecentCount;
+        public DateTime ResumedUtc;
+        public int UnreachableNoticedFor; // meta para a qual o aviso já foi mostrado
+        public bool UserTookOver; // o usuário escolheu um perfil ao desligar o Auto: nada a repor
+        public long LastOnTicks = Environment.TickCount64; // último ciclo em que o Auto estava ligado
+        public long? OffSinceTicks;
+        public int AltPid;
+        public int AltRejectedPid;
+        public bool OwnMeasured;
+        public DateTime LastAssertUtc = DateTime.UtcNow;
     }
 
     public SmartTdpService(MainViewModel viewModel)
@@ -117,6 +134,15 @@ internal sealed class SmartTdpService : IDisposable
 
     private void Tick()
     {
+        var tickStart = Environment.TickCount64; // antes de ler as configurações
+
+        // O pedido de "resetar aprendizado" é consumido aqui, com ou sem sessão: só vale para a
+        // sessão que já existia neste ciclo e para o jogo pedido (ou todos).
+        var resets = GameSessionInfo.LearningResets;
+        var resetPending = resets != _learningResets;
+        _learningResets = resets;
+        var resetGameId = GameSessionInfo.LearningResetGameId;
+        var sessionBeforeTick = _session;
         // Com sessão aberta as configurações são relidas a cada ciclo: uma troca de TDP feita
         // no Quick Settings tem de ser vista antes de qualquer gravação nossa (revisão 14/11).
         if (_session is not null || ++_settingsAge >= 3)
@@ -128,7 +154,7 @@ internal sealed class SmartTdpService : IDisposable
         if (_settings.SmartTdpEnabled != _lastEnabled)
         {
             _lastEnabled = _settings.SmartTdpEnabled;
-            DebugLog.Write($"[TDP-AUTO] Modo inteligente {(_lastEnabled == true ? "LIGADO" : "desligado")} (meta {TargetFps} FPS).");
+            DebugLog.Write($"[TDP-AUTO] Modo inteligente {(_lastEnabled == true ? "LIGADO" : "desligado")} (meta padrão {DefaultTargetFps} FPS).");
         }
 
         var game = _viewModel.RunningGame;
@@ -141,6 +167,13 @@ internal sealed class SmartTdpService : IDisposable
             {
                 if (!live.OffSeen) { live.OffSeen = true; return; }
                 live.UserMode = string.IsNullOrWhiteSpace(_settings.TdpMode) ? live.UserMode : _settings.TdpMode;
+                // O usuário acabou de escolher um perfil no painel: esse pedido está sendo aplicado
+                // (ou já foi) e é ele que vale. Repor o perfil antigo aqui atropelava a escolha
+                // (log de 16/11: pediu 15 W e ficou em 35 W).
+                // Só conta um pedido feito depois que o Auto foi desligado (com ele ligado o painel
+                // bloqueia os perfis; um pedido anterior não é "assumir").
+                live.OffSinceTicks ??= tickStart;
+                if (UserAskedSince(live)) live.UserTookOver = true;
             }
 
             if (game is null) _resume = null;
@@ -149,7 +182,7 @@ internal sealed class SmartTdpService : IDisposable
             return;
         }
 
-        if (_session is not null) _session.OffSeen = false; // ligado de novo: a próxima saída volta a esperar um ciclo
+        if (_session is not null) { _session.OffSeen = false; _session.OffSinceTicks = null; _session.LastOnTicks = tickStart; } // ligado de novo: a próxima saída volta a esperar um ciclo
 
         if (_session is null || _session.GameId != game.Id)
         {
@@ -159,7 +192,8 @@ internal sealed class SmartTdpService : IDisposable
             var limits = DeviceTdpLimits.Current();
             var min = Math.Min(Math.Max(limits.SplMin, MinFloorWatts), limits.SplMax);
             var max = limits.SplMax;
-            var learned = _store.Get(game.Id, TargetFps);
+            var target = TargetFor(game.Id);
+            var learned = _store.Get(game.Id, target);
             int? resumed = learned is null && _resume is { } r && r.GameId == game.Id ? r.Watts : null;
             var userWatts = TdpProfiles.WattsFor(userMode) ?? TdpProfiles.DefaultCustomWatts;
             // Um perfil manual de 20 W ou mais é a informação mais recente que temos (o usuário
@@ -177,6 +211,7 @@ internal sealed class SmartTdpService : IDisposable
                 Min = min,
                 Max = max,
                 StartWatts = start,
+                TargetFps = target,
                 StartLearned = learned is not null,
                 StartResumed = resumed is not null,
                 UserFan = _settings.FanMode ?? "",
@@ -184,7 +219,7 @@ internal sealed class SmartTdpService : IDisposable
                 SavedWatts = learned?.Watts ?? 0,
             };
             var origin = learned is not null ? "aprendido antes" : resumed is not null ? "retomado desta sessão de jogo" : "ponto de partida, aprendendo";
-            DebugLog.Write($"[TDP-AUTO] Sessão iniciada: '{game.Title}', meta {TargetFps} FPS, janela {min}–{max} W, TDP do usuário = {userMode}, início em {start} W ({origin}).");
+            DebugLog.Write($"[TDP-AUTO] Sessão iniciada: '{game.Title}', meta {target} FPS{(SmartTdpTargetStore.Shared.Get(game.Id) is null ? " (padrão)" : " (deste jogo)")}, janela {min}–{max} W, TDP do usuário = {userMode}, início em {start} W ({origin}).");
 
             // Aplica já, sem esperar o jogo aparecer: o carregamento não fica preso no perfil
             // baixo do usuário e o painel/HUD mostram na hora que o modo inteligente assumiu.
@@ -192,12 +227,66 @@ internal sealed class SmartTdpService : IDisposable
         }
 
         var s = _session;
+
+        // "Resetar aprendizado" no Quick Settings: os valores já foram apagados; a sessão em
+        // curso recomeça a procurar a partir dos watts atuais, como se nunca tivesse aprendido.
+        if (resetPending && ReferenceEquals(s, sessionBeforeTick) && (resetGameId is null || resetGameId == s.GameId))
+        {
+            var from = s.Controller?.BaselineWatts ?? s.StartWatts;
+            s.StartWatts = from;
+            s.StartLearned = false;
+            s.StartResumed = false;
+            s.SavedWatts = 0;
+            s.RecentCount = 0;
+            if (s.Controller is not null)
+            {
+                s.Controller = new SmartTdpController(s.TargetFps, s.Min, s.Max, from, startIsLearned: false);
+                GameSessionInfo.SmartTdpPossibleFps = 0;
+                s.ControlStartedUtc = DateTime.UtcNow;
+                s.MidGame = true; // o jogo já está rodando: espera curta
+            }
+            if (s.Applied && !s.Suspended) Apply(s, from, "aprendizado resetado");
+            DebugLog.Write($"[TDP-AUTO] Aprendizado resetado pelo usuário; {(s.Suspended ? "sessão pausada (TDP manual)" : $"recomeça a procurar a partir de {from} W")}.");
+        }
+
+        var sessionTarget = TargetFor(s.GameId);
+        if (s.TargetFps != sessionTarget)
+        {
+            // Meta trocada no Quick Settings com o jogo aberto: recomeça o controle com a meta
+            // nova, partindo do valor aprendido para ela (se houver) ou dos watts atuais.
+            var previousTarget = s.TargetFps;
+            s.TargetFps = sessionTarget;
+            var learnedForTarget = _store.Get(s.GameId, sessionTarget);
+            var current = s.Controller?.BaselineWatts ?? s.StartWatts;
+            // Meta mais alta sem nada aprendido: parte de pelo menos 20 W, como no início do
+            // jogo (o valor de uma meta baixa pode estar muito abaixo do que a nova pede).
+            var from = learnedForTarget is not null
+                ? Math.Clamp(learnedForTarget.Watts, s.Min, s.Max)
+                : sessionTarget > previousTarget
+                    ? Math.Clamp(Math.Max(current, StartFloorWatts), s.Min, s.Max)
+                    : current;
+            s.StartWatts = from;
+            s.StartLearned = learnedForTarget is not null;
+            s.StartResumed = false;
+            s.SavedWatts = learnedForTarget?.Watts ?? 0; // o que havia antes valia para a meta antiga
+            s.MidGame = true; // o jogo já está rodando: espera curta
+            s.RecentCount = 0;
+            if (s.Controller is not null)
+            {
+                s.Controller = new SmartTdpController(sessionTarget, s.Min, s.Max, from, startIsLearned: s.StartLearned);
+                GameSessionInfo.SmartTdpPossibleFps = 0;
+                s.ControlStartedUtc = DateTime.UtcNow;
+            }
+            DebugLog.Write($"[TDP-AUTO] Meta alterada durante a sessão: {previousTarget} → {sessionTarget} FPS; recomeça em {from} W ({(s.StartLearned ? "aprendido para esta meta" : "watts atuais")}).");
+            if (s.Applied && !s.Suspended) Apply(s, from, "meta alterada");
+        }
         if (s.Suspended) return;
 
         var currentUserMode = string.IsNullOrWhiteSpace(_settings.TdpMode) ? "Normal" : _settings.TdpMode;
         if (currentUserMode != s.UserMode)
         {
             s.Suspended = true;
+            GameSessionInfo.SmartTdpPossibleFps = 0;
             GameSessionInfo.SmartTdpWatts = 0;
             // Garante que o que está no hardware é a escolha do usuário, não o nosso último valor.
             var ok = !s.Applied || _hardware.SetTdpMode(currentUserMode);
@@ -219,17 +308,57 @@ internal sealed class SmartTdpService : IDisposable
         var foregroundPid = GetForegroundProcessId();
         if (foregroundPid != gamePid)
         {
-            s.RecentCount = 0;
-            s.Away = true; // Quick Settings, launcher ou outra janela na frente
-            return;
+            // Jogos com mais de um processo (lançador próprio, anti-cheat): a janela detectada
+            // pode não ser a que desenha. Se o RTSS não mede o processo detectado mas mede o
+            // que está na frente (e não é o próprio launcher), é por ele que se controla.
+            // Só vale se o processo detectado NUNCA foi medido nesta sessão (senão é só o jogo
+            // minimizado com outro programa na frente) e se o da frente é do mesmo jogo (mesma
+            // pasta do executável). Um navegador ou a loja na frente nunca comanda o TDP.
+            var measured = false;
+            if (!s.OwnMeasured && foregroundPid != 0 && foregroundPid != Environment.ProcessId)
+            {
+                FrameStats? own, front;
+                lock (_rtss)
+                {
+                    own = _rtss.ReadFrameStats(gamePid);
+                    front = _rtss.ReadFrameStats(foregroundPid);
+                }
+                if (own is { } o && o.ProcessId == gamePid) s.OwnMeasured = true;
+                else if (front is { } fr && fr.ProcessId == foregroundPid)
+                {
+                    if (s.AltPid != foregroundPid && s.AltRejectedPid != foregroundPid)
+                    {
+                        if (SameGameFolder(gamePid, foregroundPid))
+                        {
+                            s.AltPid = foregroundPid;
+                            DebugLog.Write($"[TDP-AUTO] O processo detectado ({gamePid}) não é medido pelo RTSS; controlando pelo processo do jogo em primeiro plano ({foregroundPid}).");
+                        }
+                        else s.AltRejectedPid = foregroundPid;
+                    }
+                    measured = s.AltPid == foregroundPid;
+                }
+            }
+
+            if (!measured)
+            {
+                if (!s.Away) DebugLog.Write($"[TDP-AUTO] Jogo fora do primeiro plano (pid {foregroundPid} na frente, jogo {gamePid}); controle em espera.");
+                s.RecentCount = 0;
+                s.Away = true; // Quick Settings, launcher ou outra janela na frente
+                return;
+            }
         }
 
         if (s.Away)
         {
-            // O Quick Settings reaplica o TDP salvo ao abrir; de volta ao jogo, o valor do
-            // modo inteligente é reafirmado.
+            // De volta ao jogo: reafirma o valor do modo inteligente com um reforço curto
+            // (o controlador devolve os watts de antes se a meta se mantiver ~8 s). Sem piso
+            // fixo: um jogo leve que roda a 12 W não pula para 20 W a cada visita ao QS.
             s.Away = false;
-            if (s.Applied) Apply(s, s.Controller?.Watts ?? s.StartWatts, "de volta ao jogo");
+            var resumeTime = (DateTime.UtcNow - s.ControlStartedUtc).TotalSeconds;
+            var resumeWatts = s.Controller?.PrepareForResume(resumeTime, ResumeBoostWatts) ?? s.StartWatts;
+            s.ResumedUtc = DateTime.UtcNow;
+            if (s.Applied) Apply(s, resumeWatts, "de volta ao jogo");
+            DebugLog.Write($"[TDP-AUTO] De volta ao jogo: {resumeWatts} W (reforço curto de até +{ResumeBoostWatts} W; volta ao valor anterior se a meta se mantiver).");
         }
 
         FrameStats? frames;
@@ -237,6 +366,12 @@ internal sealed class SmartTdpService : IDisposable
         if (frames is not { } f || f.ProcessId != foregroundPid)
         {
             s.RecentCount = 0;
+            // Sem leituras depois da volta ao jogo, o reforço não seria devolvido nunca.
+            if (s.Controller is { ResumeBoostPending: true } ctl && (DateTime.UtcNow - s.ResumedUtc).TotalSeconds >= ResumeBoostNoFramesSeconds)
+            {
+                var back = ctl.DropResumeBoost((DateTime.UtcNow - s.ControlStartedUtc).TotalSeconds);
+                if (back is { } w && s.Applied) Apply(s, w, "reforço devolvido sem leitura de FPS");
+            }
             if (!s.LoggedNoFrames)
             {
                 s.LoggedNoFrames = true;
@@ -245,9 +380,11 @@ internal sealed class SmartTdpService : IDisposable
             return;
         }
 
+        if (foregroundPid == gamePid) s.OwnMeasured = true;
+
         if (s.Controller is null)
         {
-            s.Controller = new SmartTdpController(TargetFps, s.Min, s.Max, s.StartWatts, startIsLearned: s.StartLearned, coarseDescent: !s.StartResumed);
+            s.Controller = new SmartTdpController(s.TargetFps, s.Min, s.Max, s.StartWatts, startIsLearned: s.StartLearned, coarseDescent: !s.StartResumed);
             s.ControlStartedUtc = DateTime.UtcNow;
             DebugLog.Write($"[TDP-AUTO] Jogo medindo FPS ({f.Fps:0}); controle começa em {s.Controller.Watts} W.");
             if (s.StartLearned && s.Applied) PerformanceHud.ShowNotice("Modo inteligente aplicado");
@@ -269,7 +406,17 @@ internal sealed class SmartTdpService : IDisposable
         var before = s.Controller.Watts;
         var change = s.Controller.OnSample(fps, elapsed);
         if (change != SmartTdpChange.None)
+        {
             Apply(s, s.Controller.Watts, $"{(change == SmartTdpChange.Up ? "subiu" : "desceu")} de {before} W, FPS {fps:0}");
+            s.LastAssertUtc = DateTime.UtcNow;
+        }
+        else if (s.Applied && (DateTime.UtcNow - s.LastAssertUtc).TotalSeconds >= ReassertSeconds)
+        {
+            // Outras partes do launcher reaplicam o perfil do usuário (volta da suspensão, troca
+            // tomada/bateria). Reafirma o valor do modo inteligente de tempos em tempos.
+            s.LastAssertUtc = DateTime.UtcNow;
+            Apply(s, s.Controller.Watts, "reafirmado", quiet: true);
+        }
 
         s.LastFps = f.Fps;
         var now = DateTime.UtcNow;
@@ -277,24 +424,62 @@ internal sealed class SmartTdpService : IDisposable
         if ((now - s.LastStatusLog).TotalSeconds >= StatusLogSeconds)
         {
             s.LastStatusLog = now;
-            var state = s.Controller.IsSettled ? "estável"
-                : fps < TargetFps * SmartTdpController.BelowRatio ? (s.Controller.Watts >= s.Max ? "abaixo da meta mesmo no teto" : "abaixo da meta, subindo")
+            var state = s.Controller.TargetUnreachable ? $"meta fora de alcance; segurando ~{s.Controller.EffectiveTargetFps} FPS"
+                : s.Controller.IsSettled ? "estável"
+                : fps < s.TargetFps * SmartTdpController.BelowRatio ? (s.Controller.Watts >= s.Max ? "abaixo da meta mesmo no teto" : "abaixo da meta, subindo")
                 : "na meta, testando para baixo";
-            DebugLog.Write($"[TDP-AUTO] Estado: {s.Controller.Watts} W, FPS {fps:0} (meta {TargetFps}), ventoinha {s.FanMode ?? (s.FanOff ? "do usuário" : s.UserFan)} — {state}.");
+            DebugLog.Write($"[TDP-AUTO] Estado: {s.Controller.Watts} W, FPS {fps:0} (meta {s.TargetFps}), ventoinha {s.FanMode ?? (s.FanOff ? "do usuário" : s.UserFan)} — {state}.");
         }
         if (s.Applied) GameSessionInfo.SmartTdpWatts = s.Controller.Watts;
+
+        // Meta fora de alcance: avisa uma vez por meta (e o Quick Settings mostra enquanto durar).
+        // Só depois de 30 s nesse estado: um replay ou carregamento curto não é "fora de alcance".
+        var unreachable = s.Controller.TargetUnreachable
+                          && elapsed - s.Controller.UnreachableSinceSeconds >= SmartTdpController.UnreachableNoticeSeconds;
+        GameSessionInfo.SmartTdpPossibleFps = unreachable ? s.Controller.EffectiveTargetFps : 0;
+        if (unreachable && s.Applied && s.UnreachableNoticedFor != s.TargetFps)
+        {
+            s.UnreachableNoticedFor = s.TargetFps;
+            DebugLog.Write($"[TDP-AUTO] Meta de {s.TargetFps} FPS fora de alcance em '{s.Title}': mais potência não aumenta o FPS. Segurando ~{s.Controller.EffectiveTargetFps} FPS em {s.Controller.Watts} W.");
+            PerformanceHud.ShowNotice($"Meta de {s.TargetFps} FPS fora de alcance · segurando ~{s.Controller.EffectiveTargetFps} FPS");
+        }
 
         if (s.Controller.IsSettled && s.SavedWatts != s.Controller.Watts)
         {
             s.SavedWatts = s.Controller.Watts;
-            _store.Set(s.GameId, s.Title, s.SavedWatts, TargetFps);
-            DebugLog.Write($"[TDP-AUTO] Aprendido: '{s.Title}' fica bem com {s.SavedWatts} W a {TargetFps} FPS.");
+            _store.Set(s.GameId, s.Title, s.SavedWatts, s.TargetFps);
+            DebugLog.Write($"[TDP-AUTO] Aprendido: '{s.Title}' fica bem com {s.SavedWatts} W a {s.TargetFps} FPS.");
         }
     }
 
-    private int TargetFps => Math.Clamp(_settings.SmartTdpTargetFps <= 0 ? 60 : _settings.SmartTdpTargetFps, 20, 240);
+    /// <summary>Meta das Configurações, para jogos sem meta própria.</summary>
+    private int DefaultTargetFps => Math.Clamp(_settings.SmartTdpTargetFps <= 0 ? 60 : _settings.SmartTdpTargetFps,
+        SmartTdpTargetStore.MinTargetFps, SmartTdpTargetStore.MaxTargetFps);
 
-    private bool Apply(Session s, int watts, string why)
+    /// <summary>Meta escolhida para o jogo no Quick Settings, ou a padrão.</summary>
+    private int TargetFor(string gameId) => SmartTdpTargetStore.Shared.Get(gameId) ?? DefaultTargetFps;
+
+    /// <summary>Os dois processos são do mesmo jogo (executáveis na mesma pasta ou em subpasta)?</summary>
+    private static bool SameGameFolder(int gamePid, int otherPid)
+    {
+        try
+        {
+            using var a = System.Diagnostics.Process.GetProcessById(gamePid);
+            using var b = System.Diagnostics.Process.GetProcessById(otherPid);
+            var da = Path.GetDirectoryName(a.MainModule?.FileName);
+            var db = Path.GetDirectoryName(b.MainModule?.FileName);
+            if (string.IsNullOrEmpty(da) || string.IsNullOrEmpty(db)) return false;
+            da = da.TrimEnd('\\', '/') + Path.DirectorySeparatorChar;
+            db = db.TrimEnd('\\', '/') + Path.DirectorySeparatorChar;
+            return da.StartsWith(db, StringComparison.OrdinalIgnoreCase) || db.StartsWith(da, StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false; // processo protegido (anti-cheat) ou já fechado: na dúvida, não usa
+        }
+    }
+
+    private bool Apply(Session s, int watts, string why, bool quiet = false)
     {
         var mode = TdpProfiles.CustomMode(watts);
         bool ok;
@@ -304,7 +489,7 @@ internal sealed class SmartTdpService : IDisposable
             s.Applied = true;
             GameSessionInfo.SmartTdpWatts = watts;
             s.Failures = 0;
-            DebugLog.Write($"[TDP-AUTO] {watts} W aplicado ({why}).");
+            if (!quiet) DebugLog.Write($"[TDP-AUTO] {watts} W aplicado ({why}).");
             Dispatcher.UIThread.Post(() => _viewModel.UpdateHudTdpStatus(mode));
             return true;
         }
@@ -314,6 +499,7 @@ internal sealed class SmartTdpService : IDisposable
         if (s.Failures >= 3)
         {
             s.Suspended = true;
+            GameSessionInfo.SmartTdpPossibleFps = 0;
             GameSessionInfo.SmartTdpWatts = 0;
             DebugLog.Write("[TDP-AUTO] Três falhas seguidas; modo inteligente pausado até o jogo fechar.");
         }
@@ -357,27 +543,54 @@ internal sealed class SmartTdpService : IDisposable
         Dispatcher.UIThread.Post(() => { try { applier?.Invoke(wanted); } catch (Exception ex) { DebugLog.Write($"[TDP-AUTO] Ventoinha: {ex.Message}"); } });
     }
 
+    /// <summary>O usuário pediu um perfil de TDP depois do último ciclo com o Auto ligado?</summary>
+    private static bool UserAskedSince(Session s) => GameSessionInfo.UserTdpRequestTicks > s.LastOnTicks;
+
     private void EndSession(string why)
     {
         var s = _session;
         if (s is null) return;
         _session = null;
         GameSessionInfo.SmartTdpWatts = 0;
+        GameSessionInfo.SmartTdpPossibleFps = 0;
 
+        if (s.UserTookOver)
+        {
+            // O perfil escolhido pelo usuário cuida do TDP e da ventoinha ligada a ele.
+            if (why != "modo desligado") _resume = null;
+            DebugLog.Write($"[TDP-AUTO] Sessão encerrada ({why}); o usuário escolheu um perfil no painel — nada a repor.");
+            return;
+        }
+
+        var fanRestored = false;
         if (s.FanMode is not null && !s.FanOff)
         {
+            fanRestored = true;
             var applier = FanApplier;
             Dispatcher.UIThread.Post(() => { try { applier?.Invoke(null); } catch (Exception ex) { DebugLog.Write($"[TDP-AUTO] Ventoinha: {ex.Message}"); } });
         }
 
         if (why != "modo desligado") _resume = null;
         else if (s.Applied && !s.Suspended && s.Controller is not null && _viewModel.RunningGame?.Id == s.GameId)
-            _resume = (s.GameId, s.Controller.Watts, s.UserModeAtStart);
+            _resume = (s.GameId, s.Controller.BaselineWatts, s.UserModeAtStart);
 
         if (s.Applied && !s.Suspended)
         {
+            // A volta da ventoinha ao modo do firmware pode repor os limites de potência; o
+            // TDP do usuário é aplicado depois dela, não ao mesmo tempo.
+            if (fanRestored && !Dispatcher.UIThread.CheckAccess()) Thread.Sleep(1200);
             bool ok;
-            lock (WindowsHardwareService.TdpApplyLock) ok = _hardware.SetTdpMode(s.UserMode);
+            lock (WindowsHardwareService.TdpApplyLock)
+            {
+                // Dentro da trava: se o usuário pediu um perfil enquanto esperávamos, o pedido
+                // dele já está na fila desta mesma trava (ou já foi aplicado) — não repomos.
+                if (why == "modo desligado" && UserAskedSince(s))
+                {
+                    DebugLog.Write($"[TDP-AUTO] Sessão encerrada ({why}); o usuário escolheu um perfil no painel — TDP não reposto.");
+                    return;
+                }
+                ok = _hardware.SetTdpMode(s.UserMode);
+            }
             DebugLog.Write($"[TDP-AUTO] Sessão encerrada ({why}); TDP do usuário {(ok ? "restaurado" : "NÃO restaurado")}: {s.UserMode}.");
             var mode = s.UserMode;
             Dispatcher.UIThread.Post(() => _viewModel.UpdateHudTdpStatus(mode));

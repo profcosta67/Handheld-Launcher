@@ -6,7 +6,7 @@ Atualizado na v0.24.2 (Linux nativo em preparação). "Validado" = testado no ap
 | --- | --- | --- | --- |
 | Biblioteca, capas, detalhes | Validado | Funciona | Funciona (Steam/Epic/GOG/Heroic/Eden) |
 | Quick Settings (L3+R3 / Ctrl+Alt+O) | Validado | Funciona | Funciona (evdev) |
-| TDP | Validado (5–30 W, PawnIO) | Mesma faixa, **não validado** | `ryzenadj` (a validar no aparelho) |
+| TDP | Validado (5–35 W, PawnIO) | Mesma faixa, **não validado** | `ryzenadj` (a validar no aparelho) |
 | Curva de ventoinha | Validado (API da Lenovo) | Não disponível | Backlog |
 | Modo de cor da tela | Validado | Funciona | Backlog (`wl-gammarelay`) |
 | Brilho / Volume | Validado | Funciona | `brightnessctl` / `pactl` |

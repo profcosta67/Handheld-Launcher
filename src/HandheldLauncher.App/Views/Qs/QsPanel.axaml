@@ -170,6 +170,19 @@
               </Grid>
               <StackPanel x:Name="TdpPresetsHost" Orientation="Horizontal" Spacing="6"
                           HorizontalAlignment="Center" Margin="0,8,0,0" />
+              <StackPanel x:Name="SmartFpsCard" IsVisible="False" Spacing="5" Margin="0,10,0,0">
+                <TextBlock x:Name="TxtSmartFpsTitle" Text="Meta de FPS" Classes="qsGroupTitle" Margin="0,0,0,4"
+                           TextTrimming="CharacterEllipsis" />
+                <!-- v0.27: a meta é uma barra (como o TDP personalizado), em passos de 5 FPS. -->
+                <Grid ColumnDefinitions="*,Auto">
+                  <Slider Grid.Column="0" x:Name="FpsSlider" Minimum="20" Maximum="120" IsEnabled="False"
+                          TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" x:Name="TxtFps" Text="60 FPS" FontSize="{DynamicResource TextBodyLarge}" FontWeight="Bold"
+                             Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"
+                             MinWidth="74" TextAlignment="Right" />
+                </Grid>
+                <StackPanel x:Name="SmartFpsHost" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" Margin="0,6,0,0" />
+              </StackPanel>
               <TextBlock x:Name="TxtTdpHint" Text="" FontSize="{DynamicResource TextMicro}"
                          Foreground="{StaticResource TextSecondaryBrush}"
                          HorizontalAlignment="Center" TextAlignment="Center"

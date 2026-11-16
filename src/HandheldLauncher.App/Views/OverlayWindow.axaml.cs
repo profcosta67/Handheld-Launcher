@@ -772,6 +772,7 @@ public partial class OverlayWindow : Window
         DebugLog.Write($"[OVERLAY-CLOSE] origem=HideWithUnblock fullscreen-contexto; overlay={TryGetPlatformHandle()?.Handle}, game={_gameHwnd}, foreground={(OperatingSystem.IsWindows() ? GetForegroundWindow() : IntPtr.Zero)}, visible={IsVisible}, submenu={_activeSubMenu}");
         
         if (_activeSubMenu == SubMenuMode.TdpCustom) CancelTdpCustomEdit();
+        try { NewQsPanel.CancelEdits(); } catch (Exception ex) { DebugLog.Swallowed(ex); }
         FlushPendingCustomApply();
         
         StopTopmostEnforcer();
@@ -924,6 +925,8 @@ public partial class OverlayWindow : Window
         NewQsPanel.SetScreenInfo(TxtScreenInfo?.Text ?? "—");
         NewQsPanel.SetBattery(_viewModel.BatteryStatusText);
         NewQsPanel.SetHud(_currentHudIndex);
+        NewQsPanel.RunningGameProvider ??= () => (_viewModel.RunningGame?.Id, _viewModel.RunningGame?.Title);
+        NewQsPanel.SetRunningGame(_viewModel.RunningGame?.Id, _viewModel.RunningGame?.Title); // meta de FPS por jogo
         NewQsPanel.RefreshSmartTdp(); // a opção pode ter mudado nas Configurações
         NewQsPanel.InitializePowerPlans(PowerPlanService.GetAvailablePlans());
         // v0.25.3: o aviso "o TDP não aplica" era mostrado SEMPRE que o launcher
@@ -1478,6 +1481,10 @@ public partial class OverlayWindow : Window
     {
         _customApplyTimer?.Stop();
         if (!_tdpHardwareSupported) return false;
+
+        // O TDP inteligente, ao sair, não pode repor o perfil antigo por cima deste pedido
+        // (o perfil novo só é gravado depois que o hardware confirma, segundos depois).
+        GameSessionInfo.NoteUserTdpRequest();
 
         _ = Task.Run(() =>
         {

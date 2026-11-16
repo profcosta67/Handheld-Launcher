@@ -9,6 +9,8 @@ public sealed class SmartTdpEntry
     public int TargetFps { get; set; }
     public string Title { get; set; } = "";
     public DateTime UpdatedUtc { get; set; }
+    /// <summary>Regra de aprendizado que gravou o valor. Valores de regras antigas são ignorados.</summary>
+    public int Rev { get; set; }
 }
 
 /// <summary>
@@ -17,6 +19,10 @@ public sealed class SmartTdpEntry
 /// </summary>
 public sealed class SmartTdpStore
 {
+    private static readonly Lazy<SmartTdpStore> _shared = new(() => new SmartTdpStore());
+    /// <summary>Instância única do launcher (o serviço e o Quick Settings veem os mesmos valores).</summary>
+    public static SmartTdpStore Shared => _shared.Value;
+
     private readonly string _path;
     private readonly object _gate = new();
     private Dictionary<string, SmartTdpEntry>? _entries;
@@ -27,11 +33,20 @@ public sealed class SmartTdpStore
             Path.GetDirectoryName(AppSettingsStore.DefaultPath) ?? ".", "smart-tdp.json");
     }
 
+    // Um valor por jogo e por meta ("id@60"): trocar a meta no Quick Settings não apaga o
+    // que foi aprendido para a outra. Arquivos antigos (chave só com o id) continuam lidos.
+    public const int CurrentRev = 2;
+
+    private static string KeyFor(string gameId, int targetFps) => $"{gameId}@{targetFps}";
+
     public SmartTdpEntry? Get(string gameId, int targetFps)
     {
         lock (_gate)
         {
-            return Load().TryGetValue(gameId, out var e) && e.TargetFps == targetFps && e.Watts > 0 ? e : null;
+            var all = Load();
+            // Só vale o que foi aprendido pela regra atual: as betas até a 64 gravaram valores
+            // altos demais (ex.: 34 W para 60 FPS num jogo que segura 60 com 20 W).
+            return all.TryGetValue(KeyFor(gameId, targetFps), out var e) && e.Watts > 0 && e.Rev >= CurrentRev ? e : null;
         }
     }
 
@@ -40,17 +55,43 @@ public sealed class SmartTdpStore
         lock (_gate)
         {
             var all = Load();
-            all[gameId] = new SmartTdpEntry { Watts = watts, TargetFps = targetFps, Title = title, UpdatedUtc = DateTime.UtcNow };
-            try
-            {
-                var dir = Path.GetDirectoryName(_path);
-                if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-                File.WriteAllText(_path, JsonSerializer.Serialize(all, new JsonSerializerOptions { WriteIndented = true }));
-            }
-            catch
-            {
-                // Aprendizado é melhor esforço: sem disco, vale só para esta sessão.
-            }
+            if (all.TryGetValue(gameId, out var legacy) && legacy.TargetFps == targetFps) all.Remove(gameId);
+            all[KeyFor(gameId, targetFps)] = new SmartTdpEntry { Watts = watts, TargetFps = targetFps, Title = title, UpdatedUtc = DateTime.UtcNow, Rev = CurrentRev };
+            Persist(all);
+        }
+    }
+
+    /// <summary>
+    /// Esquece o que foi aprendido: de um jogo (todas as metas) ou, com gameId nulo, de
+    /// todos. Devolve quantos valores foram apagados.
+    /// </summary>
+    public int Clear(string? gameId)
+    {
+        lock (_gate)
+        {
+            var all = Load();
+            var keys = string.IsNullOrWhiteSpace(gameId)
+                ? all.Keys.ToList()
+                : all.Keys.Where(k => k == gameId || k.StartsWith(gameId + "@", StringComparison.Ordinal)).ToList();
+            foreach (var key in keys) all.Remove(key);
+            if (keys.Count > 0) Persist(all);
+            return keys.Count;
+        }
+    }
+
+    private void Persist(Dictionary<string, SmartTdpEntry> all)
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(_path);
+            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+            var tmp = _path + ".tmp";
+            File.WriteAllText(tmp, JsonSerializer.Serialize(all, new JsonSerializerOptions { WriteIndented = true }));
+            File.Move(tmp, _path, overwrite: true);
+        }
+        catch
+        {
+            // Aprendizado é melhor esforço: sem disco, vale só para esta sessão.
         }
     }
 
@@ -62,9 +103,16 @@ public sealed class SmartTdpStore
             if (File.Exists(_path))
                 _entries = JsonSerializer.Deserialize<Dictionary<string, SmartTdpEntry>>(File.ReadAllText(_path));
         }
+        catch (JsonException)
+        {
+            // Arquivo estragado: guarda uma cópia e recomeça (o próximo gravar não apaga nada útil).
+            try { File.Move(_path, _path + ".bad", overwrite: true); } catch { }
+            _entries = null;
+        }
         catch
         {
-            _entries = null;
+            // Arquivo preso (antivírus, indexador): não guarda o vazio, tenta de novo na próxima.
+            return new Dictionary<string, SmartTdpEntry>();
         }
         return _entries ??= new Dictionary<string, SmartTdpEntry>();
     }
