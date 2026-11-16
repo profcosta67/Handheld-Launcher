@@ -40,7 +40,16 @@ internal static class GameSessionInfo
 
     /// <summary>Conta cada "resetar aprendizado" pedido no Quick Settings.</summary>
     public static int LearningResets => Volatile.Read(ref _learningResets);
-    public static void NoteLearningReset() => Interlocked.Increment(ref _learningResets);
+    public static void NoteLearningReset(string? gameId)
+    {
+        _learningResetGameId = gameId;
+        Interlocked.Increment(ref _learningResets);
+    }
+
+    private static volatile string? _learningResetGameId;
+
+    /// <summary>Jogo do último reset (null = todos os jogos).</summary>
+    public static string? LearningResetGameId => _learningResetGameId;
 
     private static volatile int _smartTdpWatts;
 

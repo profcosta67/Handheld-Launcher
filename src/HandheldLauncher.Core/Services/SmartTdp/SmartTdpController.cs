@@ -88,6 +88,7 @@ public sealed class SmartTdpController
     // Piso de antes de um "teste falhado", para desfazer se a queda não era culpa do teste.
     private (int Floor, double Until, bool Confirmed, double Hold, bool Learned)? _preProbeFloor;
     private double _futileFps;
+    private bool _learnedCheckPending;
     private bool _floorIsLearned; // o piso atual é só o valor aprendido (não um teste desta sessão)
     public const double ProvenAfterSeconds = 6;
 
@@ -200,6 +201,7 @@ public sealed class SmartTdpController
                 _floorUntil = nowSeconds + LearnedFloorHoldSeconds;
                 _floorConfirmed = true;
                 _floorIsLearned = true;
+                _learnedCheckPending = true;
             }
         }
 
@@ -389,7 +391,11 @@ public sealed class SmartTdpController
             var beforeStep = Watts;
             // Perto de um piso confirmado nesta sessão o passo é de 1 W: o de 2 W pulava o nível
             // que já falhou e repetia o mesmo teste a cada expiração do piso.
-            var bigStep = fast && !(!_coarse && _floorConfirmed && !_floorIsLearned && Watts - CoarseStepDownWatts < _floor);
+            // A primeira conferência de um valor aprendido também é de 1 W: se ele estiver certo,
+            // a queda é uma só e pequena.
+            var bigStep = fast && !_learnedCheckPending
+                          && !(!_coarse && _floorConfirmed && !_floorIsLearned && Watts - CoarseStepDownWatts < _floor);
+            _learnedCheckPending = false;
             Watts = Math.Max(lowerBound, Watts - (bigStep ? CoarseStepDownWatts : StepDownWatts));
             _lastDownStep = beforeStep - Watts;
             _lastDownWasReturn = false;

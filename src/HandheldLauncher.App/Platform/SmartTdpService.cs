@@ -134,6 +134,14 @@ internal sealed class SmartTdpService : IDisposable
     private void Tick()
     {
         var tickStart = Environment.TickCount64; // antes de ler as configurações
+
+        // O pedido de "resetar aprendizado" é consumido aqui, com ou sem sessão: só vale para a
+        // sessão que já existia neste ciclo e para o jogo pedido (ou todos).
+        var resets = GameSessionInfo.LearningResets;
+        var resetPending = resets != _learningResets;
+        _learningResets = resets;
+        var resetGameId = GameSessionInfo.LearningResetGameId;
+        var sessionBeforeTick = _session;
         // Com sessão aberta as configurações são relidas a cada ciclo: uma troca de TDP feita
         // no Quick Settings tem de ser vista antes de qualquer gravação nossa (revisão 14/11).
         if (_session is not null || ++_settingsAge >= 3)
@@ -221,10 +229,8 @@ internal sealed class SmartTdpService : IDisposable
 
         // "Resetar aprendizado" no Quick Settings: os valores já foram apagados; a sessão em
         // curso recomeça a procurar a partir dos watts atuais, como se nunca tivesse aprendido.
-        var resets = GameSessionInfo.LearningResets;
-        if (resets != _learningResets)
+        if (resetPending && ReferenceEquals(s, sessionBeforeTick) && (resetGameId is null || resetGameId == s.GameId))
         {
-            _learningResets = resets;
             var from = s.Controller?.BaselineWatts ?? s.StartWatts;
             s.StartWatts = from;
             s.StartLearned = false;
@@ -237,7 +243,8 @@ internal sealed class SmartTdpService : IDisposable
                 s.ControlStartedUtc = DateTime.UtcNow;
                 s.MidGame = true; // o jogo já está rodando: espera curta
             }
-            DebugLog.Write($"[TDP-AUTO] Aprendizado resetado pelo usuário; recomeça a procurar a partir de {from} W.");
+            if (s.Applied && !s.Suspended) Apply(s, from, "aprendizado resetado");
+            DebugLog.Write($"[TDP-AUTO] Aprendizado resetado pelo usuário; {(s.Suspended ? "sessão pausada (TDP manual)" : $"recomeça a procurar a partir de {from} W")}.");
         }
 
         var sessionTarget = TargetFor(s.GameId);

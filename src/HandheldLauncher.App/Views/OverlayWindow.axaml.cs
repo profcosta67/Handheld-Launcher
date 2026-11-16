@@ -772,6 +772,7 @@ public partial class OverlayWindow : Window
         DebugLog.Write($"[OVERLAY-CLOSE] origem=HideWithUnblock fullscreen-contexto; overlay={TryGetPlatformHandle()?.Handle}, game={_gameHwnd}, foreground={(OperatingSystem.IsWindows() ? GetForegroundWindow() : IntPtr.Zero)}, visible={IsVisible}, submenu={_activeSubMenu}");
         
         if (_activeSubMenu == SubMenuMode.TdpCustom) CancelTdpCustomEdit();
+        try { NewQsPanel.CancelEdits(); } catch (Exception ex) { DebugLog.Swallowed(ex); }
         FlushPendingCustomApply();
         
         StopTopmostEnforcer();

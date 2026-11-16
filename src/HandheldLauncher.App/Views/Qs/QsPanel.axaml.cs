@@ -53,7 +53,8 @@ public partial class QsPanel : UserControl
     private Button? _smartTargetButton;
     private Button? _smartResetButton;
     private string? _smartResetNotice;
-    private readonly DispatcherTimer _fpsDebounce = new() { Interval = TimeSpan.FromMilliseconds(450) };
+    private bool _resetAllArmed;
+    private readonly DispatcherTimer _fpsDebounce = new() { Interval = TimeSpan.FromMilliseconds(900) };
     private int _smartTargetFps = 60;          // meta em vigor (do jogo ou a padrão)
     private int _defaultTargetFps = 60;        // meta das Configurações
     private int? _gameTargetFps;               // meta própria do jogo aberto
@@ -282,7 +283,7 @@ public partial class QsPanel : UserControl
         _activePreset = preset;
         _customPresetActive = preset == PowerPreset.Custom;
         if (TdpSlider is not null) TdpSlider.IsEnabled = !_smartOn && _tdpEditing;
-        if (TxtTdpHint is not null && !_tdpEditing)
+        if (TxtTdpHint is not null && !_tdpEditing && !_fpsEditing)
             TxtTdpHint.Text = _smartOn ? SmartHint()
                 : _customPresetActive ? "Personalizado ativo • selecione Person. e A para ajustar" : "";
     }
@@ -293,8 +294,21 @@ public partial class QsPanel : UserControl
     private bool _smartOn;
 
     /// <summary>Relê a opção a cada abertura do painel (pode ter mudado nas Configurações).</summary>
+    /// <summary>O painel vai ser escondido: nenhum ajuste fica aberto (o da meta aplica um toque pendente).</summary>
+    public void CancelEdits()
+    {
+        EndTdpEdit(apply: false);
+        if (_fpsEditing) EndFpsEdit(apply: _fpsDebounce.IsEnabled);
+        _resetAllArmed = false;
+    }
+
     public void RefreshSmartTdp()
     {
+        // Ajuste da meta que ficou aberto de outra vez: descarta sem gravar nada.
+        if (_fpsEditing) { _fpsEditing = false; _fpsDebounce.Stop(); }
+        _resetAllArmed = false;
+        _subOpen = false;
+        _subIndex = 0;
         _smartOn = OperatingSystem.IsWindows() && ReadSmartTdpSetting();
         if (_smartOn) EndTdpEdit(apply: false); // ligado em outro lugar: o ajuste manual aberto não vale mais
         try
@@ -306,6 +320,7 @@ public partial class QsPanel : UserControl
         _gameTargetFps = _runningGameId is null
             ? null
             : HandheldLauncher.Core.Services.SmartTdp.SmartTdpTargetStore.Shared.Get(_runningGameId);
+        if (_gameTargetFps is { } own) _gameTargetFps = NormalizeSmartTarget(own);
         _smartTargetFps = _gameTargetFps ?? _defaultTargetFps;
         SelectPowerPreset(_activePreset);
         RefreshSmartFpsVisuals();
@@ -362,8 +377,8 @@ public partial class QsPanel : UserControl
             if (!_fpsEditing) return;
             // Ajuste por toque já aplicado: "cancelar" passa a voltar para este valor.
             var touched = NormalizeSmartTarget((int)Math.Round(FpsSlider.Value));
-            _fpsEditStart = touched;
             SetSmartTdpTargetFps(touched);
+            if (_smartTargetFps == touched) _fpsEditStart = touched; // só se gravou de verdade
         };
         FpsSlider.PropertyChanged += (_, e) =>
         {
@@ -627,8 +642,16 @@ public partial class QsPanel : UserControl
     /// </summary>
     private void ResetSmartLearning()
     {
-        RunningGameChanged();
+        if (RunningGameChanged()) { _resetAllArmed = false; return; } // a tela foi atualizada; o próximo toque vale
         var gameId = _runningGameId;
+        if (gameId is null && !_resetAllArmed)
+        {
+            // Sem jogo aberto apaga o de TODOS os jogos: pede um segundo toque.
+            _resetAllArmed = true;
+            TxtTdpHint.Text = "Apagar o aprendizado de TODOS os jogos? Aperte Resetar de novo para confirmar.";
+            return;
+        }
+        _resetAllArmed = false;
         int cleared;
         try { cleared = HandheldLauncher.Core.Services.SmartTdp.SmartTdpStore.Shared.Clear(gameId); }
         catch (Exception ex)
@@ -637,7 +660,7 @@ public partial class QsPanel : UserControl
             return;
         }
 
-        HandheldLauncher.App.Platform.GameSessionInfo.NoteLearningReset();
+        HandheldLauncher.App.Platform.GameSessionInfo.NoteLearningReset(gameId);
         var where = gameId is null ? "todos os jogos" : $"'{_runningGameTitle}'";
         _smartResetNotice = gameId is null
             ? "Aprendizado apagado de todos os jogos. Cada jogo volta a procurar o TDP do zero."
