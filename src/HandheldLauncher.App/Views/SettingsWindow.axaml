@@ -75,11 +75,11 @@
       <Setter Property="FontWeight" Value="Bold"/>
     </Style>
     <Style Selector="Border.optRow TextBlock.rowChevron">
-      <Setter Property="IsVisible" Value="False"/>
+      <Setter Property="Opacity" Value="0"/>
       <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
     </Style>
     <Style Selector="Border.optRow.focused TextBlock.rowChevron">
-      <Setter Property="IsVisible" Value="True"/>
+      <Setter Property="Opacity" Value="1"/>
     </Style>
     <Style Selector="ComboBox.rowValue">
       <Setter Property="Background" Value="Transparent"/>
@@ -91,9 +91,15 @@
     <Style Selector="ComboBox.rowValue /template/ PathIcon#DropDownGlyph">
       <Setter Property="IsVisible" Value="False"/>
     </Style>
-    <Style Selector="ComboBox.rowValue:pointerover /template/ Border#Background, ComboBox.rowValue:focus /template/ Border#Background, ComboBox.rowValue:pressed /template/ Border#Background">
+    <Style Selector="ComboBox.rowValue:pointerover /template/ Border#Background, ComboBox.rowValue:focus /template/ Border#Background, ComboBox.rowValue:pressed /template/ Border#Background, ComboBox.rowValue:disabled /template/ Border#Background">
       <Setter Property="Background" Value="Transparent"/>
       <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+    <Style Selector="ComboBox.rowValue /template/ Border#HighlightBackground">
+      <Setter Property="IsVisible" Value="False"/>
+    </Style>
+    <Style Selector="Border.optRow.focused ComboBox.rowValue /template/ ContentControl#ContentPresenter">
+      <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
     </Style>
     <Style Selector="Border.optRow.focused ComboBox.rowValue">
       <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>

@@ -188,7 +188,8 @@ public partial class SettingsWindow
                 if (lines.Count == 0) return;
                 label = new TextBlock { Text = lines[0].Text };
                 label.Classes.Add("label");
-                _help[control] = (label, lines.Skip(1).ToList());
+                var extra = _help.TryGetValue(control, out var prev) ? prev.Text : new List<TextBlock>();
+                _help[control] = (label, lines.Skip(1).Concat(extra).ToList());
                 toggle.Content = null;
             }
             else if (label is null && toggle.Content is string caption && caption.Length > 0)
@@ -216,6 +217,8 @@ public partial class SettingsWindow
         label.Margin = default;
         label.VerticalAlignment = VerticalAlignment.Center;
         label.TextWrapping = Avalonia.Media.TextWrapping.Wrap;
+        label.ClearValue(TextBlock.ForegroundProperty); // a cor vem da linha (muda quando em foco)
+        label.ClearValue(TextBlock.FontWeightProperty);
         label.Classes.Add("rowLabel");
 
         control.Margin = default;
@@ -225,6 +228,7 @@ public partial class SettingsWindow
         if (control is ComboBox combo)
         {
             combo.MinWidth = 0;
+            combo.Margin = new Thickness(0, 0, -28, 0); // a coluna da setinha (escondida) continua no modelo
             combo.Classes.Add("rowValue");
         }
         else if (control is Slider slider)
