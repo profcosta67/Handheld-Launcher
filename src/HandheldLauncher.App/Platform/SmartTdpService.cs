@@ -427,7 +427,7 @@ internal sealed class SmartTdpService : IDisposable
 
         s.LastFps = f.Fps;
         var now = DateTime.UtcNow;
-        UpdateFan(s, s.Controller.Watts, now);
+        UpdateFan(s, s.Controller.Watts - s.Controller.ProbeExtraWatts, now); // o teste curto de +3 W não mexe na ventoinha
         if ((now - s.LastStatusLog).TotalSeconds >= StatusLogSeconds)
         {
             s.LastStatusLog = now;
@@ -556,7 +556,7 @@ internal sealed class SmartTdpService : IDisposable
 
     /// <summary>
     /// Ventoinha acompanha os watts do modo inteligente, pela mesma tabela dos perfis
-    /// manuais. Sobe de curva na hora; só desce depois de 30 s na faixa de baixo, para não
+    /// manuais. Sobe de curva na hora; só desce depois de 60 s na faixa de baixo (com 1 W de folga), para não
     /// ficar trocando quando o TDP oscila 1 W em volta de um limite.
     /// </summary>
     private void UpdateFan(Session s, int watts, DateTime now)

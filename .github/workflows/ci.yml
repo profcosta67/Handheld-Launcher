@@ -47,6 +47,8 @@ jobs:
 
       - name: Preparar FFmpeg (binário fixo e verificado por SHA-256)
         shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: ./scripts/Prepare-FFmpeg.ps1 -OutputDirectory "preview-publish/Tools"
 
       - name: Preparar módulo PawnIO oficial (hash fixo)

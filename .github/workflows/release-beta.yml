@@ -97,6 +97,8 @@ jobs:
 
       - name: Preparar FFmpeg oficial (versão fixada, hash e licença)
         shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: ./scripts/Prepare-FFmpeg.ps1 -OutputDirectory "publish/Tools"
 
       - name: Conferir que nenhum segredo entrou no pacote

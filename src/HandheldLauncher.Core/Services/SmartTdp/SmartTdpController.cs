@@ -132,7 +132,10 @@ public sealed class SmartTdpController
     public bool ResumeBoostPending => _resumeReturnTo is not null;
 
     /// <summary>Watts sem o reforço da volta ao jogo (o que vale lembrar ou retomar).</summary>
-    public int BaselineWatts => _resumeReturnTo ?? Watts;
+    public int BaselineWatts => _resumeReturnTo ?? (Watts - ProbeExtraWatts);
+
+    /// <summary>Watts a mais de um teste de +3 W em andamento (0 sem teste). A ventoinha não acompanha o teste.</summary>
+    public int ProbeExtraWatts => _probeAt is null ? 0 : StepUpWatts;
 
     /// <summary>
     /// Devolve o reforço sem esperar leituras (o jogo parou de entregar FPS). Retorna os
@@ -402,10 +405,10 @@ public sealed class SmartTdpController
             if (_unreachable && _probeAt is null
                 && (nowSeconds - _lastProbe >= ProbeEverySeconds || (_aboveCount >= 3 && nowSeconds - _lastProbe >= 10))
                 && nowSeconds - _lastChange >= 10 && Watts + StepUpWatts <= _max && _resumeReturnTo is null
-                && CurveAverage(Watts, Watts, nowSeconds).Count >= 2)
+                && CurveAverage(Watts, Watts, nowSeconds) is { Count: >= 2, Mean: { } probeBase })
             {
                 _probeAt = nowSeconds;
-                _probeBase = fps;
+                _probeBase = probeBase;
                 _probeSamples.Clear();
                 Watts += StepUpWatts;
                 _lastChange = nowSeconds;
@@ -467,17 +470,22 @@ public sealed class SmartTdpController
                 var (current, currentCount) = CurveAverage(Watts - 1, Watts + 1, nowSeconds);
                 var (higher, higherCount) = CurveAverage(Watts + StepUpWatts, _max, nowSeconds);
                 if (currentCount >= CurveMinSamples && higherCount >= CurveMinSamples && current is { } cur && higher is { } high
-                    && high < Math.Max(cur, fps) * FutileGainRatio && high < _target * MeetRatio)
+                    && high < Math.Max(cur, fps) * FutileGainRatio && high < _target * MeetRatio
+                    // Watts mais altos com FPS bem menor que agora são de outra cena (pausa, replay):
+                    // não servem de prova de que subir não adianta.
+                    && high >= Math.Max(cur, fps) * (1 - SceneChangeRatio))
                 {
                     var plateau = Math.Max(cur, high);
                     var knee = Knee(plateau, nowSeconds);
+                    var baseline = _resumeReturnTo;
                     _resumeReturnTo = null;
                     _returnAfterClimb = null;
                     if (_unreachable) return SmartTdpChange.None; // já segurando: não estica o prazo da nova tentativa
                     _climbWatts = null;
                     MarkUnreachable(plateau, fps, nowSeconds);
                     _lastProbe = nowSeconds;
-                    if (knee is { } k && k < Watts)
+                    // Sem joelho medido, ao menos devolve o reforço da volta ao jogo.
+                    if ((knee ?? baseline) is { } k && k < Watts)
                     {
                         Watts = Math.Max(_min, k);
                         _lastChange = nowSeconds;
@@ -520,8 +528,10 @@ public sealed class SmartTdpController
                         _floorIsLearned = _climbFloorIsLearned;
                     }
                     // A curva da sessão pode mostrar um valor ainda menor que já dava este FPS.
+                    // Nunca abaixo do último valor que já segurou a meta: num replay a ~28 FPS qualquer
+                    // potência "dá o patamar", e voltar até lá deixaria o jogo sem potência depois.
                     if (Knee(Math.Max(_climbBestFps, fps), nowSeconds) is { } curveKnee && curveKnee < revertTo)
-                        revertTo = Math.Max(_min, curveKnee);
+                        revertTo = Math.Max(_min, Math.Min(revertTo, Math.Max(curveKnee, _provenWatts ?? _min)));
                     Watts = revertTo;
                     _resumeReturnTo = null;
                     _returnAfterClimb = null;

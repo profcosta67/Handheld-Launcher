@@ -12,9 +12,10 @@ $downloadUrl = "https://github.com/BtbN/FFmpeg-Builds/releases/download/$release
 $expectedSha256 = "ab9939af65bea84c161b4f80056511aa346d65315e8bec87ea2b8fc675839711"
 
 # Plano B (17/11/2026): o BtbN apaga autobuilds antigos e o pacote acima saiu do ar. O mesmo
-# ffmpeg.exe (já conferido pelo hash acima quando foi empacotado) está dentro do pacote da
-# v0.27.0-beta.68 deste repositório. Hash do próprio ffmpeg.exe:
-$fallbackPackageUrl = "https://github.com/profcosta67/Handheld-Launcher/releases/download/v0.27.0-beta.68/HandheldLauncher-0.27.0-beta.68-beta-full.nupkg"
+# ffmpeg.exe (conferido pelo hash acima quando foi empacotado pela primeira vez) vai dentro de
+# todo pacote publicado deste repositório; o plano B tira de uma das versões publicadas mais
+# recentes (as antigas são apagadas pela limpeza do release.yml) e confere o hash do próprio exe.
+$fallbackReleasesApi = "https://api.github.com/repos/profcosta67/Handheld-Launcher/releases?per_page=15"
 $fallbackEntry = "lib/app/Tools/ffmpeg.exe"
 $fallbackExeSha256 = "b48132b8a9300856c2dac0be9b1eedec7eeedeef6148754cd7a3450dbd4b274a"
 
@@ -49,21 +50,34 @@ try {
         Copy-Item -LiteralPath $ffmpeg.FullName -Destination $targetPath -Force
     }
     else {
-        $packagePath = Join-Path $tempRoot "fallback.nupkg"
-        Invoke-WebRequest -Uri $fallbackPackageUrl -OutFile $packagePath -UseBasicParsing
+        $headers = @{ "User-Agent" = "HandheldLauncher-build" }
+        if ($env:GITHUB_TOKEN) { $headers["Authorization"] = "Bearer $($env:GITHUB_TOKEN)" }
+        $releases = Invoke-RestMethod -Uri $fallbackReleasesApi -Headers $headers
+        $assets = @($releases | Where-Object { -not $_.draft } | ForEach-Object { $_.assets } |
+            Where-Object { $_.name -like "*-full.nupkg" } | Select-Object -First 5)
+        if ($assets.Count -eq 0) { throw "Nenhum pacote publicado encontrado para o plano B do FFmpeg." }
+
         Add-Type -AssemblyName System.IO.Compression.FileSystem
-        $zip = [System.IO.Compression.ZipFile]::OpenRead($packagePath)
-        try {
-            $entry = $zip.GetEntry($fallbackEntry)
-            if (-not $entry) { throw "ffmpeg.exe não encontrado no pacote do plano B." }
-            [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $targetPath, $true)
+        $candidate = Join-Path $tempRoot "ffmpeg-fallback.exe"
+        $found = $false
+        foreach ($asset in $assets) {
+            $packagePath = Join-Path $tempRoot "fallback.nupkg"
+            Write-Host "Plano B: $($asset.name)"
+            try { Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $packagePath -UseBasicParsing }
+            catch { Write-Host "  falhou ao baixar: $($_.Exception.Message)"; continue }
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($packagePath)
+            try {
+                $entry = $zip.GetEntry($fallbackEntry)
+                if (-not $entry) { Write-Host "  sem ffmpeg.exe neste pacote"; continue }
+                [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $candidate, $true)
+            }
+            finally { $zip.Dispose() }
+            $exeSha256 = (Get-FileHash -Path $candidate -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($exeSha256 -eq $fallbackExeSha256) { $found = $true; break }
+            Write-Host "  hash diferente ($exeSha256); tentando o próximo"
         }
-        finally { $zip.Dispose() }
-        $exeSha256 = (Get-FileHash -Path $targetPath -Algorithm SHA256).Hash.ToLowerInvariant()
-        if ($exeSha256 -ne $fallbackExeSha256) {
-            Remove-Item -LiteralPath $targetPath -Force -ErrorAction SilentlyContinue
-            throw "SHA-256 inválido para o ffmpeg.exe do plano B. Esperado: $fallbackExeSha256; recebido: $exeSha256"
-        }
+        if (-not $found) { throw "Plano B do FFmpeg: nenhum pacote publicado tem o ffmpeg.exe com o hash esperado ($fallbackExeSha256)." }
+        Copy-Item -LiteralPath $candidate -Destination $targetPath -Force
         Write-Host "SHA-256 do ffmpeg.exe confirmado (plano B)."
     }
     if ((Get-Item $targetPath).Length -lt 1MB) {
