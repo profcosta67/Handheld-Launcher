@@ -452,7 +452,9 @@ public class SmartTdpControllerTests
     [Fact]
     public void SuddenDropToHalfTheTargetDoesNotClimbAtOnce()
     {
-        var c = new SmartTdpController(60, 8, 35, 18);
+        // Mínimo de 18 W: sem passos de descida antes da queda (logo depois de um passo de
+        // descida a regra não vale de propósito, por causa dos jogos com vsync).
+        var c = new SmartTdpController(60, 18, 35, 18);
         for (var t = 0.0; t < 40; t += 2) c.OnSample(70, t);
         var before = c.Watts;
         for (var t = 40.0; t < 52; t += 2) Assert.NotEqual(SmartTdpChange.Up, c.OnSample(30, t));
@@ -461,5 +463,21 @@ public class SmartTdpControllerTests
         var climbed = false;
         for (var t = 52.0; t < 80; t += 2) climbed |= c.OnSample(30, t) == SmartTdpChange.Up;
         Assert.True(climbed);
+    }
+
+    [Fact]
+    public void VsyncDropRightAfterOwnStepDownClimbsBackWithoutWaiting()
+    {
+        // Jogo com vsync: 60 FPS com 16 W ou mais, 30 abaixo. O passo de descida de 16 para 15 W
+        // derruba para 30: isso é falta de potência, e a volta não espera os 15 s da queda brusca.
+        static double Game(int watts) => watts >= 16 ? 60 : 30;
+        var c = new SmartTdpController(60, 8, 35, 18);
+        var below = 0;
+        for (var t = 0.0; t < 300; t += 2)
+        {
+            if (Game(c.Watts) < 54) below++;
+            c.OnSample(Game(c.Watts), t);
+        }
+        Assert.True(below * 2 <= 30, $"{below * 2} s abaixo da meta");
     }
 }
