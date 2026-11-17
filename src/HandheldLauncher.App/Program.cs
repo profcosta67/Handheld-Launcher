@@ -138,6 +138,7 @@ internal static class Program
 
         // v0.25.9: quem abriu o launcher e se está elevado (diagnóstico do admin).
         StartupDiagnostics.LogLaunchContext(args);
+        HandheldLauncher.App.Diagnostics.StartupTimeline.Mark("processo pronto, antes da interface");
 
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }

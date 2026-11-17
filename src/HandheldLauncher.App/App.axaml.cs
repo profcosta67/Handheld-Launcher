@@ -187,8 +187,10 @@ public partial class App : Application
                 desktop.Exit += (_, _) => DisplayColorManager.RestoreOriginal();
             }
 
+            HandheldLauncher.App.Diagnostics.StartupTimeline.Mark("serviços criados");
             var mainViewModel = new MainViewModel(libraryService, gameLauncher, artworkService, performanceOverlay, updateService, performanceHud, steamOwnedGamesClient, steamAchievementsClient, syncthingService);
             desktop.Exit += (_, _) => mainViewModel.Dispose();
+            HandheldLauncher.App.Diagnostics.StartupTimeline.Mark("MainViewModel criado (lista de jogos montada)");
 
             // v0.31: diário de sessões (consumo, bateria e FPS por jogo). Só observa.
             var sessionDiary = new SessionDiaryRecorder(mainViewModel);
@@ -211,6 +213,7 @@ public partial class App : Application
             };
 
             // Lossless Scaling
+            HandheldLauncher.App.Diagnostics.StartupTimeline.Mark("MainWindow criada");
             if (OperatingSystem.IsWindows())
             {
                 _ = Task.Run(async () =>
