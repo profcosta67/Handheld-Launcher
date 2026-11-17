@@ -267,7 +267,7 @@ public partial class MainWindow : Window
             HandheldLauncher.App.Diagnostics.StartupTimeline.MarkOnce("janela aberta na tela");
             Avalonia.Threading.Dispatcher.UIThread.Post(
                 () => HandheldLauncher.App.Diagnostics.StartupTimeline.Mark("interface ociosa (pronta para uso)"),
-                Avalonia.Threading.DispatcherPriority.ApplicationIdle);
+                Avalonia.Threading.DispatcherPriority.Background); // ApplicationIdle esperava 40+ min com o launcher escondido
             try { InputBlockService.RecoverOrphanedSuspension(); }
             catch (Exception ex) { DebugLog.Write($"[InputBlock] Falha ao recuperar suspensão órfã na abertura: {ex.Message}"); }
 

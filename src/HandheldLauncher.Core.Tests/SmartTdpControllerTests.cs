@@ -425,4 +425,41 @@ public class SmartTdpControllerTests
         for (var t = 200.0; t < 330; t += 2) c.OnSample(Game(c.Watts), t);
         Assert.True(c.Watts >= 28, $"ficou em {c.Watts} W");
     }
+
+    /// <summary>
+    /// EA FC (log de 17/11, beta.69): a cada lance parado o FPS cai para 25–45 por 10–20 s. Uma
+    /// subida logo depois da volta de outra perdia a volta rápida, e o TDP descia de 1 em 1 W
+    /// por minutos (33 → 28 W com o jogo a 70 FPS).
+    /// </summary>
+    [Fact]
+    public void CutscenesRightAfterAReturnStillComeBackQuickly()
+    {
+        static double Play(int watts) => 58 + 1.4 * (watts - 18);
+        var cuts = new[] { (60.0, 80.0), (120.0, 140.0), (165.0, 185.0) };
+        var c = new SmartTdpController(60, 8, 35, 26);
+        var ups = 0;
+        for (var t = 0.0; t < 200; t += 2)
+        {
+            var fps = Play(c.Watts);
+            foreach (var (from, to) in cuts)
+                if (t >= from && t < to) fps = Math.Min(fps, 28 + (t - from) * 1.2);
+            if (c.OnSample(fps, t) == SmartTdpChange.Up) ups++;
+        }
+        Assert.True(c.Watts <= 19, $"ficou em {c.Watts} W");
+        Assert.True(ups <= 8, $"{ups} subidas");
+    }
+
+    [Fact]
+    public void SuddenDropToHalfTheTargetDoesNotClimbAtOnce()
+    {
+        var c = new SmartTdpController(60, 8, 35, 18);
+        for (var t = 0.0; t < 40; t += 2) c.OnSample(70, t);
+        var before = c.Watts;
+        for (var t = 40.0; t < 52; t += 2) Assert.NotEqual(SmartTdpChange.Up, c.OnSample(30, t));
+        Assert.Equal(before, c.Watts);
+        // Se durar além de 15 s, aí sim é falta de potência e sobe.
+        var climbed = false;
+        for (var t = 52.0; t < 80; t += 2) climbed |= c.OnSample(30, t) == SmartTdpChange.Up;
+        Assert.True(climbed);
+    }
 }

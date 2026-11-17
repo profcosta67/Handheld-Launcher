@@ -135,7 +135,7 @@ public sealed class SmartTdpController
     public int BaselineWatts => _resumeReturnTo ?? (Watts - ProbeExtraWatts);
 
     /// <summary>Watts a mais de um teste de +3 W em andamento (0 sem teste). A ventoinha não acompanha o teste.</summary>
-    public int ProbeExtraWatts => _probeAt is null ? 0 : StepUpWatts;
+    public int ProbeExtraWatts => _probeAt is null ? 0 : _probeDirection * StepUpWatts;
 
     /// <summary>
     /// Devolve o reforço sem esperar leituras (o jogo parou de entregar FPS). Retorna os
@@ -218,6 +218,14 @@ public sealed class SmartTdpController
     private readonly List<double> _probeSamples = new();
     private double _lastProbe = double.NegativeInfinity;
     private int _aboveCount;
+    private int _probeDirection = 1;              // +1 teste de +3 W; -1 teste de -3 W
+    private double _downProbeBlockedUntil = double.NegativeInfinity;
+    public const double DownProbeKeepRatio = 0.96;
+    public const double DownProbeBlockSeconds = 180;
+    public const double SuddenDropRatio = 0.65;
+    public const double SuddenDropHoldSeconds = 15;
+    private double? _previousFps;
+    private double _dropUntil = double.NegativeInfinity;
 
     private void NoteCurve(double fps, double nowSeconds)
     {
@@ -352,6 +360,26 @@ public sealed class SmartTdpController
         else
         {
             _lowFpsSince = null;
+
+            // Queda brusca: de dentro da meta para menos de 65% dela, de uma leitura para a outra.
+            // É corte de cena, replay ou menu travado em 30 (EA FC a cada lance parado), não falta
+            // de potência: espera até 15 s antes de subir. Falta de potência não derruba o FPS assim.
+            var previous = _previousFps;
+            _previousFps = fps;
+            if (previous is { } prev && prev >= _effectiveTarget * MeetRatio && fps < _effectiveTarget * SuddenDropRatio
+                && _dropUntil < nowSeconds)
+                _dropUntil = nowSeconds + SuddenDropHoldSeconds;
+            if (nowSeconds < _dropUntil)
+            {
+                if (fps < _effectiveTarget * SuddenDropRatio)
+                {
+                    _belowCount = 0;
+                    _nearCount = 0;
+                    return SmartTdpChange.None;
+                }
+                _dropUntil = double.NegativeInfinity;
+            }
+
             NoteCurve(fps, nowSeconds);
         }
 
@@ -384,6 +412,21 @@ public sealed class SmartTdpController
                 var gain = _probeBase > 0 ? _probeSamples[1] / _probeBase : 1;
                 _probeAt = null;
                 _lastProbe = nowSeconds;
+                if (_probeDirection < 0)
+                {
+                    // Teste para baixo: o FPS ficou (quase) igual com 3 W a menos? Fica e testa de
+                    // novo em 20 s. Se caiu, devolve os 3 W e não tenta descer por 3 minutos.
+                    if (gain >= DownProbeKeepRatio)
+                    {
+                        _lastProbe = nowSeconds - ProbeEverySeconds + 20;
+                        return SmartTdpChange.None;
+                    }
+                    _downProbeBlockedUntil = nowSeconds + DownProbeBlockSeconds;
+                    Watts = Math.Min(_max, Watts + StepUpWatts);
+                    _lastChange = nowSeconds;
+                    _lastChangeWasDown = false;
+                    return SmartTdpChange.Up;
+                }
                 if (gain >= ProbeGainRatio)
                 {
                     LeaveUnreachable();
@@ -404,16 +447,24 @@ public sealed class SmartTdpController
 
             if (_unreachable && _probeAt is null
                 && (nowSeconds - _lastProbe >= ProbeEverySeconds || (_aboveCount >= 3 && nowSeconds - _lastProbe >= 10))
-                && nowSeconds - _lastChange >= 10 && Watts + StepUpWatts <= _max && _resumeReturnTo is null
+                && nowSeconds - _lastChange >= 10 && _resumeReturnTo is null
                 && CurveAverage(Watts, Watts, nowSeconds) is { Count: >= 2, Mean: { } probeBase })
             {
-                _probeAt = nowSeconds;
-                _probeBase = probeBase;
-                _probeSamples.Clear();
-                Watts += StepUpWatts;
-                _lastChange = nowSeconds;
-                _lastChangeWasDown = false;
-                return SmartTdpChange.Up;
+                // Para baixo só até o último valor que já segurou a meta: num menu ou pausa com o FPS
+                // travado, descer sem esse limite deixaria o jogo sem potência na volta.
+                var down = _provenWatts is { } proven && Watts - StepUpWatts >= proven
+                    && nowSeconds >= _downProbeBlockedUntil && _aboveCount < 3;
+                if (down || Watts + StepUpWatts <= _max)
+                {
+                    _probeAt = nowSeconds;
+                    _probeBase = probeBase;
+                    _probeSamples.Clear();
+                    _probeDirection = down ? -1 : 1;
+                    Watts += down ? -StepUpWatts : StepUpWatts;
+                    _lastChange = nowSeconds;
+                    _lastChangeWasDown = false;
+                    return down ? SmartTdpChange.Down : SmartTdpChange.Up;
+                }
             }
         }
 
@@ -573,7 +624,10 @@ public sealed class SmartTdpController
             }
 
             _resumeReturnTo = null; // faltou FPS mesmo com o reforço: ele fica, e sobe mais
-            var afterProbe = _lastChangeWasDown && nowSeconds - _lastChange <= 30;
+            // Subida logo depois da volta de uma vez (não de um passo de teste): não foi o teste que
+            // falhou, foi a cena que pesou de novo (EA FC: lance parado a cada 30–60 s). Sem isso a
+            // volta rápida se perdia e o TDP descia de 1 em 1 W por minutos.
+            var afterProbe = _lastChangeWasDown && nowSeconds - _lastChange <= 30 && !_lastDownWasReturn;
             if (afterProbe)
             {
                 // Uma descida de teste falhou: este é o ponto em que falta potência. Só isto
