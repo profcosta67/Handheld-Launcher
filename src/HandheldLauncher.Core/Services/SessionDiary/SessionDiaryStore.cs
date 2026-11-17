@@ -132,4 +132,54 @@ public sealed class SessionDiaryStore
             LastAboveNormal: above,
             IsEarlyEstimate: measured.Count < SessionsForConfidence);
     }
+
+    /// <summary>
+    /// Horas de jogo que a carga de agora rende no consumo típico do jogo.
+    /// null = falta alguma leitura (capacidade, carga ou consumo).
+    /// </summary>
+    public static double? EstimateHoursNow(double typicalWatts, double? fullChargeWattHours, int? batteryPercent)
+    {
+        if (typicalWatts <= 0 || fullChargeWattHours is not > 0 || batteryPercent is not (>= 0 and <= 100)) return null;
+        return Math.Round(fullChargeWattHours.Value * batteryPercent.Value / 100.0 / typicalWatts, 2);
+    }
+
+    /// <summary>Uma linha por jogo com consumo medido, do que mais tempo ficou na bateria para o que menos.</summary>
+    public static IReadOnlyList<GameEnergyRow> SummarizeAll(IEnumerable<SessionRecord> sessions, double? fullChargeWattHours)
+    {
+        var rows = new List<GameEnergyRow>();
+        foreach (var group in sessions.GroupBy(r => r.GameId))
+        {
+            var list = group.OrderBy(r => r.StartedUtc).ToList();
+            if (Summarize(list, fullChargeWattHours) is not { } summary) continue;
+            var title = list.Select(r => r.Title).LastOrDefault(t => !string.IsNullOrWhiteSpace(t)) ?? group.Key;
+            rows.Add(new GameEnergyRow(group.Key, title, summary, list.Sum(r => (long)r.BatterySeconds)));
+        }
+        return rows.OrderByDescending(r => r.BatterySeconds).ToList();
+    }
+
+    /// <summary>
+    /// Linha do histórico: "16/11 · 1h20 · 24,5 W · 58 FPS · bateria 80% → 45%".
+    /// Só entra o que foi medido naquela sessão.
+    /// </summary>
+    public static string DescribeSession(SessionRecord record, TimeSpan utcOffset)
+    {
+        var culture = System.Globalization.CultureInfo.GetCultureInfo("pt-BR");
+        var local = record.StartedUtc + utcOffset;
+        var minutes = Math.Max(1, (int)Math.Round(record.DurationSeconds / 60.0));
+        var parts = new List<string>
+        {
+            local.ToString("dd/MM", culture),
+            minutes >= 60 ? $"{minutes / 60}h{minutes % 60:00}" : $"{minutes} min",
+        };
+        if (record.AvgBatteryWatts is > 0 && record.BatterySeconds >= MinBatterySecondsForEnergy)
+            parts.Add(record.AvgBatteryWatts.Value.ToString("0.0", culture) + " W");
+        else
+            parts.Add("na tomada");
+        if (record.AvgFps is > 0) parts.Add(record.AvgFps.Value.ToString("0", culture) + " FPS");
+        if (record.BatteryStartPercent is { } from && record.BatteryEndPercent is { } to && from != to)
+            parts.Add($"bateria {from}% → {to}%");
+        if (record.SmartTdp) parts.Add(record.TargetFps is { } target ? $"Auto {target} FPS" : "Auto");
+        else if (record.AvgTdpWatts is > 0) parts.Add("TDP " + record.AvgTdpWatts.Value.ToString("0", culture) + " W");
+        return string.Join(" · ", parts);
+    }
 }

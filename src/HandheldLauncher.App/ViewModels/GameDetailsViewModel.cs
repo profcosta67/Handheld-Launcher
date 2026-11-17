@@ -123,6 +123,12 @@ public sealed class GameDetailsViewModel : ViewModelBase
     public bool HasEnergyFps { get; private set; }
     public bool HasEnergyWarning { get; private set; }
     public string EnergyWarningText { get; private set; } = "";
+    public bool HasEnergyNow { get; private set; }
+    public string EnergyNowLabel { get; private set; } = "";
+    public string EnergyNowText { get; private set; } = "";
+    public bool HasEnergyHistory { get; private set; }
+    public IReadOnlyList<string> EnergyHistory { get; private set; } = Array.Empty<string>();
+    private const int EnergyHistoryRows = 6;
 
     private void LoadEnergySummary()
     {
@@ -134,6 +140,15 @@ public sealed class GameDetailsViewModel : ViewModelBase
             var sessions = HandheldLauncher.Core.Services.SessionDiary.SessionDiaryStore.Shared.ForGame(Game.Id);
             var summary = HandheldLauncher.Core.Services.SessionDiary.SessionDiaryStore.Summarize(sessions, fullWh);
             var withFps = sessions.Where(s => s.AvgFps is > 0).ToList();
+
+            if (sessions.Count > 0)
+            {
+                var offset = TimeZoneInfo.Local.GetUtcOffset(DateTime.UtcNow);
+                EnergyHistory = sessions.OrderByDescending(s => s.StartedUtc).Take(EnergyHistoryRows)
+                    .Select(s => HandheldLauncher.Core.Services.SessionDiary.SessionDiaryStore.DescribeSession(s, offset))
+                    .ToList();
+                HasEnergyHistory = true;
+            }
 
             if (withFps.Count > 0)
             {
@@ -157,6 +172,14 @@ public sealed class GameDetailsViewModel : ViewModelBase
                 HasEnergyRuntime = true;
                 var minutes = (int)Math.Round(hours * 60);
                 EnergyRuntimeText = $"cerca de {minutes / 60}h{minutes % 60:00} por carga";
+            }
+            if (HandheldLauncher.App.Platform.BatteryStatus.TryRead() is { } battery
+                && HandheldLauncher.Core.Services.SessionDiary.SessionDiaryStore.EstimateHoursNow(summary.TypicalWatts, fullWh, battery.Percent) is { } hoursNow)
+            {
+                HasEnergyNow = true;
+                var minutesNow = (int)Math.Round(hoursNow * 60);
+                EnergyNowLabel = $"Com a carga de agora ({battery.Percent}%)";
+                EnergyNowText = minutesNow >= 60 ? $"cerca de {minutesNow / 60}h{minutesNow % 60:00}" : $"cerca de {minutesNow} min";
             }
             EnergyNoteText = summary.IsEarlyEstimate
                 ? $"Estimativa inicial, com {summary.Sessions} sessão(ões) na bateria. Fica mais confiável a partir da terceira."
@@ -258,7 +281,8 @@ public sealed class GameDetailsViewModel : ViewModelBase
                 {
                     nameof(HasEnergyData), nameof(EnergyTypicalText), nameof(EnergyRuntimeText), nameof(EnergyFpsText),
                     nameof(EnergyNoteText), nameof(HasEnergyRuntime), nameof(HasEnergyFps), nameof(HasEnergyWarning),
-                    nameof(EnergyWarningText),
+                    nameof(EnergyWarningText), nameof(HasEnergyNow), nameof(EnergyNowLabel), nameof(EnergyNowText),
+                    nameof(HasEnergyHistory), nameof(EnergyHistory),
                 })
                     OnPropertyChanged(name);
             });

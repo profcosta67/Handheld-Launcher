@@ -127,4 +127,80 @@ public class SessionDiaryTests
         var mild = usual.Append(Session("fc", 4, 27.5)).ToArray();
         Assert.False(SessionDiaryStore.Summarize(mild, 74)!.LastAboveNormal);
     }
+
+    [Fact]
+    public void HoursNowScaleWithTheCurrentCharge()
+    {
+        Assert.Equal(1.48, SessionDiaryStore.EstimateHoursNow(25, 74, 50));
+        Assert.Equal(0, SessionDiaryStore.EstimateHoursNow(25, 74, 0));
+        Assert.Null(SessionDiaryStore.EstimateHoursNow(25, null, 50));
+        Assert.Null(SessionDiaryStore.EstimateHoursNow(25, 74, null));
+        Assert.Null(SessionDiaryStore.EstimateHoursNow(0, 74, 50));
+        Assert.Null(SessionDiaryStore.EstimateHoursNow(25, 74, 255)); // "desconhecido" do Windows
+    }
+
+    [Fact]
+    public void HistoryLineShowsOnlyWhatWasMeasured()
+    {
+        var onBattery = new SessionRecord
+        {
+            GameId = "fc", StartedUtc = new DateTime(2026, 11, 17, 2, 30, 0, DateTimeKind.Utc), DurationSeconds = 4800,
+            BatterySeconds = 4800, AvgBatteryWatts = 24.46, AvgFps = 58.4, BatteryStartPercent = 80, BatteryEndPercent = 45,
+            SmartTdp = true, TargetFps = 60,
+        };
+        // 02:30 UTC ainda é dia 16 em Campo Grande (UTC-4).
+        Assert.Equal("16/11 · 1h20 · 24,5 W · 58 FPS · bateria 80% → 45% · Auto 60 FPS",
+            SessionDiaryStore.DescribeSession(onBattery, TimeSpan.FromHours(-4)));
+
+        var plugged = new SessionRecord
+        {
+            GameId = "fc", StartedUtc = new DateTime(2026, 11, 17, 15, 0, 0, DateTimeKind.Utc), DurationSeconds = 1500,
+            AvgTdpWatts = 30, BatteryStartPercent = 100, BatteryEndPercent = 100,
+        };
+        Assert.Equal("17/11 · 25 min · na tomada · TDP 30 W", SessionDiaryStore.DescribeSession(plugged, TimeSpan.FromHours(-4)));
+    }
+
+    [Fact]
+    public void AllGamesAreListedByTimeOnBattery()
+    {
+        var sessions = new[]
+        {
+            Session("fc", 0, 20, batterySeconds: 1000), Session("dg", 1, 40, batterySeconds: 3000),
+            Session("fc", 2, 22, batterySeconds: 1000), Session("plug", 3, 0, batterySeconds: 0),
+        };
+        var rows = SessionDiaryStore.SummarizeAll(sessions, 74);
+        Assert.Equal(new[] { "dg", "fc" }, rows.Select(r => r.GameId).ToArray());
+        Assert.Equal(40, rows[0].Summary.TypicalWatts);
+        Assert.Equal(21, rows[1].Summary.TypicalWatts);
+        Assert.Equal(2000, rows[1].BatterySeconds);
+    }
+
+    [Fact]
+    public void BatteryWearKeepsOneReadingAWeekAndShowsTheTrend()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"battery-wear-{Guid.NewGuid():N}.jsonl");
+        try
+        {
+            var log = new BatteryWearLog(path);
+            Assert.False(log.Note(Start, null, 72000));
+            Assert.True(log.Note(Start, 74000, 73000));
+            Assert.False(log.Note(Start.AddDays(3), 74000, 72900));
+            Assert.True(log.Note(Start.AddDays(8), 74000, 72800));
+            File.AppendAllText(path, "{corte");
+            var entries = new BatteryWearLog(path).Load();
+            Assert.Equal(2, entries.Count);
+            Assert.Equal(99, entries[0].Percent);
+
+            Assert.Null(BatteryWearLog.Trend(entries, Start.AddDays(10), 74000, 72800)); // cedo demais
+            var trend = BatteryWearLog.Trend(entries, Start.AddDays(90), 74000, 70300)!;
+            Assert.Equal(99, trend.FirstPercent);
+            Assert.Equal(95, trend.NowPercent);
+            Assert.Equal(70.3, trend.NowWattHours);
+            Assert.Null(BatteryWearLog.Trend(Array.Empty<BatteryWearEntry>(), Start, 74000, 70000));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
 }

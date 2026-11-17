@@ -40,3 +40,6 @@ public sealed record GameEnergySummary(
     double? LastWatts,
     bool LastAboveNormal,
     bool IsEarlyEstimate);
+
+/// <summary>Consumo de um jogo na lista geral.</summary>
+public sealed record GameEnergyRow(string GameId, string Title, GameEnergySummary Summary, long BatterySeconds);

@@ -298,6 +298,10 @@
                 <TextBlock Text="Autonomia estimada" Foreground="{DynamicResource TextPrimaryBrush}" />
                 <TextBlock Grid.Column="1" Text="{Binding EnergyRuntimeText}" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
               </Grid>
+              <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasEnergyNow}">
+                <TextBlock Text="{Binding EnergyNowLabel}" Foreground="{DynamicResource TextPrimaryBrush}" />
+                <TextBlock Grid.Column="1" Text="{Binding EnergyNowText}" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              </Grid>
               <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasEnergyFps}">
                 <TextBlock Text="FPS na última sessão medida" Foreground="{DynamicResource TextPrimaryBrush}" />
                 <TextBlock Grid.Column="1" Text="{Binding EnergyFpsText}" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
@@ -305,6 +309,18 @@
               <TextBlock Text="{Binding EnergyWarningText}" IsVisible="{Binding HasEnergyWarning}" TextWrapping="Wrap"
                          FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
               <TextBlock Classes="subtle" Text="{Binding EnergyNoteText}" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+          <Border Classes="detailsSurface" Padding="18" IsVisible="{Binding HasEnergyHistory}">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Últimas sessões" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <ItemsControl ItemsSource="{Binding EnergyHistory}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="x:String">
+                    <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,0,0,6" Foreground="{DynamicResource TextSecondaryBrush}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
             </StackPanel>
           </Border>
           <Border Classes="detailsSurface" Padding="18">

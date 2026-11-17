@@ -85,7 +85,15 @@ public sealed class HealthAlertService
             var (health, lowDrives) = await Task.Run(() =>
             {
                 int? h = null;
-                try { h = BatteryHealth.Read().HealthPercent; } catch (Exception ex) { DebugLog.Swallowed(ex); }
+                try
+                {
+                    var battery = BatteryHealth.Read();
+                    h = battery.HealthPercent;
+                    // v0.31: uma leitura por semana, para mostrar o desgaste ao longo dos meses.
+                    HandheldLauncher.Core.Services.SessionDiary.BatteryWearLog.Shared.Note(
+                        DateTime.UtcNow, battery.DesignedCapacityMwh, battery.FullChargedCapacityMwh);
+                }
+                catch (Exception ex) { DebugLog.Swallowed(ex); }
 
                 var drives = new List<(string Name, double FreeGb)>();
                 try

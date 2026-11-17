@@ -72,4 +72,21 @@ public static class BatteryStatus
             return string.Empty;
         }
     }
+
+    /// <summary>Carga atual (0–100) e se está na tomada. null = sem bateria ou sem leitura.</summary>
+    public static (int Percent, bool OnAc)? TryRead()
+    {
+        try
+        {
+            if (!OperatingSystem.IsWindows()) return null;
+            if (!GetSystemPowerStatus(out var status)) return null;
+            if ((status.BatteryFlag & BatteryFlagNoSystemBattery) != 0) return null;
+            if (status.BatteryLifePercent == BatteryLifePercentUnknown || status.BatteryLifePercent > 100) return null;
+            return (status.BatteryLifePercent, status.ACLineStatus == AcLineStatusOnline);
+        }
+        catch
+        {
+            return null;
+        }
+    }
 }
