@@ -23,7 +23,9 @@ public sealed class SessionAccumulator
     private double _tdpWattSeconds;
     private bool _smartTdp;
     private int? _targetFps;
-    private readonly SortedDictionary<int, (double Seconds, double Frames)> _fpsByTdp = new();
+    private readonly SortedDictionary<int, (double Seconds, double Frames, List<double> Samples)> _fpsByTdp = new();
+    private const int MaxSamplesPerTdp = 5000;
+    private double _activeSeconds;
 
     public SessionAccumulator(string gameId, string title, DateTime startedUtc)
     {
@@ -39,6 +41,7 @@ public sealed class SessionAccumulator
         bool smartTdp = false, int? targetFps = null)
     {
         if (seconds <= 0 || seconds > 120) return; // relógio pulou (suspensão): não conta
+        _activeSeconds += seconds;
 
         if (batteryPercent is >= 0 and <= 100)
         {
@@ -63,8 +66,9 @@ public sealed class SessionAccumulator
 
         if (fps is { } rate && rate >= 1 && rate < 1000 && !double.IsNaN(rate) && tdpWatts is > 0 and < 200)
         {
-            var bucket = _fpsByTdp.GetValueOrDefault(tdpWatts.Value);
-            _fpsByTdp[tdpWatts.Value] = (bucket.Seconds + seconds, bucket.Frames + rate * seconds);
+            if (!_fpsByTdp.TryGetValue(tdpWatts.Value, out var bucket)) bucket = (0, 0, new List<double>());
+            if (bucket.Samples.Count < MaxSamplesPerTdp) bucket.Samples.Add(rate);
+            _fpsByTdp[tdpWatts.Value] = (bucket.Seconds + seconds, bucket.Frames + rate * seconds, bucket.Samples);
         }
 
         if (smartTdp)
@@ -90,7 +94,8 @@ public sealed class SessionAccumulator
             GameId = _gameId,
             Title = _title,
             StartedUtc = _startedUtc,
-            DurationSeconds = Math.Max(0, (int)Math.Round((endedUtc - _startedUtc).TotalSeconds)),
+            // Soma do tempo com leitura: horas de suspensão no meio não contam como jogo.
+            DurationSeconds = (int)Math.Round(Math.Min(_activeSeconds, Math.Max(0, (endedUtc - _startedUtc).TotalSeconds))),
             BatterySeconds = (int)Math.Round(_batterySeconds),
             AvgBatteryWatts = _batterySeconds > 0 ? Math.Round(_wattSeconds / _batterySeconds, 1) : null,
             PeakBatteryWatts = _batterySeconds > 0 ? Math.Round(_peakWatts, 1) : null,
@@ -107,9 +112,19 @@ public sealed class SessionAccumulator
                     Watts = p.Key,
                     Seconds = (int)Math.Round(p.Value.Seconds),
                     AvgFps = Math.Round(p.Value.Frames / p.Value.Seconds, 1),
+                    MedianFps = Median(p.Value.Samples),
                 })
                 .Where(b => b.Seconds > 0)
                 .ToList(),
         };
+    }
+
+    private static double? Median(List<double> samples)
+    {
+        if (samples.Count == 0) return null;
+        var sorted = samples.OrderBy(v => v).ToList();
+        var mid = sorted.Count / 2;
+        var median = sorted.Count % 2 == 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+        return Math.Round(median, 1);
     }
 }

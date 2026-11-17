@@ -67,4 +67,25 @@ public class SmartTdpStoreTests
         }
         finally { File.Delete(path); }
     }
+
+    [Fact]
+    public void ResetIsRememberedPerGameAndForAll()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), $"smart-tdp-reset-{Guid.NewGuid():N}");
+        try
+        {
+            var store = new SmartTdpStore(Path.Combine(dir, "smart-tdp.json"));
+            Assert.Null(store.LastResetUtc("fc"));
+            var before = DateTime.UtcNow.AddSeconds(-1);
+            store.Clear("fc");
+            Assert.True(store.LastResetUtc("fc") >= before);
+            Assert.Null(store.LastResetUtc("dg"));
+            store.Clear(null);
+            Assert.NotNull(new SmartTdpStore(Path.Combine(dir, "smart-tdp.json")).LastResetUtc("dg"));
+        }
+        finally
+        {
+            try { Directory.Delete(dir, true); } catch { }
+        }
+    }
 }

@@ -20,6 +20,7 @@ public static class GameEnergyCache
     private static readonly object Gate = new();
     private static Dictionary<string, GameEnergyInfo>? _byGame;
     private static int _loading;
+    private static int _dirty;
 
     /// <summary>Disparado (fora da thread da tela) quando o resumo foi carregado ou refeito.</summary>
     public static event Action? Changed;
@@ -31,14 +32,16 @@ public static class GameEnergyCache
         {
             if (_byGame is not null) return _byGame.GetValueOrDefault(gameId);
         }
-        Reload();
+        if (Volatile.Read(ref _loading) == 0) Reload();
         return null;
     }
 
     /// <summary>Refaz o resumo (ex.: uma sessão acabou de ser gravada).</summary>
     public static void Reload()
     {
-        if (Interlocked.Exchange(ref _loading, 1) == 1) return;
+        Interlocked.Exchange(ref _dirty, 1);
+        if (Interlocked.Exchange(ref _loading, 1) == 1) return; // a carga em curso refaz no fim
+        Interlocked.Exchange(ref _dirty, 0);
         _ = Task.Run(() =>
         {
             try
@@ -57,6 +60,8 @@ public static class GameEnergyCache
             }
             try { Changed?.Invoke(); }
             catch (Exception ex) { DebugLog.Swallowed(ex); }
+            // Pediram de novo enquanto carregava (ex.: uma sessão acabou de ser gravada): refaz.
+            if (Interlocked.CompareExchange(ref _dirty, 0, 0) == 1) Reload();
         });
     }
 
@@ -90,7 +95,9 @@ public static class GameEnergyCache
             }
 
             if (guide is null && lastText is null) continue;
-            result[group.Key] = new GameEnergyInfo(guide?.ShortText(), lastText, guide);
+            var guideText = guide is { HasAnyMeasurement: true } ? guide.ShortText() : null;
+            if (guideText is null && lastText is null) continue;
+            result[group.Key] = new GameEnergyInfo(guideText, lastText, guide);
         }
         return result;
     }

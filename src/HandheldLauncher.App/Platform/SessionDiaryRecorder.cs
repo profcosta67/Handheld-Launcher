@@ -58,7 +58,7 @@ internal sealed class SessionDiaryRecorder : IDisposable
             _title = game.Title;
             _session = new SessionAccumulator(game.Id, game.Title, now);
             _lastSampleUtc = now;
-            _metrics ??= new SystemMetrics();
+            _metrics ??= new SystemMetrics(batteryOnly: true);
             if (OperatingSystem.IsWindows()) _rtss ??= new RtssSharedMemory();
             return; // a primeira leitura dos contadores não vale
         }
@@ -66,8 +66,8 @@ internal sealed class SessionDiaryRecorder : IDisposable
         var seconds = (now - _lastSampleUtc).TotalSeconds;
         _lastSampleUtc = now;
 
-        MetricsSnapshot metrics;
-        try { metrics = _metrics!.Read(); }
+        (int? Percent, bool OnAc, double? Watts) battery;
+        try { battery = _metrics!.ReadBattery(); }
         catch (Exception ex) { DebugLog.Swallowed(ex); return; }
 
         double? fps = null;
@@ -89,13 +89,24 @@ internal sealed class SessionDiaryRecorder : IDisposable
         try
         {
             var settings = AppSettingsStore.Load();
-            tdp = smart ? smartWatts : TdpProfiles.WattsFor(settings.TdpMode);
+            if (smart) tdp = smartWatts;
+            else if (TdpProfiles.WattsFor(settings.TdpMode) is { } manual)
+            {
+                // O perfil manual é limitado ao que o aparelho aceita agora (na bateria o teto é menor).
+                var limits = DeviceTdpLimits.Current();
+                tdp = Math.Clamp(manual, limits.SplMin, Math.Max(limits.SplMin, limits.SplMax));
+            }
             if (smart)
-                target = HandheldLauncher.Core.Services.SmartTdp.SmartTdpTargetStore.Shared.Get(game.Id) ?? settings.SmartTdpTargetFps;
+            {
+                var chosen = HandheldLauncher.Core.Services.SmartTdp.SmartTdpTargetStore.Shared.Get(game.Id) ?? settings.SmartTdpTargetFps;
+                target = Math.Clamp(chosen <= 0 ? 60 : chosen,
+                    HandheldLauncher.Core.Services.SmartTdp.SmartTdpTargetStore.MinTargetFps,
+                    HandheldLauncher.Core.Services.SmartTdp.SmartTdpTargetStore.MaxTargetFps);
+            }
         }
         catch (Exception ex) { DebugLog.Swallowed(ex); }
 
-        _session.Add(seconds, metrics.OnAcPower, metrics.BatteryWatts, metrics.BatteryPercent, fps, tdp, smart, target);
+        _session.Add(seconds, battery.OnAc, battery.Watts, battery.Percent, fps, tdp, smart, target);
     }
 
     private void Finish()

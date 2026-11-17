@@ -155,7 +155,7 @@ public sealed class GameDetailsViewModel : ViewModelBase
 
             var guide = HandheldLauncher.Core.Services.SessionDiary.EnergyGuide.Build(
                 sessions, HandheldLauncher.App.Platform.GameEnergyCache.MaxDeviceWatts());
-            if (guide is not null)
+            if (guide is { HasAnyMeasurement: true })
             {
                 HasEnergyGuide = true;
                 EnergyGuideMaxText = $"Máximo medido: {guide.MaxFps:0} FPS a {guide.MaxFpsWatts} W.";

@@ -219,7 +219,7 @@ public class SessionDiaryTests
         acc.Add(5, onAc: true, dischargeWatts: null, batteryPercent: 100, fps: null, tdpWatts: 30); // sem FPS: não entra
         var record = acc.Build(Start.AddMinutes(6));
         Assert.Equal(2, record.FpsByTdp!.Count);
-        Assert.Equal((15, 100, 40.0), (record.FpsByTdp[0].Watts, record.FpsByTdp[0].Seconds, record.FpsByTdp[0].AvgFps));
+        Assert.Equal((15, 100, 40.0, 40.0), (record.FpsByTdp[0].Watts, record.FpsByTdp[0].Seconds, record.FpsByTdp[0].AvgFps, record.FpsByTdp[0].MedianFps));
         Assert.Equal((17, 200, 60.0), (record.FpsByTdp[1].Watts, record.FpsByTdp[1].Seconds, record.FpsByTdp[1].AvgFps));
     }
 
@@ -231,6 +231,7 @@ public class SessionDiaryTests
         {
             Curve(0, (10, 300, 31), (13, 300, 44), (17, 600, 59)),
             Curve(1, (20, 300, 60), (25, 300, 60), (17, 300, 59)),
+            Curve(2, (25, 300, 60)),
         };
         var guide = EnergyGuide.Build(sessions, deviceMaxWatts: 35)!;
         Assert.Equal(60, guide.MaxFps);
@@ -266,5 +267,40 @@ public class SessionDiaryTests
         Assert.Null(EnergyGuide.Build(new[] { Curve(0, (20, 30, 60)) }, 35));
         // 30 s + 40 s em sessões diferentes somam.
         Assert.NotNull(EnergyGuide.Build(new[] { Curve(0, (20, 30, 60)), Curve(1, (20, 40, 60)) }, 35));
+    }
+
+    [Fact]
+    public void GuideIgnoresALowTdpThatOnlyLookedFastInMenus()
+    {
+        // 8 W "rendeu" 70 FPS em menus, 12 W fez 50 no jogo: 60 FPS precisa de 16 W.
+        var guide = EnergyGuide.Build(new[] { Curve(0, (8, 300, 70), (12, 300, 50), (16, 300, 62)) }, 35)!;
+        Assert.Equal(new EnergyTargetAdvice(60, EnergyAdviceKind.Recommended, 16), guide.Targets[1]);
+    }
+
+    [Fact]
+    public void GuideDoesNotClaimNotReachedFromALoneLoadingScreenAtTheTop()
+    {
+        // Um minuto a 30 W com 20 FPS (carregamento) não prova que 60 é impossível.
+        var guide = EnergyGuide.Build(new[] { Curve(0, (15, 600, 40), (24, 600, 45), (30, 60, 20)) }, 35)!;
+        Assert.Equal(EnergyAdviceKind.NotMeasured, guide.Targets[1].Kind);
+        Assert.True(guide.HasAnyMeasurement);
+    }
+
+    [Fact]
+    public void GuideSkipsSessionsBeforeAReset()
+    {
+        var sessions = new[] { Curve(0, (30, 600, 60)), Curve(5, (18, 600, 61)) };
+        Assert.Equal(18, EnergyGuide.Build(sessions, 35, new[] { 60 })!.Targets[0].Watts);
+        Assert.Null(EnergyGuide.Build(new[] { Curve(0, (30, 600, 60)) }, 35, notBeforeUtc: Start.AddDays(1)));
+    }
+
+    [Fact]
+    public void DurationLeavesOutTimeAsleep()
+    {
+        var acc = new SessionAccumulator("fc", "FC", Start);
+        for (var i = 0; i < 24; i++) acc.Add(5, onAc: true, dischargeWatts: null, batteryPercent: 90, fps: 60, tdpWatts: 15);
+        acc.Add(8 * 3600, onAc: true, dischargeWatts: null, batteryPercent: 60, fps: null, tdpWatts: 15); // suspenso a noite toda
+        for (var i = 0; i < 24; i++) acc.Add(5, onAc: true, dischargeWatts: null, batteryPercent: 60, fps: 60, tdpWatts: 15);
+        Assert.Equal(240, acc.Build(Start.AddHours(8).AddMinutes(4)).DurationSeconds);
     }
 }

@@ -143,10 +143,24 @@ public partial class DeviceHealthWindow : Window
         TxtBatteryCapacity.Text = text;
         RowBatteryCapacity.IsVisible = true;
 
-        var log = HandheldLauncher.Core.Services.SessionDiary.BatteryWearLog.Shared;
-        log.Note(DateTime.UtcNow, health.DesignedCapacityMwh, health.FullChargedCapacityMwh);
-        var trend = HandheldLauncher.Core.Services.SessionDiary.BatteryWearLog.Trend(
-            log.Load(), DateTime.UtcNow, health.DesignedCapacityMwh, health.FullChargedCapacityMwh);
+        _ = ShowBatteryTrendAsync(health);
+    }
+
+    private async System.Threading.Tasks.Task ShowBatteryTrendAsync(BatteryHealth.Result health)
+    {
+        HandheldLauncher.Core.Services.SessionDiary.BatteryWearTrend? trend = null;
+        try
+        {
+            // Disco fora da thread da tela.
+            trend = await System.Threading.Tasks.Task.Run(() =>
+            {
+                var log = HandheldLauncher.Core.Services.SessionDiary.BatteryWearLog.Shared;
+                log.Note(DateTime.UtcNow, health.DesignedCapacityMwh, health.FullChargedCapacityMwh);
+                return HandheldLauncher.Core.Services.SessionDiary.BatteryWearLog.Trend(
+                    log.Load(), DateTime.UtcNow, health.DesignedCapacityMwh, health.FullChargedCapacityMwh);
+            });
+        }
+        catch (Exception ex) { DebugLog.Swallowed(ex); }
         if (trend is null) return;
         TxtBatteryTrend.Text = trend.NowPercent == trend.FirstPercent
             ? $"Sem perda desde {trend.SinceUtc.ToLocalTime():dd/MM/yyyy} ({trend.NowPercent}%)."
@@ -154,14 +168,19 @@ public partial class DeviceHealthWindow : Window
         TxtBatteryTrend.IsVisible = true;
     }
 
-    private void RefreshEnergyRows(double? fullWattHours)
+    private void RefreshEnergyRows(double? fullWattHours) => _ = RefreshEnergyRowsAsync(fullWattHours);
+
+    private async System.Threading.Tasks.Task RefreshEnergyRowsAsync(double? fullWattHours)
     {
         EnergyRows.Clear();
         try
         {
             var culture = System.Globalization.CultureInfo.GetCultureInfo("pt-BR");
-            var store = HandheldLauncher.Core.Services.SessionDiary.SessionDiaryStore.Shared;
-            var rows = HandheldLauncher.Core.Services.SessionDiary.SessionDiaryStore.SummarizeAll(store.Load(), fullWattHours);
+            // Diário lido fora da thread da tela.
+            var rows = await System.Threading.Tasks.Task.Run(() =>
+                HandheldLauncher.Core.Services.SessionDiary.SessionDiaryStore.SummarizeAll(
+                    HandheldLauncher.Core.Services.SessionDiary.SessionDiaryStore.Shared.Load(), fullWattHours));
+            EnergyRows.Clear();
             foreach (var row in rows.Take(8))
             {
                 var detail = row.Summary.Sessions == 1 ? "1 sessão na bateria" : $"{row.Summary.Sessions} sessões na bateria";

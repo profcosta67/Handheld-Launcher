@@ -75,8 +75,58 @@ public sealed class SmartTdpStore
                 : all.Keys.Where(k => k == gameId || k.StartsWith(gameId + "@", StringComparison.Ordinal)).ToList();
             foreach (var key in keys) all.Remove(key);
             if (keys.Count > 0) Persist(all);
+            NoteReset(gameId);
             return keys.Count;
         }
+    }
+
+    // Quando o usuário mandou esquecer (por jogo; "*" = todos). O diário de sessões é
+    // conferido contra isso: depois de um reset, sessões antigas não dão o ponto de partida.
+    private string ResetsPath => Path.Combine(Path.GetDirectoryName(_path) ?? ".", "smart-tdp-resets.json");
+    private const string AllGamesKey = "*";
+
+    /// <summary>Último "Resetar aprendizado" que vale para o jogo (dele ou de todos). null = nunca.</summary>
+    public DateTime? LastResetUtc(string gameId)
+    {
+        lock (_gate)
+        {
+            var resets = LoadResets();
+            DateTime? own = resets.TryGetValue(gameId, out var g) ? g : null;
+            DateTime? all = resets.TryGetValue(AllGamesKey, out var a) ? a : null;
+            return own is null ? all : all is null ? own : (own > all ? own : all);
+        }
+    }
+
+    private void NoteReset(string? gameId)
+    {
+        try
+        {
+            var resets = LoadResets();
+            resets[string.IsNullOrWhiteSpace(gameId) ? AllGamesKey : gameId] = DateTime.UtcNow;
+            var dir = Path.GetDirectoryName(ResetsPath);
+            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+            var tmp = ResetsPath + ".tmp";
+            File.WriteAllText(tmp, JsonSerializer.Serialize(resets));
+            File.Move(tmp, ResetsPath, overwrite: true);
+        }
+        catch
+        {
+            // melhor esforço
+        }
+    }
+
+    private Dictionary<string, DateTime> LoadResets()
+    {
+        try
+        {
+            if (File.Exists(ResetsPath))
+                return JsonSerializer.Deserialize<Dictionary<string, DateTime>>(File.ReadAllText(ResetsPath)) ?? new();
+        }
+        catch
+        {
+            // arquivo estragado ou preso: trata como sem reset
+        }
+        return new Dictionary<string, DateTime>();
     }
 
     private void Persist(Dictionary<string, SmartTdpEntry> all)
