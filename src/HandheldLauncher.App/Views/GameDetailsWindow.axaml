@@ -286,6 +286,27 @@
               </Grid>
             </StackPanel>
           </Border>
+          <!-- v0.31: diário de sessões — consumo na bateria, autonomia e FPS. -->
+          <Border Classes="detailsSurface" Padding="18">
+            <StackPanel Spacing="10">
+              <TextBlock Text="Energia e desempenho" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasEnergyData}">
+                <TextBlock Text="Consumo típico na bateria" Foreground="{DynamicResource TextPrimaryBrush}" />
+                <TextBlock Grid.Column="1" Text="{Binding EnergyTypicalText}" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              </Grid>
+              <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasEnergyRuntime}">
+                <TextBlock Text="Autonomia estimada" Foreground="{DynamicResource TextPrimaryBrush}" />
+                <TextBlock Grid.Column="1" Text="{Binding EnergyRuntimeText}" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              </Grid>
+              <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasEnergyFps}">
+                <TextBlock Text="FPS na última sessão medida" Foreground="{DynamicResource TextPrimaryBrush}" />
+                <TextBlock Grid.Column="1" Text="{Binding EnergyFpsText}" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              </Grid>
+              <TextBlock Text="{Binding EnergyWarningText}" IsVisible="{Binding HasEnergyWarning}" TextWrapping="Wrap"
+                         FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <TextBlock Classes="subtle" Text="{Binding EnergyNoteText}" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
           <Border Classes="detailsSurface" Padding="18">
             <TextBlock Classes="subtle" TextWrapping="Wrap"
                        Text="Receita do jogo, FPS médio, consumo e previsão de bateria por jogo chegam com as Receitas (v0.20) — esta seção já fica pronta pra recebê-los." />

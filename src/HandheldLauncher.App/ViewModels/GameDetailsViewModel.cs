@@ -113,6 +113,66 @@ public sealed class GameDetailsViewModel : ViewModelBase
     public string LastPlayedText { get; private set; } = "";
     public string LauncherPlaytimeText { get; private set; } = "";
 
+    // v0.31: diário de sessões (consumo na bateria, autonomia, FPS).
+    public bool HasEnergyData { get; private set; }
+    public string EnergyTypicalText { get; private set; } = "";
+    public string EnergyRuntimeText { get; private set; } = "";
+    public string EnergyFpsText { get; private set; } = "";
+    public string EnergyNoteText { get; private set; } = "";
+    public bool HasEnergyRuntime { get; private set; }
+    public bool HasEnergyFps { get; private set; }
+    public bool HasEnergyWarning { get; private set; }
+    public string EnergyWarningText { get; private set; } = "";
+
+    private void LoadEnergySummary()
+    {
+        try
+        {
+            double? fullWh = HandheldLauncher.App.Platform.BatteryHealth.Read().FullChargedCapacityMwh is { } mwh && mwh > 0
+                ? mwh / 1000.0
+                : null;
+            var sessions = HandheldLauncher.Core.Services.SessionDiary.SessionDiaryStore.Shared.ForGame(Game.Id);
+            var summary = HandheldLauncher.Core.Services.SessionDiary.SessionDiaryStore.Summarize(sessions, fullWh);
+            var withFps = sessions.Where(s => s.AvgFps is > 0).ToList();
+
+            if (withFps.Count > 0)
+            {
+                HasEnergyFps = true;
+                var last = withFps[^1];
+                EnergyFpsText = $"{last.AvgFps:0} FPS (piores momentos {last.LowFps:0})";
+            }
+
+            if (summary is null)
+            {
+                EnergyNoteText = sessions.Count == 0
+                    ? "Ainda sem sessões no diário. Ele começa a medir na próxima vez que você jogar."
+                    : "Ainda sem consumo medido: as sessões foram na tomada. Jogue alguns minutos na bateria.";
+                return;
+            }
+
+            HasEnergyData = true;
+            EnergyTypicalText = $"{summary.TypicalWatts:0.0} W";
+            if (summary.EstimatedHours is { } hours)
+            {
+                HasEnergyRuntime = true;
+                var minutes = (int)Math.Round(hours * 60);
+                EnergyRuntimeText = $"cerca de {minutes / 60}h{minutes % 60:00} por carga";
+            }
+            EnergyNoteText = summary.IsEarlyEstimate
+                ? $"Estimativa inicial, com {summary.Sessions} sessão(ões) na bateria. Fica mais confiável a partir da terceira."
+                : $"Média das últimas sessões na bateria ({summary.Sessions} no total). Consumo do aparelho inteiro, lido da bateria.";
+            if (summary.LastAboveNormal && summary.LastWatts is { } lastWatts)
+            {
+                HasEnergyWarning = true;
+                EnergyWarningText = $"A última sessão gastou {lastWatts:0.0} W, bem acima do costume neste jogo. Vale conferir brilho, TDP e o que estava aberto junto.";
+            }
+        }
+        catch (Exception ex)
+        {
+            HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(ex);
+        }
+    }
+
     private string _totalPlaytimeText = "";
     public string TotalPlaytimeText { get => _totalPlaytimeText; private set => SetField(ref _totalPlaytimeText, value); }
 
@@ -188,6 +248,21 @@ public sealed class GameDetailsViewModel : ViewModelBase
         LastPlayedText = Game.LastPlayedUtc is { } played ? FormatRelativeDate(played) : "Nunca aberto pelo launcher";
         LauncherPlaytimeText = Game.PlaytimeMinutes > 0 ? FormatDuration(Game.PlaytimeMinutes) : "Nenhuma sessão medida ainda";
         TotalPlaytimeText = Game.PlaytimeMinutes > 0 ? FormatDuration(Game.PlaytimeMinutes) : "—";
+        // Fora da thread da tela: a capacidade da bateria vem do WMI, que pode demorar.
+        _ = Task.Run(() =>
+        {
+            LoadEnergySummary();
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                foreach (var name in new[]
+                {
+                    nameof(HasEnergyData), nameof(EnergyTypicalText), nameof(EnergyRuntimeText), nameof(EnergyFpsText),
+                    nameof(EnergyNoteText), nameof(HasEnergyRuntime), nameof(HasEnergyFps), nameof(HasEnergyWarning),
+                    nameof(EnergyWarningText),
+                })
+                    OnPropertyChanged(name);
+            });
+        });
 
         if (!string.IsNullOrWhiteSpace(Game.InstallDirectory))
         {
