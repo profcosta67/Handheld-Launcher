@@ -203,4 +203,68 @@ public class SessionDiaryTests
             File.Delete(path);
         }
     }
+
+    private static SessionRecord Curve(int day, params (int Watts, int Seconds, double Fps)[] points) => new()
+    {
+        GameId = "g", Title = "g", StartedUtc = Start.AddDays(day), DurationSeconds = points.Sum(p => p.Seconds),
+        FpsByTdp = points.Select(p => new TdpFpsBucket { Watts = p.Watts, Seconds = p.Seconds, AvgFps = p.Fps }).ToList(),
+    };
+
+    [Fact]
+    public void AccumulatorKeepsFpsPerTdp()
+    {
+        var acc = new SessionAccumulator("fc", "FC", Start);
+        for (var i = 0; i < 20; i++) acc.Add(5, onAc: true, dischargeWatts: null, batteryPercent: 100, fps: 40, tdpWatts: 15);
+        for (var i = 0; i < 40; i++) acc.Add(5, onAc: true, dischargeWatts: null, batteryPercent: 100, fps: 60, tdpWatts: 17);
+        acc.Add(5, onAc: true, dischargeWatts: null, batteryPercent: 100, fps: null, tdpWatts: 30); // sem FPS: não entra
+        var record = acc.Build(Start.AddMinutes(6));
+        Assert.Equal(2, record.FpsByTdp!.Count);
+        Assert.Equal((15, 100, 40.0), (record.FpsByTdp[0].Watts, record.FpsByTdp[0].Seconds, record.FpsByTdp[0].AvgFps));
+        Assert.Equal((17, 200, 60.0), (record.FpsByTdp[1].Watts, record.FpsByTdp[1].Seconds, record.FpsByTdp[1].AvgFps));
+    }
+
+    [Fact]
+    public void GuideRecommendsTheLowestTdpThatHoldsEachRate()
+    {
+        // Jogo leve com limite em 60: 30 FPS a 10 W, 58 a 17 W, parado em 60 dali em diante.
+        var sessions = new[]
+        {
+            Curve(0, (10, 300, 31), (13, 300, 44), (17, 600, 59)),
+            Curve(1, (20, 300, 60), (25, 300, 60), (17, 300, 59)),
+        };
+        var guide = EnergyGuide.Build(sessions, deviceMaxWatts: 35)!;
+        Assert.Equal(60, guide.MaxFps);
+        Assert.Equal(17, guide.MaxFpsWatts); // 59 já está a 3% do máximo
+        Assert.Equal(new EnergyTargetAdvice(30, EnergyAdviceKind.Recommended, 10), guide.Targets[0]);
+        Assert.Equal(new EnergyTargetAdvice(60, EnergyAdviceKind.Recommended, 17), guide.Targets[1]);
+        // 25 W não rendeu mais que 17 W: mais TDP não leva a 120.
+        Assert.Equal(EnergyAdviceKind.NotReached, guide.Targets[2].Kind);
+        Assert.Equal("30 FPS: 10 W · 60 FPS: 17 W · 120 FPS: não chega", guide.ShortText());
+    }
+
+    [Fact]
+    public void GuideSaysNotReachedOnlyWhenTheCeilingOrAPlateauWasMeasured()
+    {
+        // Jogo pesado medido até o teto: 30 FPS a 26 W, 41 a 34 W.
+        var heavy = EnergyGuide.Build(new[] { Curve(0, (20, 300, 24), (26, 300, 30), (34, 300, 41)) }, deviceMaxWatts: 35)!;
+        Assert.Equal(new EnergyTargetAdvice(30, EnergyAdviceKind.Recommended, 26), heavy.Targets[0]);
+        Assert.Equal(EnergyAdviceKind.NotReached, heavy.Targets[1].Kind);
+        Assert.Equal(41, heavy.MaxFps);
+        Assert.Equal(34, heavy.MaxFpsWatts);
+
+        // Só medido com TDP baixo e ainda subindo: não dá para afirmar nada sobre 60.
+        var partial = EnergyGuide.Build(new[] { Curve(0, (12, 300, 29), (15, 300, 36)) }, deviceMaxWatts: 35)!;
+        Assert.Equal(EnergyAdviceKind.Recommended, partial.Targets[0].Kind);
+        Assert.Equal(EnergyAdviceKind.NotMeasured, partial.Targets[1].Kind);
+        Assert.Equal("30 FPS: 12 W · 60 FPS: sem medição · 120 FPS: sem medição", partial.ShortText());
+    }
+
+    [Fact]
+    public void GuideNeedsAMinuteAtATdpAndIgnoresOldSessionsWithoutTheCurve()
+    {
+        Assert.Null(EnergyGuide.Build(new[] { Session("g", 0, 25) }, 35));
+        Assert.Null(EnergyGuide.Build(new[] { Curve(0, (20, 30, 60)) }, 35));
+        // 30 s + 40 s em sessões diferentes somam.
+        Assert.NotNull(EnergyGuide.Build(new[] { Curve(0, (20, 30, 60)), Curve(1, (20, 40, 60)) }, 35));
+    }
 }

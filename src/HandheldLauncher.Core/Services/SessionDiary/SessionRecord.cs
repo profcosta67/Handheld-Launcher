@@ -29,6 +29,9 @@ public sealed class SessionRecord
     public double? AvgTdpWatts { get; set; }
     public bool SmartTdp { get; set; }
     public int? TargetFps { get; set; }
+
+    /// <summary>FPS médio em cada TDP usado na sessão (base da recomendação energética). null em sessões antigas.</summary>
+    public List<TdpFpsBucket>? FpsByTdp { get; set; }
 }
 
 /// <summary>O que o diário sabe sobre o consumo de um jogo.</summary>

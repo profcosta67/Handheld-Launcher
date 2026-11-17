@@ -129,6 +129,9 @@ public sealed class GameDetailsViewModel : ViewModelBase
     public bool HasEnergyHistory { get; private set; }
     public IReadOnlyList<string> EnergyHistory { get; private set; } = Array.Empty<string>();
     private const int EnergyHistoryRows = 6;
+    public bool HasEnergyGuide { get; private set; }
+    public string EnergyGuideMaxText { get; private set; } = "";
+    public IReadOnlyList<EnergyGuideRow> EnergyGuideRows { get; private set; } = Array.Empty<EnergyGuideRow>();
 
     private void LoadEnergySummary()
     {
@@ -148,6 +151,17 @@ public sealed class GameDetailsViewModel : ViewModelBase
                     .Select(s => HandheldLauncher.Core.Services.SessionDiary.SessionDiaryStore.DescribeSession(s, offset))
                     .ToList();
                 HasEnergyHistory = true;
+            }
+
+            var guide = HandheldLauncher.Core.Services.SessionDiary.EnergyGuide.Build(
+                sessions, HandheldLauncher.App.Platform.GameEnergyCache.MaxDeviceWatts());
+            if (guide is not null)
+            {
+                HasEnergyGuide = true;
+                EnergyGuideMaxText = $"Máximo medido: {guide.MaxFps:0} FPS a {guide.MaxFpsWatts} W.";
+                EnergyGuideRows = guide.Targets
+                    .Select(t => new EnergyGuideRow($"{t.TargetFps} FPS", HandheldLauncher.Core.Services.SessionDiary.EnergyGuide.Describe(t, detailed: true)))
+                    .ToList();
             }
 
             if (withFps.Count > 0)
@@ -283,6 +297,7 @@ public sealed class GameDetailsViewModel : ViewModelBase
                     nameof(EnergyNoteText), nameof(HasEnergyRuntime), nameof(HasEnergyFps), nameof(HasEnergyWarning),
                     nameof(EnergyWarningText), nameof(HasEnergyNow), nameof(EnergyNowLabel), nameof(EnergyNowText),
                     nameof(HasEnergyHistory), nameof(EnergyHistory),
+                    nameof(HasEnergyGuide), nameof(EnergyGuideMaxText), nameof(EnergyGuideRows),
                 })
                     OnPropertyChanged(name);
             });
@@ -814,3 +829,6 @@ public sealed class GameDetailsViewModel : ViewModelBase
         }
     }
 }
+
+/// <summary>Linha da "Recomendação energética" na página do jogo (v0.31).</summary>
+public sealed record EnergyGuideRow(string Target, string Advice);

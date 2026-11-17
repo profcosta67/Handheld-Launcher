@@ -113,6 +113,8 @@ internal sealed class SessionDiaryRecorder : IDisposable
             return;
         }
 
+        GameEnergyCache.Reload(); // a barra do jogo passa a mostrar a sessão nova
+
         var parts = new List<string> { $"{record.DurationSeconds / 60} min" };
         if (record.AvgBatteryWatts is { } watts) parts.Add($"{watts:0.0} W na bateria (pico {record.PeakBatteryWatts:0.0} W, {record.BatterySeconds / 60} min)");
         if (record.BatteryStartPercent is { } from && record.BatteryEndPercent is { } to) parts.Add($"bateria {from}% → {to}%");

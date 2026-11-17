@@ -192,6 +192,10 @@ public partial class App : Application
 
             // v0.31: diário de sessões (consumo, bateria e FPS por jogo). Só observa.
             var sessionDiary = new SessionDiaryRecorder(mainViewModel);
+            // v0.31: quando o resumo do diário carrega (ou uma sessão termina), a barra do jogo se atualiza.
+            GameEnergyCache.Changed += () => Avalonia.Threading.Dispatcher.UIThread.Post(
+                () => mainViewModel.SelectedTile?.RefreshEnergy());
+            GameEnergyCache.Reload();
             desktop.Exit += (_, _) => sessionDiary.Dispose();
 
             // v0.27: TDP inteligente (só age com a opção ligada e um jogo aberto).

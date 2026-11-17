@@ -420,6 +420,7 @@ public GameTileViewModel? SelectedTile
             if (value is not null)
             {
                 _ = value.LoadDescriptionAsync();
+                value.RefreshEnergy(); // v0.31: o resumo do diário pode ter chegado depois
                 _ = value.LoadReviewAsync();   // 🟢 NOVO
             }
         }

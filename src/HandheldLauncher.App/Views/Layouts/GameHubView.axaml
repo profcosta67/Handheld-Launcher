@@ -92,6 +92,15 @@
                                    FontSize="{DynamicResource TextSmall}" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     </StackPanel>
 
+                    <!-- v0.31: consumo e FPS da última sessão medida -->
+                    <StackPanel Orientation="Horizontal" Spacing="4"
+                                IsVisible="{Binding SelectedTile.HasEnergyLast}">
+                        <PathIcon Width="14" Height="14" Data="{StaticResource IconBolt}" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding SelectedTile.EnergyLastLabel}"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                   FontSize="{DynamicResource TextSmall}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </StackPanel>
+
                     <!-- 🏷️ Gênero -->
                     <StackPanel Orientation="Horizontal" Spacing="4"
                                 IsVisible="{Binding SelectedTile.HasGenre}">
@@ -110,6 +119,12 @@
                 </StackPanel>
                     
                 </StackPanel>
+
+                <!-- v0.31: recomendação energética (menor TDP medido para 30/60/120 FPS) -->
+                <TextBlock IsVisible="{Binding SelectedTile.HasEnergyGuide}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="{DynamicResource TextCaption}"
+                           TextTrimming="CharacterEllipsis" MaxLines="1"><Run Text="Recomendação energética: " /><Run Text="{Binding SelectedTile.EnergyGuideLabel}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" /></TextBlock>
 
                 <!-- Descrição -->
                 <TextBlock Text="{Binding SelectedTile.Description, Converter={x:Static conv:HtmlDecodeConverter.Instance}}" 

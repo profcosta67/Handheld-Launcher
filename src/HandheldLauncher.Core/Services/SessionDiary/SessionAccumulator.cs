@@ -23,6 +23,7 @@ public sealed class SessionAccumulator
     private double _tdpWattSeconds;
     private bool _smartTdp;
     private int? _targetFps;
+    private readonly SortedDictionary<int, (double Seconds, double Frames)> _fpsByTdp = new();
 
     public SessionAccumulator(string gameId, string title, DateTime startedUtc)
     {
@@ -60,6 +61,12 @@ public sealed class SessionAccumulator
             _tdpWattSeconds += tdpWatts.Value * seconds;
         }
 
+        if (fps is { } rate && rate >= 1 && rate < 1000 && !double.IsNaN(rate) && tdpWatts is > 0 and < 200)
+        {
+            var bucket = _fpsByTdp.GetValueOrDefault(tdpWatts.Value);
+            _fpsByTdp[tdpWatts.Value] = (bucket.Seconds + seconds, bucket.Frames + rate * seconds);
+        }
+
         if (smartTdp)
         {
             _smartTdp = true;
@@ -94,6 +101,15 @@ public sealed class SessionAccumulator
             AvgTdpWatts = _tdpSeconds > 0 ? Math.Round(_tdpWattSeconds / _tdpSeconds, 1) : null,
             SmartTdp = _smartTdp,
             TargetFps = _targetFps,
+            FpsByTdp = _fpsByTdp.Count == 0 ? null : _fpsByTdp
+                .Select(p => new TdpFpsBucket
+                {
+                    Watts = p.Key,
+                    Seconds = (int)Math.Round(p.Value.Seconds),
+                    AvgFps = Math.Round(p.Value.Frames / p.Value.Seconds, 1),
+                })
+                .Where(b => b.Seconds > 0)
+                .ToList(),
         };
     }
 }

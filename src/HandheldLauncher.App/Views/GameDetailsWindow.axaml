@@ -311,6 +311,25 @@
               <TextBlock Classes="subtle" Text="{Binding EnergyNoteText}" TextWrapping="Wrap" />
             </StackPanel>
           </Border>
+          <!-- v0.31: menor TDP medido que segura cada taxa fixa. -->
+          <Border Classes="detailsSurface" Padding="18" IsVisible="{Binding HasEnergyGuide}">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Recomendação energética" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <ItemsControl ItemsSource="{Binding EnergyGuideRows}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:EnergyGuideRow">
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+                      <TextBlock Text="{Binding Target}" Foreground="{DynamicResource TextPrimaryBrush}" />
+                      <TextBlock Grid.Column="1" Text="{Binding Advice}" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock Text="{Binding EnergyGuideMaxText}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <TextBlock Classes="subtle" TextWrapping="Wrap"
+                         Text="Menor TDP em que o jogo segurou cada taxa nas suas sessões. Com vsync ou limite de FPS ligado, o máximo medido é esse limite. Cenas mais pesadas podem pedir mais." />
+            </StackPanel>
+          </Border>
           <Border Classes="detailsSurface" Padding="18" IsVisible="{Binding HasEnergyHistory}">
             <StackPanel Spacing="8">
               <TextBlock Text="Últimas sessões" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
