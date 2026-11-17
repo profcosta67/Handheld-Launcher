@@ -106,6 +106,8 @@ public sealed class SmartTdpController
         _nearCount = 0;
         _goodSince = nowSeconds;
         _lowFpsSince = null;
+        _previousFps = null;        // a leitura de antes da pausa não conta para "queda brusca"
+        _dropUntil = double.NegativeInfinity;
         _lastChangeWasDown = false; // a volta não é uma descida de teste
         // Uma subida em andamento continua sendo medida a partir de onde começou: se ela se
         // mostrar inútil, volta para antes dela (e não para o valor com reforço).
@@ -225,6 +227,7 @@ public sealed class SmartTdpController
     public const double SuddenDropRatio = 0.65;
     public const double SuddenDropHoldSeconds = 15;
     private double? _previousFps;
+    private double _previousAt = double.NegativeInfinity;
     private double _dropUntil = double.NegativeInfinity;
 
     private void NoteCurve(double fps, double nowSeconds)
@@ -364,8 +367,9 @@ public sealed class SmartTdpController
             // Queda brusca: de dentro da meta para menos de 65% dela, de uma leitura para a outra.
             // É corte de cena, replay ou menu travado em 30 (EA FC a cada lance parado), não falta
             // de potência: espera até 15 s antes de subir. Falta de potência não derruba o FPS assim.
-            var previous = _previousFps;
+            var previous = nowSeconds - _previousAt <= 6 ? _previousFps : null; // só de uma leitura para a seguinte
             _previousFps = fps;
+            _previousAt = nowSeconds;
             if (previous is { } prev && prev >= _effectiveTarget * MeetRatio && fps < _effectiveTarget * SuddenDropRatio
                 && _dropUntil < nowSeconds)
                 _dropUntil = nowSeconds + SuddenDropHoldSeconds;
