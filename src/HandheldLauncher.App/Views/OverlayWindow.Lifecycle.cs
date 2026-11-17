@@ -142,6 +142,7 @@ public partial class OverlayWindow
 
      protected override void OnOpened(EventArgs e)
     {
+        InstallMoveBlocker();
         base.OnOpened(e);
         DebugLog.Write($"[OVERLAY] OnOpened chamado. Width={Width}, Height={Height}");
 
@@ -294,6 +295,8 @@ public partial class OverlayWindow
 
             var x = wa.X + wa.Width - widthPx - 20;
             var y = wa.Y + (wa.Height - heightPx) / 2;
+            // Antes de mover: o bloqueio de movimentos de fora compara com esta posição.
+            RememberExpectedPosition(new PixelPoint(x, y));
 
             if (OperatingSystem.IsWindows())
             {
@@ -381,6 +384,7 @@ public partial class OverlayWindow
             var x = wa.X + wa.Width - widthPx - 20;
             var y = wa.Y + (wa.Height - heightPx) / 2;
 
+            RememberExpectedPosition(new PixelPoint(x, y));
             Position = new PixelPoint(x, y);
             DebugLog.Write($"[OVERLAY] SetInitialPosition: {x},{y} (tamanho {widthPx}x{heightPx})");
         }

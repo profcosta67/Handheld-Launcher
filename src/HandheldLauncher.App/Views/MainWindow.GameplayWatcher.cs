@@ -599,6 +599,8 @@ private void SetAddButtonFocused(bool focused)
             _hidPadLoggedDuplicate = true;
             DebugLog.Write("[QS-INPUT] XInput também entregou botões com o QS sem foco; usando só a ponte HID.");
         }
+        if (hidActions.Count > 0)
+            DebugLog.Write($"[QS-INPUT] Ponte HID → {string.Join(", ", hidActions)}");
         return hidActions;
     }
 
