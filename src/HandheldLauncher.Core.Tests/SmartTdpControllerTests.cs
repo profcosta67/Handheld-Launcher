@@ -184,16 +184,20 @@ public class SmartTdpControllerTests
             if (t >= 20) peakAfterFirstTry = Math.Max(peakAfterFirstTry, c.Watts);
         }
         Assert.Equal(20, c.Watts);
-        Assert.Equal(20, peakAfterFirstTry);
+        // Só o teste curto de +3 W (0.27 beta.69) passa dos 20 W, e volta logo.
+        Assert.InRange(peakAfterFirstTry, 20, 23);
         Assert.True(c.TargetUnreachable);
         Assert.InRange(c.EffectiveTargetFps, 26, 28);
         Assert.False(c.IsSettled); // não vira "aprendido" para a meta de 45
 
         // Tenta de novo de tempos em tempos, mas nunca passa de +6 W nem fica lá.
         var peakLater = 0;
-        for (var t = 100.0; t < 600; t += 2) { c.OnSample(Game(c.Watts), t); peakLater = Math.Max(peakLater, c.Watts); }
+        double sumLater = 0;
+        var nLater = 0;
+        for (var t = 100.0; t < 600; t += 2) { c.OnSample(Game(c.Watts), t); peakLater = Math.Max(peakLater, c.Watts); sumLater += c.Watts; nLater++; }
         Assert.InRange(peakLater, 20, 26);
-        Assert.Equal(20, c.Watts);
+        Assert.True(sumLater / nLater <= 21, $"média de {sumLater / nLater:0.0} W");
+        Assert.InRange(c.Watts, 20, 23); // pode terminar no meio de um teste de +3 W
     }
 
     [Fact]
@@ -312,7 +316,8 @@ public class SmartTdpControllerTests
         double sum = 0;
         var n = 0;
         var learnedSomething = false;
-        for (var t = 0.0; t < 600; t += 2)
+        // Termina fora de um replay (t = 644): no meio de um, o valor do instante é o da subida.
+        for (var t = 0.0; t < 646; t += 2)
         {
             var replay = t % 60 >= 46;
             c.OnSample(replay ? 28 : VsyncGame(c.Watts), t);
