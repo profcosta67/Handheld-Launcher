@@ -39,7 +39,7 @@ internal sealed class SmartTdpService : IDisposable
     private const double ResumeBoostNoFramesSeconds = 15;
     private const double ReassertSeconds = 60;
     private const double UserRequestGraceSeconds = 20;
-    private const double FanDownAfterSeconds = 30;
+    private const double FanDownAfterSeconds = 60;
     private const double StatusLogSeconds = 10;
 
     /// <summary>
@@ -571,6 +571,11 @@ internal sealed class SmartTdpService : IDisposable
         var up = FanRank(wanted) > FanRank(current);
         if (!up)
         {
+            // Folga de 1 W para baixar: no limite entre dois perfis (20/21 W) a ventoinha trocava
+            // de Normal para Desempenho a cada minuto (log de 17/11).
+            var wantedWithMargin = TdpProfiles.LinkedFanMode(TdpProfiles.CustomMode(watts + 1));
+            if (FanRank(wantedWithMargin) >= FanRank(current)) { s.FanLowerSince = null; return; }
+            wanted = wantedWithMargin;
             s.FanLowerSince ??= now;
             if ((now - s.FanLowerSince.Value).TotalSeconds < FanDownAfterSeconds) return;
         }

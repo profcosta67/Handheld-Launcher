@@ -35,7 +35,7 @@ public sealed class SmartTdpStore
 
     // Um valor por jogo e por meta ("id@60"): trocar a meta no Quick Settings não apaga o
     // que foi aprendido para a outra. Arquivos antigos (chave só com o id) continuam lidos.
-    public const int CurrentRev = 2;
+    public const int CurrentRev = 3;
 
     private static string KeyFor(string gameId, int targetFps) => $"{gameId}@{targetFps}";
 
@@ -45,7 +45,8 @@ public sealed class SmartTdpStore
         {
             var all = Load();
             // Só vale o que foi aprendido pela regra atual: as betas até a 64 gravaram valores
-            // altos demais (ex.: 34 W para 60 FPS num jogo que segura 60 com 20 W).
+            // altos demais (ex.: 34 W para 60 FPS num jogo que segura 60 com 20 W), e as até a 68
+            // ainda aprendiam 32–34 W numa meta fora de alcance (Days Gone a 35 FPS).
             return all.TryGetValue(KeyFor(gameId, targetFps), out var e) && e.Watts > 0 && e.Rev >= CurrentRev ? e : null;
         }
     }

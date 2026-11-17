@@ -191,6 +191,77 @@ public sealed class SmartTdpController
     private double? _atMaxSince;
     private readonly List<(int Watts, double Fps)> _climbHistory = new();
 
+    // Curva desta sessão: FPS medido em cada potência nos últimos minutos. Serve para não subir
+    // de novo quando já se viu que mais watts não dão mais FPS (jogo preso na placa de vídeo) e
+    // para voltar ao menor valor que já dava esse FPS. Só vale para a cena atual: se o FPS na
+    // mesma potência muda muito, a curva é apagada.
+    public const double CurveWindowSeconds = 240;
+    public const int CurveMinSamples = 3;
+    public const double CurveSettleSeconds = 4;     // leituras logo depois de trocar os watts ainda são do valor antigo
+    private const int CurveMaxPerWatt = 12;
+    public const double SceneChangeRatio = 0.12;
+    public const double KneeRatio = 0.95;
+    // Sair de "fora de alcance" exige o FPS bem acima do patamar, não só encostar na meta:
+    // num jogo que oscila em volta de 33 com meta 35, a oscilação fazia sair e subir de novo.
+    public const double UnreachableExitAbovePlateau = 1.05;
+    // Fora de alcance: de minuto em minuto um teste curto de +3 W. Se o FPS subir de verdade
+    // (12%), a cena mudou e o controle volta a buscar a meta.
+    public const double ProbeEverySeconds = 60;
+    public const double ProbeGainRatio = 1.12;
+    private readonly Dictionary<int, Queue<(double At, double Fps)>> _curve = new();
+    private int _sceneChangeCount;
+    private double? _probeAt;
+    private double _probeBase;
+    private readonly List<double> _probeSamples = new();
+    private double _lastProbe = double.NegativeInfinity;
+    private int _aboveCount;
+
+    private void NoteCurve(double fps, double nowSeconds)
+    {
+        if (fps < IgnoreBelowFps || nowSeconds - _lastChange < CurveSettleSeconds) return;
+        var (mean, n) = CurveAverage(Watts - 1, Watts + 1, nowSeconds);
+        _sceneChangeCount = n >= CurveMinSamples && mean is { } m && Math.Abs(fps - m) > SceneChangeRatio * m ? _sceneChangeCount + 1 : 0;
+        if (_sceneChangeCount >= 3)
+        {
+            // A cena mudou: o que se mediu antes não vale para agora.
+            _curve.Clear();
+            _sceneChangeCount = 0;
+            if (_unreachable) LeaveUnreachable();
+        }
+        if (!_curve.TryGetValue(Watts, out var queue)) _curve[Watts] = queue = new Queue<(double, double)>();
+        queue.Enqueue((nowSeconds, fps));
+        while (queue.Count > 0 && nowSeconds - queue.Peek().At > CurveWindowSeconds) queue.Dequeue();
+        if (queue.Count > CurveMaxPerWatt) queue.Dequeue();
+    }
+
+    private (double? Mean, int Count) CurveAverage(int fromWatts, int toWatts, double nowSeconds)
+    {
+        double sum = 0;
+        var count = 0;
+        foreach (var (watts, queue) in _curve)
+        {
+            if (watts < fromWatts || watts > toWatts) continue;
+            foreach (var (at, value) in queue)
+            {
+                if (nowSeconds - at > CurveWindowSeconds) continue;
+                sum += value;
+                count++;
+            }
+        }
+        return count == 0 ? (null, 0) : (sum / count, count);
+    }
+
+    /// <summary>Menor potência medida que já dava (quase) o FPS do patamar.</summary>
+    private int? Knee(double plateauFps, double nowSeconds)
+    {
+        foreach (var watts in _curve.Keys.OrderBy(w => w))
+        {
+            var (mean, n) = CurveAverage(watts, watts + 1, nowSeconds);
+            if (n >= CurveMinSamples && mean >= plateauFps * KneeRatio) return watts;
+        }
+        return null;
+    }
+
     /// <summary>A meta não é alcançável agora: o controle segura <see cref="EffectiveTargetFps"/>.</summary>
     public bool TargetUnreachable => _unreachable;
 
@@ -203,14 +274,17 @@ public sealed class SmartTdpController
         _effectiveTarget = _target;
         _futileUntil = double.NegativeInfinity;
         _exitSamples = 0;
+        _probeAt = null;
     }
 
-    private void MarkUnreachable(double fps, double nowSeconds)
+    private void MarkUnreachable(double fps, double nowSeconds) => MarkUnreachable(Math.Max(_climbBestFps, fps), fps, nowSeconds);
+
+    private void MarkUnreachable(double plateauFps, double fps, double nowSeconds)
     {
         _unreachable = true;
         _unreachableUntil = nowSeconds + _futileHold;
         _unreachableSince = nowSeconds;
-        _plateauFps = Math.Max(_climbBestFps, fps);
+        _plateauFps = plateauFps;
         _effectiveTarget = Math.Max(15.0, Math.Min(_target, _plateauFps * 0.97));
         _futileFps = fps;
         _futileUntil = nowSeconds + _futileHold;
@@ -275,6 +349,7 @@ public sealed class SmartTdpController
         else
         {
             _lowFpsSince = null;
+            NoteCurve(fps, nowSeconds);
         }
 
         // Sai do modo "meta fora de alcance" quando a meta real volta a ser cumprida, quando o
@@ -282,12 +357,60 @@ public sealed class SmartTdpController
         // (Duas leituras seguidas: uma só, por oscilação, não conta.)
         if (_unreachable)
         {
-            var changed = fps >= _target * MeetRatio || fps > _plateauFps * 1.20;
+            var changed = (fps >= _target * MeetRatio && fps >= _plateauFps * UnreachableExitAbovePlateau) || fps > _plateauFps * 1.20;
             _exitSamples = changed ? _exitSamples + 1 : 0;
-            if (_exitSamples >= 2 || nowSeconds >= _unreachableUntil)
+            // (Com um teste de +3 W em andamento, a nova tentativa espera o teste terminar e devolver os watts.)
+            if (_exitSamples >= 2 || (nowSeconds >= _unreachableUntil && _probeAt is null))
             {
                 if (_exitSamples >= 2) _futileHold = FutileHoldSeconds;
+                else _curve.Clear(); // nova tentativa: mede de novo em vez de confiar no que já se viu
                 LeaveUnreachable();
+            }
+        }
+
+        // Fora de alcance: teste curto de +3 W de minuto em minuto (ou logo, se o FPS subiu acima
+        // do patamar). Se o FPS subir de verdade, a cena mudou e o controle volta a buscar a meta;
+        // se não, devolve os 3 W.
+        if (_unreachable && fps >= IgnoreBelowFps)
+        {
+            if (_probeAt is { } probeAt)
+            {
+                if (nowSeconds - probeAt >= CurveSettleSeconds) _probeSamples.Add(fps);
+                if (_probeSamples.Count < 3) return SmartTdpChange.None;
+                _probeSamples.Sort();
+                var gain = _probeBase > 0 ? _probeSamples[1] / _probeBase : 1;
+                _probeAt = null;
+                _lastProbe = nowSeconds;
+                if (gain >= ProbeGainRatio)
+                {
+                    LeaveUnreachable();
+                    _curve.Clear();
+                }
+                else
+                {
+                    Watts = Math.Max(_min, Watts - StepUpWatts);
+                    _lastChange = nowSeconds;
+                    _lastChangeWasDown = false;
+                    return SmartTdpChange.Down;
+                }
+            }
+            else
+            {
+                _aboveCount = fps >= _plateauFps * UnreachableExitAbovePlateau ? _aboveCount + 1 : 0;
+            }
+
+            if (_unreachable && _probeAt is null
+                && (nowSeconds - _lastProbe >= ProbeEverySeconds || (_aboveCount >= 3 && nowSeconds - _lastProbe >= 10))
+                && nowSeconds - _lastChange >= 10 && Watts + StepUpWatts <= _max && _resumeReturnTo is null
+                && CurveAverage(Watts, Watts, nowSeconds).Count >= 2)
+            {
+                _probeAt = nowSeconds;
+                _probeBase = fps;
+                _probeSamples.Clear();
+                Watts += StepUpWatts;
+                _lastChange = nowSeconds;
+                _lastChangeWasDown = false;
+                return SmartTdpChange.Up;
             }
         }
 
@@ -335,6 +458,36 @@ public sealed class SmartTdpController
             _belowCount = 0;
             _nearCount = 0;
 
+            // A curva desta sessão já mostra que mais potência não dá mais FPS (a partir de 3 W
+            // acima, o FPS não passa de 5% a mais que o de agora, e não chega à meta): não sobe;
+            // fica no menor valor que já dava esse FPS. Era o caso do Days Gone com meta 35: o
+            // FPS oscilava 31–34 com qualquer potência entre 25 e 35 W, e cada oscilação subia.
+            if (Watts < _max)
+            {
+                var (current, currentCount) = CurveAverage(Watts - 1, Watts + 1, nowSeconds);
+                var (higher, higherCount) = CurveAverage(Watts + StepUpWatts, _max, nowSeconds);
+                if (currentCount >= CurveMinSamples && higherCount >= CurveMinSamples && current is { } cur && higher is { } high
+                    && high < Math.Max(cur, fps) * FutileGainRatio && high < _target * MeetRatio)
+                {
+                    var plateau = Math.Max(cur, high);
+                    var knee = Knee(plateau, nowSeconds);
+                    _resumeReturnTo = null;
+                    _returnAfterClimb = null;
+                    if (_unreachable) return SmartTdpChange.None; // já segurando: não estica o prazo da nova tentativa
+                    _climbWatts = null;
+                    MarkUnreachable(plateau, fps, nowSeconds);
+                    _lastProbe = nowSeconds;
+                    if (knee is { } k && k < Watts)
+                    {
+                        Watts = Math.Max(_min, k);
+                        _lastChange = nowSeconds;
+                        _lastChangeWasDown = false;
+                        return SmartTdpChange.Down;
+                    }
+                    return SmartTdpChange.None;
+                }
+            }
+
             // Subida que não adianta: compara com o FPS de 6 W atrás nesta mesma subida (ou
             // com o início, se bateu no teto). Sem ganho de 5%, potência não é o problema:
             // volta ao menor valor da subida que já dava este FPS e segura o FPS possível.
@@ -366,6 +519,9 @@ public sealed class SmartTdpController
                         _floorConfirmed = _climbFloorConfirmed;
                         _floorIsLearned = _climbFloorIsLearned;
                     }
+                    // A curva da sessão pode mostrar um valor ainda menor que já dava este FPS.
+                    if (Knee(Math.Max(_climbBestFps, fps), nowSeconds) is { } curveKnee && curveKnee < revertTo)
+                        revertTo = Math.Max(_min, curveKnee);
                     Watts = revertTo;
                     _resumeReturnTo = null;
                     _returnAfterClimb = null;

@@ -373,4 +373,51 @@ public class SmartTdpControllerTests
         Assert.True(changes <= 2, $"{changes} trocas em 2 minutos");
         Assert.InRange(c.Watts, 17, 19);
     }
+
+    /// <summary>
+    /// Days Gone com meta 35 (log de 17/11): o FPS fica em ~33 com qualquer potência acima de
+    /// ~25 W e oscila em volta de 33–34. Antes cada oscilação abaixo da meta subia de novo e o
+    /// TDP passava a maior parte do tempo em 34–35 W para o mesmo FPS.
+    /// </summary>
+    [Fact]
+    public void TargetJustAboveAFlatPlateauDoesNotLiveAtTheCeiling()
+    {
+        static double Game(int watts) => Math.Min(33.0, watts < 20 ? 30.0 * watts / 20 : 30 + 0.6 * (watts - 20));
+        foreach (var start in new[] { 20, 34 })
+        {
+            var c = new SmartTdpController(35, 8, 35, start);
+            long seed = 12345;
+            var recent = new List<double>();
+            double wattsSum = 0, fpsSum = 0;
+            var count = 0;
+            for (var t = 0.0; t < 1800; t += 2)
+            {
+                seed = (seed * 1103515245 + 12345) % 2147483648;
+                recent.Add(Game(c.Watts) * (0.92 + 0.16 * seed / 2147483648.0));
+                var last = recent.Skip(Math.Max(0, recent.Count - 3)).OrderBy(v => v).ToList();
+                c.OnSample(last.Count == 3 ? last[1] : last[^1], t);
+                if (t < 300) continue;
+                wattsSum += c.Watts;
+                fpsSum += Game(c.Watts);
+                count++;
+            }
+            Assert.True(wattsSum / count <= 28, $"início {start} W: média {wattsSum / count:0.0} W");
+            Assert.True(fpsSum / count >= 32, $"início {start} W: FPS médio {fpsSum / count:0.0}");
+        }
+    }
+
+    [Fact]
+    public void ProbeFindsWhenMorePowerHelpsAgainWhileUnreachable()
+    {
+        // Preso na placa de vídeo (28 FPS com qualquer potência); depois a cena muda e o jogo
+        // passa a precisar de 30 W para 40 FPS. O teste de +3 W percebe e o controle volta a subir.
+        var heavy = true;
+        double Game(int watts) => heavy ? Math.Min(28.0, 28.0 * watts / 14) : Math.Min(42.0, 40.0 * watts / 30);
+        var c = new SmartTdpController(40, 8, 35, 20);
+        for (var t = 0.0; t < 200; t += 2) c.OnSample(Game(c.Watts), t);
+        Assert.True(c.TargetUnreachable);
+        heavy = false;
+        for (var t = 200.0; t < 330; t += 2) c.OnSample(Game(c.Watts), t);
+        Assert.True(c.Watts >= 28, $"ficou em {c.Watts} W");
+    }
 }
