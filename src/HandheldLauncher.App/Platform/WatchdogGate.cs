@@ -64,7 +64,7 @@ internal static class WatchdogGate
             Directory.CreateDirectory(Path.GetDirectoryName(FlagPath)!);
             File.WriteAllText(FlagPath, GetSessionStartUtc().ToString("O"));
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
     }
 
     private static void ClearQuitFlag()
@@ -73,7 +73,7 @@ internal static class WatchdogGate
         {
             if (File.Exists(FlagPath)) File.Delete(FlagPath);
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
     }
 
     private static bool QuitFlagIsFromThisBoot()
@@ -105,12 +105,12 @@ internal static class WatchdogGate
                     var started = process.StartTime.ToUniversalTime();
                     if (earliest is null || started < earliest) earliest = started;
                 }
-                catch { }
+                catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
                 finally { process.Dispose(); }
             }
             if (earliest is not null) return earliest.Value;
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
         return GetBootTimeUtc();
     }
 

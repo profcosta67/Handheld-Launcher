@@ -402,7 +402,10 @@ public partial class OverlayWindow : Window
         }
     }
 
-    public async void ReapplyAfterSuspendResume()
+    public void ReapplyAfterSuspendResume() =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => ReapplyAfterSuspendResumeCore(), "ReapplyAfterSuspendResume");
+
+    public async Task ReapplyAfterSuspendResumeCore()
     {
         try
         {
@@ -1962,7 +1965,10 @@ public partial class OverlayWindow : Window
         _hardwareService?.SetBrightness(Math.Round(e.NewValue)); SaveSetting("Brightness", e.NewValue.ToString("F0"));
     }
 
-    private async void OnScreenshotClick(object? sender, RoutedEventArgs e)
+    private void OnScreenshotClick(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnScreenshotClickCore(sender, e), "OnScreenshotClick");
+
+    private async Task OnScreenshotClickCore(object? sender, RoutedEventArgs e)
     {
         if (!OperatingSystem.IsWindows()) return;
 
@@ -2041,7 +2047,10 @@ public partial class OverlayWindow : Window
         }
     }
 
-    private async void OnLsfgToggleClick(object? sender, RoutedEventArgs e)
+    private void OnLsfgToggleClick(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnLsfgToggleClickCore(sender, e), "OnLsfgToggleClick");
+
+    private async Task OnLsfgToggleClickCore(object? sender, RoutedEventArgs e)
     {
         if (OperatingSystem.IsLinux())
         {

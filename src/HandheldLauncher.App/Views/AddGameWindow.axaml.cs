@@ -39,12 +39,18 @@ public partial class AddGameWindow : Window, IGamepadKeyboardHost
         if (DataContext is AddGameViewModel vm) _ = vm.LoadInstalledProgramsAsync();
     }
 
-    private async void OnRefreshProgramsClick(object? sender, RoutedEventArgs e)
+    private void OnRefreshProgramsClick(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnRefreshProgramsClickCore(sender, e), "OnRefreshProgramsClick");
+
+    private async Task OnRefreshProgramsClickCore(object? sender, RoutedEventArgs e)
     {
         if (DataContext is AddGameViewModel vm) await vm.LoadInstalledProgramsAsync();
     }
 
-    private async void OnBrowseClick(object? sender, RoutedEventArgs e)
+    private void OnBrowseClick(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnBrowseClickCore(sender, e), "OnBrowseClick");
+
+    private async Task OnBrowseClickCore(object? sender, RoutedEventArgs e)
     {
         var storage = GetTopLevel(this)?.StorageProvider;
         if (storage is null) return;

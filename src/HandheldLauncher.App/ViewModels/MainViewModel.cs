@@ -315,7 +315,7 @@ public sealed class MainViewModel : ViewModelBase
                     settings.SyncthingEnabled = value;
                     AppSettingsStore.Save(settings);
                 }
-                catch { }
+                catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
             }
         }
     }

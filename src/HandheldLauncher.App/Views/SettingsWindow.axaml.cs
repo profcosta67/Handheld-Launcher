@@ -601,7 +601,10 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
         }
     }
 
-    private async void OnManageAccountsClick(object? sender, RoutedEventArgs e)
+    private void OnManageAccountsClick(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnManageAccountsClickCore(sender, e), "OnManageAccountsClick");
+
+    private async Task OnManageAccountsClickCore(object? sender, RoutedEventArgs e)
     {
         var accounts = new AccountsWindow(ViewModel, OpenExternalUrlFromDialog);
         _accountsWindow = accounts;
@@ -640,7 +643,10 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
         }
     }
 
-    private async void OnBrowseEdenClick(object? sender, RoutedEventArgs e)
+    private void OnBrowseEdenClick(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnBrowseEdenClickCore(sender, e), "OnBrowseEdenClick");
+
+    private async Task OnBrowseEdenClickCore(object? sender, RoutedEventArgs e)
     {
         if (!OperatingSystem.IsWindows()) return;
         try
@@ -660,7 +666,10 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
         catch (Exception ex) { DebugLog.Write($"[SETTINGS] Falha ao abrir file picker (eden): {ex.Message}"); }
     }
 
-    private async void OnBrowseLosslessClick(object? sender, RoutedEventArgs e)
+    private void OnBrowseLosslessClick(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnBrowseLosslessClickCore(sender, e), "OnBrowseLosslessClick");
+
+    private async Task OnBrowseLosslessClickCore(object? sender, RoutedEventArgs e)
     {
         if (!OperatingSystem.IsWindows()) return;
         try
@@ -680,7 +689,10 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
         catch (Exception ex) { DebugLog.Write($"[SETTINGS] Falha ao abrir file picker (lossless): {ex.Message}"); }
     }
 
-    private async void OnAddRomFolderClick(object? sender, RoutedEventArgs e)
+    private void OnAddRomFolderClick(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnAddRomFolderClickCore(sender, e), "OnAddRomFolderClick");
+
+    private async Task OnAddRomFolderClickCore(object? sender, RoutedEventArgs e)
     {
         var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
@@ -827,7 +839,7 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
                 UseShellExecute = true 
             });
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
     }
 
     // Aba Rede: uma implementação só — a Central de Controlo da janela principal.
@@ -848,7 +860,10 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
 
     public Func<Task<string>>? CheckForUpdates { get; set; }
 
-    private async void OnCheckUpdatesClick(object? sender, RoutedEventArgs e)
+    private void OnCheckUpdatesClick(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnCheckUpdatesClickCore(sender, e), "OnCheckUpdatesClick");
+
+    private async Task OnCheckUpdatesClickCore(object? sender, RoutedEventArgs e)
     {
         if (CheckForUpdates is null) return;
         ViewModel.UpdateResultText = "Verificando…";

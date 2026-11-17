@@ -73,7 +73,10 @@ public partial class MainWindow : Window
         else ShowControlCenter();
     }
 
-    private async void ShowControlCenter()
+    private void ShowControlCenter() =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => ShowControlCenterCore(), "ShowControlCenter");
+
+    private async Task ShowControlCenterCore()
     {
         if (this.FindControl<Panel>("ControlCenterOverlay") is not { } overlay) return;
         if (this.FindControl<Border>("ControlCenterCard") is not { } card) return;
@@ -113,7 +116,10 @@ public partial class MainWindow : Window
         _controlCenterRefreshTimer.Start();
     }
 
-    private async void OnControlCenterRefreshTick(object? sender, EventArgs e)
+    private void OnControlCenterRefreshTick(object? sender, EventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnControlCenterRefreshTickCore(sender, e), "OnControlCenterRefreshTick");
+
+    private async Task OnControlCenterRefreshTickCore(object? sender, EventArgs e)
     {
         if (!_isControlCenterOpen || _controlCenterBusy) return;
         ApplyArtworkTile();
@@ -140,7 +146,10 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void HideControlCenter()
+    private void HideControlCenter() =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => HideControlCenterCore(), "HideControlCenter");
+
+    private async Task HideControlCenterCore()
     {
         if (this.FindControl<Panel>("ControlCenterOverlay") is not { } overlay) return;
         if (this.FindControl<Border>("ControlCenterCard") is not { } card) return;
@@ -451,7 +460,10 @@ public partial class MainWindow : Window
 
     private void OnCloseControlCenter(object? sender, RoutedEventArgs e) => HideControlCenter();
 
-    private async void OnToggleAirplaneMode(object? sender, RoutedEventArgs e)
+    private void OnToggleAirplaneMode(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnToggleAirplaneModeCore(sender, e), "OnToggleAirplaneMode");
+
+    private async Task OnToggleAirplaneModeCore(object? sender, RoutedEventArgs e)
     {
         DebugLog.Write("[CONTROL CENTER] Alternando Modo Avião...");
         await _radioService.ToggleAirplaneModeAsync();
@@ -459,7 +471,10 @@ public partial class MainWindow : Window
         await LoadNetworksAndDevicesAsync();
     }
 
-    private async void OnToggleWifi(object? sender, RoutedEventArgs e)
+    private void OnToggleWifi(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnToggleWifiCore(sender, e), "OnToggleWifi");
+
+    private async Task OnToggleWifiCore(object? sender, RoutedEventArgs e)
     {
         DebugLog.Write("[CONTROL CENTER] Alternando Wi-Fi...");
         var isOn = await _radioService.IsRadioOnAsync(RadioKind.WiFi);
@@ -468,7 +483,10 @@ public partial class MainWindow : Window
         await LoadNetworksAndDevicesAsync();   // sem rádio não há redes para listar
     }
 
-    private async void OnToggleBluetooth(object? sender, RoutedEventArgs e)
+    private void OnToggleBluetooth(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnToggleBluetoothCore(sender, e), "OnToggleBluetooth");
+
+    private async Task OnToggleBluetoothCore(object? sender, RoutedEventArgs e)
     {
         DebugLog.Write("[CONTROL CENTER] Alternando Bluetooth...");
         var isOn = await _radioService.IsRadioOnAsync(RadioKind.Bluetooth);
@@ -494,14 +512,20 @@ public partial class MainWindow : Window
     }
 
     // Wi-Fi: toque/mouse (PointerPressed) ou A com o item focado.
-    private async void OnWifiNetworkClick(object? sender, PointerPressedEventArgs e)
+    private void OnWifiNetworkClick(object? sender, PointerPressedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnWifiNetworkClickCore(sender, e), "OnWifiNetworkClick");
+
+    private async Task OnWifiNetworkClickCore(object? sender, PointerPressedEventArgs e)
     {
         if (sender is Border { DataContext: WifiNetwork network } row)
             await ToggleWifiConnectionAsync(network, row);
     }
 
     // Bluetooth: conectar/desconectar de um dispositivo pareado.
-    private async void OnBluetoothDeviceClick(object? sender, PointerPressedEventArgs e)
+    private void OnBluetoothDeviceClick(object? sender, PointerPressedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnBluetoothDeviceClickCore(sender, e), "OnBluetoothDeviceClick");
+
+    private async Task OnBluetoothDeviceClickCore(object? sender, PointerPressedEventArgs e)
     {
         if (sender is Border { DataContext: BtDevice device } row)
             await ToggleBluetoothConnectionAsync(device, row);

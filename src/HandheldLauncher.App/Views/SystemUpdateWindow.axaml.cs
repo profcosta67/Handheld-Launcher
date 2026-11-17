@@ -12,13 +12,19 @@ public partial class SystemUpdateWindow : Window
         DataContext = new SystemUpdateViewModel();
     }
 
-    private async void OnSearchClick(object? sender, RoutedEventArgs e)
+    private void OnSearchClick(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnSearchClickCore(sender, e), "OnSearchClick");
+
+    private async Task OnSearchClickCore(object? sender, RoutedEventArgs e)
     {
         if (DataContext is SystemUpdateViewModel vm)
             await vm.SearchAsync();
     }
 
-    private async void OnInstallClick(object? sender, RoutedEventArgs e)
+    private void OnInstallClick(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnInstallClickCore(sender, e), "OnInstallClick");
+
+    private async Task OnInstallClickCore(object? sender, RoutedEventArgs e)
     {
         if (DataContext is SystemUpdateViewModel vm)
             await vm.InstallSelectedAsync();

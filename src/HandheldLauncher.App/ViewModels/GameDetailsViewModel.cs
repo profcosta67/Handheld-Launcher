@@ -24,7 +24,7 @@ public sealed class GameDetailsViewModel : ViewModelBase
             StoreHttp.DefaultRequestHeaders.UserAgent.ParseAdd($"{AppUserAgent.Value} (Windows; C#)");
             StoreHttp.DefaultRequestHeaders.Accept.ParseAdd("application/json");
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
     }
 
     private static readonly string IconCacheDir = Path.Combine(
@@ -659,7 +659,7 @@ public sealed class GameDetailsViewModel : ViewModelBase
                 map[name] = value;
             }
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
         return map;
     }
 

@@ -620,7 +620,7 @@ public sealed class SettingsViewModel : ViewModelBase
                 }
             }
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
         finally
         {
             IsLoadingReleases = false;
@@ -900,7 +900,7 @@ public sealed class SettingsViewModel : ViewModelBase
         // Se aqui ninguém mexeu na opção, vale o que estiver gravado — não o valor de quando abriu.
         if (SmartTdpEnabled == _smartTdpLoaded)
         {
-            try { SmartTdpEnabled = AppSettingsStore.Load().SmartTdpEnabled; } catch { }
+            try { SmartTdpEnabled = AppSettingsStore.Load().SmartTdpEnabled; } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
         }
         _smartTdpLoaded = SmartTdpEnabled;
         settings.SmartTdpEnabled = SmartTdpEnabled;

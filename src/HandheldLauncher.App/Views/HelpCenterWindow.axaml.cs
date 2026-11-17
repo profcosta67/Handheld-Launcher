@@ -269,7 +269,10 @@ public partial class HelpCenterWindow : Window
 
     // ---------------- Reportar erro ----------------
 
-    private async void OnReportClick(object? sender, RoutedEventArgs e)
+    private void OnReportClick(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnReportClickCore(sender, e), "OnReportClick");
+
+    private async Task OnReportClickCore(object? sender, RoutedEventArgs e)
     {
         if (_reporting) return;
         _reporting = true;
@@ -344,7 +347,10 @@ public partial class HelpCenterWindow : Window
         return card;
     }
 
-    private async void OnRerunClick(object? sender, RoutedEventArgs e)
+    private void OnRerunClick(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnRerunClickCore(sender, e), "OnRerunClick");
+
+    private async Task OnRerunClickCore(object? sender, RoutedEventArgs e)
     {
         try { await RunChecksAsync(); }
         catch (Exception ex) { DebugLog.Write($"[AJUDA] Reverificação falhou: {ex.Message}"); }

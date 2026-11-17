@@ -41,7 +41,10 @@ public partial class SyncthingSettingsView : UserControl
 
     // Toggle do topo: ligar sobe o processo e recarrega a página; desligar para
     // o processo (o WebView fica a mostrar o erro de ligação até religar).
-    private async void OnSyncToggleChanged(object? sender, RoutedEventArgs e)
+    private void OnSyncToggleChanged(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnSyncToggleChangedCore(sender, e), "OnSyncToggleChanged");
+
+    private async Task OnSyncToggleChangedCore(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not SettingsViewModel vm) return;
 
