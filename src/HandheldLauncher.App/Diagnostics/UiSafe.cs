@@ -20,6 +20,8 @@ public static class UiSafe
         catch (Exception ex)
         {
             DebugLog.Write($"[UI-ERRO] {name}: {ex.GetType().Name}: {ex.Message}{Environment.NewLine}{FirstLines(ex.StackTrace, 6)}");
+            // Mesmo relatório de antes (pasta crashes): o erro continua documentado, só não fecha o launcher.
+            CrashReport.Write("launcher", "UiSafe:" + name, ex);
         }
     }
 

@@ -25,7 +25,7 @@ public partial class OverlayWindow
     public void ReapplyAfterSuspendResume() =>
         HandheldLauncher.App.Diagnostics.UiSafe.Run(() => ReapplyAfterSuspendResumeCore(), "ReapplyAfterSuspendResume");
 
-    public async Task ReapplyAfterSuspendResumeCore()
+    private async Task ReapplyAfterSuspendResumeCore()
     {
         try
         {
