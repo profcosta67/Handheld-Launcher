@@ -199,7 +199,10 @@ internal sealed class SmartTdpService : IDisposable
             // Um perfil manual de 20 W ou mais é a informação mais recente que temos (o usuário
             // acabou de ver o jogo rodar com ele): parte dali, não do valor antigo da sessão.
             if (resumed is not null && userWatts >= StartFloorWatts && _resume is { } prev && prev.UserMode != userMode) resumed = null;
-            var start = Math.Clamp(learned?.Watts ?? resumed ?? Math.Max(userWatts, StartFloorWatts), min, max);
+            // v0.31: sem valor aprendido para esta meta, o diário de sessões dá o ponto de partida
+            // (menor TDP em que o jogo já segurou a taxa). É só o começo: o controle confere e ajusta.
+            int? fromDiary = learned is null && resumed is null ? DiaryStartWatts(game.Id, target, max) : null;
+            var start = Math.Clamp(learned?.Watts ?? resumed ?? fromDiary ?? Math.Max(userWatts, StartFloorWatts), min, max);
 
             _session = new Session
             {
@@ -218,7 +221,8 @@ internal sealed class SmartTdpService : IDisposable
                 FanTouches = GameSessionInfo.FanTouches,
                 SavedWatts = learned?.Watts ?? 0,
             };
-            var origin = learned is not null ? "aprendido antes" : resumed is not null ? "retomado desta sessão de jogo" : "ponto de partida, aprendendo";
+            var origin = learned is not null ? "aprendido antes" : resumed is not null ? "retomado desta sessão de jogo"
+                : fromDiary is not null ? "do diário de sessões, conferindo" : "ponto de partida, aprendendo";
             DebugLog.Write($"[TDP-AUTO] Sessão iniciada: '{game.Title}', meta {target} FPS{(SmartTdpTargetStore.Shared.Get(game.Id) is null ? " (padrão)" : " (deste jogo)")}, janela {min}–{max} W, TDP do usuário = {userMode}, início em {start} W ({origin}).");
 
             // Aplica já, sem esperar o jogo aparecer: o carregamento não fica preso no perfil
@@ -457,6 +461,36 @@ internal sealed class SmartTdpService : IDisposable
         SmartTdpTargetStore.MinTargetFps, SmartTdpTargetStore.MaxTargetFps);
 
     /// <summary>Meta escolhida para o jogo no Quick Settings, ou a padrão.</summary>
+    /// <summary>Folga sobre o TDP do diário: ele é uma média da sessão, e o começo do jogo costuma pesar mais.</summary>
+    private const int DiaryStartMarginWatts = 2;
+
+    /// <summary>
+    /// Ponto de partida tirado do diário: o menor TDP em que o jogo segurou a meta, com folga.
+    /// Se o diário mostra que a meta não é alcançada, parte do TDP em que o jogo rendeu o
+    /// máximo. null = o diário ainda não sabe.
+    /// </summary>
+    private static int? DiaryStartWatts(string gameId, int targetFps, int maxWatts)
+    {
+        try
+        {
+            var sessions = HandheldLauncher.Core.Services.SessionDiary.SessionDiaryStore.Shared.ForGame(gameId);
+            var guide = HandheldLauncher.Core.Services.SessionDiary.EnergyGuide.Build(sessions, maxWatts, new[] { targetFps });
+            if (guide is null || guide.Targets.Count == 0) return null;
+            var advice = guide.Targets[0];
+            return advice.Kind switch
+            {
+                HandheldLauncher.Core.Services.SessionDiary.EnergyAdviceKind.Recommended when advice.Watts is { } watts => watts + DiaryStartMarginWatts,
+                HandheldLauncher.Core.Services.SessionDiary.EnergyAdviceKind.NotReached => guide.MaxFpsWatts + DiaryStartMarginWatts,
+                _ => null,
+            };
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Swallowed(ex);
+            return null;
+        }
+    }
+
     private int TargetFor(string gameId) => SmartTdpTargetStore.Shared.Get(gameId) ?? DefaultTargetFps;
 
     /// <summary>Os dois processos são do mesmo jogo (executáveis na mesma pasta ou em subpasta)?</summary>
