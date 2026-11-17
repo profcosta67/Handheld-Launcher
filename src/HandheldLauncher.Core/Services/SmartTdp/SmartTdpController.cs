@@ -370,8 +370,11 @@ public sealed class SmartTdpController
             var previous = nowSeconds - _previousAt <= 6 ? _previousFps : null; // só de uma leitura para a seguinte
             _previousFps = fps;
             _previousAt = nowSeconds;
-            if (previous is { } prev && prev >= _effectiveTarget * MeetRatio && fps < _effectiveTarget * SuddenDropRatio
-                && _dropUntil < nowSeconds)
+            // (Não vale logo depois de um passo de descida: num jogo com vsync, 1 W a menos derruba
+            // de 60 para 30, e aí é falta de potência mesmo.)
+            var afterOwnStepDown = _lastChangeWasDown && !_lastDownWasReturn && nowSeconds - _lastChange <= 8;
+            if (previous is { } prev && prev >= _effectiveTarget * BelowRatio && fps < _effectiveTarget * SuddenDropRatio
+                && _dropUntil < nowSeconds && !afterOwnStepDown)
                 _dropUntil = nowSeconds + SuddenDropHoldSeconds;
             if (nowSeconds < _dropUntil)
             {
@@ -540,6 +543,7 @@ public sealed class SmartTdpController
                     MarkUnreachable(plateau, fps, nowSeconds);
                     _lastProbe = nowSeconds;
                     // Sem joelho medido, ao menos devolve o reforço da volta ao jogo.
+                    if (knee is { } kn) knee = Math.Max(kn, _provenWatts ?? _min);
                     if ((knee ?? baseline) is { } k && k < Watts)
                     {
                         Watts = Math.Max(_min, k);
@@ -674,7 +678,8 @@ public sealed class SmartTdpController
         _climbFromProbe = false;
         _atMaxSince = null;
         if (!_unreachable) _futileHold = FutileHoldSeconds;
-        if (nowSeconds - Math.Max(_goodSince, _lastChange) >= ProvenAfterSeconds) _provenWatts = Watts;
+        // "Comprovado" é só o que segurou a meta de verdade, não a meta rebaixada de "fora de alcance".
+        if (!_unreachable && nowSeconds - Math.Max(_goodSince, _lastChange) >= ProvenAfterSeconds) _provenWatts = Watts;
         if (nowSeconds - _goodSince >= DownAfterGoodSeconds) _futileUntil = double.NegativeInfinity;
 
         // Folga clara (FPS 25% acima da meta): o valor aprendido não segura a descida — pode
