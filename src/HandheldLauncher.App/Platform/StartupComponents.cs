@@ -1,6 +1,7 @@
 using System.Runtime.Versioning;
 using HandheldLauncher.App.Diagnostics;
 using HandheldLauncher.App.Views;
+using HandheldLauncher.Core.Models;
 using HandheldLauncher.Core.Services;
 
 namespace HandheldLauncher.App.Platform;
