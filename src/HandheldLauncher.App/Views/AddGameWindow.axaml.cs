@@ -36,7 +36,8 @@ public partial class AddGameWindow : Window, IGamepadKeyboardHost
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
-        if (DataContext is AddGameViewModel vm) _ = vm.LoadInstalledProgramsAsync();
+        // 18/11: a lista de programas instalados só aparece em "Adicionar programa".
+        if (DataContext is AddGameViewModel { IsApplication: true } vm) _ = vm.LoadInstalledProgramsAsync();
     }
 
     private void OnRefreshProgramsClick(object? sender, RoutedEventArgs e) =>
@@ -56,14 +57,24 @@ public partial class AddGameWindow : Window, IGamepadKeyboardHost
 
         // 18/11: no Windows, seletor que devolve o próprio atalho (.lnk) — o do Avalonia troca o
         // atalho pelo destino e os argumentos dele (ex.: o jogo que o Ryujinx abre) se perdiam.
+        // Ele roda o próprio laço de mensagens dentro deste clique: enquanto estiver aberto, o
+        // controle não mexe nesta janela (B a fecharia por baixo do seletor) e outro clique não
+        // abre um segundo seletor.
         if (OperatingSystem.IsWindows())
         {
-            var owner = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
-            var picked = HandheldLauncher.App.Platform.NativeFilePicker.PickFile(owner,
-                vm.IsApplication ? "Selecione o programa ou atalho" : "Selecione o jogo, o emulador ou um atalho",
-                "Executável ou atalho|*.exe;*.lnk;*.url;*.bat;*.cmd",
-                "Todos os arquivos|*.*");
-            if (picked is null) return;
+            if (IsNativePickerOpen) return;
+            string? picked;
+            IsNativePickerOpen = true;
+            try
+            {
+                var owner = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+                picked = HandheldLauncher.App.Platform.NativeFilePicker.PickFile(owner,
+                    vm.IsApplication ? "Selecione o programa ou atalho" : "Selecione o jogo, o emulador ou um atalho",
+                    "Executável ou atalho|*.exe;*.lnk;*.url;*.bat;*.cmd",
+                    "Todos os arquivos|*.*");
+            }
+            finally { IsNativePickerOpen = false; }
+            if (picked is null || !IsVisible) return;
             UsePickedFile(vm, picked);
             return;
         }
@@ -112,6 +123,9 @@ public partial class AddGameWindow : Window, IGamepadKeyboardHost
 
         if (files.Count > 0) vm.GameFilePath = files[0].Path.LocalPath;
     }
+
+    /// <summary>18/11: o seletor do Windows está aberto (o vigia do controle não manda ações para cá).</summary>
+    public bool IsNativePickerOpen { get; private set; }
 
     private void OnCancelClick(object? sender, RoutedEventArgs e) => Close(null);
 

@@ -82,8 +82,9 @@ internal static class LegionControllerHid
                         continue;
                     }
 
-                    foreach (var target in Targets)
+                    for (var t = 0; t < Targets.Length; t++)
                     {
+                        var target = Targets[t];
                         var report = new byte[outputLength];
                         report[0] = ReportId;
                         report[1] = 0x00;
@@ -96,7 +97,11 @@ internal static class LegionControllerHid
                         {
                             failed++;
                             lastError = error;
-                            if (error == ErrorTimeout) break;   // controle não está aceitando: não insiste
+                            if (error == ErrorTimeout)
+                            {
+                                failed += Targets.Length - t - 1;   // os que não foram mandados
+                                break;                              // controle não está aceitando: não insiste
+                            }
                         }
                         Thread.Sleep(30);
                     }
@@ -110,7 +115,8 @@ internal static class LegionControllerHid
             }
             catch (Exception ex)
             {
-                return new WakeResult(false, $"falhou ({ex.GetType().Name}: {ex.Message}).");
+                // Conta como "achou" para ir sempre ao log (não cai no aviso de uma vez por sessão).
+                return new WakeResult(true, $"falhou ({ex.GetType().Name}: {ex.Message}).");
             }
         }
     }

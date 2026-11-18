@@ -45,7 +45,10 @@ public static class ManualLaunchTarget
     public static bool IsSwitchEmulator(string? executablePath)
     {
         if (string.IsNullOrWhiteSpace(executablePath)) return false;
-        var name = Path.GetFileNameWithoutExtension(Clean(executablePath));
+        // Separa pelo último \ ou / à mão: o caminho é do Windows mesmo quando os testes rodam no Linux.
+        var path = Clean(executablePath);
+        var name = path[(path.LastIndexOfAny(new[] { '\\', '/' }) + 1)..];
+        if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) name = name[..^4];
         return SwitchEmulatorExecutables.Any(e => string.Equals(e, name, StringComparison.OrdinalIgnoreCase));
     }
 

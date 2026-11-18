@@ -30,9 +30,18 @@ public sealed class AddGameViewModel : ViewModelBase
         get => _executablePath;
         set
         {
-            if (SetField(ref _executablePath, value)) OnPropertyChanged(nameof(CanSave));
+            if (!SetField(ref _executablePath, value)) return;
+            OnPropertyChanged(nameof(CanSave));
+            OnPropertyChanged(nameof(OpensThroughWindows));
+            // 18/11: o aviso do atalho só vale para o que foi escolhido nele; mexeu à mão, some.
+            if (!_applyingShortcut) ShortcutNote = string.Empty;
         }
     }
+
+    private bool _applyingShortcut;
+
+    /// <summary>18/11: atalho ou endereço abre pelo Windows — sem argumentos nem arquivo do jogo.</summary>
+    public bool OpensThroughWindows => ManualLaunchTarget.OpensThroughWindows(ExecutablePath);
 
     private string _launchArguments = string.Empty;
     public string LaunchArguments
@@ -102,6 +111,13 @@ public sealed class AddGameViewModel : ViewModelBase
     /// fica como está e abre pelo Windows.
     /// </summary>
     public void ApplyShortcut(string shortcutPath, string? targetPath, string? arguments, string? workingDirectory, string? url)
+    {
+        _applyingShortcut = true;
+        try { ApplyShortcutCore(shortcutPath, targetPath, arguments, workingDirectory, url); }
+        finally { _applyingShortcut = false; }
+    }
+
+    private void ApplyShortcutCore(string shortcutPath, string? targetPath, string? arguments, string? workingDirectory, string? url)
     {
         if (string.IsNullOrWhiteSpace(Title))
             Title = Path.GetFileNameWithoutExtension(shortcutPath);

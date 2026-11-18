@@ -380,7 +380,9 @@ private void SetAddButtonFocused(bool focused)
         _gameWatcherTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _gameWatcherTimer.Tick += (_, _) =>
         {
-            if (vm.RunningGame is null) { _gameWindowSeen = false; _gameWindowMissingSeconds = 0; _gameWatcherTicks = 0; return; }
+            // 18/11: sem jogo, o PID detectado volta a 0 (antes ficava o do último jogo, e o pedido
+            // HID ao controle achava que ainda havia jogo aberto).
+            if (vm.RunningGame is null) { _gameWindowSeen = false; _gameWindowMissingSeconds = 0; _gameWatcherTicks = 0; if (_detectedGamePid != 0) _detectedGamePid = 0; return; }
             if (!OperatingSystem.IsWindows()) return;
             if (_activeDialog != null) { _gameWindowMissingSeconds = 0; return; }
 
@@ -750,6 +752,10 @@ private void SetAddButtonFocused(bool focused)
                 // atrás. Antes, A na página do navegador fechava os Detalhes e
                 // abria o jogo por trás; B/X idem, sem o usuário ver.
                 if (actions.Count > 0 && DialogOpenedExternalApp(dialog) && !IsDialogOrLauncherInForeground(dialog))
+                    return;
+                // 18/11: com o seletor de arquivos do Windows aberto por cima do "Adicionar jogo",
+                // os botões são dele — B não pode fechar a janela por baixo.
+                if (dialog is AddGameWindow { IsNativePickerOpen: true })
                     return;
 
                 foreach (var dialogAction in actions)
