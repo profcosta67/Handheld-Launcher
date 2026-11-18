@@ -25,6 +25,15 @@ internal static class Program
             Environment.Exit(HandheldLauncher.App.Diagnostics.StartupSelfTest.Run());
         }
 
+        // 18/11: modo tarefa do Windows (--acordar-controle), registrado por
+        // Platform/ControllerWakeTask: roda na INICIALIZAÇÃO, antes do login, só para mandar ao
+        // controle do Legion o pedido "liga a saída XInput" (controle mudo na tela da senha).
+        // Fica aqui no começo: não abre janela, não disputa mutex, não toca no Velopack.
+        if (args.Length > 0 && args[0] == HandheldLauncher.App.Platform.ControllerWakeTask.Argument)
+        {
+            Environment.Exit(HandheldLauncher.App.Platform.ControllerWakeTask.RunFromTask());
+        }
+
         // O Velopack precisa processar primeiro install/update/uninstall.
         VelopackApp.Build()
             .OnAfterInstallFastCallback((version) =>

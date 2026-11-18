@@ -21,6 +21,20 @@ public class AppSettings
     // "WakeControllerWithLegionSpaceAtStartup": true, e as duas coisas juntas confundiriam o teste.
     public bool OpenLegionSpaceAtStartup { get; set; } = false;
 
+    // 18/11: na tela da senha do Windows o launcher ainda não está aberto, então o pedido HID
+    // acima não ajuda ali. Com isto ligado, o launcher registra uma tarefa do Windows que roda na
+    // INICIALIZAÇÃO (antes do login) só para mandar aquele pedido ao controle.
+    public bool WakeControllerAtBoot { get; set; } = true;
+
+    // 18/11 (instalação limpa do usuário): o TDP não funcionou porque o driver do PawnIO não foi
+    // instalado. Com isto ligado, o launcher confere ao abrir e instala sozinho os componentes que
+    // vêm no pacote (PawnIO e HidHide). O RTSS nunca é instalado sem o usuário pedir.
+    public bool AutoInstallComponents { get; set; } = true;
+
+    // Versão do launcher em que o aviso de componentes em falta já foi mostrado (para não repetir
+    // o aviso toda abertura).
+    public string? ComponentsNoticeShownFor { get; set; }
+
     // v0.25.9: o reinício do controle (pnputil /restart-device) ao fechar o
     // Quick Settings veio na 0.25.3 para jogos que não voltam a abrir o
     // controle (Days Gone). Desde a 0.25.7 o launcher abre sempre como

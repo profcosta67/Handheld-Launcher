@@ -57,17 +57,20 @@ public partial class OverlayWindow
 
             DebugLog.Write("[CAPTURA] Atalho Win+PrintScreen enviado após ocultar o overlay.");
             if (BtnScreenshot != null) BtnScreenshot.Content = "Captura enviada";
+            NewQsPanel?.SetPrintFeedback("✅ Capturado!");
             await Task.Delay(1500);
         }
         catch (Exception ex)
         {
             DebugLog.Write($"[CAPTURA] Erro: {ex.GetType().Name}: {ex.Message}");
             if (BtnScreenshot != null) BtnScreenshot.Content = "Falha";
+            NewQsPanel?.SetPrintFeedback("❌ Falhou");
             await Task.Delay(1200);
         }
         finally
         {
             if (BtnScreenshot != null) BtnScreenshot.Content = "📷 Print";
+            NewQsPanel?.SetPrintFeedback(null);
             if (wasVisible && !IsAppClosing)
             {
                 Show();
@@ -76,17 +79,43 @@ public partial class OverlayWindow
         }
     }
 
-    private void OnRecordClick(object? sender, RoutedEventArgs e)
+    private void OnRecordClick(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnRecordClickCore(), "OnRecordClick");
+
+    /// <summary>
+    /// 18/11 (pedido do usuário): ao começar a gravar, o painel sai da frente (senão entra no
+    /// vídeo), aparece a contagem "3, 2, 1" no meio da tela e só então a gravação começa — e um
+    /// selo "GRAVANDO" fica na tela enquanto durar (ver <see cref="RecordingUx"/>). Para parar não
+    /// há contagem: para na hora.
+    /// </summary>
+    private async Task OnRecordClickCore()
     {
         if (!OperatingSystem.IsWindows()) return;
-        if (_hardwareService is WindowsHardwareService winService)
+        if (_hardwareService is not WindowsHardwareService winService) return;
+
+        if (winService.IsRecording)
         {
             winService.ToggleScreenRecording();
             _viewModel.UpdateHudRecordingState(winService.IsRecording);
             UpdateRecordButtonState();
+            return;
+        }
+
+        var wasVisible = IsVisible;
+        try
+        {
+            if (wasVisible) HideWithUnblock();
+            await Task.Delay(150);          // o painel precisa sair da tela antes da contagem
+            await RecordingUx.CountdownAsync();
+            winService.ToggleScreenRecording();
+            _viewModel.UpdateHudRecordingState(winService.IsRecording);
+        }
+        finally
+        {
+            UpdateRecordButtonState();
         }
     }
-    
+
     private void UpdateRecordButtonState()
     {
         if (_hardwareService is WindowsHardwareService winService)
@@ -113,6 +142,8 @@ public partial class OverlayWindow
             {
                 RecordingBadge.IsVisible = isRecording;
             }
+
+            NewQsPanel?.SetRecordingVisual(isRecording);
         }
     }
 

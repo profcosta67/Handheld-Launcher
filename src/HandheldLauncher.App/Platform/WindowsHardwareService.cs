@@ -35,11 +35,24 @@ public class WindowsHardwareService : IHardwareService
     public RecordingState RecordingState => _recordingState;
     public event Action<RecordingState>? RecordingStateChanged;
 
+    /// <summary>
+    /// 18/11: estado da gravação visível para todo o launcher (há mais de uma instância deste
+    /// serviço: Quick Settings, menu, tarefas). É o que liga o aviso na tela (RecordingUx) seja
+    /// na tela inicial, seja com jogo aberto.
+    /// </summary>
+    public static event Action<RecordingState>? ActiveRecordingChanged;
+
+    public static bool IsAnyRecording => _activeRecorder?._recordingState == RecordingState.Recording;
+
+    /// <summary>Quando a gravação em andamento começou (UTC).</summary>
+    public static DateTime RecordingStartedAtUtc { get; private set; }
+
     private void SetRecordingState(RecordingState state)
     {
         if (_recordingState == state) return;
         _recordingState = state;
         try { RecordingStateChanged?.Invoke(state); } catch (Exception ex) { DebugLog.Write("[GRAVADOR] Handler de estado falhou: " + ex.Message); }
+        try { ActiveRecordingChanged?.Invoke(state); } catch (Exception ex) { DebugLog.Write("[GRAVADOR] Aviso de gravação falhou: " + ex.Message); }
     }
 
     // ==========================================
@@ -381,8 +394,11 @@ public class WindowsHardwareService : IHardwareService
             _ffmpegProcess.BeginErrorReadLine();
 
             _lastOutputPath = outputPath;
-            SetRecordingState(RecordingState.Recording);
+            // A ordem importa: quem ouve ActiveRecordingChanged (o aviso na tela) lê
+            // IsAnyRecording e RecordingStartedAtUtc, então os dois são definidos ANTES do aviso.
             _activeRecorder = this;
+            RecordingStartedAtUtc = DateTime.UtcNow;
+            SetRecordingState(RecordingState.Recording);
             DebugLog.Write($"[GRAVADOR] Iniciado (PID {_ffmpegProcess.Id}). Salvando em: {outputPath}");
         }
         catch (Exception ex)

@@ -934,6 +934,28 @@ public partial class QsPanel : UserControl
 
     private void OnRecordClick(object? sender, RoutedEventArgs e) => RecordRequested?.Invoke(this, EventArgs.Empty);
 
+    /// <summary>
+    /// 18/11: o botão diz o que está acontecendo — "🎥 Gravar" normal, "⏹ Parar" vermelho enquanto
+    /// grava. Antes ele ficava igual nos dois casos e nada na tela dizia que a gravação estava
+    /// rodando. O tempo decorrido aparece no selo "GRAVANDO" (RecordingUx).
+    /// </summary>
+    public void SetRecordingVisual(bool isRecording)
+    {
+        if (BtnRecord is null) return;
+        BtnRecord.Content = isRecording ? "⏹ Parar" : "🎥 Gravar";
+        if (isRecording) BtnRecord.Classes.Add("recording");
+        else BtnRecord.Classes.Remove("recording");
+    }
+
+    /// <summary>18/11: resposta do botão de print ("Enviando..." / "Capturado!"); null volta ao normal.</summary>
+    public void SetPrintFeedback(string? text)
+    {
+        if (BtnPrint is null) return;
+        BtnPrint.Content = string.IsNullOrEmpty(text) ? "📷 Print" : text;
+        if (string.IsNullOrEmpty(text)) BtnPrint.Classes.Remove("active");
+        else BtnPrint.Classes.Add("active");
+    }
+
     // ----------------------------------------------------------------- D-pad
 
     public void HandleGamepadAction(GamepadAction action)

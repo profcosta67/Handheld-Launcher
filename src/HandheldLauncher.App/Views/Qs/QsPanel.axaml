@@ -51,6 +51,16 @@
       </Setter>
       <Setter Property="Foreground" Value="{StaticResource OnAccentBrush}" />
     </Style>
+    <!-- 18/11: gravando — vermelho, para o botão dizer o que está acontecendo. -->
+    <Style Selector="Button.pill.recording">
+      <Setter Property="Background" Value="#C0241C" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.pill.recording /template/ ContentPresenter">
+      <Setter Property="Background" Value="#C0241C" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+
     <Style Selector="Button.pill.cursor">
       <Setter Property="BorderThickness" Value="2" />
       <Setter Property="BorderBrush" Value="{StaticResource TextPrimaryBrush}" />

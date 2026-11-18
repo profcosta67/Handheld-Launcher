@@ -68,3 +68,18 @@ GPL-3.0. Agradecimento aos dois projetos pelo trabalho de documentar o controle.
 - O log mostra qual interface recebeu o pedido (ex.: `mi_02&col01`). Os slots do XInput não
   mostram se o controle está mudo; para confirmar, aperte um botão.
 - Qualquer falha vira uma linha `[CONTROLE-HID]` no `debug.log` e o launcher segue normal.
+
+## Tarefa de inicialização (antes do login)
+
+`src/HandheldLauncher.App/Platform/ControllerWakeTask.cs` registra a tarefa do Windows
+`HandheldLauncherControllerWake`: gatilho na inicialização (5 s de atraso), conta SYSTEM, oculta,
+limite de 2 minutos. A ação é este mesmo executável com `--acordar-controle`, que manda o pedido
+acima (até 10 tentativas, 3 s entre elas, porque o controle pode levar alguns segundos para ser
+enumerado) e sai — sem janela, sem launcher.
+
+O resultado fica em `C:\ProgramData\HandheldLauncher\controle-boot.log` (as últimas 40 linhas),
+porque o `%AppData%` de quem roda como SYSTEM não é o do usuário. Ao abrir, o launcher copia a
+última linha para o `debug.log` como `[CONTROLE-BOOT]`.
+
+Ligado por padrão (`WakeControllerAtBoot` no `settings.json`); o launcher cria ou remove a tarefa
+conforme essa opção ao abrir (`Platform/StartupComponents.cs`).

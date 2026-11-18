@@ -35,6 +35,7 @@ internal static class HealthChecks
             ("Capas dos jogos (SteamGridDB)", "capas", CheckSteamGridDb),
             ("Conta Steam", "conta-steam", CheckSteamAccount),
             ("Emulador Eden", "eden", CheckEden),
+            ("Componentes do sistema", "componentes", CheckComponents),
         };
 
         var results = new List<Result>();
@@ -74,6 +75,25 @@ internal static class HealthChecks
     };
 
     // ---------------------------------------------------------------------
+
+    /// <summary>
+    /// 18/11: PawnIO (TDP), HidHide (controle isolado) e RTSS (FPS). Numa instalação limpa o TDP
+    /// não funcionava porque o driver do PawnIO não tinha sido instalado e nada avisava.
+    /// </summary>
+    private static Result CheckComponents()
+    {
+        const string title = "Componentes do sistema";
+        if (!OperatingSystem.IsWindows()) return new Result(title, Status.Info, "Verificação disponível só no Windows.");
+
+        var statuses = HandheldLauncher.App.Platform.SystemComponents.CheckAll();
+        var missing = statuses.Where(s => s.State == HandheldLauncher.App.Platform.SystemComponents.State.Missing).ToList();
+        if (missing.Count == 0)
+            return new Result(title, Status.Ok, "PawnIO, HidHide e RTSS instalados.");
+
+        var names = string.Join(", ", missing.Select(m => m.Name));
+        return new Result(title, Status.Warning, $"Faltando: {names}.",
+            "Abra \"🧩 Componentes\" aqui embaixo para instalar.");
+    }
 
     private static Result CheckController()
     {

@@ -552,6 +552,9 @@ public partial class OverlayWindow
         NewQsPanel.SetScreenInfo(TxtScreenInfo?.Text ?? "—");
         NewQsPanel.SetBattery(_viewModel.BatteryStatusText);
         NewQsPanel.SetHud(_currentHudIndex);
+        // 18/11: o botão de gravar precisa dizer o estado real já ao abrir o painel.
+        NewQsPanel.SetRecordingVisual(OperatingSystem.IsWindows() && HandheldLauncher.App.Platform.WindowsHardwareService.IsAnyRecording);
+        NewQsPanel.SetPrintFeedback(null);
         NewQsPanel.RunningGameProvider ??= () => (_viewModel.RunningGame?.Id, _viewModel.RunningGame?.Title);
         NewQsPanel.SetRunningGame(_viewModel.RunningGame?.Id, _viewModel.RunningGame?.Title); // meta de FPS por jogo
         NewQsPanel.RefreshSmartTdp(); // a opção pode ter mudado nas Configurações

@@ -249,6 +249,23 @@ public partial class App : Application
                     Avalonia.Threading.Dispatcher.UIThread.Post(mainWindow.BringBackAfterLegionSpace);
                 HandheldLauncher.App.Diagnostics.ControllerDiagnostics.StartMonitoring();
                 desktop.Exit += (_, _) => HandheldLauncher.App.Input.GameInputHelper.StopHelperProcess();
+
+                // 18/11: aviso de gravação na tela (contagem 3,2,1 e selo "GRAVANDO") — vale na
+                // tela inicial e com jogo aberto, venha a gravação de onde vier.
+                HandheldLauncher.App.Platform.WindowsHardwareService.ActiveRecordingChanged += state =>
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        if (state == HandheldLauncher.App.Platform.RecordingState.Recording)
+                            HandheldLauncher.App.Platform.RecordingUx.ShowRecording(
+                                HandheldLauncher.App.Platform.WindowsHardwareService.RecordingStartedAtUtc);
+                        else
+                            HandheldLauncher.App.Platform.RecordingUx.HideRecording();
+                    });
+                desktop.Exit += (_, _) => HandheldLauncher.App.Platform.RecordingUx.Shutdown();
+
+                // 18/11: componentes de fora (PawnIO do TDP, HidHide do controle, RTSS do FPS) e a
+                // tarefa que acorda o controle antes do login. Ver Platform/StartupComponents.
+                HandheldLauncher.App.Platform.StartupComponents.RunInBackground(mainWindow);
             }
 
             if (appSettings.KioskMode)

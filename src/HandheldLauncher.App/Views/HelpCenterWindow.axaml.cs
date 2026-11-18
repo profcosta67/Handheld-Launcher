@@ -371,6 +371,17 @@ public partial class HelpCenterWindow : Window
         }
     }
 
+    /// <summary>18/11: abre a tela dos componentes de fora (PawnIO, HidHide, RTSS).</summary>
+    private void OnComponentsClick(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var dialog = new ComponentsWindow { Topmost = true };
+            _ = dialog.ShowDialog(this);
+        }
+        catch (Exception ex) { HandheldLauncher.App.Diagnostics.DebugLog.Write($"[COMPONENTES] Falha ao abrir pela Central de Ajuda: {ex.Message}"); }
+    }
+
     private void OnCloseClick(object? sender, RoutedEventArgs e) => Close();
 
     // Mesmo ajuste da janela de Configurações: em telas baixas, encolhe pra caber.

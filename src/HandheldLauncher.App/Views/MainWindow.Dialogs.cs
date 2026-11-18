@@ -293,6 +293,42 @@ public partial class MainWindow : Window
         catch (Exception ex) { DebugLog.Swallowed(ex); }
     }
 
+    /// <summary>
+    /// 18/11: tela dos componentes de fora (PawnIO, HidHide, RTSS). Chamada pela Central de Ajuda
+    /// e, uma vez por versão, quando algo está faltando (ver Platform/StartupComponents).
+    /// </summary>
+    public async Task OpenComponentsDialogAsync()
+    {
+        var dialog = new ComponentsWindow { Topmost = true };
+        _activeDialog = dialog;
+        try
+        {
+            ThemeManager.ApplyFont(dialog, AppSettingsStore.Load().UiFont);
+            await dialog.ShowDialog(this);
+        }
+        catch (Exception ex) { DebugLog.Write($"[COMPONENTES] Falha ao abrir a tela: {ex.Message}"); }
+        finally { _activeDialog = null; }
+    }
+
+    /// <summary>
+    /// Aviso automático de componente em falta: nunca por cima de jogo, de outro diálogo, nem com
+    /// o launcher fora da frente — a mesma regra dos avisos de saúde.
+    /// </summary>
+    public void ShowComponentsNotice()
+    {
+        try
+        {
+            if (DataContext is MainViewModel { RunningGame: not null } || _activeDialog is not null
+                || !IsVisible || WindowState == WindowState.Minimized || !IsOurWindowInForeground())
+            {
+                DebugLog.Write("[COMPONENTES] Aviso não mostrado agora (jogo/diálogo aberto ou launcher fora da frente) — fica na Central de Ajuda.");
+                return;
+            }
+            _ = OpenComponentsDialogAsync();
+        }
+        catch (Exception ex) { DebugLog.Swallowed(ex); }
+    }
+
     public async Task OpenConnectivityPopup()
     {
         var dialog = new ConnectivityPopupWindow { Topmost = true };
