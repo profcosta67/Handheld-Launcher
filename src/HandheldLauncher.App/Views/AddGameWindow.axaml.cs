@@ -52,6 +52,22 @@ public partial class AddGameWindow : Window, IGamepadKeyboardHost
 
     private async Task OnBrowseClickCore(object? sender, RoutedEventArgs e)
     {
+        if (DataContext is not AddGameViewModel vm) return;
+
+        // 18/11: no Windows, seletor que devolve o próprio atalho (.lnk) — o do Avalonia troca o
+        // atalho pelo destino e os argumentos dele (ex.: o jogo que o Ryujinx abre) se perdiam.
+        if (OperatingSystem.IsWindows())
+        {
+            var owner = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+            var picked = HandheldLauncher.App.Platform.NativeFilePicker.PickFile(owner,
+                vm.IsApplication ? "Selecione o programa ou atalho" : "Selecione o jogo, o emulador ou um atalho",
+                "Executável ou atalho|*.exe;*.lnk;*.url;*.bat;*.cmd",
+                "Todos os arquivos|*.*");
+            if (picked is null) return;
+            UsePickedFile(vm, picked);
+            return;
+        }
+
         var storage = GetTopLevel(this)?.StorageProvider;
         if (storage is null) return;
 
@@ -62,10 +78,39 @@ public partial class AddGameWindow : Window, IGamepadKeyboardHost
             FileTypeFilter = new[] { new FilePickerFileType("Executável") { Patterns = new[] { "*.exe" } } }
         });
 
-        if (files.Count > 0 && DataContext is AddGameViewModel vm)
+        if (files.Count > 0) UsePickedFile(vm, files[0].Path.LocalPath);
+    }
+
+    private static void UsePickedFile(AddGameViewModel vm, string path)
+    {
+        if (path.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".url", StringComparison.OrdinalIgnoreCase))
         {
-            vm.ExecutablePath = files[0].Path.LocalPath;
+            var shortcut = HandheldLauncher.App.Platform.WindowsShortcut.TryRead(path);
+            vm.ApplyShortcut(path, shortcut?.TargetPath, shortcut?.Arguments, shortcut?.WorkingDirectory, shortcut?.Url);
+            HandheldLauncher.App.Diagnostics.DebugLog.Write(
+                $"[ADICIONAR] Atalho {System.IO.Path.GetFileName(path)} → {(shortcut is null ? "não lido" : shortcut.Url ?? shortcut.TargetPath ?? "sem destino")}.");
+            return;
         }
+        vm.ShortcutNote = string.Empty;
+        vm.ExecutablePath = path;
+    }
+
+    private void OnBrowseGameFileClick(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnBrowseGameFileClickCore(sender, e), "OnBrowseGameFileClick");
+
+    /// <summary>18/11: arquivo do jogo para emulador (.nsp, .xci, .iso...) — qualquer tipo.</summary>
+    private async Task OnBrowseGameFileClickCore(object? sender, RoutedEventArgs e)
+    {
+        var storage = GetTopLevel(this)?.StorageProvider;
+        if (storage is null || DataContext is not AddGameViewModel vm) return;
+
+        var files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Selecione o arquivo do jogo",
+            AllowMultiple = false,
+        });
+
+        if (files.Count > 0) vm.GameFilePath = files[0].Path.LocalPath;
     }
 
     private void OnCancelClick(object? sender, RoutedEventArgs e) => Close(null);

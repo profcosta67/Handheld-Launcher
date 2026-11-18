@@ -694,7 +694,8 @@ public bool CanOpenSelectedDetails => SelectedTile?.Game is { } game && HasGameD
                 break;
 
             case LibraryFilter.Emulators:
-                SubFilters.Add(new SubFilterViewModel("Switch", "#FFFFFF", "#E4000F", g => g.Id.StartsWith("eden_", StringComparison.Ordinal)));
+                // 18/11: jogos manuais de emulador de Switch (ex.: Ryujinx) também entram aqui.
+                SubFilters.Add(new SubFilterViewModel("Switch", "#FFFFFF", "#E4000F", g => g.Id.StartsWith("eden_", StringComparison.Ordinal) || g.Source == GameSource.Emulator));
                 break;
         }
         OnPropertyChanged(nameof(HasSubFilters));
