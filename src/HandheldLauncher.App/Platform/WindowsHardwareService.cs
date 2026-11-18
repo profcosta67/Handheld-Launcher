@@ -382,6 +382,7 @@ public class WindowsHardwareService : IHardwareService
 
             _lastOutputPath = outputPath;
             SetRecordingState(RecordingState.Recording);
+            _activeRecorder = this;
             DebugLog.Write($"[GRAVADOR] Iniciado (PID {_ffmpegProcess.Id}). Salvando em: {outputPath}");
         }
         catch (Exception ex)
@@ -393,8 +394,32 @@ public class WindowsHardwareService : IHardwareService
         }
     }
 
+    // 18/11: quem está gravando agora (há mais de uma instância deste serviço: QS, menu, tarefas).
+    private static WindowsHardwareService? _activeRecorder;
+
+    /// <summary>
+    /// 18/11: fechar o launcher com gravação em andamento deixava o FFmpeg gravando sozinho
+    /// (log de 18/11: gravação iniciada 15:15:46, launcher fechado 15:16:12, sem parada). Chamado
+    /// na saída do app: para a gravação do jeito normal (manda "q" e espera fechar o arquivo).
+    /// </summary>
+    public static void StopActiveRecordingForShutdown()
+    {
+        try
+        {
+            var recorder = _activeRecorder;
+            if (recorder is null || recorder._recordingState != RecordingState.Recording) return;
+            DebugLog.Write("[GRAVADOR] Launcher fechando com gravação em andamento — parando o FFmpeg.");
+            recorder.StopRecording();
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[GRAVADOR] Falha ao parar a gravação no fechamento: {ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
     private void StopRecording()
     {
+        if (ReferenceEquals(_activeRecorder, this)) _activeRecorder = null;
         var pathToValidate = _lastOutputPath;
         try
         {

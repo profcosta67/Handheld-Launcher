@@ -169,6 +169,8 @@ public partial class App : Application
 
                 performanceHud = new PerformanceHud(hudPreset);
                 desktop.Exit += (_, _) => performanceHud?.Dispose();
+                // 18/11: gravação em andamento é parada (e o arquivo fechado) quando o launcher sai.
+                desktop.Exit += (_, _) => HandheldLauncher.App.Platform.WindowsHardwareService.StopActiveRecordingForShutdown();
             }
 
             LegacyInstallCleanup.RunInBackground();
