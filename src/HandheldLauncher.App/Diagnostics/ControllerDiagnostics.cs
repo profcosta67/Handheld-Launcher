@@ -47,6 +47,9 @@ internal static class ControllerDiagnostics
 
     private static int _started;
 
+    /// <summary>Chamado (fora da thread da tela) depois de abrir e minimizar o Legion Space na abertura.</summary>
+    public static Action? LegionSpaceOpenedAtStartup;
+
     public static void StartMonitoring()
     {
         if (!OperatingSystem.IsWindows()) return;
@@ -85,6 +88,18 @@ internal static class ControllerDiagnostics
             // O que resolveu foi abrir o Legion Space. Próximo beta: detectar
             // "controle da Lenovo só no slot ≥ 1 ao ligar" e abrir o Legion
             // Space. TryRecoverLenovoController fica pro diagnóstico.
+            var openedAtStartup = false;
+            try
+            {
+                if (HandheldLauncher.Core.Services.AppSettingsStore.Load().WakeControllerWithLegionSpaceAtStartup)
+                    openedAtStartup = OpenLegionSpaceAtStartup();
+            }
+            catch (Exception ex)
+            {
+                DebugLog.Write($"[CONTROLE-ACORDAR] Falhou: {ex.GetType().Name}: {ex.Message}");
+            }
+            if (openedAtStartup) last = ConnectedSlots();
+
             if (NeedsWake(last))
             {
                 DebugLog.Write($"[CONTROLE-DIAG] Atenção: controle só no slot [{last}], nada no slot 0 — padrão do boot ruim do Legion (controle não responde).");
@@ -276,6 +291,61 @@ internal static class ControllerDiagnostics
             return null;
         }
     }
+
+    /// <summary>
+    /// Abertura do launcher no Legion Go: abre o Legion Space (que acorda o controle), espera ele
+    /// subir, minimiza a janela dele e avisa para o launcher voltar à frente. true = abriu.
+    /// </summary>
+    private static bool OpenLegionSpaceAtStartup()
+    {
+        if (LenovoDeviceBlocks("/enum-devices /connected").Count == 0) return false; // não é Legion
+        if (Process.GetProcessesByName("LegionSpace").Length > 0)
+        {
+            DebugLog.Write("[CONTROLE-ACORDAR] Legion Space já aberto — nada a fazer.");
+            return false;
+        }
+        var appId = FindLegionSpaceAppId();
+        if (appId is null)
+        {
+            DebugLog.Write("[CONTROLE-ACORDAR] Legion Space não encontrado no menu Iniciar.");
+            return false;
+        }
+
+        DebugLog.Write($"[CONTROLE-ACORDAR] Abrindo o Legion Space para acordar o controle ({appId}).");
+        Process.Start(new ProcessStartInfo("explorer.exe", $"shell:AppsFolder\\{appId}") { UseShellExecute = false })?.Dispose();
+
+        // Espera a janela dele aparecer (até 20 s) e mais um pouco para ele falar com o controle.
+        var minimized = 0;
+        for (var i = 0; i < 20; i++)
+        {
+            Thread.Sleep(1000);
+            if (MainWindowsOf("LegionSpace").Count > 0) break;
+        }
+        Thread.Sleep(3000);
+        foreach (var hwnd in MainWindowsOf("LegionSpace"))
+            if (ShowWindow(hwnd, SwMinimize)) minimized++;
+        DebugLog.Write($"[CONTROLE-ACORDAR] Legion Space aberto; {minimized} janela(s) minimizada(s); slots XInput [{ConnectedSlots()}].");
+
+        try { LegionSpaceOpenedAtStartup?.Invoke(); }
+        catch (Exception ex) { DebugLog.Swallowed(ex); }
+        return true;
+    }
+
+    private static List<IntPtr> MainWindowsOf(string processName)
+    {
+        var result = new List<IntPtr>();
+        foreach (var p in Process.GetProcessesByName(processName))
+        {
+            try { if (p.MainWindowHandle != IntPtr.Zero) result.Add(p.MainWindowHandle); }
+            catch { /* processo saiu */ }
+            finally { p.Dispose(); }
+        }
+        return result;
+    }
+
+    private const int SwMinimize = 6;
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
     /// <summary>ID do app "Legion Space" no menu Iniciar (Get-StartApps), ou null.</summary>
     private static string? FindLegionSpaceAppId()

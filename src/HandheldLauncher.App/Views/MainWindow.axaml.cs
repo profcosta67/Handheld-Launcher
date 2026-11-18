@@ -382,6 +382,22 @@ public partial class MainWindow : Window
         Closed += (_, _) => { _helperWatchdog?.Stop(); _helperWatchdog = null; };
     }
 
+    /// <summary>beta.72: o Legion Space abriu na abertura (para acordar o controle) — o launcher volta à frente.</summary>
+    public void BringBackAfterLegionSpace()
+    {
+        try
+        {
+            if (DataContext is MainViewModel { RunningGame: not null }) return; // jogo aberto: não rouba a frente
+            if (!AppSettingsStore.Load().KioskMode) return;                     // "Uso em PC": não se impõe
+            DebugLog.Write("[CONTROLE-ACORDAR] Launcher de volta à frente depois do Legion Space.");
+            RestoreFromTray();
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Swallowed(ex);
+        }
+    }
+
     /// <summary>
     /// View + Menu (1 s): traz o launcher de volta. Não age com o launcher já na frente, com o
     /// Quick Settings aberto ou com o jogo em andamento NA FRENTE (no jogo, esses botões são do

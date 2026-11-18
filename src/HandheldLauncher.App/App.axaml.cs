@@ -242,6 +242,9 @@ public partial class App : Application
                 });
                 mainWindow.InitializeGamepadComboDetection();
 
+                // beta.72: depois de abrir o Legion Space (acorda o controle do Legion Go), o launcher volta à frente.
+                HandheldLauncher.App.Diagnostics.ControllerDiagnostics.LegionSpaceOpenedAtStartup = () =>
+                    Avalonia.Threading.Dispatcher.UIThread.Post(mainWindow.BringBackAfterLegionSpace);
                 HandheldLauncher.App.Diagnostics.ControllerDiagnostics.StartMonitoring();
                 desktop.Exit += (_, _) => HandheldLauncher.App.Input.GameInputHelper.StopHelperProcess();
             }

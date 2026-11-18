@@ -6,6 +6,12 @@ public class AppSettings
       // 🟢 NOVO: Substitui o FreezeGameOnOverlay e o GameModeEnabled
     public bool IsolateControllerOnOverlay { get; set; } = true;
 
+    // 0.27 beta.72 (17/11): no Legion Go 2 o controle às vezes liga "mudo" (aparece no Windows,
+    // mas não manda botão) até o Legion Space abrir. Não há como saber de fora se está mudo ou
+    // só parado, então o launcher abre o Legion Space ao iniciar, minimiza a janela dele e volta
+    // para a frente. Só age com controle da Lenovo presente e o Legion Space fechado.
+    public bool WakeControllerWithLegionSpaceAtStartup { get; set; } = true;
+
     // v0.25.9: o reinício do controle (pnputil /restart-device) ao fechar o
     // Quick Settings veio na 0.25.3 para jogos que não voltam a abrir o
     // controle (Days Gone). Desde a 0.25.7 o launcher abre sempre como
