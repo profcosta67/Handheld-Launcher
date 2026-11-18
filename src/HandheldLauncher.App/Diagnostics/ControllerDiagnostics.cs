@@ -62,12 +62,71 @@ internal static class ControllerDiagnostics
             Priority = ThreadPriority.BelowNormal,
         };
         thread.Start();
+
+        // 18/11: o controle pode voltar mudo depois da suspensão também (e é a tela do PIN que
+        // aparece ao acordar) — repete o pedido HID alguns segundos depois de acordar.
+        try { Microsoft.Win32.SystemEvents.PowerModeChanged += OnPowerModeChanged; }
+        catch (Exception ex) { DebugLog.Swallowed(ex); }
+    }
+
+    private static int _resumeWakeQueued;
+
+    private static void OnPowerModeChanged(object? sender, Microsoft.Win32.PowerModeChangedEventArgs e)
+    {
+        if (e.Mode != Microsoft.Win32.PowerModes.Resume) return;
+        if (Interlocked.Exchange(ref _resumeWakeQueued, 1) == 1) return;
+        ThreadPool.QueueUserWorkItem(_ =>
+        {
+            try
+            {
+                Thread.Sleep(3000);
+                TryWakeWithHidCommand("acordou da suspensão");
+            }
+            finally { Interlocked.Exchange(ref _resumeWakeQueued, 0); }
+        });
+    }
+
+    /// <summary>
+    /// 18/11: manda ao controle do Legion o pedido "liga a saída XInput" (o que o Legion Space
+    /// faz ao abrir) — ver <see cref="LegionControllerHid"/>. Não faz nada com o Legion Space
+    /// aberto (ele cuida do controle) ou com a opção desligada. Nunca lança exceção.
+    /// </summary>
+    private static void TryWakeWithHidCommand(string when)
+    {
+        try
+        {
+            if (!HandheldLauncher.Core.Services.AppSettingsStore.Load().WakeControllerWithHidCommand) return;
+            if (IsProcessRunning("LegionSpace"))
+            {
+                DebugLog.Write($"[CONTROLE-HID] {when}: Legion Space aberto — ele cuida do controle; pedido não enviado.");
+                return;
+            }
+            var before = ConnectedSlots();
+            var result = LegionControllerHid.TryEnablePhysicalXInput();
+            Thread.Sleep(1500);
+            DebugLog.Write($"[CONTROLE-HID] {when}: {result} Slots XInput antes [{before}], depois [{ConnectedSlots()}].");
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[CONTROLE-HID] {when}: falhou ({ex.GetType().Name}: {ex.Message}).");
+        }
+    }
+
+    private static bool IsProcessRunning(string name)
+    {
+        var processes = Process.GetProcessesByName(name);
+        foreach (var p in processes) p.Dispose();
+        return processes.Length > 0;
     }
 
     private static void MonitorLoop()
     {
         try
         {
+            // 18/11: o pedido HID vai logo ao abrir (não espera os 8 s do retrato): quanto antes
+            // o controle acordar, melhor. Rápido (dezenas de ms) e em thread de fundo.
+            TryWakeWithHidCommand("abertura do launcher");
+
             Thread.Sleep(StartupDelay);
             var snapshots = 0;
             var lastSnapshot = DateTime.MinValue;

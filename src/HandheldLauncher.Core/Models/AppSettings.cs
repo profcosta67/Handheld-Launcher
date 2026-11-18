@@ -8,9 +8,16 @@ public class AppSettings
 
     // 0.27 beta.72 (17/11): no Legion Go 2 o controle às vezes liga "mudo" (aparece no Windows,
     // mas não manda botão) até o Legion Space abrir. Não há como saber de fora se está mudo ou
-    // só parado, então o launcher abre o Legion Space ao iniciar, minimiza a janela dele e volta
-    // para a frente. Só age com controle da Lenovo presente e o Legion Space fechado.
-    public bool WakeControllerWithLegionSpaceAtStartup { get; set; } = true;
+    // só parado.
+    // 18/11: o jeito principal passou a ser mandar ao controle, ao abrir o launcher e ao acordar
+    // da suspensão, o pedido HID "liga a saída XInput" (o que o Legion Space faz ao abrir), sem
+    // abrir janela nenhuma. Só age com o Legion Space fechado.
+    public bool WakeControllerWithHidCommand { get; set; } = true;
+
+    // Plano B (desligado por padrão desde 18/11): abrir o Legion Space ao iniciar, minimizar a
+    // janela dele e voltar para a frente. Fica no settings.json para o caso de o pedido HID não
+    // bastar em algum aparelho.
+    public bool WakeControllerWithLegionSpaceAtStartup { get; set; } = false;
 
     // v0.25.9: o reinício do controle (pnputil /restart-device) ao fechar o
     // Quick Settings veio na 0.25.3 para jogos que não voltam a abrir o
