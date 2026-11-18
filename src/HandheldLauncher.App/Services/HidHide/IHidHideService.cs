@@ -31,4 +31,12 @@ public interface IHidHideService
     /// o jogo não volta a abri-lo só porque o caminho foi removido da lista.
     /// </summary>
     void ForceRestartController();
+
+    /// <summary>
+    /// 0.27 beta.71: desliga o mascaramento quando o Windows vai desligar/reiniciar/sair da
+    /// sessão. No desligamento o launcher é encerrado sem passar pelo Dispose, e o driver do
+    /// HidHide guardava o mascaramento ligado para o próximo boot (tela de login incluída).
+    /// O launcher liga de novo ao abrir.
+    /// </summary>
+    void DeactivateForShutdown() { }
 }
