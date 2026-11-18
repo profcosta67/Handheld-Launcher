@@ -13,6 +13,11 @@ namespace HandheldLauncher.App.Views;
 ///
 /// Antes, quem gravava pela tela inicial não tinha nenhum sinal na tela (o "[ REC ]" só aparecia
 /// no HUD do RTSS, e só com jogo aberto).
+///
+/// A gravação é feita com o FFmpeg capturando a TELA (gdigrab, que inclui janelas por cima), então
+/// esta janela é marcada com WDA_EXCLUDEFROMCAPTURE: o aviso aparece para o usuário e NÃO entra no
+/// vídeo. Se o Windows não aceitar (anterior ao 10 2004), o aviso é escondido enquanto grava — ele
+/// não vale estragar todo o vídeo.
 /// </summary>
 public partial class RecordingOverlayWindow : Window
 {
@@ -35,6 +40,7 @@ public partial class RecordingOverlayWindow : Window
     {
         base.OnOpened(e);
         MakeClickThrough();
+        ExcludeFromCapture();
         Place(top: false);
     }
 
@@ -69,6 +75,12 @@ public partial class RecordingOverlayWindow : Window
 
     public bool HasAnythingVisible => CountdownBox.IsVisible || BadgeBox.IsVisible;
 
+    /// <summary>
+    /// false = o Windows não deixou tirar a janela da captura; nesse caso o selo não pode ficar na
+    /// tela durante a gravação, senão entra no vídeo.
+    /// </summary>
+    public bool KeptOutOfCapture { get; private set; }
+
     /// <summary>Põe a janela no meio da tela (contagem) ou encostada no alto (selo).</summary>
     private void Place(bool top)
     {
@@ -85,6 +97,28 @@ public partial class RecordingOverlayWindow : Window
                 top ? area.Y + (int)(12 * scale) : area.Y + (area.Height - height) / 2);
         }
         catch (Exception ex) { DebugLog.Swallowed(ex); }
+    }
+
+    /// <summary>
+    /// Tira a janela da captura de tela (o FFmpeg grava a tela inteira com gdigrab, que inclui
+    /// janelas sobrepostas). Windows 10 2004 ou mais novo.
+    /// </summary>
+    private void ExcludeFromCapture()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        try
+        {
+            var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+            if (handle == IntPtr.Zero) return;
+            KeptOutOfCapture = SetWindowDisplayAffinity(handle, WdaExcludeFromCapture);
+            if (!KeptOutOfCapture)
+                DebugLog.Write("[GRAVADOR] Este Windows não deixa tirar o aviso da captura — o selo não vai ficar na tela durante a gravação.");
+        }
+        catch (Exception ex)
+        {
+            KeptOutOfCapture = false;
+            DebugLog.Swallowed(ex);
+        }
     }
 
     /// <summary>Janela decorativa: não ativa, não aparece no Alt+Tab e deixa o clique passar.</summary>
@@ -111,4 +145,10 @@ public partial class RecordingOverlayWindow : Window
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
+    private const uint WdaExcludeFromCapture = 0x00000011;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetWindowDisplayAffinity(IntPtr hWnd, uint dwAffinity);
 }

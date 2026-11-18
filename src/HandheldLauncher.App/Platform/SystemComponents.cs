@@ -83,9 +83,10 @@ internal static class SystemComponents
                 available ? "Driver não instalado — o TDP não funciona sem ele." : "Driver não instalado e o instalador não veio no pacote (pawnio.eu).",
                 available);
 
-        var running = query.Value.Output.Contains("RUNNING", StringComparison.OrdinalIgnoreCase)
-                      || query.Value.Output.Contains("EM_EXECUÇÃO", StringComparison.OrdinalIgnoreCase)
-                      || query.Value.Output.Contains("EXECUÇÃO", StringComparison.OrdinalIgnoreCase);
+        // O texto do sc.exe vem traduzido e na página de código do console ("EM_EXECUÇÃO" chega
+        // embaralhado), então o que vale é o número: STATE/ESTADO : 4 = rodando.
+        var running = System.Text.RegularExpressions.Regex.IsMatch(query.Value.Output, @"^\s*(STATE|ESTADO)\s*:\s*4\b",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Multiline);
         return new Status(Kind.PawnIo, name, State.Installed,
             running ? "Instalado e rodando." : "Instalado, mas o driver está parado (reinicie o Windows).", available);
     }
@@ -204,7 +205,7 @@ internal static class SystemComponents
         // O driver é KERNEL_DRIVER com início manual: deixa em automático e tenta subir agora,
         // senão o TDP só funcionaria depois de reiniciar (mesmo ajuste do InstallTask.ps1).
         RunCapture("sc.exe", "config PawnIO start= auto");
-        RunCapture("sc.exe", "start PawnIO");
+        RunCapture("sc.exe", "start PawnIO", timeoutSeconds: 30);
 
         var after = CheckPawnIo();
         DebugLog.Write($"[COMPONENTES] PawnIO depois da instalação: {after.State} — {after.Detail}");
@@ -276,7 +277,12 @@ internal static class SystemComponents
         }
     }
 
-    private static (int ExitCode, string Output)? RunCapture(string fileName, string arguments)
+    /// <summary>
+    /// Roda e devolve a saída, com limite de tempo de verdade. Antes era ReadToEnd() antes do
+    /// WaitForExit: um comando que não termina (o "sc start" carrega driver) travava a thread para
+    /// sempre, e o WaitForExit virava letra morta.
+    /// </summary>
+    private static (int ExitCode, string Output)? RunCapture(string fileName, string arguments, int timeoutSeconds = 20)
     {
         try
         {
@@ -289,9 +295,21 @@ internal static class SystemComponents
             };
             using var process = Process.Start(psi);
             if (process is null) return null;
-            var output = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
-            if (!process.WaitForExit(20000)) return null;
-            return (process.ExitCode, output);
+
+            var text = new System.Text.StringBuilder();
+            process.OutputDataReceived += (_, e) => { if (e.Data is not null) lock (text) text.AppendLine(e.Data); };
+            process.ErrorDataReceived += (_, e) => { if (e.Data is not null) lock (text) text.AppendLine(e.Data); };
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+
+            if (!process.WaitForExit(timeoutSeconds * 1000))
+            {
+                DebugLog.Write($"[COMPONENTES] {Path.GetFileName(fileName)} {arguments} passou de {timeoutSeconds}s — encerrando.");
+                try { process.Kill(entireProcessTree: true); } catch (Exception ex) { DebugLog.Swallowed(ex); }
+                return null;
+            }
+
+            lock (text) return (process.ExitCode, text.ToString());
         }
         catch (Exception ex)
         {

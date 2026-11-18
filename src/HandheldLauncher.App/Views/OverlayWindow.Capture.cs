@@ -57,27 +57,36 @@ public partial class OverlayWindow
 
             DebugLog.Write("[CAPTURA] Atalho Win+PrintScreen enviado após ocultar o overlay.");
             if (BtnScreenshot != null) BtnScreenshot.Content = "Captura enviada";
-            NewQsPanel?.SetPrintFeedback("✅ Capturado!");
-            await Task.Delay(1500);
+            _printFeedback = "✅ Capturado!";
         }
         catch (Exception ex)
         {
             DebugLog.Write($"[CAPTURA] Erro: {ex.GetType().Name}: {ex.Message}");
             if (BtnScreenshot != null) BtnScreenshot.Content = "Falha";
-            NewQsPanel?.SetPrintFeedback("❌ Falhou");
-            await Task.Delay(1200);
+            _printFeedback = "❌ Falhou";
         }
         finally
         {
-            if (BtnScreenshot != null) BtnScreenshot.Content = "📷 Print";
-            NewQsPanel?.SetPrintFeedback(null);
             if (wasVisible && !IsAppClosing)
             {
                 Show();
                 ForceTopmost();
+                // 18/11: a resposta ("Capturado!") só é mostrada com o painel de volta na tela —
+                // antes era escrita e apagada enquanto ele estava escondido, e ninguém via.
+                if (_printFeedback is not null)
+                {
+                    NewQsPanel?.SetPrintFeedback(_printFeedback);
+                    await Task.Delay(1500);
+                }
             }
+            _printFeedback = null;
+            if (BtnScreenshot != null) BtnScreenshot.Content = "📷 Print";
+            NewQsPanel?.SetPrintFeedback(null);
         }
     }
+
+    private string? _printFeedback;
+    private bool _recordBusy;
 
     private void OnRecordClick(object? sender, RoutedEventArgs e) =>
         HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnRecordClickCore(), "OnRecordClick");
@@ -101,17 +110,39 @@ public partial class OverlayWindow
             return;
         }
 
+        // Durante os 3 s da contagem a gravação ainda não começou, então um segundo aperto
+        // entraria aqui de novo e a segunda vez PARARIA a gravação da primeira.
+        if (_recordBusy) return;
+        _recordBusy = true;
+
         var wasVisible = IsVisible;
+        var gameBefore = _viewModel.RunningGame?.Id;
         try
         {
             if (wasVisible) HideWithUnblock();
             await Task.Delay(150);          // o painel precisa sair da tela antes da contagem
             await RecordingUx.CountdownAsync();
+
+            // O launcher pode ter sido fechado, ou um jogo ter aberto/fechado, nesses 3 s: começar
+            // a gravar agora deixaria o FFmpeg rodando sozinho (o fechamento já passou).
+            if (IsAppClosing)
+            {
+                DebugLog.Write("[GRAVADOR] Launcher fechando durante a contagem — gravação não começou.");
+                return;
+            }
+            if (_viewModel.RunningGame?.Id != gameBefore)
+            {
+                DebugLog.Write("[GRAVADOR] O jogo mudou durante a contagem — gravação não começou.");
+                return;
+            }
+
             winService.ToggleScreenRecording();
             _viewModel.UpdateHudRecordingState(winService.IsRecording);
         }
         finally
         {
+            _recordBusy = false;
+            if (!winService.IsRecording) RecordingUx.HideRecording();   // fecha a janela do aviso
             UpdateRecordButtonState();
         }
     }

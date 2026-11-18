@@ -18,29 +18,36 @@ internal static class RecordingUx
     private static DispatcherTimer? _elapsedTimer;
     private static DateTime _startedAtUtc;
 
-    /// <summary>Contagem 3, 2, 1 (uma por segundo). Volta quando a contagem termina.</summary>
+    /// <summary>
+    /// Contagem 3, 2, 1 (uma por segundo). Volta quando a contagem termina. A janela fica aberta
+    /// depois: o selo "GRAVANDO" vem em seguida e criar/fechar janela sempre no topo duas vezes
+    /// seguidas pode tirar um jogo em tela cheia do modo exclusivo.
+    /// </summary>
     public static async Task CountdownAsync()
     {
+        var window = Ensure();
+        if (window is null)
+        {
+            await Task.Delay(CountdownTotal);
+            return;
+        }
+
         try
         {
-            var window = Ensure();
-            if (window is null)
-            {
-                await Task.Delay(CountdownTotal);
-                return;
-            }
-
             for (var number = (int)CountdownTotal.TotalSeconds; number >= 1; number--)
             {
                 window.ShowCountdown(number);
                 await Task.Delay(1000);
             }
-            window.HideCountdown();
-            CloseIfIdle();
         }
         catch (Exception ex)
         {
             DebugLog.Write($"[GRAVADOR] Contagem falhou ({ex.GetType().Name}: {ex.Message}) — seguindo direto.");
+        }
+        finally
+        {
+            // Sem isto, um erro no meio deixaria o número na tela durante toda a gravação.
+            try { window.HideCountdown(); } catch (Exception ex) { DebugLog.Swallowed(ex); }
         }
     }
 
@@ -52,6 +59,14 @@ internal static class RecordingUx
             _startedAtUtc = startedAtUtc;
             var window = Ensure();
             if (window is null) return;
+
+            if (!window.KeptOutOfCapture)
+            {
+                // O selo entraria no vídeo (o FFmpeg grava a tela inteira): melhor não mostrar.
+                DebugLog.Write("[GRAVADOR] Selo \"GRAVANDO\" não mostrado para não entrar no vídeo (este Windows não permite excluí-lo da captura).");
+                CloseIfIdle();
+                return;
+            }
 
             window.SetElapsed(TimeSpan.Zero);
             window.ShowBadge();
@@ -69,6 +84,7 @@ internal static class RecordingUx
         try
         {
             _elapsedTimer?.Stop();
+            _window?.HideCountdown();
             _window?.HideBadge();
             CloseIfIdle();
         }

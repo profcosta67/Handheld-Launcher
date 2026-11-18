@@ -169,6 +169,9 @@ public partial class MainWindow : Window
             _activeDialog = null;
             if (dialog.OpenedExternalApp && IsVisible) Topmost = wasTopmost;
         }
+
+        // 18/11: "🧩 Componentes" fecha a Central e abre aqui (ver HelpCenterWindow).
+        if (dialog.ComponentsRequested) await OpenComponentsDialogAsync();
     }
 
     // v0.18 "Saúde do aparelho" / "Gerenciador de armazenamento": mesmo
@@ -318,12 +321,16 @@ public partial class MainWindow : Window
     {
         try
         {
-            if (DataContext is MainViewModel { RunningGame: not null } || _activeDialog is not null
+            if (DataContext is MainViewModel { RunningGame: not null } or MainViewModel { IsLaunching: true }
+                || _activeDialog is not null
                 || !IsVisible || WindowState == WindowState.Minimized || !IsOurWindowInForeground())
             {
                 DebugLog.Write("[COMPONENTES] Aviso não mostrado agora (jogo/diálogo aberto ou launcher fora da frente) — fica na Central de Ajuda.");
                 return;
             }
+            // Só marca como "já avisado" quando o aviso realmente aparece, senão a versão passava
+            // sem nunca mostrar nada (jogo aberto na hora da verificação, por exemplo).
+            HandheldLauncher.App.Platform.StartupComponents.MarkNoticeShown();
             _ = OpenComponentsDialogAsync();
         }
         catch (Exception ex) { DebugLog.Swallowed(ex); }

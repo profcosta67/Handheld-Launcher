@@ -104,26 +104,33 @@ public partial class ComponentsWindow : Window
         var original = button.Content;
         button.IsEnabled = false;
         button.Content = "Instalando...";
+        // Fechar no meio da instalação deixaria a tela sendo mexida depois de morta.
+        BtnClose.IsEnabled = false;
+        BtnRefresh.IsEnabled = false;
         try
         {
             var ok = await Task.Run(() => SystemComponents.Install(status.Kind));
             DebugLog.Write($"[COMPONENTES] Instalação de {status.Name} pedida na tela: {(ok ? "ok" : "não confirmou")}.");
-            Rebuild();
-            if (!ok)
+            if (!IsVisible) return;         // a janela já foi fechada: nada a atualizar
+            Rebuild();                      // monta os botões de novo (o antigo saiu da tela)
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[COMPONENTES] Instalação de {status.Name} falhou: {ex.Message}");
+            if (IsVisible)
             {
                 button.IsEnabled = true;
                 button.Content = original;
             }
         }
-        catch (Exception ex)
-        {
-            DebugLog.Write($"[COMPONENTES] Instalação de {status.Name} falhou: {ex.Message}");
-            button.IsEnabled = true;
-            button.Content = original;
-        }
         finally
         {
             _busy = false;
+            if (IsVisible)
+            {
+                BtnClose.IsEnabled = true;
+                BtnRefresh.IsEnabled = true;
+            }
         }
     }
 }

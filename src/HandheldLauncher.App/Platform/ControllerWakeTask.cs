@@ -25,9 +25,11 @@ internal static class ControllerWakeTask
         Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
         "HandheldLauncher", "controle-boot.log");
 
-    // Na inicialização o controle pode levar alguns segundos para ser enumerado pelo Windows.
-    private const int MaxAttempts = 10;
-    private static readonly TimeSpan AttemptGap = TimeSpan.FromSeconds(3);
+    // Na inicialização o controle pode levar alguns segundos para ser enumerado pelo Windows. Num
+    // aparelho que não é Legion não há o que achar, então poucas tentativas: a tarefa roda como
+    // SYSTEM em todo boot e não deve ficar ali parada de graça.
+    private const int MaxAttempts = 5;
+    private static readonly TimeSpan AttemptGap = TimeSpan.FromSeconds(2);
 
     /// <summary>
     /// Modo tarefa (<c>--acordar-controle</c>): tenta acordar o controle e sai. Nunca abre janela
@@ -101,6 +103,41 @@ internal static class ControllerWakeTask
     }
 
     public static bool? Exists() => WatchdogTask.Exists(TaskName);
+
+    /// <summary>
+    /// A tarefa registrada aponta para o executável de hoje? Uma instalação movida (portátil, ou a
+    /// migração da pasta antiga) deixaria a tarefa apontando para um exe que não existe mais, e
+    /// nada perceberia. null = não foi possível conferir.
+    /// </summary>
+    public static bool? PointsToCurrentExe()
+    {
+        if (!OperatingSystem.IsWindows()) return null;
+        try
+        {
+            var exe = Environment.ProcessPath;
+            if (string.IsNullOrEmpty(exe)) return null;
+
+            var psi = new ProcessStartInfo("schtasks.exe", $"/Query /TN \"{TaskName}\" /XML")
+            {
+                CreateNoWindow = true,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+            using var process = Process.Start(psi);
+            if (process is null) return null;
+            var xml = process.StandardOutput.ReadToEnd();
+            _ = process.StandardError.ReadToEnd();
+            if (!process.WaitForExit(8000)) return null;
+            if (process.ExitCode != 0 || xml.Length == 0) return null;
+            return xml.Contains(exe, StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Swallowed(ex);
+            return null;
+        }
+    }
 
     /// <summary>Cria (ligado) ou remove (desligado) a tarefa de inicialização. Precisa de administrador.</summary>
     public static bool Apply(bool enabled)

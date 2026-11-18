@@ -371,15 +371,18 @@ public partial class HelpCenterWindow : Window
         }
     }
 
-    /// <summary>18/11: abre a tela dos componentes de fora (PawnIO, HidHide, RTSS).</summary>
+    /// <summary>
+    /// 18/11: pediram a tela dos componentes (PawnIO, HidHide, RTSS). Quem abre é o MainWindow,
+    /// depois desta janela fechar: um diálogo aberto de dentro de outro não recebe os botões do
+    /// controle (a navegação segue o diálogo que o MainWindow conhece), e no modo Handheld isso
+    /// deixaria o usuário preso numa janela que não responde.
+    /// </summary>
+    public bool ComponentsRequested { get; private set; }
+
     private void OnComponentsClick(object? sender, RoutedEventArgs e)
     {
-        try
-        {
-            var dialog = new ComponentsWindow { Topmost = true };
-            _ = dialog.ShowDialog(this);
-        }
-        catch (Exception ex) { HandheldLauncher.App.Diagnostics.DebugLog.Write($"[COMPONENTES] Falha ao abrir pela Central de Ajuda: {ex.Message}"); }
+        ComponentsRequested = true;
+        Close();
     }
 
     private void OnCloseClick(object? sender, RoutedEventArgs e) => Close();

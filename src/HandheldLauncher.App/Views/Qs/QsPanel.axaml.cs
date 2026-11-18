@@ -943,8 +943,10 @@ public partial class QsPanel : UserControl
     {
         if (BtnRecord is null) return;
         BtnRecord.Content = isRecording ? "⏹ Parar" : "🎥 Gravar";
+        // Remove sempre antes de pôr: Classes é lista, Add repetido empilha a mesma classe e o
+        // botão ficava vermelho depois de parar.
+        BtnRecord.Classes.Remove("recording");
         if (isRecording) BtnRecord.Classes.Add("recording");
-        else BtnRecord.Classes.Remove("recording");
     }
 
     /// <summary>18/11: resposta do botão de print ("Enviando..." / "Capturado!"); null volta ao normal.</summary>
@@ -952,8 +954,8 @@ public partial class QsPanel : UserControl
     {
         if (BtnPrint is null) return;
         BtnPrint.Content = string.IsNullOrEmpty(text) ? "📷 Print" : text;
-        if (string.IsNullOrEmpty(text)) BtnPrint.Classes.Remove("active");
-        else BtnPrint.Classes.Add("active");
+        BtnPrint.Classes.Remove("active");
+        if (!string.IsNullOrEmpty(text)) BtnPrint.Classes.Add("active");
     }
 
     // ----------------------------------------------------------------- D-pad

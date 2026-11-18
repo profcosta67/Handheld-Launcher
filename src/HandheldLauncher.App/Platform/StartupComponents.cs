@@ -54,7 +54,17 @@ internal static class StartupComponents
             }
 
             ApplyControllerWakeTask(settings);
-            var installed = settings.AutoInstallComponents ? SystemComponents.InstallMissingBundled() : null;
+
+            // Instalar driver (HidHide re-enumera o controle, PawnIO carrega driver) com jogo
+            // aberto pode tirar o controle do usuário no meio da partida: espera o jogo fechar.
+            string? installed = null;
+            if (settings.AutoInstallComponents)
+            {
+                if (IsGameOn(mainWindow))
+                    DebugLog.Write("[COMPONENTES] Jogo aberto — instalação do que falta fica para a próxima abertura.");
+                else
+                    installed = SystemComponents.InstallMissingBundled();
+            }
 
             var statuses = SystemComponents.CheckAll();
             foreach (var status in statuses)
@@ -82,7 +92,17 @@ internal static class StartupComponents
                 DebugLog.Write("[CONTROLE-BOOT] Não foi possível conferir a tarefa de inicialização.");
                 return;
             }
-            if (settings.WakeControllerAtBoot == exists.Value) return;
+            if (settings.WakeControllerAtBoot == exists.Value)
+            {
+                // Já existe e a opção está ligada: confere se ainda aponta para este executável
+                // (instalação movida deixaria a tarefa apontando para um exe que não existe mais).
+                if (settings.WakeControllerAtBoot && ControllerWakeTask.PointsToCurrentExe() == false)
+                {
+                    DebugLog.Write("[CONTROLE-BOOT] A tarefa aponta para outro executável — registrando de novo.");
+                    ControllerWakeTask.Apply(true);
+                }
+                return;
+            }
 
             DebugLog.Write(settings.WakeControllerAtBoot
                 ? "[CONTROLE-BOOT] Registrando a tarefa que acorda o controle antes do login."
@@ -99,6 +119,49 @@ internal static class StartupComponents
     /// Aviso de componente em falta — uma vez por versão, e só com o launcher à frente e sem jogo
     /// aberto (o MainWindow decide isso). Hoje o único que precisa de pedido é o RTSS.
     /// </summary>
+    private static string? _noticeVersion;
+
+    /// <summary>
+    /// Chamado pelo MainWindow quando o aviso de componentes REALMENTE aparece: grava a versão no
+    /// settings.json para não repetir. Relê as configurações na hora — entre a verificação e aqui
+    /// passam minutos (instaladores), e salvar um retrato velho apagaria o que o usuário mexeu.
+    /// </summary>
+    public static void MarkNoticeShown()
+    {
+        try
+        {
+            if (_noticeVersion is null) return;
+            var current = AppSettingsStore.Load();
+            current.ComponentsNoticeShownFor = _noticeVersion;
+            AppSettingsStore.Save(current);
+        }
+        catch (Exception ex) { DebugLog.Swallowed(ex); }
+    }
+
+    private static bool IsGameOn(MainWindow mainWindow)
+    {
+        try
+        {
+            var done = new ManualResetEventSlim(false);
+            var running = false;
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                try
+                {
+                    running = mainWindow.DataContext is HandheldLauncher.App.ViewModels.MainViewModel vm
+                              && (vm.RunningGame is not null || vm.IsLaunching);
+                }
+                finally { done.Set(); }
+            });
+            return done.Wait(TimeSpan.FromSeconds(5)) && running;
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Swallowed(ex);
+            return false;
+        }
+    }
+
     private static void ShowNoticeIfNeeded(MainWindow mainWindow, AppSettings settings,
         IReadOnlyList<SystemComponents.Status> statuses)
     {
@@ -114,10 +177,7 @@ internal static class StartupComponents
                 return;
             }
 
-            settings.ComponentsNoticeShownFor = version;
-            try { AppSettingsStore.Save(settings); }
-            catch (Exception ex) { DebugLog.Swallowed(ex); }
-
+            _noticeVersion = version;
             DebugLog.Write($"[COMPONENTES] Faltando: {string.Join(", ", missing.Select(m => m.Name))} — abrindo a tela de componentes.");
             Avalonia.Threading.Dispatcher.UIThread.Post(() => mainWindow.ShowComponentsNotice());
         }

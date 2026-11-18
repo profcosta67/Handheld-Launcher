@@ -393,6 +393,25 @@ public class WindowsHardwareService : IHardwareService
             _ffmpegProcess.BeginOutputReadLine();
             _ffmpegProcess.BeginErrorReadLine();
 
+            // 18/11: se o FFmpeg morrer sozinho (disco cheio, erro do codec), ninguém avisava: o
+            // estado ficava "gravando" para sempre e, com o aviso novo na tela, o selo "GRAVANDO"
+            // ficaria aceso sem gravação nenhuma. O evento chega numa thread de fundo; quem ouve
+            // ActiveRecordingChanged já volta para a thread da tela.
+            var watched = _ffmpegProcess;
+            watched.EnableRaisingEvents = true;
+            watched.Exited += (_, _) =>
+            {
+                try
+                {
+                    if (!ReferenceEquals(_ffmpegProcess, watched)) return;   // já paramos nós mesmos
+                    DebugLog.Write($"[GRAVADOR] FFmpeg saiu sozinho (código {watched.ExitCode}) — gravação encerrada.");
+                    if (ReferenceEquals(_activeRecorder, this)) _activeRecorder = null;
+                    _ffmpegProcess = null;
+                    SetRecordingState(RecordingState.Error);
+                }
+                catch (Exception ex) { DebugLog.Swallowed(ex); }
+            };
+
             _lastOutputPath = outputPath;
             // A ordem importa: quem ouve ActiveRecordingChanged (o aviso na tela) lê
             // IsAnyRecording e RecordingStartedAtUtc, então os dois são definidos ANTES do aviso.
@@ -418,6 +437,12 @@ public class WindowsHardwareService : IHardwareService
     /// (log de 18/11: gravação iniciada 15:15:46, launcher fechado 15:16:12, sem parada). Chamado
     /// na saída do app: para a gravação do jeito normal (manda "q" e espera fechar o arquivo).
     /// </summary>
+    /// <remarks>
+    /// Roda na saída, na thread da tela, e pode bloquear até ~7 s (5 s esperando o FFmpeg fechar o
+    /// arquivo + 2 s depois de forçar). Numa saída pedida pelo usuário isso é aceitável; num
+    /// desligamento do Windows o sistema pode encerrar o processo antes e o vídeo fica cortado —
+    /// nada a fazer: fechar o arquivo é justamente o que leva esse tempo.
+    /// </remarks>
     public static void StopActiveRecordingForShutdown()
     {
         try
