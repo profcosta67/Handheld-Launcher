@@ -70,12 +70,14 @@ internal static class ControllerDiagnostics
     }
 
     private static int _resumeWakeQueued;
+    private static int _noControllerLogged;
 
     private static void OnPowerModeChanged(object? sender, Microsoft.Win32.PowerModeChangedEventArgs e)
     {
         if (e.Mode != Microsoft.Win32.PowerModes.Resume) return;
         if (Interlocked.Exchange(ref _resumeWakeQueued, 1) == 1) return;
-        ThreadPool.QueueUserWorkItem(_ =>
+        // Thread própria (não a do pool): a volta da suspensão já ocupa o pool com o TDP e o resto.
+        new Thread(() =>
         {
             try
             {
@@ -83,19 +85,27 @@ internal static class ControllerDiagnostics
                 TryWakeWithHidCommand("acordou da suspensão");
             }
             finally { Interlocked.Exchange(ref _resumeWakeQueued, 0); }
-        });
+        })
+        { IsBackground = true, Name = "ControllerHidWake.Resume", Priority = ThreadPriority.BelowNormal }.Start();
     }
 
     /// <summary>
-    /// 18/11: manda ao controle do Legion o pedido "liga a saída XInput" (o que o Legion Space
-    /// faz ao abrir) — ver <see cref="LegionControllerHid"/>. Não faz nada com o Legion Space
-    /// aberto (ele cuida do controle) ou com a opção desligada. Nunca lança exceção.
+    /// 18/11: manda ao controle do Legion o pedido "liga a saída XInput" — ver
+    /// <see cref="LegionControllerHid"/> (hipótese: é o que destrava o controle mudo; o teste
+    /// no aparelho confirma). Não faz nada com o Legion Space aberto (ele cuida do controle),
+    /// com um jogo aberto (não mexer no controle no meio da partida) ou com a opção desligada.
+    /// Nunca lança exceção.
     /// </summary>
     private static void TryWakeWithHidCommand(string when)
     {
         try
         {
             if (!HandheldLauncher.Core.Services.AppSettingsStore.Load().WakeControllerWithHidCommand) return;
+            if (HandheldLauncher.App.Platform.GameSessionInfo.DetectedGamePid > 0)
+            {
+                DebugLog.Write($"[CONTROLE-HID] {when}: jogo aberto — pedido não enviado.");
+                return;
+            }
             if (IsProcessRunning("LegionSpace"))
             {
                 DebugLog.Write($"[CONTROLE-HID] {when}: Legion Space aberto — ele cuida do controle; pedido não enviado.");
@@ -103,8 +113,15 @@ internal static class ControllerDiagnostics
             }
             var before = ConnectedSlots();
             var result = LegionControllerHid.TryEnablePhysicalXInput();
+            if (!result.FoundController)
+            {
+                // Ally, Deck etc.: uma linha por sessão basta.
+                if (Interlocked.Exchange(ref _noControllerLogged, 1) == 0)
+                    DebugLog.Write($"[CONTROLE-HID] {when}: {result.Message}");
+                return;
+            }
             Thread.Sleep(1500);
-            DebugLog.Write($"[CONTROLE-HID] {when}: {result} Slots XInput antes [{before}], depois [{ConnectedSlots()}].");
+            DebugLog.Write($"[CONTROLE-HID] {when}: {result.Message} Slots XInput antes [{before}], depois [{ConnectedSlots()}].");
         }
         catch (Exception ex)
         {
@@ -124,8 +141,10 @@ internal static class ControllerDiagnostics
         try
         {
             // 18/11: o pedido HID vai logo ao abrir (não espera os 8 s do retrato): quanto antes
-            // o controle acordar, melhor. Rápido (dezenas de ms) e em thread de fundo.
-            TryWakeWithHidCommand("abertura do launcher");
+            // o controle acordar, melhor. Em thread própria: se o aparelho travar a chamada, o
+            // retrato e a recuperação abaixo seguem normais.
+            new Thread(() => TryWakeWithHidCommand("abertura do launcher"))
+            { IsBackground = true, Name = "ControllerHidWake.Startup", Priority = ThreadPriority.BelowNormal }.Start();
 
             Thread.Sleep(StartupDelay);
             var snapshots = 0;
@@ -150,7 +169,7 @@ internal static class ControllerDiagnostics
             var openedAtStartup = false;
             try
             {
-                if (HandheldLauncher.Core.Services.AppSettingsStore.Load().WakeControllerWithLegionSpaceAtStartup)
+                if (HandheldLauncher.Core.Services.AppSettingsStore.Load().OpenLegionSpaceAtStartup)
                     openedAtStartup = OpenLegionSpaceAtStartup();
             }
             catch (Exception ex)

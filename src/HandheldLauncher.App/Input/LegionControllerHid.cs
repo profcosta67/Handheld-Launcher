@@ -10,9 +10,11 @@ namespace HandheldLauncher.App.Input;
 /// O problema (log de 17/11): depois de ligar, o controle aparece no XInput (slot 0), mas
 /// não manda nenhum botão até o Legion Space abrir. O firmware do controle tem uma chave
 /// que liga/desliga a saída XInput física; com ela desligada o controle continua
-/// conectado, mas mudo. O Legion Space liga essa chave ao abrir. Aqui o launcher manda o
-/// mesmo pedido de "ligar" — que é o estado normal do controle, então mandar com ele já
-/// ligado não muda nada.
+/// conectado, mas mudo — exatamente o sintoma. HIPÓTESE (o teste no aparelho confirma ou
+/// não): o Legion Space liga essa chave ao abrir. Aqui o launcher manda o pedido de "ligar",
+/// que é o estado normal do controle. No Handheld Companion esse pedido só existe como opção
+/// experimental (e desligada) para o sentido contrário; por isso o launcher não manda com
+/// jogo aberto e registra no log qual interface recebeu o pedido.
 ///
 /// Fonte dos FATOS do protocolo (não de código): o projeto Handheld Companion
 /// (github.com/Valkirie/HandheldCompanion, Devices/Lenovo/LegionGoTablet.cs) documenta a
@@ -47,13 +49,15 @@ internal static class LegionControllerHid
     private static readonly TimeSpan WriteTimeout = TimeSpan.FromSeconds(1);
     private static readonly object Gate = new();
 
+    /// <summary>Resultado para o log: achou o controle? e uma frase curta.</summary>
+    public readonly record struct WakeResult(bool FoundController, string Message);
+
     /// <summary>
-    /// Manda "liga a saída XInput" para o controle do Legion Go. Devolve uma frase curta para
-    /// o log (nunca lança exceção).
+    /// Manda "liga a saída XInput" para o controle do Legion Go. Nunca lança exceção.
     /// </summary>
-    public static string TryEnablePhysicalXInput()
+    public static WakeResult TryEnablePhysicalXInput()
     {
-        if (!OperatingSystem.IsWindows()) return "não é Windows.";
+        if (!OperatingSystem.IsWindows()) return new WakeResult(false, "não é Windows.");
         lock (Gate)
         {
             try
@@ -68,7 +72,7 @@ internal static class LegionControllerHid
                 {
                     if (!IsControllerConfigInterface(path, out var pid, out var outputLength)) continue;
                     candidates++;
-                    device ??= $"PID {pid:X4}";
+                    device ??= $"PID {pid:X4}, {InterfaceTag(path)}";
 
                     using var handle = OpenForWrite(path);
                     if (handle is null)
@@ -88,22 +92,36 @@ internal static class LegionControllerHid
                         report[4] = target;
                         report[5] = TurnOn;
                         if (Write(handle, report, out var error)) sent++;
-                        else { failed++; lastError = error; }
+                        else
+                        {
+                            failed++;
+                            lastError = error;
+                            if (error == ErrorTimeout) break;   // controle não está aceitando: não insiste
+                        }
                         Thread.Sleep(30);
                     }
                 }
 
                 if (candidates == 0)
-                    return "controle do Legion não encontrado (nenhuma interface de configuração da Lenovo) — nada enviado.";
-                return failed == 0
-                    ? $"pedido \"liga XInput\" enviado ao controle ({device}, {sent} de {sent})."
-                    : $"pedido \"liga XInput\" ao controle ({device}): {sent} ok, {failed} falharam (erro {lastError}).";
+                    return new WakeResult(false, "controle do Legion não encontrado (nenhuma interface de configuração da Lenovo) — nada enviado.");
+                return new WakeResult(true, failed == 0
+                    ? $"pedido \"liga XInput\" enviado ao controle ({device}; {sent} de {sent})."
+                    : $"pedido \"liga XInput\" ao controle ({device}): {sent} ok, {failed} falharam (erro {lastError}).");
             }
             catch (Exception ex)
             {
-                return $"falhou ({ex.GetType().Name}: {ex.Message}).";
+                return new WakeResult(false, $"falhou ({ex.GetType().Name}: {ex.Message}).");
             }
         }
+    }
+
+    /// <summary>Trecho do caminho que identifica a interface (ex.: "mi_02&amp;col01"), para o log.</summary>
+    private static string InterfaceTag(string path)
+    {
+        var start = path.IndexOf("&mi_", StringComparison.OrdinalIgnoreCase);
+        if (start < 0) return "interface sem MI";
+        var end = path.IndexOf('#', start);
+        return (end > start ? path[(start + 1)..end] : path[(start + 1)..]).ToLowerInvariant();
     }
 
     /// <summary>Caminhos das interfaces HID presentes cujo nome tem o VID da Lenovo.</summary>
