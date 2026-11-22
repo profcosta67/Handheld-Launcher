@@ -36,6 +36,10 @@ public class AppSettings
     // de vídeo não gasta à toa e o TDP desce mais. Desligado por padrão (decisão do usuário, 18/11).
     public bool SmartTdpLimitFps { get; set; } = false;
 
+    // 22/11: medição de FPS própria (eventos de quadro do Windows, como o PresentMon), usada pelo
+    // TDP inteligente quando o RTSS não mede o jogo. Só fica ligada durante uma sessão do Auto.
+    public bool OwnFpsMeter { get; set; } = true;
+
     // 18/11 (instalação limpa do usuário): o TDP não funcionou porque o driver do PawnIO não foi
     // instalado. Com isto ligado, o launcher confere ao abrir e instala sozinho os componentes que
     // vêm no pacote (PawnIO e HidHide). O RTSS nunca é instalado sem o usuário pedir.
