@@ -299,8 +299,8 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
                 if (probe.Heavier)
                 {
                     // a cena ficou mais pesada: a curva de antes da queda não vale mais
-                    var since = probe.T - 12;
-                    _samples.RemoveAll(x => x.T < since);
+                    // (só o que o próprio teste mediu: leituras de antes da mudança devolviam a parede velha)
+                    _samples.RemoveAll(x => x.T < probe.T);
                     _memKnee = null;
                 }
                 return SmartTdpChange.None;
@@ -379,7 +379,10 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
                     return Set(next, now, -1, cameFrom: Watts);
                 }
             }
-            if (_wall && now >= _nextProbe && Watts + ProbeStepWatts <= _max)
+            // Nunca logo depois de uma descida que mal segura a meta: primeiro ela é julgada. Um teste
+            // começado ali mede a base já sem os watts e, ao terminar, volta para baixo sem conferir.
+            if (_wall && now >= _nextProbe && Watts + ProbeStepWatts <= _max
+                && !(_lastDir < 0 && now - _lastChange <= ReturnWindowSeconds && fps < goal * 1.03))
             {
                 var probeBase = Curve(now).TryGetValue(Watts, out var bm) ? bm : fps;
                 _probe = (now, probeBase, Watts, new List<double>(), false);
@@ -402,12 +405,14 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
             var crash = fps < _target * DropRatio;
             double? before = Curve(now).TryGetValue(downFrom, out var bf) ? bf : prev;
             var plausible = before is { } b && b * Watts / downFrom < goal * 1.03;
-            if (_wall && crash)
+            // Na parede a queda é medida contra o patamar: com a meta muito acima dele (60 numa placa
+            // que trava em 35), toda leitura pareceria queda e a descida nunca seria julgada.
+            if (_wall && fps < _plateau * DropRatio)
             {
                 // Na parede a curva é plana (é isso que parede quer dizer): 1–2 W a menos não derrubam
                 // o FPS pela metade. Não culpa a descida pela queda, mas também não a absolve: a
                 // primeira leitura sem queda (até 30 s) decide se os watts a menos fazem falta.
-                _judgeUntil = now + 30;
+                if (now > _judgeUntil) _judgeUntil = now + 30;   // queda longa não adia para sempre
                 return SmartTdpChange.None;
             }
             _judgeUntil = double.NegativeInfinity;
@@ -469,6 +474,7 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
             // depois da subida, já dá para ver se ela comprou FPS (corte de cena travado não sobe
             // duas vezes).
             _samples.RemoveAll(x => x.T != now);
+            _memKnee = null;
             return SmartTdpChange.None;
         }
         else if (hasLower && maxLower * GainNeedRatio > current)

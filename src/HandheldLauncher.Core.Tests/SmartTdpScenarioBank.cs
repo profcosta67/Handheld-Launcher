@@ -184,6 +184,14 @@ internal static class SmartTdpScenarioBank
         return (80, (tt, w) => dips.Any(x => x.A <= tt && tt < x.B) ? f(w) * 0.68 : f(w), 27);
     }
 
+    /// <summary>Parede bem abaixo da meta (60 FPS numa placa que trava em ~35): toda leitura fica
+    /// abaixo de 65% da meta, então "queda brusca" precisa ser medida contra o patamar.</summary>
+    private static (int, Func<double, int, double>, int) LowWall(Lcg _)
+    {
+        var f = LerpCurve((8, 14), (14, 28), (18, 34), (35, 35));
+        return (60, (t, w) => f(w), 20);
+    }
+
     public static readonly Scenario[] All =
     {
         new("leve", Light, new(2.0, 3, 2.0)),
@@ -203,6 +211,7 @@ internal static class SmartTdpScenarioBank
         new("teto-comeca-alto", GpuWallStartHigh, new(3.5, 5, 3.0)),
         new("parede-mais-pesada", WallGetsHeavier, new(3.0, 5, 2.5)),
         new("inalcancavel-oscila", UnreachableSwings, new(2.0, 5, 3.0)),
+        new("parede-baixa", LowWall, new(3.0, 5, 2.0)),
     };
 
     private static int IdealWatts(Func<double, int, double> game, double t, int target)

@@ -93,7 +93,8 @@ class C:
         # Saiu da parede so por oscilacao (FPS um pouco acima do patamar algumas vezes) e o jogo
         # continua sem chegar na meta: volta para a parede lembrada em vez de subir ate o teto.
         s.plateau = s.memPlateau
-        s.wall = True; s.wallSince = now; s.probeGap = C.ProbeEvery; s.nextProbe = now + s.probeGap
+        s.wall = True; s.wallSince = now; s.probeGap = C.ProbeEvery
+        s.nextProbe = now + s.probeGap
         s.wallLow = []
         return 'None'   # sem forcar descida: a parede desce sozinha se houver sobra
 
@@ -149,7 +150,7 @@ class C:
                 s.wall = False                   # mais potencia voltou a comprar FPS
                 if s.probe_heavier:
                     # a cena ficou mais pesada: a curva de antes da queda nao vale mais
-                    s.samples = [x for x in s.samples if x[0] >= s.probe_t - 12]
+                    s.samples = [x for x in s.samples if x[0] >= s.probe_t]   # so o que o teste mediu
                     s.memKnee = None
                 return 'None'
             return s._set(frm, now, -1)
@@ -193,7 +194,10 @@ class C:
                 if new < s.W:
                     s.okSince = now
                     return s._set(new, now, -1, came_from=s.W)
-            if s.wall and now >= s.nextProbe and s.W + C.ProbeStep <= s.max:
+            # (nunca logo depois de uma descida: primeiro ela e julgada; um teste comecado ali
+            # mede a base ja sem os watts e, ao terminar, volta para baixo sem conferir nada)
+            if (s.wall and now >= s.nextProbe and s.W + C.ProbeStep <= s.max
+                    and not (s.lastDir < 0 and now - s.lastChange <= C.ReturnWindow and fps < goal * 1.03)):
                 base = s.curve(now).get(s.W, fps)   # media medida neste W (uma leitura so engana)
                 s.probe = {'t': now, 'base': base, 'from': s.W, 'reads': []}
                 return s._set(s.W + C.ProbeStep, now, +1)
@@ -211,10 +215,12 @@ class C:
             plausible = before is not None and before * s.W / s.downFrom < goal * 1.03
             # Na parede a curva e plana (e isso que parede quer dizer): 1–2 W a menos nao derrubam o
             # FPS pela metade. Queda brusca ali e o jogo (camera, replay), nunca a descida.
-            if s.wall and crash:
+            # na parede a queda e medida contra o patamar (meta muito acima dele faria toda leitura
+            # parecer queda e a descida nunca seria julgada)
+            if s.wall and fps < s.plateau * C.DropRatio:
                 # nao culpa a descida pela queda, mas tambem nao a absolve: a primeira leitura sem
                 # queda (ate 30 s) decide se os watts a menos fazem falta
-                s.judgeUntil = now + 30
+                if now > s.judgeUntil: s.judgeUntil = now + 30   # queda longa nao adia para sempre
                 return 'None'
             s.judgeUntil = NEG
             if not crash or plausible:
@@ -262,6 +268,7 @@ class C:
             # Espera mais uma leitura neste W antes de subir: assim, depois da subida, ja da para
             # ver se ela comprou FPS (corte de cena travado nao sobe duas vezes).
             s.samples = [x for x in s.samples if x[0] == now]
+            s.memKnee = None
             return 'None'
         elif lower and max(lower) * C.GainNeed > cur:
             return s._enter_wall(now, cur)       # a ultima subida nao comprou FPS

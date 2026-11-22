@@ -75,10 +75,12 @@ public class SmartTdpScenarioBankTests
     [InlineData("comeca-no-teto", 5, 11089, 27)]
     [InlineData("teto-comeca-alto", 0, 19302, 42)]
     [InlineData("teto-comeca-alto", 5, 19605, 34)]
-    [InlineData("parede-mais-pesada", 0, 20770, 56)]
+    [InlineData("parede-mais-pesada", 0, 20773, 54)]
     [InlineData("parede-mais-pesada", 5, 20507, 47)]
-    [InlineData("inalcancavel-oscila", 0, 23707, 43)]
-    [InlineData("inalcancavel-oscila", 5, 22447, 55)]
+    [InlineData("inalcancavel-oscila", 0, 24574, 61)]
+    [InlineData("inalcancavel-oscila", 5, 23184, 78)]
+    [InlineData("parede-baixa", 0, 18800, 43)]
+    [InlineData("parede-baixa", 5, 13594, 27)]
     public void PortMatchesPython(string name, int seed, long expectedWattSum, int expectedChanges)
     {
         var scenario = SmartTdpScenarioBank.All.Single(s => s.Name == name);
