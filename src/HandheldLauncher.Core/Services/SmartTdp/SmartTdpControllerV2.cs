@@ -270,7 +270,9 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
                 _memKnee = null;
                 _probe = null;   // teste de +3 W em andamento não vale mais (fica nos watts atuais)
             }
-            _samples.Add((now, Watts, fps));
+            // Na parede, leitura de queda (replay, câmera: ~2/3 do patamar) não entra na curva: baixava
+            // a média de cada W e o teste de +3 W "ganhava" sem ganho de verdade.
+            if (!(_wall && fps < _plateau * 0.8)) _samples.Add((now, Watts, fps));
             _samples.RemoveAll(x => now - x.T > CurveWindowSeconds);
         }
 

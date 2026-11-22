@@ -131,7 +131,9 @@ class C:
                 if s.wall: s.wall = False
                 s.memKnee = None
                 s.probe = None                   # teste de +3 W em andamento nao vale mais (fica nos watts atuais)
-            s.samples.append((now, s.W, fps))
+            # na parede, leitura de queda (replay, camera: ~2/3 do patamar) nao entra na curva:
+            # baixava a media de cada W e o teste de +3 W "ganhava" sem ganho de verdade
+            if not (s.wall and fps < s.plateau * 0.8): s.samples.append((now, s.W, fps))
             s.samples = [x for x in s.samples if now - x[0] <= C.Window]
 
         prev = s.prevFps; s.prevFps = fps
