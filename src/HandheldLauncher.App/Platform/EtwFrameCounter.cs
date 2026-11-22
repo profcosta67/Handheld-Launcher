@@ -109,15 +109,16 @@ internal sealed class EtwFrameCounter : IDisposable
         lock (_framesGate)
         {
             if (!_frames.TryGetValue(pid, out var queue) || queue.Count < 2) return null;
-            var last = 0L;
-            foreach (var t in queue) last = t;
+            // Maior e menor horário (os eventos de CPUs diferentes podem chegar fora de ordem).
+            var last = long.MinValue;
+            foreach (var t in queue) if (t > last) last = t;
             if (Stopwatch.GetTimestamp() - last > KeepTicks) return null;   // parou de entregar
-            var first = 0L;
+            var first = long.MaxValue;
             var n = 0;
             foreach (var t in queue)
             {
                 if (last - t > WindowTicks) continue;
-                if (n == 0) first = t;
+                if (t < first) first = t;
                 n++;
             }
             if (n < 2 || last <= first) return null;
@@ -234,7 +235,7 @@ internal sealed class EtwFrameCounter : IDisposable
             _orphan = _thread;
             _logFile = IntPtr.Zero;
             _loggerName = IntPtr.Zero;
-            DebugLog.Write("[FPS-PROPRIO] A leitura do Windows não terminou em 2 s; a medição fica desligada até reabrir o launcher.");
+            DebugLog.Write("[FPS-PROPRIO] A leitura do Windows não terminou em 2 s; a medição só religa quando ela terminar.");
         }
         _thread = null;
         if (threadDone)

@@ -131,7 +131,14 @@ internal static class RtssProfileConfig
     /// criado agora); na devolução, o perfil é apagado em vez de receber um valor fixo — senão uma
     /// mudança futura no limite global do usuário deixaria de valer para este jogo.</param>
     public static bool TryApplyFramerateLimit(string rtssInstallDir, string exeProfile, int fps, out int previous, out bool profileCreated)
+        => TryApplyFramerateLimit(rtssInstallDir, exeProfile, fps, out previous, out profileCreated, out _);
+
+    /// <param name="writtenUtc">Horário do arquivo do perfil logo depois de gravar: na devolução, o
+    /// perfil criado por nós só é apagado se ninguém mexeu nele desde então (o usuário pode ter
+    /// ajustado o jogo na tela do RTSS durante a sessão).</param>
+    public static bool TryApplyFramerateLimit(string rtssInstallDir, string exeProfile, int fps, out int previous, out bool profileCreated, out DateTime? writtenUtc)
     {
+        writtenUtc = null;
         var result = 0;
         var created = !File.Exists(ProfilePath(rtssInstallDir, exeProfile));
         var ok = WithHooks(rtssInstallDir, (load, save, set, get, update) =>
@@ -149,12 +156,33 @@ internal static class RtssProfileConfig
         });
         previous = result;
         profileCreated = created;
+        try
+        {
+            var path = ProfilePath(rtssInstallDir, exeProfile);
+            if (ok && File.Exists(path)) writtenUtc = File.GetLastWriteTimeUtc(path);
+        }
+        catch { /* sem horário: a devolução usa o valor */ }
         return ok;
     }
 
     /// <summary>Devolve o limite de FPS que o perfil do jogo tinha antes (0 = sem limite).</summary>
-    public static bool TryRestoreFramerateLimit(string rtssInstallDir, string exeProfile, int previous, bool profileCreated)
+    public static bool TryRestoreFramerateLimit(string rtssInstallDir, string exeProfile, int previous, bool profileCreated, DateTime? writtenUtc = null)
     {
+        if (profileCreated && writtenUtc is { } written)
+        {
+            // Mexeram no perfil depois de nós (tela do RTSS): não apaga, só devolve o valor.
+            try
+            {
+                var path = ProfilePath(rtssInstallDir, exeProfile);
+                if (File.Exists(path) && File.GetLastWriteTimeUtc(path) != written) profileCreated = false;
+            }
+            catch { profileCreated = false; }
+        }
+        else if (profileCreated)
+        {
+            profileCreated = false;   // sem como saber se mexeram: o mais seguro é devolver o valor
+        }
+
         if (profileCreated)
         {
             // O perfil foi criado por nós: apagar volta o jogo ao perfil global, como era.

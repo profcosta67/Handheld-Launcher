@@ -80,6 +80,7 @@ class C:
         c = s.curve(now)
         s.plateau = max(list(c.values()) + [cur])
         s.wall = True; s.wallSince = now; s.probeGap = C.ProbeEvery; s.nextProbe = now + s.probeGap
+        s.wallLow = []
         knee = min((w for w, m in c.items() if m >= s.plateau * C.WallMeet), default=s.W)
         if knee < s.W: return s._set(knee, now, -1)
         return 'None'
@@ -213,7 +214,7 @@ class C:
                 # teste a cada 10 s)
                 if len(s.wallLow) > 5: s.wallLow = s.wallLow[-5:]
                 low = sum(s.wallLow) / len(s.wallLow)
-                if (len(s.wallLow) >= 5 and low < s.plateau * C.WallMeet * 0.97
+                if (len(s.wallLow) >= 5 and low < s.plateau * C.WallMeet * 0.91
                         and s.W + C.ProbeStep <= s.max and now >= s.nextProbe - s.probeGap / 2):
                     base = low; s.wallLow = []
                     s.probe = {'t': now, 'base': base, 'from': s.W, 'reads': [], 'heavier': True}

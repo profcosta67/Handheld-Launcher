@@ -198,6 +198,7 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
         _wallSince = now;
         _probeGap = ProbeEverySeconds;
         _nextProbe = now + _probeGap;
+        _wallLow.Clear();
 
         var knee = Watts;
         var found = false;
@@ -390,7 +391,7 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
 
         if (_wall)
         {
-            // Abaixo do joelho por ~10 s, bem abaixo (média < 92% do patamar): talvez a cena tenha
+            // Abaixo do joelho por ~10 s, bem abaixo (média < ~86% do patamar): talvez a cena tenha
             // ficado mais pesada e o patamar medido não vale mais. O teste de +3 W decide, com a
             // média dessas leituras como base. No máximo com metade da espera dos testes normais.
             if (settledReading)
@@ -400,7 +401,7 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
                 var sumLow = 0.0;
                 foreach (var v in _wallLow) sumLow += v;
                 var low = sumLow / _wallLow.Count;
-                if (_wallLow.Count >= 5 && low < _plateau * WallMeetRatio * 0.97
+                if (_wallLow.Count >= 5 && low < _plateau * WallMeetRatio * 0.91
                     && Watts + ProbeStepWatts <= _max && now >= _nextProbe - _probeGap / 2)
                 {
                     _wallLow.Clear();

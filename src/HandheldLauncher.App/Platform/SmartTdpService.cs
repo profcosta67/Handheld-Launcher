@@ -116,8 +116,10 @@ internal sealed class SmartTdpService : IDisposable
         public string? LimitExe;
         public int LimitPrevious;
         public bool LimitProfileCreated;
+        public DateTime? LimitWrittenUtc;
         public int LimitApplied;
         public bool LimitFailed;
+        public bool LimitRestoreFailed;   // devolução falhou: não tenta a cada 2 s (fica para o fim do jogo / próxima abertura)
     }
 
     public SmartTdpService(MainViewModel viewModel)
@@ -636,6 +638,7 @@ internal sealed class SmartTdpService : IDisposable
         if (!OperatingSystem.IsWindows() || s.LimitFailed) return;
         var wanted = _settings.SmartTdpLimitFps && !s.Suspended ? s.TargetFps : 0;
         if (wanted == s.LimitApplied) return;
+        if (wanted == 0 && s.LimitRestoreFailed) return;
 
         var rtssDir = SystemComponents.RtssDirectory();
         if (rtssDir is null)
@@ -664,8 +667,9 @@ internal sealed class SmartTdpService : IDisposable
                 }
             }
             var first = s.LimitApplied == 0;
-            if (RtssProfileConfig.TryApplyFramerateLimit(rtssDir, s.LimitExe, wanted, out var previous, out var created))
+            if (RtssProfileConfig.TryApplyFramerateLimit(rtssDir, s.LimitExe, wanted, out var previous, out var created, out var written))
             {
+                s.LimitWrittenUtc = written;
                 if (first)
                 {
                     // O "de antes" que vale é o que ficou anotado de uma vez anterior não devolvida
@@ -682,7 +686,7 @@ internal sealed class SmartTdpService : IDisposable
                     }
                 }
                 s.LimitApplied = wanted;
-                PendingLimits.Save(s.LimitExe, s.LimitPrevious, s.LimitProfileCreated);
+                PendingLimits.Save(s.LimitExe, s.LimitPrevious, s.LimitProfileCreated, s.LimitWrittenUtc);
                 DebugLog.Write($"[TDP-AUTO] Limite de FPS: {s.LimitExe} travado em {wanted} FPS (antes: {(s.LimitPrevious == 0 ? "sem limite" : s.LimitPrevious + " FPS")}).");
             }
             else
@@ -700,9 +704,9 @@ internal sealed class SmartTdpService : IDisposable
     {
         if (s.LimitApplied == 0 || s.LimitExe is null) return;
         rtssDir ??= SystemComponents.RtssDirectory();
-        var ok = rtssDir is not null && RtssProfileConfig.TryRestoreFramerateLimit(rtssDir, s.LimitExe, s.LimitPrevious, s.LimitProfileCreated);
+        var ok = rtssDir is not null && RtssProfileConfig.TryRestoreFramerateLimit(rtssDir, s.LimitExe, s.LimitPrevious, s.LimitProfileCreated, s.LimitWrittenUtc);
         DebugLog.Write($"[TDP-AUTO] Limite de FPS de {s.LimitExe} devolvido ({why}): {(s.LimitProfileCreated ? "perfil próprio apagado, volta ao global" : s.LimitPrevious == 0 ? "sem limite" : s.LimitPrevious + " FPS")}{(ok ? "" : " — FALHOU; tento de novo na próxima abertura")}.");
-        if (!ok) return;   // fica anotado (pendente) e o estado não é zerado: não lemos o nosso valor como original
+        if (!ok) { s.LimitRestoreFailed = true; return; }   // fica anotado (pendente) e o estado não é zerado
         PendingLimits.Remove(s.LimitExe);
         s.LimitApplied = 0;
     }
@@ -714,7 +718,7 @@ internal sealed class SmartTdpService : IDisposable
     /// </summary>
     internal static class PendingLimits
     {
-        public sealed record Entry(int Previous, bool Created);
+        public sealed record Entry(int Previous, bool Created, DateTime? WrittenUtc);
 
         private static readonly object Gate = new();
         private static string FilePath => Path.Combine(
@@ -746,13 +750,18 @@ internal sealed class SmartTdpService : IDisposable
             catch (Exception ex) { DebugLog.Swallowed(ex); }
         }
 
-        public static void Save(string exe, int previous, bool created)
+        public static void Save(string exe, int previous, bool created, DateTime? writtenUtc)
         {
             lock (Gate)
             {
                 var map = Read();
-                if (map.TryAdd(exe, new Entry(previous, created)))   // o primeiro "antes" é o que vale
-                    Write(map);
+                if (map.TryGetValue(exe, out var old))
+                {
+                    // o primeiro "antes" é o que vale; só o horário do arquivo acompanha a última gravação
+                    map[exe] = old with { WrittenUtc = writtenUtc };
+                }
+                else map[exe] = new Entry(previous, created, writtenUtc);
+                Write(map);
             }
         }
 
@@ -776,7 +785,7 @@ internal sealed class SmartTdpService : IDisposable
                 if (rtssDir is null) return;
                 foreach (var (exe, entry) in map.ToList())
                 {
-                    var ok = RtssProfileConfig.TryRestoreFramerateLimit(rtssDir, exe, entry.Previous, entry.Created);
+                    var ok = RtssProfileConfig.TryRestoreFramerateLimit(rtssDir, exe, entry.Previous, entry.Created, entry.WrittenUtc);
                     DebugLog.Write($"[TDP-AUTO] Limite de FPS que ficou de outra sessão em {exe}: devolvido ({(entry.Created ? "perfil próprio apagado" : entry.Previous == 0 ? "sem limite" : entry.Previous + " FPS")}){(ok ? "" : " — FALHOU")}.");
                     if (ok) map.Remove(exe);
                 }
