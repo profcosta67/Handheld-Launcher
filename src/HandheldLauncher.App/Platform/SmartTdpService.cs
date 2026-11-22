@@ -112,6 +112,11 @@ internal sealed class SmartTdpService : IDisposable
         public int AltRejectedPid;
         public bool OwnMeasured;
         public DateTime LastAssertUtc = DateTime.UtcNow;
+        // 22/11: limite de FPS na meta (RTSS, perfil do executável do jogo)
+        public string? LimitExe;
+        public int LimitPrevious;
+        public int LimitApplied;
+        public bool LimitFailed;
     }
 
     public SmartTdpService(MainViewModel viewModel)
@@ -124,6 +129,7 @@ internal sealed class SmartTdpService : IDisposable
     private void Run()
     {
         Thread.Sleep(TimeSpan.FromSeconds(8));
+        try { PendingLimits.RestoreLeftovers(); } catch (Exception ex) { DebugLog.Swallowed(ex); }
         while (!_stop)
         {
             try { lock (_gate) { if (!_stop) Tick(); } }
@@ -389,6 +395,8 @@ internal sealed class SmartTdpService : IDisposable
 
         if (foregroundPid == gamePid) s.OwnMeasured = true;
 
+        SyncFpsLimit(s, f.ProcessId);
+
         if (s.Controller is null)
         {
             s.Controller = NewController(s.TargetFps, s.Min, s.Max, s.StartWatts, startIsLearned: s.StartLearned, coarseDescent: !s.StartResumed);
@@ -602,11 +610,148 @@ internal sealed class SmartTdpService : IDisposable
     /// <summary>O usuário pediu um perfil de TDP depois do último ciclo com o Auto ligado?</summary>
     private static bool UserAskedSince(Session s) => GameSessionInfo.UserTdpRequestTicks > s.LastOnTicks;
 
+    /// <summary>
+    /// 22/11: liga, troca ou desliga o limite de FPS na meta conforme a opção do Quick Settings.
+    /// Usa o perfil do executável do jogo no RTSS e guarda o valor de antes para devolver.
+    /// </summary>
+    private void SyncFpsLimit(Session s, int pid)
+    {
+        if (!OperatingSystem.IsWindows() || s.LimitFailed) return;
+        var wanted = _settings.SmartTdpLimitFps && !s.Suspended ? s.TargetFps : 0;
+        if (wanted == s.LimitApplied) return;
+
+        var rtssDir = SystemComponents.RtssDirectory();
+        if (rtssDir is null)
+        {
+            if (wanted > 0)
+            {
+                s.LimitFailed = true;
+                DebugLog.Write("[TDP-AUTO] Limite de FPS pedido, mas o RTSS não está instalado — sem limite.");
+            }
+            return;
+        }
+
+        if (wanted > 0)
+        {
+            if (s.LimitExe is null)
+            {
+                try
+                {
+                    using var process = System.Diagnostics.Process.GetProcessById(pid);
+                    s.LimitExe = process.ProcessName + ".exe";
+                }
+                catch (Exception ex)
+                {
+                    DebugLog.Write($"[TDP-AUTO] Limite de FPS: não achei o executável do jogo ({ex.Message}).");
+                    return;
+                }
+            }
+            var first = s.LimitApplied == 0;
+            if (RtssProfileConfig.TryApplyFramerateLimit(rtssDir, s.LimitExe, wanted, out var previous))
+            {
+                if (first) s.LimitPrevious = previous;   // trocar a meta não apaga o valor original
+                s.LimitApplied = wanted;
+                PendingLimits.Save(s.LimitExe, s.LimitPrevious);
+                DebugLog.Write($"[TDP-AUTO] Limite de FPS: {s.LimitExe} travado em {wanted} FPS (antes: {(s.LimitPrevious == 0 ? "sem limite" : s.LimitPrevious + " FPS")}).");
+            }
+            else
+            {
+                s.LimitFailed = true;
+                DebugLog.Write("[TDP-AUTO] Limite de FPS: o RTSS não aceitou (versão sem a função de leitura de perfil?) — sem limite.");
+            }
+            return;
+        }
+
+        RestoreFpsLimit(s, rtssDir, "opção desligada");
+    }
+
+    private static void RestoreFpsLimit(Session s, string? rtssDir, string why)
+    {
+        if (s.LimitApplied == 0 || s.LimitExe is null) return;
+        rtssDir ??= SystemComponents.RtssDirectory();
+        var ok = rtssDir is not null && RtssProfileConfig.TryRestoreFramerateLimit(rtssDir, s.LimitExe, s.LimitPrevious);
+        DebugLog.Write($"[TDP-AUTO] Limite de FPS de {s.LimitExe} devolvido ({why}): {(s.LimitPrevious == 0 ? "sem limite" : s.LimitPrevious + " FPS")}{(ok ? "" : " — FALHOU, confira o perfil no RTSS")}.");
+        if (ok) PendingLimits.Remove(s.LimitExe);
+        s.LimitApplied = 0;
+    }
+
+    /// <summary>
+    /// Limites aplicados e ainda não devolvidos (launcher fechou de repente, queda de energia):
+    /// ficam num arquivo e são devolvidos na próxima abertura — senão o jogo ficaria travado na
+    /// meta para sempre, e a próxima sessão leria o NOSSO valor como "o de antes".
+    /// </summary>
+    internal static class PendingLimits
+    {
+        private static readonly object Gate = new();
+        private static string FilePath => Path.Combine(
+            Path.GetDirectoryName(AppSettingsStore.DefaultPath) ?? ".", "fps-limit-pending.json");
+
+        private static Dictionary<string, int> Read()
+        {
+            try
+            {
+                return File.Exists(FilePath)
+                    ? System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, int>>(File.ReadAllText(FilePath)) ?? new()
+                    : new();
+            }
+            catch { return new(); }
+        }
+
+        private static void Write(Dictionary<string, int> map)
+        {
+            try
+            {
+                if (map.Count == 0) { if (File.Exists(FilePath)) File.Delete(FilePath); return; }
+                File.WriteAllText(FilePath, System.Text.Json.JsonSerializer.Serialize(map));
+            }
+            catch (Exception ex) { DebugLog.Swallowed(ex); }
+        }
+
+        public static void Save(string exe, int previous)
+        {
+            lock (Gate)
+            {
+                var map = Read();
+                map.TryAdd(exe, previous);   // o primeiro "antes" é o que vale
+                Write(map);
+            }
+        }
+
+        public static void Remove(string exe)
+        {
+            lock (Gate)
+            {
+                var map = Read();
+                if (map.Remove(exe)) Write(map);
+            }
+        }
+
+        /// <summary>Devolve tudo o que ficou pendente (chamado ao abrir o launcher).</summary>
+        public static void RestoreLeftovers()
+        {
+            lock (Gate)
+            {
+                var map = Read();
+                if (map.Count == 0) return;
+                var rtssDir = SystemComponents.RtssDirectory();
+                if (rtssDir is null) return;
+                foreach (var (exe, previous) in map.ToList())
+                {
+                    var ok = RtssProfileConfig.TryRestoreFramerateLimit(rtssDir, exe, previous);
+                    DebugLog.Write($"[TDP-AUTO] Limite de FPS que ficou de outra sessão em {exe}: devolvido para {(previous == 0 ? "sem limite" : previous + " FPS")}{(ok ? "" : " — FALHOU")}.");
+                    if (ok) map.Remove(exe);
+                }
+                Write(map);
+            }
+        }
+    }
+
     private void EndSession(string why)
     {
         var s = _session;
         if (s is null) return;
         _session = null;
+        if (OperatingSystem.IsWindows()) RestoreFpsLimit(s, null, why);
         GameSessionInfo.SmartTdpWatts = 0;
         GameSessionInfo.SmartTdpPossibleFps = 0;
 

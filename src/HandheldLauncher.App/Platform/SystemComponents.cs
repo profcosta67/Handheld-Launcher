@@ -127,6 +127,13 @@ internal static class SystemComponents
             winget);
     }
 
+    /// <summary>Pasta de instalação do RTSS, ou null se não estiver instalado.</summary>
+    public static string? RtssDirectory()
+    {
+        var exe = RtssPaths.FirstOrDefault(File.Exists);
+        return exe is null ? null : Path.GetDirectoryName(exe);
+    }
+
     public static bool HasWinget()
     {
         if (!OperatingSystem.IsWindows()) return false;

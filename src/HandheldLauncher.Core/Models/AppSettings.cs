@@ -31,6 +31,11 @@ public class AppSettings
     // como reserva caso o v2 se comporte mal em algum jogo.
     public string SmartTdpEngine { get; set; } = "v2";
 
+    // 22/11: com o Auto ligado, trava o FPS do jogo na meta pelo RTSS (perfil do executável do
+    // jogo; o valor que o jogo tinha antes é devolvido ao fechar). Sem quadros além da meta, a placa
+    // de vídeo não gasta à toa e o TDP desce mais. Desligado por padrão (decisão do usuário, 18/11).
+    public bool SmartTdpLimitFps { get; set; } = false;
+
     // 18/11 (instalação limpa do usuário): o TDP não funcionou porque o driver do PawnIO não foi
     // instalado. Com isto ligado, o launcher confere ao abrir e instala sozinho os componentes que
     // vêm no pacote (PawnIO e HidHide). O RTSS nunca é instalado sem o usuário pedir.

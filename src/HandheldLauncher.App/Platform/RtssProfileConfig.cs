@@ -110,6 +110,82 @@ internal static class RtssProfileConfig
         }
     }
 
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate bool GetProfilePropertyDelegate([MarshalAs(UnmanagedType.LPStr)] string property, ref int data, int size);
+
+    private const string PropFramerateLimit = "FramerateLimit";
+
+    /// <summary>
+    /// 22/11: trava o FPS de um jogo no perfil do executável dele (ex.: "DaysGone.exe") — a mesma
+    /// propriedade "Framerate limit" da tela do RTSS. Devolve o valor que estava lá antes, para
+    /// <see cref="TryRestoreFramerateLimit"/> devolver ao fechar. Sem a função de leitura na DLL
+    /// (RTSS muito antigo), NÃO aplica: sem saber o valor de antes, apagaria o limite do usuário.
+    /// Melhor esforço: nunca lança.
+    /// </summary>
+    public static bool TryApplyFramerateLimit(string rtssInstallDir, string exeProfile, int fps, out int previous)
+    {
+        previous = 0;
+        var result = 0;
+        var ok = WithHooks(rtssInstallDir, (load, save, set, get, update) =>
+        {
+            if (get is null) return false;
+            load(exeProfile);
+            var before = 0;
+            get(PropFramerateLimit, ref before, sizeof(int));
+            result = before;
+            var value = fps;
+            set(PropFramerateLimit, ref value, sizeof(int));
+            save(exeProfile);
+            update();
+            return true;
+        });
+        previous = result;
+        return ok;
+    }
+
+    /// <summary>Devolve o limite de FPS que o perfil do jogo tinha antes (0 = sem limite).</summary>
+    public static bool TryRestoreFramerateLimit(string rtssInstallDir, string exeProfile, int previous)
+        => WithHooks(rtssInstallDir, (load, save, set, get, update) =>
+        {
+            load(exeProfile);
+            var value = previous;
+            set(PropFramerateLimit, ref value, sizeof(int));
+            save(exeProfile);
+            update();
+            return true;
+        });
+
+    private static bool WithHooks(string rtssInstallDir,
+        Func<LoadProfileDelegate, SaveProfileDelegate, SetProfilePropertyDelegate, GetProfilePropertyDelegate?, UpdateProfilesDelegate, bool> action)
+    {
+        var dllPath = Path.Combine(rtssInstallDir, "RTSSHooks64.dll");
+        if (!File.Exists(dllPath)) return false;
+        var hModule = IntPtr.Zero;
+        try
+        {
+            hModule = LoadLibraryW(dllPath);
+            if (hModule == IntPtr.Zero) return false;
+            var load = GetDelegate<LoadProfileDelegate>(hModule, "LoadProfile");
+            var save = GetDelegate<SaveProfileDelegate>(hModule, "SaveProfile");
+            var set = GetDelegate<SetProfilePropertyDelegate>(hModule, "SetProfileProperty");
+            var get = GetDelegate<GetProfilePropertyDelegate>(hModule, "GetProfileProperty");
+            var update = GetDelegate<UpdateProfilesDelegate>(hModule, "UpdateProfiles");
+            if (load is null || save is null || set is null || update is null) return false;
+            return action(load, save, set, get, update);
+        }
+        catch
+        {
+            return false;
+        }
+        finally
+        {
+            if (hModule != IntPtr.Zero)
+            {
+                try { FreeLibrary(hModule); } catch { /* melhor esforço */ }
+            }
+        }
+    }
+
     private static T? GetDelegate<T>(IntPtr hModule, string exportName) where T : Delegate
     {
         var ptr = GetProcAddress(hModule, exportName);

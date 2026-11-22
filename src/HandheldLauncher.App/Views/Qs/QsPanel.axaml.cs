@@ -315,6 +315,7 @@ public partial class QsPanel : UserControl
         {
             var settings = HandheldLauncher.Core.Services.AppSettingsStore.Load();
             _defaultTargetFps = NormalizeSmartTarget(settings.SmartTdpTargetFps);
+            _limitFps = settings.SmartTdpLimitFps;
         }
         catch { _defaultTargetFps = 60; }
         _gameTargetFps = _runningGameId is null
@@ -378,6 +379,12 @@ public partial class QsPanel : UserControl
         _smartResetButton.Click += (_, _) => { EndFpsEdit(apply: false); ResetSmartLearning(); };
         SmartFpsHost.Children.Add(_smartResetButton);
 
+        // 22/11: "Limitar": trava o FPS do jogo na meta (pelo RTSS). Sem quadros além da meta, a
+        // placa de vídeo não gasta à toa e o TDP desce mais. Desligado por padrão.
+        _smartLimitButton = MakeChip("🔒", "Limitar");
+        _smartLimitButton.Click += (_, _) => { EndFpsEdit(apply: false); ToggleFpsLimit(); };
+        SmartFpsHost.Children.Add(_smartLimitButton);
+
         _fpsDebounce.Tick += (_, _) =>
         {
             _fpsDebounce.Stop();
@@ -436,6 +443,35 @@ public partial class QsPanel : UserControl
         _smartNavigationButtons.AddRange(_smartFpsButtons);
         if (gameOpen && _smartDefaultButton is not null) _smartNavigationButtons.Add(_smartDefaultButton);
         if (_smartResetButton is not null) _smartNavigationButtons.Add(_smartResetButton);
+        if (_smartLimitButton is not null)
+        {
+            _smartLimitButton.Classes.Set("active", _limitFps);
+            _smartNavigationButtons.Add(_smartLimitButton);
+        }
+    }
+
+    private Button? _smartLimitButton;
+    private bool _limitFps;
+
+    /// <summary>22/11: liga/desliga o limite de FPS na meta (vale para o Auto, em todos os jogos).</summary>
+    private void ToggleFpsLimit()
+    {
+        try
+        {
+            var settings = HandheldLauncher.Core.Services.AppSettingsStore.Load();
+            settings.SmartTdpLimitFps = !settings.SmartTdpLimitFps;
+            HandheldLauncher.Core.Services.AppSettingsStore.Save(settings);
+            _limitFps = settings.SmartTdpLimitFps;
+            TxtTdpHint.Text = _limitFps
+                ? "Limite ligado: o jogo fica travado na meta de FPS (precisa do RTSS)."
+                : "Limite desligado: o jogo roda solto, acima da meta se der.";
+            HandheldLauncher.App.Diagnostics.DebugLog.Write($"[QS] Limite de FPS na meta {(_limitFps ? "ligado" : "desligado")}.");
+            RefreshSmartFpsVisuals();
+        }
+        catch (Exception ex)
+        {
+            HandheldLauncher.App.Diagnostics.DebugLog.Write($"[QS] Não consegui mudar o limite de FPS: {ex.Message}");
+        }
     }
 
     private void SetSmartTdpTargetFps(int fps)
@@ -1062,6 +1098,7 @@ public partial class QsPanel : UserControl
                     else if (Equals(item.Tag, SmartDefaultTag)) ClearGameSmartTarget();
                     else if (ReferenceEquals(item, _smartTargetButton)) BeginFpsEdit();
                     else if (ReferenceEquals(item, _smartResetButton)) ResetSmartLearning();
+                    else if (ReferenceEquals(item, _smartLimitButton)) ToggleFpsLimit();
                 }
                 else if (index >= 0 && index < _tdpButtons.Count && _tdpButtons[index].Tag is PowerPreset p)
                     OnPowerPresetClick(p);
