@@ -1,7 +1,8 @@
 # Roadmap do Handheld Launcher — da 0.25 à 1.0
 
 > Plano de produto atualizado em 16/11/2026 (reordenado: Windows primeiro, Linux
-> depois da 1.0; sobras do plano original de 04/11 incorporadas). As versões abaixo são marcos
+> depois da 1.0; sobras do plano original de 04/11 incorporadas). Situação revista em
+> 22/11/2026 (ver "Onde estamos"). As versões abaixo são marcos
 > propostos, sem datas prometidas. O conteúdo e a numeração podem ser ajustados
 > após validação técnica e em aparelho real. Uma versão só é considerada pronta
 > quando seus critérios de aceite forem cumpridos; código compilando, por si só,
@@ -49,6 +50,26 @@ seus marcos já viraram produto; as maiores lacunas restantes são:
   identidade existente.
 - **Preparação para a 1.0**: localização em inglês, assinatura, instalação,
   documentação e validação por terceiros ainda precisam ser fechadas.
+
+## Onde estamos (22/11/2026)
+
+Estável: **0.26.2**. Em beta: **0.27.0-beta.74**, que já carrega, além da 0.27, partes da
+0.28, 0.29, 0.30 e quase toda a 0.31 — adiantadas a pedido do usuário. Nada disso foi para a
+estável ainda.
+
+| Marco | Situação | O que falta |
+|---|---|---|
+| 0.27 TDP inteligente | Reescrito (v2, beta.74) com banco fixo de 16 cenários no build; limite de FPS na meta (opcional); medição de FPS própria (DirectX) | Validar a v2 no aparelho (Days Gone, EA FC, um leve); limites tomada/bateria no meio do jogo; restaurar o TDP se o launcher reiniciar com jogo aberto; **publicar como estável** |
+| 0.28 Otimização | Fatias 1–3 (UiSafe, linha do tempo da abertura, OverlayWindow dividido) | Abertura de ~8 s → 3 s; MainViewModel e GameplayWatcher; catch vazios / async void / Thread.Sleep; vigia que abre segunda instância; log do PawnIO; faxina de branches |
+| 0.29 Receitas por jogo | Só o começo: meta e TDP aprendidos por jogo; limitador de FPS (era "a avaliar") feito na 0.27 | Receita completa (TDP, ventoinha, resolução, Lossless, HUD), criar/editar, aplicar/restaurar, dock |
+| 0.30 Hardware e primeira execução | PawnIO e HidHide instalados sozinhos; tela Componentes (RTSS pelo winget); controle do Legion acordado sem o Legion Space (depois do login; antes do login em teste) | Lossless confiável; ajudante privilegiado (sair do admin); assistente de primeira execução; Ally |
+| 0.31 Diário e bateria | Quase todo na beta.67: diário, Desempenho, autonomia, recomendação 30/60/120, desgaste da bateria | Conferir watts e telas no aparelho (prints) |
+| 0.32 Página do jogo | — | Mídia, Arquivos, Grátis agora, Jogar depois, ícones sem emoji |
+| 0.33 Backup e diagnóstico | — | Tudo |
+| 1.0 | — | Inglês, assinatura, documentação, teste por terceiros |
+
+Também entraram fora do plano: gravação com contagem e aviso na tela, Adicionar jogo/programa
+separados com atalhos e emuladores, atalho View+Menu para voltar ao launcher.
 
 ## Princípios de produto e execução
 
@@ -137,22 +158,22 @@ Handheld Launcher e os layouts que as pessoas já usam.
 **Objetivo:** o launcher ajusta TDP e ventoinha sozinho para manter uma meta de
 FPS, aprende o valor por jogo e sai da frente quando o usuário mexe à mão.
 
-**Situação (16/11/2026):** em beta (beta.64). Entregue: controlador por meta de
-FPS, botão Auto e meta no Quick Settings, meta por jogo, valor aprendido por
-jogo e por meta, ventoinha ligada ao TDP, restauração ao sair. A base foi
-publicada como estável **0.26.2**.
+**Situação (22/11/2026):** em beta (beta.74). O controle foi reescrito (v2) em torno de
+uma regra única — watt a mais só se comprar FPS — e tem um banco fixo de 16 cenários de jogo
+que roda em todo build (`SmartTdpScenarioBankTests`, cópia em Python em `tools/tdp-bank`).
+O controle anterior fica como reserva (`SmartTdpEngine: "v1"`). Também entregues: aviso de
+meta fora de alcance, limite de FPS na meta (opcional, RTSS) e medição de FPS própria pelos
+eventos do Windows (DirectX), usada quando o RTSS não mede.
 
 **Falta para fechar**
 
-1. Confirmar a beta.64 no Legion Go 2 (EA FC com replays; um jogo leve; um jogo
-   que não alcança a meta).
-2. Aviso de meta inalcançável (hoje ele fica no teto calado).
-3. Limites de tomada/bateria relidos no meio do jogo.
-4. Restaurar o TDP do usuário se o launcher reiniciar com jogo aberto.
+1. Confirmar a v2 no Legion Go 2 (EA FC com replays; um jogo leve; um jogo que não alcança
+   a meta) e a medição própria contra o RTSS (`[FPS-PROPRIO] Comparação` no log).
+2. Limites de tomada/bateria relidos no meio do jogo.
+3. Restaurar o TDP do usuário se o launcher reiniciar com jogo aberto.
+4. Publicar como estável.
 
-**Conhecido e aceito por ora:** quedas curtas muito frequentes ainda empurram o
-TDP para cima; jogo com vsync que precisa de bem mais potência numa área pesada
-demora a ser atendido. Só no Windows.
+Só no Windows. Medição própria: jogos Vulkan/OpenGL ainda dependem do RTSS.
 
 ### 0.28 — Otimização e base (Windows)
 
@@ -199,7 +220,7 @@ TDP aprendido por jogo (0.27) já são o começo.
    depois de falha no lançamento, fechamento inesperado ou suspensão.
 4. Padrão global e "ignorar a receita desta vez".
 5. Receita de dock (monitor externo) só depois da individual estável.
-6. A avaliar: limitador de FPS.
+6. ~~A avaliar: limitador de FPS.~~ Feito na 0.27 (limite na meta pelo RTSS, opcional).
 
 **Critérios de aceite**
 
