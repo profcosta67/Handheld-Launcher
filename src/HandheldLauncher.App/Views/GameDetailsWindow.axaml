@@ -286,6 +286,62 @@
               </Grid>
             </StackPanel>
           </Border>
+          <!-- v0.31: diário de sessões — consumo na bateria, autonomia e FPS. -->
+          <Border Classes="detailsSurface" Padding="18">
+            <StackPanel Spacing="10">
+              <TextBlock Text="Energia e desempenho" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasEnergyData}">
+                <TextBlock Text="Consumo típico na bateria" Foreground="{DynamicResource TextPrimaryBrush}" />
+                <TextBlock Grid.Column="1" Text="{Binding EnergyTypicalText}" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              </Grid>
+              <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasEnergyRuntime}">
+                <TextBlock Text="Autonomia estimada" Foreground="{DynamicResource TextPrimaryBrush}" />
+                <TextBlock Grid.Column="1" Text="{Binding EnergyRuntimeText}" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              </Grid>
+              <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasEnergyNow}">
+                <TextBlock Text="{Binding EnergyNowLabel}" Foreground="{DynamicResource TextPrimaryBrush}" />
+                <TextBlock Grid.Column="1" Text="{Binding EnergyNowText}" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              </Grid>
+              <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasEnergyFps}">
+                <TextBlock Text="FPS na última sessão medida" Foreground="{DynamicResource TextPrimaryBrush}" />
+                <TextBlock Grid.Column="1" Text="{Binding EnergyFpsText}" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              </Grid>
+              <TextBlock Text="{Binding EnergyWarningText}" IsVisible="{Binding HasEnergyWarning}" TextWrapping="Wrap"
+                         FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <TextBlock Classes="subtle" Text="{Binding EnergyNoteText}" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+          <!-- v0.31: menor TDP medido que segura cada taxa fixa. -->
+          <Border Classes="detailsSurface" Padding="18" IsVisible="{Binding HasEnergyGuide}">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Recomendação energética" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <ItemsControl ItemsSource="{Binding EnergyGuideRows}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:EnergyGuideRow">
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+                      <TextBlock Text="{Binding Target}" Foreground="{DynamicResource TextPrimaryBrush}" />
+                      <TextBlock Grid.Column="1" Text="{Binding Advice}" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock Text="{Binding EnergyGuideMaxText}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <TextBlock Classes="subtle" TextWrapping="Wrap"
+                         Text="Menor TDP em que o jogo segurou cada taxa nas suas sessões. Com vsync ou limite de FPS ligado, o máximo medido é esse limite. Cenas mais pesadas podem pedir mais." />
+            </StackPanel>
+          </Border>
+          <Border Classes="detailsSurface" Padding="18" IsVisible="{Binding HasEnergyHistory}">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Últimas sessões" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <ItemsControl ItemsSource="{Binding EnergyHistory}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="x:String">
+                    <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,0,0,6" Foreground="{DynamicResource TextSecondaryBrush}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
           <Border Classes="detailsSurface" Padding="18">
             <TextBlock Classes="subtle" TextWrapping="Wrap"
                        Text="Receita do jogo, FPS médio, consumo e previsão de bateria por jogo chegam com as Receitas (v0.20) — esta seção já fica pronta pra recebê-los." />

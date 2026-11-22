@@ -318,8 +318,8 @@ internal sealed class HidPadReader : IDisposable
             Close();
         }
 
-        if (actions.Count > 0)
-            DebugLog.Write($"[QS-INPUT] Ponte HID → {string.Join(", ", actions)}");
+        // (O registro "Ponte HID →" fica com quem USA as ações: com o QS em foco elas são
+        // descartadas em favor do XInput, e o log antigo dava a impressão de comando duplicado.)
         return actions;
     }
 

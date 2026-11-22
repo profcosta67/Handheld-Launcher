@@ -47,6 +47,9 @@ internal static class ControllerDiagnostics
 
     private static int _started;
 
+    /// <summary>Chamado (fora da thread da tela) depois de abrir e minimizar o Legion Space na abertura.</summary>
+    public static Action? LegionSpaceOpenedAtStartup;
+
     public static void StartMonitoring()
     {
         if (!OperatingSystem.IsWindows()) return;
@@ -59,12 +62,90 @@ internal static class ControllerDiagnostics
             Priority = ThreadPriority.BelowNormal,
         };
         thread.Start();
+
+        // 18/11: o controle pode voltar mudo depois da suspensão também (e é a tela do PIN que
+        // aparece ao acordar) — repete o pedido HID alguns segundos depois de acordar.
+        try { Microsoft.Win32.SystemEvents.PowerModeChanged += OnPowerModeChanged; }
+        catch (Exception ex) { DebugLog.Swallowed(ex); }
+    }
+
+    private static int _resumeWakeQueued;
+    private static int _noControllerLogged;
+
+    private static void OnPowerModeChanged(object? sender, Microsoft.Win32.PowerModeChangedEventArgs e)
+    {
+        if (e.Mode != Microsoft.Win32.PowerModes.Resume) return;
+        if (Interlocked.Exchange(ref _resumeWakeQueued, 1) == 1) return;
+        // Thread própria (não a do pool): a volta da suspensão já ocupa o pool com o TDP e o resto.
+        new Thread(() =>
+        {
+            try
+            {
+                Thread.Sleep(3000);
+                TryWakeWithHidCommand("acordou da suspensão");
+            }
+            finally { Interlocked.Exchange(ref _resumeWakeQueued, 0); }
+        })
+        { IsBackground = true, Name = "ControllerHidWake.Resume", Priority = ThreadPriority.BelowNormal }.Start();
+    }
+
+    /// <summary>
+    /// 18/11: manda ao controle do Legion o pedido "liga a saída XInput" — ver
+    /// <see cref="LegionControllerHid"/> (hipótese: é o que destrava o controle mudo; o teste
+    /// no aparelho confirma). Não faz nada com o Legion Space aberto (ele cuida do controle),
+    /// com um jogo aberto (não mexer no controle no meio da partida) ou com a opção desligada.
+    /// Nunca lança exceção.
+    /// </summary>
+    private static void TryWakeWithHidCommand(string when)
+    {
+        try
+        {
+            if (!HandheldLauncher.Core.Services.AppSettingsStore.Load().WakeControllerWithHidCommand) return;
+            if (HandheldLauncher.App.Platform.GameSessionInfo.DetectedGamePid > 0)
+            {
+                DebugLog.Write($"[CONTROLE-HID] {when}: jogo aberto — pedido não enviado.");
+                return;
+            }
+            if (IsProcessRunning("LegionSpace"))
+            {
+                DebugLog.Write($"[CONTROLE-HID] {when}: Legion Space aberto — ele cuida do controle; pedido não enviado.");
+                return;
+            }
+            var before = ConnectedSlots();
+            var result = LegionControllerHid.TryEnablePhysicalXInput();
+            if (!result.FoundController)
+            {
+                // Ally, Deck etc.: uma linha por sessão basta.
+                if (Interlocked.Exchange(ref _noControllerLogged, 1) == 0)
+                    DebugLog.Write($"[CONTROLE-HID] {when}: {result.Message}");
+                return;
+            }
+            Thread.Sleep(1500);
+            DebugLog.Write($"[CONTROLE-HID] {when}: {result.Message} Slots XInput antes [{before}], depois [{ConnectedSlots()}].");
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[CONTROLE-HID] {when}: falhou ({ex.GetType().Name}: {ex.Message}).");
+        }
+    }
+
+    private static bool IsProcessRunning(string name)
+    {
+        var processes = Process.GetProcessesByName(name);
+        foreach (var p in processes) p.Dispose();
+        return processes.Length > 0;
     }
 
     private static void MonitorLoop()
     {
         try
         {
+            // 18/11: o pedido HID vai logo ao abrir (não espera os 8 s do retrato): quanto antes
+            // o controle acordar, melhor. Em thread própria: se o aparelho travar a chamada, o
+            // retrato e a recuperação abaixo seguem normais.
+            new Thread(() => TryWakeWithHidCommand("abertura do launcher"))
+            { IsBackground = true, Name = "ControllerHidWake.Startup", Priority = ThreadPriority.BelowNormal }.Start();
+
             Thread.Sleep(StartupDelay);
             var snapshots = 0;
             var lastSnapshot = DateTime.MinValue;
@@ -85,6 +166,18 @@ internal static class ControllerDiagnostics
             // O que resolveu foi abrir o Legion Space. Próximo beta: detectar
             // "controle da Lenovo só no slot ≥ 1 ao ligar" e abrir o Legion
             // Space. TryRecoverLenovoController fica pro diagnóstico.
+            var openedAtStartup = false;
+            try
+            {
+                if (HandheldLauncher.Core.Services.AppSettingsStore.Load().OpenLegionSpaceAtStartup)
+                    openedAtStartup = OpenLegionSpaceAtStartup();
+            }
+            catch (Exception ex)
+            {
+                DebugLog.Write($"[CONTROLE-ACORDAR] Falhou: {ex.GetType().Name}: {ex.Message}");
+            }
+            if (openedAtStartup) last = ConnectedSlots();
+
             if (NeedsWake(last))
             {
                 DebugLog.Write($"[CONTROLE-DIAG] Atenção: controle só no slot [{last}], nada no slot 0 — padrão do boot ruim do Legion (controle não responde).");
@@ -276,6 +369,61 @@ internal static class ControllerDiagnostics
             return null;
         }
     }
+
+    /// <summary>
+    /// Abertura do launcher no Legion Go: abre o Legion Space (que acorda o controle), espera ele
+    /// subir, minimiza a janela dele e avisa para o launcher voltar à frente. true = abriu.
+    /// </summary>
+    private static bool OpenLegionSpaceAtStartup()
+    {
+        if (LenovoDeviceBlocks("/enum-devices /connected").Count == 0) return false; // não é Legion
+        if (Process.GetProcessesByName("LegionSpace").Length > 0)
+        {
+            DebugLog.Write("[CONTROLE-ACORDAR] Legion Space já aberto — nada a fazer.");
+            return false;
+        }
+        var appId = FindLegionSpaceAppId();
+        if (appId is null)
+        {
+            DebugLog.Write("[CONTROLE-ACORDAR] Legion Space não encontrado no menu Iniciar.");
+            return false;
+        }
+
+        DebugLog.Write($"[CONTROLE-ACORDAR] Abrindo o Legion Space para acordar o controle ({appId}).");
+        Process.Start(new ProcessStartInfo("explorer.exe", $"shell:AppsFolder\\{appId}") { UseShellExecute = false })?.Dispose();
+
+        // Espera a janela dele aparecer (até 20 s) e mais um pouco para ele falar com o controle.
+        var minimized = 0;
+        for (var i = 0; i < 20; i++)
+        {
+            Thread.Sleep(1000);
+            if (MainWindowsOf("LegionSpace").Count > 0) break;
+        }
+        Thread.Sleep(3000);
+        foreach (var hwnd in MainWindowsOf("LegionSpace"))
+            if (ShowWindow(hwnd, SwMinimize)) minimized++;
+        DebugLog.Write($"[CONTROLE-ACORDAR] Legion Space aberto; {minimized} janela(s) minimizada(s); slots XInput [{ConnectedSlots()}].");
+
+        try { LegionSpaceOpenedAtStartup?.Invoke(); }
+        catch (Exception ex) { DebugLog.Swallowed(ex); }
+        return true;
+    }
+
+    private static List<IntPtr> MainWindowsOf(string processName)
+    {
+        var result = new List<IntPtr>();
+        foreach (var p in Process.GetProcessesByName(processName))
+        {
+            try { if (p.MainWindowHandle != IntPtr.Zero) result.Add(p.MainWindowHandle); }
+            catch { /* processo saiu */ }
+            finally { p.Dispose(); }
+        }
+        return result;
+    }
+
+    private const int SwMinimize = 6;
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
     /// <summary>ID do app "Legion Space" no menu Iniciar (Get-StartApps), ou null.</summary>
     private static string? FindLegionSpaceAppId()

@@ -79,6 +79,20 @@ public sealed class HidHideService : IHidHideService, IDisposable
             return;
         }
 
+        // Diagnóstico (beta.71): como o driver estava ANTES de o launcher mexer — é o estado
+        // com que o Windows passou pela tela de login neste boot.
+        try
+        {
+            var apps = _hidHideControl.ApplicationPaths.ToList();
+            DebugLog.Write($"[HIDHIDE] Estado encontrado ao abrir: ativo={ReadBack(() => _hidHideControl.IsActive)}, " +
+                $"invertida={ReadBack(() => _hidHideControl.IsAppListInverted)}, bloqueados={_hidHideControl.BlockedInstanceIds.Count()}, " +
+                $"apps({apps.Count})=[{string.Join(" | ", apps.Take(8))}]");
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Swallowed(ex);
+        }
+
         try
         {
             var added = 0;
@@ -285,6 +299,20 @@ public sealed class HidHideService : IHidHideService, IDisposable
     }
 
     private int _restartInFlight;
+
+    public void DeactivateForShutdown()
+    {
+        if (_hidHideControl is null || !_isInitialized) return;
+        try
+        {
+            _hidHideControl.IsActive = false;
+            DebugLog.Write("[HIDHIDE] Windows encerrando a sessão: mascaramento desligado (o próximo boot começa com o controle livre).");
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[HIDHIDE] Falha ao desligar o mascaramento no encerramento: {ex.GetType().Name}: {ex.Message}");
+        }
+    }
 
     public void Dispose()
     {

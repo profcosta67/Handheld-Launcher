@@ -264,6 +264,10 @@ public partial class MainWindow : Window
 
         Opened += (_, _) =>
         {
+            HandheldLauncher.App.Diagnostics.StartupTimeline.MarkOnce("janela aberta na tela");
+            Avalonia.Threading.Dispatcher.UIThread.Post(
+                () => HandheldLauncher.App.Diagnostics.StartupTimeline.Mark("interface ociosa (pronta para uso)"),
+                Avalonia.Threading.DispatcherPriority.Background); // ApplicationIdle esperava 40+ min com o launcher escondido
             try { InputBlockService.RecoverOrphanedSuspension(); }
             catch (Exception ex) { DebugLog.Write($"[InputBlock] Falha ao recuperar suspensão órfã na abertura: {ex.Message}"); }
 
@@ -378,6 +382,62 @@ public partial class MainWindow : Window
         Closed += (_, _) => { _helperWatchdog?.Stop(); _helperWatchdog = null; };
     }
 
+    /// <summary>beta.72: o Legion Space abriu na abertura (para acordar o controle) — o launcher volta à frente.</summary>
+    public void BringBackAfterLegionSpace()
+    {
+        try
+        {
+            if (DataContext is MainViewModel { RunningGame: not null }) return; // jogo aberto: não rouba a frente
+            if (!AppSettingsStore.Load().KioskMode) return;                     // "Uso em PC": não se impõe
+            DebugLog.Write("[CONTROLE-ACORDAR] Launcher de volta à frente depois do Legion Space.");
+            RestoreFromTray();
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Swallowed(ex);
+        }
+    }
+
+    /// <summary>
+    /// View + Menu (1 s): traz o launcher de volta. Não age com o launcher já na frente, com o
+    /// Quick Settings aberto ou com o jogo em andamento NA FRENTE (no jogo, esses botões são do
+    /// jogo). Vale quando o jogo fechou e o launcher ficou para trás — mesmo que o launcher ainda
+    /// ache que o jogo está rodando, porque aí a janela da frente não é do jogo.
+    /// </summary>
+    private void BringLauncherBackFromCombo()
+    {
+        try
+        {
+            if (IsVisible && WindowState != WindowState.Minimized && IsOurWindowInForeground())
+            {
+                DebugLog.Write("[VOLTAR] Launcher já está na frente — nada a fazer.");
+                return;
+            }
+            if (_overlayWindow is { IsVisible: true })
+            {
+                DebugLog.Write("[VOLTAR] Quick Settings aberto — ignorado.");
+                return;
+            }
+            if (DataContext is MainViewModel { RunningGame: not null } && OperatingSystem.IsWindows())
+            {
+                var gamePid = HandheldLauncher.App.Platform.GameSessionInfo.DetectedGamePid;
+                GetWindowThreadProcessId(GetForegroundWindow(), out var foregroundPid);
+                if (gamePid > 0 && foregroundPid == (uint)gamePid)
+                {
+                    DebugLog.Write("[VOLTAR] Jogo na frente — ignorado (use L3+R3 para o Quick Settings).");
+                    return;
+                }
+            }
+
+            DebugLog.Write("[VOLTAR] Trazendo o launcher para a frente.");
+            RestoreFromTray();
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[VOLTAR] Falhou: {ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
     private void SetGamepadComboDetectionForGame(bool gameRunning)
     {
         if (!OperatingSystem.IsWindows()) return;
@@ -454,6 +514,13 @@ public partial class MainWindow : Window
             Dispatcher.UIThread.Post(RestoreGameFocusAfterResume);
         });
         Closed += (_, _) => SuspendGuardianService.Stop();
+
+        // 0.27 beta.71: segurar View + Menu por 1 s traz o launcher para a frente.
+        if (OperatingSystem.IsWindows())
+        {
+            var returnCombo = new ReturnToLauncherCombo(() => Dispatcher.UIThread.Post(BringLauncherBackFromCombo));
+            Closed += (_, _) => returnCombo.Dispose();
+        }
 
         vm.AddGameRequested += (_, _) => _ = OpenAddGameDialogAsync(vm);
         vm.EditGameRequested += (_, game) => _ = OpenEditGameDialogAsync(vm, game);

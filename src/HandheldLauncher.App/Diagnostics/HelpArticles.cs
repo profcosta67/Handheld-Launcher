@@ -113,6 +113,15 @@ internal static class HelpArticles
         }),
 
         // ---------------- Emuladores ----------------
+        new("componentes", "Instalação", "O TDP não muda / falta um componente", new[]
+        {
+            "O launcher usa três programas de fora: o PawnIO (sem ele o TDP nunca é aplicado), o HidHide (isola o controle do jogo) e o RivaTuner Statistics Server, o RTSS (mede o FPS, desenha o HUD e é o que o TDP inteligente usa).",
+            "Na Central de Ajuda, aperte \"🧩 Componentes\" para ver o estado de cada um e instalar o que falta.",
+            "O PawnIO e o HidHide vêm no pacote e são instalados sozinhos ao abrir o launcher; os dois podem pedir um reinício do Windows para o driver valer.",
+            "O RTSS não pode ser redistribuído junto com o launcher, então ele é instalado pelo winget do Windows, da fonte oficial, e só quando você aperta o botão.",
+            "Se o log disser \"PawnIO: driver não encontrado\" mesmo depois de instalar, reinicie o Windows.",
+        }),
+
         new("eden", "Emuladores", "Os jogos do Eden não aparecem", new[]
         {
             "Em Configurações → Biblioteca, informe onde está o executável do Eden e as pastas dos jogos (ROMs), e salve.",

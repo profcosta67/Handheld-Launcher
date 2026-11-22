@@ -65,7 +65,13 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
         {
             if (e.Source is TextBox box && !ReferenceEquals(Keyboard.Target, box))
                 Keyboard.Show(box);
-            if (_consoleLayout && e.Source is Visual focused) UpdateHelp(focused);
+            if (_consoleLayout && e.Source is Visual focused)
+            {
+                // Lista aberta: o foco vai para o item dentro do popup; a linha continua sendo a do ComboBox.
+                if (focused is ComboBoxItem item && item.FindLogicalAncestorOfType<ComboBox>() is { } owner) focused = owner;
+                UpdateRowFocus(focused);
+                UpdateHelp(focused);
+            }
         }, RoutingStrategies.Bubble);
 
         // ⏎ ou "fechar" só escondem o teclado; a janela continua aberta.
@@ -360,14 +366,14 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
         {
             if (Owner is not Window { WindowState: WindowState.FullScreen }) return;
             SystemDecorations = SystemDecorations.None;
-            WindowState = WindowState.FullScreen;
+            ApplyConsoleWindowSize(); // compacta e centralizada; tela cheia só em tela pequena
             _consoleLayout = true;
-            // Opções encostadas na navegação (antes ficavam centralizadas, com um vão no meio).
-            ContentHost.MaxWidth = double.PositiveInfinity;
-            ContentHost.Width = 860;
-            ContentHost.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
-            ContentHost.Margin = new Thickness(28, 0, 0, 0);
+            // Opções encostadas na navegação, ocupando o espaço até o painel de explicação.
+            ContentHost.MaxWidth = 860;
+            ContentHost.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch;
+            ContentHost.Margin = new Thickness(20, 0, 0, 0);
             AdoptDescriptions();
+            BuildConsoleRows();
         }
         catch (Exception ex)
         {
@@ -394,7 +400,8 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
 
                 for (var j = i - 1; j >= 0 && kids[j] is TextBlock before && !adopted.Contains(before); j--)
                 {
-                    if (!before.Classes.Contains("subtle")) { title = before; break; }
+                    // Título de seção não é rótulo de opção.
+                    if (!before.Classes.Contains("subtle")) { if (!before.Classes.Contains("sectionTitle")) title = before; break; }
                     if (before.IsSet(IsVisibleProperty)) break;
                     text.Insert(0, before);
                 }
@@ -417,6 +424,12 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
             string title = "", text = "";
             for (Visual? v = focused; v is not null && !ReferenceEquals(v, this); v = v.GetVisualParent())
             {
+                if (v is Control proxy && TryRadioHelp(proxy, out var radioTitle, out var radioText))
+                {
+                    title = radioTitle;
+                    text = radioText;
+                    break;
+                }
                 if (v is Control c && _help.TryGetValue(c, out var entry))
                 {
                     title = entry.Title?.Text ?? "";
@@ -442,7 +455,9 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
             HelpTitle.Text = title;
             HelpText.Text = text;
             HelpText.IsVisible = text.Length > 0;
-            HelpPane.IsVisible = title.Length > 0 || text.Length > 0;
+            // A coluna fica reservada (só some o conteúdo): esconder o painel fazia a página pular.
+            HelpPane.IsVisible = true;
+            HelpPane.Opacity = title.Length > 0 || text.Length > 0 ? 1 : 0;
         }
         catch (Exception ex)
         {
@@ -586,7 +601,10 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
         }
     }
 
-    private async void OnManageAccountsClick(object? sender, RoutedEventArgs e)
+    private void OnManageAccountsClick(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnManageAccountsClickCore(sender, e), "OnManageAccountsClick");
+
+    private async Task OnManageAccountsClickCore(object? sender, RoutedEventArgs e)
     {
         var accounts = new AccountsWindow(ViewModel, OpenExternalUrlFromDialog);
         _accountsWindow = accounts;
@@ -625,7 +643,10 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
         }
     }
 
-    private async void OnBrowseEdenClick(object? sender, RoutedEventArgs e)
+    private void OnBrowseEdenClick(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnBrowseEdenClickCore(sender, e), "OnBrowseEdenClick");
+
+    private async Task OnBrowseEdenClickCore(object? sender, RoutedEventArgs e)
     {
         if (!OperatingSystem.IsWindows()) return;
         try
@@ -645,7 +666,10 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
         catch (Exception ex) { DebugLog.Write($"[SETTINGS] Falha ao abrir file picker (eden): {ex.Message}"); }
     }
 
-    private async void OnBrowseLosslessClick(object? sender, RoutedEventArgs e)
+    private void OnBrowseLosslessClick(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnBrowseLosslessClickCore(sender, e), "OnBrowseLosslessClick");
+
+    private async Task OnBrowseLosslessClickCore(object? sender, RoutedEventArgs e)
     {
         if (!OperatingSystem.IsWindows()) return;
         try
@@ -665,7 +689,10 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
         catch (Exception ex) { DebugLog.Write($"[SETTINGS] Falha ao abrir file picker (lossless): {ex.Message}"); }
     }
 
-    private async void OnAddRomFolderClick(object? sender, RoutedEventArgs e)
+    private void OnAddRomFolderClick(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnAddRomFolderClickCore(sender, e), "OnAddRomFolderClick");
+
+    private async Task OnAddRomFolderClickCore(object? sender, RoutedEventArgs e)
     {
         var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
@@ -812,7 +839,7 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
                 UseShellExecute = true 
             });
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
     }
 
     // Aba Rede: uma implementação só — a Central de Controlo da janela principal.
@@ -833,7 +860,10 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
 
     public Func<Task<string>>? CheckForUpdates { get; set; }
 
-    private async void OnCheckUpdatesClick(object? sender, RoutedEventArgs e)
+    private void OnCheckUpdatesClick(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnCheckUpdatesClickCore(sender, e), "OnCheckUpdatesClick");
+
+    private async Task OnCheckUpdatesClickCore(object? sender, RoutedEventArgs e)
     {
         if (CheckForUpdates is null) return;
         ViewModel.UpdateResultText = "Verificando…";

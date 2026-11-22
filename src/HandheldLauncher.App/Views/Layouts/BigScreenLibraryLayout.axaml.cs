@@ -45,14 +45,20 @@ public partial class BigScreenLibraryLayout : UserControl, ILibraryLayout
     private void OnSubFilterClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => Owner?.HandleSubFilterClick(sender, e);
     private void OnOpenNetworksClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => Owner?.ToggleControlCenter();
 
-    private async void OnOpenWifiSettingsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    private void OnOpenWifiSettingsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnOpenWifiSettingsClickCore(sender, e), "OnOpenWifiSettingsClick");
+
+    private async Task OnOpenWifiSettingsClickCore(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (Owner is null) return;
         var dialog = new ConnectivityPopupWindow { Topmost = true };
         await dialog.ShowDialog(Owner);
     }
 
-    private async void OnOpenBluetoothSettingsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    private void OnOpenBluetoothSettingsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnOpenBluetoothSettingsClickCore(sender, e), "OnOpenBluetoothSettingsClick");
+
+    private async Task OnOpenBluetoothSettingsClickCore(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (Owner is null) return;
         var dialog = new ConnectivityPopupWindow { Topmost = true };

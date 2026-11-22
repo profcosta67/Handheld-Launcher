@@ -207,11 +207,20 @@ public partial class MainWindow : Window
         _hotkeyRegistered = false;
     }
 
+    private const uint WmQueryEndSession = 0x0011;
+    private const uint WmEndSession = 0x0016;
+
     private IntPtr OnNativeWndProcHook(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         if (msg == WmHotkey && wParam.ToInt32() == RestoreHotkeyId) { RestoreFromTray(); handled = true; }
         else if (msg == WmHotkey && wParam.ToInt32() == OverlayHotkeyId) { Dispatcher.UIThread.Post(() => ToggleOverlay()); handled = true; }
         else if (msg == SingleInstance.RestoreMessageId) { RestoreFromTray(); handled = true; }
+        // Windows vai desligar/reiniciar/sair da sessão: o controle não pode ficar mascarado para o
+        // próximo boot (tela de login). Não marca "handled": o Windows segue com o encerramento.
+        else if (msg == WmQueryEndSession || (msg == WmEndSession && wParam != IntPtr.Zero))
+        {
+            try { _hidHideService.DeactivateForShutdown(); } catch (Exception ex) { DebugLog.Swallowed(ex); }
+        }
         else if (msg == TrayCallbackMessage)
         {
             var trayEvent = lParam.ToInt32();

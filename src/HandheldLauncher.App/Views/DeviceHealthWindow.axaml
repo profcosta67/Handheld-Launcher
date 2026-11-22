@@ -73,7 +73,36 @@
               <TextBlock Text="Saúde (capacidade real vs. de fábrica)" VerticalAlignment="Center" TextWrapping="Wrap" />
               <TextBlock x:Name="TxtBatteryHealth" Grid.Column="1" Text="--" FontWeight="Bold" FontSize="{DynamicResource TextTitle}" Margin="10,0,0,0" />
             </Grid>
+            <Grid x:Name="RowBatteryCapacity" ColumnDefinitions="*,Auto" IsVisible="False">
+              <TextBlock Text="Capacidade real" VerticalAlignment="Center" />
+              <TextBlock x:Name="TxtBatteryCapacity" Grid.Column="1" FontWeight="Bold" Margin="10,0,0,0" />
+            </Grid>
+            <TextBlock x:Name="TxtBatteryTrend" Classes="subtle" FontSize="{DynamicResource TextSmall}" TextWrapping="Wrap" IsVisible="False" />
             <TextBlock x:Name="TxtBatteryHealthNote" Classes="subtle" FontSize="{DynamicResource TextCaption}" TextWrapping="Wrap" IsVisible="False" />
+          </StackPanel>
+        </Border>
+
+        <!-- v0.31: consumo por jogo, do diário de sessões. -->
+        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="{DynamicResource RadiusLarge}" Padding="18">
+          <StackPanel Spacing="8">
+            <TextBlock Text="Consumo por jogo (na bateria)" FontSize="{DynamicResource TextSubtitle}" FontWeight="Bold" />
+            <TextBlock x:Name="TxtNoEnergyRows" Classes="subtle" TextWrapping="Wrap"
+                       Text="Ainda sem consumo medido. Jogue alguns minutos na bateria e ele aparece aqui." />
+            <ItemsControl x:Name="EnergyList">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:EnergyRowViewModel">
+                  <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+                    <StackPanel Spacing="2">
+                      <TextBlock Text="{Binding Title}" FontWeight="Bold" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Text="{Binding Detail}" Classes="subtle" FontSize="{DynamicResource TextSmall}" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" Text="{Binding Watts}" FontWeight="Bold" VerticalAlignment="Center" Margin="10,0,0,0" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Classes="subtle" FontSize="{DynamicResource TextCaption}" TextWrapping="Wrap"
+                       Text="Consumo do aparelho inteiro, lido da bateria durante o jogo. O aparelho não informa a tela, a placa de vídeo e o Wi-Fi separadamente." />
           </StackPanel>
         </Border>
 

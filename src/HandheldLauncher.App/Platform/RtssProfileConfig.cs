@@ -67,6 +67,11 @@ internal static class RtssProfileConfig
     /// </summary>
     public static bool TryConfigureGlobalOsd(string rtssInstallDir)
     {
+        lock (HooksGate) return TryConfigureGlobalOsdCore(rtssInstallDir);
+    }
+
+    private static bool TryConfigureGlobalOsdCore(string rtssInstallDir)
+    {
         var dllPath = Path.Combine(rtssInstallDir, "RTSSHooks64.dll");
         if (!File.Exists(dllPath)) return false;
 
@@ -106,6 +111,149 @@ internal static class RtssProfileConfig
             if (hModule != IntPtr.Zero)
             {
                 try { FreeLibrary(hModule); } catch { /* melhor esforço */ }
+            }
+        }
+    }
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate bool GetProfilePropertyDelegate([MarshalAs(UnmanagedType.LPStr)] string property, ref int data, int size);
+
+    private const string PropFramerateLimit = "FramerateLimit";
+
+    /// <summary>
+    /// 22/11: trava o FPS de um jogo no perfil do executável dele (ex.: "DaysGone.exe") — a mesma
+    /// propriedade "Framerate limit" da tela do RTSS. Devolve o valor que estava lá antes, para
+    /// <see cref="TryRestoreFramerateLimit"/> devolver ao fechar. Sem a função de leitura na DLL
+    /// (RTSS muito antigo), NÃO aplica: sem saber o valor de antes, apagaria o limite do usuário.
+    /// Melhor esforço: nunca lança.
+    /// </summary>
+    /// <param name="profileCreated">true = o jogo não tinha perfil próprio no RTSS (o arquivo foi
+    /// criado agora); na devolução, o perfil é apagado em vez de receber um valor fixo — senão uma
+    /// mudança futura no limite global do usuário deixaria de valer para este jogo.</param>
+    public static bool TryApplyFramerateLimit(string rtssInstallDir, string exeProfile, int fps, out int previous, out bool profileCreated)
+        => TryApplyFramerateLimit(rtssInstallDir, exeProfile, fps, out previous, out profileCreated, out _);
+
+    /// <param name="writtenUtc">Horário do arquivo do perfil logo depois de gravar: na devolução, o
+    /// perfil criado por nós só é apagado se ninguém mexeu nele desde então (o usuário pode ter
+    /// ajustado o jogo na tela do RTSS durante a sessão).</param>
+    public static bool TryApplyFramerateLimit(string rtssInstallDir, string exeProfile, int fps, out int previous, out bool profileCreated, out DateTime? writtenUtc)
+    {
+        writtenUtc = null;
+        var result = 0;
+        var created = !File.Exists(ProfilePath(rtssInstallDir, exeProfile));
+        var ok = WithHooks(rtssInstallDir, (load, save, set, get, update) =>
+        {
+            if (get is null) return false;
+            load(exeProfile);
+            var before = 0;
+            if (!get(PropFramerateLimit, ref before, sizeof(int))) return false;   // sem ler o de antes, não mexe
+            result = before;
+            var value = fps;
+            if (!set(PropFramerateLimit, ref value, sizeof(int))) return false;
+            save(exeProfile);
+            update();
+            return true;
+        });
+        previous = result;
+        profileCreated = created;
+        try
+        {
+            var path = ProfilePath(rtssInstallDir, exeProfile);
+            if (ok && File.Exists(path)) writtenUtc = File.GetLastWriteTimeUtc(path);
+        }
+        catch { /* sem horário: a devolução usa o valor */ }
+        return ok;
+    }
+
+    /// <summary>Devolve o limite de FPS que o perfil do jogo tinha antes (0 = sem limite).</summary>
+    public static bool TryRestoreFramerateLimit(string rtssInstallDir, string exeProfile, int previous, bool profileCreated, DateTime? writtenUtc = null)
+    {
+        if (profileCreated && writtenUtc is { } written)
+        {
+            // Mexeram no perfil depois de nós (tela do RTSS): não apaga, só devolve o valor.
+            try
+            {
+                var path = ProfilePath(rtssInstallDir, exeProfile);
+                if (File.Exists(path) && File.GetLastWriteTimeUtc(path) != written) profileCreated = false;
+            }
+            catch { profileCreated = false; }
+        }
+        else if (profileCreated)
+        {
+            profileCreated = false;   // sem como saber se mexeram: o mais seguro é devolver o valor
+        }
+
+        if (profileCreated)
+        {
+            // O perfil foi criado por nós: apagar volta o jogo ao perfil global, como era.
+            var path = ProfilePath(rtssInstallDir, exeProfile);
+            try
+            {
+                lock (HooksGate)
+                {
+                    if (File.Exists(path)) File.Delete(path);
+                }
+            }
+            catch
+            {
+                // sem apagar, cai na devolução pelo valor (abaixo)
+                return TryRestoreFramerateLimit(rtssInstallDir, exeProfile, previous, profileCreated: false);
+            }
+            return WithHooks(rtssInstallDir, (load, save, set, get, update) => { update(); return true; });
+        }
+
+        return WithHooks(rtssInstallDir, (load, save, set, get, update) =>
+        {
+            load(exeProfile);
+            var value = previous;
+            if (!set(PropFramerateLimit, ref value, sizeof(int))) return false;
+            save(exeProfile);
+            update();
+            return true;
+        });
+    }
+
+    private static string ProfilePath(string rtssInstallDir, string exeProfile) =>
+        Path.Combine(rtssInstallDir, "Profiles", exeProfile + ".cfg");
+
+    // A API de perfis do RTSS guarda "o perfil carregado" dentro da DLL: duas chamadas ao mesmo
+    // tempo (configuração do OSD na abertura e o limite de FPS) escreveriam no perfil errado.
+    private static readonly object HooksGate = new();
+    private static IntPtr _hooksModule;
+    private static string? _hooksPath;
+
+    /// <summary>
+    /// Roda <paramref name="action"/> com as funções da DLL de perfis do RTSS, uma chamada por vez.
+    /// A DLL é carregada uma vez e fica carregada (carregar/descarregar uma DLL de hooks a cada
+    /// troca de meta, dentro do launcher elevado, é risco à toa).
+    /// </summary>
+    private static bool WithHooks(string rtssInstallDir,
+        Func<LoadProfileDelegate, SaveProfileDelegate, SetProfilePropertyDelegate, GetProfilePropertyDelegate?, UpdateProfilesDelegate, bool> action)
+    {
+        var dllPath = Path.Combine(rtssInstallDir, "RTSSHooks64.dll");
+        if (!File.Exists(dllPath)) return false;
+        lock (HooksGate)
+        {
+            try
+            {
+                if (_hooksModule == IntPtr.Zero || !string.Equals(_hooksPath, dllPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    var module = LoadLibraryW(dllPath);
+                    if (module == IntPtr.Zero) return false;
+                    _hooksModule = module;
+                    _hooksPath = dllPath;
+                }
+                var load = GetDelegate<LoadProfileDelegate>(_hooksModule, "LoadProfile");
+                var save = GetDelegate<SaveProfileDelegate>(_hooksModule, "SaveProfile");
+                var set = GetDelegate<SetProfilePropertyDelegate>(_hooksModule, "SetProfileProperty");
+                var get = GetDelegate<GetProfilePropertyDelegate>(_hooksModule, "GetProfileProperty");
+                var update = GetDelegate<UpdateProfilesDelegate>(_hooksModule, "UpdateProfiles");
+                if (load is null || save is null || set is null || update is null) return false;
+                return action(load, save, set, get, update);
+            }
+            catch
+            {
+                return false;
             }
         }
     }

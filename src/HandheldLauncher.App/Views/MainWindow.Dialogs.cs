@@ -169,6 +169,9 @@ public partial class MainWindow : Window
             _activeDialog = null;
             if (dialog.OpenedExternalApp && IsVisible) Topmost = wasTopmost;
         }
+
+        // 18/11: "🧩 Componentes" fecha a Central e abre aqui (ver HelpCenterWindow).
+        if (dialog.ComponentsRequested) await OpenComponentsDialogAsync();
     }
 
     // v0.18 "Saúde do aparelho" / "Gerenciador de armazenamento": mesmo
@@ -289,6 +292,46 @@ public partial class MainWindow : Window
             _healthPopup = popup;
             popup.Closed += (_, _) => { if (ReferenceEquals(_healthPopup, popup)) _healthPopup = null; };
             popup.Show(this);
+        }
+        catch (Exception ex) { DebugLog.Swallowed(ex); }
+    }
+
+    /// <summary>
+    /// 18/11: tela dos componentes de fora (PawnIO, HidHide, RTSS). Chamada pela Central de Ajuda
+    /// e, uma vez por versão, quando algo está faltando (ver Platform/StartupComponents).
+    /// </summary>
+    public async Task OpenComponentsDialogAsync()
+    {
+        var dialog = new ComponentsWindow { Topmost = true };
+        _activeDialog = dialog;
+        try
+        {
+            ThemeManager.ApplyFont(dialog, AppSettingsStore.Load().UiFont);
+            await dialog.ShowDialog(this);
+        }
+        catch (Exception ex) { DebugLog.Write($"[COMPONENTES] Falha ao abrir a tela: {ex.Message}"); }
+        finally { _activeDialog = null; }
+    }
+
+    /// <summary>
+    /// Aviso automático de componente em falta: nunca por cima de jogo, de outro diálogo, nem com
+    /// o launcher fora da frente — a mesma regra dos avisos de saúde.
+    /// </summary>
+    public void ShowComponentsNotice()
+    {
+        try
+        {
+            if (DataContext is MainViewModel { RunningGame: not null } or MainViewModel { IsLaunching: true }
+                || _activeDialog is not null
+                || !IsVisible || WindowState == WindowState.Minimized || !IsOurWindowInForeground())
+            {
+                DebugLog.Write("[COMPONENTES] Aviso não mostrado agora (jogo/diálogo aberto ou launcher fora da frente) — fica na Central de Ajuda.");
+                return;
+            }
+            // Só marca como "já avisado" quando o aviso realmente aparece, senão a versão passava
+            // sem nunca mostrar nada (jogo aberto na hora da verificação, por exemplo).
+            HandheldLauncher.App.Platform.StartupComponents.MarkNoticeShown();
+            _ = OpenComponentsDialogAsync();
         }
         catch (Exception ex) { DebugLog.Swallowed(ex); }
     }

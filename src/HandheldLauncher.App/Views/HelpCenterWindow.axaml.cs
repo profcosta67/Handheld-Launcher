@@ -269,7 +269,10 @@ public partial class HelpCenterWindow : Window
 
     // ---------------- Reportar erro ----------------
 
-    private async void OnReportClick(object? sender, RoutedEventArgs e)
+    private void OnReportClick(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnReportClickCore(sender, e), "OnReportClick");
+
+    private async Task OnReportClickCore(object? sender, RoutedEventArgs e)
     {
         if (_reporting) return;
         _reporting = true;
@@ -344,7 +347,10 @@ public partial class HelpCenterWindow : Window
         return card;
     }
 
-    private async void OnRerunClick(object? sender, RoutedEventArgs e)
+    private void OnRerunClick(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnRerunClickCore(sender, e), "OnRerunClick");
+
+    private async Task OnRerunClickCore(object? sender, RoutedEventArgs e)
     {
         try { await RunChecksAsync(); }
         catch (Exception ex) { DebugLog.Write($"[AJUDA] Reverificação falhou: {ex.Message}"); }
@@ -363,6 +369,20 @@ public partial class HelpCenterWindow : Window
         {
             DebugLog.Write($"[AJUDA] Não consegui abrir a pasta do log: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// 18/11: pediram a tela dos componentes (PawnIO, HidHide, RTSS). Quem abre é o MainWindow,
+    /// depois desta janela fechar: um diálogo aberto de dentro de outro não recebe os botões do
+    /// controle (a navegação segue o diálogo que o MainWindow conhece), e no modo Handheld isso
+    /// deixaria o usuário preso numa janela que não responde.
+    /// </summary>
+    public bool ComponentsRequested { get; private set; }
+
+    private void OnComponentsClick(object? sender, RoutedEventArgs e)
+    {
+        ComponentsRequested = true;
+        Close();
     }
 
     private void OnCloseClick(object? sender, RoutedEventArgs e) => Close();

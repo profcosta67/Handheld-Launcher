@@ -52,7 +52,72 @@ public partial class OverlayWindow
     }
 
     /// <summary>Novo ciclo de abertura: volta a registrar uma mudança de posição.</summary>
-    private void ResetPositionGuardForShow() => _moveLoggedThisShow = false;
+    private void ResetPositionGuardForShow()
+    {
+        _moveLoggedThisShow = false;
+        _blockLoggedThisShow = false;
+    }
+
+    // 0.27 beta.70: o vigia acima corrigia DEPOIS (até 250 ms), e o painel aparecia um instante
+    // no meio da tela. No log de 17/11 a janela ia para 740,175 a cada abertura com o Xbox em
+    // tela cheia (XboxPcApp) por baixo. Agora o movimento é barrado ANTES de acontecer
+    // (WM_WINDOWPOSCHANGING): enquanto o painel está visível, só vale a posição que o launcher
+    // escolheu. O vigia continua como rede de segurança.
+    private const uint WM_WINDOWPOSCHANGING = 0x0046;
+    private bool _moveBlockerInstalled;
+    private bool _blockLoggedThisShow;
+
+    private void InstallMoveBlocker()
+    {
+        if (_moveBlockerInstalled || !OperatingSystem.IsWindows()) return;
+        try
+        {
+            Avalonia.Controls.Win32Properties.AddWndProcHookCallback(this, OnMoveBlockerWndProc);
+            _moveBlockerInstalled = true;
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Swallowed(ex);
+        }
+    }
+
+    private IntPtr OnMoveBlockerWndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg != WM_WINDOWPOSCHANGING || lParam == IntPtr.Zero) return IntPtr.Zero;
+        try
+        {
+            if (!IsVisible || _expectedPosition is not { } expected) return IntPtr.Zero;
+            var pos = Marshal.PtrToStructure<WINDOWPOS>(lParam);
+            if ((pos.flags & SWP_NOMOVE) != 0) return IntPtr.Zero;
+            if (Math.Abs(pos.x - expected.X) <= 4 && Math.Abs(pos.y - expected.Y) <= 4) return IntPtr.Zero;
+
+            if (!_blockLoggedThisShow)
+            {
+                _blockLoggedThisShow = true;
+                DebugLog.Write($"[OVERLAY] Movimento de fora barrado: pediram {pos.x},{pos.y}; fica em {expected.X},{expected.Y}.");
+            }
+            pos.x = expected.X;
+            pos.y = expected.Y;
+            Marshal.StructureToPtr(pos, lParam, false);
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Swallowed(ex);
+        }
+        return IntPtr.Zero; // segue o processamento normal, já com a posição certa
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WINDOWPOS
+    {
+        public IntPtr hwnd;
+        public IntPtr hwndInsertAfter;
+        public int x;
+        public int y;
+        public int cx;
+        public int cy;
+        public uint flags;
+    }
 
     [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
     [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr hwnd);

@@ -66,7 +66,7 @@ public class RadioService
                 return result == Windows.Devices.Radios.RadioAccessStatus.Allowed;
             }
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
         return false;
 #else
         return await Task.Run(() =>

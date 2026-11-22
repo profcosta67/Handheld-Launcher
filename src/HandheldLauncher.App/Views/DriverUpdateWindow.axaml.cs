@@ -15,7 +15,10 @@ public partial class DriverUpdateWindow : Window
         InitializeComponent();
     }
 
-    private async void OnSelectFileClick(object? sender, RoutedEventArgs e)
+    private void OnSelectFileClick(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnSelectFileClickCore(sender, e), "OnSelectFileClick");
+
+    private async Task OnSelectFileClickCore(object? sender, RoutedEventArgs e)
     {
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
@@ -32,7 +35,10 @@ public partial class DriverUpdateWindow : Window
         }
     }
 
-    private async void OnInstallClick(object? sender, RoutedEventArgs e)
+    private void OnInstallClick(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnInstallClickCore(sender, e), "OnInstallClick");
+
+    private async Task OnInstallClickCore(object? sender, RoutedEventArgs e)
     {
         if (string.IsNullOrEmpty(_selectedInfPath)) return;
 

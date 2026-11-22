@@ -5,7 +5,7 @@
         xmlns:views="using:HandheldLauncher.App.Views"
         x:Class="HandheldLauncher.App.Views.AddGameWindow"
         x:DataType="vm:AddGameViewModel"
-        Title="Adicionar Jogo ou Programa"
+        Title="{Binding WindowTitle}"
         Width="640" Height="760"
         Topmost="True"
         CanResize="False"
@@ -30,8 +30,9 @@
     <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="4">
 
-        <!-- Card: Programas instalados (v0.25.3) -->
-        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="{DynamicResource RadiusMedium}" Padding="16" Margin="0,0,0,12">
+        <!-- Card: Programas instalados (v0.25.3). 18/11: só em "Adicionar programa". -->
+        <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="{DynamicResource RadiusMedium}" Padding="16" Margin="0,0,0,12"
+                IsVisible="{Binding IsApplication}">
           <StackPanel Spacing="10">
             <Grid ColumnDefinitions="*,Auto">
               <TextBlock Text="Programas instalados" Classes="header" Margin="0"/>
@@ -73,21 +74,33 @@
         <!-- Card: Informações Básicas -->
         <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="{DynamicResource RadiusMedium}" Padding="16" Margin="0,0,0,12">
           <StackPanel Spacing="12">
-            <TextBlock Text="Nome do Jogo" Classes="header" Margin="0,0,0,4"/>
-            <TextBox Text="{Binding Title}" Watermark="Ex: Hollow Knight" Height="40" FontSize="{DynamicResource TextBodyLarge}"/>
-            <CheckBox Content="É um jogo do Xbox app / Game Pass" IsChecked="{Binding IsXboxSource}" Margin="0,4,0,0"/>
-            <CheckBox Content="Adicionar como Programa (não aparece na biblioteca de jogos)" IsChecked="{Binding IsApplication}" Margin="0,4,0,0"/>
+            <TextBlock Text="{Binding NameHeader}" Classes="header" Margin="0,0,0,4"/>
+            <TextBox Text="{Binding Title}" Watermark="{Binding NameWatermark}" Height="40" FontSize="{DynamicResource TextBodyLarge}"/>
+            <CheckBox Content="É um jogo do Xbox app / Game Pass" IsChecked="{Binding IsXboxSource}" IsVisible="{Binding IsGameMode}" Margin="0,4,0,0"/>
           </StackPanel>
         </Border>
 
         <!-- Card: Execução -->
         <Border Background="{DynamicResource SurfaceRaisedBrush}" CornerRadius="{DynamicResource RadiusMedium}" Padding="16" Margin="0,0,0,12">
           <StackPanel Spacing="12">
-            <TextBlock Text="Arquivo Executável" Classes="header" Margin="0,0,0,4"/>
+            <TextBlock Text="Executável ou atalho" Classes="header" Margin="0,0,0,4"/>
             <Grid ColumnDefinitions="*,Auto">
-              <TextBox Grid.Column="0" Text="{Binding ExecutablePath}" Watermark="C:\Jogos\jogo.exe" Height="40" FontSize="{DynamicResource TextBodyLarge}"/>
+              <TextBox Grid.Column="0" Text="{Binding ExecutablePath}" Watermark="C:\Jogos\jogo.exe ou um atalho (.lnk, .url)" Height="40" FontSize="{DynamicResource TextBodyLarge}"/>
               <Button Grid.Column="1" Classes="pill" Content="Procurar..." Click="OnBrowseClick" Margin="8,0,0,0" Height="40"/>
             </Grid>
+            <TextBlock Text="{Binding ShortcutNote}" Classes="label" TextWrapping="Wrap" IsVisible="{Binding HasShortcutNote}"/>
+            <TextBlock Text="Atalho ou endereço: abre pelo Windows. Argumentos, pasta e arquivo do jogo não são usados."
+                       Classes="label" TextWrapping="Wrap" IsVisible="{Binding OpensThroughWindows}"/>
+
+            <!-- 18/11: jogo de emulador (ex.: Ryujinx.exe acima + arquivo do jogo aqui). -->
+            <StackPanel Spacing="4" IsVisible="{Binding IsGameMode}">
+              <TextBlock Text="Arquivo do jogo (emulador, opcional)" Classes="header" Margin="0,8,0,4"/>
+              <Grid ColumnDefinitions="*,Auto" IsEnabled="{Binding !OpensThroughWindows}">
+                <TextBox Grid.Column="0" Text="{Binding GameFilePath}" Watermark="Ex: E:\Switch\jogo.nsp" Height="40" FontSize="{DynamicResource TextBodyLarge}"/>
+                <Button Grid.Column="1" Classes="pill" Content="Procurar..." Click="OnBrowseGameFileClick" Margin="8,0,0,0" Height="40"/>
+              </Grid>
+              <TextBlock Text="Escolha o emulador acima e o arquivo do jogo aqui. Ele vai no fim dos argumentos." Classes="label" TextWrapping="Wrap"/>
+            </StackPanel>
             
             <TextBlock Text="Argumentos (opcional)" Classes="header" Margin="0,8,0,4"/>
             <TextBox Text="{Binding LaunchArguments}" Watermark="Ex: --fullscreen" Height="40" FontSize="{DynamicResource TextBodyLarge}"/>
@@ -102,7 +115,7 @@
 
     <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12" Margin="0,20,0,0">
       <Button Classes="pill" Content="Cancelar" Click="OnCancelClick" Width="120" Height="44" FontSize="{DynamicResource TextBodyLarge}"/>
-      <Button Classes="pill primary" Content="Salvar Jogo" Click="OnAddClick" IsEnabled="{Binding CanSave}" Width="160" Height="44" FontSize="{DynamicResource TextBodyLarge}" FontWeight="Bold"/>
+      <Button Classes="pill primary" Content="{Binding SaveLabel}" Click="OnAddClick" IsEnabled="{Binding CanSave}" Width="160" Height="44" FontSize="{DynamicResource TextBodyLarge}" FontWeight="Bold"/>
     </StackPanel>
 
     <!-- v0.24.2: teclado do launcher (o TabTip do Windows não recebia o controle). -->

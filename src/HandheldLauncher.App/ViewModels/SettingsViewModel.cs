@@ -462,6 +462,7 @@ public sealed class SettingsViewModel : ViewModelBase
     public bool IsWindows => OperatingSystem.IsWindows();
     private bool _smartTdpEnabled;
     private bool _smartTdpLoaded;
+    private int _smartTargetLoadedIndex = -1;
     public bool SmartTdpEnabled { get => _smartTdpEnabled; set => SetField(ref _smartTdpEnabled, value); }
 
     private static readonly int[] SmartTdpTargets = { 30, 40, 45, 60, 90, 120 };
@@ -619,7 +620,7 @@ public sealed class SettingsViewModel : ViewModelBase
                 }
             }
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
         finally
         {
             IsLoadingReleases = false;
@@ -690,6 +691,7 @@ public sealed class SettingsViewModel : ViewModelBase
         _smartTdpLoaded = settings.SmartTdpEnabled;
         var targetIndex = Array.IndexOf(SmartTdpTargets, settings.SmartTdpTargetFps);
         SmartTdpTargetIndex = targetIndex < 0 ? 3 : targetIndex;
+        _smartTargetLoadedIndex = SmartTdpTargetIndex;
         
         SoundThemeIndex = Math.Clamp(settings.SoundTheme, 0, HandheldLauncher.App.Platform.UiSounds.PackNames.Length - 1);
         SoundVolume = Math.Clamp(settings.SoundVolume, 0, 100);
@@ -898,11 +900,15 @@ public sealed class SettingsViewModel : ViewModelBase
         // Se aqui ninguém mexeu na opção, vale o que estiver gravado — não o valor de quando abriu.
         if (SmartTdpEnabled == _smartTdpLoaded)
         {
-            try { SmartTdpEnabled = AppSettingsStore.Load().SmartTdpEnabled; } catch { }
+            try { SmartTdpEnabled = AppSettingsStore.Load().SmartTdpEnabled; } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
         }
         _smartTdpLoaded = SmartTdpEnabled;
         settings.SmartTdpEnabled = SmartTdpEnabled;
-        settings.SmartTdpTargetFps = SmartTdpTargets[SmartTdpTargetIndex];
+        // A meta também muda pelo Quick Settings: mesma regra do "Auto" acima.
+        // v0.27: a meta saiu desta janela (fica só no Quick Settings, agora em passos de 5 FPS):
+        // ao salvar, vale o que estiver gravado — nunca o valor de quando a janela abriu.
+        try { settings.SmartTdpTargetFps = AppSettingsStore.Load().SmartTdpTargetFps; }
+        catch (Exception ex) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(ex); }
 
         // v0.25.2: o layout Cartoon é uma identidade fechada — paleta 16, fonte
         // Fredoka e som Bolha. Os combos ficam desligados na tela; gravar aqui

@@ -315,7 +315,7 @@ public sealed class MainViewModel : ViewModelBase
                     settings.SyncthingEnabled = value;
                     AppSettingsStore.Save(settings);
                 }
-                catch { }
+                catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
             }
         }
     }
@@ -420,6 +420,7 @@ public GameTileViewModel? SelectedTile
             if (value is not null)
             {
                 _ = value.LoadDescriptionAsync();
+                value.RefreshEnergy(); // v0.31: o resumo do diário pode ter chegado depois
                 _ = value.LoadReviewAsync();   // 🟢 NOVO
             }
         }
@@ -693,7 +694,9 @@ public bool CanOpenSelectedDetails => SelectedTile?.Game is { } game && HasGameD
                 break;
 
             case LibraryFilter.Emulators:
-                SubFilters.Add(new SubFilterViewModel("Switch", "#FFFFFF", "#E4000F", g => g.Id.StartsWith("eden_", StringComparison.Ordinal)));
+                // 18/11: jogos manuais de emulador de Switch (ex.: Ryujinx) também entram aqui.
+                SubFilters.Add(new SubFilterViewModel("Switch", "#FFFFFF", "#E4000F", g => g.Id.StartsWith("eden_", StringComparison.Ordinal)
+                    || (g.Source == GameSource.Emulator && HandheldLauncher.Core.Services.ManualLaunchTarget.IsSwitchEmulator(g.ExecutablePath))));
                 break;
         }
         OnPropertyChanged(nameof(HasSubFilters));

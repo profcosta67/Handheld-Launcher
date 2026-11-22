@@ -6,6 +6,49 @@ public class AppSettings
       // 🟢 NOVO: Substitui o FreezeGameOnOverlay e o GameModeEnabled
     public bool IsolateControllerOnOverlay { get; set; } = true;
 
+    // 0.27 beta.72 (17/11): no Legion Go 2 o controle às vezes liga "mudo" (aparece no Windows,
+    // mas não manda botão) até o Legion Space abrir. Não há como saber de fora se está mudo ou
+    // só parado.
+    // 18/11: o jeito principal passou a ser mandar ao controle, ao abrir o launcher e ao acordar
+    // da suspensão, o pedido HID "liga a saída XInput", sem abrir janela nenhuma. Hipótese: é o
+    // que o Legion Space faz ao abrir (o teste no aparelho confirma). Só age com o Legion Space
+    // fechado e sem jogo aberto.
+    public bool WakeControllerWithHidCommand { get; set; } = true;
+
+    // Plano B (desligado por padrão desde 18/11): abrir o Legion Space ao iniciar, minimizar a
+    // janela dele e voltar para a frente. Fica no settings.json para o caso de o pedido HID não
+    // bastar. Chave nova de propósito: o build de teste anterior gravava
+    // "WakeControllerWithLegionSpaceAtStartup": true, e as duas coisas juntas confundiriam o teste.
+    public bool OpenLegionSpaceAtStartup { get; set; } = false;
+
+    // 18/11: na tela da senha do Windows o launcher ainda não está aberto, então o pedido HID
+    // acima não ajuda ali. Com isto ligado, o launcher registra uma tarefa do Windows que roda na
+    // INICIALIZAÇÃO (antes do login) só para mandar aquele pedido ao controle.
+    public bool WakeControllerAtBoot { get; set; } = true;
+
+    // 22/11: qual controle decide os watts no TDP inteligente. "v2" (padrão): regra única "watt a
+    // mais só se comprar FPS", validado no banco fixo de cenários. "v1": o das betas 66–73, mantido
+    // como reserva caso o v2 se comporte mal em algum jogo.
+    public string SmartTdpEngine { get; set; } = "v2";
+
+    // 22/11: com o Auto ligado, trava o FPS do jogo na meta pelo RTSS (perfil do executável do
+    // jogo; o valor que o jogo tinha antes é devolvido ao fechar). Sem quadros além da meta, a placa
+    // de vídeo não gasta à toa e o TDP desce mais. Desligado por padrão (decisão do usuário, 18/11).
+    public bool SmartTdpLimitFps { get; set; } = false;
+
+    // 22/11: medição de FPS própria (eventos de quadro do Windows, como o PresentMon), usada pelo
+    // TDP inteligente quando o RTSS não mede o jogo. Só fica ligada durante uma sessão do Auto.
+    public bool OwnFpsMeter { get; set; } = true;
+
+    // 18/11 (instalação limpa do usuário): o TDP não funcionou porque o driver do PawnIO não foi
+    // instalado. Com isto ligado, o launcher confere ao abrir e instala sozinho os componentes que
+    // vêm no pacote (PawnIO e HidHide). O RTSS nunca é instalado sem o usuário pedir.
+    public bool AutoInstallComponents { get; set; } = true;
+
+    // Versão do launcher em que o aviso de componentes em falta já foi mostrado (para não repetir
+    // o aviso toda abertura).
+    public string? ComponentsNoticeShownFor { get; set; }
+
     // v0.25.9: o reinício do controle (pnputil /restart-device) ao fechar o
     // Quick Settings veio na 0.25.3 para jogos que não voltam a abrir o
     // controle (Days Gone). Desde a 0.25.7 o launcher abre sempre como

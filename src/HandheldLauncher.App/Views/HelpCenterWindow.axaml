@@ -86,6 +86,7 @@
                    VerticalAlignment="Center" Foreground="#8794AE" FontSize="{DynamicResource TextCaption}" TextWrapping="Wrap" />
         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
           <Button x:Name="BtnRerun" Classes="pill" Content="🔄 Verificar de novo" Click="OnRerunClick" />
+          <Button x:Name="BtnComponents" Classes="pill" Content="🧩 Componentes" Click="OnComponentsClick" />
           <Button x:Name="BtnReport" Classes="pill" Content="🐞 Reportar erro" Click="OnReportClick" />
           <Button Classes="pill" Content="📂 Abrir pasta do log" Click="OnOpenLogFolderClick" />
           <Button Classes="pill primary" Content="✕ Fechar" Click="OnCloseClick" />

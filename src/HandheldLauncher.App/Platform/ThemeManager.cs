@@ -77,7 +77,7 @@ public static class ThemeManager
             app.Resources["GlobalFontFamily"] = new FontFamily(fontFamily);
             app.Resources["ContentControlThemeFontFamily"] = new FontFamily(fontFamily);
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
     }
 
     public static void ApplyFontSize(int fontSizeIndex)
@@ -114,7 +114,7 @@ public static class ThemeManager
             app.Resources["TypeScale7"] = Math.Round(30 * scale);
             app.Resources["TypeScale8"] = Math.Round(36 * scale);
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
     }
 
     private sealed record Palette(
@@ -158,7 +158,7 @@ public static class ThemeManager
             if (family is not null) window.FontFamily = new FontFamily(family);
             else window.ClearValue(Avalonia.Controls.Primitives.TemplatedControl.FontFamilyProperty);
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
     }
 
      public static void Apply(int themeIndex)
@@ -255,6 +255,6 @@ public static class ThemeManager
             if (app.TryGetResource(key, null, out var value) && value is SolidColorBrush brush)
                 brush.Color = Color.Parse(hex);
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
     }
 }

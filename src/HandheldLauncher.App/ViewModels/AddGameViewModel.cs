@@ -30,9 +30,18 @@ public sealed class AddGameViewModel : ViewModelBase
         get => _executablePath;
         set
         {
-            if (SetField(ref _executablePath, value)) OnPropertyChanged(nameof(CanSave));
+            if (!SetField(ref _executablePath, value)) return;
+            OnPropertyChanged(nameof(CanSave));
+            OnPropertyChanged(nameof(OpensThroughWindows));
+            // 18/11: o aviso do atalho só vale para o que foi escolhido nele; mexeu à mão, some.
+            if (!_applyingShortcut) ShortcutNote = string.Empty;
         }
     }
+
+    private bool _applyingShortcut;
+
+    /// <summary>18/11: atalho ou endereço abre pelo Windows — sem argumentos nem arquivo do jogo.</summary>
+    public bool OpensThroughWindows => ManualLaunchTarget.OpensThroughWindows(ExecutablePath);
 
     private string _launchArguments = string.Empty;
     public string LaunchArguments
@@ -49,15 +58,90 @@ public sealed class AddGameViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Marca a entrada manual como GameSource.XboxApp em vez de Manual —
-    /// não existe scanner do Xbox app ainda, então esse checkbox é a única
-    /// forma de um jogo cair na aba de filtro "Xbox" pedida pelo usuário.
+    /// 18/11: "Adicionar jogo" e "Adicionar programa" viraram telas separadas (antes era uma
+    /// tela só com a caixa "Adicionar como Programa"). Definido por quem abre a janela.
     /// </summary>
     private bool _isApplication;
     public bool IsApplication
     {
         get => _isApplication;
-        set => SetField(ref _isApplication, value);
+        set
+        {
+            if (!SetField(ref _isApplication, value)) return;
+            OnPropertyChanged(nameof(IsGameMode));
+            OnPropertyChanged(nameof(WindowTitle));
+            OnPropertyChanged(nameof(NameHeader));
+            OnPropertyChanged(nameof(NameWatermark));
+            OnPropertyChanged(nameof(SaveLabel));
+        }
+    }
+
+    public bool IsGameMode => !IsApplication;
+    public string WindowTitle => IsApplication ? "Adicionar programa" : "Adicionar jogo";
+    public string NameHeader => IsApplication ? "Nome do programa" : "Nome do jogo";
+    public string NameWatermark => IsApplication ? "Ex: Discord" : "Ex: Hollow Knight";
+    public string SaveLabel => IsApplication ? "Salvar programa" : "Salvar jogo";
+
+    /// <summary>
+    /// 18/11: jogo de emulador — o arquivo do jogo (.nsp, .xci, .iso...) vai entre aspas no fim
+    /// dos argumentos. Ex.: executável Ryujinx.exe + arquivo do Pokémon.
+    /// </summary>
+    private string _gameFilePath = string.Empty;
+    public string GameFilePath
+    {
+        get => _gameFilePath;
+        set => SetField(ref _gameFilePath, value);
+    }
+
+    /// <summary>18/11: aviso curto depois de escolher um atalho (o que foi lido dele).</summary>
+    private string _shortcutNote = string.Empty;
+    public string ShortcutNote
+    {
+        get => _shortcutNote;
+        set
+        {
+            if (SetField(ref _shortcutNote, value)) OnPropertyChanged(nameof(HasShortcutNote));
+        }
+    }
+    public bool HasShortcutNote => !string.IsNullOrWhiteSpace(ShortcutNote);
+
+    /// <summary>
+    /// 18/11: aplica o que foi lido de um atalho escolhido no "Procurar". Atalho com executável
+    /// (ex.: o do Ryujinx) vira executável + argumentos + pasta; .url ou atalho sem executável
+    /// fica como está e abre pelo Windows.
+    /// </summary>
+    public void ApplyShortcut(string shortcutPath, string? targetPath, string? arguments, string? workingDirectory, string? url)
+    {
+        _applyingShortcut = true;
+        try { ApplyShortcutCore(shortcutPath, targetPath, arguments, workingDirectory, url); }
+        finally { _applyingShortcut = false; }
+    }
+
+    private void ApplyShortcutCore(string shortcutPath, string? targetPath, string? arguments, string? workingDirectory, string? url)
+    {
+        if (string.IsNullOrWhiteSpace(Title))
+            Title = Path.GetFileNameWithoutExtension(shortcutPath);
+
+        if (!string.IsNullOrWhiteSpace(url))
+        {
+            ExecutablePath = url!;
+            ShortcutNote = "Atalho de internet: o jogo abre pelo Windows (ex.: pela Steam).";
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(targetPath)
+            && targetPath!.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+        {
+            ExecutablePath = targetPath;
+            LaunchArguments = arguments ?? string.Empty;
+            WorkingDirectory = workingDirectory ?? string.Empty;
+            ShortcutNote = $"Atalho lido: abre {Path.GetFileName(targetPath)}"
+                + (string.IsNullOrWhiteSpace(arguments) ? "." : " com os argumentos do atalho.");
+            return;
+        }
+
+        ExecutablePath = shortcutPath;
+        ShortcutNote = "Atalho sem executável direto: o jogo abre pelo Windows, e o launcher pode não perceber quando ele fechar.";
     }
 
     private bool _isXboxSource;
@@ -180,15 +264,13 @@ public sealed class AddGameViewModel : ViewModelBase
 
     public bool CanSave => !string.IsNullOrWhiteSpace(Title) && !string.IsNullOrWhiteSpace(ExecutablePath);
 
-    /// <summary>Builds the GameEntry to hand to ILibraryService.AddManualGame. Only call when CanSave is true.</summary>
-    public GameEntry BuildGameEntry() => new()
-    {
-        Id = Guid.NewGuid().ToString("N"),
-        Title = Title.Trim(),
-        IsApplication = IsApplication,
-        Source = IsXboxSource ? GameSource.XboxApp : GameSource.Manual,
-        ExecutablePath = ExecutablePath.Trim(),
-        LaunchArguments = string.IsNullOrWhiteSpace(LaunchArguments) ? null : LaunchArguments.Trim(),
-        WorkingDirectory = string.IsNullOrWhiteSpace(WorkingDirectory) ? null : WorkingDirectory.Trim(),
-    };
+    /// <summary>
+    /// Builds the GameEntry to hand to ILibraryService.AddManualGame. Only call when CanSave is true.
+    /// 18/11: regras em <see cref="ManualLaunchTarget"/> (atalho/endereço abre pelo Windows;
+    /// emulador de Switch cai no filtro "Emuladores"; arquivo do jogo vai no fim dos argumentos).
+    /// </summary>
+    public GameEntry BuildGameEntry() => ManualLaunchTarget.BuildEntry(
+        Title, ExecutablePath, LaunchArguments, WorkingDirectory,
+        IsApplication ? null : GameFilePath,
+        IsApplication, !IsApplication && IsXboxSource);
 }

@@ -40,9 +40,10 @@ internal sealed class SystemMetrics : IDisposable
     private double? _remainingMilliwattHours;
     private bool _wmiBroken;
 
-    public SystemMetrics()
+    /// <param name="batteryOnly">Só bateria (carga, tomada e watts): sem contadores de CPU/GPU (v0.31, diário).</param>
+    public SystemMetrics(bool batteryOnly = false)
     {
-        if (OperatingSystem.IsWindows())
+        if (OperatingSystem.IsWindows() && !batteryOnly)
         {
             _cpuUtility = TryCounter("Processor Information", "% Processor Utility", "_Total");
             _cpuPerformance = TryCounter("Processor Information", "% Processor Performance", "_Total");
@@ -57,7 +58,7 @@ internal sealed class SystemMetrics : IDisposable
     public MetricsSnapshot Read()
     {
         var (ramUsed, ramTotal) = ReadRam();
-        var battery = ReadBattery();
+        var battery = ReadBatteryStatus();
         
         double? watts = null;
         if (OperatingSystem.IsWindows())
@@ -83,6 +84,13 @@ internal sealed class SystemMetrics : IDisposable
             OnAcPower: battery.OnAc,
             BatteryWatts: watts,
             BatteryRemaining: remaining);
+    }
+
+    /// <summary>Leitura barata para o diário: carga, tomada e watts da bateria.</summary>
+    public (int? Percent, bool OnAc, double? Watts) ReadBattery()
+    {
+        var battery = ReadBatteryStatus();
+        return (battery.Percent, battery.OnAc, OperatingSystem.IsWindows() ? ReadBatteryWatts() : null);
     }
 
     // --- CPU ---------------------------------------------------------------
@@ -250,7 +258,7 @@ internal sealed class SystemMetrics : IDisposable
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool GetSystemPowerStatus(out SystemPowerStatus status);
 
-    private static (int? Percent, bool OnAc, TimeSpan? Remaining) ReadBattery()
+    private static (int? Percent, bool OnAc, TimeSpan? Remaining) ReadBatteryStatus()
     {
         if (OperatingSystem.IsWindows())
         {

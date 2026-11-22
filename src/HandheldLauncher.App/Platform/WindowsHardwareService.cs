@@ -35,11 +35,24 @@ public class WindowsHardwareService : IHardwareService
     public RecordingState RecordingState => _recordingState;
     public event Action<RecordingState>? RecordingStateChanged;
 
+    /// <summary>
+    /// 18/11: estado da gravação visível para todo o launcher (há mais de uma instância deste
+    /// serviço: Quick Settings, menu, tarefas). É o que liga o aviso na tela (RecordingUx) seja
+    /// na tela inicial, seja com jogo aberto.
+    /// </summary>
+    public static event Action<RecordingState>? ActiveRecordingChanged;
+
+    public static bool IsAnyRecording => _activeRecorder?._recordingState == RecordingState.Recording;
+
+    /// <summary>Quando a gravação em andamento começou (UTC).</summary>
+    public static DateTime RecordingStartedAtUtc { get; private set; }
+
     private void SetRecordingState(RecordingState state)
     {
         if (_recordingState == state) return;
         _recordingState = state;
         try { RecordingStateChanged?.Invoke(state); } catch (Exception ex) { DebugLog.Write("[GRAVADOR] Handler de estado falhou: " + ex.Message); }
+        try { ActiveRecordingChanged?.Invoke(state); } catch (Exception ex) { DebugLog.Write("[GRAVADOR] Aviso de gravação falhou: " + ex.Message); }
     }
 
     // ==========================================
@@ -380,7 +393,30 @@ public class WindowsHardwareService : IHardwareService
             _ffmpegProcess.BeginOutputReadLine();
             _ffmpegProcess.BeginErrorReadLine();
 
+            // 18/11: se o FFmpeg morrer sozinho (disco cheio, erro do codec), ninguém avisava: o
+            // estado ficava "gravando" para sempre e, com o aviso novo na tela, o selo "GRAVANDO"
+            // ficaria aceso sem gravação nenhuma. O evento chega numa thread de fundo; quem ouve
+            // ActiveRecordingChanged já volta para a thread da tela.
+            var watched = _ffmpegProcess;
+            watched.EnableRaisingEvents = true;
+            watched.Exited += (_, _) =>
+            {
+                try
+                {
+                    if (!ReferenceEquals(_ffmpegProcess, watched)) return;   // já paramos nós mesmos
+                    DebugLog.Write($"[GRAVADOR] FFmpeg saiu sozinho (código {watched.ExitCode}) — gravação encerrada.");
+                    if (ReferenceEquals(_activeRecorder, this)) _activeRecorder = null;
+                    _ffmpegProcess = null;
+                    SetRecordingState(RecordingState.Error);
+                }
+                catch (Exception ex) { DebugLog.Swallowed(ex); }
+            };
+
             _lastOutputPath = outputPath;
+            // A ordem importa: quem ouve ActiveRecordingChanged (o aviso na tela) lê
+            // IsAnyRecording e RecordingStartedAtUtc, então os dois são definidos ANTES do aviso.
+            _activeRecorder = this;
+            RecordingStartedAtUtc = DateTime.UtcNow;
             SetRecordingState(RecordingState.Recording);
             DebugLog.Write($"[GRAVADOR] Iniciado (PID {_ffmpegProcess.Id}). Salvando em: {outputPath}");
         }
@@ -393,8 +429,38 @@ public class WindowsHardwareService : IHardwareService
         }
     }
 
+    // 18/11: quem está gravando agora (há mais de uma instância deste serviço: QS, menu, tarefas).
+    private static WindowsHardwareService? _activeRecorder;
+
+    /// <summary>
+    /// 18/11: fechar o launcher com gravação em andamento deixava o FFmpeg gravando sozinho
+    /// (log de 18/11: gravação iniciada 15:15:46, launcher fechado 15:16:12, sem parada). Chamado
+    /// na saída do app: para a gravação do jeito normal (manda "q" e espera fechar o arquivo).
+    /// </summary>
+    /// <remarks>
+    /// Roda na saída, na thread da tela, e pode bloquear até ~7 s (5 s esperando o FFmpeg fechar o
+    /// arquivo + 2 s depois de forçar). Numa saída pedida pelo usuário isso é aceitável; num
+    /// desligamento do Windows o sistema pode encerrar o processo antes e o vídeo fica cortado —
+    /// nada a fazer: fechar o arquivo é justamente o que leva esse tempo.
+    /// </remarks>
+    public static void StopActiveRecordingForShutdown()
+    {
+        try
+        {
+            var recorder = _activeRecorder;
+            if (recorder is null || recorder._recordingState != RecordingState.Recording) return;
+            DebugLog.Write("[GRAVADOR] Launcher fechando com gravação em andamento — parando o FFmpeg.");
+            recorder.StopRecording();
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Write($"[GRAVADOR] Falha ao parar a gravação no fechamento: {ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
     private void StopRecording()
     {
+        if (ReferenceEquals(_activeRecorder, this)) _activeRecorder = null;
         var pathToValidate = _lastOutputPath;
         try
         {

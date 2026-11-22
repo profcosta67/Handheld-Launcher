@@ -84,6 +84,20 @@ public sealed class GameTileViewModel : ViewModelBase
     public string FavoriteLabel => Game.IsFavorite ? "★ Favorito" : "";
 
     // 🟢 Ajustado para mostrar se tem tempo (Steam ou Local) OU se nunca foi jogado
+    // v0.31: diário de sessões na barra do jogo (consumo/FPS da última sessão e recomendação energética).
+    public string EnergyLastLabel => HandheldLauncher.App.Platform.GameEnergyCache.Get(Game.Id)?.LastSessionText ?? "";
+    public bool HasEnergyLast => EnergyLastLabel.Length > 0;
+    public string EnergyGuideLabel => HandheldLauncher.App.Platform.GameEnergyCache.Get(Game.Id)?.GuideText ?? "";
+    public bool HasEnergyGuide => EnergyGuideLabel.Length > 0;
+
+    public void RefreshEnergy()
+    {
+        OnPropertyChanged(nameof(EnergyLastLabel));
+        OnPropertyChanged(nameof(HasEnergyLast));
+        OnPropertyChanged(nameof(EnergyGuideLabel));
+        OnPropertyChanged(nameof(HasEnergyGuide));
+    }
+
     public bool HasLastPlayed => Game.LastPlayedUtc.HasValue;
     public bool ShowPlaytime => _steamPlaytimeMinutes > 0 || Game.PlaytimeMinutes > 0 || !HasLastPlayed;
 
@@ -174,7 +188,7 @@ public sealed class GameTileViewModel : ViewModelBase
                     OnPropertyChanged(nameof(HasGenre));
                 }
             }
-            catch { }
+            catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
         }
         else
         {
@@ -211,7 +225,7 @@ public sealed class GameTileViewModel : ViewModelBase
                     }
                 }
             }
-            catch { }
+            catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
         }
 
         _isLoadingDescription = false;
@@ -233,7 +247,7 @@ public sealed class GameTileViewModel : ViewModelBase
             OnPropertyChanged(nameof(ReviewLabel));
             OnPropertyChanged(nameof(ReviewCountLabel));
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
 
         // 🟢 Carrega as conquistas e o tempo da Steam junto com a review
         await LoadAchievementsAsync();
@@ -259,7 +273,7 @@ public sealed class GameTileViewModel : ViewModelBase
                 OnPropertyChanged(nameof(AchievementBadgeLabel));
             }
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
     }
 
     // 🟢 NOVO: Busca o tempo jogado na Steam
@@ -279,7 +293,7 @@ public sealed class GameTileViewModel : ViewModelBase
                 OnPropertyChanged(nameof(ShowPlaytime));
             }
         }
-        catch { }
+        catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
     }
 
     public string? PlatformBadgeText => Game.Source switch

@@ -183,7 +183,10 @@ public partial class ConnectivityPopupWindow : Window
         }
     }
 
-    private async void OnRefreshBluetoothClick(object? sender, RoutedEventArgs e) => await RefreshBluetoothAsync();
+    private void OnRefreshBluetoothClick(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(() => OnRefreshBluetoothClickCore(sender, e), "OnRefreshBluetoothClick");
+
+    private async Task OnRefreshBluetoothClickCore(object? sender, RoutedEventArgs e) => await RefreshBluetoothAsync();
 
     private void OnOpenNativeWifiClick(object? sender, RoutedEventArgs e) => OpenNativeSettings("ms-settings:network-wifi");
     private void OnOpenNativeBluetoothClick(object? sender, RoutedEventArgs e) => OpenNativeSettings("ms-settings:bluetooth");

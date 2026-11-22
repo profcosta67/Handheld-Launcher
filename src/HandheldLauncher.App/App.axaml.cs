@@ -169,6 +169,8 @@ public partial class App : Application
 
                 performanceHud = new PerformanceHud(hudPreset);
                 desktop.Exit += (_, _) => performanceHud?.Dispose();
+                // 18/11: gravação em andamento é parada (e o arquivo fechado) quando o launcher sai.
+                desktop.Exit += (_, _) => HandheldLauncher.App.Platform.WindowsHardwareService.StopActiveRecordingForShutdown();
             }
 
             LegacyInstallCleanup.RunInBackground();
@@ -187,8 +189,18 @@ public partial class App : Application
                 desktop.Exit += (_, _) => DisplayColorManager.RestoreOriginal();
             }
 
+            HandheldLauncher.App.Diagnostics.StartupTimeline.Mark("serviços criados");
             var mainViewModel = new MainViewModel(libraryService, gameLauncher, artworkService, performanceOverlay, updateService, performanceHud, steamOwnedGamesClient, steamAchievementsClient, syncthingService);
             desktop.Exit += (_, _) => mainViewModel.Dispose();
+            HandheldLauncher.App.Diagnostics.StartupTimeline.Mark("MainViewModel criado (lista de jogos montada)");
+
+            // v0.31: diário de sessões (consumo, bateria e FPS por jogo). Só observa.
+            var sessionDiary = new SessionDiaryRecorder(mainViewModel);
+            // v0.31: quando o resumo do diário carrega (ou uma sessão termina), a barra do jogo se atualiza.
+            GameEnergyCache.Changed += () => Avalonia.Threading.Dispatcher.UIThread.Post(
+                () => mainViewModel.SelectedTile?.RefreshEnergy());
+            GameEnergyCache.Reload();
+            desktop.Exit += (_, _) => sessionDiary.Dispose();
 
             // v0.27: TDP inteligente (só age com a opção ligada e um jogo aberto).
             if (OperatingSystem.IsWindows())
@@ -203,6 +215,7 @@ public partial class App : Application
             };
 
             // Lossless Scaling
+            HandheldLauncher.App.Diagnostics.StartupTimeline.Mark("MainWindow criada");
             if (OperatingSystem.IsWindows())
             {
                 _ = Task.Run(async () =>
@@ -231,8 +244,28 @@ public partial class App : Application
                 });
                 mainWindow.InitializeGamepadComboDetection();
 
+                // beta.72: depois de abrir o Legion Space (acorda o controle do Legion Go), o launcher volta à frente.
+                HandheldLauncher.App.Diagnostics.ControllerDiagnostics.LegionSpaceOpenedAtStartup = () =>
+                    Avalonia.Threading.Dispatcher.UIThread.Post(mainWindow.BringBackAfterLegionSpace);
                 HandheldLauncher.App.Diagnostics.ControllerDiagnostics.StartMonitoring();
                 desktop.Exit += (_, _) => HandheldLauncher.App.Input.GameInputHelper.StopHelperProcess();
+
+                // 18/11: aviso de gravação na tela (contagem 3,2,1 e selo "GRAVANDO") — vale na
+                // tela inicial e com jogo aberto, venha a gravação de onde vier.
+                HandheldLauncher.App.Platform.WindowsHardwareService.ActiveRecordingChanged += state =>
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        if (state == HandheldLauncher.App.Platform.RecordingState.Recording)
+                            HandheldLauncher.App.Platform.RecordingUx.ShowRecording(
+                                HandheldLauncher.App.Platform.WindowsHardwareService.RecordingStartedAtUtc);
+                        else
+                            HandheldLauncher.App.Platform.RecordingUx.HideRecording();
+                    });
+                desktop.Exit += (_, _) => HandheldLauncher.App.Platform.RecordingUx.Shutdown();
+
+                // 18/11: componentes de fora (PawnIO do TDP, HidHide do controle, RTSS do FPS) e a
+                // tarefa que acorda o controle antes do login. Ver Platform/StartupComponents.
+                HandheldLauncher.App.Platform.StartupComponents.RunInBackground(mainWindow);
             }
 
             if (appSettings.KioskMode)
