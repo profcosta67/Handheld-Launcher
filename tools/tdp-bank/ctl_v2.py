@@ -185,7 +185,8 @@ class C:
                 return s._set(back, now, +1)
         # queda brusca sem termos mexido: corte de cena/carregamento — espera. Mas, se estamos ABAIXO
         # do ponto de jogo conhecido (descemos num menu, por exemplo), volta direto para ele.
-        if prev is not None and prev >= goal and fps < s.target * C.DropRatio:
+        # ("estava bem" = acima de 90% da meta: o jogo pode estar parado na faixa morta)
+        if prev is not None and prev >= goal * (C.Below / C.Meet) and fps < s.target * C.DropRatio:
             if s.goodW is not None and now - s.goodAt <= C.Window and s.W <= s.goodW - 2 and not s.wall:
                 return s._set(s.goodW, now, +1)
             s.dropUntil = now + C.DropHold
@@ -198,7 +199,14 @@ class C:
         c = s.curve(now)
         cur = c.get(s.W, fps)
         lower = [m for w, m in c.items() if w <= s.W - 2]
-        if lower and max(lower) * C.GainNeed > cur:
+        if lower and max(lower) > cur * (1 + C.SceneDev):
+            # menos watts davam MAIS FPS: impossivel no mesmo trecho — a cena ficou pesada.
+            # Nao e parede: esquece a curva antiga e sobe.
+            # Espera mais uma leitura neste W antes de subir: assim, depois da subida, ja da para
+            # ver se ela comprou FPS (corte de cena travado nao sobe duas vezes).
+            s.samples = [x for x in s.samples if x[0] == now]
+            return 'None'
+        elif lower and max(lower) * C.GainNeed > cur:
             return s._enter_wall(now, cur)       # a ultima subida nao comprou FPS
         if s.W >= s.max:
             return s._enter_wall(now, cur)

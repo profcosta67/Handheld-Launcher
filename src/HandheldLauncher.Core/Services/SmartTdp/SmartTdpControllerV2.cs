@@ -366,8 +366,9 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
             }
         }
 
-        // queda brusca sem termos mexido: corte de cena/carregamento — espera
-        if (prev is { } p && p >= goal && fps < _target * DropRatio)
+        // queda brusca sem termos mexido: corte de cena/carregamento — espera. "Estava bem" = acima
+        // de 90% da meta (o jogo pode estar parado na faixa morta, entre 90 e 95%).
+        if (prev is { } p && p >= goal * (BelowRatio / MeetRatio) && fps < _target * DropRatio)
         {
             if (_goodW is { } gw && now - _goodAt <= CurveWindowSeconds && Watts <= gw - 2 && !_wall)
                 return Set(gw, now, +1);
@@ -385,8 +386,19 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
         var maxLower = double.NegativeInfinity;
         foreach (var (w, m) in curve)
             if (w <= Watts - 2) { hasLower = true; if (m > maxLower) maxLower = m; }
-        if (hasLower && maxLower * GainNeedRatio > current)
+        if (hasLower && maxLower > current * (1 + SceneChangeRatio))
+        {
+            // menos watts davam MAIS FPS: impossível no mesmo trecho — a cena ficou pesada. Não é
+            // parede: esquece a curva antiga. Espera mais uma leitura neste W antes de subir: assim,
+            // depois da subida, já dá para ver se ela comprou FPS (corte de cena travado não sobe
+            // duas vezes).
+            _samples.RemoveAll(x => x.T != now);
+            return SmartTdpChange.None;
+        }
+        else if (hasLower && maxLower * GainNeedRatio > current)
+        {
             return EnterWall(now, current);            // a última subida não comprou FPS
+        }
         if (Watts >= _max)
             return EnterWall(now, current);
 

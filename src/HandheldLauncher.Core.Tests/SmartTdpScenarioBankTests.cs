@@ -49,9 +49,9 @@ public class SmartTdpScenarioBankTests
     [InlineData("medio", 5, 14222, 24)]
     [InlineData("teto-placa", 0, 18823, 47)]
     [InlineData("teto-placa", 5, 18281, 43)]
-    [InlineData("cortes-de-cena", 0, 11105, 61)]
-    [InlineData("cortes-de-cena", 5, 11298, 62)]
-    [InlineData("menus", 0, 12934, 52)]
+    [InlineData("cortes-de-cena", 0, 10798, 45)]
+    [InlineData("cortes-de-cena", 5, 11024, 46)]
+    [InlineData("menus", 0, 13591, 49)]
     [InlineData("menus", 5, 14082, 31)]
     [InlineData("cenas-alternadas", 0, 19200, 47)]
     [InlineData("cenas-alternadas", 5, 18667, 44)]
@@ -59,6 +59,10 @@ public class SmartTdpScenarioBankTests
     [InlineData("vsync-60-30", 5, 14986, 16)]
     [InlineData("limitador", 0, 14415, 34)]
     [InlineData("limitador", 5, 14317, 24)]
+    [InlineData("area-pesada", 0, 17269, 54)]
+    [InlineData("area-pesada", 5, 16995, 44)]
+    [InlineData("replay-30s", 0, 10610, 38)]
+    [InlineData("replay-30s", 5, 10645, 43)]
     public void PortMatchesPython(string name, int seed, long expectedWattSum, int expectedChanges)
     {
         var scenario = SmartTdpScenarioBank.All.Single(s => s.Name == name);
