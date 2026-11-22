@@ -81,7 +81,7 @@ internal sealed class SmartTdpService : IDisposable
         public bool OffSeen;
         public bool MidGame; // ligado com o jogo já rodando: sem a espera de abertura
         public DateTime ControlStartedUtc = DateTime.UtcNow;
-        public SmartTdpController? Controller;
+        public ISmartTdpController? Controller;
         public bool Applied;
         public bool Suspended;
         public int SavedWatts;
@@ -226,7 +226,7 @@ internal sealed class SmartTdpService : IDisposable
             };
             var origin = learned is not null ? "aprendido antes" : resumed is not null ? "retomado desta sessão de jogo"
                 : fromDiary is { } d && d > Math.Max(userWatts, StartFloorWatts) ? "do diário de sessões, conferindo" : "ponto de partida, aprendendo";
-            DebugLog.Write($"[TDP-AUTO] Sessão iniciada: '{game.Title}', meta {target} FPS{(SmartTdpTargetStore.Shared.Get(game.Id) is null ? " (padrão)" : " (deste jogo)")}, janela {min}–{max} W, TDP do usuário = {userMode}, início em {start} W ({origin}).");
+            DebugLog.Write($"[TDP-AUTO] Sessão iniciada: '{game.Title}', meta {target} FPS{(SmartTdpTargetStore.Shared.Get(game.Id) is null ? " (padrão)" : " (deste jogo)")}, janela {min}–{max} W, TDP do usuário = {userMode}, início em {start} W ({origin}), controle {(string.Equals(_settings.SmartTdpEngine, "v1", StringComparison.OrdinalIgnoreCase) ? "v1" : "v2")}.");
 
             // Aplica já, sem esperar o jogo aparecer: o carregamento não fica preso no perfil
             // baixo do usuário e o painel/HUD mostram na hora que o modo inteligente assumiu.
@@ -247,7 +247,7 @@ internal sealed class SmartTdpService : IDisposable
             s.RecentCount = 0;
             if (s.Controller is not null)
             {
-                s.Controller = new SmartTdpController(s.TargetFps, s.Min, s.Max, from, startIsLearned: false);
+                s.Controller = NewController(s.TargetFps, s.Min, s.Max, from, startIsLearned: false);
                 GameSessionInfo.SmartTdpPossibleFps = 0;
                 s.ControlStartedUtc = DateTime.UtcNow;
                 s.MidGame = true; // o jogo já está rodando: espera curta
@@ -280,7 +280,7 @@ internal sealed class SmartTdpService : IDisposable
             s.RecentCount = 0;
             if (s.Controller is not null)
             {
-                s.Controller = new SmartTdpController(sessionTarget, s.Min, s.Max, from, startIsLearned: s.StartLearned);
+                s.Controller = NewController(sessionTarget, s.Min, s.Max, from, startIsLearned: s.StartLearned);
                 GameSessionInfo.SmartTdpPossibleFps = 0;
                 s.ControlStartedUtc = DateTime.UtcNow;
             }
@@ -391,7 +391,7 @@ internal sealed class SmartTdpService : IDisposable
 
         if (s.Controller is null)
         {
-            s.Controller = new SmartTdpController(s.TargetFps, s.Min, s.Max, s.StartWatts, startIsLearned: s.StartLearned, coarseDescent: !s.StartResumed);
+            s.Controller = NewController(s.TargetFps, s.Min, s.Max, s.StartWatts, startIsLearned: s.StartLearned, coarseDescent: !s.StartResumed);
             s.ControlStartedUtc = DateTime.UtcNow;
             DebugLog.Write($"[TDP-AUTO] Jogo medindo FPS ({f.Fps:0}); controle começa em {s.Controller.Watts} W.");
             if (s.StartLearned && s.Applied) PerformanceHud.ShowNotice("Modo inteligente aplicado");
@@ -496,6 +496,18 @@ internal sealed class SmartTdpService : IDisposable
     }
 
     /// <summary>Meta escolhida para o jogo no Quick Settings, ou a padrão.</summary>
+    /// <summary>
+    /// 22/11: qual "cérebro" decide os watts. Padrão: o v2 (regra única "watt a mais só se
+    /// comprar FPS", validado no banco fixo de cenários). "v1" no settings.json
+    /// (<c>SmartTdpEngine</c>) volta ao controle das betas 66–73.
+    /// </summary>
+    private ISmartTdpController NewController(int target, int min, int max, int start, bool startIsLearned, bool coarseDescent = true)
+    {
+        var useV1 = string.Equals(_settings.SmartTdpEngine, "v1", StringComparison.OrdinalIgnoreCase);
+        if (useV1) return new SmartTdpController(target, min, max, start, startIsLearned, coarseDescent);
+        return new SmartTdpControllerV2(target, min, max, start, startIsLearned, coarseDescent);
+    }
+
     private int TargetFor(string gameId) => SmartTdpTargetStore.Shared.Get(gameId) ?? DefaultTargetFps;
 
     /// <summary>Os dois processos são do mesmo jogo (executáveis na mesma pasta ou em subpasta)?</summary>

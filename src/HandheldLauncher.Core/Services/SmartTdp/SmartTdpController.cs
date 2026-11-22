@@ -12,7 +12,7 @@ public enum SmartTdpChange { None, Up, Down }
 /// Classe pura (sem relógio nem hardware): o tempo entra por parâmetro, para
 /// os testes simularem uma sessão inteira.
 /// </summary>
-public sealed class SmartTdpController
+public sealed class SmartTdpController : ISmartTdpController
 {
     // Folga maior que na 1ª versão (0,93 / 0,985): num jogo real o FPS oscila uns 5% em volta
     // da meta com qualquer potência, e isso travava a descida e disparava subidas à toa.

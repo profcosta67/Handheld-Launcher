@@ -26,6 +26,11 @@ public class AppSettings
     // INICIALIZAÇÃO (antes do login) só para mandar aquele pedido ao controle.
     public bool WakeControllerAtBoot { get; set; } = true;
 
+    // 22/11: qual controle decide os watts no TDP inteligente. "v2" (padrão): regra única "watt a
+    // mais só se comprar FPS", validado no banco fixo de cenários. "v1": o das betas 66–73, mantido
+    // como reserva caso o v2 se comporte mal em algum jogo.
+    public string SmartTdpEngine { get; set; } = "v2";
+
     // 18/11 (instalação limpa do usuário): o TDP não funcionou porque o driver do PawnIO não foi
     // instalado. Com isto ligado, o launcher confere ao abrir e instala sozinho os componentes que
     // vêm no pacote (PawnIO e HidHide). O RTSS nunca é instalado sem o usuário pedir.
