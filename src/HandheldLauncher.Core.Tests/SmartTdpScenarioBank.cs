@@ -168,6 +168,22 @@ internal static class SmartTdpScenarioBank
         return (40, (t, w) => Math.Min(34, t >= 600 ? f(w - 4) : f(w)), 20);
     }
 
+    /// <summary>EA FC (log do beta.74): meta 80 inalcançável, parede ~66–68 FPS e quedas de ~1/3
+    /// (replay, câmera) de 6–12 s a cada 20–40 s. O beta.74 subia até o teto (35 W) à toa.</summary>
+    private static (int, Func<double, int, double>, int) UnreachableSwings(Lcg rnd)
+    {
+        var f = LerpCurve((10, 30), (18, 55), (24, 64), (35, 68));
+        var dips = new List<(double A, double B)>();
+        var t = 40.0;
+        while (t < 4000)
+        {
+            var d = rnd.Uniform(6, 12);
+            dips.Add((t, t + d));
+            t += d + rnd.Uniform(20, 40);
+        }
+        return (80, (tt, w) => dips.Any(x => x.A <= tt && tt < x.B) ? f(w) * 0.68 : f(w), 27);
+    }
+
     public static readonly Scenario[] All =
     {
         new("leve", Light, new(2.0, 3, 2.0)),
@@ -186,6 +202,7 @@ internal static class SmartTdpScenarioBank
         new("comeca-no-teto", StartHigh, new(2.0, 3, 3.0)),
         new("teto-comeca-alto", GpuWallStartHigh, new(3.5, 5, 3.0)),
         new("parede-mais-pesada", WallGetsHeavier, new(3.0, 5, 2.5)),
+        new("inalcancavel-oscila", UnreachableSwings, new(2.0, 5, 3.0)),
     };
 
     private static int IdealWatts(Func<double, int, double> game, double t, int target)

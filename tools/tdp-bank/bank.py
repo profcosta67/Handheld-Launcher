@@ -116,6 +116,15 @@ def sc_wall_heavier(rnd):      # parede da placa e, aos 600 s, a cena fica um po
     f = lerp_curve([(10, 18), (20, 29), (26, 34), (35, 34.5)])
     return 40, (lambda t, W: min(34, f(W - 4) if t >= 600 else f(W))), 20
 
+def sc_unreachable_swings(rnd):  # EA FC meta 80: jogo para em ~68 a partir de ~25 W e oscila (camera, replay)
+    f = lerp_curve([(10, 30), (18, 55), (24, 64), (35, 68)])
+    dips = []; t = 40
+    while t < 4000:
+        d = rnd.uniform(6, 12); dips.append((t, t + d)); t += d + rnd.uniform(20, 40)
+    def g(t, W):
+        return f(W) * 0.68 if any(a <= t < b for a, b in dips) else f(W)
+    return 80, g, 27
+
 SCENARIOS = [
     # nome, fn, limites: (excess max W, starve max %, trocas/min max)
     ("leve",            sc_light,        (2.0, 3, 2.0)),
@@ -134,6 +143,7 @@ SCENARIOS = [
     ("comeca-no-teto",  sc_start_high,   (2.0, 3, 3.0)),
     ("teto-comeca-alto",sc_gpu_wall_start_high,(3.5, 5, 3.0)),
     ("parede-mais-pesada",sc_wall_heavier,(3.0, 5, 2.5)),
+    ("inalcancavel-oscila",sc_unreachable_swings,(2.0, 5, 3.0)),
 ]
 
 def ideal_watts(g, t, target):
@@ -146,7 +156,8 @@ def ideal_watts(g, t, target):
 def run(C, scen, seed, dur=1500, noise=0.06):
     rnd = Lcg(seed * 7919 + 13)
     target, g, start = scen(rnd)
-    c = C(target, MIN_W, MAX_W, start)
+    try: c = C(target, MIN_W, MAX_W, start, capped=(scen is sc_limiter))
+    except TypeError: c = C(target, MIN_W, MAX_W, start)
     rs = Lcg(seed)
     buf = []; ws = []; ideal = []; starve = 0; changes = 0; n = 0; fps_sum = 0
     t = 0.0

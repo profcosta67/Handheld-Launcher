@@ -3,7 +3,9 @@ mod = importlib.import_module(sys.argv[1]); name = sys.argv[2]; seed = int(sys.a
 t0 = float(sys.argv[4]) if len(sys.argv) > 4 else 0; t1 = float(sys.argv[5]) if len(sys.argv) > 5 else 400
 scen = next(f for n, f, _ in bank.SCENARIOS if n == name)
 rnd = bank.Lcg(seed * 7919 + 13); target, g, start = scen(rnd)
-c = mod.C(target, bank.MIN_W, bank.MAX_W, start); rs = bank.Lcg(seed); buf = []; t = 0.0
+try: c = mod.C(target, bank.MIN_W, bank.MAX_W, start, capped=(scen is bank.sc_limiter))
+except TypeError: c = mod.C(target, bank.MIN_W, bank.MAX_W, start)
+rs = bank.Lcg(seed); buf = []; t = 0.0
 while t < t1:
     true = g(t, c.W); seen = true * (1 + rs.uniform(-0.06, 0.06)); buf.append(seen)
     m = sorted(buf[-3:])[1] if len(buf) >= 3 else seen

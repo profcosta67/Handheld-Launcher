@@ -89,6 +89,9 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
     private int? _floorCheck;
     private int _above;
     private bool _started;
+    private double _judgeUntil = double.NegativeInfinity; // queda brusca logo após descer na parede
+    private int? _memKnee;                               // parede já medida nesta sessão
+    private double _memPlateau;
 
     /// <param name="startIsLearned">Aceito por compatibilidade com o controle antigo; aqui o começo
     /// aprendido é só o ponto de partida.</param>
@@ -205,7 +208,25 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
         foreach (var (w, m) in curve)
             if (m >= _plateau * WallMeetRatio && (!found || w < knee)) { knee = w; found = true; }
         if (!found) knee = Watts;
+        _memKnee = Math.Min(knee, Watts);
+        _memPlateau = _plateau;
         return knee < Watts ? Set(knee, now, -1) : SmartTdpChange.None;
+    }
+
+    /// <summary>
+    /// Saiu da parede só por oscilação (FPS um pouco acima do patamar algumas vezes) e o jogo continua
+    /// sem chegar na meta: volta para a parede lembrada em vez de subir até o teto. Sem forçar
+    /// descida: na parede ela desce sozinha se houver sobra.
+    /// </summary>
+    private SmartTdpChange ReenterWall(double now)
+    {
+        _plateau = _memPlateau;
+        _wall = true;
+        _wallSince = now;
+        _probeGap = ProbeEverySeconds;
+        _nextProbe = now + _probeGap;
+        _wallLow.Clear();
+        return SmartTdpChange.None;
     }
 
     public SmartTdpChange OnSample(double fps, double nowSeconds)
@@ -223,7 +244,9 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
         {
             if (now - _resumeAt < ResumeBoostHoldSeconds) return SmartTdpChange.None;
             _resumeTo = null;
-            if (fps >= (_wall ? _plateau * WallMeetRatio : _target * MeetRatio))
+            // meta mantida: devolve. Queda brusca (tela de carregamento na volta): também devolve —
+            // mais watts não resolvem carregamento. Só queda moderada mantém o reforço.
+            if (fps >= (_wall ? _plateau * WallMeetRatio : _target * MeetRatio) || fps < _target * DropRatio)
                 return Set(resumeBack, now, -1);
         }
 
@@ -231,7 +254,12 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
         if (settledReading)
         {
             var c = Curve(now);
-            if (c.TryGetValue(Watts, out var m) && Math.Abs(fps - m) > SceneChangeRatio * m) _sceneDev++;
+            // Queda brusca (corte de cena, câmera, replay) não conta: quem cuida dela é a espera de
+            // 15 s; apagar a curva por ela fazia o controle esquecer a parede e subir de novo. Na
+            // parede quem decide são os caminhos próprios dela (FPS acima do patamar = cena mais
+            // leve; abaixo do joelho = teste de +3 W): o detector de cena só vale fora dela.
+            if (!_wall && c.TryGetValue(Watts, out var m) && Math.Abs(fps - m) > SceneChangeRatio * m
+                && fps >= _target * DropRatio) _sceneDev++;
             else _sceneDev = 0;
             if (_sceneDev >= 3)
             {
@@ -239,6 +267,7 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
                 _samples.Clear();
                 _sceneDev = 0;
                 if (_wall) _wall = false;
+                _memKnee = null;
                 _probe = null;   // teste de +3 W em andamento não vale mais (fica nos watts atuais)
             }
             _samples.Add((now, Watts, fps));
@@ -272,6 +301,7 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
                     // a cena ficou mais pesada: a curva de antes da queda não vale mais
                     var since = probe.T - 12;
                     _samples.RemoveAll(x => x.T < since);
+                    _memKnee = null;
                 }
                 return SmartTdpChange.None;
             }
@@ -314,6 +344,7 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
         if (fps >= goal)
         {
             _wallLow.Clear();
+            _judgeUntil = double.NegativeInfinity;   // a leitura sem queda absolveu a descida
             // ponto de jogo: só com os watts parados há 12 s (descendo num menu não conta)
             if (!_wall && fps < _target * MeetRatio * SurplusRatio && now - _lastChange >= DownAfterSeconds)
             {
@@ -322,6 +353,7 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
             }
             _okSince ??= now;
             if (now - _stableSince >= SettledAfterSeconds) IsSettled = true;
+            if (!_wall && fps >= _target * MeetRatio) _memKnee = null;   // a meta voltou a ser alcançável
 
             var reference = _wall ? _plateau : _target * MeetRatio;
             var surplus = fps / reference;
@@ -361,7 +393,8 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
         IsSettled = false;
 
         // caiu logo depois de NÓS descermos: volta na hora
-        if (_lastDir < 0 && _downFrom is { } downFrom && now - _lastChange <= ReturnWindowSeconds)
+        if (_lastDir < 0 && _downFrom is { } downFrom
+            && (now - _lastChange <= ReturnWindowSeconds || now <= _judgeUntil))
         {
             // A descida é culpada se, pela proporção dos watts, podia levar abaixo da meta (vsync
             // 60→30 entra aqui), ou se a queda foi moderada. Queda pela metade depois de tirar 1 W
@@ -369,6 +402,15 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
             var crash = fps < _target * DropRatio;
             double? before = Curve(now).TryGetValue(downFrom, out var bf) ? bf : prev;
             var plausible = before is { } b && b * Watts / downFrom < goal * 1.03;
+            if (_wall && crash)
+            {
+                // Na parede a curva é plana (é isso que parede quer dizer): 1–2 W a menos não derrubam
+                // o FPS pela metade. Não culpa a descida pela queda, mas também não a absolve: a
+                // primeira leitura sem queda (até 30 s) decide se os watts a menos fazem falta.
+                _judgeUntil = now + 30;
+                return SmartTdpChange.None;
+            }
+            _judgeUntil = double.NegativeInfinity;
             if (!crash || plausible)
             {
                 var back = downFrom;
@@ -435,6 +477,8 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
         }
         if (Watts >= _max)
             return EnterWall(now, current);
+        if (_memKnee is { } mk && Watts >= mk && fps <= _memPlateau * WallExitRatio)
+            return ReenterWall(now);
 
         var deficit = _target / Math.Max(fps, 1);
         var climb = Math.Max(2, Math.Min(6, (int)Math.Ceiling((deficit - 1) * Watts * 0.8)));

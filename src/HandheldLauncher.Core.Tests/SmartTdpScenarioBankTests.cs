@@ -51,14 +51,14 @@ public class SmartTdpScenarioBankTests
     [InlineData("medio", 5, 14222, 24)]
     [InlineData("pesado-alcanca", 0, 20628, 25)]
     [InlineData("pesado-alcanca", 5, 20823, 23)]
-    [InlineData("teto-placa", 0, 18823, 47)]
-    [InlineData("teto-placa", 5, 18281, 43)]
+    [InlineData("teto-placa", 0, 18791, 37)]
+    [InlineData("teto-placa", 5, 18107, 43)]
     [InlineData("meta-pouco-acima", 0, 19845, 38)]
     [InlineData("meta-pouco-acima", 5, 20334, 27)]
     [InlineData("cortes-de-cena", 0, 10798, 45)]
     [InlineData("cortes-de-cena", 5, 11024, 46)]
     [InlineData("replay-30s", 0, 10610, 38)]
-    [InlineData("replay-30s", 5, 10645, 43)]
+    [InlineData("replay-30s", 5, 10826, 61)]
     [InlineData("menus", 0, 13591, 49)]
     [InlineData("menus", 5, 14082, 31)]
     [InlineData("vsync-60-30", 0, 14985, 16)]
@@ -67,7 +67,7 @@ public class SmartTdpScenarioBankTests
     [InlineData("area-pesada", 5, 16995, 44)]
     [InlineData("pausas", 0, 14175, 33)]
     [InlineData("pausas", 5, 14228, 22)]
-    [InlineData("cenas-alternadas", 0, 19200, 47)]
+    [InlineData("cenas-alternadas", 0, 18436, 47)]
     [InlineData("cenas-alternadas", 5, 18526, 40)]
     [InlineData("limitador", 0, 14415, 34)]
     [InlineData("limitador", 5, 14317, 24)]
@@ -75,8 +75,10 @@ public class SmartTdpScenarioBankTests
     [InlineData("comeca-no-teto", 5, 11089, 27)]
     [InlineData("teto-comeca-alto", 0, 19302, 42)]
     [InlineData("teto-comeca-alto", 5, 19605, 34)]
-    [InlineData("parede-mais-pesada", 0, 21089, 55)]
-    [InlineData("parede-mais-pesada", 5, 20259, 42)]
+    [InlineData("parede-mais-pesada", 0, 20770, 56)]
+    [InlineData("parede-mais-pesada", 5, 20507, 47)]
+    [InlineData("inalcancavel-oscila", 0, 23707, 43)]
+    [InlineData("inalcancavel-oscila", 5, 22447, 55)]
     public void PortMatchesPython(string name, int seed, long expectedWattSum, int expectedChanges)
     {
         var scenario = SmartTdpScenarioBank.All.Single(s => s.Name == name);
@@ -116,6 +118,19 @@ public class SmartTdpScenarioBankTests
         Assert.True(c.ResumeBoostPending);
         Assert.Equal(before, c.BaselineWatts);
         for (var t = 62.0; t < 72; t += 2) c.OnSample(60, t);
+        Assert.False(c.ResumeBoostPending);
+        Assert.Equal(before, c.Watts);
+    }
+
+    [Fact]
+    public void ResumeBoostDropsOnLoadingScreen()
+    {
+        // log do beta.74: volta do QS numa tela de carregamento (23 FPS de meta 60) mantinha o reforço
+        var c = new SmartTdpControllerV2(60, 8, 35, 19);
+        for (var t = 20.0; t < 60; t += 2) c.OnSample(60, t);
+        var before = c.Watts;
+        c.PrepareForResume(60, 6);
+        for (var t = 62.0; t < 72; t += 2) c.OnSample(23, t);
         Assert.False(c.ResumeBoostPending);
         Assert.Equal(before, c.Watts);
     }

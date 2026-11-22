@@ -98,10 +98,29 @@ internal static class SystemComponents
             return new Status(Kind.HidHide, name, State.Unknown, "Só no Windows.", false);
 
         var available = HidHideInstaller() is not null;
+
+        // Log do beta.74: HidHide instalado e funcionando (o launcher isolava o controle), mas a
+        // chave do registro procurada antes não existe nas versões novas — o instalador rodava de
+        // novo a cada abertura. O que vale é o driver: o serviço "HidHide" (sc query) ou a própria
+        // biblioteca da Nefarius. O registro fica só como última tentativa.
+        var query = RunCapture("sc.exe", "query HidHide");
+        if (query is { ExitCode: 0 })
+            return new Status(Kind.HidHide, name, State.Installed, "Instalado.", available);
+#if WINDOWS
         try
         {
-            using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Nefarius Software Solutions\HidHide");
-            if (key is not null) return new Status(Kind.HidHide, name, State.Installed, "Instalado.", available);
+            if (new Nefarius.Drivers.HidHide.HidHideControlService().IsInstalled)
+                return new Status(Kind.HidHide, name, State.Installed, "Instalado.", available);
+        }
+        catch (Exception ex) { DebugLog.Swallowed(ex); }
+#endif
+        try
+        {
+            foreach (var path in new[] { @"SOFTWARE\Nefarius Software Solutions\HidHide", @"SOFTWARE\WOW6432Node\Nefarius Software Solutions\HidHide" })
+            {
+                using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(path);
+                if (key is not null) return new Status(Kind.HidHide, name, State.Installed, "Instalado.", available);
+            }
         }
         catch (Exception ex) { DebugLog.Swallowed(ex); }
 

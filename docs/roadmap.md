@@ -59,7 +59,7 @@ estável ainda.
 
 | Marco | Situação | O que falta |
 |---|---|---|
-| 0.27 TDP inteligente | Reescrito (v2, beta.74) com banco fixo de 16 cenários no build; limite de FPS na meta (opcional); medição de FPS própria (DirectX) | Validar a v2 no aparelho (Days Gone, EA FC, um leve); limites tomada/bateria no meio do jogo; restaurar o TDP se o launcher reiniciar com jogo aberto; **publicar como estável** |
+| 0.27 TDP inteligente | **Estável na 0.27.0 (22/11).** v2 com banco fixo de 17 cenários no build; limite de FPS na meta (opcional); medição de FPS própria (DirectX, confere com o RTSS) | Validar a v2 em mais jogos; limites tomada/bateria no meio do jogo; restaurar o TDP se o launcher reiniciar com jogo aberto |
 | 0.28 Otimização | Fatias 1–3 (UiSafe, linha do tempo da abertura, OverlayWindow dividido) | Abertura de ~8 s → 3 s; MainViewModel e GameplayWatcher; catch vazios / async void / Thread.Sleep; vigia que abre segunda instância; log do PawnIO; faxina de branches |
 | 0.29 Receitas por jogo | Só o começo: meta e TDP aprendidos por jogo; limitador de FPS (era "a avaliar") feito na 0.27 | Receita completa (TDP, ventoinha, resolução, Lossless, HUD), criar/editar, aplicar/restaurar, dock |
 | 0.30 Hardware e primeira execução | PawnIO e HidHide instalados sozinhos; tela Componentes (RTSS pelo winget); controle do Legion acordado sem o Legion Space (depois do login; antes do login em teste) | Lossless confiável; ajudante privilegiado (sair do admin); assistente de primeira execução; Ally |
@@ -159,7 +159,7 @@ Handheld Launcher e os layouts que as pessoas já usam.
 FPS, aprende o valor por jogo e sai da frente quando o usuário mexe à mão.
 
 **Situação (22/11/2026):** em beta (beta.74). O controle foi reescrito (v2) em torno de
-uma regra única — watt a mais só se comprar FPS — e tem um banco fixo de 16 cenários de jogo
+uma regra única — watt a mais só se comprar FPS — e tem um banco fixo de 17 cenários de jogo
 que roda em todo build (`SmartTdpScenarioBankTests`, cópia em Python em `tools/tdp-bank`).
 O controle anterior fica como reserva (`SmartTdpEngine: "v1"`). Também entregues: aviso de
 meta fora de alcance, limite de FPS na meta (opcional, RTSS) e medição de FPS própria pelos
