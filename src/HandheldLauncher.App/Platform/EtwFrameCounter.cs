@@ -42,7 +42,11 @@ internal sealed class EtwFrameCounter : IDisposable
     private IntPtr _logFile;
     private IntPtr _loggerName;
     private Thread? _thread;
-    private EventRecordCallback? _callback;   // mantido vivo enquanto a sessão existir
+    private Thread? _orphan;   // thread do ProcessTrace que não terminou no Stop: não religa enquanto viver
+
+    // O Windows chama este callback de código nativo: um delegate estático nunca é coletado, mesmo
+    // se uma thread antiga do ProcessTrace ainda estiver entregando eventos depois do Stop.
+    private static readonly EventRecordCallback Callback = record => Shared.OnEvent(record);
     private volatile bool _running;
     private bool _failedOnce;
 
@@ -57,11 +61,14 @@ internal sealed class EtwFrameCounter : IDisposable
         {
             if (_running) return true;
             if (_failedOnce) return false;   // não insiste a cada segundo
+            if (_orphan is { IsAlive: true }) return false;
+            _orphan = null;
             try
             {
                 if (!StartSession())
                 {
                     _failedOnce = true;
+                    StopSessionUnlocked();   // não deixa sessão do Windows ligada à toa
                     return false;
                 }
                 _running = true;
@@ -90,19 +97,31 @@ internal sealed class EtwFrameCounter : IDisposable
         }
     }
 
-    /// <summary>FPS do processo nos últimos 2 s, ou null se ele não entregou nenhum quadro.</summary>
+    /// <summary>
+    /// FPS do processo, ou null se ele não entregou quadros há mais de 3 s. Usa o horário de cada
+    /// evento (QPC, gravado pelo Windows na hora do quadro), não o da entrega: o Windows entrega os
+    /// eventos em lotes (~1 por segundo) e contar pela entrega daria 30 FPS num jogo a 60.
+    /// FPS = (quadros − 1) / (último − primeiro) nos 2 s que terminam no quadro mais recente.
+    /// </summary>
     public double? TryGetFps(int pid)
     {
         if (!IsRunning) return null;
         lock (_framesGate)
         {
-            if (!_frames.TryGetValue(pid, out var queue)) return null;
-            var now = Stopwatch.GetTimestamp();
-            while (queue.Count > 0 && now - queue.Peek() > KeepTicks) queue.Dequeue();
-            var count = 0;
-            foreach (var t in queue) if (now - t <= WindowTicks) count++;
-            if (count == 0) return null;
-            return count / 2.0;
+            if (!_frames.TryGetValue(pid, out var queue) || queue.Count < 2) return null;
+            var last = 0L;
+            foreach (var t in queue) last = t;
+            if (Stopwatch.GetTimestamp() - last > KeepTicks) return null;   // parou de entregar
+            var first = 0L;
+            var n = 0;
+            foreach (var t in queue)
+            {
+                if (last - t > WindowTicks) continue;
+                if (n == 0) first = t;
+                n++;
+            }
+            if (n < 2 || last <= first) return null;
+            return (n - 1) * (double)Stopwatch.Frequency / (last - first);
         }
     }
 
@@ -152,8 +171,7 @@ internal sealed class EtwFrameCounter : IDisposable
         _loggerName = Marshal.StringToHGlobalUni(SessionName);
         Marshal.WriteIntPtr(_logFile, 8, _loggerName);
         Marshal.WriteInt32(_logFile, 28, ProcessTraceModeRealTime | ProcessTraceModeEventRecord);
-        _callback = OnEvent;
-        Marshal.WriteIntPtr(_logFile, 424, Marshal.GetFunctionPointerForDelegate(_callback));
+        Marshal.WriteIntPtr(_logFile, 424, Marshal.GetFunctionPointerForDelegate(Callback));
 
         _traceHandle = OpenTraceW(_logFile);
         if (_traceHandle == InvalidTraceHandle)
@@ -209,12 +227,20 @@ internal sealed class EtwFrameCounter : IDisposable
         // de soltar a memória que o Windows ainda pode estar lendo.
         try { _thread?.Join(2000); } catch (Exception ex) { DebugLog.Swallowed(ex); }
         var threadDone = _thread is null || !_thread.IsAlive;
+        if (!threadDone)
+        {
+            // O Windows ainda pode estar usando esta memória: fica (vazamento pequeno de propósito)
+            // e a medição não religa enquanto essa thread existir.
+            _orphan = _thread;
+            _logFile = IntPtr.Zero;
+            _loggerName = IntPtr.Zero;
+            DebugLog.Write("[FPS-PROPRIO] A leitura do Windows não terminou em 2 s; a medição fica desligada até reabrir o launcher.");
+        }
         _thread = null;
         if (threadDone)
         {
             if (_logFile != IntPtr.Zero) { Marshal.FreeHGlobal(_logFile); _logFile = IntPtr.Zero; }
             if (_loggerName != IntPtr.Zero) { Marshal.FreeHGlobal(_loggerName); _loggerName = IntPtr.Zero; }
-            _callback = null;
         }
         if (_properties != IntPtr.Zero) { Marshal.FreeHGlobal(_properties); _properties = IntPtr.Zero; }
     }
@@ -231,18 +257,26 @@ internal sealed class EtwFrameCounter : IDisposable
             if (!(id == DxgiPresentStart && provider == DxgiProvider)
                 && !(id == D3D9PresentStart && provider == D3D9Provider)) return;
 
+            if (!_running) return;
             var pid = Marshal.ReadInt32(record, 12);
-            var now = Stopwatch.GetTimestamp();
+            var stamp = Marshal.ReadInt64(record, 16);   // EVENT_HEADER.TimeStamp (QPC: ClientContext = 1)
             lock (_framesGate)
             {
                 if (!_frames.TryGetValue(pid, out var queue))
                 {
-                    if (_frames.Count > 64) _frames.Clear();   // nunca cresce sem limite
+                    if (_frames.Count >= 64)
+                    {
+                        // nunca cresce sem limite: tira os processos que pararam de entregar quadros
+                        foreach (var key in _frames.Where(kv => kv.Value.Count == 0 || stamp - kv.Value.Last() > KeepTicks)
+                                     .Select(kv => kv.Key).ToList())
+                            _frames.Remove(key);
+                        if (_frames.Count >= 64) return;
+                    }
                     queue = new Queue<long>();
                     _frames[pid] = queue;
                 }
-                queue.Enqueue(now);
-                while (queue.Count > 0 && now - queue.Peek() > KeepTicks) queue.Dequeue();
+                queue.Enqueue(stamp);
+                while (queue.Count > 0 && stamp - queue.Peek() > KeepTicks) queue.Dequeue();
             }
         }
         catch

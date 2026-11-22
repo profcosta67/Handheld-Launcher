@@ -162,6 +162,12 @@ internal static class SmartTdpScenarioBank
         return (40, (t, w) => Math.Min(34, f(w)), 35);
     }
 
+    private static (int, Func<double, int, double>, int) WallGetsHeavier(Lcg _)
+    {
+        var f = LerpCurve((10, 18), (20, 29), (26, 34), (35, 34.5));
+        return (40, (t, w) => Math.Min(34, t >= 600 ? f(w - 4) : f(w)), 20);
+    }
+
     public static readonly Scenario[] All =
     {
         new("leve", Light, new(2.0, 3, 2.0)),
@@ -179,6 +185,7 @@ internal static class SmartTdpScenarioBank
         new("limitador", Limiter, new(2.5, 4, 2.0)),
         new("comeca-no-teto", StartHigh, new(2.0, 3, 3.0)),
         new("teto-comeca-alto", GpuWallStartHigh, new(3.5, 5, 3.0)),
+        new("parede-mais-pesada", WallGetsHeavier, new(3.0, 5, 2.5)),
     };
 
     private static int IdealWatts(Func<double, int, double> game, double t, int target)

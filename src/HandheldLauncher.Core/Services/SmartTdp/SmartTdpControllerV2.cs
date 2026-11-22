@@ -79,7 +79,8 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
     private double _wallSince;
     private double _nextProbe = double.NegativeInfinity;
     private double _probeGap = ProbeEverySeconds;
-    private (double T, double Base, int From, List<double> Reads)? _probe;
+    private (double T, double Base, int From, List<double> Reads, bool Heavier)? _probe;
+    private readonly List<double> _wallLow = new();   // leituras abaixo do joelho, na parede
     private int? _resumeTo;
     private double _resumeAt;
     private double _stableSince;
@@ -140,6 +141,8 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
     /// </summary>
     public int PrepareForResume(double nowSeconds, int boostWatts)
     {
+        _okSince = null;      // o que veio antes da saída não conta na volta
+        _prevFps = null;
         if (!_started || _wall || boostWatts <= 0) return Watts;
         var baseline = _resumeTo ?? Watts;
         var boosted = Math.Min(_max, baseline + boostWatts);
@@ -153,6 +156,7 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
         _prevFps = null;
         _dropUntil = double.NegativeInfinity;
         IsSettled = false;
+        _stableSince = nowSeconds;   // o reforço nunca vira "valor aprendido" na hora
         return Watts;
     }
 
@@ -234,6 +238,7 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
                 _samples.Clear();
                 _sceneDev = 0;
                 if (_wall) _wall = false;
+                _probe = null;   // teste de +3 W em andamento não vale mais (fica nos watts atuais)
             }
             _samples.Add((now, Watts, fps));
             _samples.RemoveAll(x => now - x.T > CurveWindowSeconds);
@@ -261,6 +266,12 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
             if (got >= probe.Base * ProbeKeepRatio)
             {
                 _wall = false;              // mais potência voltou a comprar FPS
+                if (probe.Heavier)
+                {
+                    // a cena ficou mais pesada: a curva de antes da queda não vale mais
+                    var since = probe.T - 12;
+                    _samples.RemoveAll(x => x.T < since);
+                }
                 return SmartTdpChange.None;
             }
             return Set(probe.From, now, -1);
@@ -301,6 +312,7 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
 
         if (fps >= goal)
         {
+            _wallLow.Clear();
             // ponto de jogo: só com os watts parados há 12 s (descendo num menu não conta)
             if (!_wall && fps < _target * MeetRatio * SurplusRatio && now - _lastChange >= DownAfterSeconds)
             {
@@ -337,7 +349,7 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
             if (_wall && now >= _nextProbe && Watts + ProbeStepWatts <= _max)
             {
                 var probeBase = Curve(now).TryGetValue(Watts, out var bm) ? bm : fps;
-                _probe = (now, probeBase, Watts, new List<double>());
+                _probe = (now, probeBase, Watts, new List<double>(), false);
                 return Set(Watts + ProbeStepWatts, now, +1);
             }
             return SmartTdpChange.None;
@@ -376,7 +388,28 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
         }
         if (now < _dropUntil && fps < _target * DropRatio) return SmartTdpChange.None;
 
-        if (_wall) return SmartTdpChange.None;                    // segura no joelho
+        if (_wall)
+        {
+            // Abaixo do joelho por ~10 s, bem abaixo (média < 92% do patamar): talvez a cena tenha
+            // ficado mais pesada e o patamar medido não vale mais. O teste de +3 W decide, com a
+            // média dessas leituras como base. No máximo com metade da espera dos testes normais.
+            if (settledReading)
+            {
+                _wallLow.Add(fps);
+                if (_wallLow.Count > 5) _wallLow.RemoveRange(0, _wallLow.Count - 5);
+                var sumLow = 0.0;
+                foreach (var v in _wallLow) sumLow += v;
+                var low = sumLow / _wallLow.Count;
+                if (_wallLow.Count >= 5 && low < _plateau * WallMeetRatio * 0.97
+                    && Watts + ProbeStepWatts <= _max && now >= _nextProbe - _probeGap / 2)
+                {
+                    _wallLow.Clear();
+                    _probe = (now, low, Watts, new List<double>(), true);
+                    return Set(Watts + ProbeStepWatts, now, +1);
+                }
+            }
+            return SmartTdpChange.None;                           // segura no joelho
+        }
         if (fps >= _target * BelowRatio) return SmartTdpChange.None; // faixa morta: ruído não sobe
         if (now - _lastChange < UpCooldownSeconds + SettleSeconds) return SmartTdpChange.None;
 

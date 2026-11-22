@@ -42,6 +42,7 @@ class C:
         s.floorCheck = None                     # volta depois de descida: confirma se a culpa era nossa
         s.above = 0; s.probeGap = C.ProbeEvery
         s.started = False
+        s.wallLow = []
 
     # ------------------------------------------------ curva
     def curve(s, now):
@@ -58,12 +59,14 @@ class C:
 
     def resume(s, now, boost):
         # reforco curto na volta do Quick Settings; voltas seguidas nao acumulam
+        s.okSince = None; s.prevFps = None       # o que veio antes da saida nao conta na volta
         if not s.started or s.wall or boost <= 0: return s.W
         base = s.resumeTo if s.resumeTo is not None else s.W
         boosted = min(s.max, base + boost)
         if boosted <= s.W: return s.W
         s.resumeTo = base; s.resumeAt = now; s.W = boosted; s.lastChange = now; s.lastDir = 0
         s.okSince = None; s.prevFps = None; s.dropUntil = NEG; s.settled = False
+        s.stableSince = now                      # o reforco nunca vira "valor aprendido" na hora
         return s.W
 
     def _set(s, w, now, direction, came_from=None):
@@ -105,6 +108,7 @@ class C:
             if s.dev >= 3:                       # cena mudou: o que se mediu antes nao vale
                 s.samples = []; s.dev = 0
                 if s.wall: s.wall = False
+                s.probe = None                   # teste de +3 W em andamento nao vale mais (fica nos watts atuais)
             s.samples.append((now, s.W, fps))
             s.samples = [x for x in s.samples if now - x[0] <= C.Window]
 
@@ -114,13 +118,17 @@ class C:
         if s.probe is not None:
             if settled_reading: s.probe['reads'].append(fps)
             if now - s.probe['t'] < C.ProbeLen: return 'None'
-            base, frm, reads = s.probe['base'], s.probe['from'], s.probe['reads']; s.probe = None
+            base, frm, reads = s.probe['base'], s.probe['from'], s.probe['reads']
+            s.probe_heavier = s.probe.get('heavier', False); s.probe_t = s.probe['t']; s.probe = None
             got = sum(reads) / len(reads) if reads else fps
             if got < base * C.ProbeKeep:
                 s.probeGap = min(C.ProbeMaxEvery, s.probeGap * 2)
             s.nextProbe = now + s.probeGap
             if got >= base * C.ProbeKeep:
                 s.wall = False                   # mais potencia voltou a comprar FPS
+                if s.probe_heavier:
+                    # a cena ficou mais pesada: a curva de antes da queda nao vale mais
+                    s.samples = [x for x in s.samples if x[0] >= s.probe_t - 12]
                 return 'None'
             return s._set(frm, now, -1)
 
@@ -144,6 +152,7 @@ class C:
                 s.dropUntil = now + C.DropHold
 
         if fps >= goal:
+            s.wallLow = []
             # ponto de jogo: so com os watts parados ha 12 s (descendo num menu nao conta)
             if not s.wall and fps < s.target * C.Meet * C.Surplus and now - s.lastChange >= C.DownAfter:
                 s.goodW = s.W; s.goodAt = now
@@ -192,7 +201,24 @@ class C:
             s.dropUntil = now + C.DropHold
         if now < s.dropUntil and fps < s.target * C.DropRatio: return 'None'
 
-        if s.wall: return 'None'                 # parede: segura no joelho (a cena mudando reavalia)
+        if s.wall:
+            # Abaixo do joelho por ~10 s sem queda brusca: a cena ficou mais pesada e o patamar
+            # medido nao vale mais. Sai da parede, esquece a curva e reavalia contra a meta.
+            # Abaixo do joelho por ~10 s: talvez a cena tenha ficado mais pesada (o patamar medido
+            # nao vale mais), talvez seja so ruido. O teste de +3 W decide, usando como base a
+            # media dessas leituras.
+            if settled_reading:
+                s.wallLow.append(fps)
+                # (no maximo com a metade da espera dos testes normais: ruido no joelho nao vira
+                # teste a cada 10 s)
+                if len(s.wallLow) > 5: s.wallLow = s.wallLow[-5:]
+                low = sum(s.wallLow) / len(s.wallLow)
+                if (len(s.wallLow) >= 5 and low < s.plateau * C.WallMeet * 0.97
+                        and s.W + C.ProbeStep <= s.max and now >= s.nextProbe - s.probeGap / 2):
+                    base = low; s.wallLow = []
+                    s.probe = {'t': now, 'base': base, 'from': s.W, 'reads': [], 'heavier': True}
+                    return s._set(s.W + C.ProbeStep, now, +1)
+            return 'None'
         if fps >= s.target * C.Below: return 'None'   # faixa morta: ruido em volta da meta nao sobe
         if now - s.lastChange < C.UpCd + C.Settle: return 'None'
 

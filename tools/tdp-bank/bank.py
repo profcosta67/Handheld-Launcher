@@ -112,6 +112,10 @@ def sc_gpu_wall_start_high(rnd):
     f = lerp_curve([(10, 18), (20, 29), (26, 34), (35, 34.5)])
     return 40, (lambda t, W: min(34, f(W))), 35
 
+def sc_wall_heavier(rnd):      # parede da placa e, aos 600 s, a cena fica um pouco mais pesada
+    f = lerp_curve([(10, 18), (20, 29), (26, 34), (35, 34.5)])
+    return 40, (lambda t, W: min(34, f(W - 4) if t >= 600 else f(W))), 20
+
 SCENARIOS = [
     # nome, fn, limites: (excess max W, starve max %, trocas/min max)
     ("leve",            sc_light,        (2.0, 3, 2.0)),
@@ -129,6 +133,7 @@ SCENARIOS = [
     ("limitador",       sc_limiter,      (2.5, 4, 2.0)),
     ("comeca-no-teto",  sc_start_high,   (2.0, 3, 3.0)),
     ("teto-comeca-alto",sc_gpu_wall_start_high,(3.5, 5, 3.0)),
+    ("parede-mais-pesada",sc_wall_heavier,(3.0, 5, 2.5)),
 ]
 
 def ideal_watts(g, t, target):
