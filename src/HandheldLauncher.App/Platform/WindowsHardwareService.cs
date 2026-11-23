@@ -162,9 +162,8 @@ public class WindowsHardwareService : IHardwareService
                                        (uint)limits!.SplMax * 1000, (uint)limits.SpptMax * 1000, (uint)limits.FpptMax * 1000)
                 : _smu!.SetPowerLimits((uint)stapmW * 1000); // perfis: caminho e trava (30 W) de sempre
             if (applied) Volatile.Write(ref _lastAppliedSplWatts, stapmW);
-            DebugLog.Write(applied
-                ? $"[TDP] PawnIO aceitou os três comandos ({stapmW}/{slowW}/{fastW} W). Confirme os limites efetivos pelos sensores do hardware."
-                : $"[TDP] PawnIO não confirmou todos os comandos ({stapmW}/{slowW}/{fastW} W).");
+            // (sucesso já vai numa linha do PawnIO; aqui só a falha)
+            if (!applied) DebugLog.Write($"[TDP] PawnIO não confirmou todos os comandos ({stapmW}/{slowW}/{fastW} W).");
             return applied;
         }
         catch (Exception ex)

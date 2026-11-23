@@ -267,11 +267,13 @@ public sealed class RyzenSmuService : IDisposable
             bool fastCommand = SendMp1Command(SetFastPptCommand, fastMilliwatts);
             bool slowCommand = SendMp1Command(SetSlowPptCommand, slowMilliwatts);
 
-            DebugLog.Write(stapmMilliwatts == slowMilliwatts && slowMilliwatts == fastMilliwatts
-                ? $"[PawnIO] MP1 commands: STAPM={stapmCommand}, FastPPT={fastCommand}, SlowPPT={slowCommand}, alvo={stapmMilliwatts}mW."
-                : $"[PawnIO] MP1 commands: STAPM={stapmCommand}, FastPPT={fastCommand}, SlowPPT={slowCommand}, alvos STAPM={stapmMilliwatts}mW / Slow={slowMilliwatts}mW / Fast={fastMilliwatts}mW.");
+            // v0.28: log enxuto — antes eram ~15 linhas por troca de TDP (comando, cada leitura de
+            // conferência, tabela). Agora uma linha no fim; os detalhes só quando algo falha.
             if (!stapmCommand || !fastCommand || !slowCommand)
+            {
+                DebugLog.Write($"[PawnIO] Comandos MP1 recusados: STAPM={stapmCommand}, FastPPT={fastCommand}, SlowPPT={slowCommand}; alvos STAPM={stapmMilliwatts}mW / Slow={slowMilliwatts}mW / Fast={fastMilliwatts}mW.");
                 return false;
+            }
 
             float targetWatts = stapmMilliwatts / 1000f;
             float fastTargetWatts = fastMilliwatts / 1000f;
@@ -279,6 +281,8 @@ public sealed class RyzenSmuService : IDisposable
             float stapmRead = 0f, fastRead = 0f, slowRead = 0f;
             bool confirmed = false;
             int consecutiveMatches = 0;
+            int attemptsUsed = 0;
+            int tableMisses = 0;
 
             const int maxReadAttempts = 12;
             const int requiredConsecutiveMatches = 2;
@@ -293,28 +297,27 @@ public sealed class RyzenSmuService : IDisposable
                     bool matchesTarget = Math.Abs(fastRead - fastTargetWatts) <= readbackToleranceWatts
                         && Math.Abs(slowRead - slowTargetWatts) <= readbackToleranceWatts;
 
-                    if (Math.Abs(stapmRead - targetWatts) > readbackToleranceWatts)
-                    {
-                        DebugLog.Write($"[PawnIO] Aviso: STAPM travado em {stapmRead:F1}W pelo EC, mas Fast/Slow PPT estão corretos. TDP aplicado.");
-                    }
-
                     consecutiveMatches = matchesTarget ? consecutiveMatches + 1 : 0;
                     confirmed = consecutiveMatches >= requiredConsecutiveMatches;
-
-                    DebugLog.Write($"[PawnIO] Read-back {attempt}/{maxReadAttempts}: STAPM={stapmRead:F2}W, FastPPT={fastRead:F2}W, SlowPPT={slowRead:F2}W; alvo={targetWatts:F1}/{slowTargetWatts:F1}/{fastTargetWatts:F1}W; sequência={consecutiveMatches}/{requiredConsecutiveMatches}; confirmado={confirmed}.");
+                    attemptsUsed = attempt;
                     if (confirmed) break;
                 }
                 else
                 {
                     consecutiveMatches = 0;
-                    DebugLog.Write($"[PawnIO] PM Table indisponível na tentativa {attempt}/{maxReadAttempts}.");
+                    tableMisses++;
+                    attemptsUsed = attempt;
                 }
 
                 if (attempt < maxReadAttempts) Thread.Sleep(500);
             }
 
-            if (!confirmed)
-                DebugLog.Write($"[PawnIO] Limites não convergiram para {targetWatts:F1}/{slowTargetWatts:F1}/{fastTargetWatts:F1}W. Último read-back: STAPM={stapmRead:F2}W, FastPPT={fastRead:F2}W, SlowPPT={slowRead:F2}W.");
+            var stapmNote = confirmed && Math.Abs(stapmRead - targetWatts) > readbackToleranceWatts
+                ? $" (STAPM ficou em {stapmRead:F1} W pelo EC — normal no Legion Go)" : "";
+            var missNote = tableMisses > 0 ? $"; tabela indisponível {tableMisses}x" : "";
+            DebugLog.Write(confirmed
+                ? $"[PawnIO] Limites {targetWatts:F0}/{slowTargetWatts:F0}/{fastTargetWatts:F0} W conferidos na leitura {attemptsUsed}{stapmNote}{missNote}."
+                : $"[PawnIO] Limites não convergiram para {targetWatts:F1}/{slowTargetWatts:F1}/{fastTargetWatts:F1}W em {attemptsUsed} leituras{missNote}. Última: STAPM={stapmRead:F2}W, FastPPT={fastRead:F2}W, SlowPPT={slowRead:F2}W.");
 
             return confirmed;
         }
@@ -344,6 +347,8 @@ public sealed class RyzenSmuService : IDisposable
         }
     }
 
+    private bool _pmTableLogged;
+
     private bool TryReadPowerLimits(out float stapmWatts, out float fastWatts, out float slowWatts)
     {
         stapmWatts = fastWatts = slowWatts = 0f;
@@ -352,7 +357,7 @@ public sealed class RyzenSmuService : IDisposable
         if (!_io.Execute("ioctl_resolve_pm_table", null, resolved) || resolved[1] == 0)
             return false;
         uint tableVersion = (uint)resolved[0];
-        DebugLog.Write($"[PawnIO] PM Table: versão=0x{tableVersion:X6}, base=0x{resolved[1]:X}.");
+        if (!_pmTableLogged) { _pmTableLogged = true; DebugLog.Write($"[PawnIO] PM Table: versão=0x{tableVersion:X6}, base=0x{resolved[1]:X}."); }
 
         _io.Execute("ioctl_update_pm_table", null, null);
         Thread.Sleep(100);
@@ -371,10 +376,7 @@ public sealed class RyzenSmuService : IDisposable
         stapmWatts = values[0];
         fastWatts = values[2];
         slowWatts = values[4];
-        
-        DebugLog.Write(
-            $"[PawnIO] PM Table limites: STAPM@0x00={stapmWatts:F2}W, " +
-            $"FastPPT@0x08={fastWatts:F2}W, SlowPPT@0x10={slowWatts:F2}W.");
+
 
         return float.IsFinite(stapmWatts) && float.IsFinite(fastWatts)
             && float.IsFinite(slowWatts) && stapmWatts > 0f

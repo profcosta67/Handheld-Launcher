@@ -62,12 +62,15 @@ public static class DebugLog
         {
             Pending.Enqueue($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} {message}\n");
             EnsureWriter();
+            WriteSignal.Set();
         }
         catch
         {
             // Logging must never be the thing that breaks the app.
         }
     }
+
+    private static readonly AutoResetEvent WriteSignal = new(false);
 
     private static void EnsureWriter()
     {
@@ -77,8 +80,12 @@ public static class DebugLog
             AppDomain.CurrentDomain.ProcessExit += (_, _) => Flush();
             var thread = new Thread(() =>
             {
+                // v0.28 (bateria): dorme até chegar linha nova (antes acordava 5x por segundo para
+                // sempre, mesmo sem nada para gravar). Pequena espera depois do aviso junta as linhas
+                // de uma rajada numa gravação só.
                 while (true)
                 {
+                    WriteSignal.WaitOne();
                     Thread.Sleep(200);
                     Flush();
                 }

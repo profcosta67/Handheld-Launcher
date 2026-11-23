@@ -76,6 +76,28 @@ public partial class MainWindow : Window
     // v0.21: espaçamento uniforme entre cards — 28px (mesmo do Spacing do StackPanel horizontal).
     private Thickness ContainerMargin() => _verticalLayout ? new Thickness(0, 0, 28, 28) : default;
 
+    // v0.28 (bateria): animações desligadas também quando o aparelho está fora da tomada
+    // (AppSettings.ReduceAnimationsOnBattery). A escolha do usuário em Preferências continua valendo.
+    private bool _animationsSetting = true;
+    private bool _reduceAnimationsOnBattery = true;
+    private bool _onBatteryForAnimations;
+
+    private void ApplyAnimationState()
+    {
+        var on = _animationsSetting && !(_reduceAnimationsOnBattery && _onBatteryForAnimations);
+        Classes.Set("noAnim", !on);
+        if (_libraryLayout is not null)
+            _libraryLayout.GameRowScrollViewer.Transitions = on ? _rowScrollTransitions : null;
+    }
+
+    /// <summary>Chamado pelo relógio da bateria: troca o estado só quando muda tomada/bateria.</summary>
+    private void NoteBatteryForAnimations(bool? onBattery)
+    {
+        if (onBattery is not { } b || b == _onBatteryForAnimations) return;
+        _onBatteryForAnimations = b;
+        ApplyAnimationState();
+    }
+
     private void ApplyAppearance(MainViewModel vm, AppSettings settings)
     {
         try
@@ -89,9 +111,10 @@ public partial class MainWindow : Window
             ThemeManager.Apply(cartoon ? cartoonTheme : settings.Theme);
             ThemeManager.ApplyFont(this, cartoon ? ThemeManager.FontFredoka : settings.UiFont);
             ThemeManager.ApplyFontSize(settings.UiFontSize);
-            Classes.Set("noAnim", !settings.Animations);
             _rowScrollTransitions ??= _libraryLayout.GameRowScrollViewer.Transitions;
-            _libraryLayout.GameRowScrollViewer.Transitions = settings.Animations ? _rowScrollTransitions : null;
+            _animationsSetting = settings.Animations;
+            _reduceAnimationsOnBattery = settings.ReduceAnimationsOnBattery && !cartoon;   // Cartoon: identidade intocada
+            ApplyAnimationState();
             UiSounds.Enabled = settings.SoundEffects;
             UiSounds.Pack = cartoon ? ThemeManager.SoundBolha : settings.SoundTheme;
             UiSounds.Volume = settings.SoundVolume;

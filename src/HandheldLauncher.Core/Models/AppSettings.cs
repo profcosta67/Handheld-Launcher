@@ -115,6 +115,9 @@ public class AppSettings
     public int TileSize { get; set; } = 1;
     public bool VerticalLayout { get; set; } = false;
     public bool Animations { get; set; } = true;
+
+    // v0.28 (bateria): fora da tomada as animações são desligadas sozinhas (voltam na tomada).
+    public bool ReduceAnimationsOnBattery { get; set; } = true;
     public bool SoundEffects { get; set; } = true;
     public int SoundTheme { get; set; } = 0;
     public int SoundVolume { get; set; } = 50;
