@@ -155,6 +155,7 @@ internal sealed class SessionDiaryRecorder : IDisposable
             try { Finish(); } catch (Exception ex) { DebugLog.Swallowed(ex); }
             _metrics?.Dispose();
             _rtss?.Dispose();
+            _stopSignal.Dispose();
         }
     }
 }

@@ -1,3 +1,4 @@
+using System.Text.Encodings.Web;
 using System.Text.Json;
 
 namespace HandheldLauncher.Core.Services.Power;
@@ -12,13 +13,15 @@ public sealed class PowerLogStore
     public static readonly TimeSpan Keep = TimeSpan.FromDays(3);
     private const int FlushEvery = 10;
 
+    private static readonly JsonSerializerOptions Json = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+
     private static readonly Lazy<PowerLogStore> _shared = new(() => new PowerLogStore());
     public static PowerLogStore Shared => _shared.Value;
 
     private readonly string _path;
     private readonly object _gate = new();
     private readonly List<PowerSample> _pending = new();
-    private bool _pruned;
+    private DateTime _prunedAt = DateTime.MinValue;
 
     public PowerLogStore(string? pathOverride = null)
     {
@@ -50,8 +53,9 @@ public sealed class PowerLogStore
         {
             var dir = Path.GetDirectoryName(_path);
             if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-            if (!_pruned) { PruneUnlocked(DateTime.UtcNow); _pruned = true; }
-            File.AppendAllLines(_path, _pending.Select(s => JsonSerializer.Serialize(s)));
+            // limpa ao começar e depois a cada dia (o launcher pode ficar aberto semanas)
+            if (DateTime.UtcNow - _prunedAt > TimeSpan.FromDays(1)) { PruneUnlocked(DateTime.UtcNow); _prunedAt = DateTime.UtcNow; }
+            File.AppendAllLines(_path, _pending.Select(s => JsonSerializer.Serialize(s, Json)));
             _pending.Clear();
         }
         catch

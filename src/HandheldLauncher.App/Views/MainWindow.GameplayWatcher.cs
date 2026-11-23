@@ -508,7 +508,7 @@ private void SetAddButtonFocused(bool focused)
         _batteryTimer.Start();
         Closed += (_, _) => _batteryTimer?.Stop();
 
-        vm.SensorsFastCheck = () => _overlayWindow is { IsVisible: true }
+        vm.SensorsFastCheck = () => _overlayWindow is { IsVisible: true } || _activeDialog is not null
             || (WindowState != WindowState.Minimized && IsVisible && IsOurWindowInForeground());
 
         // v0.28: diagnóstico de bateria (amostras em segundo plano; ver BatteryDiagnostics)
@@ -517,7 +517,8 @@ private void SetAddButtonFocused(bool focused)
             var game = vm.RunningGame;
             var qs = _overlayWindow is { IsVisible: true };
             if (game is not null) return new LauncherActivityState(PowerState.Game, game.TitleOverride ?? game.Title, qs);
-            var front = WindowState != WindowState.Minimized && IsVisible && IsOurWindowInForeground();
+            var front = _activeDialog is not null
+                || (WindowState != WindowState.Minimized && IsVisible && IsOurWindowInForeground());
             return new LauncherActivityState(front || qs ? PowerState.Launcher : PowerState.Background, null, qs);
         });
         Closed += (_, _) => BatteryDiagnostics.Stop();

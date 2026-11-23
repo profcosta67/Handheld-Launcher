@@ -101,6 +101,18 @@ public class PowerDiagnosticsTests
     }
 
     [Fact]
+    public void ReportIgnoresSuspendGap()
+    {
+        var list = Enumerable.Range(0, 20).Select(i => S(i, PowerState.Launcher, 7, 50000 - 60 * i)).ToList();
+        var gap = S(20, PowerState.Background, 30, 45000);
+        gap.Seconds = 8 * 3600;
+        list.Add(gap);
+        var r = PowerReport.Build(list);
+        Assert.Equal(10, r.BatteryMinutes, 1);
+        Assert.Equal(7, r.AvgWatts!.Value, 3);
+    }
+
+    [Fact]
     public void ReportIgnoresAcSamples()
     {
         var list = new List<PowerSample> { S(0, PowerState.Launcher, 5, 50000, ac: true), S(1, PowerState.Launcher, 5, 50000, ac: true) };

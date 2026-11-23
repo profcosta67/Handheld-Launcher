@@ -84,7 +84,8 @@ public static class PowerReport
 
     public static PowerReportResult Build(IReadOnlyList<PowerSample> samples)
     {
-        var battery = samples.Where(s => !s.OnAc && s.Seconds > 0).ToList();
+        // amostra cobrindo mais que o intervalo máximo = suspensão no meio: não representa o período
+        var battery = samples.Where(s => !s.OnAc && s.Seconds > 0 && s.Seconds <= BatteryLifeEstimator.MaxGap.TotalSeconds).ToList();
         var minutes = battery.Sum(s => s.Seconds) / 60;
         if (battery.Count == 0) return new PowerReportResult();
 

@@ -49,7 +49,8 @@ public static class BatteryDiagnostics
     private static DateTime _brightnessAt = DateTime.MinValue;
     private static int? _fullMwh;
     private static DateTime _fullAt = DateTime.MinValue;
-    private static bool _wmiBroken;
+    private static DateTime _wmiRetryAt = DateTime.MinValue;
+    private static int _wmiFailures;
     private static readonly List<PowerSample> _summary = new();
     private static DateTime _summaryStart = DateTime.MinValue;
 
@@ -86,6 +87,8 @@ public static class BatteryDiagnostics
     {
         _stop = true;
         _wake.Set();
+        // deixa uma amostra em andamento terminar (sem travar: ela pode estar esperando a tela)
+        try { _thread?.Join(500); } catch (Exception ex) { DebugLog.Swallowed(ex); }
         try { PowerLogStore.Shared.Flush(); } catch (Exception ex) { DebugLog.Swallowed(ex); }
     }
 
@@ -96,10 +99,7 @@ public static class BatteryDiagnostics
     {
         // começa depois da abertura, que é o momento mais pesado do launcher
         if (_wake.WaitOne(TimeSpan.FromSeconds(20)) && _stop) return;
-        _lastSampleUtc = DateTime.UtcNow;
-        try { _lastOwnCpu = Process.GetCurrentProcess().TotalProcessorTime; } catch (Exception ex) { DebugLog.Swallowed(ex); }
-        _lastProcs = ReadProcesses();
-        ActivityMeter.TakeSnapshot(); // zera o que a abertura acumulou
+        Rebaseline(); // zera também o que a abertura acumulou
 
         var nextWait = BatteryInterval;
         while (!_stop)
@@ -108,8 +108,9 @@ public static class BatteryDiagnostics
             if (_stop) break;
             try
             {
+                var state = ReadState();   // fora da medição: é espera pela tela, não trabalho
                 using var _ = ActivityMeter.Measure("diagnóstico de bateria");
-                nextWait = Sample() ? BatteryInterval : AcInterval;
+                nextWait = Sample(state) ? BatteryInterval : AcInterval;
             }
             catch (Exception ex)
             {
@@ -120,12 +121,20 @@ public static class BatteryDiagnostics
     }
 
     /// <summary>Lê, guarda e atualiza a estimativa. true = está na bateria.</summary>
-    private static bool Sample()
+    private static bool Sample(LauncherActivityState state)
     {
         var now = DateTime.UtcNow;
         var seconds = (now - _lastSampleUtc).TotalSeconds;
         _lastSampleUtc = now;
         if (seconds <= 0) return true;
+        // Suspensão (ou o launcher travado) no meio: o intervalo não foi "na bateria fazendo algo"
+        // — contaria horas com a leitura de um instante. Recomeça as bases e não grava esta.
+        if (seconds > BatteryLifeEstimator.MaxGap.TotalSeconds)
+        {
+            Rebaseline();
+            DebugLog.Write($"[BATERIA] Intervalo de {seconds / 60:0} min sem amostra (suspensão?) — recomeçando a contagem.");
+            return true;
+        }
 
         var power = ReadPowerStatus();
         var onAc = power?.OnAc ?? true;
@@ -135,19 +144,17 @@ public static class BatteryDiagnostics
 
         var cores = Math.Max(1, Environment.ProcessorCount);
         double? ownCpu = null;
-        try
+        if (OwnCpu() is { } cpu)
         {
-            var cpu = Process.GetCurrentProcess().TotalProcessorTime;
             ownCpu = Math.Max(0, (cpu - _lastOwnCpu).TotalSeconds) / (seconds * cores) * 100;
             _lastOwnCpu = cpu;
         }
-        catch (Exception ex) { DebugLog.Swallowed(ex); }
 
         // processos só na bateria: na tomada o consumo não importa e a varredura custa
         List<ProcessCpu>? top = null;
         double? systemCpu = null;
         var procs = onAc ? null : ReadProcesses();
-        if (procs is not null)
+        if (procs is not null && _lastProcs.Count > 0)
         {
             var byName = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
             foreach (var (pid, p) in procs)
@@ -163,10 +170,9 @@ public static class BatteryDiagnostics
                 .ToList();
             _lastProcs = procs;
         }
-        else _lastProcs.Clear();
+        else _lastProcs = procs ?? new();   // na tomada fica vazio; a 1ª amostra na bateria só cria a base
 
         var activities = ActivityMeter.TakeSnapshot();
-        var state = ReadState();
 
         double? ourMin;
         lock (_estimateGate)
@@ -207,6 +213,28 @@ public static class BatteryDiagnostics
         return !onAc;
     }
 
+    private static void Rebaseline()
+    {
+        _lastSampleUtc = DateTime.UtcNow;
+        _lastOwnCpu = OwnCpu() ?? _lastOwnCpu;
+        _lastProcs = ReadProcesses();
+        ActivityMeter.TakeSnapshot();
+    }
+
+    private static TimeSpan? OwnCpu()
+    {
+        try
+        {
+            using var me = Process.GetCurrentProcess();
+            return me.TotalProcessorTime;
+        }
+        catch (Exception ex)
+        {
+            DebugLog.Swallowed(ex);
+            return null;
+        }
+    }
+
     private static void NoteForSummary(PowerSample s)
     {
         if (s.OnAc) { _summary.Clear(); _summaryStart = DateTime.MinValue; return; }
@@ -231,7 +259,7 @@ public static class BatteryDiagnostics
         if (provider is null) return new(PowerState.Background, null, false);
         try
         {
-            var op = Dispatcher.UIThread.InvokeAsync(provider, DispatcherPriority.Background);
+            var op = Dispatcher.UIThread.InvokeAsync(provider, DispatcherPriority.Normal);
             return op.GetTask().Wait(TimeSpan.FromSeconds(2)) ? op.Result : new(PowerState.Background, null, false);
         }
         catch (Exception ex)
@@ -298,7 +326,7 @@ public static class BatteryDiagnostics
 
     private static (double? Watts, int? RemainingMwh) ReadBatteryWmi()
     {
-        if (_wmiBroken) return (null, null);
+        if (DateTime.UtcNow < _wmiRetryAt) return (null, null);
         try
         {
             using var searcher = new ManagementObjectSearcher(@"root\WMI",
@@ -316,12 +344,15 @@ public static class BatteryDiagnostics
                 if (discharge > 0) watts = (watts ?? 0) + discharge / 1000.0;
                 else if (charge > 0) watts = (watts ?? 0) - charge / 1000.0;
             }
+            _wmiFailures = 0;
             return (watts, mwh);
         }
         catch (Exception ex)
         {
-            _wmiBroken = true;
-            DebugLog.Write($"[BATERIA] WMI BatteryStatus indisponível: {ex.Message}");
+            // falha passageira é comum logo depois da suspensão: tenta de novo, cada vez mais espaçado
+            _wmiFailures++;
+            _wmiRetryAt = DateTime.UtcNow.AddMinutes(Math.Min(30, _wmiFailures * 2));
+            if (_wmiFailures <= 3) DebugLog.Write($"[BATERIA] WMI BatteryStatus indisponível ({_wmiFailures}ª vez): {ex.Message}");
             return (null, null);
         }
     }

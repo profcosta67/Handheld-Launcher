@@ -8,6 +8,17 @@
         Topmost="True"
         Background="{DynamicResource PanelSurfaceDeepBrush}">
 
+  <Window.Styles>
+    <Style Selector="Button.categoryTab.active">
+      <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+    </Style>
+    <Style Selector="Button.categoryTab.active /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+    </Style>
+  </Window.Styles>
+
   <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="24">
 
     <StackPanel Grid.Row="0" Spacing="6" Margin="0,0,0,12">

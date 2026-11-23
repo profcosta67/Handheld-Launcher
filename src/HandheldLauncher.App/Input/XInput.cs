@@ -70,7 +70,6 @@ internal static class XInput
     /// </summary>
     public static bool TryGetState(out XInputState state) => TryGetState(0, out state);
 
-    /// <summary>Mesmo que TryGetState, pra qualquer um dos 4 slots do XInput (0-3).</summary>
     // v0.28 (bateria): XInputGetState num slot vazio é caro — o XInput procura o aparelho a cada
     // chamada — e o launcher tem vários leitores varrendo os 4 slots 20–25 vezes por segundo,
     // inclusive durante o jogo. Slot vazio só é consultado de novo depois de 1 s (um controle
@@ -79,6 +78,7 @@ internal static class XInput
     private const long EmptySlotRecheckMs = 1000;
     private static readonly long[] _emptyUntil = new long[4];
 
+    /// <summary>Mesmo que TryGetState, pra qualquer um dos 4 slots do XInput (0-3).</summary>
     public static bool TryGetState(uint userIndex, out XInputState state)
     {
         try
