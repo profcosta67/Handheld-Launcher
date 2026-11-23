@@ -186,7 +186,7 @@ public static class BatteryDiagnostics
             RemainingMwh = remainingMwh,
             FullMwh = _fullMwh,
             Watts = watts is { } w ? Math.Round(w, 2) : null,
-            WindowsRemainingMinutes = power?.RemainingSeconds is > 0 and var rs ? Math.Round(rs.Value / 60.0, 1) : null,
+            WindowsRemainingMinutes = power?.RemainingSeconds is { } rs and > 0 ? Math.Round(rs / 60.0, 1) : null,
             OurRemainingMinutes = ourMin is { } om ? Math.Round(om, 1) : null,
             State = state.State,
             Game = state.Game,
