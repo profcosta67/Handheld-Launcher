@@ -109,6 +109,11 @@ public class WindowsHardwareService : IHardwareService
     /// </summary>
     public static readonly object TdpApplyLock = new();
 
+    private static int _lastAppliedSplWatts;
+
+    /// <summary>Último TDP (SPL, W) aceito pelo PawnIO nesta sessão; 0 se nenhum.</summary>
+    public static int LastAppliedSplWatts => Volatile.Read(ref _lastAppliedSplWatts);
+
     public bool SetTdpMode(string mode)
     {
         if (!OperatingSystem.IsWindows()) return false;
@@ -156,6 +161,7 @@ public class WindowsHardwareService : IHardwareService
                 ? _smu!.SetPowerLimits((uint)stapmW * 1000, (uint)slowW * 1000, (uint)fastW * 1000,
                                        (uint)limits!.SplMax * 1000, (uint)limits.SpptMax * 1000, (uint)limits.FpptMax * 1000)
                 : _smu!.SetPowerLimits((uint)stapmW * 1000); // perfis: caminho e trava (30 W) de sempre
+            if (applied) Volatile.Write(ref _lastAppliedSplWatts, stapmW);
             DebugLog.Write(applied
                 ? $"[TDP] PawnIO aceitou os três comandos ({stapmW}/{slowW}/{fastW} W). Confirme os limites efetivos pelos sensores do hardware."
                 : $"[TDP] PawnIO não confirmou todos os comandos ({stapmW}/{slowW}/{fastW} W).");

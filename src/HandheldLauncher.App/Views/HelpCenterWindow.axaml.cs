@@ -385,6 +385,15 @@ public partial class HelpCenterWindow : Window
         Close();
     }
 
+    /// <summary>v0.28: pediram o diagnóstico de bateria (mesmo caminho dos Componentes).</summary>
+    public bool BatteryRequested { get; private set; }
+
+    private void OnBatteryClick(object? sender, RoutedEventArgs e)
+    {
+        BatteryRequested = true;
+        Close();
+    }
+
     private void OnCloseClick(object? sender, RoutedEventArgs e) => Close();
 
     // Mesmo ajuste da janela de Configurações: em telas baixas, encolhe pra caber.

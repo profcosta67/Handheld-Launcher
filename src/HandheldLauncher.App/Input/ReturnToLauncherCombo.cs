@@ -33,6 +33,7 @@ internal sealed class ReturnToLauncherCombo : IDisposable
         {
             try
             {
+                using var __meter = HandheldLauncher.Core.Services.Power.ActivityMeter.Measure("atalho View+Menu");
                 var now = DateTime.UtcNow;
                 for (uint slot = 0; slot < 4; slot++)
                 {
@@ -57,7 +58,7 @@ internal sealed class ReturnToLauncherCombo : IDisposable
                 // Nunca derrubar a thread por um erro de leitura.
             }
 
-            Thread.Sleep(50);
+            Thread.Sleep(100); // v0.28: 50 → 100 ms; o gesto exige 1 s segurado
         }
     }
 

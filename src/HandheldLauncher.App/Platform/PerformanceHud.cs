@@ -115,6 +115,7 @@ public sealed class PerformanceHud : IDisposable
 
     private void Tick()
     {
+        using var __meter = HandheldLauncher.Core.Services.Power.ActivityMeter.Measure("HUD");
         try
         {
             var preset = _preset;
@@ -296,7 +297,8 @@ internal static class HudFormatter
         var valueColor = !m.OnAcPower && percent <= 15 ? Critical : ValueColor;
         var text = Color(valueColor, percent.ToString(Inv)) + Unit("%");
         if (m.OnAcPower) text += " " + Unit("AC");
-        else if (m.BatteryRemaining is { } left) text += " " + Value($"{(int)left.TotalHours}h{left.Minutes:00}");
+        // v0.28: tempo restante pela conta do launcher (o do Windows pula com o consumo de poucos segundos)
+        else if ((BatteryDiagnostics.CurrentRemaining ?? m.BatteryRemaining) is { } left) text += " " + Value($"{(int)left.TotalHours}h{left.Minutes:00}");
         if (withWatts && m.BatteryWatts is { } w && Math.Abs(w) > 0.05) text += " " + Value((w >= 0 ? w : -w).ToString("0.0", Inv)) + Unit(w >= 0 ? "W" : "W+");
         groups.Add(Group("BAT", BatteryColor, text));
     }

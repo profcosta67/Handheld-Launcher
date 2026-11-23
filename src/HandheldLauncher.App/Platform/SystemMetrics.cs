@@ -73,11 +73,21 @@ internal sealed class SystemMetrics : IDisposable
             remaining = TimeSpan.FromHours(_remainingMilliwattHours.Value / (watts.Value * 1000.0));
         }
 
+        // v0.28 (bateria): GPU e VRAM leem a categoria inteira de contadores do Windows (centenas
+        // de instâncias) — a mais cara das leituras do HUD. A cada 2 s em vez de a cada segundo.
+        double? gpu = _gpuCached, vram = _vramCached;
+        if (OperatingSystem.IsWindows() && DateTime.UtcNow - _gpuReadAt >= TimeSpan.FromSeconds(2))
+        {
+            _gpuReadAt = DateTime.UtcNow;
+            gpu = _gpuCached = ReadGpuPercent();
+            vram = _vramCached = ReadVramGb();
+        }
+
         return new MetricsSnapshot(
             CpuPercent: OperatingSystem.IsWindows() ? ReadCpuPercent() : null,
             CpuMhz: OperatingSystem.IsWindows() ? ReadCpuMhz() : null,
-            GpuPercent: OperatingSystem.IsWindows() ? ReadGpuPercent() : null,
-            VramGb: OperatingSystem.IsWindows() ? ReadVramGb() : null,
+            GpuPercent: gpu,
+            VramGb: vram,
             RamUsedGb: ramUsed,
             RamTotalGb: ramTotal,
             BatteryPercent: battery.Percent,
@@ -124,6 +134,9 @@ internal sealed class SystemMetrics : IDisposable
     }
 
     // --- GPU ---------------------------------------------------------------
+
+    private double? _gpuCached, _vramCached;
+    private DateTime _gpuReadAt = DateTime.MinValue;
 
     private double? ReadGpuPercent()
     {

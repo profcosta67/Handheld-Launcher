@@ -59,6 +59,15 @@ public partial class DeviceHealthWindow : Window
     private void OnRefreshClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => RefreshAll();
     private void OnCloseClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => Close();
 
+    /// <summary>v0.28: pediram o diagnóstico de bateria; quem abre é o MainWindow (navegação do controle).</summary>
+    public bool BatteryRequested { get; private set; }
+
+    private void OnBatteryClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        BatteryRequested = true;
+        Close();
+    }
+
     // v0.18: mesmo problema do StorageManagerWindow (ver comentário lá) —
     // só "Atualizar"/"Fechar" são focáveis, então ↑/↓ não tinham conteúdo
     // pra focar/rolar dentro do ScrollViewer. Mesma correção: interceptado

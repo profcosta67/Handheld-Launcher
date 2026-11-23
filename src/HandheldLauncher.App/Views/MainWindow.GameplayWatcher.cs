@@ -17,6 +17,7 @@ using HandheldLauncher.App.Platform;
 using HandheldLauncher.App.ViewModels;
 using HandheldLauncher.App.Views.Layouts;
 using HandheldLauncher.Core.Models;
+using HandheldLauncher.Core.Services.Power;
 using HandheldLauncher.Core.Services;
 using Avalonia.VisualTree; 
 using Avalonia.LogicalTree;
@@ -380,6 +381,7 @@ private void SetAddButtonFocused(bool focused)
         _gameWatcherTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _gameWatcherTimer.Tick += (_, _) =>
         {
+            using var __meter = HandheldLauncher.Core.Services.Power.ActivityMeter.Measure("vigia do jogo");
             // 18/11: sem jogo, o PID detectado volta a 0 (antes ficava o do último jogo, e o pedido
             // HID ao controle achava que ainda havia jogo aberto).
             if (vm.RunningGame is null) { _gameWindowSeen = false; _gameWindowMissingSeconds = 0; _gameWatcherTicks = 0; if (_detectedGamePid != 0) _detectedGamePid = 0; return; }
@@ -489,7 +491,8 @@ private void SetAddButtonFocused(bool focused)
             if (vm.IsDownloadsOpen) { vm.RefreshActiveDownloads(); ticksSinceBackgroundRefresh = 0; return; }
             if (vm.RunningGame is not null) return;
             ticksSinceBackgroundRefresh++;
-            if (ticksSinceBackgroundRefresh >= 3) { ticksSinceBackgroundRefresh = 0; vm.RefreshActiveDownloads(); }
+            // v0.28 (bateria): sem download em andamento, confere a cada 30 s (antes: 6 s para sempre)
+            if (ticksSinceBackgroundRefresh >= (vm.ActiveDownloads.Count > 0 ? 3 : 15)) { ticksSinceBackgroundRefresh = 0; vm.RefreshActiveDownloads(); }
         };
         _downloadsRefreshTimer.Start();
         Closed += (_, _) => _downloadsRefreshTimer?.Stop();
@@ -504,6 +507,20 @@ private void SetAddButtonFocused(bool focused)
         _batteryTimer.Tick += (_, _) => { vm.BatteryStatusText = BatteryStatus.GetDisplayText(); vm.ClockText = DateTime.Now.ToString("HH:mm"); };
         _batteryTimer.Start();
         Closed += (_, _) => _batteryTimer?.Stop();
+
+        vm.SensorsFastCheck = () => _overlayWindow is { IsVisible: true }
+            || (WindowState != WindowState.Minimized && IsVisible && IsOurWindowInForeground());
+
+        // v0.28: diagnóstico de bateria (amostras em segundo plano; ver BatteryDiagnostics)
+        BatteryDiagnostics.Start(() =>
+        {
+            var game = vm.RunningGame;
+            var qs = _overlayWindow is { IsVisible: true };
+            if (game is not null) return new LauncherActivityState(PowerState.Game, game.TitleOverride ?? game.Title, qs);
+            var front = WindowState != WindowState.Minimized && IsVisible && IsOurWindowInForeground();
+            return new LauncherActivityState(front || qs ? PowerState.Launcher : PowerState.Background, null, qs);
+        });
+        Closed += (_, _) => BatteryDiagnostics.Stop();
     }
 
     private bool _inputIgnoredWhileBackground;
@@ -686,6 +703,7 @@ private void SetAddButtonFocused(bool focused)
 
     private void OnGamepadTick(object? sender, EventArgs e)
     {
+        using var __meter = HandheldLauncher.Core.Services.Power.ActivityMeter.Measure("controle (leitura a cada 50 ms)");
         try
         {
             if (DataContext is not MainViewModel vm) return;

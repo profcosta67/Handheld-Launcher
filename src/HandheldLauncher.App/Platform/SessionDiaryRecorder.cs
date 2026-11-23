@@ -19,6 +19,7 @@ internal sealed class SessionDiaryRecorder : IDisposable
     private readonly object _gate = new();
     private readonly Thread _thread;
     private volatile bool _stop;
+    private readonly ManualResetEventSlim _stopSignal = new(false);
 
     private SessionAccumulator? _session;
     private string? _gameId;
@@ -40,12 +41,14 @@ internal sealed class SessionDiaryRecorder : IDisposable
         {
             try { lock (_gate) { if (!_stop) Tick(); } }
             catch (Exception ex) { DebugLog.Write($"[DIARIO] Erro no ciclo: {ex.GetType().Name}: {ex.Message}"); }
-            for (var i = 0; i < SampleSeconds * 10 && !_stop; i++) Thread.Sleep(100);
+            // v0.28: uma espera só (antes: 50 cochilos de 100 ms — 10 acordadas por segundo à toa)
+            _stopSignal.Wait(TimeSpan.FromSeconds(SampleSeconds));
         }
     }
 
     private void Tick()
     {
+        using var __meter = HandheldLauncher.Core.Services.Power.ActivityMeter.Measure("diário de sessões");
         var game = _viewModel.RunningGame;
 
         if (_session is not null && (game is null || game.Id != _gameId)) Finish();
@@ -145,6 +148,7 @@ internal sealed class SessionDiaryRecorder : IDisposable
     public void Dispose()
     {
         _stop = true;
+        _stopSignal.Set();
         if (!_thread.Join(1500)) return; // ciclo preso numa leitura: não grava pela metade
         lock (_gate)
         {

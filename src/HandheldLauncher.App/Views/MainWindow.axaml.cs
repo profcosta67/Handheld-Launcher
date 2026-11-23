@@ -354,6 +354,7 @@ public partial class MainWindow : Window
         _helperWatchdog = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
         _helperWatchdog.Tick += (_, _) =>
         {
+            using var __meter = HandheldLauncher.Core.Services.Power.ActivityMeter.Measure("vigia do ajudante");
             try
             {
                 if (_gamepadComboModeIsGame != true || !GameInputHelper.HelperDiedUnexpectedly) return;

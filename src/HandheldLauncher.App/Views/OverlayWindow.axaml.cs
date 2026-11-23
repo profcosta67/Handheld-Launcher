@@ -380,7 +380,11 @@ public partial class OverlayWindow : Window
         // GuardPosition; a essa frequência o painel repintava a cada instante
         // ("piscadas") sem ganho nenhum de robustez.
         _topmostEnforcer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
-        _topmostEnforcer.Tick += (_, _) => { ForceTopmost(); GuardPosition(); };
+        _topmostEnforcer.Tick += (_, _) =>
+        {
+            using var __meter = HandheldLauncher.Core.Services.Power.ActivityMeter.Measure("QS por cima");
+            ForceTopmost(); GuardPosition();
+        };
         _topmostEnforcer.Start();
     }
 

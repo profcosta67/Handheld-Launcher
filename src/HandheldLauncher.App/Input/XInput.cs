@@ -1,3 +1,5 @@
+using System;
+using System.Threading;
 using System.Runtime.InteropServices;
 
 namespace HandheldLauncher.App.Input;
@@ -69,11 +71,28 @@ internal static class XInput
     public static bool TryGetState(out XInputState state) => TryGetState(0, out state);
 
     /// <summary>Mesmo que TryGetState, pra qualquer um dos 4 slots do XInput (0-3).</summary>
+    // v0.28 (bateria): XInputGetState num slot vazio é caro — o XInput procura o aparelho a cada
+    // chamada — e o launcher tem vários leitores varrendo os 4 slots 20–25 vezes por segundo,
+    // inclusive durante o jogo. Slot vazio só é consultado de novo depois de 1 s (um controle
+    // novo leva no máximo isso para aparecer).
+    private const int ErrorDeviceNotConnected = 0x48F;
+    private const long EmptySlotRecheckMs = 1000;
+    private static readonly long[] _emptyUntil = new long[4];
+
     public static bool TryGetState(uint userIndex, out XInputState state)
     {
         try
         {
-            return XInputGetStateNative(userIndex, out state) == ErrorSuccess;
+            var now = Environment.TickCount64;
+            if (userIndex < 4 && now < Volatile.Read(ref _emptyUntil[userIndex]))
+            {
+                state = default;
+                return false;
+            }
+            var hr = XInputGetStateNative(userIndex, out state);
+            if (userIndex < 4)
+                Volatile.Write(ref _emptyUntil[userIndex], hr == ErrorDeviceNotConnected ? now + EmptySlotRecheckMs : 0);
+            return hr == ErrorSuccess;
         }
         catch (DllNotFoundException)
         {

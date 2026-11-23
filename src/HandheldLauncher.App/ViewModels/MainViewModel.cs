@@ -45,6 +45,10 @@ public sealed class MainViewModel : ViewModelBase
     private DateTime _lastHwInfoPollTime = DateTime.MinValue;
     private bool _hwInfoWasAvailable;
     private DispatcherTimer? _hardwareTimer;
+    private long _hardwareTicks;
+
+    /// <summary>v0.28: a tela informa se o launcher está na frente (sensores lidos a cada 2 s só então).</summary>
+    public Func<bool>? SensorsFastCheck { get; set; }
 
     private readonly SemaphoreSlim _artworkSemaphore = new(1, 1);
     private CancellationTokenSource? _ownedArtworkCts;
@@ -151,7 +155,11 @@ public sealed class MainViewModel : ViewModelBase
         _steamOwnedGames = steamOwnedGames; _steamAchievements = steamAchievements;
 
         _syncthingTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
-        _syncthingTimer.Tick += (_, _) => UpdateSyncthingStatus();
+        _syncthingTimer.Tick += (_, _) =>
+        {
+            using var __meter = HandheldLauncher.Core.Services.Power.ActivityMeter.Measure("syncthing");
+            UpdateSyncthingStatus();
+        };
         _syncthingTimer.Start();
 
         var _savedSettingsForIgdb = HandheldLauncher.Core.Services.AppSettingsStore.Load();
@@ -193,9 +201,22 @@ public sealed class MainViewModel : ViewModelBase
             // v0.18.3: leitura de CPU fora da thread da tela; se a anterior
             // ainda não terminou, pula este tick.
             if (_hardwareReadInFlight) return;
+            // v0.28 (bateria): os sensores (LibreHardwareMonitor) eram lidos a cada 2 s para sempre,
+            // mesmo com o launcher escondido. Rápido só com o launcher na frente ou o HUD ligado;
+            // no resto, a cada 10 s (o alerta de temperatura continua valendo).
+            _hardwareTicks++;
+            var fast = (_hud?.Preset ?? 0) > 0 || (SensorsFastCheck?.Invoke() ?? true);
+            if (!fast && _hardwareTicks % 5 != 0) return;
             _hardwareReadInFlight = true;
             float? temp;
-            try { temp = await Task.Run(() => _monitorService.GetCpuTemperature()); }
+            try
+            {
+                temp = await Task.Run(() =>
+                {
+                    using var __meter = HandheldLauncher.Core.Services.Power.ActivityMeter.Measure("sensores (temperatura)");
+                    return _monitorService.GetCpuTemperature();
+                });
+            }
             catch (Exception ex) { DebugLog.Swallowed(ex); temp = null; }
             finally { _hardwareReadInFlight = false; }
 
@@ -213,6 +234,7 @@ public sealed class MainViewModel : ViewModelBase
 
             // v0.20 — Watts CPU/GPU via HWiNFO Shared Memory. ExtractMetrics
             // faz matching por hint + bounds; HUD só atualiza quando muda.
+            using var __meter = HandheldLauncher.Core.Services.Power.ActivityMeter.Measure("sensores (HWiNFO)");
             if (_hwInfoService.TryRead(out var hwInfo) && hwInfo is not null)
             {
                 _hwInfoWasAvailable = true;
@@ -1662,7 +1684,14 @@ public bool CanOpenSelectedDetails => SelectedTile?.Game is { } game && HasGameD
     private async Task RefreshActiveDownloadsCoreAsync()
     {
         IReadOnlyList<DownloadProgressInfo> downloads;
-        try { downloads = await Task.Run(() => _library.GetActiveDownloads()); }
+        try
+        {
+            downloads = await Task.Run(() =>
+            {
+                using var __meter = HandheldLauncher.Core.Services.Power.ActivityMeter.Measure("downloads");
+                return _library.GetActiveDownloads();
+            });
+        }
         catch (Exception ex) { DebugLog.Swallowed(ex); _downloadsScanInFlight = false; return; }
         _downloadsScanInFlight = false;
 

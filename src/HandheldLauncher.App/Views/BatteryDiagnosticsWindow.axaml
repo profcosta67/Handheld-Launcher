@@ -1,0 +1,40 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="HandheldLauncher.App.Views.BatteryDiagnosticsWindow"
+        Title="Diagnóstico de bateria"
+        Width="760" Height="620"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        Topmost="True"
+        Background="{DynamicResource PanelSurfaceDeepBrush}">
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="24">
+
+    <StackPanel Grid.Row="0" Spacing="6" Margin="0,0,0,12">
+      <TextBlock Text="Diagnóstico de bateria" FontSize="{DynamicResource TextDisplay}" FontWeight="Bold"
+                 Foreground="{DynamicResource TextPrimaryBrush}"/>
+      <TextBlock Text="O que gastou a bateria, quanto o próprio launcher gastou e se o tempo restante bate com o real. Conta só o tempo fora da tomada."
+                 Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+    </StackPanel>
+
+    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="10" Margin="0,0,0,12">
+      <Button x:Name="BtnHour" Classes="pill categoryTab" Content="Última hora" Click="OnPeriodClick" Tag="1" Height="40" Padding="16,0"/>
+      <Button x:Name="BtnDay" Classes="pill categoryTab" Content="24 horas" Click="OnPeriodClick" Tag="24" Height="40" Padding="16,0"/>
+      <Button x:Name="BtnThreeDays" Classes="pill categoryTab" Content="3 dias" Click="OnPeriodClick" Tag="72" Height="40" Padding="16,0"/>
+    </StackPanel>
+
+    <ScrollViewer Grid.Row="2" x:Name="Scroll" VerticalScrollBarVisibility="Auto">
+      <StackPanel x:Name="Host" Spacing="12"/>
+    </ScrollViewer>
+
+    <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,16,0,0">
+      <TextBlock Grid.Column="0" Text="🎮 ↑↓: rolar | A: escolher | LB/RB: período | B: fechar"
+                 VerticalAlignment="Center" Foreground="#8794AE" FontSize="{DynamicResource TextCaption}" TextWrapping="Wrap"/>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12">
+        <Button Content="Atualizar" Click="OnRefreshClick" Classes="pill" Height="44" Padding="18,0"/>
+        <Button Content="Fechar" Click="OnCloseClick" Classes="pill primary" Height="44" Padding="24,0" FontWeight="Bold"/>
+      </StackPanel>
+    </Grid>
+
+  </Grid>
+</Window>

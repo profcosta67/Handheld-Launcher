@@ -46,6 +46,8 @@ internal sealed class OverlayHotkeyWatcher : IDisposable
         {
             try
             {
+                using var __meter = HandheldLauncher.Core.Services.Power.ActivityMeter.Measure(
+                    _observeOnly ? "observador L3+R3 (diagnóstico)" : "atalho L3+R3");
                 for (uint slot = 0; slot < 4; slot++)
                 {
                     if (!XInput.TryGetState(slot, out var state))

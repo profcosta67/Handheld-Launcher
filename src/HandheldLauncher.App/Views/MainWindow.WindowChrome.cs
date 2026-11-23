@@ -99,6 +99,7 @@ public partial class MainWindow : Window
         var attempts = 0;
         _foregroundFighterTimer.Tick += (_, _) =>
         {
+            using var __meter = HandheldLauncher.Core.Services.Power.ActivityMeter.Measure("janela na frente");
             attempts++;
 
             if (!IsVisible) { _foregroundFighterTimer?.Stop(); return; }
@@ -132,6 +133,7 @@ public partial class MainWindow : Window
         _topmostEnforcerTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         _topmostEnforcerTimer.Tick += (_, _) =>
         {
+            using var __meter = HandheldLauncher.Core.Services.Power.ActivityMeter.Measure("janela por cima");
             if (!IsVisible) return;
             if (WindowState == WindowState.Minimized) return;
             if (_activeDialog != null) return;

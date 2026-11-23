@@ -172,6 +172,7 @@ public partial class MainWindow : Window
 
         // 18/11: "🧩 Componentes" fecha a Central e abre aqui (ver HelpCenterWindow).
         if (dialog.ComponentsRequested) await OpenComponentsDialogAsync();
+        else if (dialog.BatteryRequested) await OpenBatteryDiagnosticsDialogAsync();
     }
 
     // v0.18 "Saúde do aparelho" / "Gerenciador de armazenamento": mesmo
@@ -185,6 +186,21 @@ public partial class MainWindow : Window
         var dialog = new DeviceHealthWindow(vm) { Topmost = true };
         _activeDialog = dialog;
         try { await dialog.ShowDialog(this); } finally { _activeDialog = null; }
+        if (dialog.BatteryRequested) await OpenBatteryDiagnosticsDialogAsync();
+    }
+
+    /// <summary>v0.28: diagnóstico de bateria (Central de Ajuda e Saúde do aparelho).</summary>
+    public async Task OpenBatteryDiagnosticsDialogAsync()
+    {
+        var dialog = new BatteryDiagnosticsWindow { Topmost = true };
+        _activeDialog = dialog;
+        try
+        {
+            ThemeManager.ApplyFont(dialog, AppSettingsStore.Load().UiFont);
+            await dialog.ShowDialog(this);
+        }
+        catch (Exception ex) { DebugLog.Write($"[BATERIA] Falha ao abrir a tela: {ex.Message}"); }
+        finally { _activeDialog = null; }
     }
 
     private async Task OpenStorageManagerDialogAsync(MainViewModel vm)

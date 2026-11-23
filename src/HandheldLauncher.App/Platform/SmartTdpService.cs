@@ -143,6 +143,7 @@ internal sealed class SmartTdpService : IDisposable
 
     private void Tick()
     {
+        using var __meter = HandheldLauncher.Core.Services.Power.ActivityMeter.Measure("TDP inteligente");
         var tickStart = Environment.TickCount64; // antes de ler as configurações
 
         // O pedido de "resetar aprendizado" é consumido aqui, com ou sem sessão: só vale para a
