@@ -193,13 +193,15 @@ public sealed class MainViewModel : ViewModelBase
         SetFilterNotInstalledCommand = new RelayCommand(() => SetFilter(LibraryFilter.NotInstalled));
         SetFilterCloudCommand = new RelayCommand(() => SetFilter(LibraryFilter.Cloud));
 
-        _ = Task.Run(() => EnsureHwInfoRunning());
+        _hwInfoOnlyWithHud = OperatingSystem.IsWindows() && AppSettingsStore.Load().HwInfoOnlyWithHud;
+        if (!_hwInfoOnlyWithHud) _ = Task.Run(() => EnsureHwInfoRunning());
 
                 _hardwareTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         _hardwareTimer.Tick += async (_, _) =>
         {
             // v0.18.3: leitura de CPU fora da thread da tela; se a anterior
             // ainda não terminou, pula este tick.
+            SyncHwInfoWithHud();
             if (_hardwareReadInFlight) return;
             // v0.28 (bateria): os sensores (LibreHardwareMonitor) eram lidos a cada 2 s para sempre,
             // mesmo com o launcher escondido. Rápido só com o launcher na frente ou o HUD ligado;
@@ -360,6 +362,51 @@ public sealed class MainViewModel : ViewModelBase
     private static bool NeedsDownload(string? path)
         => string.IsNullOrEmpty(path) || !File.Exists(path);
 
+    // v0.28 (bateria): HWiNFO só com o HUD ligado (ver AppSettings.HwInfoOnlyWithHud).
+    private bool _hwInfoOnlyWithHud;
+    private bool _hwInfoWanted;
+    private DateTime? _hudOffSince;
+    private volatile int _hwInfoPidStartedByUs;
+    private static readonly TimeSpan HwInfoCloseAfterHudOff = TimeSpan.FromMinutes(1);
+
+    private void SyncHwInfoWithHud()
+    {
+        if (!_hwInfoOnlyWithHud) return;
+        var hudOn = (_hud?.Preset ?? 0) > 0;
+        if (hudOn)
+        {
+            _hudOffSince = null;
+            if (_hwInfoWanted) return;
+            _hwInfoWanted = true;
+            _ = Task.Run(() => EnsureHwInfoRunning());
+        }
+        else if (_hwInfoWanted)
+        {
+            _hudOffSince ??= DateTime.UtcNow;
+            if (DateTime.UtcNow - _hudOffSince.Value < HwInfoCloseAfterHudOff) return;
+            _hwInfoWanted = false;
+            _hudOffSince = null;
+            _ = Task.Run(CloseHwInfoIfOurs);
+        }
+    }
+
+    /// <summary>Fecha o HWiNFO só se foi o launcher que abriu (o do usuário fica).</summary>
+    private void CloseHwInfoIfOurs()
+    {
+        var pid = _hwInfoPidStartedByUs;
+        if (pid == 0) return;
+        _hwInfoPidStartedByUs = 0;
+        try
+        {
+            using var p = Process.GetProcessById(pid);
+            if (!p.ProcessName.StartsWith("HWiNFO", StringComparison.OrdinalIgnoreCase)) return;
+            p.Kill();
+            DebugLog.Write("[HWiNFO] Fechado (HUD desligado) — economiza bateria.");
+        }
+        catch (ArgumentException) { /* já tinha fechado */ }
+        catch (Exception ex) { DebugLog.Write($"[HWiNFO] Não consegui fechar: {ex.Message}"); }
+    }
+
     private void EnsureHwInfoRunning()
     {
         try
@@ -391,6 +438,15 @@ public sealed class MainViewModel : ViewModelBase
                 return;
             }
 
+            var running = Process.GetProcessesByName("HWiNFO64");
+            var alreadyOpen = running.Length > 0;
+            foreach (var r in running) r.Dispose();
+            if (_hwInfoOnlyWithHud && alreadyOpen)
+            {
+                DebugLog.Write("[HWiNFO] Já estava aberto (pelo usuário) — usando esse, sem abrir outro.");
+                return;
+            }
+
             DebugLog.Write($"[HWiNFO] Iniciando em segundo plano: {exePath}");
             var psi = new ProcessStartInfo
             {
@@ -398,7 +454,8 @@ public sealed class MainViewModel : ViewModelBase
                 WindowStyle = ProcessWindowStyle.Minimized,
                 WorkingDirectory = Path.GetDirectoryName(exePath) ?? AppDomain.CurrentDomain.BaseDirectory
             };
-            Process.Start(psi);
+            using var started = Process.Start(psi);
+            if (started is not null) _hwInfoPidStartedByUs = started.Id;
         }
         catch (Exception ex) { DebugLog.Write($"[HWiNFO] Erro ao tentar iniciar: {ex.Message}"); }
     }
@@ -406,6 +463,7 @@ public sealed class MainViewModel : ViewModelBase
         public void Dispose()
     {
         _hardwareTimer?.Stop();
+        if (_hwInfoOnlyWithHud) CloseHwInfoIfOurs();
         _healthCheckTimer?.Stop();
         _syncthingTimer?.Stop(); 
         _monitorService.Dispose();

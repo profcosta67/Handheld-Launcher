@@ -455,9 +455,12 @@ public partial class MainWindow : Window
             DebugLog.Write("[OVERLAY] Detector de L3+R3: GameInputHelper (jogo rodando).");
 
             _inGameXInputObserver?.Dispose();
-            _inGameXInputObserver = new OverlayHotkeyWatcher(
-                () => DebugLog.Write("[DIAG] XInput viu L3+R3 com o jogo rodando (só observação — overlay NÃO foi aberto por este detector)."),
-                observeOnly: true);
+            _inGameXInputObserver = null;
+            // v0.28: só diagnóstico (não abre nada) e gasta bateria durante o jogo — desligado por padrão
+            if (AppSettingsStore.Load().LogXInputDuringGame)
+                _inGameXInputObserver = new OverlayHotkeyWatcher(
+                    () => DebugLog.Write("[DIAG] XInput viu L3+R3 com o jogo rodando (só observação — overlay NÃO foi aberto por este detector)."),
+                    observeOnly: true);
         }
         else
         {

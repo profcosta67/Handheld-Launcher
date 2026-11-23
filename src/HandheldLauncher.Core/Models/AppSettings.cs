@@ -3,6 +3,15 @@ namespace HandheldLauncher.Core.Models;
 public class AppSettings
 {
     public bool HwInfoDisabled { get; set; }
+
+    // v0.28 (bateria): o HWiNFO fica lendo sensores sem parar. Só é aberto com o HUD ligado
+    // (é dele que vêm os watts de CPU/GPU do HUD) e fechado 1 min depois do HUD desligar —
+    // só se foi o launcher que abriu. false = comportamento antigo (sempre aberto).
+    public bool HwInfoOnlyWithHud { get; set; } = true;
+
+    // v0.28 (bateria): leitor extra do controle durante o jogo que só anota no log o que vê
+    // (diagnóstico do L3+R3, não abre nada). Desligado por padrão; ligar só para investigar.
+    public bool LogXInputDuringGame { get; set; }
       // 🟢 NOVO: Substitui o FreezeGameOnOverlay e o GameModeEnabled
     public bool IsolateControllerOnOverlay { get; set; } = true;
 
