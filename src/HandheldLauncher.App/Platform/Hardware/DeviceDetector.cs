@@ -8,9 +8,17 @@ public static class DeviceDetector
 {
     // v0.28 (abertura): o aparelho não muda com o launcher aberto; a consulta ao WMI era feita
     // 2–3 vezes na abertura (hardware, QS, ...). Agora uma vez só.
-    private static readonly Lazy<DeviceProfile> Cached = new(DetectUncached, isThreadSafe: true);
+    // Só guarda um aparelho reconhecido: se o WMI falhou na abertura (perfil genérico), a próxima
+    // consulta tenta de novo, como antes.
+    private static volatile DeviceProfile? _cached;
 
-    public static DeviceProfile Detect() => Cached.Value;
+    public static DeviceProfile Detect()
+    {
+        if (_cached is { } c) return c;
+        var p = DetectUncached();
+        if (!string.Equals(p.Id, "generic", StringComparison.OrdinalIgnoreCase)) _cached = p;
+        return p;
+    }
 
     private static DeviceProfile DetectUncached()
     {

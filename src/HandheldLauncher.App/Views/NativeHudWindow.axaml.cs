@@ -50,8 +50,9 @@ public partial class NativeHudWindow : Window
                 FontWeight = FontWeight.SemiBold,
                 Foreground = DefaultBrush,
             };
+            block.Inlines ??= new InlineCollection();
             foreach (var run in line)
-                block.Inlines!.Add(new Run(run.Text) { Foreground = BrushFor(run.Color) });
+                block.Inlines.Add(new Run(run.Text) { Foreground = BrushFor(run.Color) });
             Lines.Children.Add(block);
         }
         KeepOnTop();

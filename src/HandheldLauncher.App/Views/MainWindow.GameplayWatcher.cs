@@ -508,7 +508,7 @@ private void SetAddButtonFocused(bool focused)
         {
             vm.BatteryStatusText = BatteryStatus.GetDisplayText();
             vm.ClockText = DateTime.Now.ToString("HH:mm");
-            NoteBatteryForAnimations(BatteryDiagnostics.LastSample is { } last ? !last.OnAc : null);
+            NoteBatteryForAnimations(BatteryStatus.TryRead() is { } bs ? !bs.OnAc : null);
         };
         _batteryTimer.Start();
         Closed += (_, _) => _batteryTimer?.Stop();

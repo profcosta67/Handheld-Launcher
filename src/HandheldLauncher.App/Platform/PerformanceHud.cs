@@ -13,8 +13,9 @@ public sealed class PerformanceHud : IDisposable
     private readonly NativeHudSurface _native = new();
     private readonly string _renderer;
     private readonly bool _ownFps;
-    private bool _etwHeld;
-    private bool _rtssShowing;
+    private volatile bool _etwHeld;
+    // começa "sim": se um launcher anterior caiu com texto no RTSS, a primeira passada limpa
+    private bool _rtssShowing = true;
     private static readonly int OwnPid = Environment.ProcessId;
     private readonly Thread _thread;
     private volatile bool _stop;
@@ -155,11 +156,19 @@ public sealed class PerformanceHud : IDisposable
             if (onScreen) _native.Show(text); else _native.Hide();
             return true;
         }
-        _native.Hide();
         bool ok;
         lock (_rtss) ok = _rtss.WriteOsd(text);
         _rtssShowing = ok;
-        return ok;
+        if (ok) { _native.Hide(); return true; }
+        // "auto" em tela cheia exclusiva sem RTSS: tenta a janela do launcher mesmo assim — muitos
+        // jogos "tela cheia" do Windows 10/11 ainda deixam janelas por cima.
+        if (_renderer is not ("rtss" or "launcher") && GameOnScreen(GetForegroundProcessId()))
+        {
+            _native.Show(text);
+            return true;
+        }
+        _native.Hide();
+        return false;
     }
 
     /// <summary>FPS: o do RTSS quando ele mede o jogo; senão, a medição própria (DirectX 9–12).</summary>
@@ -175,11 +184,19 @@ public sealed class PerformanceHud : IDisposable
 
     private void HoldOwnFps(bool want)
     {
-        want &= _ownFps;
+        want &= _ownFps && !_stop;
         if (want == _etwHeld) return;
-        _etwHeld = want;
-        if (want) EtwFrameCounter.Shared.Acquire("hud");
-        else EtwFrameCounter.Shared.Release("hud");
+        if (want)
+        {
+            // não ligou (ex.: sessão antiga ainda fechando): solta e tenta de novo no próximo segundo
+            if (EtwFrameCounter.Shared.Acquire("hud")) _etwHeld = true;
+            else EtwFrameCounter.Shared.Release("hud");
+        }
+        else
+        {
+            _etwHeld = false;
+            EtwFrameCounter.Shared.Release("hud");
+        }
     }
 
     private void Tick()
@@ -189,14 +206,22 @@ public sealed class PerformanceHud : IDisposable
         {
             var preset = _preset;
             var notice = CurrentNotice();
+            if (preset == 0 && notice is null)
+            {
+                // HUD desligado e sem aviso: nada a consultar
+                HoldOwnFps(false);
+                if (_isShowing) ClearNow();
+                Status = "desligado";
+                return;
+            }
             var native = UseNative();
             var pid = GetForegroundProcessId();
             var onScreen = native && GameOnScreen(pid);
-            HoldOwnFps(preset > 0 && native);
+            // medição própria só com jogo aberto pelo launcher (fora dele ficaria contando tudo à toa)
+            HoldOwnFps(preset > 0 && native && GameSessionInfo.DetectedGamePid > 0);
             if (preset == 0)
             {
                 // HUD desligado: o aviso aparece sozinho, pelo tempo dele, e some.
-                if (notice is null) { if (_isShowing) ClearNow(); Status = "desligado"; return; }
                 if (Present($"<C=C6B5FF>{notice}<C>", native, onScreen)) _isShowing = true;
                 Status = "desligado";
                 return;
@@ -262,7 +287,16 @@ public sealed class PerformanceHud : IDisposable
         catch { return 0; }
     }
 
-    public void Dispose() { _stop = true; ClearNow(); HoldOwnFps(false); _native.Dispose(); _rtss.Dispose(); _metrics?.Dispose(); }
+    public void Dispose()
+    {
+        _stop = true;
+        try { _thread.Join(1500); } catch (Exception ex) { DebugLog.Swallowed(ex); }   // a passada em andamento termina antes
+        ClearNow();
+        HoldOwnFps(false);
+        _native.Dispose();
+        lock (_rtss) _rtss.Dispose();
+        _metrics?.Dispose();
+    }
 }
 
 internal static class HudFormatter
