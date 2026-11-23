@@ -10,6 +10,12 @@ public sealed class PerformanceHud : IDisposable
     public static readonly string[] PresetNames = ["Desligado", "Resumido", "Médio", "Completo"];
 
     private readonly RtssSharedMemory _rtss = new();
+    private readonly NativeHudSurface _native = new();
+    private readonly string _renderer;
+    private readonly bool _ownFps;
+    private bool _etwHeld;
+    private bool _rtssShowing;
+    private static readonly int OwnPid = Environment.ProcessId;
     private readonly Thread _thread;
     private volatile bool _stop;
     private SystemMetrics? _metrics;
@@ -94,6 +100,10 @@ public sealed class PerformanceHud : IDisposable
     public PerformanceHud(int preset)
     {
         _preset = Math.Clamp(preset, 0, PresetNames.Length - 1);
+        var settings = HandheldLauncher.Core.Services.AppSettingsStore.Load();
+        _renderer = (settings.HudRenderer ?? "auto").Trim().ToLowerInvariant();
+        _ownFps = settings.OwnFpsMeter;
+        DebugLog.Write($"[HUD] Desenho do HUD: {_renderer} (auto = launcher; RTSS só em tela cheia exclusiva).");
         _thread = new Thread(Run) { IsBackground = true, Name = "PerformanceHud", Priority = ThreadPriority.AboveNormal };
         _thread.Start();
     }
@@ -110,7 +120,66 @@ public sealed class PerformanceHud : IDisposable
 
     public void ClearNow()
     {
-        try { lock (_rtss) _rtss.ClearOsd(); _isShowing = false; } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
+        try { lock (_rtss) _rtss.ClearOsd(); _isShowing = false; _rtssShowing = false; } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
+        try { _native.Hide(); } catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
+    }
+
+    /// <summary>
+    /// v0.28: true = o launcher desenha; false = o RTSS. No "auto" só o jogo em tela cheia
+    /// exclusiva vai para o RTSS (nada desenha por cima dele).
+    /// </summary>
+    private bool UseNative() => _renderer switch
+    {
+        "rtss" => false,
+        "launcher" => true,
+        _ => !NativeHudSurface.IsExclusiveFullscreen(),
+    };
+
+    /// <summary>
+    /// A janela do launcher só aparece com jogo na frente: o HUD do RTSS só existia dentro do
+    /// jogo, e um HUD por cima da área de trabalho ou do próprio launcher seria estranho.
+    /// </summary>
+    private static bool GameOnScreen(int foregroundPid)
+    {
+        if (foregroundPid == 0 || foregroundPid == OwnPid) return false;
+        if (GameSessionInfo.DetectedGamePid is var g && g > 0 && g == foregroundPid) return true;
+        return NativeHudSurface.ForegroundCoversScreen();
+    }
+
+    /// <summary>Escreve no desenho escolhido e apaga o outro (para nunca aparecerem dois).</summary>
+    private bool Present(string text, bool native, bool onScreen)
+    {
+        if (native)
+        {
+            if (_rtssShowing) { lock (_rtss) _rtss.ClearOsd(); _rtssShowing = false; }
+            if (onScreen) _native.Show(text); else _native.Hide();
+            return true;
+        }
+        _native.Hide();
+        bool ok;
+        lock (_rtss) ok = _rtss.WriteOsd(text);
+        _rtssShowing = ok;
+        return ok;
+    }
+
+    /// <summary>FPS: o do RTSS quando ele mede o jogo; senão, a medição própria (DirectX 9–12).</summary>
+    private FrameStats? ReadFrames(int pid)
+    {
+        FrameStats? frames;
+        lock (_rtss) frames = _rtss.ReadFrameStats(pid);
+        if (frames is not null || !_etwHeld || pid == 0) return frames;
+        return EtwFrameCounter.Shared.TryGetFps(pid) is { } fps && fps >= 1
+            ? new FrameStats(fps, 1000.0 / fps, pid)
+            : null;
+    }
+
+    private void HoldOwnFps(bool want)
+    {
+        want &= _ownFps;
+        if (want == _etwHeld) return;
+        _etwHeld = want;
+        if (want) EtwFrameCounter.Shared.Acquire("hud");
+        else EtwFrameCounter.Shared.Release("hud");
     }
 
     private void Tick()
@@ -120,11 +189,15 @@ public sealed class PerformanceHud : IDisposable
         {
             var preset = _preset;
             var notice = CurrentNotice();
+            var native = UseNative();
+            var pid = GetForegroundProcessId();
+            var onScreen = native && GameOnScreen(pid);
+            HoldOwnFps(preset > 0 && native);
             if (preset == 0)
             {
                 // HUD desligado: o aviso aparece sozinho, pelo tempo dele, e some.
                 if (notice is null) { if (_isShowing) ClearNow(); Status = "desligado"; return; }
-                lock (_rtss) { if (_rtss.WriteOsd($"<C=C6B5FF>{notice}<C>")) _isShowing = true; }
+                if (Present($"<C=C6B5FF>{notice}<C>", native, onScreen)) _isShowing = true;
                 Status = "desligado";
                 return;
             }
@@ -135,24 +208,20 @@ public sealed class PerformanceHud : IDisposable
             _blinkTick++;
             var recIndicator = (IsRecording && (_blinkTick % 2 == 0)) ? "[ REC ]" : "";
 
-            bool written;
-            lock (_rtss)
-            {
-                var frames = _rtss.ReadFrameStats(GetForegroundProcessId());
-                if (frames is { } f) { _frameTimeHistory.Enqueue(f.FrameTimeMs); while (_frameTimeHistory.Count > FrameTimeHistorySize) _frameTimeHistory.Dequeue(); }
-                else _frameTimeHistory.Clear();
+            var frames = ReadFrames(pid);
+            if (frames is { } f) { _frameTimeHistory.Enqueue(f.FrameTimeMs); while (_frameTimeHistory.Count > FrameTimeHistorySize) _frameTimeHistory.Dequeue(); }
+            else _frameTimeHistory.Clear();
 
-                var text = HudFormatter.Format(
-                    preset, frames, metrics, _frameTimeHistory,
-                    CpuTemperature, GetResolutionInfo(),
-                    TdpStatusText, RealTdpText, recIndicator, ColorModeText,
-                    RealGpuWatts);
-                // v0.27: aviso curto logo abaixo do HUD (ex.: "Modo inteligente aplicado").
-                if (notice is not null) text += $"\n<C=C6B5FF>{notice}<C>";
-                written = _rtss.WriteOsd(text);
-            }
+            var text = HudFormatter.Format(
+                preset, frames, metrics, _frameTimeHistory,
+                CpuTemperature, GetResolutionInfo(),
+                TdpStatusText, RealTdpText, recIndicator, ColorModeText,
+                RealGpuWatts);
+            // v0.27: aviso curto logo abaixo do HUD (ex.: "Modo inteligente aplicado").
+            if (notice is not null) text += $"\n<C=C6B5FF>{notice}<C>";
+            var written = Present(text, native, onScreen);
 
-            if (written) { _isShowing = true; Status = "ativo"; }
+            if (written) { _isShowing = true; Status = native ? (onScreen ? "ativo (launcher)" : "aguardando jogo") : "ativo (RTSS)"; }
             else { Status = _rtss.LastError ?? "RTSS indisponível"; LogOnce(Status); }
         }
         catch (Exception ex) { Status = "erro: " + ex.Message; LogOnce(ex.ToString()); }
@@ -193,7 +262,7 @@ public sealed class PerformanceHud : IDisposable
         catch { return 0; }
     }
 
-    public void Dispose() { _stop = true; ClearNow(); _rtss.Dispose(); _metrics?.Dispose(); }
+    public void Dispose() { _stop = true; ClearNow(); HoldOwnFps(false); _native.Dispose(); _rtss.Dispose(); _metrics?.Dispose(); }
 }
 
 internal static class HudFormatter

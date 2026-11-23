@@ -141,7 +141,7 @@ internal static class SystemComponents
         var winget = HasWinget();
         return new Status(Kind.Rtss, name, State.Missing,
             winget
-                ? "Não instalado — é ele que mede o FPS (HUD e TDP inteligente)."
+                ? "Não instalado — opcional: o launcher já mede o FPS e desenha o HUD (DirectX). O RTSS serve para o limite de FPS, jogos Vulkan/OpenGL e tela cheia exclusiva."
                 : "Não instalado, e o winget do Windows não está disponível para instalar automaticamente.",
             winget);
     }

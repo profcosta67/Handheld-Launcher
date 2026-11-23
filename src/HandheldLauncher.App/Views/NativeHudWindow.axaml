@@ -1,0 +1,21 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="HandheldLauncher.App.Views.NativeHudWindow"
+        Title="Handheld Launcher — HUD"
+        SizeToContent="WidthAndHeight"
+        SystemDecorations="None"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        CanResize="False">
+
+  <!-- Fundo escuro translúcido para ler sobre qualquer cena; texto com as cores do HUD do RTSS -->
+  <Border x:Name="Box"
+          Background="#A6000000"
+          CornerRadius="8"
+          Padding="10,5">
+    <StackPanel x:Name="Lines" Spacing="2"/>
+  </Border>
+</Window>

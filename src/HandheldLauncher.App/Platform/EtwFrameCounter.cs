@@ -126,6 +126,31 @@ internal sealed class EtwFrameCounter : IDisposable
         }
     }
 
+    // v0.28: dois usuários (TDP inteligente e HUD do launcher). Liga com o primeiro e desliga
+    // quando o último sai — um não desliga a medição do outro.
+    private readonly HashSet<string> _owners = new(StringComparer.Ordinal);
+    private readonly object _ownersGate = new();
+
+    /// <summary>Liga a medição em nome de <paramref name="owner"/>. false = não deu.</summary>
+    public bool Acquire(string owner)
+    {
+        lock (_ownersGate)
+        {
+            _owners.Add(owner);
+            return Start();
+        }
+    }
+
+    /// <summary>Solta a medição de <paramref name="owner"/>; desliga se ninguém mais usa.</summary>
+    public void Release(string owner)
+    {
+        lock (_ownersGate)
+        {
+            if (!_owners.Remove(owner)) return;
+            if (_owners.Count == 0) Stop();
+        }
+    }
+
     public void Dispose() => Stop();
 
     // ===================================================================== sessão ETW

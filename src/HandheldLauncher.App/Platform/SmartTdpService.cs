@@ -239,7 +239,7 @@ internal sealed class SmartTdpService : IDisposable
             DebugLog.Write($"[TDP-AUTO] Sessão iniciada: '{game.Title}', meta {target} FPS{(SmartTdpTargetStore.Shared.Get(game.Id) is null ? " (padrão)" : " (deste jogo)")}, janela {min}–{max} W, TDP do usuário = {userMode}, início em {start} W ({origin}), controle {(string.Equals(_settings.SmartTdpEngine, "v1", StringComparison.OrdinalIgnoreCase) ? "v1" : "v2")}.");
 
             // 22/11: medição própria de FPS (ETW) — vale quando o RTSS não mede o jogo.
-            if (_settings.OwnFpsMeter) EtwFrameCounter.Shared.Start();
+            if (_settings.OwnFpsMeter) EtwFrameCounter.Shared.Acquire("tdp");
 
             // Aplica já, sem esperar o jogo aparecer: o carregamento não fica preso no perfil
             // baixo do usuário e o painel/HUD mostram na hora que o modo inteligente assumiu.
@@ -801,7 +801,7 @@ internal sealed class SmartTdpService : IDisposable
         if (s is null) return;
         _session = null;
         if (OperatingSystem.IsWindows()) RestoreFpsLimit(s, null, why);
-        EtwFrameCounter.Shared.Stop();
+        EtwFrameCounter.Shared.Release("tdp");
         GameSessionInfo.SmartTdpWatts = 0;
         GameSessionInfo.SmartTdpPossibleFps = 0;
 

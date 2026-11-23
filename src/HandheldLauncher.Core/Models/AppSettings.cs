@@ -12,6 +12,12 @@ public class AppSettings
     // v0.28 (bateria): leitor extra do controle durante o jogo que só anota no log o que vê
     // (diagnóstico do L3+R3, não abre nada). Desligado por padrão; ligar só para investigar.
     public bool LogXInputDuringGame { get; set; }
+
+    // v0.28 (pedido do usuário: tirar a dependência do RTSS): quem desenha o HUD.
+    // "auto" = o launcher desenha (janela por cima do jogo, FPS medido pelo launcher); jogo em
+    // tela cheia exclusiva usa o RTSS, se estiver instalado. "launcher" = sempre o launcher.
+    // "rtss" = como antes (só o RTSS).
+    public string HudRenderer { get; set; } = "auto";
       // 🟢 NOVO: Substitui o FreezeGameOnOverlay e o GameModeEnabled
     public bool IsolateControllerOnOverlay { get; set; } = true;
 
