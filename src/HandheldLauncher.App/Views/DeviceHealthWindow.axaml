@@ -128,10 +128,14 @@
       </StackPanel>
     </ScrollViewer>
 
-    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,16,0,0">
-      <Button Classes="pill" Content="🔋 Diagnóstico de bateria" Click="OnBatteryClick" />
-      <Button Classes="pill" Content="Atualizar" Click="OnRefreshClick" />
-      <Button Classes="pill" Content="Fechar" Click="OnCloseClick" />
-    </StackPanel>
+    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,16,0,0">
+      <TextBlock Grid.Column="0" Text="🎮 ↑↓: rolar | ←→: botões | A: escolher | B: fechar"
+                 VerticalAlignment="Center" Foreground="#8794AE" FontSize="{DynamicResource TextCaption}" TextWrapping="Wrap"/>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">
+        <Button x:Name="BtnBattery" Classes="pill" Content="🔋 Diagnóstico de bateria" Click="OnBatteryClick" />
+        <Button x:Name="BtnRefresh" Classes="pill" Content="Atualizar" Click="OnRefreshClick" />
+        <Button x:Name="BtnClose" Classes="pill" Content="Fechar" Click="OnCloseClick" />
+      </StackPanel>
+    </Grid>
   </Grid>
 </Window>

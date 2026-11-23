@@ -85,9 +85,30 @@ public partial class DeviceHealthWindow : Window
                 var maxOffset = Math.Max(0, ContentScroll.Extent.Height - ContentScroll.Viewport.Height);
                 ContentScroll.Offset = new Vector(ContentScroll.Offset.X, Math.Min(maxOffset, ContentScroll.Offset.Y + GamepadScrollStepPx));
                 return true;
+            // v0.28 (relato do usuário: os botões de baixo só respondiam ao toque): ←/→ andam entre
+            // os botões do rodapé; A aciona o que está em foco (navegador genérico).
+            case GamepadAction.MoveLeft:
+            case GamepadAction.MoveRight:
+                MoveFooterFocus(action == GamepadAction.MoveRight ? 1 : -1);
+                return true;
             default:
                 return false;
         }
+    }
+
+    private void MoveFooterFocus(int dir)
+    {
+        var buttons = new[] { BtnBattery, BtnRefresh, BtnClose };
+        var current = Array.FindIndex(buttons, b => b.IsFocused);
+        var next = current < 0 ? (dir > 0 ? 0 : buttons.Length - 1) : Math.Clamp(current + dir, 0, buttons.Length - 1);
+        buttons[next].Focus();
+    }
+
+    protected override void OnOpened(EventArgs e)
+    {
+        base.OnOpened(e);
+        // foco no primeiro botão: A já funciona sem precisar do toque
+        BtnBattery.Focus();
     }
 
     private void RefreshAll()
