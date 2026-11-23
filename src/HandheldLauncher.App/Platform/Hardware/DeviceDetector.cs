@@ -6,7 +6,13 @@ namespace HandheldLauncher.App.Platform.Hardware;
 
 public static class DeviceDetector
 {
-    public static DeviceProfile Detect()
+    // v0.28 (abertura): o aparelho não muda com o launcher aberto; a consulta ao WMI era feita
+    // 2–3 vezes na abertura (hardware, QS, ...). Agora uma vez só.
+    private static readonly Lazy<DeviceProfile> Cached = new(DetectUncached, isThreadSafe: true);
+
+    public static DeviceProfile Detect() => Cached.Value;
+
+    private static DeviceProfile DetectUncached()
     {
         // Fase 2 Linux: no Linux a identificação do aparelho vem do DMI
         // (/sys/class/dmi/id), não do WMI.

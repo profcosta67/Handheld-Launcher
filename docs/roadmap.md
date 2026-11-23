@@ -60,7 +60,7 @@ estável ainda.
 | Marco | Situação | O que falta |
 |---|---|---|
 | 0.27 TDP inteligente | **Estável na 0.27.0 (22/11).** v2 com banco fixo de 18 cenários no build; limite de FPS na meta (opcional); medição de FPS própria (DirectX, confere com o RTSS) | Validar a v2 em mais jogos; limites tomada/bateria no meio do jogo; restaurar o TDP se o launcher reiniciar com jogo aberto |
-| 0.28 Otimização | Fatias 1–3 (UiSafe, linha do tempo da abertura, OverlayWindow dividido) | Abertura de ~8 s → 3 s; MainViewModel e GameplayWatcher; catch vazios / async void / Thread.Sleep; vigia que abre segunda instância; log do PawnIO; faxina de branches |
+| 0.28 Otimização | Fatias 1–3; **beta.75–76:** diagnóstico de bateria, economias (XInput, sensores, HWiNFO só com HUD, log, diário, animações na bateria), HUD do próprio launcher (RTSS opcional), arquivos gigantes divididos, log do PawnIO enxuto | Abertura ~5 s → 3 s (HidHide na abertura ~0,9 s); números da bateria pelo log do usuário; apagar branches já mescladas (aguarda ok) |
 | 0.29 Receitas por jogo | Só o começo: meta e TDP aprendidos por jogo; limitador de FPS (era "a avaliar") feito na 0.27 | Receita completa (TDP, ventoinha, resolução, Lossless, HUD), criar/editar, aplicar/restaurar, dock |
 | 0.30 Hardware e primeira execução | PawnIO e HidHide instalados sozinhos; tela Componentes (RTSS pelo winget); controle do Legion acordado sem o Legion Space (depois do login; antes do login em teste) | Lossless confiável; ajudante privilegiado (sair do admin); assistente de primeira execução; Ally |
 | 0.31 Diário e bateria | Quase todo na beta.67: diário, Desempenho, autonomia, recomendação 30/60/120, desgaste da bateria | Conferir watts e telas no aparelho (prints) |

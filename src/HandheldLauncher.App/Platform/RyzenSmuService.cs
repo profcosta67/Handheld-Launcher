@@ -35,6 +35,8 @@ public sealed class RyzenSmuService : IDisposable
 
     public bool IsInitialized => _initialized;
 
+    private static volatile bool _cpuLogged;
+
     private static bool TryGetSupportedCpuModel(out uint model)
     {
         model = 0;
@@ -64,6 +66,8 @@ public sealed class RyzenSmuService : IDisposable
                 _ => "não mapeado"
             };
 
+            if (_cpuLogged) return supported;   // v0.28: log uma vez só (era repetido a cada consulta)
+            _cpuLogged = true;
             DebugLog.Write($"[PawnIO] CPUID leaf 1: EAX=0x{signature:X8}; family=0x{family:X}; model=0x{model:X}; plataforma={platform}.");
             DebugLog.Write(supported
                 ? "[PawnIO] CPU mapeada pelo módulo oficial; provider permitido."
@@ -82,10 +86,15 @@ public sealed class RyzenSmuService : IDisposable
     /// Se for um Ryzen Mobile Zen 4, nós permitimos. O próprio SMU da AMD 
     /// vai rejeitar comandos absurdos, não precisamos restringir por modelo de notebook.
     /// </summary>
+    // v0.28 (abertura): a consulta ao WMI (~150 ms) rodava 3 vezes na abertura. O aparelho não
+    // muda; guarda o "sim" (um "não" por falha passageira do WMI pode ser refeito).
+    private static volatile bool _platformConfirmed;
+
     public static bool IsSupportedPlatform()
     {
         if (!OperatingSystem.IsWindows())
             return false;
+        if (_platformConfirmed) return true;
 
         try
         {
@@ -100,6 +109,7 @@ public sealed class RyzenSmuService : IDisposable
                 // Se for Lenovo, libera (cobre o Legion Go).
                 // Se for outro fabricante, mas a CPU passou no teste (Zen 4 Mobile), também deixamos passar.
                 DebugLog.Write($"[PawnIO] Plataforma DMI: fabricante='{manufacturer}', modelo='{model}'. Permissão de fabricante: {(isLenovo ? "Lenovo (OK)" : "Outro (Aceitando via CPUID)")}.");
+                _platformConfirmed = true;
                 return true; 
             }
             DebugLog.Write("[PawnIO] WMI não retornou Win32_ComputerSystem; assumindo bloqueio.");
