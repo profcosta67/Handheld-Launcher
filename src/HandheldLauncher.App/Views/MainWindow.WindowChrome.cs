@@ -220,6 +220,7 @@ public partial class MainWindow : Window
         {
             if (DataContext is not MainViewModel vm || vm.RunningGame is null) return;
             if (_gameWatcherTicks < 60) return;                   // jogo pode ainda estar abrindo
+            if (!IsDirectlyLaunchedGame(vm.RunningGame)) return;  // loja/emulador: sem processo para conferir
             if (vm.LaunchedProcessId > 0) return;                 // processo do jogo ainda vivo
             var (found, _, _, _) = FindGameWindow(vm.RunningGame);
             if (found) return;                                    // janela do jogo na tela

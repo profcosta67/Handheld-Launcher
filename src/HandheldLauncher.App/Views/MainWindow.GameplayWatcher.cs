@@ -236,10 +236,11 @@ private void SetAddButtonFocused(bool focused)
         // launcher abriu o próprio .exe do jogo (port, atalho), é por ele que se acha a janela — o nome
         // do jogo ("Ocarina of Time") nem sempre está no título ("Ship of Harkinian") e o "maior .exe da
         // pasta" pode ser outro programa. Emulador fica de fora: a janela dele existe sem o jogo.
-        var ownExe = !string.IsNullOrWhiteSpace(game.ExecutablePath)
-                     && !HandheldLauncher.Core.Services.ManualLaunchTarget.IsSwitchEmulator(game.ExecutablePath)
+        var ownExe = IsDirectlyLaunchedGame(game)
             ? Path.GetFileNameWithoutExtension(game.ExecutablePath)!.ToLowerInvariant()
             : null;
+        if (ownExe is not null && new[] { "unins", "crash", "launcher", "setup", "installer", "prereq" }.Any(b => ownExe.Contains(b)))
+            ownExe = null;   // .exe com cara de lançador: fica o jeito antigo (maior .exe da pasta)
         try
         {
             if (ownExe is not null) exeHint = ownExe;
@@ -326,6 +327,17 @@ private void SetAddButtonFocused(bool focused)
 
         return (found, foundHwnd, foundPid, exeHint);
     }
+
+    /// <summary>
+    /// 24/11: jogo que o launcher abre pelo próprio .exe e cujo processo é o jogo — ports e atalhos
+    /// manuais. Lojas (Epic, GOG, EA, Xbox) e emuladores ficam de fora: o .exe de lá pode ser só um
+    /// lançador, e a janela do emulador existe sem o jogo.
+    /// </summary>
+    internal static bool IsDirectlyLaunchedGame(GameEntry game) =>
+        !string.IsNullOrWhiteSpace(game.ExecutablePath)
+        && string.IsNullOrWhiteSpace(game.LaunchUri)
+        && (game.Source == GameSource.Manual || game.Id.StartsWith(HandheldLauncher.Core.Services.PortsLibraryScanner.IdPrefix, StringComparison.Ordinal))
+        && !HandheldLauncher.Core.Services.ManualLaunchTarget.IsSwitchEmulator(game.ExecutablePath);
 
     // v0.18 "Guardião de suspensão": chamado pelo SuspendGuardianService
     // quando o Windows acorda da suspensão. Se tinha jogo rodando, acha a
