@@ -66,6 +66,28 @@ public class PortsLibraryScannerTests : IDisposable
     }
 
     [Fact]
+    public void CategoryFoldersAreSearched()
+    {
+        Exe(@"Nintendo 64/Ship of Harkinian/soh.exe");
+        Exe(@"Nintendo 64/Perfect Dark/pd.x86_64.exe");
+        Exe(@"Sega/Sonic 3 AIR/Sonic3AIR.exe");
+        Exe(@"Doom/gzdoom.exe");
+        var games = Scan(out _);
+        Assert.Equal(4, games.Count);
+        Assert.Contains(games, g => g.Title == "Perfect Dark");
+        Assert.Contains(games, g => g.Title == "Sonic 3 & Knuckles");
+    }
+
+    [Fact]
+    public void BinFolderStaysOneGame()
+    {
+        Exe(@"My Port/bin/myport.exe");
+        Exe(@"My Port/x64/myport-x64.exe");
+        var g = Assert.Single(Scan(out _));
+        Assert.Equal("My Port", g.Title);
+    }
+
+    [Fact]
     public void FolderWithoutExeIsCounted()
     {
         Directory.CreateDirectory(Path.Combine(_root, "Empty"));

@@ -122,7 +122,7 @@ public sealed class PortsLibraryScanner : IStoreLibraryScanner
             if (!SafeDirExists(root)) { if (!autoDetected) missing++; continue; }
             scanned++;
             used.Add(root);
-            foreach (var gameDir in SafeSubdirs(root))
+            foreach (var gameDir in FindGameFolders(root))
             {
                 try
                 {
@@ -139,6 +139,67 @@ public sealed class PortsLibraryScanner : IStoreLibraryScanner
 
         report = new PortsScanReport(games.Count, scanned, missing, withoutExe, used, autoDetected);
         return games;
+    }
+
+    /// <summary>Até quantos níveis de pastas de categoria (ex.: Ports\N64\Zelda) a busca desce.</summary>
+    private const int MaxCategoryDepth = 3;
+
+    /// <summary>Pastas que costumam guardar o .exe dentro de um jogo — não são jogos separados.</summary>
+    private static readonly HashSet<string> BinaryFolderNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "bin", "bin64", "binaries", "x64", "x86", "x86_64", "win64", "win32", "windows", "build", "release",
+        "game", "app", "dist", "exe", "launcher", "runtime",
+    };
+
+    /// <summary>
+    /// 24/11 (pedido do usuário: "habilita também para buscar subpastas"): as pastas de jogo dentro
+    /// da raiz, aceitando pastas de categoria no meio (ex.: <c>C:\Ports\Nintendo 64\Ship of Harkinian</c>).
+    /// <list type="bullet">
+    /// <item>Pasta com .exe direto ou com <c>port.json</c> = um jogo.</item>
+    /// <item>Pasta sem .exe direto: se as subpastas com .exe são só do tipo "bin", "x64", "build"…,
+    /// ela é um jogo (o .exe está lá dentro); se não, é uma categoria e cada subpasta é olhada do
+    /// mesmo jeito (até <see cref="MaxCategoryDepth"/> níveis).</item>
+    /// </list>
+    /// </summary>
+    internal static IEnumerable<string> FindGameFolders(string root)
+    {
+        var result = new List<string>();
+        foreach (var child in SafeSubdirs(root)) Classify(child, 1, result);
+        return result;
+    }
+
+    private static void Classify(string dir, int level, List<string> into)
+    {
+        if (IsSkippedFolder(Path.GetFileName(dir))) return;
+        if (File.Exists(Path.Combine(dir, OverrideFileName)) || HasDirectGameExe(dir)) { into.Add(dir); return; }
+
+        var childrenWithExe = SafeSubdirs(dir).Where(c => !IsSkippedFolder(Path.GetFileName(c)) && HasExeWithin(c, MaxDepth)).ToList();
+        if (childrenWithExe.Count == 0) { into.Add(dir); return; }   // sem .exe: conta como "subpasta sem .exe"
+        if (level >= MaxCategoryDepth || childrenWithExe.All(c => BinaryFolderNames.Contains(Path.GetFileName(c))))
+        {
+            into.Add(dir);
+            return;
+        }
+        foreach (var child in childrenWithExe) Classify(child, level + 1, into);
+    }
+
+    private static bool IsSkippedFolder(string name) =>
+        name.StartsWith('.') || name.Equals("redist", StringComparison.OrdinalIgnoreCase)
+        || name.Equals("_CommonRedist", StringComparison.OrdinalIgnoreCase)
+        || name.Equals("tools", StringComparison.OrdinalIgnoreCase)
+        || name.Equals("mods", StringComparison.OrdinalIgnoreCase);
+
+    private static bool HasDirectGameExe(string dir)
+    {
+        try { return Directory.EnumerateFiles(dir, "*.exe").Any(f => !Excluded.IsMatch(Path.GetFileNameWithoutExtension(f))); }
+        catch { return false; }
+    }
+
+    private static bool HasExeWithin(string dir, int depth)
+    {
+        if (HasDirectGameExe(dir) || File.Exists(Path.Combine(dir, OverrideFileName))) return true;
+        if (depth <= 0) return false;
+        return SafeSubdirs(dir).Any(c => !IsSkippedFolder(Path.GetFileName(c)) && HasExeWithin(c, depth - 1));
     }
 
     /// <summary>Monta o jogo de uma subpasta, ou null se não achar um executável.</summary>
@@ -217,10 +278,7 @@ public sealed class PortsLibraryScanner : IStoreLibraryScanner
             {
                 var n = Path.GetFileName(sub);
                 // pastas que só têm ferramentas/dependências
-                if (n.StartsWith('.') || n.Equals("redist", StringComparison.OrdinalIgnoreCase)
-                    || n.Equals("_CommonRedist", StringComparison.OrdinalIgnoreCase)
-                    || n.Equals("tools", StringComparison.OrdinalIgnoreCase)
-                    || n.Equals("mods", StringComparison.OrdinalIgnoreCase)) continue;
+                if (IsSkippedFolder(n)) continue;
                 Collect(sub, depth + 1, into);
             }
         }
