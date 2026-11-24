@@ -81,10 +81,10 @@ public class PortsLibraryScannerTests : IDisposable
     [Fact]
     public void BinFolderStaysOneGame()
     {
-        Exe(@"My Port/bin/myport.exe");
-        Exe(@"My Port/x64/myport-x64.exe");
+        Exe(@"Cool Game/bin/coolgame.exe");
+        Exe(@"Cool Game/x64/coolgame-x64.exe");
         var g = Assert.Single(Scan(out _));
-        Assert.Equal("My Port", g.Title);
+        Assert.Equal("Cool Game", g.Title);
     }
 
     [Fact]
