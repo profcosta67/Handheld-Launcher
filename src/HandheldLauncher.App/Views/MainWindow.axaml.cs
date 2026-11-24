@@ -433,7 +433,9 @@ public partial class MainWindow : Window
             try
             {
                 DebugLog.Write($"[ENCERRAMENTO] Travou por 12 s (última etapa: {_shutdownStep}) — saindo à força para não prender a próxima abertura.");
-                try { hidHide.DeactivateForShutdown(); } catch (Exception ex) { DebugLog.Swallowed(ex); }
+                // o próprio travamento pode estar no driver: no máximo 2 s para desmascarar o controle
+                var unmask = System.Threading.Tasks.Task.Run(() => { try { hidHide.DeactivateForShutdown(); } catch (Exception ex) { DebugLog.Swallowed(ex); } });
+                unmask.Wait(TimeSpan.FromSeconds(2));
                 DebugLog.Flush();
             }
             catch { /* segue para a saída */ }
