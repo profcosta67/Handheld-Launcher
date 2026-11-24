@@ -242,15 +242,17 @@ public partial class MainWindow : Window
             }
         };
 
-        Closing += (_, _) => DebugLog.Write("[STARTUP] Fechamento detectado.");
+        Closing += (_, _) => { DebugLog.Write("[STARTUP] Fechamento detectado."); StartShutdownWatchdog(); };
 
         Closed += (_, _) =>
         {
+            ShutdownStep("janela fechada");
             _gamepadTimer.Stop();
             RemoveTrayIcon();
             try { InputBlockService.UnblockGamepadForGame(); }
             catch (Exception ex) { DebugLog.Write($"[InputBlock] Falha ao desbloquear gamepad no fechamento: {ex.Message}"); }
             
+            ShutdownStep("fechando o Quick Settings");
             if (_overlayWindow != null)
             {
                 _overlayWindow.IsAppClosing = true;
@@ -258,6 +260,7 @@ public partial class MainWindow : Window
             }
             
             UnregisterRestoreHotkeyIfNeeded();
+            ShutdownStep("janela principal liberada");
         };
 
         DataContextChanged += OnDataContextChanged;
@@ -330,6 +333,7 @@ public partial class MainWindow : Window
         SetGamepadComboDetectionForGame(gameRunning: false);
         Closed += (_, _) =>
         {
+            ShutdownStep("leitores do controle e ajudante");
             _overlayHotkeyWatcher?.Dispose();
             _overlayHotkeyWatcher = null;
             _inGameXInputObserver?.Dispose();
@@ -405,6 +409,40 @@ public partial class MainWindow : Window
     /// jogo). Vale quando o jogo fechou e o launcher ficou para trás — mesmo que o launcher ainda
     /// ache que o jogo está rodando, porque aí a janela da frente não é do jogo.
     /// </summary>
+    // ---- 24/11 (log do usuário: depois de um jogo travar, o launcher foi fechado e o processo ficou
+    // vivo sem janela, preso no encerramento — segurava a "instância única", então abrir de novo só
+    // avisava o processo preso e nada aparecia). Agora: cada etapa do encerramento vai para o log, e
+    // se ele travar por 12 s o processo sai à força (controle desmascarado antes), liberando a
+    // próxima abertura.
+    private static volatile string _shutdownStep = "início";
+    private static int _shutdownWatchdogStarted;
+
+    internal static void ShutdownStep(string step)
+    {
+        _shutdownStep = step;
+        DebugLog.Write($"[ENCERRAMENTO] {step}");
+    }
+
+    private void StartShutdownWatchdog()
+    {
+        if (Interlocked.Exchange(ref _shutdownWatchdogStarted, 1) == 1) return;
+        var hidHide = _hidHideService;
+        var t = new Thread(() =>
+        {
+            Thread.Sleep(TimeSpan.FromSeconds(12));
+            try
+            {
+                DebugLog.Write($"[ENCERRAMENTO] Travou por 12 s (última etapa: {_shutdownStep}) — saindo à força para não prender a próxima abertura.");
+                try { hidHide.DeactivateForShutdown(); } catch (Exception ex) { DebugLog.Swallowed(ex); }
+                DebugLog.Flush();
+            }
+            catch { /* segue para a saída */ }
+            try { Process.GetCurrentProcess().Kill(); } catch { Environment.Exit(1); }
+        })
+        { IsBackground = true, Name = "ShutdownWatchdog" };
+        t.Start();
+    }
+
     private void BringLauncherBackFromCombo()
     {
         try

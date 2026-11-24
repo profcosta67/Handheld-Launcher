@@ -61,6 +61,7 @@ public partial class MainWindow : Window
 
     private int _gameWindowMissingSeconds = 0;
 
+    private int _procDeadTicks;
     private int _gameWatcherTicks = 0;
 
     private bool _gameWatcherDiagnosticLogged = false;
@@ -446,9 +447,28 @@ private void SetAddButtonFocused(bool focused)
                     catch (ArgumentException) { procDead = true; }
                     catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
 
+                    // 24/11 (log: EA FC 27 abriu uma janela, o processo dela saiu e o jogo de verdade
+                    // continuou em outro processo — o launcher voltou por cima do jogo). Se outra janela
+                    // do jogo já está na tela, passa a acompanhar essa; senão espera 5 s antes de voltar.
+                    if (procDead && found && foundPid != 0 && foundPid != (uint)_detectedGamePid)
+                    {
+                        DebugLog.Write($"[JOGO-WATCHER] Processo {_detectedGamePid} saiu, mas o jogo continua no processo {foundPid} — acompanhando esse.");
+                        _detectedGamePid = (int)foundPid;
+                        if (foundHwnd != IntPtr.Zero) LosslessScalingService.SetGameHwnd(foundHwnd);
+                        _procDeadTicks = 0;
+                        procDead = false;
+                    }
+                    else if (procDead && ++_procDeadTicks < 5)
+                    {
+                        if (_procDeadTicks == 1) DebugLog.Write("[JOGO-WATCHER] Processo do jogo saiu — esperando 5 s por outra janela do jogo antes de voltar.");
+                        return;
+                    }
+                    if (!procDead) _procDeadTicks = 0;
+
                     if (procDead)
                     {
-                        DebugLog.Write($"[JOGO-WATCHER] Processo do jogo morreu — restaurando launcher imediatamente.");
+                        _procDeadTicks = 0;
+                        DebugLog.Write($"[JOGO-WATCHER] Processo do jogo morreu e nenhuma janela do jogo voltou — restaurando launcher.");
                         LosslessScalingService.SetGameHwnd(IntPtr.Zero);
                         vm.NotifyGameExitedExternally();
                         _gameWindowSeen = false;

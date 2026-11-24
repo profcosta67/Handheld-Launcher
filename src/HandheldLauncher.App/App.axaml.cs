@@ -122,7 +122,7 @@ public partial class App : Application
             {
                 var realHidHide = new HidHideService(new HidHideControlService());
                 realHidHide.Initialize();
-                desktop.Exit += (_, _) => realHidHide.Dispose();
+                desktop.Exit += (_, _) => { HandheldLauncher.App.Views.MainWindow.ShutdownStep("saída: HidHide"); realHidHide.Dispose(); };
                 hidHideService = realHidHide;
 
                 DebugLog.Write($"[HidHide] Disponível={realHidHide.IsAvailable}, pronto={realHidHide.IsReady} (elevado={ElevationService.IsElevated}) — {realHidHide.StatusDetail}.");
@@ -149,7 +149,7 @@ public partial class App : Application
             {
                 syncthingService.Start();
             }
-            desktop.Exit += (_, _) => syncthingService.Dispose();
+            desktop.Exit += (_, _) => { HandheldLauncher.App.Views.MainWindow.ShutdownStep("saída: Syncthing"); syncthingService.Dispose(); };
 
             PerformanceHud? performanceHud = null;
             if (OperatingSystem.IsWindows())
@@ -169,7 +169,7 @@ public partial class App : Application
                 }
 
                 performanceHud = new PerformanceHud(hudPreset);
-                desktop.Exit += (_, _) => performanceHud?.Dispose();
+                desktop.Exit += (_, _) => { HandheldLauncher.App.Views.MainWindow.ShutdownStep("saída: HUD"); performanceHud?.Dispose(); };
                 // 18/11: gravação em andamento é parada (e o arquivo fechado) quando o launcher sai.
                 desktop.Exit += (_, _) => HandheldLauncher.App.Platform.WindowsHardwareService.StopActiveRecordingForShutdown();
             }
@@ -192,7 +192,7 @@ public partial class App : Application
 
             HandheldLauncher.App.Diagnostics.StartupTimeline.Mark("serviços criados");
             var mainViewModel = new MainViewModel(libraryService, gameLauncher, artworkService, performanceOverlay, updateService, performanceHud, steamOwnedGamesClient, steamAchievementsClient, syncthingService);
-            desktop.Exit += (_, _) => mainViewModel.Dispose();
+            desktop.Exit += (_, _) => { HandheldLauncher.App.Views.MainWindow.ShutdownStep("saída: tela principal (dados)"); mainViewModel.Dispose(); };
             HandheldLauncher.App.Diagnostics.StartupTimeline.Mark("MainViewModel criado (lista de jogos montada)");
 
             // v0.31: diário de sessões (consumo, bateria e FPS por jogo). Só observa.
@@ -201,13 +201,13 @@ public partial class App : Application
             GameEnergyCache.Changed += () => Avalonia.Threading.Dispatcher.UIThread.Post(
                 () => mainViewModel.SelectedTile?.RefreshEnergy());
             GameEnergyCache.Reload();
-            desktop.Exit += (_, _) => sessionDiary.Dispose();
+            desktop.Exit += (_, _) => { HandheldLauncher.App.Views.MainWindow.ShutdownStep("saída: diário de sessões"); sessionDiary.Dispose(); };
 
             // v0.27: TDP inteligente (só age com a opção ligada e um jogo aberto).
             if (OperatingSystem.IsWindows())
             {
                 var smartTdp = new SmartTdpService(mainViewModel);
-                desktop.Exit += (_, _) => smartTdp.Dispose();
+                desktop.Exit += (_, _) => { HandheldLauncher.App.Views.MainWindow.ShutdownStep("saída: TDP inteligente"); smartTdp.Dispose(); };
             }
 
             var mainWindow = new MainWindow(mainViewModel, hidHideService, syncthingService)
