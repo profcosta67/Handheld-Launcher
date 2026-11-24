@@ -61,6 +61,15 @@ public sealed class SyncthingService : IDisposable
             _syncthingProcess = Process.Start(startInfo);
             if (_syncthingProcess != null)
             {
+                // 24/11 (relato: "salvando as modificações" na tela roxa e não saía): a saída do
+                // Syncthing era redirecionada e nunca lida. Quando o buffer do Windows enche — e
+                // criar/compartilhar uma pasta gera bastante log —, o Syncthing trava esperando
+                // alguém ler, e a interface fica presa. Agora a saída é lida o tempo todo; só avisos
+                // e erros vão para o nosso log.
+                _syncthingProcess.OutputDataReceived += (_, e) => NoteSyncthingLine(e.Data);
+                _syncthingProcess.ErrorDataReceived += (_, e) => NoteSyncthingLine(e.Data);
+                _syncthingProcess.BeginOutputReadLine();
+                _syncthingProcess.BeginErrorReadLine();
                 DebugLog.Write("[Syncthing] Processo iniciado em segundo plano.");
                 return true;
             }
@@ -117,6 +126,17 @@ public sealed class SyncthingService : IDisposable
         {
             return false;
         }
+    }
+
+    private static int _loggedLines;
+
+    private static void NoteSyncthingLine(string? line)
+    {
+        if (string.IsNullOrWhiteSpace(line)) return;
+        if (!(line.Contains("WARNING", StringComparison.Ordinal) || line.Contains("ERROR", StringComparison.Ordinal)
+              || line.Contains("WRN", StringComparison.Ordinal) || line.Contains("ERR", StringComparison.Ordinal))) return;
+        if (Interlocked.Increment(ref _loggedLines) > 200) return;   // não enche o log
+        DebugLog.Write($"[Syncthing] {line.Trim()}");
     }
 
     public void Stop()

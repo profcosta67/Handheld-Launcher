@@ -429,6 +429,7 @@ public partial class MainWindow : Window
                     return;
                 }
             }
+            EndStaleGameSession("View + Menu");
 
             DebugLog.Write("[VOLTAR] Trazendo o launcher para a frente.");
             RestoreFromTray();

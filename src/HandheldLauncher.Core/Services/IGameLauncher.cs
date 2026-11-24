@@ -11,6 +11,9 @@ public interface IGameLauncher
 
     void Launch(GameEntry game);
 
+    /// <summary>24/11: PID do processo aberto direto para o jogo, se ainda estiver rodando.</summary>
+    bool TryGetProcessId(string gameId, out int pid) { pid = 0; return false; }
+
     /// <summary>
     /// Forces a running game closed — the explicit "fechar jogo" action from
     /// the UI/controller, for when a game doesn't exit cleanly on its own

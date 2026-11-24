@@ -19,6 +19,17 @@ public sealed class GameLauncher : IGameLauncher
 
     public bool IsAnyGameRunning => _processByGameId.Values.Any(p => !HasExitedSafe(p));
 
+    /// <summary>
+    /// 24/11: PID do processo aberto direto pelo launcher para este jogo (ports, atalhos, emuladores),
+    /// se ainda estiver rodando. Steam/URI não têm processo próprio.
+    /// </summary>
+    public bool TryGetProcessId(string gameId, out int pid)
+    {
+        pid = 0;
+        if (!_processByGameId.TryGetValue(gameId, out var p) || HasExitedSafe(p)) return false;
+        try { pid = p.Id; return true; } catch { return false; }
+    }
+
     public void Launch(GameEntry game)
     {
         if (game.Source == GameSource.Steam && game.SteamAppId is { } appId)

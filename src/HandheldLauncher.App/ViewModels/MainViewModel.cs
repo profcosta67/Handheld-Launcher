@@ -1116,6 +1116,9 @@ public bool CanOpenSelectedDetails => SelectedTile?.Game is { } game && HasGameD
             RunningGame = null;
         }
     }    
+    /// <summary>24/11: PID do processo do jogo aberto direto pelo launcher (0 = não há / já saiu).</summary>
+    public int LaunchedProcessId => RunningGame is { } g && _launcher.TryGetProcessId(g.Id, out var pid) ? pid : 0;
+
         public void NotifyGameExitedExternally()
     {
         if (RunningGame is null) return;

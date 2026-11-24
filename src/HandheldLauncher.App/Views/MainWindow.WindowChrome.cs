@@ -209,6 +209,27 @@ public partial class MainWindow : Window
         _hotkeyRegistered = false;
     }
 
+    /// <summary>
+    /// 24/11 (relato: depois de fechar o jogo o launcher não voltava, nem abrindo de novo): o usuário
+    /// pediu o launcher e o jogo "em andamento" não tem janela na tela nem processo vivo — a sessão
+    /// ficou presa. Encerra para o launcher aparecer e o próximo jogo poder abrir.
+    /// </summary>
+    private void EndStaleGameSession(string why)
+    {
+        try
+        {
+            if (DataContext is not MainViewModel vm || vm.RunningGame is null) return;
+            if (_gameWatcherTicks < 60) return;                   // jogo pode ainda estar abrindo
+            if (vm.LaunchedProcessId > 0) return;                 // processo do jogo ainda vivo
+            var (found, _, _, _) = FindGameWindow(vm.RunningGame);
+            if (found) return;                                    // janela do jogo na tela
+            DebugLog.Write($"[JOGO] Sessão de '{vm.RunningGame.Title}' presa ({why}, sem janela nem processo) — encerrando.");
+            LosslessScalingService.SetGameHwnd(IntPtr.Zero);
+            vm.NotifyGameExitedExternally();
+        }
+        catch (Exception ex) { DebugLog.Swallowed(ex); }
+    }
+
     private const uint WmQueryEndSession = 0x0011;
     private const uint WmEndSession = 0x0016;
 
@@ -216,7 +237,7 @@ public partial class MainWindow : Window
     {
         if (msg == WmHotkey && wParam.ToInt32() == RestoreHotkeyId) { RestoreFromTray(); handled = true; }
         else if (msg == WmHotkey && wParam.ToInt32() == OverlayHotkeyId) { Dispatcher.UIThread.Post(() => ToggleOverlay()); handled = true; }
-        else if (msg == SingleInstance.RestoreMessageId) { RestoreFromTray(); handled = true; }
+        else if (msg == SingleInstance.RestoreMessageId) { EndStaleGameSession("o launcher foi aberto de novo"); RestoreFromTray(); handled = true; }
         // Windows vai desligar/reiniciar/sair da sessão: o controle não pode ficar mascarado para o
         // próximo boot (tela de login). Não marca "handled": o Windows segue com o encerramento.
         else if (msg == WmQueryEndSession || (msg == WmEndSession && wParam != IntPtr.Zero))

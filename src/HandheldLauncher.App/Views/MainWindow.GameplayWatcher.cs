@@ -156,13 +156,15 @@ private void SetAddButtonFocused(bool focused)
 
             var thisPopup = _launchPopup;
 
-            _launchPopupTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(90) };
+            // 24/11: 90 → 45 s — se a janela do jogo não for reconhecida, a tela de abertura não fica
+            // parada por cima do jogo por um minuto e meio
+            _launchPopupTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(45) };
             _launchPopupTimer.Tick += (_, _) =>
             {
                 _launchPopupTimer?.Stop();
 
                 bool isSame = ReferenceEquals(_launchPopup, thisPopup);
-                DebugLog.Write($"[POPUP] Timeout 90s disparado. isSame={isSame}, visible={_launchPopup?.IsVisible}, loaded={_launchPopup?.IsLoaded}");
+                DebugLog.Write($"[POPUP] Timeout 45s disparado. isSame={isSame}, visible={_launchPopup?.IsVisible}, loaded={_launchPopup?.IsLoaded}");
 
                 if (isSame && _launchPopup is not null)
                 {
@@ -184,7 +186,7 @@ private void SetAddButtonFocused(bool focused)
             };
             _launchPopupTimer.Start();
 
-            DebugLog.Write($"[POPUP] Aberto: '{title}' (watchdog 90s iniciado)");
+            DebugLog.Write($"[POPUP] Aberto: '{title}' (watchdog 45s iniciado)");
         }
         catch (Exception ex) { DebugLog.Write($"[POPUP] EXCEPTION: {ex.Message}"); }
     }  
@@ -230,9 +232,18 @@ private void SetAddButtonFocused(bool focused)
         var normalizedTarget = Normalize(gameTitle);
 
         var exeHint = string.Empty;
+        // 24/11 (relato: janela de abertura não fechava e o launcher não voltava com um port): quando o
+        // launcher abriu o próprio .exe do jogo (port, atalho), é por ele que se acha a janela — o nome
+        // do jogo ("Ocarina of Time") nem sempre está no título ("Ship of Harkinian") e o "maior .exe da
+        // pasta" pode ser outro programa. Emulador fica de fora: a janela dele existe sem o jogo.
+        var ownExe = !string.IsNullOrWhiteSpace(game.ExecutablePath)
+                     && !HandheldLauncher.Core.Services.ManualLaunchTarget.IsSwitchEmulator(game.ExecutablePath)
+            ? Path.GetFileNameWithoutExtension(game.ExecutablePath)!.ToLowerInvariant()
+            : null;
         try
         {
-            if (!string.IsNullOrEmpty(game.InstallDirectory) && Directory.Exists(game.InstallDirectory))
+            if (ownExe is not null) exeHint = ownExe;
+            else if (!string.IsNullOrEmpty(game.InstallDirectory) && Directory.Exists(game.InstallDirectory))
             {
                 var badNames = new[] { "unins", "crash", "report", "installer", "setup", "ubisoft", "upc", "connect", "launcher", "prereq", "vcredist", "directx", "vulkan", "dxsetup", "dotnet" };
 
@@ -278,6 +289,19 @@ private void SetAddButtonFocused(bool focused)
                 }
             }
             catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
+        }
+
+        // 24/11: janela do próprio processo que o launcher abriu (ports e atalhos diretos)
+        if (!found && ownExe is not null && DataContext is MainViewModel pidVm && pidVm.LaunchedProcessId is var launchedPid && launchedPid > 0)
+        {
+            foreach (var w in windows)
+            {
+                if (w.Pid != (uint)launchedPid) continue;
+                found = true;
+                foundHwnd = w.Hwnd;
+                foundPid = w.Pid;
+                break;
+            }
         }
 
         if (!found && !string.IsNullOrEmpty(exeHint))
