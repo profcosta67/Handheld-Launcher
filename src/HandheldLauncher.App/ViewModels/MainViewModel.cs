@@ -777,6 +777,8 @@ public bool CanOpenSelectedDetails => SelectedTile?.Game is { } game && HasGameD
                 // 18/11: jogos manuais de emulador de Switch (ex.: Ryujinx) também entram aqui.
                 SubFilters.Add(new SubFilterViewModel("Switch", "#FFFFFF", "#E4000F", g => g.Id.StartsWith("eden_", StringComparison.Ordinal)
                     || (g.Source == GameSource.Emulator && HandheldLauncher.Core.Services.ManualLaunchTarget.IsSwitchEmulator(g.ExecutablePath))));
+                // 24/11: ports (jogos de console refeitos para PC, pasta Ports)
+                SubFilters.Add(new SubFilterViewModel("Ports", "#FFB74D", "#2A1600", g => g.Id.StartsWith(HandheldLauncher.Core.Services.PortsLibraryScanner.IdPrefix, StringComparison.Ordinal)));
                 break;
         }
         OnPropertyChanged(nameof(HasSubFilters));

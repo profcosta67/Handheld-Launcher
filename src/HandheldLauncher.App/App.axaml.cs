@@ -84,7 +84,8 @@ public partial class App : Application
 
             var libraryService = new LibraryService(steamScanner, libraryStore, xboxFolderScanner, steamOwnedGamesClient,
                 [new EpicLibraryScanner(), new GogLibraryScanner(), new UbisoftLibraryScanner(), new EaLibraryScanner(),
-                 new EdenLibraryScanner(appSettings.EdenExecutablePath, appSettings.EdenRomFolders)]);
+                 new EdenLibraryScanner(appSettings.EdenExecutablePath, appSettings.EdenRomFolders),
+                 new PortsLibraryScanner(appSettings.PortsFolders)]);
             var gameLauncher = new GameLauncher();
 
             SteamGridDbClient.Log = HandheldLauncher.App.Diagnostics.DebugLog.Write;

@@ -162,6 +162,26 @@ public sealed class SettingsViewModel : ViewModelBase
         set => SetField(ref _edenRomFoldersText, value);
     }
 
+    private string _portsFoldersText = string.Empty;
+    /// <summary>24/11: pastas-raiz de ports, uma por linha (vazio = procura sozinho).</summary>
+    public string PortsFoldersText
+    {
+        get => _portsFoldersText;
+        set => SetField(ref _portsFoldersText, value);
+    }
+
+    private string _portsScanResultText = string.Empty;
+    public string PortsScanResultText
+    {
+        get => _portsScanResultText;
+        set
+        {
+            if (SetField(ref _portsScanResultText, value)) OnPropertyChanged(nameof(HasPortsScanResult));
+        }
+    }
+
+    public bool HasPortsScanResult => !string.IsNullOrWhiteSpace(_portsScanResultText);
+
     private string _edenScanResultText = string.Empty;
     public string EdenScanResultText
     {
@@ -666,6 +686,7 @@ public sealed class SettingsViewModel : ViewModelBase
         XboxScanFoldersText = string.Join(Environment.NewLine, settings.XboxScanFolders);
         EdenExecutablePath = settings.EdenExecutablePath ?? string.Empty;
         EdenRomFoldersText = string.Join(Environment.NewLine, settings.EdenRomFolders);
+        PortsFoldersText = string.Join(Environment.NewLine, settings.PortsFolders);
         IsHandheldMode = settings.KioskMode;
 
         SteamAccountText = detected is null
@@ -885,6 +906,9 @@ public sealed class SettingsViewModel : ViewModelBase
             .ToList();
         settings.EdenExecutablePath = string.IsNullOrWhiteSpace(EdenExecutablePath) ? null : EdenExecutablePath.Trim();
         settings.EdenRomFolders = EdenRomFoldersText
+            .Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .ToList();
+        settings.PortsFolders = PortsFoldersText
             .Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
             .ToList();
         settings.KioskMode = IsHandheldMode;

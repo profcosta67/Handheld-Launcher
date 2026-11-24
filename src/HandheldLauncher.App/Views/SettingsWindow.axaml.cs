@@ -729,6 +729,48 @@ public partial class SettingsWindow : Window, IGamepadKeyboardHost
         }
     }
 
+    // ---- Ports (24/11) ----
+    private void OnAddPortsFolderClick(object? sender, RoutedEventArgs e) =>
+        HandheldLauncher.App.Diagnostics.UiSafe.Run(OnAddPortsFolderClickCore, "OnAddPortsFolderClick");
+
+    private async Task OnAddPortsFolderClickCore()
+    {
+        try
+        {
+            var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = "Selecione a pasta dos ports (a que tem uma subpasta por jogo)",
+                AllowMultiple = false,
+            });
+            var path = folders.FirstOrDefault()?.TryGetLocalPath();
+            if (string.IsNullOrWhiteSpace(path)) return;
+            var existing = ViewModel.PortsFoldersText.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            if (existing.Contains(path, StringComparer.OrdinalIgnoreCase)) return;
+            ViewModel.PortsFoldersText = existing.Length == 0 ? path : string.Join(Environment.NewLine, existing.Append(path));
+        }
+        catch (Exception ex) { HandheldLauncher.App.Diagnostics.DebugLog.Write($"[PORTS] Falha ao escolher pasta: {ex.Message}"); }
+    }
+
+    private void OnTestPortsScanClick(object? sender, RoutedEventArgs e)
+    {
+        var folders = ViewModel.PortsFoldersText.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList();
+        try
+        {
+            var games = new PortsLibraryScanner(folders).ScanInstalledGames(out var report);
+            var parts = new List<string> { report.Games == 1 ? "1 jogo encontrado" : $"{report.Games} jogos encontrados" };
+            if (report.Games > 0) parts.Add(string.Join(", ", games.Take(6).Select(g => g.Title)) + (games.Count > 6 ? "…" : ""));
+            if (report.FoldersWithoutExe > 0) parts.Add(report.FoldersWithoutExe == 1 ? "1 subpasta sem .exe" : $"{report.FoldersWithoutExe} subpastas sem .exe");
+            if (report.FoldersMissing > 0) parts.Add(report.FoldersMissing == 1 ? "1 pasta da lista não existe" : $"{report.FoldersMissing} pastas da lista não existem");
+            if (report.AutoDetected)
+                parts.Add(report.RootsUsed.Count > 0 ? $"pasta achada sozinha: {string.Join(", ", report.RootsUsed)}" : "nenhuma pasta Ports achada sozinha — adicione a sua acima");
+            ViewModel.PortsScanResultText = string.Join(" · ", parts) + ".";
+        }
+        catch (Exception ex)
+        {
+            ViewModel.PortsScanResultText = $"Não deu pra escanear: {ex.Message}";
+        }
+    }
+
     private static string DescribeScan(EdenScanReport report)
     {
         if (!report.EdenExecutableFound) return "O eden.exe não foi encontrado no caminho acima — sem ele nenhum jogo é listado.";

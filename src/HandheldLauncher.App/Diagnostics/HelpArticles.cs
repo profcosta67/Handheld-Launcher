@@ -115,7 +115,7 @@ internal static class HelpArticles
         // ---------------- Emuladores ----------------
         new("componentes", "Instalação", "O TDP não muda / falta um componente", new[]
         {
-            "O launcher usa três programas de fora: o PawnIO (sem ele o TDP nunca é aplicado), o HidHide (isola o controle do jogo) e o RivaTuner Statistics Server, o RTSS (mede o FPS, desenha o HUD e é o que o TDP inteligente usa).",
+            "O launcher usa três programas de fora: o PawnIO (sem ele o TDP nunca é aplicado), o HidHide (isola o controle do jogo) e o RivaTuner Statistics Server, o RTSS (opcional desde a 0.28: o launcher já mede o FPS e desenha o HUD em jogos DirectX; o RTSS serve para o limite de FPS, jogos Vulkan/OpenGL e tela cheia exclusiva).",
             "Na Central de Ajuda, aperte \"🧩 Componentes\" para ver o estado de cada um e instalar o que falta.",
             "O PawnIO e o HidHide vêm no pacote e são instalados sozinhos ao abrir o launcher; os dois podem pedir um reinício do Windows para o driver valer.",
             "O RTSS não pode ser redistribuído junto com o launcher, então ele é instalado pelo winget do Windows, da fonte oficial, e só quando você aperta o botão.",
@@ -127,6 +127,15 @@ internal static class HelpArticles
             "Em Configurações → Biblioteca, informe onde está o executável do Eden e as pastas dos jogos (ROMs), e salve.",
             "Se as ROMs estão num cartão de memória ou disco externo, ele precisa estar conectado.",
             "A verificação \"Emulador Eden\" da Central de Ajuda aponta se algum desses caminhos não existe mais.",
+        }),
+
+        new("ports", "Emuladores", "Ports: como organizar e quando um jogo não aparece", new[]
+        {
+            "Port é um jogo de console refeito para PC pela comunidade (Ship of Harkinian, Super Mario 64, Perfect Dark, Sonic 3 A.I.R., OpenGOAL...). Cada um já é um programa: não precisa de emulador.",
+            "Organize assim: uma pasta raiz (ex.: D:\\Emuladores\\Ports) com uma subpasta por jogo, e o .exe do jogo dentro dela (pode estar numa subpasta, até 3 níveis).",
+            "Sem pasta informada em Configurações → Biblioteca → Ports, o launcher procura sozinho \\Ports, \\Port e \\Emuladores\\Ports em cada disco. Use \"Testar agora\" para ver o que ele achou.",
+            "Ele escolhe o .exe pelo nome do jogo conhecido ou pelo nome parecido com a pasta, e ignora desinstalador, instalador e ferramentas. Escolheu o errado? Crie um port.json na pasta do jogo: { \"nome\": \"Nome do jogo\", \"exe\": \"pasta\\\\jogo.exe\", \"args\": \"\" }.",
+            "Os ports aparecem na aba Emuladores, com o filtro \"Ports\" e o selo PT. Mudanças valem depois de reiniciar o launcher.",
         }),
 
         // ---------------- Ajuda ----------------

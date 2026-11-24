@@ -130,6 +130,10 @@ public class AppSettings
     public List<string> XboxScanFolders { get; set; } = new();
     public string EdenExecutablePath { get; set; } = string.Empty;
     public List<string> EdenRomFolders { get; set; } = new();
+
+    // Ports (24/11): pastas-raiz com uma subpasta por jogo (ver PortsLibraryScanner). Vazio =
+    // procura sozinho em \Ports, \Emuladores\Ports etc. de cada disco.
+    public List<string> PortsFolders { get; set; } = new();
     // v0.16.2: padrão Handheld (tela cheia) — pedido do usuário. Só vale
     // pra quem ainda não tem essa chave salva (instalação nova); quem já
     // escolheu Desktop/Handheld mantém a escolha. AutoRestart continua

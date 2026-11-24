@@ -66,6 +66,7 @@ public sealed class GameTileViewModel : ViewModelBase
     {
         GameSource.Steam => "STEAM", GameSource.EpicGames => "EPIC", GameSource.Gog => "GOG",
         GameSource.Ubisoft => "UBISOFT", GameSource.EaApp => "EA", GameSource.XboxApp => "XBOX",
+        GameSource.Emulator when IsPort => "PORT",
         GameSource.Emulator => "EMULADOR", GameSource.Manual => "ATALHO", _ => ""
     };
     public string InstallStatusLabel => Game.IsOwnedNotInstalled ? "NÃO INSTALADO" : "INSTALADO";
@@ -296,10 +297,14 @@ public sealed class GameTileViewModel : ViewModelBase
         catch (Exception swallowedEx) { HandheldLauncher.App.Diagnostics.DebugLog.Swallowed(swallowedEx); }
     }
 
+    /// <summary>24/11: jogo achado na pasta de ports (selo "PT").</summary>
+    public bool IsPort => Game.Id.StartsWith(HandheldLauncher.Core.Services.PortsLibraryScanner.IdPrefix, StringComparison.Ordinal);
+
     public string? PlatformBadgeText => Game.Source switch
     {
         GameSource.Steam => "S", GameSource.EpicGames => "E", GameSource.Gog => "G",
         GameSource.Ubisoft => "U", GameSource.EaApp => "EA", GameSource.XboxApp => "X",
+        GameSource.Emulator when IsPort => "PT",
         GameSource.Emulator => "SW", GameSource.Manual => "A", _ => null,
     };
     public bool HasPlatformBadge => PlatformBadgeText is not null;
@@ -308,6 +313,7 @@ public sealed class GameTileViewModel : ViewModelBase
     {
         GameSource.Steam => "#1B2838", GameSource.EpicGames => "#2A2A2A", GameSource.Gog => "#5C3A99",
         GameSource.Ubisoft => "#0070CC", GameSource.EaApp => "#C40C28", GameSource.XboxApp => "#107C10",
+        GameSource.Emulator when IsPort => "#E65100",
         GameSource.Emulator => "#C2185B", GameSource.Manual => "#5A5A5A", _ => "#000000",
     };
 

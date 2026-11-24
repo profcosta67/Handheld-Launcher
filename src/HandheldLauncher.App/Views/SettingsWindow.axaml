@@ -299,6 +299,23 @@
                 <TextBlock Text="Formatos: .nsp, .xci, .nsz, .xcz. DLCs são ignorados. Mudanças só valem após reiniciar o launcher." Classes="subtle" FontSize="{DynamicResource TextCaption}" TextWrapping="Wrap" />
               </StackPanel>
             </Border>
+
+            <Border Classes="settingsCard">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Ports (jogos de console refeitos para PC)" Classes="sectionTitle" />
+                <TextBlock Text="Uma pasta com uma subpasta por jogo (ex.: D:\Emuladores\Ports\Ship of Harkinian\soh.exe). O launcher acha o .exe e o nome de cada jogo sozinho."
+                           Classes="subtle" FontSize="{DynamicResource TextCaption}" TextWrapping="Wrap" />
+                <TextBlock Text="Pastas de ports (uma por linha; vazio = procurar sozinho em \Ports e \Emuladores\Ports de cada disco)" Classes="label" Margin="0,4,0,4" TextWrapping="Wrap" />
+                <TextBox Text="{Binding PortsFoldersText}" Watermark="D:\Emuladores\Ports" AcceptsReturn="True" Height="60" TextWrapping="Wrap" />
+                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,4">
+                  <Button Classes="pill" Content="+ Adicionar pasta…" Click="OnAddPortsFolderClick" />
+                  <Button Classes="pill" Content="Testar agora" Click="OnTestPortsScanClick" />
+                </StackPanel>
+                <TextBlock Text="{Binding PortsScanResultText}" IsVisible="{Binding HasPortsScanResult}" FontSize="{DynamicResource TextCaption}" TextWrapping="Wrap" Foreground="{DynamicResource AccentBrush}" />
+                <TextBlock Text="Escolheu o .exe errado? Crie um port.json na pasta do jogo: { &quot;nome&quot;: &quot;...&quot;, &quot;exe&quot;: &quot;pasta\\jogo.exe&quot;, &quot;args&quot;: &quot;...&quot; }. Mudanças só valem após reiniciar o launcher."
+                           Classes="subtle" FontSize="{DynamicResource TextCaption}" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
           </StackPanel>
 
           <!-- Geral -->

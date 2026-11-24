@@ -278,6 +278,7 @@ public sealed class GameDetailsViewModel : ViewModelBase
             GameSource.Gog => "GOG",
             GameSource.EaApp => "EA app",
             GameSource.Ubisoft => "Ubisoft Connect",
+            GameSource.Emulator when Game.Id.StartsWith(HandheldLauncher.Core.Services.PortsLibraryScanner.IdPrefix, StringComparison.Ordinal) => "Port (pasta de ports)",
             GameSource.Emulator => "Emulador",
             _ => "Adicionado manualmente",
         };
