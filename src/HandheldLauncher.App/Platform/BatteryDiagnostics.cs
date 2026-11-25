@@ -238,22 +238,54 @@ public static class BatteryDiagnostics
 
     private static Dictionary<int, TimeSpan> _threadCpuAtStart = new();
 
-    /// <summary>CPU de cada thread do launcher agora (id do Windows → tempo).</summary>
+    /// <summary>
+    /// CPU de cada thread do launcher agora (id do Windows → tempo). Direto no Windows
+    /// (OpenThread + GetThreadTimes): pelo ProcessThread do .NET a lista saiu vazia na beta.79.
+    /// </summary>
     private static Dictionary<int, TimeSpan> ReadThreadCpu()
     {
         var d = new Dictionary<int, TimeSpan>();
+        int[] ids;
         try
         {
             using var me = Process.GetCurrentProcess();
-            foreach (ProcessThread t in me.Threads)
-            {
-                try { d[t.Id] = t.TotalProcessorTime; } catch { /* thread acabou */ }
-                finally { t.Dispose(); }
-            }
+            ids = me.Threads.Cast<ProcessThread>().Select(t => { var id = t.Id; t.Dispose(); return id; }).ToArray();
         }
-        catch (Exception ex) { DebugLog.Swallowed(ex); }
+        catch (Exception ex)
+        {
+            if (!_threadErrorLogged) { _threadErrorLogged = true; DebugLog.Write($"[BATERIA] Não deu para listar as threads: {ex.Message}"); }
+            return d;
+        }
+        foreach (var id in ids)
+        {
+            var h = OpenThread(ThreadQueryLimitedInformation, false, (uint)id);
+            if (h == IntPtr.Zero) continue;
+            try
+            {
+                if (GetThreadTimes(h, out _, out _, out var kernel, out var user))
+                    d[id] = TimeSpan.FromTicks(kernel + user);
+            }
+            finally { CloseHandle(h); }
+        }
+        if (d.Count == 0 && !_threadErrorLogged)
+        {
+            _threadErrorLogged = true;
+            DebugLog.Write($"[BATERIA] Tempos das threads indisponíveis ({ids.Length} threads, erro {Marshal.GetLastWin32Error()}).");
+        }
         return d;
     }
+
+    private static bool _threadErrorLogged;
+    private const uint ThreadQueryLimitedInformation = 0x0800;
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr OpenThread(uint access, bool inherit, uint threadId);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetThreadTimes(IntPtr thread, out long creation, out long exit, out long kernel, out long user);
+
+    [DllImport("kernel32.dll")]
+    private static extern bool CloseHandle(IntPtr handle);
 
     private static string DescribeThreads(double seconds)
     {
