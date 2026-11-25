@@ -242,6 +242,7 @@ public partial class MainWindow : Window
             }
         };
 
+        ThreadNames.RegisterCurrent("tela (thread principal)");
         Closing += (_, _) => { DebugLog.Write("[STARTUP] Fechamento detectado."); StartShutdownWatchdog(); };
 
         Closed += (_, _) =>

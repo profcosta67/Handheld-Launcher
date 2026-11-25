@@ -42,6 +42,7 @@ internal sealed class OverlayHotkeyWatcher : IDisposable
 
     private void Run()
     {
+        HandheldLauncher.App.Diagnostics.ThreadNames.RegisterCurrent("atalho L3+R3");
         while (!_stop)
         {
             try

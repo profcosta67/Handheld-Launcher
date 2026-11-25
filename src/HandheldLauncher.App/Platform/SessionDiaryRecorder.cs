@@ -37,6 +37,7 @@ internal sealed class SessionDiaryRecorder : IDisposable
 
     private void Loop()
     {
+        HandheldLauncher.App.Diagnostics.ThreadNames.RegisterCurrent("diário de sessões");
         while (!_stop)
         {
             try { lock (_gate) { if (!_stop) Tick(); } }

@@ -29,6 +29,7 @@ internal sealed class ReturnToLauncherCombo : IDisposable
 
     private void Run()
     {
+        HandheldLauncher.App.Diagnostics.ThreadNames.RegisterCurrent("atalho View+Menu");
         while (!_stop)
         {
             try

@@ -46,6 +46,8 @@ public sealed partial class MainViewModel : ViewModelBase
     private bool _hwInfoWasAvailable;
     private DispatcherTimer? _hardwareTimer;
     private long _hardwareTicks;
+    private double? _hwInfoTempC;
+    private DateTime _hwInfoTempAt = DateTime.MinValue;
 
     /// <summary>v0.28: a tela informa se o launcher está na frente (sensores lidos a cada 2 s só então).</summary>
     public Func<bool>? SensorsFastCheck { get; set; }
@@ -209,8 +211,16 @@ public sealed partial class MainViewModel : ViewModelBase
             _hardwareTicks++;
             var fast = (_hud?.Preset ?? 0) > 0 || (SensorsFastCheck?.Invoke() ?? true);
             if (!fast && _hardwareTicks % 5 != 0) return;
+            float? temp = null;
+            // v0.28 (log de 24/11: "sensores (temperatura)" 600–1000 ms por minuto com o HUD ligado):
+            // com o HWiNFO aberto (HUD ligado), a temperatura vem dele — leitura de memória, quase de
+            // graça. O LibreHardwareMonitor fica para quando não há HWiNFO, e no máximo a cada 4 s.
+            var hwTempFresh = _hwInfoTempC is not null && DateTime.UtcNow - _hwInfoTempAt < TimeSpan.FromSeconds(10);
+            if (hwTempFresh) temp = (float)_hwInfoTempC!.Value;
+            else if (fast && _hardwareTicks % 2 != 0 && _hardwareTicks > 2) { /* LHM a cada 4 s */ }
+            else
+            {
             _hardwareReadInFlight = true;
-            float? temp;
             try
             {
                 temp = await Task.Run(() =>
@@ -221,6 +231,7 @@ public sealed partial class MainViewModel : ViewModelBase
             }
             catch (Exception ex) { DebugLog.Swallowed(ex); temp = null; }
             finally { _hardwareReadInFlight = false; }
+            }
 
             if (temp.HasValue && temp.Value > 0)
             {
@@ -245,6 +256,11 @@ public sealed partial class MainViewModel : ViewModelBase
                     _lastHwInfoPollTime = hwInfo.PollTime;
                     var metrics = HWiNFOSharedMemoryService.ExtractMetrics(hwInfo);
                     var changed = false;
+                    if (metrics.CpuTempC is { } hwTemp && hwTemp is > 0 and < 120)
+                    {
+                        _hwInfoTempC = hwTemp;
+                        _hwInfoTempAt = DateTime.UtcNow;
+                    }
 
                     if (metrics.CpuPackageWatts is { } cpuW)
                     {

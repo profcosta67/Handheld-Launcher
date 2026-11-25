@@ -97,6 +97,7 @@ public static class BatteryDiagnostics
 
     private static void Run()
     {
+        ThreadNames.RegisterCurrent("diagnóstico de bateria");
         // começa depois da abertura, que é o momento mais pesado do launcher
         if (_wake.WaitOne(TimeSpan.FromSeconds(20)) && _stop) return;
         Rebaseline(); // zera também o que a abertura acumulou
@@ -235,10 +236,42 @@ public static class BatteryDiagnostics
         }
     }
 
+    private static Dictionary<int, TimeSpan> _threadCpuAtStart = new();
+
+    /// <summary>CPU de cada thread do launcher agora (id do Windows → tempo).</summary>
+    private static Dictionary<int, TimeSpan> ReadThreadCpu()
+    {
+        var d = new Dictionary<int, TimeSpan>();
+        try
+        {
+            using var me = Process.GetCurrentProcess();
+            foreach (ProcessThread t in me.Threads)
+            {
+                try { d[t.Id] = t.TotalProcessorTime; } catch { /* thread acabou */ }
+                finally { t.Dispose(); }
+            }
+        }
+        catch (Exception ex) { DebugLog.Swallowed(ex); }
+        return d;
+    }
+
+    private static string DescribeThreads(double seconds)
+    {
+        var now = ReadThreadCpu();
+        var cores = Math.Max(1, Environment.ProcessorCount);
+        var top = now.Select(kv => (Id: kv.Key, Delta: kv.Value - _threadCpuAtStart.GetValueOrDefault(kv.Key)))
+            .Where(x => x.Delta > TimeSpan.Zero)
+            .OrderByDescending(x => x.Delta)
+            .Take(6)
+            .Select(x => $"{ThreadNames.Get(x.Id) ?? $"thread {x.Id}"} {x.Delta.TotalSeconds / (seconds * cores) * 100:0.00}%");
+        _threadCpuAtStart = now;
+        return string.Join(", ", top);
+    }
+
     private static void NoteForSummary(PowerSample s)
     {
         if (s.OnAc) { _summary.Clear(); _summaryStart = DateTime.MinValue; return; }
-        if (_summary.Count == 0) _summaryStart = s.Utc;
+        if (_summary.Count == 0) { _summaryStart = s.Utc; _threadCpuAtStart = ReadThreadCpu(); }
         _summary.Add(s);
         if (s.Utc - _summaryStart < LogSummaryEvery) return;
         try
@@ -247,6 +280,7 @@ public static class BatteryDiagnostics
             var states = string.Join(", ", r.ByState.Select(x => $"{x.State} {x.Minutes:0} min {x.AvgWatts:0.0} W"));
             var fx = string.Join(", ", r.Activities.Take(5).Select(a => $"{a.Name} {a.MsPerMinute:0} ms/min ({a.WakeupsPerMinute:0}x)"));
             var procs = string.Join(", ", r.TopProcesses.Take(6).Select(p => $"{p.Name} {p.CpuPercent:0.0}%"));
+            DebugLog.Write($"[BATERIA] Threads do launcher que mais gastaram: {DescribeThreads((s.Utc - _summaryStart).TotalSeconds + s.Seconds)}.");
             DebugLog.Write($"[BATERIA] {r.BatteryMinutes:0} min: média {r.AvgWatts:0.0} W ({states}); launcher {r.LauncherCpuPercent:0.00}% do processador — {fx}. Processos: {procs}. Restante: Windows {s.WindowsRemainingMinutes:0} min, launcher {s.OurRemainingMinutes:0} min.");
         }
         catch (Exception ex) { DebugLog.Swallowed(ex); }

@@ -112,7 +112,7 @@ public static class LosslessScalingService
     private static readonly TimeSpan MinimizeWatchTimeout = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan MinimizeSettleTime = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan GuardGrace = TimeSpan.FromSeconds(60);
-    private const int GuardPollMs = 1000;
+    private const int GuardPollMs = 3000;   // v0.28 (bateria): 1 s → 3 s
     private static int _guardRunning;
 
     /// <summary>
@@ -333,7 +333,12 @@ public static class LosslessScalingService
     /// <summary>True se o LosslessScaling.exe está rodando.</summary>
     public static bool IsLosslessRunning()
     {
-        try { return Process.GetProcessesByName("LosslessScaling").Length > 0; }
+        try
+        {
+            var list = Process.GetProcessesByName("LosslessScaling");
+            foreach (var p in list) p.Dispose();
+            return list.Length > 0;
+        }
         catch { return false; }
     }
 

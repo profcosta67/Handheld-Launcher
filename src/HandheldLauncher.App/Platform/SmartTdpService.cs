@@ -131,6 +131,7 @@ internal sealed class SmartTdpService : IDisposable
 
     private void Run()
     {
+        HandheldLauncher.App.Diagnostics.ThreadNames.RegisterCurrent("TDP inteligente");
         Thread.Sleep(TimeSpan.FromSeconds(8));
         try { PendingLimits.RestoreLeftovers(); } catch (Exception ex) { DebugLog.Swallowed(ex); }
         while (!_stop)

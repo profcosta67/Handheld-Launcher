@@ -209,6 +209,7 @@ internal sealed class EtwFrameCounter : IDisposable
         var handle = _traceHandle;
         _thread = new Thread(() =>
         {
+            HandheldLauncher.App.Diagnostics.ThreadNames.RegisterCurrent("medição de FPS própria (ETW)");
             try
             {
                 var handles = new[] { handle };
@@ -274,6 +275,9 @@ internal sealed class EtwFrameCounter : IDisposable
     /// <summary>Chamado pelo Windows a cada evento (thread do ProcessTrace). Precisa ser rápido.</summary>
     private void OnEvent(IntPtr record)
     {
+        // v0.28: o custo de cada evento entra no diagnóstico de bateria (todas as chamadas DXGI de
+        // todos os programas passam por aqui — é o suspeito do uso alto do launcher com jogo)
+        using var __meter = HandheldLauncher.Core.Services.Power.ActivityMeter.Measure("medição de FPS própria (eventos)");
         try
         {
             // EVENT_RECORD.EventHeader: ProcessId @12, ProviderId @24, EventDescriptor.Id @40.

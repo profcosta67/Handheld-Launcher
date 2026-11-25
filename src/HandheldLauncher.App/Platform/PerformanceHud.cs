@@ -111,6 +111,7 @@ public sealed class PerformanceHud : IDisposable
 
     private void Run()
     {
+        ThreadNames.RegisterCurrent("HUD");
         Thread.Sleep(TimeSpan.FromSeconds(2));
         while (!_stop) { Tick(); Thread.Sleep(TimeSpan.FromSeconds(1)); }
     }
@@ -172,10 +173,14 @@ public sealed class PerformanceHud : IDisposable
     }
 
     /// <summary>FPS: o do RTSS quando ele mede o jogo; senão, a medição própria (DirectX 9–12).</summary>
+    private int _rtssMissing;
+
     private FrameStats? ReadFrames(int pid)
     {
         FrameStats? frames;
         lock (_rtss) frames = _rtss.ReadFrameStats(pid);
+        // conta há quantos segundos o RTSS não mede o jogo (a medição própria só liga depois de 3 s)
+        _rtssMissing = frames is null ? Math.Min(_rtssMissing + 1, 1000) : 0;
         if (frames is not null || !_etwHeld || pid == 0) return frames;
         return EtwFrameCounter.Shared.TryGetFps(pid) is { } fps && fps >= 1
             ? new FrameStats(fps, 1000.0 / fps, pid)
@@ -218,7 +223,9 @@ public sealed class PerformanceHud : IDisposable
             var pid = GetForegroundProcessId();
             var onScreen = native && GameOnScreen(pid);
             // medição própria só com jogo aberto pelo launcher (fora dele ficaria contando tudo à toa)
-            HoldOwnFps(preset > 0 && native && GameSessionInfo.DetectedGamePid > 0);
+            // v0.28 (log de 24/11: launcher a 5% do processador com jogo): a medição própria só
+            // liga quando o RTSS não está medindo o jogo há 3 s — com o RTSS medindo, fica desligada.
+            HoldOwnFps(preset > 0 && native && GameSessionInfo.DetectedGamePid > 0 && _rtssMissing >= 3);
             if (preset == 0)
             {
                 // HUD desligado: o aviso aparece sozinho, pelo tempo dele, e some.
