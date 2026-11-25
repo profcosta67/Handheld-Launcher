@@ -411,6 +411,7 @@ private void SetAddButtonFocused(bool focused)
         _gameWatcherTicks = 0;
         _gameWatcherDiagnosticLogged = false;
         _detectedGamePid = 0;
+        _procDeadTicks = 0;
         _lastLoggedExeHint = string.Empty;
 
         DebugLog.Write("[JOGO-WATCHER] Iniciado.");
@@ -421,7 +422,7 @@ private void SetAddButtonFocused(bool focused)
             using var __meter = HandheldLauncher.Core.Services.Power.ActivityMeter.Measure("vigia do jogo");
             // 18/11: sem jogo, o PID detectado volta a 0 (antes ficava o do último jogo, e o pedido
             // HID ao controle achava que ainda havia jogo aberto).
-            if (vm.RunningGame is null) { _gameWindowSeen = false; _gameWindowMissingSeconds = 0; _gameWatcherTicks = 0; if (_detectedGamePid != 0) _detectedGamePid = 0; return; }
+            if (vm.RunningGame is null) { _gameWindowSeen = false; _gameWindowMissingSeconds = 0; _gameWatcherTicks = 0; _procDeadTicks = 0; if (_detectedGamePid != 0) _detectedGamePid = 0; return; }
             if (!OperatingSystem.IsWindows()) return;
             if (_activeDialog != null) { _gameWindowMissingSeconds = 0; return; }
 
