@@ -426,8 +426,8 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Etapa do encerramento que pode ficar presa no Windows (leitura do controle parada num
-    /// ReadFile, eventos do sistema): roda à parte e espera no máximo <paramref name="ms"/> ms.
+    /// Etapa do encerramento que pode ficar presa no Windows (eventos do sistema, threads de
+    /// leitura): roda à parte e espera no máximo <paramref name="ms"/> ms.
     /// Se não responder, segue o encerramento sem ela — o processo vai acabar de qualquer jeito.
     /// </summary>
     internal static void ShutdownStepBounded(string step, Action action, int ms = 1500)
