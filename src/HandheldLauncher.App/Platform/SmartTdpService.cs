@@ -465,7 +465,8 @@ internal sealed class SmartTdpService : IDisposable
             PerformanceHud.ShowNotice($"Meta de {s.TargetFps} FPS fora de alcance · segurando ~{s.Controller.EffectiveTargetFps} FPS");
         }
 
-        if (s.Controller.IsSettled && s.SavedWatts != s.Controller.Watts)
+        if (s.Controller.IsSettled && s.Controller.MetRealTarget && !s.Controller.TargetUnreachable
+            && s.SavedWatts != s.Controller.Watts)
         {
             s.SavedWatts = s.Controller.Watts;
             _store.Set(s.GameId, s.Title, s.SavedWatts, s.TargetFps);

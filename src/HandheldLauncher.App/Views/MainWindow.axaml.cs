@@ -340,6 +340,7 @@ public partial class MainWindow : Window
             _inGameXInputObserver?.Dispose();
             _inGameXInputObserver = null;
             GameInputHelper.StopHelperProcess();
+            ShutdownStep("leitores do controle e ajudante: ok");
         };
     }
 
@@ -422,6 +423,23 @@ public partial class MainWindow : Window
     {
         _shutdownStep = step;
         DebugLog.Write($"[ENCERRAMENTO] {step}");
+    }
+
+    /// <summary>
+    /// Etapa do encerramento que pode ficar presa no Windows (leitura do controle parada num
+    /// ReadFile, eventos do sistema): roda à parte e espera no máximo <paramref name="ms"/> ms.
+    /// Se não responder, segue o encerramento sem ela — o processo vai acabar de qualquer jeito.
+    /// </summary>
+    internal static void ShutdownStepBounded(string step, Action action, int ms = 1500)
+    {
+        ShutdownStep(step);
+        var task = System.Threading.Tasks.Task.Run(() =>
+        {
+            try { action(); }
+            catch (Exception ex) { DebugLog.Swallowed(ex); }
+        });
+        if (!task.Wait(ms))
+            DebugLog.Write($"[ENCERRAMENTO] '{step}' não respondeu em {ms} ms — seguindo sem esperar.");
     }
 
     private void StartShutdownWatchdog()
@@ -559,13 +577,13 @@ public partial class MainWindow : Window
             _overlayWindow?.ReapplyAfterSuspendResume();
             Dispatcher.UIThread.Post(RestoreGameFocusAfterResume);
         });
-        Closed += (_, _) => SuspendGuardianService.Stop();
+        Closed += (_, _) => ShutdownStepBounded("vigia da suspensão", SuspendGuardianService.Stop);
 
         // 0.27 beta.71: segurar View + Menu por 1 s traz o launcher para a frente.
         if (OperatingSystem.IsWindows())
         {
             var returnCombo = new ReturnToLauncherCombo(() => Dispatcher.UIThread.Post(BringLauncherBackFromCombo));
-            Closed += (_, _) => returnCombo.Dispose();
+            Closed += (_, _) => ShutdownStepBounded("atalho View + Menu", returnCombo.Dispose);
         }
 
         vm.AddGameRequested += (_, _) => _ = OpenAddGameDialogAsync(vm);
@@ -757,6 +775,7 @@ public partial class MainWindow : Window
                 {
                     DebugLog.Write("[JOGO] Jogo fechou — restaurando launcher.");
                     if (!IsVisible) RestoreFromTray();
+                    StartRenderCheckAfterGame();
                 }
             }
         };

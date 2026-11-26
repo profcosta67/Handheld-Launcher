@@ -279,6 +279,13 @@ public sealed class SmartTdpController : ISmartTdpController
     /// <summary>A meta não é alcançável agora: o controle segura <see cref="EffectiveTargetFps"/>.</summary>
     public bool TargetUnreachable => _unreachable;
 
+    /// <summary>
+    /// True quando a meta real (não a rebaixada de "fora de alcance") já se segurou nesta sessão.
+    /// Só assim um valor pode ser aprendido: o ZA com meta 70 "aprendeu" 10 W segurando ~20 FPS,
+    /// e a sessão seguinte começava sem potência.
+    /// </summary>
+    public bool MetRealTarget => _provenWatts is not null;
+
     /// <summary>FPS que o controle está segurando (a meta, ou o que o jogo consegue quando ela é inalcançável).</summary>
     public int EffectiveTargetFps => (int)Math.Round(_effectiveTarget);
 

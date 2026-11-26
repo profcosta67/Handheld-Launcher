@@ -85,7 +85,7 @@ public partial class MainWindow
         if (_hidPad is null)
         {
             _hidPad = new HidPadReader();
-            Closed += (_, _) => { _hidPad?.Dispose(); _hidPad = null; };
+            Closed += (_, _) => { var pad = _hidPad; _hidPad = null; if (pad is not null) ShutdownStepBounded("leitor HID do controle", pad.Dispose); };
         }
 
         if (!_hidPadArmed)

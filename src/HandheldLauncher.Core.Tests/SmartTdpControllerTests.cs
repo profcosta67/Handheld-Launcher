@@ -24,6 +24,25 @@ public class SmartTdpControllerTests
     }
 
     [Fact]
+    public void NeverCountsAsMetWhenTheRealTargetIsOutOfReach()
+    {
+        // Caso real (26/11, ZA com meta 70): o jogo fica em 20–30 FPS com qualquer potência.
+        // Nada disso pode virar valor aprendido para a meta de 70.
+        static double Game(int watts) => Math.Min(26.0, 26.0 * watts / 12);
+        var c = new SmartTdpController(70, 8, 35, 35);
+        for (var t = 0.0; t < 900; t += 2) c.OnSample(Game(c.Watts), t);
+        Assert.False(c.MetRealTarget);
+    }
+
+    [Fact]
+    public void CountsAsMetOnceTheRealTargetHolds()
+    {
+        var c = new SmartTdpController(60, 8, 35, 30);
+        Run(c, need: 18, target: 60, seconds: 600);
+        Assert.True(c.MetRealTarget);
+    }
+
+    [Fact]
     public void RisesQuicklyWhenTheGameDropsBelowTarget()
     {
         var c = new SmartTdpController(60, 8, 35, 10);

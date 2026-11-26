@@ -583,7 +583,7 @@ private void SetAddButtonFocused(bool focused)
                 || (WindowState != WindowState.Minimized && IsVisible && IsOurWindowInForeground());
             return new LauncherActivityState(front || qs ? PowerState.Launcher : PowerState.Background, null, qs);
         });
-        Closed += (_, _) => BatteryDiagnostics.Stop();
+        Closed += (_, _) => ShutdownStepBounded("diagnóstico de bateria", BatteryDiagnostics.Stop);
     }
 
 }
