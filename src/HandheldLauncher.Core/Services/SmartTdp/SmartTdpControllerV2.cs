@@ -110,6 +110,8 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
     public int TargetFps => _target;
     public bool IsSettled { get; private set; }
     public bool TargetUnreachable => _wall;
+    /// <summary>Ver <see cref="ISmartTdpController.MetRealTarget"/>: na parede o "estável" é do patamar, não da meta.</summary>
+    public bool MetRealTarget { get; private set; }
     public int EffectiveTargetFps => _wall ? (int)Math.Round(_plateau) : _target;
     public double UnreachableSinceSeconds => _wallSince;
     public int ProbeExtraWatts => _probe is null ? 0 : ProbeStepWatts;
@@ -355,6 +357,7 @@ public sealed class SmartTdpControllerV2 : ISmartTdpController
             }
             _okSince ??= now;
             if (now - _stableSince >= SettledAfterSeconds) IsSettled = true;
+            if (!_wall && fps >= _target * MeetRatio && now - _lastChange >= SettleSeconds) MetRealTarget = true;
             if (!_wall && fps >= _target * MeetRatio) _memKnee = null;   // a meta voltou a ser alcançável
 
             var reference = _wall ? _plateau : _target * MeetRatio;

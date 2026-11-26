@@ -16,6 +16,9 @@ public interface ISmartTdpController
 
     bool IsSettled { get; }
     bool TargetUnreachable { get; }
+
+    /// <summary>A meta real (não o patamar de "fora de alcance") já se segurou nesta sessão: só aí vale aprender.</summary>
+    bool MetRealTarget { get; }
     int EffectiveTargetFps { get; }
     double UnreachableSinceSeconds { get; }
 

@@ -35,6 +35,24 @@ public class SmartTdpControllerTests
     }
 
     [Fact]
+    public void V2NeverCountsAsMetOnTheWall()
+    {
+        static double Game(int watts) => Math.Min(26.0, 26.0 * watts / 12);
+        var c = new SmartTdpControllerV2(70, 8, 35, 35);
+        for (var t = 0.0; t < 900; t += 2) c.OnSample(Game(c.Watts), t);
+        Assert.True(c.TargetUnreachable);
+        Assert.False(c.MetRealTarget);
+    }
+
+    [Fact]
+    public void V2CountsAsMetOnceTheRealTargetHolds()
+    {
+        var c = new SmartTdpControllerV2(60, 8, 35, 30);
+        for (var t = 0.0; t < 600; t += 2) c.OnSample(Fps(c.Watts, 18, 60), t);
+        Assert.True(c.MetRealTarget);
+    }
+
+    [Fact]
     public void CountsAsMetOnceTheRealTargetHolds()
     {
         var c = new SmartTdpController(60, 8, 35, 30);
